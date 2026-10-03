@@ -4,9 +4,9 @@
 
 ## Fundação do produto: bot local de filas da Twitch para Genshin Impact
 
-**Fonte:** Especificação do usuário “Prompt 1 — Bot local de filas da Twitch para Genshin Impact”, recebida em 2026-10-02.  
-**Status do planejamento:** Spec Pipeline e Greenfield Fullstack/Service/UI aprovados; sharding AIOX concluído. A operadora escolheu manter o painel mutável obrigatório, com CLI-first como diretriz do framework AIOX e sem CLI de domínio adicional. Story Development Cycle começou pela FND-1, validada GO (9/10), agora InProgress.  
-**Complexidade:** COMPLEX. Os requisitos abrangem infraestrutura local, concorrência no PostgreSQL, operações financeiras duráveis, OAuth, APIs e EventSub da Twitch, recuperação, segurança local, comportamento no chat e painel bilíngue.  
+**Fonte:** Especificação do usuário “Prompt 1 — Bot local de filas da Twitch para Genshin Impact”, recebida em 2026-10-02.
+**Status do planejamento:** Spec Pipeline e Greenfield Fullstack/Service/UI aprovados; sharding AIOX concluído. A operadora escolheu manter o painel mutável obrigatório, com CLI-first como diretriz do framework AIOX e sem CLI de domínio adicional. Story Development Cycle começou pela FND-1, validada GO (9/10), agora InProgress.
+**Complexidade:** COMPLEX. Os requisitos abrangem infraestrutura local, concorrência no PostgreSQL, operações financeiras duráveis, OAuth, APIs e EventSub da Twitch, recuperação, segurança local, comportamento no chat e painel bilíngue.
 **Regra de execução:** Cada incremento de comportamento começa com um teste que falha pelo comportamento ausente, seguido por Green e Refactor. Registrar neste arquivo e na versão em português o comando exato e os resultados observados. Nenhum resultado de teste é declarado antes de sua execução.
 
 ### Sequência de entregas
@@ -15,9 +15,10 @@ A ordem abaixo segue as etapas sugeridas na especificação. Cada story deve ser
 
 #### FND-1 — Identidade de versão e fundação do runtime local
 
-**Status:** InProgress (validação PO GO, 9/10).  
-**Story:** `docs/stories/FND-1/story.md` e equivalente pt-BR; validação em `docs/stories/FND-1/validation.md` e `docs/pt-BR/stories/FND-1/validation.md`.  
-**Evidência TDD:** política/CLI de versão, Compose/bootstrap, migrations PostgreSQL e comportamento do grupo do segredo concluíram ciclos Red/Green/Refactor registrados. Verificações operacionais de primeira execução/reinício passaram neste Docker Engine Linux; documentação bilíngue de operação e scripts/gates lint/typecheck ainda faltam para concluir a story.
+**Status:** InProgress (validação PO GO, 9/10).
+**Story:** `docs/stories/FND-1/story.md` e equivalente pt-BR; validação em `docs/stories/FND-1/validation.md` e `docs/pt-BR/stories/FND-1/validation.md`.
+**Evidência TDD:** política/CLI de versão, Compose/bootstrap, migrations PostgreSQL, grupo do segredo, projeção health, documentação bilíngue, aceitação Compose isolada, script POSIX e ponto de entrada web estático têm testes e resultados observados. Verificações Linux passaram. A execução do batch Windows segue sem validação neste host Linux; FND-1 permanece InProgress até resolver esse critério de plataforma.
+**Gates atuais (2026-10-02):** `npm test` — 21 arquivos/140 testes passaram; `npm run lint`, `npm run typecheck`, `npm run review:static` (OpenGrep 1.30.0; 18 arquivos JavaScript, 0 achados), `docker compose config --quiet`, `npm run validate:version` e `git diff --check` passaram. A análise local substitui o CodeRabbit pago; não é revisão contextual por IA.
 
 ##### Evidência TDD FND-1 — Funções de política de versão
 
@@ -69,7 +70,21 @@ A ordem abaixo segue as etapas sugeridas na especificação. Cada story deve ser
 - **Green:** mesmo comando — 2 sucessos após adicionar registro de rota testável e conectar `VERSION` do runtime e estado de consulta real `SELECT 1` a `/health`.
 - **Refatoração/verificação runtime:** `npm test`, `npm run lint` e `npm run typecheck` passaram (36 testes / 10 arquivos). Após `docker compose up --build -d`, `curl --fail --silent --show-error http://localhost:3000/health` retornou `{"status":"ok","product_version":"v0.1.0-0000000-alpha","dependencies":{"database":"connected","twitch_api":"not_configured"}}`.
 
-**Escopo:** Scripts/testes de identidade SemVer/runtime; documentação/changelogs bilíngues; bootstrap Compose, PostgreSQL, migrations, saúde e scripts de início.  
+##### Evidência TDD FND-1 — README central bilíngue e referência de integrações
+
+- **Comportamento:** fornecer READMEs centrais recíprocos em inglês/pt-BR com estado real da implementação, primeira execução, atualização, operação diária, alertas sobre persistência, orientação de contribuição/testes, Conventional Commits e política de versão; publicar nos dois idiomas a matriz datada de operação Twitch/SDK/infraestrutura, escopo e adaptação.
+- **Red (referências de projetos reais):** o contrato foi ampliado para exigir os três projetos pesquisados; ao executá-lo novamente, 1 teste falhou e 1 passou porque essas referências ainda não estavam nos READMEs.
+- **Green:** `npm test -- --run tests/unit/documentation-contract.test.js` — 2 sucessos após alinhar o rótulo do link recíproco, verificar o texto equivalente em português e documentar referências nos dois READMEs, mantendo identificadores técnicos comuns.
+- **Refatoração/qualidade:** suíte focada passou 2 testes; `npm run lint`, `npm run typecheck` e `npm test` completo passaram (38 testes / 11 arquivos). `docker compose config --quiet`, `npm run validate:version` e `git diff --check` passaram.
+- **Parada/início Compose:** antes de parar, o banco reportou uma migration aplicada com sucesso. `docker compose stop -t 30 bot` parou corretamente; `docker compose start bot` repetiu as etapas dependentes de bootstrap/migration e reiniciou o bot. `/health` retornou status `ok`, banco `connected`, Twitch `not_configured`; a contagem de migrations permaneceu 1 e `docker compose ps` mostrou o bot saudável. Verificado somente no Docker Engine Linux.
+- **Teste de aceitação Compose:** `npm test -- --run tests/integration/compose-runtime.test.js` falhou inicialmente na asserção do marcador porque a consulta do teste tratava um escalar JSON como objeto; a fixture foi corrigida para `value #>> '{}'`. A repetição passou 2 testes, provando health/migrations na primeira execução isolada e persistência do marcador/senha/migration após parada/início gracioso. A falha inicial era defeito do teste, não Red de comportamento do app.
+- **Teste dos scripts:** `npm test -- --run tests/unit/start-script.test.js` — 2 passaram. Executou o helper POSIX de uma cópia do projeto em caminho com espaços e comandos falsos de Docker/navegador, confirmou o comando Compose e URL exatos e o fallback impresso se o navegador falhar. `tests/integration/compose-contract.test.js` também verifica `cd /d "%~dp0"` entre aspas e abertura de janela no helper Windows.
+- **Red/Green/Refatoração da rota web estática:** `npm test -- --run tests/unit/web-route.test.js` falhou primeiro porque `apps/api/src/web-route.mjs` não existia. Após a implementação, encontrou conflito de rota raiz registrada por `@fastify/static`; a rota duplicada foi removida. Ao adicionar asserções para CSS, observou HTTP 404 com `serve:false`; habilitar entrega estática/índice do plugin fez passar as asserções finais HTML e CSS (1 teste). HTML raiz e `200 text/css` foram conferidos depois de `docker compose up --build -d`.
+- **Validação completa de qualidade/runtime:** `npm run lint`, `npm run typecheck`, `npm test` (43 testes / 14 arquivos), `npm run validate:version`, `docker compose config --quiet` e `git diff --check` passaram. Health runtime retornou versão do produto, banco `connected`, Twitch `not_configured`; `docker compose ps` mostrou bot saudável.
+- **Limite de plataforma:** este host não tem `cmd.exe`, Wine ou PowerShell; o `.bat` foi inspecionado estruturalmente, mas não executado. Não alegar compatibilidade runtime Windows até testar no Windows. Teste Twitch real está fora de FND-1.
+- **Pesquisa:** documentação oficial Twitch, Twurple, Prisma 6, PostgreSQL 18 e Docker Compose foi consultada em 2026-10-03 UTC; declarações instaladas do Twurple 8.2.0 foram verificadas. Não havia credenciais Twitch reais disponíveis.
+
+**Escopo:** Scripts/testes de identidade SemVer/runtime; documentação/changelogs bilíngues; bootstrap Compose, PostgreSQL, migrations, saúde e scripts de início.
 **Critérios de aceite:**
 
 - A identidade runtime segue `vMAJOR.MINOR.PATCH-HHHHHHH-STAGE`, com `0.1.0`, `alpha` e `0000000` antes da materialização Git.
@@ -77,24 +92,61 @@ A ordem abaixo segue as etapas sugeridas na especificação. Cada story deve ser
 - Compose inicia bootstrap → PostgreSQL saudável → migrations → bot sem root; banco não publica porta no host, volumes nomeados persistem e scripts normais nunca removem volumes.
 - Schema PostgreSQL e migrations SQL aplicam as restrições especificadas para chaves de fila, entradas ativas, resgates e idempotência; testes de integração usam PostgreSQL isolado e migrations reais.
 - Documentos em inglês e equivalentes em `docs/pt-BR/` existem com links recíprocos e instruções operacionais consistentes.
-- **Evidência TDD:** ver os ciclos observados de versão, Compose/bootstrap, regressão do runtime, PostgreSQL, discovery de testes e scripts de qualidade acima. Documentação bilíngue completa de operação e itens restantes de aceitação ainda estão pendentes.
+- **Evidência TDD:** ver os ciclos observados de versão, Compose/bootstrap, regressão do runtime, PostgreSQL, discovery de testes, scripts de qualidade, projeção health, documentação, aceitação Compose, helper POSIX e ponto de entrada web estático acima. FND-1 segue InProgress somente pela validação ainda não executada no host Windows.
+- **TDD da revisão estática:** `tests/unit/free-review-tool.test.js` falhou primeiro porque regras/configuração locais não existiam; Reds posteriores detectaram ausência de inclusão dos arquivos não rastreados e do comando no perfil AIOX. Após as correções, o teste focado passou. `npm run review:static` identificou inicialmente falso positivo em gravação de arquivo; ao limitar a regra de credenciais a APIs de logger, a execução passou com 0 achados em 18 arquivos JavaScript. Uma fixture temporária produziu os dois achados esperados para HTML inseguro e logging de credenciais.
 
 #### FND-2 — Domínio de filas, validação, ordenação e parser
 
-**Status:** Rascunho  
-**Escopo:** Regras puras do domínio, tratamento de UID, parser de comandos, decisões de autorização e operações de fila com transações.  
+**Status:** InProgress (story preparada e PO validou GO, 9/10)
+**Story:** `docs/stories/FND-2/story.md` e equivalente `docs/pt-BR/stories/FND-2/story.md`; validação em `docs/stories/FND-2/validation.md` e `docs/pt-BR/stories/FND-2/validation.md`.
+**Escopo:** Regras puras do domínio, tratamento de UID, parser de comandos, decisões de autorização e operações de fila com transações.
 **Critérios de aceite:**
 
 - Transições e fotografias das políticas financeiras seguem a tabela, sem transições inválidas ou de estado terminal para ativo.
 - UID aceita somente string de nove dígitos ASCII após `trim` no modo visível; o modo oculto descarta sem persistir nem divulgar.
 - Parser trata caixa, espaços repetidos, variantes com acento, nomes reservados, aliases, quantidade de argumentos e restrições de identidade de viewers.
 - Testes PostgreSQL comprovam unicidade de usuário ativo por fila e tratamento de concorrência; mudanças de ordem são atômicas e preservam a ordem persistida.
-- **Evidência TDD:** pendente; registrar Red, Green, Refactor e comandos somente quando executados.
+- **Evidência TDD:** decisões de transição, UID, parser/chaves/autorização, operações de repositório PostgreSQL real e serviço de domínio unificado de transição estão registrados abaixo; FND-2 permanece InProgress até a revisão formal de qualidade.
+
+##### Evidência TDD FND-2 — Função de decisão de transição de entrada
+
+- **Comportamento:** Aceitar somente transições de ciclo de vida especificadas; rejeitar transições inválidas/terminal-para-ativo; distinguir observações terminais externas de operações de pontos solicitadas localmente; fotografar a política fornecida da fila.
+- **Teste primeiro / correção do harness:** `npm test -- --run tests/unit/entry-transitions.test.js` inicialmente coletou zero testes porque faltava o módulo importado. Foi falha de importação, não um Red válido. Adicionado stub de contrato vazio e executado novamente.
+- **Red:** Mesmo comando — 12 testes, inicialmente 4 falharam contra o stub. A tabela de casos foi então corrigida para refletir que `waiting → completed` e `in_progress → no_show` são inválidos, enquanto observações terminais externas são permitidas. O Red comportamental resultante foi 12 testes, 1 falha / 11 aprovados: conclusão externa foi classificada incorretamente como solicitação local de conclusão de pontos.
+- **Green:** Mesmo comando após implementação — 12 aprovados.
+- **Refactor:** `npm run typecheck` encontrou propriedades JSDoc ausentes e tipagem do código de erro; o primeiro ajuste encontrou incompatibilidade na entrada de um helper. Após a correção, `npm run typecheck && npm test -- --run tests/unit/entry-transitions.test.js` passou (typecheck; 12 testes). `npm run lint -- --no-warn-ignored` passou.
+- **Estado no incremento inicial:** Decisões/fotografias de políticas e persistência/auditoria pelo repositório estavam implementadas nos casos cobertos. O serviço comum foi adicionado em um incremento TDD posterior, registrado abaixo. Isso não comprova outbox ou comportamento remoto Twitch.
+
+##### Evidência TDD FND-2 — Validação de UID e descarte em modo oculto
+
+- **Comportamento:** Remover espaços externos e aceitar somente nove dígitos ASCII em modo visível; permitir UID ausente somente quando opcional; descartar qualquer entrada em modo oculto; erros inválidos não repetem texto do usuário.
+- **Red:** `npm test -- --run tests/unit/uid.test.js` — 11 testes falharam contra o contrato vazio do validador.
+- **Green:** Mesmo comando após implementação — 11 passaram.
+- **Refactor:** `npm test -- --run tests/unit/uid.test.js && npm run typecheck && npm run lint` — 11 passaram, typecheck e lint passaram.
+- **Estado:** A validação pura de UID está implementada; testes PostgreSQL reais também verificam a limpeza do UID persistido e do payload de chamada pendente ao ativar modo oculto.
+
+##### Evidência TDD FND-2 — Chaves, parser de comandos e autorização
+
+- **Chaves:** `npm test -- --run tests/unit/queue-keys.test.js` Red — 25 falhas contra contrato vazio; Green — 25 passaram após implementação; `npm test -- --run tests/unit/queue-keys.test.js && npm run typecheck && npm run lint` passou.
+- **Parser:** `npm test -- --run tests/unit/command-parser.test.js` Red — 18 testes, 11 falhas / 7 passaram contra parser vazio. A primeira execução da implementação detectou fixture que classificava a sintaxe válida `add login uid` como rejeitada; corrigido o fixture, o teste de regressão seguinte observou 19 testes, 1 falha / 18 passaram porque `!<fila>` produzia `join`. Alterado para `lista`, sem escrita; `npm test -- --run tests/unit/command-parser.test.js && npm run typecheck && npm run lint` passou (19 testes).
+- **Autorização:** `npm test -- --run tests/unit/command-authorization.test.js` Red — 6 falhas contra contrato vazio; Green — 6 passaram. Red de regressão encontrou moderador usando `sair outra-pessoa` (1 falha / 6 passaram); após mudar a regra, a suíte direcionada passou com 7 testes, typecheck e lint.
+- **Estado:** Parser, validações de formato/reserva de chaves e predicado de autorização estão implementados como funções puras. Testes PostgreSQL cobrem chaves globais e substituição/rollback atômicos; handlers runtime de chat/EventSub ficam para FND-4/FND-5.
+
+##### Evidência TDD FND-2 — Repositório PostgreSQL e ordenação
+
+- **Red inicial:** `npm test -- --run tests/integration/queue-repository.test.js` — 4 falhas porque as operações de repositório não existiam. O teste inicia PostgreSQL isolado e aplica as migrations Prisma reais do projeto.
+- **Green/refinamento:** Foram implementados criação/adição/movimentação, substituição de chaves, limpeza de privacidade de UID e persistência de transição/auditoria. Execuções revelaram erros de desserialização de `void` do Prisma e colisão no formato do resultado; fixtures também precisaram ser corrigidas para a ordem de aquisição do lock e uma colisão prévia de alias. Cada defeito foi corrigido e a suíte PostgreSQL afetada executada novamente; execuções intermediárias passaram com 4, 6 e 8 testes.
+- **Verificação adicional:** `npm test -- --run tests/integration/queue-repository.test.js` — 13 aprovados. Cobre a mesma pessoa em filas diferentes, duplicata ativa na mesma fila, adição manual em fila fechada, rejeição para filas arquivadas/em exclusão, movimentação e decisões terminais concorrentes, unicidade/rollback de chaves, limpeza de UID, transições/auditoria persistidas e rejeição no banco de combinações inconsistentes de origem/ID de resgate. As assertions finais verificam comportamento/migrations existentes; não alteraram código da aplicação.
+- **Gates finais anteriores:** `npm test` — 20 arquivos/139 testes passaram; `npm run lint`, `npm run typecheck`, `npm run validate:version`, `docker compose config --quiet` e `git diff --check` passaram.
+- **TDD do serviço de domínio unificado:** `npm test -- --run tests/unit/queue-domain-service.test.js` Red — 2 falharam porque o contrato vazio não tinha `transitionEntry`; Green — 2 passaram após implementar `createQueueDomainService`. `npm test -- --run tests/integration/queue-repository.test.js` — 13 passaram após encaminhar persistência de transições PostgreSQL reais pelo serviço. Comprovou decisão usando estado/política atuais sob lock e nenhuma gravação de status/auditoria para transição inválida. Refatoração/reteste: `npm run typecheck && npm run lint` e ambas as suites focadas passaram.
+- **Limite atual:** FND-2 agora tem serviço comum de transição; handlers reais de chat/EventSub ficam para FND-4/FND-5. Revisão formal @architect/@data-engineer e QA segue pendente. Não se declara outbox nem comportamento remoto Twitch.
+- **Execução atual completa dos gates (2026-10-03):** `npm test` — 22 arquivos/142 testes passaram; a suite isolada de integração — 5 arquivos/28 testes passaram, incluindo 13 casos do repositório PostgreSQL. Passaram `npm run lint`, `npm run typecheck`, `npm run review:static` (OpenGrep 1.30.0; 19 arquivos JavaScript, 0 achados), `npm run validate:version`, `docker compose config --quiet` e `git diff --check`. Contrato documental e testes do serviço — 2 arquivos/4 testes passaram.
+- **Limite atual:** O dispatch runtime de chat/EventSub não está ligado. O serviço não importa resgates Twitch nem executa operações financeiras remotas. Os testes de persistência usam PostgreSQL, sem mock do Prisma.
 
 #### FND-3 — Outbox durável e recuperação financeira
 
-**Status:** Rascunho  
-**Escopo:** Máquina de estados da outbox, worker, leases, retries, auditoria e confirmação do estado remoto do resgate.  
+**Status:** Rascunho
+**Escopo:** Máquina de estados da outbox, worker, leases, retries, auditoria e confirmação do estado remoto do resgate.
 **Critérios de aceite:**
 
 - Uma transição terminal local, entrada de auditoria e intenção financeira única são confirmadas atomicamente antes de qualquer chamada à Twitch.
@@ -105,8 +157,8 @@ A ordem abaixo segue as etapas sugeridas na especificação. Cada story deve ser
 
 #### FND-4 — OAuth Twitch, adaptadores e reconciliação
 
-**Status:** Rascunho  
-**Escopo:** Pesquisa em documentação oficial, credenciais/OAuth Twitch, persistência/renovação de token, propriedade de recompensa, EventSub WebSocket, adaptadores Helix e reconciliação de recuperação.  
+**Status:** Rascunho
+**Escopo:** Pesquisa em documentação oficial, credenciais/OAuth Twitch, persistência/renovação de token, propriedade de recompensa, EventSub WebSocket, adaptadores Helix e reconciliação de recuperação.
 **Critérios de aceite:**
 
 - `docs/integrations.md` registra fontes oficiais datadas, versões compatíveis fixadas das bibliotecas, escopos e operação → endpoint/evento → escopo → adaptação do SDK.
@@ -118,27 +170,34 @@ A ordem abaixo segue as etapas sugeridas na especificação. Cada story deve ser
 
 #### FND-5 — Comandos de chat, chamadas, ciclo de atendimento e propriedade da conta
 
-**Status:** Rascunho  
-**Escopo:** Parser/execução de comandos Twitch, autorização, notificações, recuperação de timeout, confirmação de limpeza e estado de conta atual.  
+**Status:** Rascunho
+**Issue GitHub:** [#1](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/1)
+**Escopo:** Parser/execução de comandos Twitch, autorização, notificações, recuperação de timeout, confirmação de limpeza, estado de conta atual e interfaces de serviços de aplicação compartilhadas com o painel do operador.
 **Critérios de aceite:**
 
 - Caminhos de comando e timer usam o mesmo serviço de domínio; deduplicação por ID da mensagem, autorização broadcaster/mod/VIP, verificação de canal e cooldown de viewer seguem a especificação.
 - Notificação de chamada é durável, privacidade é consultada no envio, timeout começa somente após envio confirmado e iniciar atendimento impede ausência.
 - Limpeza exige mesmo ator/canal/fila e conjunto ativo inalterado em até 15 segundos; caso contrário não ocorre mutação nem operação de pontos.
 - Troca automática de conta vale somente para chamada individual e somente sua proprietária pode retornar ao padrão ao encerrar; mudanças e reset manuais persistem e são auditados.
+- Handlers do chat e o painel posterior chamam os mesmos serviços de domínio/aplicação; o painel não duplica regras de transição.
 - Testes cobrem concorrência, reinício, falha de notificação, mudança de privacidade e ausência de efeitos financeiros indevidos.
 - **Evidência TDD:** pendente; registrar Red, Green, Refactor e comandos somente quando executados.
 
 #### FND-6 — Painel local, API protegida e documentação operacional
 
-**Status:** Rascunho  
-**Escopo:** UI/API local Fastify, assistente de instalação/reconexão, operações de filas e resgates, proteção de sessão local/CSRF/Host/Origin e guias operacionais.  
+**Status:** Rascunho
+**Issue GitHub:** [#6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)
+**Escopo:** primeiro planejar a experiência do operador com AIOX UX Design Expert e referências atuais de interfaces reais; depois entregar o painel local completo de controle do streamer, assistente de instalação/reconexão, API protegida e guias operacionais. Esta etapa começa após estarem disponíveis as capacidades de domínio e serviços Twitch/aplicação de FND-2 a FND-5 que o painel apresentará.
 **Critérios de aceite:**
 
-- Painel expõe somente operações especificadas; API retorna projeções explícitas e nunca serializa entidades Prisma ou segredos.
+- Antes de escrever UI do painel, ativar `$aiox-ux-design-expert`, pesquisar projetos reais e referências atuais de UI e produzir fluxos bilíngues do operador e orientação visual/interativa fundamentados nos requisitos. A implementação da UI só começa após revisar esse artefato de planejamento.
+- O streamer opera pelo painel toda capacidade aplicável do produto: configuração/reconexão Twitch e elegibilidade; criar/editar/abrir/fechar/arquivar/desarquivar/apagar filas e configurações de recompensas; adicionar manualmente, chamar, iniciar atendimento, concluir, remover, mover e reenviar notificações; consultar aguardando/chamados/em atendimento/histórico; gerir rótulos/conta atual; reconciliar estado Twitch; e consultar/tentar novamente/resolver operações financeiras quando a política permitir.
+- Ações sensíveis ou destrutivas mostram resumo revisável e exigem confirmação quando especificado; configuração remota desejada permanece separada do estado confirmado pela Twitch; validação do servidor é autoritativa.
+- O painel usa os mesmos serviços de domínio/aplicação do chat e dos workers. A API retorna projeções explícitas e nunca serializa entidades Prisma ou segredos.
 - `/api/state` exige sessão e distingue versão do produto, versão do contrato da API e revisão do estado; UID obedece à política de visibilidade atual.
 - Mutações validam schemas, sessão, CSRF, chave de idempotência e revisão aplicável; proteção contra DNS rebinding ocorre antes dos handlers administrativos.
 - Conteúdo controlado por usuário é renderizado como texto; testes cobrem HTML malicioso, host/origin/CSRF, callback OAuth e não exposição de segredos.
+- Todo controle do painel executa uma ação funcional ou aparece explicitamente indisponível com estado/ação possível; sem controles só visuais, mutações não suportadas escondidas ou regras de domínio duplicadas.
 - READMEs documentam instalação, login, comandos, política de pontos, recuperação, iniciar/parar/atualizar/logs e identidade de versão nos dois idiomas.
 - **Evidência TDD:** pendente; registrar Red, Green, Refactor e comandos somente quando executados.
 
@@ -146,7 +205,7 @@ A ordem abaixo segue as etapas sugeridas na especificação. Cada story deve ser
 
 - O prompt do usuário é a fonte dos requisitos; este plano não introduz comportamento adicional ao produto.
 - A documentação oficial de Twitch, Twurple, Prisma, PostgreSQL e Docker deve ser conferida antes da implementação dessas integrações.
-- Gates de qualidade do projeto: `npm run lint`, `npm run typecheck` e `npm test`; a especificação do produto também exige testes de integração PostgreSQL, migrations, Compose e política de versão. Ainda não foram executados.
+- Na linha de base do planejamento FND-0, os gates ainda não haviam sido executados. Os resultados FND-1 estão registrados acima; a pendência de aceite conhecida é executar `iniciar.bat` em Windows nativo.
 - Criação de release ou tag está fora do escopo desta tarefa de fundação. Promoção de estágio exige aprovação humana explícita.
 - Este plano não declara stories aprovadas, implementadas, testadas, aprovadas por QA ou concluídas.
 - O preflight de ambiente AIOX verificou Git/GitHub CLI/Node/npm/Docker/Compose e autenticação GitHub; o remoto privado existe na branch `main`. Arquivos de runtime/package do produto aguardam TDD FND-1.
@@ -154,6 +213,7 @@ A ordem abaixo segue as etapas sugeridas na especificação. Cada story deve ser
 - A configuração AIOX `markdownExploder` está ligada. `@kayvan/markdown-tree-parser` v1.6.1 foi instalado globalmente e gerou shards do PRD, especificação frontend e arquiteturas fullstack/serviço/frontend em inglês e pt-BR; os nomes foram alinhados entre idiomas com links recíprocos.
 - Um erro de sintaxe JSON foi encontrado na validação dos artefatos e corrigido antes de prosseguir; depois disso, todos os JSON de planejamento foram parseados com sucesso. Foi uma correção documental do planejamento, não comportamento da aplicação nem evidência TDD.
 - A operadora escolheu manter o painel mutável obrigatório e confirmou CLI-first como diretriz do framework AIOX; não é necessária CLI de domínio adicional.
+- O operador ampliou FND-6 para o streamer gerir todas as operações aplicáveis do produto no painel local. Corpos das issues GitHub #1 e #6 foram atualizados para definir serviços de aplicação compartilhados e o gate de planejamento UX; nenhum comentário foi publicado. Pesquisa UX e ativação `$aiox-ux-design-expert` ficam adiadas até o planejamento do painel.
 
 ### Lista de arquivos
 

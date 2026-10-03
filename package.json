@@ -14,7 +14,8 @@
     "materialize:version": "node apps/infra/scripts/materialize-version.mjs",
     "infra:bootstrap": "node apps/infra/scripts/bootstrap.mjs",
     "lint": "eslint apps tests --max-warnings=0",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "review:static": "opengrep scan --config .opengrep/rules.yml --no-git-ignore apps"
   },
   "dependencies": {
     "@fastify/static": "10.1.5",

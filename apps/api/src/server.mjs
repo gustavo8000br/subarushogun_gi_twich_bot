@@ -3,6 +3,8 @@ import pg from 'pg';
 import { readFile } from 'node:fs/promises';
 import { createDatabaseUrl } from '../../infra/src/database-url.mjs';
 import { registerHealthRoute } from './health-route.mjs';
+import { registerWebRoutes } from './web-route.mjs';
+import { fileURLToPath } from 'node:url';
 
 const databaseUrl = await createDatabaseUrl();
 const pool = new pg.Pool({ connectionString: databaseUrl });
@@ -10,10 +12,7 @@ const app = Fastify({ logger: false, bodyLimit: 32 * 1024 });
 const productVersion = (await readFile(new URL('../../../VERSION', import.meta.url), 'utf8')).trim();
 
 registerHealthRoute(app, { pool, productVersion });
-
-app.get('/', async (_request, reply) => reply.type('text/html; charset=utf-8').send(
-  '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Fila Twitch</title><body><main><h1>Bot local de filas</h1><p>Runtime local pronto. Assistente de instalação em implementação.</p></main></body></html>',
-));
+await registerWebRoutes(app, fileURLToPath(new URL('../../web/', import.meta.url)));
 
 let closing = false;
 async function shutdown() {

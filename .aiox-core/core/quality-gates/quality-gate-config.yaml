@@ -29,30 +29,18 @@ layer1:
       command: "npm run typecheck"
       timeout: 120000  # 2 minutes
 
-# Layer 2: PR Automation (external tools)
+# Layer 2: Static review
 layer2:
   enabled: true
   coderabbit:
+    enabled: false
+    # Paid CodeRabbit is not licensed and must never be invoked.
+  opengrep:
     enabled: true
-    # Cross-platform CodeRabbit CLI invocation (Issue #731).
-    # Runtime resolves the command from cli_path + platform detection:
-    #   - macOS/Linux: run cli_path directly from project root.
-    #   - Windows: wrap with 'wsl bash -c' and rewrite project paths to /mnt/<drive>/...
-    # Set installation_mode explicitly ('wsl' | 'native') to override platform detection.
-    # Set command: "<raw shell string>" to bypass detection entirely (back-compat).
-    cli_path: ~/.local/bin/coderabbit
-    platform_notes:
-      macos_linux: "Run binary directly from project root (PATH or cli_path)."
-      windows: "Wrap with 'wsl bash -c' and use /mnt/<drive>/... project paths."
-    timeout: 900000  # 15 minutes
-    blockOn:
-      - CRITICAL
-    warnOn:
-      - HIGH
-    documentOn:
-      - MEDIUM
-    ignoreOn:
-      - LOW
+    command: "npm run review:static"
+    rules: ".opengrep/rules.yml"
+    timeout: 300000
+    mode: "local"
   quinn:
     enabled: true
     autoReview: true

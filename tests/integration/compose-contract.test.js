@@ -110,5 +110,6 @@ describe('local Compose runtime contract', () => {
       expect(script).toMatch(/localhost/);
     }
     expect(windows).toMatch(/start\s+""/i);
+    expect(windows).toMatch(/^cd \/d "%~dp0"$/im);
   });
 });

@@ -95,7 +95,7 @@ core_principles:
   - CRITICAL: Story has ALL info you will need aside from what you loaded during the startup commands. NEVER load PRD/architecture/other docs files unless explicitly directed in story notes or direct command from user.
   - CRITICAL: ONLY update story file Dev Agent Record sections (checkboxes/Debug Log/Completion Notes/Change Log)
   - CRITICAL: FOLLOW THE develop-story command when the user tells you to implement the story
-  - CodeRabbit Pre-Commit Review - Run code quality check before marking story complete to catch issues early
+  - Free local static review - run `npm run review:static` with OpenGrep before marking a story complete
   - Numbered Options - Always use numbered lists when presenting choices to the user
 
 # All commands require * prefix when used (e.g., *help)
@@ -288,7 +288,7 @@ dependencies:
     # Worktree Isolation (Epic 8 - Story 8.2)
     - worktree-manager.js # Isolated worktree management
   tools:
-    - coderabbit # Pre-commit code quality review, catches issues before commit
+    - opengrep # Free, local static analysis; no account or hosted service
     - git # Local operations: add, commit, status, diff, log (NO PUSH)
     - context7 # Look up library documentation during development
     - supabase # Database operations, migrations, and queries
@@ -296,93 +296,19 @@ dependencies:
     - browser # Test web applications and debug UI
     - ffmpeg # Process media files during development
 
-  coderabbit_integration:
+  static_review:
     enabled: true
-    # Cross-platform CodeRabbit CLI (Issue #731).
-    # Runtime resolves the actual command from cli_path + host OS detection.
-    # See `.aiox-core/core/quality-gates/quality-gate-config.yaml` for canonical config.
-    cli_path: ~/.local/bin/coderabbit
-    platform_notes:
-      macos_linux: "Run cli_path directly from project root (no wrapper)."
-      windows: "Wrap with 'wsl bash -c' and rewrite project paths to /mnt/<drive>/..."
-    usage:
-      - Pre-commit quality check - run before marking story complete
-      - Catch issues early - find bugs, security issues, code smells during development
-      - Enforce standards - validate adherence to coding standards automatically
-      - Reduce rework - fix issues before QA review
-
-    # Self-Healing Configuration (Story 6.3.3)
-    self_healing:
-      enabled: true
-      type: light
-      max_iterations: 2
-      timeout_minutes: 15
-      trigger: story_completion
-      severity_filter:
-        - CRITICAL
-      behavior:
-        CRITICAL: auto_fix # Auto-fix immediately
-        HIGH: document_only # Document in story Dev Notes
-        MEDIUM: ignore # Skip
-        LOW: ignore # Skip
-
-    workflow: |
-      Before marking story "Ready for Review" - Self-Healing Loop:
-
-      iteration = 0
-      max_iterations = 2
-
-      WHILE iteration < max_iterations:
-        1. Run the platform-aware command resolved by the runtime:
-           - macOS/Linux: `~/.local/bin/coderabbit --prompt-only -t uncommitted`
-           - Windows:     `wsl bash -c 'cd /mnt/<drive>/<path> && ~/.local/bin/coderabbit --prompt-only -t uncommitted'`
-        2. Parse output for CRITICAL issues
-
-        IF no CRITICAL issues:
-          - Document any HIGH issues in story Dev Notes
-          - Log: "✅ CodeRabbit passed - no CRITICAL issues"
-          - BREAK (ready for review)
-
-        IF CRITICAL issues found:
-          - Attempt auto-fix for each CRITICAL issue
-          - iteration++
-          - CONTINUE loop
-
-      IF iteration == max_iterations AND CRITICAL issues remain:
-        - Log: "❌ CRITICAL issues remain after 2 iterations"
-        - HALT and report to user
-        - DO NOT mark story complete
-
-    commands:
-      # Templates — runtime selects the right shape for the host OS.
-      dev_pre_commit_uncommitted_native: "${CLI_PATH} --prompt-only -t uncommitted"
-      dev_pre_commit_uncommitted_wsl: "wsl bash -c 'cd ${PROJECT_ROOT} && ${CLI_PATH} --prompt-only -t uncommitted'"
+    tool: OpenGrep
+    version: v1.30.0
+    command: npm run review:static
+    rules: .opengrep/rules.yml
+    scope: apps/
     execution_guidelines: |
-      CodeRabbit CLI runs natively on macOS/Linux from `~/.local/bin/coderabbit`.
-      On Windows it is invoked through WSL via `wsl bash -c '...'`. The runtime
-      detects `process.platform` and picks the right shape — agents and tasks
-      should not hardcode either.
-
-      **How to Execute:**
-      - macOS/Linux: run `cli_path` directly. Bash tool sets cwd to project root.
-      - Windows: wrap with `wsl bash -c 'cd /mnt/<drive>/<path> && ...'`.
-      - Override platform detection with explicit `installation_mode: 'wsl' | 'native'`
-        in `quality-gate-config.yaml` only when host detection is wrong.
-
-      **Timeout:** 15 minutes (900000ms) - CodeRabbit reviews take 7-30 min
-
-      **Self-Healing:** Max 2 iterations for CRITICAL issues only
-
-      **Error Handling:**
-      - If `coderabbit: command not found` → verify `cli_path` and that the
-        binary is installed (macOS/Linux: `brew install coderabbit-cli` or
-        manual install to `~/.local/bin`; Windows: install inside the WSL
-        distribution declared in your environment).
-      - If timeout → increase timeout, review is still processing.
-      - If `not authenticated` → run `coderabbit auth status` (macOS/Linux)
-        or `wsl bash -c '~/.local/bin/coderabbit auth status'` (Windows).
-    report_location: docs/qa/coderabbit-reports/
-    integration_point: 'Part of story completion workflow in develop-story.md'
+      Run the pinned OpenGrep CLI locally before marking a story ready for review.
+      The project rules scan unsafe HTML sinks and credential logging. Results
+      are static-analysis findings, not a contextual AI review; investigate each
+      result and keep the human @architect/@qa review. This project has no
+      CodeRabbit license, and neither the CLI nor hosted service may be invoked.
 
   decision_logging:
     enabled: true
@@ -561,7 +487,7 @@ Type `*help` to see all commands, or `*explain` to learn more.
 - ❌ Not updating File List in story
 - ❌ Pushing directly (should use @github-devops)
 - ❌ Modifying non-authorized story sections
-- ❌ Forgetting to run CodeRabbit pre-commit review
+- ❌ Forgetting to run the free local OpenGrep review
 
 ### Related Agents
 

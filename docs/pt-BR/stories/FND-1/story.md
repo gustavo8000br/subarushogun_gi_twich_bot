@@ -97,12 +97,12 @@ Para cada comportamento abaixo, criar/executar primeiro o teste e observar falha
   - [x] 5.2 Implementar projeção de saúde e ler `VERSION` do runtime; testes focados passam.
   - [x] 5.3 Reconstruir imagem local e conferir resposta via loopback; executar testes, lint e typecheck completos.
 - [ ] 5. Aceitação operacional e documentação (AC: 3, 4, 6, 7, 9, 10)
-  - [ ] 5.1 Escrever/executar aceitação Compose de primeira execução/reinício antes de mudar runtime; capturar Red.
-  - [ ] 5.2 Implementar saúde, encerramento gracioso e scripts de início para os comportamentos testados; verificar ordem e volumes.
-  - [ ] 5.3 Atualizar README/versionamento/integração/changelog/stories em ambos idiomas e conferir links/comandos.
-- [ ] 6. Gates de qualidade e evidências (AC: todos)
-  - [ ] 6.1 Executar `npm run lint`, `npm run typecheck`, `npm test`, integração PostgreSQL/migrations, config/aceitação Compose e checks de versão. Não omitir gates indisponíveis; registrar bloqueio.
-  - [ ] 6.2 Atualizar os índices stories e file list/checklist com resultados reais; não concluir com critério/teste bloqueado.
+  - [x] 5.1 Adicionar/executar aceitação Compose isolada de primeira execução/reinício; health, migrations reais, marcador persistido, hash do segredo estável e parada/início gracioso do bot foram verificados.
+  - [x] 5.2 Verificar health, encerramento gracioso, ordem Compose e volumes persistentes; helper POSIX passou com cópia do projeto em caminho com espaços e fallback de abertura do navegador. Batch Windows foi conferido estruturalmente, mas não executado neste host Linux.
+  - [x] 5.3 Criar READMEs centrais e referência de integrações em inglês/pt-BR com links recíprocos; registrar evidência Red/Green/Refactor do contrato documental e atualizar changelogs pareados.
+- [x] 6. Gates de qualidade e evidências (AC: todos; execução Windows permanece como item explícito de aceitação aberto)
+  - [x] 6.1 `npm run lint`, `npm run typecheck`, `npm test`, integração PostgreSQL/migrations, config/aceitação Compose e checks de versão passam em Linux.
+  - [x] 6.2 Atualizar os dois índices de stories e file list/checklist com resultados observados; manter FND-1 InProgress enquanto a execução Windows não estiver disponível.
 
 ## Testes
 
@@ -111,9 +111,9 @@ Para cada comportamento abaixo, criar/executar primeiro o teste e observar falha
 - Integração PostgreSQL: banco isolado, migrations reais e restrições/contenção impostas pelo banco.
 - Aceitação Compose: imagem real local, bootstrap, ordem, usuário não root, persistência de reinício e segredo em cada SO declarado.
 - Checagens estáticas: `docker compose config`, sintaxe/lock, `npm run lint`, `npm run typecheck`, `npm test`.
-- Evidência Red/Green/Refactor pendente até execução dos comandos.
+- Evidências Red/Green/Refactor estão registradas em `docs/stories.md` e na contraparte em inglês. Execução Windows não é alegada.
 
-## 🤖 Integração CodeRabbit
+## Revisão Estática Local e Gates de Qualidade
 
 **Análise do tipo de story**  
 **Tipo principal**: fundação de infraestrutura e banco  
@@ -125,12 +125,13 @@ Para cada comportamento abaixo, criar/executar primeiro o teste e observar falha
 - Apoio: @data-engineer (schema/migration), @devops (Compose/segurança), @architect (revisão de design)
 
 **Gates de qualidade**
-- [ ] Revisão @dev pré-commit e todos os gates de teste exigidos
+- [x] Revisão gratuita local OpenGrep configurada e executada com regras do repositório; sem conta, licença, CLI ou serviço hospedado CodeRabbit.
+- [x] Revisão local @dev e gates completos de testes/qualidade Linux registrados; execução do script Windows nativo continua sem verificação.
 - [ ] Revisão @architect de migrations/Compose/versão
 - [ ] Revisão @data-engineer de restrições PostgreSQL e evidência de persistência
 - [ ] Revisão @devops de segredos/runtime/publicação Docker (sem push/release solicitados)
 
-**Self-healing**: Se CLI CodeRabbit estiver disponível, @dev light mode, no máximo duas iterações de 15 minutos, somente CRITICAL; registrar achados HIGH. Se indisponível, fazer revisão manual e anotar que a revisão CLI foi ignorada.
+**Procedimento de revisão**: Execute `npm run review:static` com OpenGrep `1.30.0` fixado e `.opengrep/rules.yml`. As regras locais verificam sinks HTML inseguros e logging de credenciais em `apps/`. Essa análise baseada em regras não é revisão contextual por IA; revisão humana/AIOX continua necessária. Não invoque CodeRabbit, pois o projeto não tem licença.
 
 **Foco**: Sem vazamento de segredos; sem fallback incorreto do SHA; sem exposição do DB no host; segurança de volumes persistentes; ordem de migrations; prova com DB real; contêiner sem root; nenhuma alegação de compatibilidade sem execução.
 
@@ -141,6 +142,7 @@ Para cada comportamento abaixo, criar/executar primeiro o teste e observar falha
 | 2026-10-02 | 0.1.0 | Desenvolvimento iniciado (modo interativo) — Status: Ready → InProgress | @dev |
 | 2026-10-02 | 0.1.0 | Validação PO GO (9/10) — Status: Draft → Ready | @po |
 | 2026-10-02 | 0.1.0 | Story criada a partir do planejamento aprovado; ainda sem evidência de implementação. | @sm |
+| 2026-10-02 | 0.1.0 | Substitui a revisão paga CodeRabbit, indisponível, por regras locais OpenGrep fixadas; FND-1 permanece InProgress até executar o batch em Windows nativo. | @dev |
 
 ## Registro do Agente Dev
 
@@ -157,6 +159,13 @@ Pendente implementação.
 - `docker compose build bot` — sucesso; build limpo executou `npm ci` e geração do Prisma Client.
 - `npm test -- --run tests/unit/health-route.test.js` — Red: 2 falharam porque a projeção de saúde não existia; Green: 2 passaram com campos explícitos de produto/banco/Twitch e falha sanitizada.
 - `curl --fail --silent --show-error http://localhost:3000/health` — `{"status":"ok","product_version":"v0.1.0-0000000-alpha","dependencies":{"database":"connected","twitch_api":"not_configured"}}` no contêiner reconstruído.
+- `npm test -- --run tests/unit/free-review-tool.test.js` — Red porque `.opengrep/rules.yml` e a configuração local não existiam. Depois de adicionar regras, comando npm e desativar o gate pago, Reds seguintes revelaram ausência de `--no-git-ignore` e do comando no perfil AIOX dev; cada ponto foi corrigido antes do Green.
+- `npm test -- --run tests/unit/free-review-tool.test.js` — Green: passou o contrato de configuração OpenGrep local, regras necessárias, comando e gate CodeRabbit desativado.
+- Regressão da configuração do quality gate (2026-10-02): primeiro ampliei o contrato para exigir o comando OpenGrep ativo e ausência do caminho antigo da CLI CodeRabbit. Red: `npm test -- --run tests/unit/free-review-tool.test.js` falhou porque o gate ainda mostrava somente a entrada CodeRabbit desativada. Atualizei a configuração AIOX para habilitar `npm run review:static`; uma asserção seguinte falhou porque a regex não tratava bem os espaços YAML, então troquei por uma verificação literal do bloco. Green: `npm test -- --run tests/unit/free-review-tool.test.js tests/unit/documentation-contract.test.js` — 3 passaram.
+- `npm run review:static` — o padrão inicial amplo de logger produziu falso positivo em gravação de arquivo; restringi às chamadas de logger suportadas e o falso positivo desapareceu. Resultado final: 2 regras em 18 arquivos JavaScript, 0 achados.
+- Fixture comportamental temporária: HTML inseguro e logging de credencial produziram 2 achados esperados; gravação de arquivo com variável chamada `password` não produziu achados.
+- OpenGrep `1.30.0` foi instalado pelo instalador oficial da versão fixada; `opengrep --version` retornou `1.30.0`. A verificação opcional de assinatura Cosign não foi executada porque Cosign não estava disponível.
+- Gates Linux desta rodada: `npm test` — 21 arquivos/140 testes passaram; `npm run lint`, `npm run typecheck`, `npm run review:static` (18 arquivos JS/0 achados), `docker compose config --quiet`, `npm run validate:version` (`v0.1.0-0000000-alpha`) e `git diff --check` passaram.
 
 - `npm test -- --run tests/unit/version-policy.test.js` — Red: 11 falhas, 0 sucessos após endurecer os testes. O módulo não existia; exports ausentes falharam asserções de comportamento. Execução preliminar anterior (8 falhas/3 sucessos) foi descartada porque testes de entrada inválida podiam passar por um `TypeError` de função ausente.
 - `npm test -- --run tests/unit/version-policy.test.js` — Green: 11 sucessos após implementar as funções puras.
@@ -164,7 +173,7 @@ Pendente implementação.
 
 ### Notas de conclusão
 
-Funções de versão, Compose/bootstrap, schema de migration e comportamento base do runtime Linux estão validados. FND-1 permanece InProgress: documentação de operação bilíngue, gates lint/typecheck/test, checagens completas de versão no runtime/API, testes dos scripts/navegador e evidência adicional de aceitação ainda faltam.
+Funções de versão, Compose/bootstrap, schema de migration, runtime Linux, documentação bilíngue de operação/integrações, aceitação Compose e gates Linux desta rodada foram validados. FND-1 permanece InProgress porque `iniciar.bat` ainda não foi executado em Windows nativo; não é possível afirmar seu comportamento runtime neste ambiente Linux.
 
 ## Lista de Arquivos
 
@@ -203,11 +212,19 @@ Funções de versão, Compose/bootstrap, schema de migration e comportamento bas
 - `apps/infra/scripts/healthcheck.mjs`
 - `apps/api/src/server.mjs`
 - `apps/api/src/health-route.mjs`
+- `apps/api/src/web-route.mjs`
+- `apps/web/index.html` e `apps/web/styles.css`
 - `tests/unit/health-route.test.js`
-- `CHANGELOG.md`
-- `CHANGELOG_INTERNAL.md`
-- `docs/pt-BR/CHANGELOG.md`
-- `docs/pt-BR/CHANGELOG_INTERNAL.md`
-- `docs/VERSIONING.md` e `docs/pt-BR/VERSIONING.md`
+- `tests/unit/web-route.test.js`
+- `tests/unit/documentation-contract.test.js`
+- `tests/unit/start-script.test.js`
+- `tests/integration/compose-runtime.test.js`
+- `tests/integration/compose-contract.test.js`
+- `README.md` e `README.pt-BR.md`
+- `docs/integrations.md` e `docs/pt-BR/integrations.md`
+- `docs/stories.md` e `docs/pt-BR/stories.md`
 - `CHANGELOG.md`, `CHANGELOG_INTERNAL.md` e changelogs equivalentes pt-BR
+- `docs/VERSIONING.md` e `docs/pt-BR/VERSIONING.md`
+- `.opengrep/rules.yml` e `tests/unit/free-review-tool.test.js`
+- `.aiox-core/core/quality-gates/quality-gate-config.yaml`
 - Fontes do planejamento constam na entrada FND-0 de `docs/stories.md`.

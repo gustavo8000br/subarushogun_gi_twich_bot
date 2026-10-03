@@ -1,0 +1,31 @@
+rules:
+  - id: no-unsafe-html-sink
+    languages: [javascript]
+    severity: ERROR
+    message: Avoid writing untrusted content to HTML parsing sinks; use textContent or DOM APIs.
+    pattern-either:
+      - pattern: $ELEMENT.innerHTML = $VALUE
+      - pattern: $ELEMENT.outerHTML = $VALUE
+      - pattern: $ELEMENT.insertAdjacentHTML($POSITION, $VALUE)
+      - pattern-regex: dangerouslySetInnerHTML
+
+  - id: no-credential-logging
+    languages: [javascript]
+    severity: ERROR
+    message: Do not log credential or database connection values.
+    patterns:
+      - pattern-either:
+          - pattern: console.log(..., $VALUE, ...)
+          - pattern: console.info(..., $VALUE, ...)
+          - pattern: console.warn(..., $VALUE, ...)
+          - pattern: console.error(..., $VALUE, ...)
+          - pattern: console.debug(..., $VALUE, ...)
+          - pattern: $APP.log.info(..., $VALUE, ...)
+          - pattern: $APP.log.warn(..., $VALUE, ...)
+          - pattern: $APP.log.error(..., $VALUE, ...)
+          - pattern: $REQUEST.log.info(..., $VALUE, ...)
+          - pattern: $REQUEST.log.warn(..., $VALUE, ...)
+          - pattern: $REQUEST.log.error(..., $VALUE, ...)
+      - metavariable-regex:
+          metavariable: $VALUE
+          regex: (?i).*(accessToken|refreshToken|clientSecret|authorization|password|connectionString|databaseUrl).*

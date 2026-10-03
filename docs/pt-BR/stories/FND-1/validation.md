@@ -24,7 +24,7 @@
 
 ## Validações adicionais
 
-- Seções do template, executor/quality gate e CodeRabbit estão presentes; sem placeholders.
+- Seções do template, executor/quality gate e revisão estática estão presentes; sem placeholders. Esta validação de prontidão antecede a implementação e não significa que os gates já tinham sido executados.
 - Executor @dev e quality gate @architect. Revisores de banco/deploy constam como apoio.
 - Paths correspondem à árvore de código. Módulos de app têm guias framework bilíngues.
 - ACs correspondem a AC-1/2/19 e ao plano FND-1. Cada comportamento tem tarefa de teste antes da tarefa de código.
@@ -36,7 +36,7 @@
 
 - Paridade owner/mode de secrets file no Docker Desktop continua como teste empírico durante implementação. A story não declara suporte multiplataforma antes da validação.
 - Esta story é ampla: identidade de versão, Compose e persistência. Cada comportamento tem subtasks Red/Green/Refactor e evidência de aceitação isolada. Se surgir bloqueio de dependência concreto, dividir nesse limite antes de concluir.
-- Nenhum teste comportamental foi executado; esta validação aprova início do TDD, não correção de implementação.
+- Na data desta validação, nenhum teste comportamental havia sido executado; ela aprovou o início do TDD, não a correção da implementação. Evidências posteriores estão na story e nos índices de desenvolvimento.
 
 ## Decisão
 

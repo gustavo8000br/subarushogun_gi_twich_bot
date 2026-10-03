@@ -24,7 +24,7 @@
 
 ## Additional validation
 
-- Template sections, executor/quality-gate fields and CodeRabbit section are present; no placeholders remain.
+- Template sections, executor/quality-gate fields and static-review section are present; no placeholders remain. This readiness validation predates implementation and does not mean quality gates were run at that time.
 - Executor is @dev and quality gate is @architect. Database and deployment reviewers are identified as supporting agents.
 - Paths match the source tree. Each app module has its bilingual framework guidance file.
 - Acceptance criteria map to AC-1/2/19 and the FND-1 plan. Every implementation behavior has a test-first task before its code task.
@@ -36,7 +36,7 @@
 
 - Docker Desktop file-secret owner/mode parity remains an implementation-time empirical check. The story does not claim cross-platform support before it passes.
 - This story is broad, spanning version identity, Compose and persistence, but each behavior has separate Red/Green/Refactor tasks and isolated acceptance evidence. If the implementation exposes a concrete dependency blocker, split at that seam before marking complete.
-- No behavioral test has run yet; this validation approves readiness to start TDD, not implementation correctness.
+- At validation time, no behavioral test had run; this validation approved readiness to start TDD, not implementation correctness. Later execution evidence is recorded in the story and development indexes.
 
 ## Decision
 
