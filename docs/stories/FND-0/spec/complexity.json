@@ -1,0 +1,16 @@
+{
+  "storyId": "FND-0",
+  "assessedAt": "2026-10-02T22:24:00Z",
+  "assessedBy": "@aiox-master (pipeline assessment)",
+  "result": "COMPLEX",
+  "overridden": false,
+  "totalScore": 25,
+  "dimensions": {
+    "scope": {"score": 5, "notes": "This is a full greenfield system across apps/web, apps/api, apps/infra, root Compose/runtime files, a PostgreSQL schema/migrations, integration adapters, operations guides, and bilingual documentation."},
+    "integration": {"score": 5, "notes": "Coordinates OAuth and token validation/refresh, Twitch Helix rewards/redemptions/chat, EventSub WebSocket, local browser access, Compose, and filesystem-backed local secrets."},
+    "infrastructure": {"score": 5, "notes": "Introduces a PostgreSQL service, Prisma schema and real migrations, Compose dependency/health ordering, durable local volumes, local bootstrap, Docker image, and operational scripts."},
+    "knowledge": {"score": 5, "notes": "Requires verified current API/SDK behavior, financial recovery semantics across a remote API and local database, PostgreSQL transaction/partial-index behavior, local security, and strict JavaScript-only Prisma compatibility."},
+    "risk": {"score": 5, "notes": "Incorrect outcomes can falsely claim a refund/consumption, lose a durable financial intent, disclose UID/secrets, or delete rewards whose pending redemptions Twitch would otherwise fulfill."}
+  },
+  "flags": ["Architectural review required", "Break work into independently testable stories", "Use real PostgreSQL integration tests", "Do not progress to implementation before source research and spec critique are complete"]
+}

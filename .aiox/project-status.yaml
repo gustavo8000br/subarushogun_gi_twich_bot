@@ -1,0 +1,17 @@
+status:
+  branch: main
+  modifiedFiles:
+    - .aiox-core/
+    - .aiox/
+    - .antigravity/
+    - .claude/
+    - .codex/
+  modifiedFilesTotalCount: 30
+  recentCommits: []
+  currentEpic: null
+  currentStory: null
+  lastUpdate: '2026-10-03T00:33:33.537Z'
+  isGitRepo: true
+timestamp: 1790987613538
+ttl: 60
+gitFingerprint: 1790979000225.0315:0

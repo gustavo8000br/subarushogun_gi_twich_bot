@@ -1,0 +1,35 @@
+{
+  "storyId": "FND-0",
+  "researchedAt": "2026-10-02T22:25:00Z",
+  "researchedBy": "@aiox-master (pesquisa de fontes oficiais)",
+  "canonicalEnglish": "../../../../stories/FND-0/spec/research.json",
+  "versions": [
+    {"name":"Node.js","version":"24.20.0 LTS; node:24.20.0-bookworm-slim","source":"https://nodejs.org/en/about/previous-releases/","finding":"Node 24 LTS é a base pinada do runtime ESM e da imagem de aplicação."},
+    {"name":"@twurple/auth","version":"8.2.0","source":"https://twurple.js.org/reference/auth/classes/RefreshingAuthProvider.html","finding":"RefreshingAuthProvider oferece hooks para persistir cada renovação e tratar falhas; persistir token atomicamente."},
+    {"name":"@twurple/api","version":"8.2.0","source":"https://twurple.js.org/reference/api/classes/HelixChatApi.html","finding":"Usar Helix para chat/recompensas/resgates; verificar resultado de envio, incluindo mensagens descartadas."},
+    {"name":"@twurple/eventsub-ws","version":"8.2.0","source":"https://twurple.js.org/reference/eventsub-ws/classes/EventSubWsListener.html","finding":"WebSocket EventSub serve para chatbot hospedado localmente; não adicionar IRC nem @twurple/chat."},
+    {"name":"Fastify","version":"5.12.5","source":"https://fastify.dev/docs/latest/Reference/","finding":"Servidor HTTP local; dentro do contêiner deve escutar em 0.0.0.0."},
+    {"name":"@fastify/static","version":"10.1.5","source":"https://github.com/fastify/fastify-static","finding":"Serve os arquivos vanilla compatíveis com a versão Fastify fixada."},
+    {"name":"Prisma CLI / @prisma/client / @prisma/adapter-pg","version":"6.19.3 cada","source":"https://www.prisma.io/docs/orm/v6/prisma-schema/overview/generators","finding":"Prisma 6 suporta prisma-client-js em JavaScript; o gerador Prisma 7 prisma-client gera TypeScript. Usar prisma.config.mjs e adaptador pg."},
+    {"name":"pg","version":"8.23.1","source":"https://node-postgres.com/","finding":"Driver PostgreSQL necessário para o adaptador Prisma selecionado."},
+    {"name":"Vitest","version":"5.0.3","source":"https://vitest.dev/guide/","finding":"Runner de testes compatível com módulos ESM JavaScript e timers falsos."},
+    {"name":"PostgreSQL","version":"18.6; postgres:18.6-bookworm","source":"https://www.postgresql.org/support/versioning/","finding":"Versão mantida; índices parciais permitem garantir uma entrada ativa por fila/usuário."},
+    {"name":"Docker Compose","version":"v2; node:24.20.0-bookworm-slim; postgres:18.6-bookworm","source":"https://docs.docker.com/compose/how-tos/startup-order/","finding":"depends_on permite aguardar service_healthy e service_completed_successfully; secret file precisa permissão compatível."},
+    {"name":"Twitch OAuth/Helix/EventSub","version":"Documentação consultada em 2026-10-02","source":"https://dev.twitch.tv/docs/api/reference/","finding":"Client Credentials valida o par do app; Authorization Code fornece token de usuário. Recompensas próprias, limite 50, título até 45, prompt até 200; manter skip-request-queue false. Cancelar é CANCELED; concluir é FULFILLED. Excluir com resgates UNFULFILLED pendentes pode consumi-los. Chat EventSub usa user:read:chat; envio Helix usa user:write:chat e confirma is_sent, até 500 caracteres."},
+    {"name":"Twitch EventSub","version":"WebSocket subscriptions v1 consultado em 2026-10-02","source":"https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/","finding":"Assinar channel.channel_points_custom_reward_redemption.add/update e channel.chat.message; scopes documentados exigidos pelas operações."},
+    {"name":"Registro de aplicativo Twitch","version":"Documentação consultada em 2026-10-02","source":"https://dev.twitch.tv/docs/authentication/register-app/","finding":"App confidencial requer e-mail verificado e 2FA e configura URL OAuth de redirect."}
+  ],
+  "scopes": ["channel:manage:redemptions", "user:read:chat", "user:write:chat"],
+  "decisions": [
+    "Pin versões iguais das três bibliotecas Twurple.",
+    "Usar Prisma 6.19.3 em vez do client gerado em TypeScript do Prisma 7.",
+    "Não repetir operações financeiras ou criação de recompensa cegamente após resposta de rede perdida.",
+    "Normalizar enums/campos Helix, EventSub e SDK nos adaptadores e testar contra os pacotes instalados.",
+    "Sem credenciais Twitch reais nesta pesquisa; integração real continua pendente."
+  ],
+  "unverifiedClaims": [
+    {"claim":"Permissões de secrets file Compose e ordem inicial idênticas em Linux e Docker Desktop.","reason":"Detalhes de ownership/mode de montagem diferem entre plataformas.","action":"Testar integração antes de declarar suporte/paridade."},
+    {"claim":"Mapeamento de cada enum/campo e resultado de envio na versão Twurple fixada.","reason":"A documentação não substitui teste de contrato dos dados serializados reais do SDK.","action":"Criar testes de contrato na implementação."}
+  ],
+  "researchNotes": "Pesquisa realizada em 2026-10-02 na documentação oficial Twitch, Twurple, Prisma, PostgreSQL, Docker e Node.js e em metadados npm. Versões observadas: Twurple 8.2.0; Prisma CLI/client/adapter 6.19.3; Fastify 5.12.5; @fastify/static 10.1.5; Vitest 5.0.3; pg 8.23.1; Node 24.20.0; PostgreSQL 18.6. Nenhuma credencial real da Twitch foi usada. Para rationale e referências completas, consulte o artefato inglês ligado em canonicalEnglish."
+}

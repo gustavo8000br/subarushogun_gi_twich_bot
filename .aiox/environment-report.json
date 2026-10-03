@@ -1,0 +1,38 @@
+{
+  "generatedAt": "2026-10-02T22:46:11Z",
+  "generatedBy": "@devops environment-bootstrap preflight",
+  "project": {
+    "name": "subarushogun_gi_twich_bot",
+    "path": "/home/gustavo/projects/subarushogun_gi_twich_bot",
+    "applicationLayout": ["apps/web", "apps/api", "apps/infra", "apps/* as needed"],
+    "frameworkEnvExampleIsProductConfig": false
+  },
+  "tools": {
+    "git": {"installed": true, "version": "observed with git CLI"},
+    "gh": {"installed": true, "version": "observed with gh CLI", "authenticated": true},
+    "node": {"installed": true, "version": "24.20.0"},
+    "npm": {"installed": true, "version": "11.19.0"},
+    "docker": {"installed": true, "version": "29.8.1", "running": true},
+    "compose": {"installed": true, "version": "v5.5.1"}
+  },
+  "repository": {
+    "initialized": true,
+    "branch": "main",
+    "remoteUrl": "https://github.com/gustavo8000br/subarushogun_gi_twich_bot.git",
+    "remoteVisibility": "private",
+    "initialCommitCreated": false,
+    "filesPushed": false
+  },
+  "validation": {
+    "essentialToolsAvailable": true,
+    "githubAuthenticationAvailable": true,
+    "containerEngineAvailable": true,
+    "productRuntimeImplemented": false,
+    "readyForPlanning": true
+  },
+  "notes": [
+    "The private GitHub repository was created with an empty history; no commit or push has occurred.",
+    "Product package/runtime files are deferred until FND-1 executes their required TDD cycle.",
+    "The global @kayvan/markdown-tree-parser package was installed because AIOX markdownExploder is enabled."
+  ]
+}

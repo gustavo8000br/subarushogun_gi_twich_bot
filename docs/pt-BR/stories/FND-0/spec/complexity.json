@@ -1,0 +1,17 @@
+{
+  "storyId": "FND-0",
+  "assessedAt": "2026-10-02T22:24:00Z",
+  "assessedBy": "@aiox-master (avaliação do pipeline)",
+  "canonicalEnglish": "../../../../stories/FND-0/spec/complexity.json",
+  "result": "COMPLEX",
+  "overridden": false,
+  "totalScore": 25,
+  "dimensions": {
+    "scope": {"score":5,"notes":"Sistema greenfield completo em apps/web, apps/api, apps/infra, Compose/runtime, schema/migrations PostgreSQL, adaptadores e documentação bilíngue."},
+    "integration": {"score":5,"notes":"Coordena OAuth/refresh, Twitch Helix para recompensas/resgates/chat, EventSub WebSocket, navegador local, Compose e secrets locais baseados em arquivo."},
+    "infrastructure": {"score":5,"notes":"Inclui PostgreSQL, Prisma/migrations reais, saúde e dependências Compose, volumes, bootstrap, imagem Docker e scripts operacionais."},
+    "knowledge": {"score":5,"notes":"Exige pesquisa de APIs/SDK atuais, recuperação de efeito financeiro remoto, concorrência/índice parcial PostgreSQL, segurança local e compatibilidade JavaScript do Prisma."},
+    "risk": {"score":5,"notes":"Falhas podem afirmar reembolso/consumo falso, perder intenção financeira, divulgar UID/segredos ou apagar recompensa com resgate que a Twitch passaria a cumprir."}
+  },
+  "flags": ["Revisão arquitetural necessária","Dividir em stories independentes testáveis","Usar integração PostgreSQL real","Não implementar antes de pesquisa oficial e crítica da spec"]
+}

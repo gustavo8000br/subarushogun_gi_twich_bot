@@ -1,0 +1,36 @@
+{
+  "name": "subarushogun-gi-twitch-queue-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.20.0"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "validate:version": "node apps/infra/scripts/validate-version.mjs",
+    "materialize:version": "node apps/infra/scripts/materialize-version.mjs",
+    "infra:bootstrap": "node apps/infra/scripts/bootstrap.mjs",
+    "lint": "eslint apps tests --max-warnings=0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/static": "10.1.5",
+    "@prisma/adapter-pg": "6.19.3",
+    "@prisma/client": "6.19.3",
+    "@twurple/api": "8.2.0",
+    "@twurple/auth": "8.2.0",
+    "@twurple/eventsub-ws": "8.2.0",
+    "fastify": "5.12.5",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.12.0",
+    "prisma": "6.19.3",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

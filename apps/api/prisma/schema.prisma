@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Queue {
+  id                          String     @id @default(uuid()) @db.Uuid
+  slug                        String     @unique
+  title                       String
+  rewardPrompt                String     @default("") @map("reward_prompt")
+  cost                        Int
+  callMessage                 String     @default("{user}, sua vez!") @map("call_message")
+  callTimeoutMin              Int?       @default(10) @map("call_timeout_min")
+  uidMode                     String     @default("hidden") @map("uid_mode")
+  showUidInList               Boolean    @default(false) @map("show_uid_in_list")
+  showUidInOverlay            Boolean    @default(false) @map("show_uid_in_overlay")
+  showUidOnCall               Boolean    @default(false) @map("show_uid_on_call")
+  autoSwitchAccount           Boolean    @default(false) @map("auto_switch_account")
+  refundIfRemovedWhileCalled  Boolean    @default(true) @map("refund_if_removed_while_called")
+  refundOnNoShow              Boolean    @default(false) @map("refund_on_no_show")
+  refundIfViewerLeavesCalled  Boolean    @default(false) @map("refund_if_viewer_leaves_while_called")
+  isOpen                      Boolean    @default(false) @map("is_open")
+  isArchived                  Boolean    @default(false) @map("is_archived")
+  lifecycleStatus             String     @default("active") @map("lifecycle_status")
+  remoteSyncStatus            String     @default("pending") @map("remote_sync_status")
+  rewardId                    String?    @unique @map("reward_id")
+  version                     Int        @default(1)
+  deletedAt                   DateTime?  @map("deleted_at") @db.Timestamptz(3)
+  createdAt                   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  keys                        QueueKey[]
+  entries                     Entry[]
+  redemptions                 Redemption[]
+  auditLogs                   AuditLog[]
+  @@map("queues")
+}
+
+model QueueKey {
+  key       String   @id
+  queueId   String   @map("queue_id") @db.Uuid
+  keyType   String   @map("key_type")
+  queue     Queue    @relation(fields: [queueId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@index([queueId])
+  @@map("queue_keys")
+}
+
+model Entry {
+  id                String      @id @default(uuid()) @db.Uuid
+  queueId           String      @map("queue_id") @db.Uuid
+  twitchUserId      String      @map("twitch_user_id")
+  userLogin         String      @map("user_login")
+  displayName       String      @map("display_name")
+  uid               String?
+  source            String
+  redemptionId      String?     @unique @map("redemption_id")
+  status            String      @default("waiting")
+  position          Int?
+  version           Int         @default(1)
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  calledAt          DateTime?   @map("called_at") @db.Timestamptz(3)
+  callNotifiedAt    DateTime?   @map("call_notified_at") @db.Timestamptz(3)
+  callDeadlineAt    DateTime?   @map("call_deadline_at") @db.Timestamptz(3)
+  startedAt         DateTime?   @map("started_at") @db.Timestamptz(3)
+  finishedAt        DateTime?   @map("finished_at") @db.Timestamptz(3)
+  terminalReason    String?     @map("terminal_reason")
+  queue             Queue       @relation(fields: [queueId], references: [id], onDelete: Restrict)
+  redemption        Redemption? @relation("EntryRedemption", fields: [redemptionId], references: [redemptionId], onDelete: Restrict)
+  outbox            Outbox[]
+  auditLogs         AuditLog[]
+  @@index([queueId, status, position])
+  @@index([twitchUserId])
+  @@map("entries")
+}
+
+model Redemption {
+  redemptionId   String   @id @map("redemption_id")
+  broadcasterId  String   @map("broadcaster_id")
+  rewardId       String   @map("reward_id")
+  userId         String   @map("user_id")
+  queueId        String?  @map("queue_id") @db.Uuid
+  redeemedAt     DateTime @map("redeemed_at") @db.Timestamptz(3)
+  remoteStatus   String   @default("UNFULFILLED") @map("remote_status")
+  expectedStatus String?  @map("expected_status")
+  syncStatus     String   @default("observed") @map("sync_status")
+  rejectionReason String? @map("rejection_reason")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  queue          Queue?   @relation(fields: [queueId], references: [id], onDelete: Restrict)
+  entry          Entry?   @relation("EntryRedemption")
+  outbox         Outbox[]
+  auditLogs      AuditLog[]
+  @@map("redemptions")
+}
+
+model Outbox {
+  id             String      @id @default(uuid()) @db.Uuid
+  operationType  String      @map("operation_type")
+  entityType     String      @map("entity_type")
+  entityId       String?     @map("entity_id")
+  idempotencyKey String      @unique @map("idempotency_key")
+  payload        Json        @default("{}")
+  status         String      @default("pending")
+  attempts       Int         @default(0)
+  nextAttemptAt  DateTime    @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  leaseUntil     DateTime?   @map("lease_until") @db.Timestamptz(3)
+  lastError      String?     @map("last_error")
+  entryId        String?     @map("entry_id") @db.Uuid
+  redemptionId   String?     @map("redemption_id")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  entry          Entry?      @relation(fields: [entryId], references: [id], onDelete: Restrict)
+  redemption     Redemption? @relation(fields: [redemptionId], references: [redemptionId], onDelete: Restrict)
+  @@index([status, nextAttemptAt])
+  @@map("outbox")
+}
+
+model AuditLog {
+  id            String      @id @default(uuid()) @db.Uuid
+  queueId       String?     @map("queue_id") @db.Uuid
+  entryId       String?     @map("entry_id") @db.Uuid
+  redemptionId  String?     @map("redemption_id")
+  event         String
+  actorId       String?     @map("actor_id")
+  origin        String
+  previousState String?     @map("previous_state")
+  nextState     String?     @map("next_state")
+  reason        String?
+  safeDetail    Json        @default("{}") @map("safe_detail")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  queue         Queue?      @relation(fields: [queueId], references: [id], onDelete: Restrict)
+  entry         Entry?      @relation(fields: [entryId], references: [id], onDelete: Restrict)
+  redemption    Redemption? @relation(fields: [redemptionId], references: [redemptionId], onDelete: Restrict)
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  @@map("settings")
+}
+
+model OAuthCredential {
+  id             String   @id @default(uuid()) @db.Uuid
+  clientId       String   @unique @map("client_id")
+  clientSecret   String   @map("client_secret")
+  accessToken    String?  @map("access_token")
+  refreshToken   String?  @map("refresh_token")
+  scopes         String[] @default([])
+  broadcasterId  String?  @map("broadcaster_id")
+  tokenExpiresAt DateTime? @map("token_expires_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  @@map("oauth_credentials")
+}
+
+model ProcessedOperation {
+  operationKey String   @id @map("operation_key")
+  result       Json
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@map("processed_operations")
+}
+
+model RuntimeState {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  @@map("runtime_state")
+}

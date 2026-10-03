@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+!.env.example
+runtime-secrets
+node_modules
+coverage
+data
+backups
+*.dump
+*.sql
+tests
+docs
+.aiox
