@@ -52,6 +52,39 @@ Use a random secret in the URL fragment and an Authorization header for same-ori
 
 Follow `spec/plan.json` and `plan/implementation.yaml`: first complete FND-5/FND-6 readiness and UX gates; then test-first field/style rules, PostgreSQL model/migrations, repository/application service, protected routes, renderer and panel; finish with real-database/E2E checks and manual OBS verification. Every increment follows Red → Green → Refactor. The JSON and YAML plans contain 21 aligned subtasks with explicit service, files, verification and dependencies.
 
+## Tasks / Subtasks
+
+Task IDs and scope match the canonical JSON/YAML plans.
+
+- [ ] 0. Readiness gates
+  - [ ] 0.1 Verify FND-5/FND-6 are complete and map every dynamic field to delivered projections and protected panel/security services; block if any prerequisite is incomplete.
+  - [ ] 0.2 Complete UX review and record approved font labels, default style, preview, empty/stale/unavailable states, accessible labels/focus, and consistency before UI coding.
+  - [ ] 0.3 Write and validate shared Unicode code-point examples for 240-character fixed/fallback text.
+- [ ] 1. Widget persistence foundation
+  - [ ] 1.1 Write real PostgreSQL migration-contract tests for widget create/edit/delete, capability hashing, widget scope, rotation, revocation, and restart durability.
+  - [ ] 1.2 Add the Prisma widget model and SQL migration only after database tests fail for the missing behavior.
+- [ ] 2. Field and capability policy
+  - [ ] 2.1 Write unit tests for field scope, queue selection, fallback states, 240-character Unicode counting, style allowlists, and malicious input.
+  - [ ] 2.2 Implement pure field/style validation after observing behavioral Red.
+  - [ ] 2.3 Write tests for random token generation, hash-only persistence boundary, single-widget scope, rotation, and revocation.
+  - [ ] 2.4 Implement capability issue/verify/revoke policy and retest after Refactor.
+- [ ] 2B. Widget repository/service
+  - [ ] 2B.1 Write PostgreSQL/application tests for create/edit/delete, token issue/hash verification, one-time URL, rotate/revoke, and concurrent delete/read atomicity.
+  - [ ] 2B.2 Implement repository and application service for widget persistence and capability lifecycle after Red.
+- [ ] 3. Management API and OBS read route
+  - [ ] 3.1 Write HTTP contract tests for management session/CSRF, Host/Origin, token scope, rejected/revoked capabilities, exact data projection, cache/referrer headers, and no mutations.
+  - [ ] 3.2 Implement widget management and token-only read routes through shared application/domain projections.
+- [ ] 4. Browser Source page
+  - [ ] 4.1 Write browser tests for safe text, transparent page, selected style, two-second update, empty fallback, transient stale marker, recovery, and 401/403 clearing. Run eight concurrent widgets on mixed dynamic fields; measure commit-to-DOM for ten consecutive changes and record the environment.
+  - [ ] 4.2 Implement the single-widget local renderer and polling using local assets only.
+- [ ] 5. Panel integration
+  - [ ] 5.1 Complete UX review for the safe font menu, initial style, empty/stale labels, preview, and link secrecy guidance before panel UI coding.
+  - [ ] 5.2 Write browser tests for widget create/edit/delete, field/queue selection, style preview, validation, copy, revoke, and regenerate.
+  - [ ] 5.3 Implement tested overlay management controls in the existing local panel.
+- [ ] 6. OBS verification and documentation
+  - [ ] 6.1 Verify the complete create-to-revoke flow and two-second propagation against the real local application/database.
+  - [ ] 6.2 Manually verify OBS Browser Source dimensions, transparency, live state, failures, recovery, and link rotation.
+  - [ ] 6.3 Publish bilingual guides and record observed implementation evidence and quality gates.
 ## Testing and status boundary
 
-No FND-7 code, implementation test, OBS installation, or OS compatibility has been verified. Do not mark implementation complete until actual command output and OBS environment evidence are recorded. See `validation.md` and `spec/` for workflow artifacts.
+No FND-7 code, implementation test, OBS installation, or OS compatibility has been verified. During implementation, run all project quality gates, update the checklist/file list and record actual command output before changing story status. Do not claim OBS installation or OS compatibility without environment evidence. See `validation.md` and `spec/` for workflow artifacts.

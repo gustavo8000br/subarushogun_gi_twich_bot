@@ -1,208 +1,122 @@
-# Story FND-7: OBS Overlay configurável por elemento
+# Story FND-7: Widgets configuráveis para overlay do OBS
 
 [English](../../../stories/FND-7/story.md)
 
-**Complexidade:** COMPLEX (17/25)  
-**Executor:** @dev  
-**Quality gate:** @architect  
-**Quality gate tools:** Vitest; Fastify route tests; real PostgreSQL migration integration tests; browser E2E; ESLint; TypeScript checks; OpenGrep/static security review; Prisma validate; Docker Compose config; `git diff --check`
-**Prioridade:** P0 — dados, estilo, gestão de links e segurança; P1 — documentação bilíngue  
-**Épico/capacidade:** Extensão pós-MVP do bot local Twitch para Genshin Impact  
-**Fonte:** Solicitação do streamer e elicitação do Spec Pipeline em 2026-10-05  
-**Spec (English technical artifacts):** `../../../stories/FND-7/spec/spec.md`; requirements, research, complexity, critique, plan and implementation YAML are in the English story folder.
+**Complexidade:** COMPLEX (17/25)
+**Executor:** @dev
+**Quality gate:** @architect
+**Ferramentas do quality gate:** Vitest, testes de rotas Fastify, testes de integração de migrations PostgreSQL reais, E2E de navegador, ESLint, verificação TypeScript, OpenGrep, validação Prisma, validação do Docker Compose e `git diff --check`.
+**Prioridade:** P0 para dados, estilo, ciclo de vida dos links e segurança; P1 para guias bilíngues.
+**Issue:** [#7](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/7)
 
 ## Status
 
-**Draft — aguardando aprovação de PM, arquitetura, PO e QA; implementação não iniciada.**
+**Draft.** As revisões do Spec Pipeline por PM, PO, Arquitetura e QA passaram. A implementação ainda não começou. FND-0 permanece como baseline histórico do MVP; FND-7 é uma extensão pós-MVP solicitada explicitamente.
 
-## 🤖 CodeRabbit Integration
+## História do usuário
 
-### Story Type Analysis
+Como streamer que usa o bot local de filas de Genshin Impact, quero widgets independentes no OBS com dados e estilos escolhidos separadamente, para mostrar na transmissão somente as informações selecionadas, com aparência consistente.
 
-- **Primary:** Feature — new operator-managed OBS overlay capability.
-- **Secondary:** Security — local read-only capabilities, revocation, scoped projections and injection-safe rendering.
-- **Complexity:** COMPLEX (17/25).
+## Escopo e dependências obrigatórias
 
-### Specialized Agent Assignment
+OBS e bot rodam no mesmo computador. Cada widget corresponde a uma URL local de OBS Browser Source e mostra exatamente um campo atômico ou texto fixo:
 
-- **Primary executor:** @dev.
-- **Quality gate:** @architect.
-- **Supporting reviews:** @qa for test/security evidence; @aiox-ux-design-expert before any renderer or panel UI implementation.
+- Rótulo atual da conta de Genshin.
+- Nome, estado aberta/fechada ou quantidade aguardando de uma fila selecionada (um atributo por widget).
+- Nome de exibição ou posição da pessoa chamada (um atributo por widget).
+- Nome de exibição da pessoa em atendimento.
+- Texto personalizado fixo.
 
-### Quality Gate Tasks
+FND-5 e FND-6 precisam estar totalmente concluídas antes de qualquer implementação FND-7. Mapear todas as projeções de origem e os recursos protegidos de painel/segurança. A UX Design Expert precisa aprovar jornada, padrões, estados e acessibilidade antes de qualquer código de UI.
 
-- Complete Spec Pipeline reviewers and approval before implementation.
-- Require completed FND-5/FND-6 readiness map before any implementation.
-- Use `quality_gate_tools` listed above; include real PostgreSQL migration tests, Fastify security tests, browser E2E, static security scan and repo lint/typecheck gates.
-- Review capability issuance/revocation/deletion atomically, data minimization, stale/empty/unavailable states and the eight-widget update envelope.
+## Critérios de aceite
 
-### Self-Healing Configuration
+1. **Criar widget e escolher fonte:** pessoas autenticadas no painel podem criar, editar e excluir widgets independentes e escolher um único campo atômico ou texto fixo. Cada atributo de fila exige a seleção de uma fila. A operação não altera filas, conta ou estado de viewers.
+2. **Emitir link independente:** a resposta autenticada de criação/regeneração retorna a URL local com segredo uma única vez, para cópia imediata. Leituras posteriores não recuperam o segredo. A projeção OBS não o retorna. Somente o hash criptográfico é persistido.
+3. **Personalizar aparência:** por widget, configurar cores de texto/fundo, opacidade, pilhas de fontes locais permitidas, tamanho, peso, alinhamento, contorno/sombra, dimensões, margens, overflow e texto fallback. Validar no servidor e cliente. Texto fixo/fallback aceita até 240 pontos de código Unicode, com contagem idêntica nos dois lados.
+4. **Estados de disponibilidade:** fonte dinâmica vazia exibe fallback configurado. Falha transitória inicial sem valor anterior exibe estado neutro indisponível. Falha transitória depois de um valor válido mantém o último valor com marcador de desatualizado e tenta novamente. Capability inválida/revogada (401/403) ou widget desconhecido/excluído (404) limpa o conteúdo exibido.
+5. **Projeção mínima:** retornar somente o campo selecionado e o contexto de fila estritamente necessário. Nunca projetar UID, credenciais Twitch, sessões, dados financeiros, segredo, outros widgets ou outras filas. Usar os serviços/projeções compartilhados; capability OBS não altera estado.
+6. **Revogar, regenerar e excluir:** revogação invalida o token antigo sem emitir link substituto. Regeneração invalida o token anterior e retorna uma URL nova uma única vez. Exclusão do widget e invalidação da capability são atômicas; após a exclusão confirmar, nenhuma leitura concorrente com token antigo retorna dados. Excluir não emite URL nova.
+7. **SLA de atualização:** com oito widgets dinâmicos mistos abertos, cada uma de dez mudanças consecutivas precisa chegar ao DOM em até dois segundos, medidos do commit à renderização, com polling nominal de um segundo. Registrar ambiente e duração observada.
+8. **OBS e guias:** Browser Source no mesmo computador renderiza fundo transparente e sem barra de rolagem nas dimensões configuradas. Guias em inglês e pt-BR explicam setup, preview, cópia, atualização, revogação e regeneração. Alegar somente plataformas realmente testadas.
 
-- **Primary agent:** @dev; **mode:** enabled per repository CodeRabbit configuration.
-- **Type:** full; **maximum iterations:** 3; **timeout:** 30 minutes.
-- **Severity mapping:** CRITICAL/HIGH = auto-fix; MEDIUM = document as debt; LOW = ignore, matching `.aiox-core/core-config.yaml`.
-- **Predicted CRITICAL/HIGH behavior:** auto-fix and block pre-commit/pre-PR completion until resolved. No pre-deployment gate applies to this local feature.
-- **Predicted findings:** CRITICAL/HIGH focus includes cross-widget or UID disclosure, raw secret persistence/logging, invalid capability still reading after delete/revoke, XSS/CSS injection, and mutation access from OBS capability.
+## Limites de estilo
 
-### CodeRabbit Focus Areas
+Cores `#RRGGBB`; opacidade 0–100%; pilhas permitidas: `system-ui`, `Arial/sans-serif`, `Verdana/sans-serif`, `Georgia/serif`, `Courier New/monospace`; tamanho inteiro 8–128px; pesos 300/400/500/600/700/800/900; alinhamento left/center/right; efeito none/outline/shadow; contorno 1–8px; blur de sombra 0–32px e deslocamentos −32..32px; largura auto ou 1–3840px; altura auto ou 1–2160px; margens por lado 0–256px; overflow wrap/clip/ellipsis. Sem HTML/CSS/JS arbitrário ou assets remotos.
 
-Local-only exposure, no secret in HTTP path/query, one-time secret issuance, hash-only storage, atomic delete/revoke, strict atomic field projection, fallback/stale/unavailable distinction, accessibility, ≤2-second SLA with eight active widgets, and no unverified OBS platform claims.
+## Segurança e arquitetura
 
-A FND-0 preserva o registro histórico de que overlay/OBS estava fora do MVP original. FND-7 é uma extensão pós-MVP explicitamente solicitada. Nenhum código ou teste de implementação foi executado para esta story.
+Usar um segredo aleatório no fragmento da URL e header Authorization nas leituras same-origin. O fragmento evita enviar segredo na requisição HTTP, mas permanece visível nas configurações do OBS e em URLs copiadas e deve ser tratado como credencial. Nunca colocar segredo em path/query HTTP, logs, cache ou referrer; nunca persistir o token bruto. Capability só leitura e limitada ao widget. Restringir host do overlay ao loopback e retornar apenas a projeção específica do widget pelos serviços existentes.
 
-## História
+## Ordem de implementação
 
-**Como** streamer que usa o bot local de filas de Genshin Impact,  
-**quero** criar widgets independentes, personalizar cada um e adicioná-los ao OBS por um link local,  
-**para que** a transmissão mostre somente as informações que escolhi, com identidade visual própria e atualização rápida.
-
-## Dependências e limites
-
-- FND-2: regras de fila e identidade de viewers disponíveis como fonte de leitura.
-- FND-5: estado de conta atual, chamadas e atendimento precisa estar disponível por serviços/projeções compartilhados; dependência bloqueante completa.
-- FND-6: painel local, autenticação de operador e segurança Host/Origin precisam fornecer a base de gestão; dependência bloqueante completa.
-- FND-3 (operações financeiras) e ciclo Twitch de recompensas de FND-4 não são dependências funcionais da overlay.
-- Nenhuma implementação de FND-7 começa até FND-5 e FND-6 estarem totalmente concluídas. Mapear todos os sete campos dinâmicos e fundamentos do painel/segurança; não aceitar subconjunto reduzido.
-- Só OBS e bot no mesmo computador; sem acesso LAN, hospedagem, túnel, serviço ou plugin OBS.
-- O painel local é a superfície de gestão aprovada; não adicionar CLI de domínio para widgets.
-
-## Critérios de Aceite
-
-1. **Criar widget e escolher fonte**  
-   **Dado** que o streamer está autenticado no painel local, **quando** cria, edita ou exclui um widget, **então** pode escolher exatamente um campo de fonte ou texto fixo, selecionar uma fila quando o campo for relativo à fila, e salvar o widget sem alterar fila/conta/entrada. Catálogo atômico: rótulo da conta atual de Genshin; nome da fila selecionada; estado aberta/fechada da fila selecionada; quantidade aguardando na fila selecionada; display name do viewer chamado; posição do viewer chamado; display name do viewer em atendimento; ou texto fixo. Cada widget escolhe exatamente um item; campos de fila exigem exatamente uma fila. Widgets duplicados são permitidos.
-
-2. **Emitir link independente**  
-   **Dado** um widget criado ou uma capability regenerada pela operação autenticada do painel, **quando** essa mutação conclui, **então** sua resposta retorna a URL local com segredo uma única vez para cópia imediata. Nenhuma leitura ou edição posterior recupera o segredo. O endpoint de projeção OBS nunca retorna token ou outro segredo; o segredo não é persistido, logado ou cacheado. Capability concede somente leitura ao widget correspondente.
-3. **Personalizar apresentação**  
-   **Dado** que o streamer edita um widget, **quando** define aparência, **então** pode configurar cor do texto e fundo em #RRGGBB, opacidade 0–100%, fonte local permitida, tamanho inteiro 8–128px, peso 300/400/500/600/700/800/900, alinhamento left/center/right, contorno 1–8px ou sombra blur 0–32px com offsets −32..32px, largura auto ou 1–3840px, altura auto ou 1–2160px, margens por lado 0–256px e overflow wrap/clip/ellipsis; prévia reflete a mesma configuração. Valores inválidos são rejeitados tanto no cliente quanto no servidor. Texto fixo/fallback aceita até 240 pontos de código Unicode conforme contagem idêntica browser/API.
-
-4. **Estados de valor e disponibilidade**  
-   **Dado** que uma consulta dinâmica retorna sucesso sem valor, **quando** a overlay atualiza, **então** mostra o fallback configurado. **Dado** que a primeira consulta falha sem valor anterior, **então** mostra estado neutro indisponível. **Dado** que uma falha transitória ocorre após valor válido, **então** mantém o valor com marcador desatualizado e tenta novamente. **Dado** que a API responde 401/403 para capacidade inválida/revogada ou 404 para widget/capacidade desconhecida/excluída, **então** limpa o conteúdo.
-
-5. **Mostrar somente projeção permitida**  
-   **Dado** uma capability válida, **quando** OBS pede o dado ao endpoint de projeção, **então** recebe apenas o campo selecionado e seu contexto necessário. UIDs, credenciais Twitch, sessões, dados financeiros, o segredo da capability, outros widgets e dados de outras filas não são projetados. Estado e regras vêm dos mesmos serviços/projeções usados pelo produto; a rota não consulta entidades Prisma diretamente nem executa mutações.
-
-6. **Revogar, regenerar e excluir**  
-   **Dado** que o streamer revoga uma capability, **quando** a operação confirma, **então** o token antigo falha na próxima leitura e estilo/fonte permanecem. **Dado** que regenera, **então** o token anterior falha e a resposta da mutação entrega a nova URL uma única vez, sem alterar fonte/estilo. **Dado** que exclui o widget, **então** exclusão da configuração e invalidação da capability são atômicas e nenhum token anterior pode ler na próxima requisição; não é emitida URL substituta. A fonte OBS limpa o conteúdo ao receber 401/403 para capability inválida/revogada ou 404 para recurso desconhecido/excluído.
-7. **SLA de atualização**  
-   **Dado** um app local saudável com oito widgets simultaneamente abertos no OBS (mix de campos dinâmicos), **quando** uma mudança de fonte é commitada, **então** o widget correspondente renderiza o valor novo em até 2 segundos, medidos do commit ao DOM atualizado, com polling nominal de 1 segundo. Registrar ambiente e duração; a execução precisa passar em 10 mudanças consecutivas para aceitar o SLA.
-8. **Segurança e rendering**  
-   **Dado** um operador, link ou conteúdo de widget, **quando** usa APIs/renderização, **então** mutações continuam protegidas pela sessão e CSRF existentes; o link OBS não pode alterar nada; segredo só é entregue uma vez na resposta autenticada de criação/regeneração; nunca é persistido, escrito em path/query HTTP, logado, cacheado ou enviado por referrer; a página envia segredo somente em Authorization header. Conteúdo é texto inerte e estilos usam schema allowlist; Host/Origin e headers CSP/no-store/no-referrer seguem as proteções locais existentes.
-
-9. **Comportamento no OBS e documentação**  
-   **Dado** que o streamer adiciona a URL como OBS Studio Browser Source no mesmo computador, **quando** configura dimensões, **então** widget renderiza com fundo transparente, sem barra de rolagem, respeitando estilo e atualização. Guias em inglês e pt-BR explicam criar fonte, copiar URL, escolher dimensões, pré-visualizar e revogar link, sem afirmar compatibilidade de SO não testada.
-
-## Escopo
-
-Inclui modelo persistente de widget/capacidade, catálogo de campos, validação de estilo/texto, gestão e prévia no painel, token limitado e revogável, página Browser Source, atualização/fallback/marcador de desatualização, testes e guias bilíngues.
-
-Exclui controle do OBS, importação/exportação de cenas, acesso por outra máquina, acesso público, UID, credenciais/segredos, custom HTML/CSS/script e alteração de regras do domínio.
-
-## Dev Notes
-
-Executor da implementação: @dev. Quality gate: @architect; @qa atua como revisor de qualidade complementar. Aprovação UX é gate separado antes da implementação da interface.
-
-### Restrições arquiteturais e segurança
-
-- Integrar ao servidor local existente e usar a porta de aplicação configurada; gerar URLs de loopback 127.0.0.1.
-- Usar um identificador não secreto na rota e segredo aleatório no fragmento da URL. A página lê o fragmento para memória e manda segredo só no Authorization header. O servidor armazena hash criptográfico, nunca o valor original.
-- Capability token é essencialmente uma senha: qualquer pessoa com URL ativa consegue ler o widget; documentar isso e prover revogação/regeneração imediata. Fragmento não vai ao servidor em request, mas permanece na configuração do OBS e deve ser tratado como secreto.
-- Resposta e página são no-store, no-referrer; não registrar headers de autenticação. Não expor dados via endpoint de administração.
-- Retornar só a projeção do widget e validar scope em cada consulta. Sem UID, IDs/segredos Twitch ou API financeira.
-- Falha transitória conserva o último valor apenas com indicador stale; 401/403 limpa imediatamente. Vazio usa fallback configurado.
-- Sem novas dependências/runtime externo até pesquisa e teste demonstrarem necessidade.
-
-### Sequência TDD obrigatória
-
-Para cada fatia, registrar Red comportamental, Green, Refactor e comandos em inglês e pt-BR antes de atualizar status. Integração PostgreSQL deve usar migrations reais.
-
-1. Contratos de domínio/catálogo de campos e allowlist de estilo.
-2. Persistência PostgreSQL, hash do token, scope, rotação e revogação.
-3. Rotas HTTP: gestão autenticada, leitura só com token, Host/Origin e não divulgação.
-4. Página Browser Source: atualização, fallback, stale marker, textos seguros e zero cache.
-5. Painel: seleção de fonte/fila, estilo, texto, preview, copiar/revogar/regenerar.
-6. Aceitação E2E e verificação OBS manual; documentar sistemas/versões efetivamente verificados.
-
-### Casos obrigatórios
-
-- Token errado, faltante, revogado, regenerado, cross-widget e revogação concorrente.
-- Corridas de update/revoke/delete; provar atomicidade em leitura concorrente: após resposta de sucesso da exclusão, o token antigo nunca retorna valor; token antigo também falha após reinício do app.
-- Capacidade sem sessão administrativa; rotas de mutação sempre exigem sessão/CSRF e revisão/idempotência existente.
-- Conta/fila/chamada vazia, fila removida/arquivada, 5xx/rede indisponível, recuperação, primeiro load sem valor, valores longos, caracteres especiais e Unicode.
-- Estilos inválidos, CSS injection, HTML/script, URL de fonte remota, resposta cacheada, referrer e headers/logs contendo segredo.
-- Exact response keys provêm apenas campo permitido; UID continua ausente em ambos modos de privacidade.
-- Propagação ≤2 segundos medida com app e PostgreSQL reais, oito widgets simultâneos de campos dinâmicos mistos, dez mudanças consecutivas e latência commit→DOM registrada.
-- Tamanho do texto fixo/fallback ≤240 com a mesma contagem Unicode na UI e API.
-
-## Questões para refinamento de UX antes da implementação da UI
-
-- Definir preset inicial, valores de cor e nomes exatos das famílias de fonte permitidas após revisar o painel e as orientações UX existentes em FND-6.
-- Não fazer campo de CSS livre para atingir “personalização completa”; traduzir opções em controles validados.
+Seguir `spec/plan.json` e `plan/implementation.yaml`: primeiro concluir prontidão FND-5/FND-6 e gates UX; depois regras test-first de campos/estilo, modelo e migrations PostgreSQL, repository/serviço, rotas protegidas, renderer e painel; terminar com verificações reais de banco/E2E e validação manual no OBS. Cada incremento segue Red → Green → Refactor. Os planos JSON/YAML possuem 21 subtarefas alinhadas com serviço, arquivos, verificação e dependências explícitas.
 
 ## Tarefas / Subtarefas
 
-- [ ] 0. Gates de prontidão (AC: 1, 3, 5, 9)
-  - [ ] 0.1 Aguardar FND-5 e FND-6 concluídas; verificar e mapear todas as projeções/fundações de segurança; bloquear qualquer implementação se faltar uma.
-  - [ ] 0.2 Obter aprovação de @aiox-ux-design-expert para jornada, presets/fonte, preview, estados vazio/erro/stale/revogado, acessibilidade e consistência antes de codificar UI.
-  - [ ] 0.3 Registrar a regra de 240 pontos de código Unicode com exemplos de fronteira 240/241.
-- [ ] 1. Validar dados e estilos (AC: 1, 3, 5, 7)
-  - [ ] 1.1 Escrever primeiro testes de catálogo atômico/scope/projeção e comprovar Red antes de implementar.
-- [ ] 2. Persistir widgets e capacidades (AC: 1, 2, 6, 8)
-  - [ ] 2.1 Testes de migration PostgreSQL para widget, hash, scope e unicidade/rotação/revogação.
-  - [ ] 2.2 Implementar schema com migration real; nunca persistir segredo em claro.
-  - [ ] 2.3 Testar persistência após restart, acesso por token antigo e concorrência revoke/read.
-- [ ] 2B. Implementar serviço/repositório de widget (AC: 1, 2, 6, 8)
-  - [ ] 2B.1 Testar operações e atomicidade da exclusão versus leitura concorrente.
-  - [ ] 2B.2 Implementar repository/application service após Red; inclusão de rotas depende deste serviço.
-- [ ] 3. Implementar política de estilo e texto (AC: 3, 4, 8)
-  - [ ] 3.1 Testar allowlist, limites, Unicode 240, fallback e rejeição de CSS/HTML antes da implementação.
-  - [ ] 3.2 Implementar schema de estilo e renderização via texto; retestar após Refactor.
-- [ ] 4. Implementar API de gestão e Browser Source (AC: 2, 5, 6, 7, 8)
-  - [ ] 4.1 Testes HTTP para auth/session/CSRF na gestão e Authorization token no endpoint somente leitura.
-  - [ ] 4.2 Criar, editar, preview, copiar, revogar e regenerar sem regras duplicadas; validar headers/cache/logging.
-  - [ ] 4.3 Escrever testes de browser para atualização ≤2s, vazio, stale marker, recuperação, 401/403 e injection.
-- [ ] 5. Integrar experiência do painel (AC: 1–4, 6)
-  - [ ] 5.1 Após aprovação UX do gate 0.2, testar controles de edição e fluxo de link.
-  - [ ] 5.2 Construir controles, preview e link lifecycle sem controles sem ação.
-- [ ] 6. Documentar/verificar OBS (AC: 9)
-  - [ ] 6.1 Testar Browser Source no OBS e registrar SO/versão/resultado observado.
-  - [ ] 6.2 Atualizar guias, story/index e issue nos dois idiomas com evidências reais.
-- [ ] 7. Gates finais
-  - [ ] 7.1 Executar testes focados, PostgreSQL real, npm run lint, npm run typecheck, npm test, npm run review:static, npm run validate:version, Prisma validate, Compose config e git diff --check.
-  - [ ] 7.2 Atualizar checklist/file list e status apenas após evidência.
+Os IDs e o significado correspondem aos planos JSON/YAML canônicos em inglês.
 
-## Testing
+- [ ] 0. Gates de prontidão
+  - [ ] 0.1 Confirmar conclusão de FND-5/FND-6 e mapear cada campo dinâmico às projeções entregues e aos serviços protegidos de painel/segurança; bloquear a story se alguma dependência estiver incompleta.
+  - [ ] 0.2 Concluir revisão UX e registrar fontes permitidas, aparência padrão, preview, estados vazio/desatualizado/indisponível, foco/rótulos acessíveis e consistência com o painel antes de codificar UI.
+  - [ ] 0.3 Escrever e validar exemplos comuns de contagem de pontos de código Unicode para texto fixo/fallback de 240 caracteres.
+- [ ] 1. Base de persistência de widget
+  - [ ] 1.1 Escrever testes de contrato de migration PostgreSQL real para criação/edição/exclusão, hash de capability, escopo do widget, rotação, revogação e persistência após reinício.
+  - [ ] 1.2 Adicionar modelo Prisma e migration SQL depois de os testes de banco falharem pelo comportamento ausente.
+- [ ] 2. Política de campo e capability
+  - [ ] 2.1 Escrever testes unitários de escopo do campo, seleção da fila, estados fallback, Unicode 240, allowlist de estilo e entrada maliciosa.
+  - [ ] 2.2 Implementar validação pura de campos/estilo somente depois do Red comportamental.
+  - [ ] 2.3 Escrever testes de geração aleatória de token, fronteira de persistência apenas do hash, escopo de widget único e rotação/revogação.
+  - [ ] 2.4 Implementar emissão/verificação/revogação da capability e repetir testes após Refactor.
+- [ ] 2B. Serviço/repositório de widget
+  - [ ] 2B.1 Escrever testes PostgreSQL/serviço para criar/editar/excluir, emitir/verificar hash, link de uso único, rotacionar/revogar e atomicidade entre leitura concorrente e exclusão.
+  - [ ] 2B.2 Implementar repository e serviço de aplicação de persistência/ciclo de capability após Red.
+- [ ] 3. API de gestão e leitura OBS
+  - [ ] 3.1 Escrever contratos HTTP de sessão/CSRF na gestão, Host/Origin, escopo do token, capability rejeitada/revogada, projeção exata, headers de cache/referrer e ausência de mutações.
+  - [ ] 3.2 Implementar rotas de gestão de widget e leitura somente por token por meio de projeções compartilhadas de domínio/aplicação.
+- [ ] 4. Página Browser Source
+  - [ ] 4.1 Escrever testes de browser para texto seguro, transparência, estilo selecionado, atualização em até 2s, fallback vazio, marcador stale, recuperação e limpeza em 401/403. Executar oito widgets em paralelo com campos dinâmicos variados; medir commit→DOM em dez mudanças consecutivas e registrar o ambiente.
+  - [ ] 4.2 Implementar renderer local de widget único e polling sem dependências/assets remotos.
+- [ ] 5. Painel
+  - [ ] 5.1 Concluir revisão UX de menu de fontes, aparência inicial, rótulos de estado vazio/desatualizado, preview e orientação de segredo antes de codificar UI do painel.
+  - [ ] 5.2 Escrever testes de browser para criar/editar/excluir widget, selecionar campo/fila, preview de estilo, validação, copiar, revogar e regenerar.
+  - [ ] 5.3 Implementar controles testados de gestão da overlay no painel local existente.
+- [ ] 6. Verificação OBS e documentação
+  - [ ] 6.1 Verificar o fluxo completo de criação à revogação e SLA de dois segundos contra app/banco locais reais.
+  - [ ] 6.2 Testar manualmente dimensões, transparência, estado ao vivo, falhas, recuperação e rotação de link no OBS Browser Source.
+  - [ ] 6.3 Publicar guias bilíngues e registrar evidência de implementação e gates efetivamente executados.
+## Testes e limite de status
 
-Ainda não executado: a story está em Draft e nenhum código FND-7 existe. Ao implementar, usar as ferramentas/gates listadas acima e registrar comandos/resultados reais.
+Ainda não executados: a story está em Draft e nenhum código FND-7 existe. Durante a implementação, executar todos os quality gates do projeto, atualizar checklist/file list e registrar saídas reais antes de alterar o status da story. Não declarar instalação ou compatibilidade OBS sem evidência do ambiente correspondente. Consulte `validation.md` e `spec/`.
 
-## File List
+## Lista de arquivos
 
-Planejada; atualizar durante implementação. Nenhum arquivo de aplicação foi alterado por esta story até o momento.
+Planejada; atualizar durante a implementação. Esta story não alterou arquivos da aplicação.
 
-## Change Log
+## Histórico de alterações
 
-- 2026-10-05 — Draft criado pelo Spec Pipeline COMPLEX após elicitação, pesquisa e revisão independente; aguardando gates de papel.
+- 2026-10-05 — Draft criado após Spec Pipeline COMPLEX, elicitação, pesquisa e revisões PM/PO/Arquitetura/QA aprovadas.
 
-## Dev Agent Record
+## Registro do agente de desenvolvimento
 
-### Agent Model Used
+### Modelo do agente
 
 Pendente implementação.
 
-### Debug Log References
+### Referências de depuração
 
 Nenhuma; implementação não iniciada.
 
-### Completion Notes List
+### Notas de conclusão
 
-Pendente implementação; não há código ou teste executado.
+Pendente implementação; não há código ou teste de produto executado.
 
-## QA Results
+## Resultados de QA
 
-Pendente aprovação final dos gates de planejamento e dos testes de implementação.
+Aprovado nos gates de planejamento. Testes de implementação e verificação manual no OBS continuam pendentes.
 
-## Evidência / Limitações
+## Evidências e limitações
 
-- Spec Pipeline COMPLEX, 17/25; pesquisa oficial OBS/RFC Editor feita em 2026-10-05.
-- QA independente aprovou a iteração anterior (4,4/5); nova rodada PO/arquitetura/PM está pendente após correções. Nenhum teste de implementação foi rodado.
-- A documentação OBS confirma Browser Source e transparência; verificação deste produto no OBS ainda está pendente.
+- Spec Pipeline COMPLEX, 17/25; pesquisa oficial de OBS/RFC Editor em 2026-10-05.
+- Revisão QA independente aprovada, 4,4/5; gates finais PM/PO/Arquitetura/QA aprovados. Não houve teste de implementação.
+- Documentação oficial do OBS confirma Browser Source e transparência; o produto ainda não foi validado no OBS.
