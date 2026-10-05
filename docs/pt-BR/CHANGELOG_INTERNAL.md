@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Adiciona o workflow GitHub Actions `ci/apps-quality-workflow`, scripts/configurações de ESLint e checagem TypeScript por app, tipos Node fixados, Actions fixadas por SHA imutável, testes com PostgreSQL/Compose, instalação da versão OpenGrep fixada pelo repositório e build da imagem de produção. Nenhum bundler frontend foi introduzido.
+
 - QA revisou a revisão `b7a08b3` da FND-4 e registrou PASS (100/100), ligando os sete critérios de aceitação às evidências automatizadas. Scripts Windows nativos e comportamento real da Twitch continuam explicitamente pendentes para validação do operador.
 
 - Adiciona bootstrap TLS local idempotente: autoridade certificadora privada e certificado de servidor `localhost` persistem no volume de segredos operacionais, somente o certificado público é exportado em `.local/` ignorado, e Fastify/healthcheck/scripts usam HTTPS. O cookie de sessão agora tem `Secure` e origens locais HTTP são rejeitadas. Aceitação Compose real verifica o endpoint HTTPS e a cadeia local; a confiança no host continua sendo uma etapa documentada do operador.

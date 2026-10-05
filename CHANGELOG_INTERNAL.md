@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Added the `ci/apps-quality-workflow` GitHub Actions workflow, per-app ESLint/TypeScript-check scripts/configs, pinned Node definitions, immutable SHA-pinned Actions, PostgreSQL/Compose-backed tests, OpenGrep installation at the repository-pinned release, and production image build. No frontend bundler was introduced.
+
 - QA reviewed FND-4 revision `b7a08b3` and recorded PASS (100/100), with all seven acceptance criteria traced to automated evidence. Native Windows scripts and live Twitch behavior remain explicitly unverified operator follow-up.
 
 - Added idempotent local TLS bootstrap: a private CA and `localhost` server certificate persist in the operational-secrets volume, only the CA certificate is exported under ignored `.local/`, and Fastify/healthcheck/start scripts use HTTPS. The protected session cookie now has `Secure`, and HTTP local Origins are rejected. Real Compose acceptance verifies the HTTPS endpoint and local certificate chain; host trust installation remains a documented operator step.

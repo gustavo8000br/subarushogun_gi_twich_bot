@@ -239,6 +239,18 @@ A ordem abaixo segue as etapas sugeridas na especificação. Cada story deve ser
 - **Evidência TDD — recursos locais:** `npm test -- --run tests/unit/web-route.test.js` falhou ao reproduzir uma importação externa do Google Fonts; depois da troca por fontes do sistema, passou e verifica que o CSS do painel não contém URLs externas.
 - **Limitações atuais:** API ainda não oferece idempotência/versão completas, ciclo de edição/abertura-fechamento/arquivamento/exclusão das recompensas, edição de políticas/telas de histórico, UI da propriedade da conta, testes end-to-end do callback de instalação e controles completos de status/reconciliação. A limpeza agora tem revisão e confirmação da mesma sessão no chat e painel. `POST /api/queues` registra de forma durável o pedido de recompensa Twitch pausada; não recebe resgates de viewers até a criação ser confirmada e o streamer abri-la. Aceite autorizado com Twitch real e validação de usabilidade seguem pendentes; o painel é provisório.
 
+#### OPS-1 — CI para API, infraestrutura e web
+
+**Status:** InReview.
+**Story:** `docs/stories/OPS-1/story.md` e `docs/pt-BR/stories/OPS-1/story.md`.
+**Escopo:** Verificações GitHub Actions por área da aplicação, suíte completa de integração, OpenGrep, validação de versão/Compose e build da imagem de produção.
+
+#### Evidências TDD OPS-1 — workflow CI por área da aplicação
+
+- **Red:** `npm test -- --run tests/unit/ci-workflow-contract.test.js` falhou porque `.github/workflows/ci.yml` não existia.
+- **Green:** contrato focado passou em 5 testes; a suíte local completa passou em 288 testes de 46 arquivos. Lint/typecheck por app, OpenGrep (0 achados), versão, configuração Compose e build da imagem passaram.
+- **Refactor:** o typecheck isolado de infra revelou dependência implícita de tipos Node transitivos; fixar `@types/node@24.13.6` e declarar `types: ["node"]` tornou as verificações de cada área independentes. Consulte `docs/pt-BR/stories/OPS-1/story.md` para evidências e lista de arquivos completas.
+
 ### Notas e gates do planejamento
 
 - O prompt do usuário é a fonte dos requisitos; este plano não introduz comportamento adicional ao produto.

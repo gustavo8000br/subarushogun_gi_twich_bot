@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Adiciona CI no GitHub Actions com lint e verificação de tipos separados para API/infra/web, suíte completa de testes, OpenGrep, validação de versão/Compose e build da imagem de produção.
+
 - Serve painel local e callback OAuth Twitch por HTTPS em `https://localhost`, com certificado local persistente e instrução para confiar nele uma vez.
 - Amplia as instruções de primeira execução para Windows/WSL 2 e Ubuntu/Linux, incluindo confiança no certificado HTTPS, callback Twitch, papéis do chatbot e do painel e estimativas de hardware identificadas como aproximadas e variáveis por versão.
 - Adiciona updater Git por fast-forward e desinstalador interativo para Linux/macOS e Windows; a desinstalação preserva os dados por padrão e exige confirmação digitada antes de apagar volumes.
