@@ -37,5 +37,13 @@ describe('local web entrypoint', () => {
     expect(script.body).toContain('/api/account/default');
     expect(script.body).toContain('/resolve-unknown');
     expect(script.body).toContain('Twitch não confirmou');
+    expect(script.body).toContain('reward-candidates');
+    expect(script.body).toContain('resolve-reward');
+    const page = await app.inject({ method: 'GET', url: '/' });
+    expect(page.body).toContain('id="reward-dialog"');
+    expect(script.body).toContain("from './application-setup.mjs'");
+    const setupModule = await app.inject({ method: 'GET', url: '/application-setup.mjs' });
+    expect(setupModule.statusCode).toBe(200);
+    expect(setupModule.body).toContain("form.elements.namedItem('clientSecret')");
   });
 });

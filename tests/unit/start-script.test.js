@@ -50,12 +50,12 @@ describe('POSIX first-run helper', () => {
     const { result, workingDirectory, browserUrl } = runStartScript();
     expect(result.status, result.stderr).toBe(0);
     expect(workingDirectory).toMatch(/project with spaces$/);
-    expect(browserUrl).toBe('http://localhost:3000');
+    expect(browserUrl).toBe('https://localhost:3000');
   });
 
   it('prints the panel address when the browser launcher cannot open it', () => {
     const { result } = runStartScript({ browserExitCode: 1 });
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain('Painel: http://localhost:3000');
+    expect(result.stdout).toContain('Painel: https://localhost:3000');
   });
 });

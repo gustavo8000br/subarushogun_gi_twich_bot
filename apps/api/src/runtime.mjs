@@ -2,6 +2,7 @@ import { createQueueRepository } from './persistence/queue-repository.mjs';
 import { createQueueDomainService } from './domain/queue-service.mjs';
 import { createFinancialOutboxWorker } from './outbox/financial-worker.mjs';
 import { createChatOutboxWorker } from './outbox/chat-worker.mjs';
+import { createRewardOutboxWorker } from './outbox/reward-worker.mjs';
 import { createOutboxLoop } from './outbox/loop.mjs';
 import { createTwitchIntegration } from './twitch/integration.mjs';
 import { createCallTimeoutLoop } from './outbox/timeout-loop.mjs';
@@ -11,8 +12,10 @@ export async function createApplicationRuntime({
   app, pool, prisma, repository = createQueueRepository(prisma),
   credentialRepository: suppliedCredentialRepository,
   financialWorker = null, chatWorker = null,
+  rewardWorker = null,
   financialWorkerFactory = createFinancialOutboxWorker,
   chatWorkerFactory = createChatOutboxWorker,
+  rewardWorkerFactory = createRewardOutboxWorker,
   integrationFactory = createTwitchIntegration,
   loopFactory = createOutboxLoop,
   timeoutLoopFactory = createCallTimeoutLoop,
@@ -24,6 +27,7 @@ export async function createApplicationRuntime({
   const integration = await integrationFactory({ credentialRepository, repository, domainService, onChatMessage, onStatus: onError });
   let financialImplementation = financialWorker ?? null;
   let chatImplementation = chatWorker ?? null;
+  let rewardImplementation = rewardWorker ?? null;
   const financial = {
     async processOne() {
       if (!integration.twitch) return 'idle';
@@ -38,13 +42,20 @@ export async function createApplicationRuntime({
       return chatImplementation.processOne();
     },
   };
-  const loops = [loopFactory({ worker: financial, onError }), loopFactory({ worker: chat, onError })];
+  const reward = {
+    async processOne() {
+      if (!integration.twitch) return 'idle';
+      rewardImplementation ??= rewardWorkerFactory({ repository, getTwitch: () => integration.twitch, twitch: integration.twitch });
+      return rewardImplementation.processOne();
+    },
+  };
+  const loops = [loopFactory({ worker: financial, onError }), loopFactory({ worker: chat, onError }), loopFactory({ worker: reward, onError })];
   for (const loop of loops) loop.start();
   const timeoutLoop = timeoutLoopFactory({ repository, domainService, onError, isRecovered: () => integration?.status === 'connected' });
   timeoutLoop.start();
   let stopped = false;
   return {
-    app, pool, prisma, repository, domainService, integration, financialWorker: financial, chatWorker: chat,
+    app, pool, prisma, repository, domainService, integration, financialWorker: financial, chatWorker: chat, rewardWorker: reward,
     get twitchStatus() { return integration?.status ?? 'not_configured'; },
     async stop() {
       if (stopped) return;

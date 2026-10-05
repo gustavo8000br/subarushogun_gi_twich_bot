@@ -11,6 +11,7 @@ async function createHarness({ domainService } = {}) {
   queue.entries = [{ id: 'entry-id', status: 'waiting', position: 1, userLogin: 'viewer', displayName: 'Viewer', uid: '123456789' }];
   const repository = {
     createQueue: vi.fn(async (input) => ({ ...queue, ...input, uidMode: input.uidMode })),
+    createQueueWithRewardIntent: vi.fn(async (input) => ({ status: 'pending', queue: { ...queue, ...input, remoteSyncStatus: 'pending_create' } })),
     getQueueById: vi.fn(async () => queue),
     addManualEntry: vi.fn(async () => ({ status: 'created', entry: { id: 'entry-id', status: 'waiting', position: 1 } })),
     listQueueProjection: vi.fn(async () => [queue]),
@@ -23,12 +24,12 @@ async function createHarness({ domainService } = {}) {
     clearActiveEntries: vi.fn(async ({ snapshot }) => ({ status: 'cleared', count: snapshot.length, refundsRequested: 1 })),
     setDefaultAccountLabel: vi.fn(async (label) => ({ label, defaultLabel: label, source: 'default' })),
   };
-  const integrations = { status: 'not_configured' };
+  const integrations = { status: 'not_configured', twitch: null };
   const clearConfirmation = createClearConfirmationService({ repository });
-  registerQueueRoutes(app, { repository, domainService, integrations, clearConfirmation, publicBaseUrl: 'http://localhost:3000', productVersion: 'v0.1.0-1234567-alpha' });
+  registerQueueRoutes(app, { repository, domainService, integrations, clearConfirmation, publicBaseUrl: 'https://localhost:3000', productVersion: 'v0.1.0-1234567-alpha' });
   const session = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
   const cookie = session.cookies[0];
-  const sessionHeaders = { host: 'localhost:3000', origin: 'http://localhost:3000', cookie: `${cookie.name}=${cookie.value}` };
+  const sessionHeaders = { host: 'localhost:3000', origin: 'https://localhost:3000', cookie: `${cookie.name}=${cookie.value}` };
   const headers = { ...sessionHeaders, 'x-csrf-token': session.json().csrfToken };
   return { app, repository, integrations, headers, sessionHeaders };
 }
@@ -36,25 +37,60 @@ async function createHarness({ domainService } = {}) {
 describe('local queue and setup API', () => {
   it('returns a safe setup projection and never emits configured secrets', async () => {
     const h = await createHarness();
-    h.integrations.getSetupState = vi.fn(async () => ({ callbackUrl: 'http://localhost:3000/callback', clientId: 'client-id', secretConfigured: true, clientSecret: 'must-not-leak' }));
+    h.integrations.getSetupState = vi.fn(async () => ({ callbackUrl: 'https://localhost:3000/callback', clientId: 'client-id', secretConfigured: true, clientSecret: 'must-not-leak', eligibility: { eligible: true, broadcasterType: 'affiliate', channelPointsAvailable: true, rewardCount: 46, rewardLimit: 50, nearRewardLimit: true, privateToken: 'must-not-leak' } }));
     const response = await h.app.inject({ method: 'GET', url: '/api/setup', headers: h.sessionHeaders });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ callbackUrl: 'http://localhost:3000/callback', clientId: 'client-id', secretConfigured: true, connected: false, broadcasterId: null, scopes: [], status: 'not_configured' });
+    expect(response.json()).toEqual({ callbackUrl: 'https://localhost:3000/callback', clientId: 'client-id', secretConfigured: true, connected: false, broadcasterId: null, scopes: [], status: 'not_configured', eligibility: { eligible: true, broadcasterType: 'affiliate', channelPointsAvailable: true, rewardCount: 46, rewardLimit: 50, nearRewardLimit: true } });
     expect(response.body).not.toContain('must-not-leak');
     await h.app.close();
   });
 
   it('validates queue configuration, requires a CSRF protected session, and returns an explicit DTO', async () => {
     const h = await createHarness();
-    const denied = await h.app.inject({ method: 'POST', url: '/api/queues', headers: { host: 'localhost:3000', origin: 'http://localhost:3000' }, payload: {} });
+    const denied = await h.app.inject({ method: 'POST', url: '/api/queues', headers: { host: 'localhost:3000', origin: 'https://localhost:3000' }, payload: {} });
     expect(denied.statusCode).toBe(401);
     const invalid = await h.app.inject({ method: 'POST', url: '/api/queues', headers: h.headers, payload: { slug: 'add', title: '<script>', cost: 0 } });
     expect(invalid.statusCode).toBe(400);
     expect(h.repository.createQueue).not.toHaveBeenCalled();
     const created = await h.app.inject({ method: 'POST', url: '/api/queues', headers: h.headers, payload: { slug: 'abismo', title: 'Abismo', cost: 100 } });
     expect(created.statusCode).toBe(201);
-    expect(created.json()).toMatchObject({ id: 'queue-id', slug: 'abismo', uidMode: 'hidden' });
+    expect(created.json()).toMatchObject({ id: 'queue-id', slug: 'abismo', uidMode: 'hidden', remoteSyncStatus: 'pending_create' });
+    expect(h.repository.createQueueWithRewardIntent).toHaveBeenCalledWith(expect.objectContaining({ slug: 'abismo', title: 'Abismo', cost: 100, uidMode: 'hidden', isOpen: false }));
+    expect(h.repository.createQueue).not.toHaveBeenCalled();
     expect(created.json()).toHaveProperty('entries');
+    await h.app.close();
+  });
+
+  it('offers only exact matching app-managed rewards and requires CSRF for operator association', async () => {
+    const h = await createHarness();
+    h.repository.getQueueById.mockResolvedValue({ ...h.repository.getQueueById.mock.results[0]?.value, id: 'queue-id', title: 'Abismo', cost: 100, rewardPrompt: 'Send UID', uidMode: 'visible', remoteSyncStatus: 'create_unknown' });
+    h.integrations.twitch = { getManagedRewards: vi.fn(async () => [
+      { id: 'candidate', title: 'Abismo', cost: 100, prompt: 'Send UID', userInputRequired: true, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true },
+      { id: 'other', title: 'Different', cost: 100, prompt: 'Send UID', userInputRequired: true, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true },
+    ]) };
+    h.repository.resolveUnknownRewardCreation = vi.fn(async (input) => ({ status: 'resolved', queue: { ...h.repository.getQueueById.mock.results[0].value, ...input, remoteSyncStatus: 'synced_manual' } }));
+
+    const candidates = await h.app.inject({ method: 'GET', url: '/api/queues/queue-id/reward-candidates', headers: h.sessionHeaders });
+    expect(candidates.statusCode).toBe(200);
+    expect(candidates.json()).toEqual([{ id: 'candidate', title: 'Abismo', cost: 100, prompt: 'Send UID' }]);
+    const denied = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/resolve-reward', headers: h.sessionHeaders, payload: { rewardId: 'candidate' } });
+    expect(denied.statusCode).toBe(403);
+    expect(h.repository.resolveUnknownRewardCreation).not.toHaveBeenCalled();
+    const resolved = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/resolve-reward', headers: h.headers, payload: { rewardId: 'candidate' } });
+    expect(resolved.statusCode).toBe(200);
+    expect(resolved.json()).toMatchObject({ status: 'resolved', remoteConfirmed: false });
+    expect(h.repository.resolveUnknownRewardCreation).toHaveBeenCalledWith({ queueId: 'queue-id', rewardId: 'candidate', actorId: h.headers.cookie.split('=')[1] });
+    await h.app.close();
+  });
+
+  it('refuses reward association when the selected managed reward no longer matches the intended configuration', async () => {
+    const h = await createHarness();
+    h.repository.getQueueById.mockResolvedValue({ id: 'queue-id', title: 'Abismo', cost: 100, rewardPrompt: 'Send UID', uidMode: 'visible', remoteSyncStatus: 'create_unknown' });
+    h.integrations.twitch = { getManagedRewards: vi.fn(async () => [{ id: 'candidate', title: 'Abismo', cost: 999, prompt: 'Send UID', userInputRequired: true, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true }]) };
+    h.repository.resolveUnknownRewardCreation = vi.fn();
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/resolve-reward', headers: h.headers, payload: { rewardId: 'candidate' } });
+    expect(response.statusCode).toBe(409);
+    expect(h.repository.resolveUnknownRewardCreation).not.toHaveBeenCalled();
     await h.app.close();
   });
 

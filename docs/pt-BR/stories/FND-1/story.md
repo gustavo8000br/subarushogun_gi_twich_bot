@@ -24,17 +24,18 @@
 1. Fontes de versão validam SemVer base em `package.json`, estágio permitido em `.release-stage` e identidade runtime completa em `VERSION`; antes de Git, o valor é `v0.1.0-0000000-alpha`. Materialização usa exatamente sete hexadecimais do commit de origem e não grava o próprio SHA no commit que o produz.
 2. Validação/inicialização comum não altera arquivos de versão. Git ausente usa marcador somente quando metadados Git não existem; se Git existe e a descoberta do commit falha, materialização falha.
 3. Primeira execução Compose faz bootstrap idempotente → PostgreSQL saudável → migrations Prisma concluídas → bot sem root. Senha aleatória do banco persiste e é montada em leitura no db/migrate/bot; não é impressa, armazenada em `.env`/YAML do produto ou regenerada para banco inicializado.
-4. PostgreSQL não publica porta no host; bot publica `127.0.0.1:3000:3000`, Fastify escuta em `0.0.0.0`, aguarda saúde do banco/conclusão de migrations e fornece healthchecks/encerramento gracioso. Scripts normais nunca removem volumes.
+4. PostgreSQL não publica porta no host; bot publica `127.0.0.1:3000:3000`, serve Fastify por HTTPS em `0.0.0.0`, aguarda saúde do banco/conclusão de migrations e fornece healthchecks/encerramento gracioso. Scripts normais nunca removem volumes.
 5. Prisma CLI/client/adapter fixados juntos em 6.19.3, `prisma-client-js`, `prisma.config.mjs` e `pg`; migrations impõem unicidade/integridade de chaves globais de fila, resgates, entrada ativa parcial, fonte/ID e operações financeiras.
 6. Suite real de integração PostgreSQL isolado executa migrations versionadas e comprova restrições/persistência/reinício; verificações Compose usam configuração Compose real. Sem SQLite ou Prisma mock como substituto.
-7. Scripts raiz executam `docker compose up --build -d`, aguardam o endereço publicado configurado, tentam abrir navegador no host e imprimem endereço exato alternativo. No Windows, caminhos do projeto com espaços funcionam.
+7. Scripts raiz executam `docker compose up --build -d`, aguardam o endereço `https://localhost` publicado configurado, tentam abrir navegador no host e imprimem endereço exato alternativo. No Windows, caminhos do projeto com espaços funcionam.
 8. Contrato do estado/endpoint runtime lê identidade completa sem confundi-la com versão do contrato API ou revisão do estado; URL do banco, senha e outros segredos não aparecem em erros/logs.
 9. Arquivos da aplicação ficam em `apps/web`, `apps/api`, `apps/infra`; `.env.example` AIOX permanece intacto como scaffolding e não é carregado como configuração do produto.
-10. Documentação/changelogs de instalação/versão/integração/stories em inglês e pt-BR são equivalentes e ligados. Registrar somente comandos e evidências realmente observados.
+10. Documentação/changelogs de instalação/versão/integração/stories em inglês e pt-BR são equivalentes e ligados, incluindo a etapa explícita de confiar na CA local. Registrar somente comandos e evidências realmente observados.
+11. O updater Git opcional só avança por fast-forward uma cópia `main` limpa antes de reconstruir o Compose. O desinstalador preserva volumes Docker por padrão; apagar dados permanentemente exige resposta afirmativa e digitar `APAGAR`. Helpers Windows e POSIX seguem o mesmo comportamento e nunca removem o checkout fonte.
 
 ## Escopo
 
-Inclui: base de package/tooling, validação/materialização exata da versão runtime, imagem Docker e grafo Compose, bootstrap persistente de segredo único, schema PostgreSQL/Prisma e migrations SQL, scripts de início/saúde/encerramento, infraestrutura de teste de integração isolada e documentação operacional/de versão bilíngue necessária a esses comportamentos.
+Inclui: base de package/tooling, validação/materialização exata da versão runtime, imagem Docker e grafo Compose, bootstrap persistente de segredo único do banco/TLS, transporte HTTPS do painel/callback local, schema PostgreSQL/Prisma e migrations SQL, scripts de início/saúde/encerramento, infraestrutura de teste de integração isolada e documentação operacional/de versão bilíngue necessária a esses comportamentos.
 
 Fora de escopo: domínio de fila, credenciais/OAuth Twitch, chamadas Twitch reais, comandos e implementação do painel. Pertencem a FND-2 a FND-6 e cada qual terá seu ciclo TDD.
 
@@ -96,10 +97,12 @@ Para cada comportamento abaixo, criar/executar primeiro o teste e observar falha
   - [x] 5.1 Adicionar testes da versão, resultado da consulta real ao banco, Twitch não configurada e falha de banco sanitizada; observar Red.
   - [x] 5.2 Implementar projeção de saúde e ler `VERSION` do runtime; testes focados passam.
   - [x] 5.3 Reconstruir imagem local e conferir resposta via loopback; executar testes, lint e typecheck completos.
-- [ ] 5. Aceitação operacional e documentação (AC: 3, 4, 6, 7, 9, 10)
+- [ ] 5. Aceitação operacional e documentação (AC: 3, 4, 6, 7, 9, 10, 11)
   - [x] 5.1 Adicionar/executar aceitação Compose isolada de primeira execução/reinício; health, migrations reais, marcador persistido, hash do segredo estável e parada/início gracioso do bot foram verificados.
   - [x] 5.2 Verificar health, encerramento gracioso, ordem Compose e volumes persistentes; helper POSIX passou com cópia do projeto em caminho com espaços e fallback de abertura do navegador. Batch Windows foi conferido estruturalmente, mas não executado neste host Linux.
   - [x] 5.3 Criar READMEs centrais e referência de integrações em inglês/pt-BR com links recíprocos; registrar evidência Red/Green/Refactor do contrato documental e atualizar changelogs pareados.
+  - [x] 5.4 Adicionar com teste primeiro bootstrap TLS local, callback HTTPS, cookie de sessão seguro, Origin HTTPS exato e instruções de confiança no host; Compose isolado real confirma TLS/cadeia do certificado e persistência após reinício.
+  - [x] 5.5 Adicionar com TDD updater Git fast-forward e helpers interativos de desinstalação POSIX/Windows; preservar volumes por padrão e exigir confirmação digitada para apagar. Comportamento POSIX executado nos testes; `.bat` verificado por contrato somente no Linux.
 - [x] 6. Gates de qualidade e evidências (AC: todos; execução Windows permanece como item explícito de aceitação aberto)
   - [x] 6.1 `npm run lint`, `npm run typecheck`, `npm test`, integração PostgreSQL/migrations, config/aceitação Compose e checks de versão passam em Linux.
   - [x] 6.2 Atualizar os dois índices de stories e file list/checklist com resultados observados; manter FND-1 InProgress enquanto a execução Windows não estiver disponível.
@@ -212,4 +215,9 @@ Funções de versão, Compose/bootstrap, schema de migration, runtime Linux, doc
 - `CHANGELOG.md`, `CHANGELOG_INTERNAL.md` e changelogs equivalentes pt-BR
 - `docs/VERSIONING.md` e `docs/pt-BR/VERSIONING.md`
 - `.aiox-core/core/quality-gates/quality-gate-config.yaml`
+- `apps/infra/src/bootstrap-secret.mjs`, `apps/infra/scripts/bootstrap.mjs`, `.gitignore`, `.dockerignore`, `compose.yaml`, `Dockerfile`
+- `apps/api/src/server.mjs`, `apps/api/src/http/local-session.mjs`, `apps/api/src/http/queue-routes.mjs`, `apps/api/src/twitch/auth-runtime.mjs`, `apps/api/src/twitch/integration.mjs`
+- `apps/infra/scripts/healthcheck.mjs`, `iniciar.sh`, `iniciar.bat`, `apps/web/index.html`
+- `tests/unit/bootstrap-secret.test.js`, `tests/unit/local-session.test.js`, `tests/unit/local-ignore-policy.test.js`, `tests/unit/queue-routes.test.js`, `tests/unit/twitch-auth-runtime.test.js`, `tests/unit/twitch-oauth.test.js`, `tests/unit/start-script.test.js`, `tests/integration/compose-contract.test.js`, `tests/integration/compose-runtime.test.js`
+- `README.md`, `README.pt-BR.md`, `docs/stories/FND-0/spec/spec.md`, `docs/pt-BR/stories/FND-0/spec/spec.md`, `docs/integrations.md`, `docs/pt-BR/integrations.md`, índices de stories e changelogs de usuários/internos nos dois idiomas
 - Fontes do planejamento constam na entrada FND-0 de `docs/stories.md`.

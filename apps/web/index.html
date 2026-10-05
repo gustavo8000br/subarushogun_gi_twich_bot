@@ -22,7 +22,7 @@
         <article class="panel setup-panel">
           <div class="panel-heading"><div><p class="eyebrow">PRIMEIROS PASSOS</p><h2>Conectar canal</h2></div><span class="step-number">01</span></div>
           <p class="muted">Crie um aplicativo confidencial no console Twitch. O callback deste painel é:</p>
-          <code class="callback" id="callback-url">http://localhost:3000/callback</code>
+          <code class="callback" id="callback-url">https://localhost:3000/callback</code>
           <a class="text-link" href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Abrir console de desenvolvedor ↗</a>
           <form id="credentials-form" class="form-stack">
             <label>Client ID<input name="clientId" autocomplete="off" required maxlength="128" placeholder="Seu Client ID"></label>
@@ -56,6 +56,7 @@
       <footer><span>Fila Local · operação local-first</span><span id="last-refresh">Atualizando estado</span></footer>
     </main>
     <dialog id="entry-dialog"><form method="dialog" id="entry-form"><div class="panel-heading"><div><p class="eyebrow">ADICIONAR MANUALMENTE</p><h2>Entrada na fila</h2></div><button class="icon-button" value="cancel" aria-label="Fechar">×</button></div><input type="hidden" name="queueId"><label>Login Twitch<input name="login" required maxlength="25" placeholder="@usuario"></label><label>UID (opcional)<input name="uid" inputmode="numeric" pattern="[0-9]{9}" maxlength="9" placeholder="9 dígitos"></label><p class="notice" id="entry-notice" role="status"></p><button class="button button-primary" type="submit">Adicionar à fila</button></form></dialog>
+    <dialog id="reward-dialog"><form method="dialog" id="reward-form"><div class="panel-heading"><div><p class="eyebrow">ASSOCIAÇÃO MANUAL</p><h2>Recompensa Twitch</h2></div><button class="icon-button" value="cancel" aria-label="Fechar">×</button></div><p class="muted">A resposta anterior da Twitch ficou ambígua. Escolha a recompensa gerenciável que corresponde a esta fila. Essa escolha será auditada e não afirma confirmação financeira pela API.</p><input type="hidden" name="queueId"><label>Recompensas compatíveis<select name="rewardId" required></select></label><p class="notice" id="reward-notice" role="status"></p><button class="button button-primary" type="submit">Vincular recompensa selecionada</button></form></dialog>
     <div id="toast" role="status" aria-live="polite"></div>
   </body>
 </html>

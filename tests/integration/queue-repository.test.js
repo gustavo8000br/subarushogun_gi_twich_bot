@@ -69,6 +69,118 @@ describe('PostgreSQL queue repository', () => {
     ]);
   });
 
+  it('persists queue creation and a managed reward creation intent atomically', async () => {
+    const slug = `reward-${randomUUID().slice(0, 8)}`;
+    const result = await repository.createQueueWithRewardIntent({
+      slug,
+      title: 'Reward queue',
+      cost: 250,
+      rewardPrompt: 'Send only your UID.',
+      uidMode: 'visible',
+      actorId: 'operator-session',
+    });
+
+    expect(result.queue).toMatchObject({ slug, title: 'Reward queue', rewardId: null, remoteSyncStatus: 'pending_create' });
+    const task = await prisma.outbox.findUnique({ where: { idempotencyKey: `queue:${result.queue.id}:reward.create` } });
+    expect(task).toMatchObject({
+      operationType: 'reward.create',
+      entityType: 'queue',
+      entityId: result.queue.id,
+      status: 'pending',
+      payload: { title: 'Reward queue', cost: 250, prompt: 'Send only your UID.', uidMode: 'visible' },
+    });
+    expect(await prisma.auditLog.findMany({ where: { queueId: result.queue.id } })).toMatchObject([
+      { event: 'queue.reward_creation_requested', actorId: 'operator-session', origin: 'panel' },
+    ]);
+  });
+
+  it('rolls back queue and reward intent together when queue keys collide', async () => {
+    const slug = `collision-${randomUUID().slice(0, 8)}`;
+    await repository.createQueue({ slug, title: 'Existing', cost: 1 });
+
+    await expect(repository.createQueueWithRewardIntent({ slug, title: 'Duplicate', cost: 250 }))
+      .rejects.toMatchObject({ code: 'DUPLICATE_QUEUE_KEY' });
+    expect(await prisma.queue.count({ where: { slug } })).toBe(1);
+    expect(await prisma.outbox.count({ where: { operationType: 'reward.create' } })).toBe(1);
+  });
+
+  it('claims reward creation with a lease, records safe intent, confirms ownership, and recovers expired leases', async () => {
+    const queue = await repository.createQueueWithRewardIntent({
+      slug: `reward-worker-${randomUUID().slice(0, 8)}`, title: 'Worker queue', cost: 250,
+      rewardPrompt: 'Only UID.', uidMode: 'visible',
+    });
+    const now = new Date(Date.now() + 1000);
+    const claimed = await repository.claimNextRewardOperation({ now: new Date(now.getTime() + 86_400_000), leaseMs: 1000 });
+    expect(claimed).toMatchObject({ operationType: 'reward.create', status: 'processing', attempts: 1, queue: { id: queue.queue.id } });
+    expect(claimed.leaseToken).toBeTruthy();
+    expect(await repository.prepareRewardCreate(claimed.id, { baselineRewardIds: ['old-id'], requestMayHaveReachedTwitch: true }, claimed.leaseToken)).toBe(true);
+
+    const task = await prisma.outbox.findUnique({ where: { id: claimed.id } });
+    expect(task).toMatchObject({ status: 'processing', payload: { baselineRewardIds: ['old-id'], requestMayHaveReachedTwitch: true } });
+    expect(await repository.confirmRewardCreated(claimed.id, { rewardId: 'managed-reward-id' }, claimed.leaseToken)).toBe(true);
+    expect(await prisma.queue.findUnique({ where: { id: queue.queue.id } })).toMatchObject({ rewardId: 'managed-reward-id', remoteSyncStatus: 'synced' });
+    expect(await prisma.outbox.findUnique({ where: { id: claimed.id } })).toMatchObject({ status: 'confirmed', leaseToken: null });
+
+    const nextQueue = await repository.createQueueWithRewardIntent({
+      slug: `reward-lease-${randomUUID().slice(0, 8)}`, title: 'Lease queue', cost: 300,
+    });
+    const firstClaim = await repository.claimNextRewardOperation({ now: new Date(now.getTime() + 86_401_000), leaseMs: 1000 });
+    expect(firstClaim).toMatchObject({ queue: { id: nextQueue.queue.id }, attempts: 1 });
+    const recovered = await repository.claimNextRewardOperation({ now: new Date(now.getTime() + 86_402_001), leaseMs: 1000 });
+    expect(recovered).toMatchObject({ id: firstClaim.id, queue: { id: nextQueue.queue.id }, attempts: 2 });
+    expect(recovered.leaseToken).not.toBe(firstClaim.leaseToken);
+  });
+
+  it('keeps an ambiguous reward association visible and prevents queue activation', async () => {
+    const result = await repository.createQueueWithRewardIntent({
+      slug: `reward-unknown-${randomUUID().slice(0, 8)}`, title: 'Unknown queue', cost: 100,
+    });
+    const task = await repository.claimNextRewardOperation({ now: new Date(Date.now() + 86_400_000) });
+    await repository.unknownRewardOperation(task.id, 'reward_create_association_ambiguous', task.leaseToken);
+    expect(await prisma.queue.findUnique({ where: { id: result.queue.id } })).toMatchObject({ rewardId: null, remoteSyncStatus: 'create_unknown' });
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'unknown', lastError: 'reward_create_association_ambiguous', leaseToken: null });
+  });
+
+  it('resolves an ambiguous managed reward only with an operator actor and preserves the audit trail', async () => {
+    const result = await repository.createQueueWithRewardIntent({
+      slug: `reward-manual-${randomUUID().slice(0, 8)}`, title: 'Manual resolve', cost: 125,
+    });
+    const task = await repository.claimNextRewardOperation({ now: new Date(Date.now() + 86_400_000) });
+    await repository.unknownRewardOperation(task.id, 'reward_create_association_ambiguous', task.leaseToken);
+
+    const resolved = await repository.resolveUnknownRewardCreation({ queueId: result.queue.id, rewardId: 'picked-managed-reward', actorId: 'operator-session' });
+    expect(resolved).toMatchObject({ status: 'resolved', queue: { rewardId: 'picked-managed-reward', remoteSyncStatus: 'synced_manual', isOpen: false } });
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'resolved_manual', lastError: null });
+    expect(await prisma.auditLog.findMany({ where: { queueId: result.queue.id, event: 'queue.reward_creation_resolved_manually' } })).toMatchObject([
+      { actorId: 'operator-session', origin: 'panel', safeDetail: { rewardId: 'picked-managed-reward', remoteConfirmed: false } },
+    ]);
+  });
+
+  it('rejects manual reward association when no ambiguous creation is pending', async () => {
+    const queue = await repository.createQueue({ slug: `not-unk-${randomUUID().slice(0, 8)}`, title: 'Not unknown', cost: 50 });
+    await expect(repository.resolveUnknownRewardCreation({ queueId: queue.id, rewardId: 'arbitrary-reward', actorId: 'operator-session' }))
+      .rejects.toMatchObject({ code: 'REWARD_ASSOCIATION_NOT_PENDING' });
+  });
+
+  it('clears the preflight request marker transactionally after Twitch explicitly rate-limits reward creation', async () => {
+    const result = await repository.createQueueWithRewardIntent({
+      slug: `rate-${randomUUID().slice(0, 8)}`, title: 'Rate limited queue', cost: 50,
+    });
+    const now = new Date(Date.now() + 86_400_000);
+    const task = await repository.claimNextRewardOperation({ now });
+    expect(task.queue.id).toBe(result.queue.id);
+    await repository.prepareRewardCreate(task.id, { baselineRewardIds: ['known-before'], requestMayHaveReachedTwitch: true }, task.leaseToken);
+    await repository.retryRewardOperation(task.id, {
+      nextAttemptAt: new Date(now.getTime() + 17_000), errorCode: 'reward_create_rate_limited',
+      payloadUpdates: { requestMayHaveReachedTwitch: false },
+    }, task.leaseToken);
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({
+      status: 'retry', attempts: 1,
+      payload: { baselineRewardIds: ['known-before'], requestMayHaveReachedTwitch: false },
+      lastError: 'reward_create_rate_limited', leaseToken: null,
+    });
+  });
+
   it('calls a bounded next group atomically and returns prior positions', async () => {
     const queue = await repository.createQueue({ slug: `call-${randomUUID().slice(0, 8)}`, title: 'Call', cost: 1 });
     const first = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `c-${randomUUID()}`, userLogin: 'first', displayName: 'First' });

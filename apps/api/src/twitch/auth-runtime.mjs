@@ -13,7 +13,7 @@ function identityMatches(info, credential) {
 export async function createRefreshingAuthRuntime({
   credential, credentialRepository, validateToken = getTokenInfo,
   providerFactory = (config) => new RefreshingAuthProvider(config),
-  redirectUri = 'http://localhost:3000/callback', clock = () => new Date(),
+  redirectUri = 'https://localhost:3000/callback', clock = () => new Date(),
   setIntervalImpl = setNodeInterval, clearIntervalImpl = clearNodeInterval,
   onAuthLost = () => undefined, onError = () => undefined,
 }) {

@@ -2,14 +2,17 @@ name: subarushogun-gi-twitch-queue-bot
 
 services:
   bootstrap:
-    image: node:24.20.0-bookworm-slim
+    image: subarushogun/gi-twitch-queue-bot:v0.1.0-0000000-alpha
+    build: .
     user: "0:0"
     working_dir: /workspace
     volumes:
       - ./package.json:/workspace/package.json:ro
       - ./apps/infra/src/bootstrap-secret.mjs:/workspace/apps/infra/src/bootstrap-secret.mjs:ro
       - ./apps/infra/scripts/bootstrap.mjs:/workspace/apps/infra/scripts/bootstrap.mjs:ro
+      - ./apps/infra/src/bootstrap-secret.mjs:/workspace/apps/infra/src/bootstrap-secret.mjs:ro
       - operational_secrets:/var/lib/aiox/secrets
+      - ${LOCAL_CERT_DIRECTORY:-./.local}:/var/lib/aiox/export
     command: ["node", "apps/infra/scripts/bootstrap.mjs"]
     restart: "no"
 
@@ -55,8 +58,10 @@ services:
       NODE_ENV: production
       APP_HOST: 0.0.0.0
       APP_PORT: ${APP_PORT:-3000}
-      PUBLIC_BASE_URL: http://localhost:${APP_PORT:-3000}
-      CALLBACK_URL: http://localhost:${APP_PORT:-3000}/callback
+      PUBLIC_BASE_URL: https://localhost:${APP_PORT:-3000}
+      CALLBACK_URL: https://localhost:${APP_PORT:-3000}/callback
+      TLS_CERT_FILE: /run/secrets/localhost.crt
+      TLS_KEY_FILE: /run/secrets/localhost.key
     ports:
       - "127.0.0.1:${APP_PORT:-3000}:${APP_PORT:-3000}"
     volumes:

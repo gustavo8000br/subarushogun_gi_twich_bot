@@ -18,7 +18,7 @@ describe('application runtime composition', () => {
     expect(runtime.twitchStatus).toBe('not_configured');
     expect(starts).toContain('loop-start');
     await runtime.stop();
-    expect(starts).toEqual(['loop-start', 'loop-start', 'loop-stop', 'loop-stop', 'twitch-stop', 'http-close', 'prisma-close', 'pool-close']);
+    expect(starts).toEqual(['loop-start', 'loop-start', 'loop-start', 'loop-stop', 'loop-stop', 'loop-stop', 'twitch-stop', 'http-close', 'prisma-close', 'pool-close']);
   });
 
   it('reports runtime Twitch state dynamically after integration status changes', async () => {

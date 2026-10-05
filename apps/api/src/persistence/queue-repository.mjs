@@ -175,7 +175,7 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
       const leaseUntil = new Date(now.getTime() + leaseMs);
       const rows = await prisma.$queryRaw`
         WITH candidate AS (
-          SELECT id FROM outbox
+          SELECT outbox.id FROM outbox
           WHERE operation_type = 'chat.call'
             AND ((status IN ('pending', 'retry') AND next_attempt_at <= ${now})
               OR (status = 'processing' AND lease_until <= ${now}))
@@ -367,6 +367,162 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
         }
         throw error;
       }
+    },
+
+    async createQueueWithRewardIntent({ slug, aliases = [], title, cost, actorId = null, ...settings }) {
+      const normalizedKeys = normalizeQueueKeys({ slug, aliases });
+      try {
+        return await prisma.$transaction(async (tx) => {
+          const queue = await tx.queue.create({
+            data: {
+              ...settings,
+              slug: normalizedKeys.slug,
+              title,
+              cost,
+              remoteSyncStatus: 'pending_create',
+            },
+          });
+          await tx.queueKey.createMany({
+            data: normalizedKeys.keys.map(({ key, keyType }) => ({ key, keyType, queueId: queue.id })),
+          });
+          await tx.outbox.create({
+            data: {
+              operationType: 'reward.create',
+              entityType: 'queue',
+              entityId: queue.id,
+              idempotencyKey: `queue:${queue.id}:reward.create`,
+              payload: {
+                title: queue.title,
+                cost: queue.cost,
+                prompt: queue.rewardPrompt,
+                uidMode: queue.uidMode,
+              },
+            },
+          });
+          await tx.auditLog.create({
+            data: {
+              queueId: queue.id,
+              event: 'queue.reward_creation_requested',
+              actorId,
+              origin: 'panel',
+              safeDetail: { remoteSyncStatus: 'pending_create' },
+            },
+          });
+          return { queue, status: 'pending' };
+        });
+      } catch (error) {
+        if (isUniqueConstraintError(error)) {
+          throw repositoryError('DUPLICATE_QUEUE_KEY', 'Queue slug or alias is already in use');
+        }
+        throw error;
+      }
+    },
+
+    async claimNextRewardOperation({ now = clock(), leaseMs = 30_000 } = {}) {
+      const leaseUntil = new Date(now.getTime() + leaseMs);
+      const rows = await prisma.$queryRaw`
+        WITH candidate AS (
+          SELECT outbox.id, outbox.entity_id FROM outbox
+          WHERE operation_type = 'reward.create'
+            AND EXISTS (SELECT 1 FROM queues WHERE queues.id::text = outbox.entity_id
+              AND queues.remote_sync_status IN ('pending_create', 'create_unknown'))
+            AND ((outbox.status IN ('pending', 'retry') AND outbox.next_attempt_at <= ${now})
+              OR (outbox.status = 'processing' AND outbox.lease_until <= ${now}))
+          ORDER BY outbox.created_at DESC, outbox.id ASC
+          FOR UPDATE OF outbox SKIP LOCKED
+          LIMIT 1
+        )
+        UPDATE outbox AS task
+        SET status = 'processing', attempts = task.attempts + 1,
+            lease_until = ${leaseUntil}, lease_token = gen_random_uuid(), updated_at = ${now}
+        FROM candidate
+        WHERE task.id = candidate.id
+          AND task.entity_id = candidate.entity_id
+        RETURNING task.id, task.operation_type AS "operationType", task.entity_id AS "entityId",
+          task.payload, task.attempts, task.status, task.lease_until AS "leaseUntil", task.lease_token AS "leaseToken"
+      `;
+      const claimed = rows[0];
+      if (!claimed) return null;
+      const queue = await prisma.queue.findUnique({ where: { id: claimed.entityId } });
+      return { ...claimed, queue };
+    },
+
+    async prepareRewardCreate(outboxId, payload, leaseToken) {
+      const current = await prisma.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken } });
+      if (!current) return false;
+      const updated = await prisma.outbox.updateMany({ where: { id: outboxId, status: 'processing', leaseToken }, data: { payload: { ...current.payload, ...payload } } });
+      return updated.count === 1;
+    },
+
+    async confirmRewardCreated(outboxId, { rewardId }, leaseToken) {
+      return prisma.$transaction(async (tx) => {
+        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken, operationType: 'reward.create' } });
+        if (!task || !task.entityId || typeof rewardId !== 'string' || rewardId.length === 0) return false;
+        const queue = await tx.queue.findUnique({ where: { id: task.entityId } });
+        if (!queue || queue.rewardId) return false;
+        const updated = await tx.queue.updateMany({ where: { id: queue.id, rewardId: null, remoteSyncStatus: { in: ['pending_create', 'create_unknown'] } }, data: { rewardId, remoteSyncStatus: 'synced', version: { increment: 1 } } });
+        if (updated.count !== 1) return false;
+        await tx.outbox.update({ where: { id: outboxId }, data: { status: 'confirmed', lastError: null, leaseToken: null, leaseUntil: null } });
+        await tx.auditLog.create({ data: { queueId: queue.id, event: 'queue.reward_creation_confirmed', origin: 'system', safeDetail: { remoteSyncStatus: 'synced' } } });
+        return true;
+      });
+    },
+
+    async retryRewardOperation(outboxId, { nextAttemptAt, errorCode, payloadUpdates = null }, leaseToken) {
+      return prisma.$transaction(async (tx) => {
+        const current = await tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken } });
+        if (!current) return false;
+        const updated = await tx.outbox.updateMany({ where: { id: outboxId, status: 'processing', leaseToken }, data: {
+          status: 'retry', nextAttemptAt, lastError: errorCode,
+          ...(payloadUpdates ? { payload: { ...current.payload, ...payloadUpdates } } : {}),
+          leaseToken: null, leaseUntil: null,
+        } });
+        return updated.count === 1;
+      });
+    },
+
+    async failedRewardOperation(outboxId, errorCode, leaseToken) {
+      return prisma.$transaction(async (tx) => {
+        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken, operationType: 'reward.create' } });
+        if (!task) return false;
+        await tx.outbox.update({ where: { id: outboxId }, data: { status: 'failed', lastError: errorCode, leaseToken: null, leaseUntil: null } });
+        if (task.entityId) await tx.queue.updateMany({ where: { id: task.entityId, rewardId: null }, data: { remoteSyncStatus: 'create_failed', version: { increment: 1 } } });
+        return true;
+      });
+    },
+
+    async unknownRewardOperation(outboxId, errorCode, leaseToken) {
+      return prisma.$transaction(async (tx) => {
+        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken, operationType: 'reward.create' } });
+        if (!task) return false;
+        await tx.outbox.update({ where: { id: outboxId }, data: { status: 'unknown', lastError: errorCode, leaseToken: null, leaseUntil: null } });
+        if (task.entityId) await tx.queue.updateMany({ where: { id: task.entityId, rewardId: null }, data: { remoteSyncStatus: 'create_unknown', version: { increment: 1 } } });
+        return true;
+      });
+    },
+
+    async resolveUnknownRewardCreation({ queueId, rewardId, actorId }) {
+      if (typeof actorId !== 'string' || !actorId || typeof rewardId !== 'string' || !rewardId) {
+        throw repositoryError('REWARD_ASSOCIATION_ACTOR_REQUIRED', 'Reward association requires an operator and a Twitch reward ID');
+      }
+      return withQueueTransaction(prisma, queueId, async (tx) => {
+        const queue = await tx.queue.findUnique({ where: { id: queueId } });
+        if (!queue || queue.rewardId || queue.remoteSyncStatus !== 'create_unknown') {
+          throw repositoryError('REWARD_ASSOCIATION_NOT_PENDING', 'Queue has no unresolved reward creation');
+        }
+        const task = await tx.outbox.findFirst({ where: { operationType: 'reward.create', entityType: 'queue', entityId: queueId, status: 'unknown' } });
+        if (!task) throw repositoryError('REWARD_ASSOCIATION_NOT_PENDING', 'Queue has no unresolved reward creation');
+        const updated = await tx.queue.updateMany({ where: { id: queueId, rewardId: null, remoteSyncStatus: queue.remoteSyncStatus }, data: { rewardId, remoteSyncStatus: 'synced_manual', version: { increment: 1 } } });
+        if (updated.count !== 1) throw repositoryError('REWARD_ASSOCIATION_NOT_PENDING', 'Queue reward association changed concurrently');
+        await tx.outbox.update({ where: { id: task.id }, data: { status: 'resolved_manual', lastError: null, leaseToken: null, leaseUntil: null } });
+        const resolvedQueue = await tx.queue.findUnique({ where: { id: queueId } });
+        await tx.auditLog.create({ data: {
+          queueId, actorId, origin: 'panel', event: 'queue.reward_creation_resolved_manually',
+          previousState: 'create_unknown', nextState: 'synced_manual', reason: 'operator_selected_managed_reward',
+          safeDetail: { rewardId, remoteConfirmed: false },
+        } });
+        return { status: 'resolved', queue: resolvedQueue };
+      });
     },
 
     async replaceQueueKeys({ queueId, slug, aliases = [] }) {
@@ -602,8 +758,8 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
         WITH candidate AS (
           SELECT id FROM outbox
           WHERE operation_type IN ('redemption.cancel', 'redemption.fulfill')
-            AND ((status IN ('pending', 'retry') AND next_attempt_at <= ${now})
-            OR (status = 'processing' AND lease_until <= ${now}))
+            AND ((outbox.status IN ('pending', 'retry') AND outbox.next_attempt_at <= ${now})
+              OR (outbox.status = 'processing' AND outbox.lease_until <= ${now}))
           ORDER BY next_attempt_at ASC, created_at ASC
           FOR UPDATE SKIP LOCKED
           LIMIT 1

@@ -9,6 +9,7 @@ Este arquivo define as instrucoes do projeto para o Codex CLI.
 2. Priorize `CLI First -> Observability Second -> UI Third`
 3. Trabalhe por stories em `docs/stories/`
 4. Nao invente requisitos fora dos artefatos existentes
+5. Documentacao e obrigatoria: atualize os documentos afetados em ingles e pt-BR no mesmo incremento; uma story ou PR nao esta concluida sem ambas as versoes equivalentes e verificadas
 <!-- AIOX-MANAGED-END: core -->
 
 <!-- AIOX-MANAGED-START: quality -->
@@ -18,6 +19,7 @@ Este arquivo define as instrucoes do projeto para o Codex CLI.
 - Rode `npm run typecheck`
 - Rode `npm test`
 - Atualize checklist e file list da story antes de concluir
+- Confirme que README, stories, integracoes, changelog e demais documentos afetados estao sincronizados em ingles e pt-BR antes de concluir story ou PR
 <!-- AIOX-MANAGED-END: quality -->
 
 <!-- AIOX-MANAGED-START: codebase -->

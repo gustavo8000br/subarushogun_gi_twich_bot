@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 runtime-secrets
+.local
 node_modules
 coverage
 data

@@ -4,6 +4,14 @@ export function normalizeRedemptionStatus(status) {
   return 'UNKNOWN';
 }
 
+export function normalizeRewardCreateInput(data) {
+  return {
+    ...data,
+    autoFulfill: false,
+    should_redemptions_skip_request_queue: false,
+  };
+}
+
 function redemptionStatus(value) {
   if (value?.isFulfilled === true) return 'FULFILLED';
   if (value?.isCanceled === true) return 'CANCELED';
@@ -28,7 +36,7 @@ function rewardProjection(reward) {
 export function createTwitchApiAdapter({ api, broadcasterId }) {
   return {
     async createReward(data) {
-      return rewardProjection(await api.channelPoints.createCustomReward(broadcasterId, { ...data, autoFulfill: false }));
+      return rewardProjection(await api.channelPoints.createCustomReward(broadcasterId, normalizeRewardCreateInput(data)));
     },
     async updateReward(rewardId, data) {
       return rewardProjection(await api.channelPoints.updateCustomReward(broadcasterId, rewardId, { ...data, autoFulfill: false }));

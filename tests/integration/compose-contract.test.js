@@ -39,8 +39,10 @@ describe('local Compose runtime contract', () => {
       host_ip: '127.0.0.1', target: 3000, published: '3000',
     }));
     expect(config.services.bot.environment.APP_PORT).toBe('3000');
-    expect(config.services.bot.environment.PUBLIC_BASE_URL).toBe('http://localhost:3000');
-    expect(config.services.bot.environment.CALLBACK_URL).toBe('http://localhost:3000/callback');
+    expect(config.services.bot.environment.PUBLIC_BASE_URL).toBe('https://localhost:3000');
+    expect(config.services.bot.environment.CALLBACK_URL).toBe('https://localhost:3000/callback');
+    expect(config.services.bot.environment.TLS_CERT_FILE).toBe('/run/secrets/localhost.crt');
+    expect(config.services.bot.environment.TLS_KEY_FILE).toBe('/run/secrets/localhost.key');
     expect(config.volumes).toHaveProperty('postgres_data');
     expect(config.volumes).toHaveProperty('operational_secrets');
   });
@@ -57,8 +59,8 @@ describe('local Compose runtime contract', () => {
       host_ip: '127.0.0.1', target: 3217, published: '3217',
     }));
     expect(config.services.bot.environment.APP_PORT).toBe('3217');
-    expect(config.services.bot.environment.PUBLIC_BASE_URL).toBe('http://localhost:3217');
-    expect(config.services.bot.environment.CALLBACK_URL).toBe('http://localhost:3217/callback');
+    expect(config.services.bot.environment.PUBLIC_BASE_URL).toBe('https://localhost:3217');
+    expect(config.services.bot.environment.CALLBACK_URL).toBe('https://localhost:3217/callback');
   });
 
   it('mounts the same generated secret read-only for database consumers and runs the bot without root', () => {
@@ -111,5 +113,20 @@ describe('local Compose runtime contract', () => {
     }
     expect(windows).toMatch(/start\s+""/i);
     expect(windows).toMatch(/^cd \/d "%~dp0"$/im);
+    expect(shell).toContain('https://localhost');
+    expect(windows).toContain('https://localhost');
+  });
+
+  it('serves the callback over HTTPS with TLS material created by bootstrap', () => {
+    const result = getComposeConfig();
+    expect(result.status, result.stderr).toBe(0);
+    const config = JSON.parse(result.stdout);
+    expect(config.services.bootstrap.volumes).toContainEqual(expect.objectContaining({
+      source: 'operational_secrets', target: '/var/lib/aiox/secrets',
+    }));
+    expect(config.services.bot.volumes).toContainEqual(expect.objectContaining({
+      source: 'operational_secrets', target: '/run/secrets', read_only: true,
+    }));
+    expect(readFileSync(`${root}/apps/api/src/server.mjs`, 'utf8')).toMatch(/https:\s*\{/);
   });
 });

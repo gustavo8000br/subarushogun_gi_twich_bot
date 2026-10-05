@@ -66,4 +66,16 @@ describe('Twitch refreshing auth runtime', () => {
     expect(providerFactory).not.toHaveBeenCalled();
     expect(markReconnectRequired).toHaveBeenCalledWith('client-1');
   });
+
+  it('defaults the authorization callback to the HTTPS localhost endpoint', async () => {
+    const providerFactory = vi.fn(() => providerFake());
+    const runtime = await createRefreshingAuthRuntime({
+      credential,
+      credentialRepository: { storeTokens: vi.fn(), markReconnectRequired: vi.fn() },
+      validateToken: async () => ({ clientId: 'client-1', userId: 'channel-1', scopes: credential.scopes }),
+      providerFactory,
+    });
+    expect(providerFactory).toHaveBeenCalledWith(expect.objectContaining({ redirectUri: 'https://localhost:3000/callback' }));
+    runtime.stop();
+  });
 });

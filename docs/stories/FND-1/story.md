@@ -24,17 +24,18 @@
 1. Product version sources validate as base SemVer in `package.json`, allowed stage in `.release-stage`, and complete runtime identity in `VERSION`; the pre-Git value is `v0.1.0-0000000-alpha`. Materialization uses exactly seven hex characters from the exact source commit and never writes the SHA into the commit that produces it.
 2. Normal validation/startup do not mutate version files. Missing Git uses the marker only when Git metadata is unavailable; if Git is present and commit discovery fails, materialization fails.
 3. Compose first run performs idempotent bootstrap → healthy PostgreSQL → successful Prisma migrations → non-root bot. A generated DB password is persistent and mounted read-only to DB/migrate/bot; it is not printed, stored in product `.env`/YAML, or regenerated for an initialized DB.
-4. PostgreSQL has no published host port; bot publishes `127.0.0.1:3000:3000`, binds Fastify on `0.0.0.0`, waits on DB health/migration completion, and supports health checks and graceful stop. Normal scripts never remove volumes.
+4. PostgreSQL has no published host port; bot publishes `127.0.0.1:3000:3000`, serves Fastify over HTTPS on `0.0.0.0`, waits on DB health/migration completion, and supports health checks and graceful stop. Normal scripts never remove volumes.
 5. Prisma CLI/client/adapter are pinned together at 6.19.3 with `prisma-client-js`, `prisma.config.mjs`, and `pg`; migrations enforce global queue-key, redemption, active-entry partial, source/ID, and financial-operation uniqueness/integrity.
 6. A real isolated PostgreSQL integration suite runs actual versioned migrations and proves the required constraints and persistence/restart contracts; Compose checks use actual Compose configuration. No SQLite or mocked Prisma substitutes.
-7. Root start scripts run `docker compose up --build -d`, wait for the configured published panel address, open the host browser when possible and print the exact fallback address. Windows paths with spaces work.
+7. Root start scripts run `docker compose up --build -d`, wait for the configured `https://localhost` panel address, open the host browser when possible and print the exact fallback address. Windows paths with spaces work.
 8. The runtime version endpoint/state contract reads the complete identity without confusing it with API contract version or state revision; no database URL, DB password, or other secret is emitted in errors/logs.
 9. Product application files are located under `apps/web`, `apps/api`, `apps/infra`; AIOX `.env.example` remains untouched framework scaffolding and is not loaded as product configuration.
-10. English and pt-BR install/version/integration/story documentation and changelogs are equivalent and linked. Only commands and test evidence actually observed are recorded.
+10. English and pt-BR install/version/integration/story documentation and changelogs are equivalent and linked, including the explicit local CA trust step. Only commands and test evidence actually observed are recorded.
+11. The optional Git updater only fast-forwards a clean `main` checkout before rebuilding Compose. The uninstaller preserves Docker volumes by default; permanent data deletion requires an explicit yes response and typing `APAGAR`. Windows and POSIX helpers follow the same behavior and never remove the source checkout.
 
 ## Scope
 
-Included: product package/tooling foundation, exact runtime-version validation/materialization, Docker image and Compose graph, persistent one-time secret bootstrap, PostgreSQL/Prisma schema and SQL migrations, startup/health/shutdown scripts, isolated integration-test wiring, and bilingual operational/version documentation needed by these behaviors.
+Included: product package/tooling foundation, exact runtime-version validation/materialization, Docker image and Compose graph, persistent one-time DB/TLS secret bootstrap, local HTTPS panel/callback transport, PostgreSQL/Prisma schema and SQL migrations, startup/health/shutdown scripts, isolated integration-test wiring, and bilingual operational/version documentation needed by these behaviors.
 
 Excluded: queue domain logic, Twitch credentials/OAuth, real Twitch calls, command handling and panel implementation. Those belong to FND-2 through FND-6 and will each follow their own TDD cycle.
 
@@ -96,10 +97,12 @@ For each behavior below, first create/execute its test and observe a behavioral 
   - [x] 5.1 Add route tests for version, actual DB query outcome, unconfigured Twitch state, and sanitized DB failure; observe Red.
   - [x] 5.2 Implement health response projection and wire runtime `VERSION`; focused tests pass.
   - [x] 5.3 Rebuild local image and verify response through loopback; run full tests, lint and typecheck.
-- [ ] 5. Operational acceptance and documentation (AC: 3, 4, 6, 7, 9, 10)
+- [ ] 5. Operational acceptance and documentation (AC: 3, 4, 6, 7, 9, 10, 11)
   - [x] 5.1 Add/run isolated first-run/restart Compose acceptance; verified health, real migrations, a persisted database marker, stable secret hash, and graceful bot stop/start.
   - [x] 5.2 Verify health, graceful shutdown, Compose order, and persistent volumes; POSIX helper passed with a copied project path containing spaces and browser-launch fallback. Windows batch remains structurally checked but unexecuted on this Linux host.
   - [x] 5.3 Write linked English/pt-BR central READMEs and integration reference; record the documentation-contract Red/Green/Refactor evidence and update paired changelogs.
+  - [x] 5.4 Add test-first local TLS bootstrap, HTTPS callback, secure session cookie, exact HTTPS Origin and host-trust instructions; real isolated Compose confirms TLS/certificate chain and restart persistence.
+  - [x] 5.5 Add test-first Git fast-forward updater and interactive POSIX/Windows uninstall helpers; preserve volumes by default and require typed confirmation for deletion. POSIX behavior is executed in tests; `.bat` files are contract-checked only on Linux.
 - [x] 6. Quality gates and evidence (AC: all; Windows platform execution remains an explicit open acceptance item)
   - [x] 6.1 `npm run lint`, `npm run typecheck`, `npm test`, PostgreSQL integration/migration tests, Compose config/acceptance, and version checks pass on Linux.
   - [x] 6.2 Update both story indexes and this story's file list/checklist with observed results; keep FND-1 InProgress while Windows execution remains unavailable.
@@ -226,4 +229,9 @@ Pending implementation.
 - `CHANGELOG.md`, `CHANGELOG_INTERNAL.md`, and pt-BR changelog counterparts
 - `docs/VERSIONING.md` and `docs/pt-BR/VERSIONING.md`
 - `.aiox-core/core/quality-gates/quality-gate-config.yaml`
+- `apps/infra/src/bootstrap-secret.mjs`, `apps/infra/scripts/bootstrap.mjs`, `.gitignore`, `.dockerignore`, `compose.yaml`, `Dockerfile`
+- `apps/api/src/server.mjs`, `apps/api/src/http/local-session.mjs`, `apps/api/src/http/queue-routes.mjs`, `apps/api/src/twitch/auth-runtime.mjs`, `apps/api/src/twitch/integration.mjs`
+- `apps/infra/scripts/healthcheck.mjs`, `iniciar.sh`, `iniciar.bat`, `apps/web/index.html`
+- `tests/unit/bootstrap-secret.test.js`, `tests/unit/local-session.test.js`, `tests/unit/local-ignore-policy.test.js`, `tests/unit/queue-routes.test.js`, `tests/unit/twitch-auth-runtime.test.js`, `tests/unit/twitch-oauth.test.js`, `tests/unit/start-script.test.js`, `tests/integration/compose-contract.test.js`, `tests/integration/compose-runtime.test.js`
+- `README.md`, `README.pt-BR.md`, `docs/stories/FND-0/spec/spec.md`, `docs/pt-BR/stories/FND-0/spec/spec.md`, `docs/integrations.md`, `docs/pt-BR/integrations.md`, both story indexes and user/internal changelogs in both languages
 - Planning source files are listed under the `FND-0` entry in `docs/stories.md`.

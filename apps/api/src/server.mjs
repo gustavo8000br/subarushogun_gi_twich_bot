@@ -17,7 +17,9 @@ import { fileURLToPath } from 'node:url';
 
 const databaseUrl = await createDatabaseUrl();
 const pool = new pg.Pool({ connectionString: databaseUrl });
-const app = Fastify({ logger: false, bodyLimit: 32 * 1024 });
+const tlsKey = await readFile(process.env.TLS_KEY_FILE ?? '/run/secrets/localhost.key');
+const tlsCertificate = await readFile(process.env.TLS_CERT_FILE ?? '/run/secrets/localhost.crt');
+const app = Fastify({ logger: false, bodyLimit: 32 * 1024, https: { key: tlsKey, cert: tlsCertificate } });
 const productVersion = (await readFile(new URL('../../../VERSION', import.meta.url), 'utf8')).trim();
 const port = Number(process.env.APP_PORT ?? 3000);
 process.env.DATABASE_URL = databaseUrl;
@@ -60,7 +62,7 @@ registerQueueRoutes(app, {
     async beginAuthorization(sessionId) { return runtime?.integration?.beginAuthorization?.(sessionId); },
     async completeAuthorization(input) { return runtime?.integration?.completeAuthorization?.(input); },
   },
-  publicBaseUrl: process.env.PUBLIC_BASE_URL ?? `http://localhost:${port}`,
+  publicBaseUrl: process.env.PUBLIC_BASE_URL ?? `https://localhost:${port}`,
   resolveUser: async (login) => runtime?.integration?.twitch?.getUserByLogin(login) ?? null,
 });
 await registerWebRoutes(app, fileURLToPath(new URL('../../web/', import.meta.url)));

@@ -25,6 +25,15 @@ function queueDto(queue, { operator = false } = {}) {
 
 function setupDto(value, publicBaseUrl) {
   const source = value ?? {};
+  const eligibility = source.eligibility && typeof source.eligibility === 'object' ? {
+    eligible: source.eligibility.eligible === true,
+    broadcasterType: ['affiliate', 'partner'].includes(source.eligibility.broadcasterType) ? source.eligibility.broadcasterType : 'unknown',
+    channelPointsAvailable: source.eligibility.channelPointsAvailable === true,
+    ...(Number.isInteger(source.eligibility.rewardCount) ? { rewardCount: source.eligibility.rewardCount } : {}),
+    ...(Number.isInteger(source.eligibility.rewardLimit) ? { rewardLimit: source.eligibility.rewardLimit } : {}),
+    ...(typeof source.eligibility.nearRewardLimit === 'boolean' ? { nearRewardLimit: source.eligibility.nearRewardLimit } : {}),
+    ...(typeof source.eligibility.reason === 'string' ? { reason: source.eligibility.reason } : {}),
+  } : null;
   return {
     callbackUrl: `${publicBaseUrl}/callback`,
     clientId: typeof source.clientId === 'string' ? source.clientId : null,
@@ -33,11 +42,20 @@ function setupDto(value, publicBaseUrl) {
     broadcasterId: source.connected === true ? source.broadcasterId ?? null : null,
     scopes: source.connected === true && Array.isArray(source.scopes) ? source.scopes : [],
     status: source.status ?? (source.connected === true ? 'connected' : 'not_configured'),
+    eligibility,
   };
 }
 
+function matchesPendingQueueReward(reward, queue) {
+  return reward.title === queue.title && reward.cost === queue.cost
+    && (reward.prompt ?? '') === (queue.rewardPrompt ?? '')
+    && reward.userInputRequired === (queue.uidMode === 'visible')
+    && reward.autoFulfill === false && reward.shouldRedemptionsSkipRequestQueue === false
+    && reward.isEnabled === true && reward.isPaused === true;
+}
+
 /** @param {import('fastify').FastifyInstance} app @param {{repository: any, domainService?: any, integrations?: any, clearConfirmation?: any, publicBaseUrl?: string, productVersion?: string, resolveUser?: (login: string) => Promise<any>}} deps */
-export function registerQueueRoutes(app, { repository, domainService = repository, integrations = {}, clearConfirmation, publicBaseUrl = process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000', productVersion = process.env.PRODUCT_VERSION ?? 'v0.1.0-0000000-alpha', resolveUser = async () => null }) {
+export function registerQueueRoutes(app, { repository, domainService = repository, integrations = {}, clearConfirmation, publicBaseUrl = process.env.PUBLIC_BASE_URL ?? 'https://localhost:3000', productVersion = process.env.PRODUCT_VERSION ?? 'v0.1.0-0000000-alpha', resolveUser = async () => null }) {
   app.get('/api/setup', async () => setupDto(await integrations.getSetupState?.(), publicBaseUrl));
   app.get('/api/state', async () => {
     const state = await repository.getLocalState?.() ?? {};
@@ -108,22 +126,57 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   app.post('/api/queues', async (request, reply) => {
     /** @type {Record<string, any>} */
     const body = request.body && typeof request.body === 'object' ? request.body : {};
+    /** @type {import('fastify').FastifyRequest & {localSession?: {id: string}}} */
+    const localRequest = request;
     try {
       const keys = normalizeQueueKeys({ slug: body.slug, aliases: body.aliases ?? [] });
       if (typeof body.title !== 'string' || body.title.trim().length < 1 || body.title.length > 45
         || !Number.isInteger(body.cost) || body.cost <= 0
         || !['hidden', 'visible'].includes(body.uidMode ?? 'hidden')) return reply.code(400).send({ error: 'Revise o nome, o custo e o modo de UID da fila.' });
-      const queue = await repository.createQueue({
+      const result = await repository.createQueueWithRewardIntent({
         ...keys, title: body.title.trim(), cost: body.cost, rewardPrompt: safePrompt(body.rewardPrompt),
         callMessage: validCallMessage(body.callMessage), callTimeoutMin: body.callTimeoutMin === undefined ? 10 : body.callTimeoutMin,
-        uidMode: body.uidMode ?? 'hidden', isOpen: false,
+        uidMode: body.uidMode ?? 'hidden', isOpen: false, actorId: localRequest.localSession?.id ?? null,
       });
-      return reply.code(201).send(queueDto(queue, { operator: true }));
+      return reply.code(201).send(queueDto(result.queue, { operator: true }));
     } catch (error) {
       return reply.code(routeError(error)).send({ error: userError(error) });
     }
   });
   app.get('/api/queues', async () => (await repository.listQueueProjection?.() ?? []).map((queue) => queueDto(queue, { operator: true })));
+  app.get('/api/queues/:queueId/reward-candidates', async (request, reply) => {
+    const queueId = /** @type {any} */ (request.params).queueId;
+    const queue = await repository.getQueueById(queueId);
+    if (!queue) return reply.code(404).send({ error: 'Fila não encontrada.' });
+    if (queue.rewardId || queue.remoteSyncStatus !== 'create_unknown') return reply.code(409).send({ error: 'Esta fila não está aguardando associação manual de recompensa.' });
+    if (typeof integrations.twitch?.getManagedRewards !== 'function') return reply.code(503).send({ error: 'Conecte novamente a Twitch para consultar recompensas gerenciáveis.' });
+    try {
+      const rewards = await integrations.twitch.getManagedRewards();
+      return rewards.filter((reward) => matchesPendingQueueReward(reward, queue)).map(({ id, title, cost, prompt }) => ({ id, title, cost, prompt: prompt ?? '' }));
+    } catch {
+      return reply.code(503).send({ error: 'Não foi possível consultar as recompensas gerenciáveis da Twitch.' });
+    }
+  });
+  app.post('/api/queues/:queueId/resolve-reward', async (request, reply) => {
+    const localRequest = /** @type {any} */ (request);
+    const { queueId } = localRequest.params;
+    const rewardId = localRequest.body?.rewardId;
+    if (typeof rewardId !== 'string' || rewardId.length < 1 || rewardId.length > 128) return reply.code(400).send({ error: 'Selecione uma recompensa válida.' });
+    const queue = await repository.getQueueById(queueId);
+    if (!queue) return reply.code(404).send({ error: 'Fila não encontrada.' });
+    if (queue.rewardId || queue.remoteSyncStatus !== 'create_unknown') return reply.code(409).send({ error: 'Esta fila não está aguardando associação manual de recompensa.' });
+    if (typeof integrations.twitch?.getManagedRewards !== 'function') return reply.code(503).send({ error: 'Conecte novamente a Twitch para validar a recompensa selecionada.' });
+    try {
+      const rewards = await integrations.twitch.getManagedRewards();
+      const selected = rewards.find((reward) => reward.id === rewardId);
+      if (!selected || !matchesPendingQueueReward(selected, queue)) return reply.code(409).send({ error: 'A recompensa não pertence ao conjunto gerenciável esperado ou seus parâmetros mudaram. Atualize a lista e revise no console Twitch.' });
+      const result = await repository.resolveUnknownRewardCreation({ queueId, rewardId, actorId: localRequest.localSession?.id });
+      return { status: result.status, queue: queueDto(result.queue, { operator: true }), remoteConfirmed: false };
+    } catch (error) {
+      if (error?.code === 'REWARD_ASSOCIATION_NOT_PENDING') return reply.code(409).send({ error: 'A associação da recompensa foi alterada. Atualize o painel.' });
+      return reply.code(503).send({ error: 'Não foi possível consultar ou registrar a recompensa selecionada.' });
+    }
+  });
   app.post('/api/queues/:queueId/manual-entries', async (request, reply) => {
     /** @type {Record<string, any>} */
     const body = request.body && typeof request.body === 'object' ? request.body : {};
