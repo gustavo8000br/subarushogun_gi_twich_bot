@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Added GitHub Actions CI with per-app API/infra/web lint and typecheck, the full test suite, OpenGrep, version/Compose validation, and production image build.
+
 - Serve the local panel and Twitch OAuth callback over HTTPS at `https://localhost`, with a persistent local certificate and documented one-time trust setup.
 - Expand first-run guidance for Windows/WSL 2 and Ubuntu/Linux, including HTTPS certificate trust, Twitch callback setup, chatbot-versus-panel roles, and approximate hardware estimates explicitly marked as version-dependent.
 - Add Git fast-forward updater and an interactive uninstaller for Linux/macOS and Windows; uninstall preserves local data by default and requires a typed confirmation before volume deletion.

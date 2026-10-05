@@ -1,5 +1,6 @@
 # Genshin Twitch Queue Bot
 
+[![CI](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml)
 [![Status: alpha](https://img.shields.io/badge/status-alpha-8a2be2)](VERSION)
 [![JavaScript ESM](https://img.shields.io/badge/JavaScript-ESM-f7df1e?logo=javascript&logoColor=222)](package.json)
 [![Node.js 24.20.0](https://img.shields.io/badge/Node.js-24.20.0-339933?logo=nodedotjs&logoColor=white)](package.json)
@@ -259,6 +260,10 @@ docker compose config --quiet
 ```
 
 The static review uses OpenGrep `1.30.0` with repository-local rules in `.opengrep/rules.yml`. It runs locally without an account or hosted review service. Install the pinned release from the [official OpenGrep release page](https://github.com/opengrep/opengrep/releases) and make `opengrep` available on `PATH`. This is rule-based static analysis, not an AI code review; human and AIOX reviews remain required.
+
+The GitHub Actions [CI workflow](.github/workflows/ci.yml) runs lint and JavaScript typechecking independently for `apps/api`, `apps/infra`, and `apps/web`; it also runs the complete Vitest suite (including PostgreSQL/Compose integration), OpenGrep, version and Compose validation, and a production image build. The vanilla web app intentionally has no separate bundler/build step; it is checked directly and included in the production image.
+
+Run the focused app checks when changing one area: `npm run lint:api && npm run typecheck:api`, `npm run lint:infra && npm run typecheck:infra`, or `npm run lint:web && npm run typecheck:web`. The GitHub workflow runs all three pairs independently.
 
 Before implementing a behavior, add a test that demonstrates the missing behavior, run it and record the observed Red result, then implement the smallest change, rerun the affected tests, and refactor with tests passing. Record the command and actual outcome in the English and pt-BR story logs. Do not report a test, integration, or Twitch operation as verified unless it was run.
 

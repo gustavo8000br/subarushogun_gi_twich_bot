@@ -239,6 +239,18 @@ The order below follows the specification's suggested stages. Each story must be
 - **TDD evidence — local assets:** `npm test -- --run tests/unit/web-route.test.js` failed on a deliberately reproduced external Google Fonts import; after switching the stylesheet to system font stacks, the test passed and verifies no external URLs in the panel CSS.
 - **Current limitations:** API still lacks complete idempotency/version guards, reward edit/open-close/archive/delete lifecycle, editable policies/history views, account ownership UI, installation callback end-to-end tests and complete status/reconciliation controls. Clear now has review and same-session confirmation through chat and panel. `POST /api/queues` durably requests a paused Twitch reward; it is not ready for viewer redemptions until creation is confirmed and the streamer opens it. Authorized live acceptance and usability validation remain pending; the current panel is provisional.
 
+#### OPS-1 — CI for API, infrastructure, and web
+
+**Status:** InReview.
+**Story:** `docs/stories/OPS-1/story.md` and `docs/pt-BR/stories/OPS-1/story.md`.
+**Scope:** GitHub Actions checks per application area, full integration suite, OpenGrep, version/Compose checks, and production image build.
+
+#### OPS-1 TDD Evidence — GitHub Actions app quality workflow
+
+- **Red:** `npm test -- --run tests/unit/ci-workflow-contract.test.js` failed because `.github/workflows/ci.yml` did not exist.
+- **Green:** focused contract passed 5 tests; the complete local suite passed 288 tests in 46 files. Per-app lint/typecheck, OpenGrep (0 findings), version, Compose config and production image build passed.
+- **Refactor:** isolated infra typecheck exposed an implicit transitive Node type dependency; pinning `@types/node@24.13.6` and declaring `types: ["node"]` made the area-specific checks standalone. See `docs/stories/OPS-1/story.md` for full evidence and file list.
+
 ### Planning notes and gates
 
 - The user's prompt is the requirements source; no additional product behavior is introduced by this plan.

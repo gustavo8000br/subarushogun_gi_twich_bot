@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "apps/api/**/*.js",
+    "apps/api/**/*.mjs"
+  ]
+}

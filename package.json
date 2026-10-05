@@ -15,6 +15,12 @@
     "infra:bootstrap": "node apps/infra/scripts/bootstrap.mjs",
     "lint": "eslint apps tests --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "lint:api": "eslint apps/api --max-warnings=0",
+    "lint:infra": "eslint apps/infra --max-warnings=0",
+    "lint:web": "eslint apps/web --max-warnings=0",
+    "typecheck:api": "tsc --noEmit -p tsconfig.api.json",
+    "typecheck:infra": "tsc --noEmit -p tsconfig.infra.json",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "review:static": "opengrep scan --config .opengrep/rules.yml --no-git-ignore --error apps"
   },
   "dependencies": {
@@ -29,6 +35,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@types/node": "24.13.6",
     "eslint": "10.12.0",
     "prisma": "6.19.3",
     "typescript": "7.0.2",
