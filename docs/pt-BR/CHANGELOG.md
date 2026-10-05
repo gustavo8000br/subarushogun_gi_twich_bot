@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Esclarece o passo único `chmod +x iniciar.sh` para instalações por arquivo no Linux/macOS e adiciona um guia de primeira execução no macOS.
+- Exibe estados da configuração Twitch com texto claro no painel; a inelegibilidade por falta de Afiliado/Parceiro agora tem explicação amigável em vez do código interno `INELIGIBLE`.
 - Adiciona CI no GitHub Actions com lint e verificação de tipos separados para API/infra/web, suíte completa de testes, OpenGrep, validação de versão/Compose e build da imagem de produção.
 
 - Serve painel local e callback OAuth Twitch por HTTPS em `https://localhost`, com certificado local persistente e instrução para confiar nele uma vez.

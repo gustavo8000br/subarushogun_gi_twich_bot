@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Extend the bilingual README contract for Linux/macOS executable permissions and first-run TLS trust guidance; macOS runtime remains unverified.
+- Add an allowlisted pt-BR label map for Twitch setup status pills and a generic fallback for unknown states; retain the detailed eligibility explanation and record pt-BR-default/English/Spanish/community translation direction without implementing full i18n.
 - Added the `ci/apps-quality-workflow` GitHub Actions workflow, per-app ESLint/TypeScript-check scripts/configs, pinned Node definitions, immutable SHA-pinned Actions, PostgreSQL/Compose-backed tests, OpenGrep installation at the repository-pinned release, and production image build. No frontend bundler was introduced.
 
 - QA reviewed FND-4 revision `b7a08b3` and recorded PASS (100/100), with all seven acceptance criteria traced to automated evidence. Native Windows scripts and live Twitch behavior remain explicitly unverified operator follow-up.

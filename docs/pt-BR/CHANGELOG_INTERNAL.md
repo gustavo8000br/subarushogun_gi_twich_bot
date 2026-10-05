@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Amplia o contrato dos READMEs bilíngues para permissões de execução no Linux/macOS e confiança TLS na primeira execução; runtime macOS continua sem validação.
+- Adiciona mapa allowlistado de rótulos pt-BR para a pílula de status Twitch e fallback genérico para valores desconhecidos; mantém a explicação detalhada de elegibilidade e registra a direção pt-BR padrão/inglês/espanhol/tradução comunitária sem implementar i18n completo.
 - Adiciona o workflow GitHub Actions `ci/apps-quality-workflow`, scripts/configurações de ESLint e checagem TypeScript por app, tipos Node fixados, Actions fixadas por SHA imutável, testes com PostgreSQL/Compose, instalação da versão OpenGrep fixada pelo repositório e build da imagem de produção. Nenhum bundler frontend foi introduzido.
 
 - QA revisou a revisão `b7a08b3` da FND-4 e registrou PASS (100/100), ligando os sete critérios de aceitação às evidências automatizadas. Scripts Windows nativos e comportamento real da Twitch continuam explicitamente pendentes para validação do operador.

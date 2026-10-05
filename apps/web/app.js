@@ -1,5 +1,5 @@
 import { createApplicationSetupSubmitHandler } from './application-setup.mjs';
-import { twitchEligibilityMessage } from './setup-messages.mjs';
+import { twitchEligibilityMessage, twitchStatusLabel } from './setup-messages.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const state = { csrfToken: null, queues: [], productVersion: '—' };
@@ -80,7 +80,7 @@ async function refresh() {
     $('#callback-url').textContent = setup.callbackUrl;
     $('#channel-name').textContent = setup.connected ? `Canal conectado · ${setup.broadcasterId}` : 'Twitch ainda não conectada';
     $('#twitch-status').textContent = twitchEligibilityMessage(setup);
-    $('#twitch-pill').textContent = setup.status.toUpperCase().replaceAll('_', ' '); $('#twitch-pill').dataset.state = setup.connected ? 'connected' : setup.status;
+    $('#twitch-pill').textContent = twitchStatusLabel(setup); $('#twitch-pill').dataset.state = setup.connected ? 'connected' : setup.status === 'ineligible' ? 'ineligible' : 'inactive';
     $('#secret-state').textContent = setup.secretConfigured ? 'Secret configurado. Para substituir, informe um novo Secret e valide antes de salvar.' : 'O Secret fica guardado localmente e nunca será exibido novamente.';
     if (setup.clientId) $('#credentials-form [name=clientId]').value = setup.clientId;
     $('#connect-button').disabled = !setup.secretConfigured;

@@ -111,7 +111,13 @@ The Windows hardware figures above are not our product benchmark. They combine c
 ### Ubuntu/Linux first run
 
 1. Install Docker Engine and the Compose plugin for your distribution. For Ubuntu, follow [Docker's official Engine instructions](https://docs.docker.com/engine/install/ubuntu/) and confirm `docker compose version` works.
-2. Clone the repository or extract the project archive, then open a terminal in the project directory. If required, run `chmod +x iniciar.sh` once.
+2. Clone the repository or extract the project archive, then open a terminal in the project directory. If the executable permission was not preserved (common with downloaded archives), run this once:
+
+   ```sh
+   chmod +x iniciar.sh
+   ```
+
+   This changes only the local file permission; it does not need to be repeated unless the permission is lost again.
 3. Start the application:
 
    ```sh
@@ -128,6 +134,29 @@ The Windows hardware figures above are not our product benchmark. They combine c
    ```
 
    Restart the browser and open `https://localhost:3000`.
+
+### macOS first run
+
+> macOS host behavior has not yet been validated by this project. These instructions use the same Docker Compose and HTTPS flow as Linux; report any platform-specific issue before treating macOS as verified.
+
+1. Install and start [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/), then confirm `docker compose version` works in Terminal.
+2. Clone the repository or extract the project archive. In Terminal, change to the project directory. If the executable permission was not preserved (common with downloaded archives), run this once:
+
+   ```sh
+   chmod +x iniciar.sh
+   ```
+
+3. Start the application:
+
+   ```sh
+   ./iniciar.sh
+   ```
+
+4. Trust the generated local CA in the macOS login keychain, restart the browser, and open `https://localhost:3000`:
+
+   ```sh
+   security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db .local/localhost-ca.crt
+   ```
 
 ### Continue setup on any platform
 
@@ -329,8 +358,9 @@ Open `https://localhost:3000` yourself. If the browser reports an untrusted cert
 | FND-4 | Twitch credentials, OAuth, rewards, EventSub, and reconciliation | Implementation complete; authorized live Twitch acceptance remains for operator validation |
 | FND-5 | Chat commands, calls, timeouts, cleanup confirmation, current account, and shared application services ([issue #1](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/1)) | In progress; cross-queue account concurrency, remote reward open/close and complete shared-service coverage pending |
 | FND-6 | UX planning with references, complete panel, setup wizard, protected API, and local security ([issue #6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | In progress; reward lifecycle, full product operations, API idempotency/revision controls and usability validation pending |
+| OPS-2 | Localize Twitch setup states in the panel; future default pt-BR with English/Spanish and community translations | Implementation and QA review in progress |
 
-The story log is the source for detailed status and test evidence. A feature is not complete because it appears in this roadmap.
+The future panel localization plan is pt-BR by default, with English and Spanish, and community contributions for additional panel/frontend translations. This release remains pt-BR only. The story log is the source for detailed status and test evidence. A feature is not complete because it appears in this roadmap.
 
 ## Data and security
 

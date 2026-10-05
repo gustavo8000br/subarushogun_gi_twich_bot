@@ -35,6 +35,17 @@ describe('foundation operator documentation contract', () => {
     expect(instructions.toLowerCase()).toContain('antes de concluir story ou pr');
   });
 
+  it('documents Linux and macOS executable permissions before first start in both languages', async () => {
+    const [english, portuguese] = await Promise.all([read('README.md'), read('README.pt-BR.md')]);
+    for (const document of [english, portuguese]) {
+      expect(document).toContain('chmod +x iniciar.sh');
+      expect(document).toMatch(/macOS first run|Primeira execução no macOS/);
+      expect(document).toContain('./iniciar.sh');
+      expect(document).toContain('Docker Desktop');
+      expect(document).toContain('security add-trusted-cert');
+    }
+  });
+
   it('documents safe updater and interactive uninstall behavior in both languages', async () => {
     const [english, portuguese] = await Promise.all([read('README.md'), read('README.pt-BR.md')]);
     for (const term of ['atualizar.bat', 'atualizar.sh', 'on the `main` branch', 'clean Git checkout', 'desinstalar.bat', 'desinstalar.sh', 'type `APAGAR`', 'by default', 'docker compose down --volumes']) {

@@ -36,6 +36,8 @@ describe('local web entrypoint', () => {
     expect(script.body).toContain('clear-confirm');
     expect(script.body).toContain('/api/account/default');
     expect(script.body).toContain('/resolve-unknown');
+    expect(script.body).toContain('twitchStatusLabel(setup)');
+    expect(script.body).not.toContain('setup.status.toUpperCase()');
     expect(script.body).toContain('Twitch não confirmou');
     expect(script.body).toContain('reward-candidates');
     expect(script.body).toContain('resolve-reward');
