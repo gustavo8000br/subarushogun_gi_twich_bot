@@ -241,3 +241,8 @@ A ordem abaixo segue as etapas sugeridas na especificação. Cada story deve ser
 - `docs/stories/FND-1/story.md`, `validation.md` e equivalentes pt-BR
 - Pares shardados: `docs/prd/` ↔ `docs/pt-BR/prd/`, `docs/front-end-spec/` ↔ `docs/pt-BR/front-end-spec/`, `docs/fullstack-architecture/` ↔ `docs/pt-BR/fullstack-architecture/`, `docs/architecture/` ↔ `docs/pt-BR/architecture/` e `docs/front-end-architecture/` ↔ `docs/pt-BR/front-end-architecture/`.
 - `docs/pt-BR/stories.md`
+
+
+#### FND-7 — Widgets locais configuráveis para overlay do OBS
+
+**Status:** Draft — Spec Pipeline aprovado por PM/PO/Arquitetura/QA; implementação não iniciada. **Prioridade:** P0 funcionalidade/segurança; P1 guias bilíngues. **Issue:** [#7](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/7). **Story:** `docs/pt-BR/stories/FND-7/story.md`; validação: `docs/pt-BR/stories/FND-7/validation.md`; spec/plano técnico (English): `docs/stories/FND-7/spec/` e `docs/stories/FND-7/plan/`; os artefatos JSON/YAML ficam em inglês para manter os contratos de implementação canônicos. **Escopo:** Browser Source local do OBS, um campo atômico ou texto fixo por widget, estilos/capabilities independentes e SLA de atualização de 2s testado com oito widgets ativos. FND-5/FND-6 concluídas e revisão UX são gates bloqueantes; não reduzir o catálogo. Sem código, testes do produto ou compatibilidade OBS alegados. FND-0 permanece como baseline original do MVP.
