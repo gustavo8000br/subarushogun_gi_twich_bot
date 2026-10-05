@@ -1,5 +1,6 @@
 # Bot de filas da Twitch para Genshin Impact
 
+[![CI](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml)
 [![Status: alpha](https://img.shields.io/badge/status-alpha-8a2be2)](VERSION)
 [![JavaScript ESM](https://img.shields.io/badge/JavaScript-ESM-f7df1e?logo=javascript&logoColor=222)](package.json)
 [![Node.js 24.20.0](https://img.shields.io/badge/Node.js-24.20.0-339933?logo=nodedotjs&logoColor=white)](package.json)
@@ -288,6 +289,10 @@ docker compose config --quiet
 ```
 
 A revisão estática usa OpenGrep `1.30.0` com regras locais do repositório em `.opengrep/rules.yml`. Ela roda localmente, sem conta ou serviço de revisão hospedado. Instale a versão fixada pela [página oficial de releases do OpenGrep](https://github.com/opengrep/opengrep/releases) e disponibilize `opengrep` no `PATH`. Essa é uma análise estática baseada em regras, não uma revisão de código por IA; revisões humanas e AIOX continuam necessárias.
+
+O [workflow CI do GitHub Actions](.github/workflows/ci.yml) executa lint e verificação de tipos JavaScript separadamente em `apps/api`, `apps/infra` e `apps/web`; também roda a suíte Vitest completa (incluindo integração PostgreSQL/Compose), OpenGrep, validação da versão e do Compose e build da imagem de produção. O app web vanilla não tem etapa separada de bundler/build: ele é verificado diretamente e incluído na imagem de produção.
+
+Para verificar uma área específica, execute `npm run lint:api && npm run typecheck:api`, `npm run lint:infra && npm run typecheck:infra` ou `npm run lint:web && npm run typecheck:web`. O workflow GitHub executa os três pares separadamente.
 
 Antes de implementar um comportamento, escreva um teste que demonstre a ausência desse comportamento, execute-o e registre o resultado Red observado. Depois implemente a menor mudança, execute novamente os testes afetados e refatore mantendo os testes verdes. Registre comandos e resultados reais nos documentos de stories em inglês e pt-BR. Não afirme que um teste ou integração foi validado se não foi executado.
 

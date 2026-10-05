@@ -245,6 +245,17 @@ A ordem abaixo segue as etapas sugeridas na especificação. Cada story deve ser
 **Status:** Em andamento.
 **Story:** `docs/stories/OPS-2/story.md` e `docs/pt-BR/stories/OPS-2/story.md`.
 **Escopo:** Traduzir estados internos da integração Twitch para rótulos pt-BR seguros. A direção futura de idiomas é pt-BR padrão, inglês e espanhol, com contribuições da comunidade para as demais strings do painel/frontend; i18n completo não faz parte desta correção.
+#### OPS-1 — CI para API, infraestrutura e web
+
+**Status:** InReview.
+**Story:** `docs/stories/OPS-1/story.md` e `docs/pt-BR/stories/OPS-1/story.md`.
+**Escopo:** Verificações GitHub Actions por área da aplicação, suíte completa de integração, OpenGrep, validação de versão/Compose e build da imagem de produção.
+
+#### Evidências TDD OPS-1 — workflow CI por área da aplicação
+
+- **Red:** `npm test -- --run tests/unit/ci-workflow-contract.test.js` falhou porque `.github/workflows/ci.yml` não existia.
+- **Green:** contrato focado passou em 5 testes; a suíte local completa passou em 288 testes de 46 arquivos. Lint/typecheck por app, OpenGrep (0 achados), versão, configuração Compose e build da imagem passaram.
+- **Refactor:** o typecheck isolado de infra revelou dependência implícita de tipos Node transitivos; fixar `@types/node@24.13.6` e declarar `types: ["node"]` tornou as verificações de cada área independentes. Consulte `docs/pt-BR/stories/OPS-1/story.md` para evidências e lista de arquivos completas.
 
 ### Notas e gates do planejamento
 

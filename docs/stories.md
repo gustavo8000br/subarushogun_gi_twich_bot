@@ -245,6 +245,17 @@ The order below follows the specification's suggested stages. Each story must be
 **Status:** InProgress.
 **Story:** `docs/stories/OPS-2/story.md` and `docs/pt-BR/stories/OPS-2/story.md`.
 **Scope:** Translate internal Twitch integration states into safe pt-BR status-pill copy. Future locale direction is pt-BR default, English and Spanish, with community translation contributions for the remaining panel/frontend strings; full i18n is not part of this fix.
+#### OPS-1 — CI for API, infrastructure, and web
+
+**Status:** InReview.
+**Story:** `docs/stories/OPS-1/story.md` and `docs/pt-BR/stories/OPS-1/story.md`.
+**Scope:** GitHub Actions checks per application area, full integration suite, OpenGrep, version/Compose checks, and production image build.
+
+#### OPS-1 TDD Evidence — GitHub Actions app quality workflow
+
+- **Red:** `npm test -- --run tests/unit/ci-workflow-contract.test.js` failed because `.github/workflows/ci.yml` did not exist.
+- **Green:** focused contract passed 5 tests; the complete local suite passed 288 tests in 46 files. Per-app lint/typecheck, OpenGrep (0 findings), version, Compose config and production image build passed.
+- **Refactor:** isolated infra typecheck exposed an implicit transitive Node type dependency; pinning `@types/node@24.13.6` and declaring `types: ["node"]` made the area-specific checks standalone. See `docs/stories/OPS-1/story.md` for full evidence and file list.
 
 ### Planning notes and gates
 
