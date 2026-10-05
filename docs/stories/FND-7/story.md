@@ -1,6 +1,6 @@
 # Story FND-7: Configurable OBS overlay widgets
 
-[Português](../../../pt-BR/stories/FND-7/story.md)
+[Português](../../pt-BR/stories/FND-7/story.md)
 
 **Complexity:** COMPLEX (17/25)  
 **Executor:** @dev  
