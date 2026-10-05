@@ -1,0 +1,303 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "storyId": "FND-7",
+  "gatheredAt": "2026-10-05T16:45:00Z",
+  "source": "user",
+  "gatheredBy": "@pm (AIOX Spec Pipeline)",
+  "elicitationVersion": "2.0",
+  "sourceDocument": "Conversation request to design and publish an OBS overlay story; user elicitation answers recorded in this artifact.",
+  "functional": [
+    {
+      "id": "FR-1",
+      "description": "Let the streamer create, edit, and delete independent overlay widgets, each bound to one supported data field or fixed custom text, and generate one OBS browser-source link per widget.",
+      "priority": "P0",
+      "rationale": "The streamer asked for independent links so each value can be positioned and styled separately in OBS.",
+      "acceptance": [
+        "AC-1: Given an authenticated streamer, when they create or edit a widget, then they choose one atomic supported field or fixed text and its optional queue scope without changing business state.",
+        "AC-12: Given an existing widget, when the authenticated streamer deletes it, then widget deletion and capability invalidation commit atomically; after success, no read using the prior token can return data and business state is unchanged."
+      ]
+    },
+    {
+      "id": "FR-2",
+      "description": "Offer one atomic data widget for current Genshin account label, selected queue name, selected queue open/closed state, selected queue waiting count, called viewer display name, called viewer position, or in-service viewer display name; also support fixed text. Queue-scoped widgets select exactly one queue.",
+      "priority": "P0",
+      "rationale": "The streamer selected all proposed operational data for the first release; each widget remains limited to its selected field and queue.",
+      "acceptance": [
+        "AC-1: Given a new widget, when the streamer selects a source, then the catalog offers these atomic sources: current Genshin account label; selected queue name; selected queue state; selected queue waiting count; called viewer display name; called viewer position; in-service viewer display name; or fixed text. No combined data fields are implicit.",
+        "AC-5: Given a valid widget capability, when its projection is read, then only that selected field and required queue scope are returned; UID and unrelated records are absent."
+      ]
+    },
+    {
+      "id": "FR-3",
+      "description": "Let the streamer configure text color, optional background color and opacity, allowlisted local font stack, size, weight, alignment, none/outline/shadow effect, widget dimensions, margins, overflow, and fallback text; enforce bounded values and a 240 Unicode-code-point limit on fixed/fallback text.",
+      "priority": "P0",
+      "rationale": "The streamer selected complete per-element styling and configurable text when a dynamic value is absent.",
+      "acceptance": [
+        "AC-3: Given a widget editor, when the streamer changes an allowed style field, then preview and OBS use it and both browser/API reject unsupported or malformed values. Colors use #RRGGBB; font size is integer 8–128px; weight is one of 300,400,500,600,700,800,900; opacity is 0–100%; width is auto or 1–3840px; height is auto or 1–2160px; margins are 0–256px; overflow is wrap/clip/ellipsis. Outline thickness is 1–8px; shadow blur is 0–32px with each offset −32 to 32px.",
+        "AC-10: Given fixed or fallback text, when it exceeds 240 Unicode code points, then browser and API reject it using the same counting rule; all text is rendered inertly."
+      ]
+    },
+    {
+      "id": "FR-4",
+      "description": "Preview a widget; issue and show its OBS URL exactly once when a widget is created or its capability is regenerated; allow copying that newly issued link, revocation, and regeneration without changing widget source/style. Never provide an endpoint that retrieves an already issued raw secret.",
+      "priority": "P0",
+      "rationale": "The link is a read-only capability and the user explicitly selected revocation and regeneration.",
+      "acceptance": [
+        "AC-2: Given widget creation or capability regeneration through the authenticated panel, when that mutation succeeds, then the response returns the secret-bearing local URL exactly once for immediate display/copy; the raw token is never persisted, logged, cached, placed in HTTP path/query, or retrievable through later reads. The OBS read-only projection endpoint never returns the capability secret.",
+        "AC-6: Given an active widget link, when the streamer revokes or regenerates it, then the prior capability fails; widget source/style remain unchanged, and regeneration issues a new one-time URL."
+      ]
+    },
+    {
+      "id": "FR-5",
+      "description": "Refresh dynamic widget data so changes in local account, queue, and service state appear in OBS within two seconds; show configured fallback when the source is empty; during transient network/server failure retain the last value with a visible stale marker until recovery.",
+      "priority": "P0",
+      "rationale": "The user selected a two-second update target, configured text for empty values, and the last value with an explicit stale marker during transient failure.",
+      "acceptance": [
+        "AC-7: Given a healthy local app and eight concurrently open widgets using mixed dynamic fields, when a source-state change is committed, then the corresponding widget renders it within two seconds from commit to rendered DOM. Run ten consecutive changes; every measurement must pass, with the environment recorded.",
+        "AC-11: Given an empty field, when a successful projection returns no value, then show configured fallback. Given transport/server failure after a value, retain it with a visible stale marker and retry; if initial fetch fails before any value, show neutral unavailable state. Given 401/403 or deleted widget, clear the value and show neutral unavailable state."
+      ]
+    },
+    {
+      "id": "FR-6",
+      "description": "Expose an OBS browser-source page and a read-only data endpoint that use the same application/domain projections as the panel, chat, and workers.",
+      "priority": "P0",
+      "rationale": "A second source of business state would make the overlay disagree with the bot and could bypass UID visibility rules.",
+      "acceptance": [
+        "AC-13: Given an OBS read or operator-panel mutation, when a route handles it, then it calls shared application/domain projections and does not query business entities directly or duplicate transition rules.",
+        "AC-8: Given an OBS capability, when a request is made, then it cannot invoke a mutation route."
+      ]
+    },
+    {
+      "id": "FR-7",
+      "description": "Keep each overlay link local to the same computer as the bot and OBS; its unguessable, revocable capability can read only its widget and cannot call administrative mutations.",
+      "priority": "P0",
+      "rationale": "The user selected same-computer operation; the existing product is local and has no hosted backend.",
+      "acceptance": [
+        "AC-14: Given an OBS capability, when used on the same computer, then it grants read-only access to exactly one widget and no session/admin privileges.",
+        "AC-15: Given a revoked, replaced, or deleted-widget capability, when used again, then no widget data is returned and browser renderer clears previously displayed content; deletion commits atomically with capability invalidation."
+      ]
+    },
+    {
+      "id": "FR-8",
+      "description": "Document setup and use of overlay links in English and pt-BR, including the OBS browser-source URL, viewport sizing, transparency, refresh behavior, and token revocation.",
+      "priority": "P1",
+      "rationale": "Streamers need actionable setup guidance for a new OBS integration.",
+      "acceptance": [
+        "AC-9: Given a streamer setting up OBS, when they follow either English or pt-BR guide, then it explains browser source, local URL, dimensions, transparency, refresh behavior, preview, and revoke/regenerate steps."
+      ]
+    }
+  ],
+  "nonFunctional": [
+    {
+      "id": "NFR-1",
+      "description": "On the local installation, a committed account, queue, call, or service-state change is rendered by the overlay within 2 seconds under normal operation.",
+      "category": "performance"
+    },
+    {
+      "id": "NFR-2",
+      "description": "Capability is read-only and widget-scoped; raw secret is disclosed only once in the create/regenerate response, never later re-read or persisted; UIDs, Twitch credentials, sessions and unrelated data are excluded.",
+      "category": "security"
+    },
+    {
+      "id": "NFR-3",
+      "description": "The OBS page has a transparent background, no scrollbars at its configured viewport, and uses only local application assets and allowlisted system font stacks.",
+      "category": "usability"
+    },
+    {
+      "id": "NFR-4",
+      "description": "Empty values show configured fallback; transient fetch failures retain the last value only with a visible stale marker and automatically retry; invalid/revoked capability clears the value on rejection.",
+      "category": "reliability"
+    },
+    {
+      "id": "NFR-5",
+      "description": "Widget output is rendered as text with a strict style schema; user input cannot inject HTML, JavaScript, arbitrary CSS, or remote asset URLs.",
+      "category": "security"
+    },
+    {
+      "id": "NFR-6",
+      "description": "Widget controls are labeled, keyboard-operable, show focus, and provide a readability preview before link copying.",
+      "category": "usability"
+    }
+  ],
+  "constraints": [
+    {
+      "id": "CON-1",
+      "description": "The feature is a same-computer OBS integration for the existing single-broadcaster local application; it must not add public hosting, a cloud backend, telemetry, LAN access, or a second runtime service.",
+      "type": "business"
+    },
+    {
+      "id": "CON-2",
+      "description": "Use the existing apps/web, apps/api, Fastify, PostgreSQL, Prisma, and vanilla JavaScript layout; add no dependency unless research and a failing test demonstrate it is needed.",
+      "type": "technical"
+    },
+    {
+      "id": "CON-3",
+      "description": "All data reads go through existing application/domain services and safe projections; do not duplicate queue, account, privacy, or transition rules in the overlay route.",
+      "type": "technical"
+    },
+    {
+      "id": "CON-4",
+      "description": "One secret per widget; do not put it in HTTP request paths/queries or persist raw value. Creation/regeneration returns the newly issued URL exactly once; subsequent reads cannot recover it. Allow immediate revocation.",
+      "type": "technical"
+    },
+    {
+      "id": "CON-5",
+      "description": "The user's explicit feature request supersedes the earlier FND-0 MVP non-goal for this separately tracked post-MVP story; the original MVP baseline remains historically accurate.",
+      "type": "business"
+    },
+    {
+      "id": "CON-6",
+      "description": "The operator panel remains the control surface selected in the approved product planning; do not add a separate product CLI for overlay management.",
+      "type": "business"
+    },
+    {
+      "id": "CON-7",
+      "description": "FND-5 and FND-6 must be fully complete and their field projections and protected panel foundations verified before any FND-7 implementation begins; no reduced field subset is accepted as a workaround.",
+      "type": "technical"
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "ASM-1",
+      "description": "OBS Studio's official Browser Source is installed and can load the local application URL on the same computer.",
+      "risk": "low"
+    },
+    {
+      "id": "ASM-2",
+      "description": "The currently supported local bot and its PostgreSQL service are running while the OBS source is active; a transient outage keeps the last rendered value with a stale marker until recovery.",
+      "risk": "medium"
+    },
+    {
+      "id": "ASM-3",
+      "description": "A single widget has one selected data field or fixed text, one optional queue scope, one style configuration, and one independently revocable link; duplicate widgets are allowed.",
+      "risk": "low"
+    },
+    {
+      "id": "ASM-4",
+      "description": "Fonts are selected from safe generic/local system font stacks; downloading or embedding third-party fonts is not required.",
+      "risk": "low"
+    }
+  ],
+  "domainModel": [
+    {
+      "entity": "OverlayWidget",
+      "description": "A streamer-managed, read-only display element containing one source field or fixed text, optional queue scope, fallback text, and validated style settings.",
+      "relationships": [
+        "References a queue when its source field is queue-scoped.",
+        "References a single capability secret by hash."
+      ]
+    },
+    {
+      "entity": "OverlayCapability",
+      "description": "An unguessable secret granting read access to exactly one widget until revoked or regenerated.",
+      "relationships": [
+        "Belongs to one OverlayWidget; cannot access administrative or other widget data."
+      ]
+    },
+    {
+      "entity": "OverlayField",
+      "description": "An allowlisted projection of current account, queue, waiting count, called viewer/position, or in-service viewer state.",
+      "relationships": [
+        "Reads source state through application/domain projections."
+      ]
+    }
+  ],
+  "interactions": [
+    {
+      "flow": "Create and add widget",
+      "description": "Streamer opens Overlay in the local panel, selects exactly one atomic source field or fixed text, selects a queue for queue-scoped fields, configures style/fallback, previews, saves, receives a one-time URL, copies it, and adds it as an OBS Browser Source.",
+      "states": [
+        "loading fields",
+        "editing",
+        "preview",
+        "saved",
+        "link copied",
+        "validation error"
+      ]
+    },
+    {
+      "flow": "Update OBS widget",
+      "description": "OBS loads the local widget page; the page reads its fragment capability into memory, fetches only its widget projection, and refreshes it; a changed value appears within two seconds.",
+      "states": [
+        "initial loading",
+        "live value",
+        "fallback/no value",
+        "temporarily unavailable",
+        "reconnected"
+      ]
+    },
+    {
+      "flow": "Revoke or regenerate link",
+      "description": "Streamer confirms revoke, regenerate, or delete in the panel; revocation/deletion invalidates the prior capability and returns no replacement URL. Regeneration invalidates the prior capability and shows the new URL once for copying.",
+      "states": [
+        "confirmation",
+        "revoked or deleted",
+        "one-time replacement URL only after regeneration"
+      ]
+    }
+  ],
+  "edgeCases": [
+    {
+      "scenario": "A source field has no current value, such as no viewer being called.",
+      "handling": "Render the widget's configured fallback text; do not retain the last dynamic value.",
+      "severity": "medium"
+    },
+    {
+      "scenario": "The local API or database is temporarily unavailable after the page loads.",
+      "handling": "Keep the last value visible with an explicit stale marker, retry automatically, and replace it on recovery; if there is no prior value, show a neutral unavailable state.",
+      "severity": "high"
+    },
+    {
+      "scenario": "The capability is missing, invalid, revoked, or belongs to another widget.",
+      "handling": "Return no private widget data; clear any previously displayed value on the 401/403 response, show a neutral unavailable state, and allow the streamer to generate a replacement from the protected panel.",
+      "severity": "high"
+    },
+    {
+      "scenario": "Streamer enters markup, script, invalid colors, unsupported font values, or out-of-range style values.",
+      "handling": "Validate at the server boundary, reject invalid configuration, and render accepted text only as text with allowlisted style properties.",
+      "severity": "high"
+    },
+    {
+      "scenario": "A selected queue is archived/deleted or its widget field is no longer available.",
+      "handling": "Do not read another queue; show fallback and identify the configuration as needing repair in the panel.",
+      "severity": "medium"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "Overlay widget",
+      "definition": "One independently configured OBS display element and its read-only browser-source link.",
+      "aliases": [
+        "widget",
+        "element"
+      ]
+    },
+    {
+      "term": "Capability link",
+      "definition": "A local URL whose private secret grants read-only access to exactly one overlay widget until revoked.",
+      "aliases": [
+        "OBS link",
+        "overlay link"
+      ]
+    },
+    {
+      "term": "Fallback text",
+      "definition": "Streamer-configured text shown when a dynamic source field has no current value; transient transport errors instead show the last value with a stale marker.",
+      "aliases": [
+        "empty-state text"
+      ]
+    }
+  ],
+  "openQuestions": [
+    {
+      "question": "Which default style preset, color palette, and exact allowlisted system font names best fit the existing panel's visual guidance? Resolve in the UX refinement before UI implementation.",
+      "priority": "medium",
+      "blocksProgress": false
+    },
+    {
+      "question": "The custom text limit is 240 Unicode code points; enforce the same counting rule in browser and API.",
+      "priority": "low",
+      "blocksProgress": false
+    }
+  ]
+}
