@@ -242,3 +242,8 @@ The order below follows the specification's suggested stages. Each story must be
 - `docs/framework/tech-stack.md`, `coding-standards.md`, `source-tree.md`, `testing-strategy.md` and pt-BR counterparts
 - `docs/stories/FND-1/story.md`, `validation.md` and pt-BR counterparts
 - Sharded pairs: `docs/prd/` ↔ `docs/pt-BR/prd/`, `docs/front-end-spec/` ↔ `docs/pt-BR/front-end-spec/`, `docs/fullstack-architecture/` ↔ `docs/pt-BR/fullstack-architecture/`, `docs/architecture/` ↔ `docs/pt-BR/architecture/`, and `docs/front-end-architecture/` ↔ `docs/pt-BR/front-end-architecture/`.
+
+
+#### FND-7 — Configurable local OBS overlay widgets
+
+**Status:** Draft — Spec Pipeline approved by PM/PO/Architecture/QA; implementation not started. **Priority:** P0 functionality/security, P1 bilingual guides. **Issue:** [#7](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/7). **Story:** `docs/stories/FND-7/story.md`; validation: `docs/stories/FND-7/validation.md`; spec and implementation plan: `docs/stories/FND-7/spec/` and `docs/stories/FND-7/plan/`. **Scope:** local OBS Browser Source, one atomic data field or fixed text per widget, independent styles/capability URLs, 2-second update SLA tested with eight active widgets. FND-5 and FND-6 completion and UX review are hard implementation gates; no reduced field set. No product code/tests/OBS compatibility claimed. Preserve FND-0's original MVP boundary.
