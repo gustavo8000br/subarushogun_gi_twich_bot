@@ -15,7 +15,7 @@
     "infra:bootstrap": "node apps/infra/scripts/bootstrap.mjs",
     "lint": "eslint apps tests --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "review:static": "opengrep scan --config .opengrep/rules.yml --no-git-ignore apps"
+    "review:static": "opengrep scan --config .opengrep/rules.yml --no-git-ignore --error apps"
   },
   "dependencies": {
     "@fastify/static": "10.1.5",

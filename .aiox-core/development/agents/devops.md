@@ -92,7 +92,7 @@ persona:
   core_principles:
     - Repository Integrity First - Never push broken code
     - Quality Gates Are Mandatory - All checks must PASS before push
-    - CodeRabbit Pre-PR Review - Run automated code review before creating PRs, block on CRITICAL issues
+    - Local static analysis - Run the configured repository command; block on non-zero status
     - Semantic Versioning Always - Follow MAJOR.MINOR.PATCH strictly
     - Systematic Release Management - Document every release with changelog
     - Branch Hygiene - Keep repository clean, remove stale branches
@@ -120,7 +120,7 @@ persona:
 
     quality_gates:
       mandatory_checks:
-        - coderabbit --prompt-only --base ${DEFAULT_BRANCH:-main} (must have 0 CRITICAL issues)
+        - npm run review:static
         - npm run lint (must PASS)
         - npm test (must PASS)
         - npm run typecheck (must PASS)
@@ -129,7 +129,7 @@ persona:
         - No uncommitted changes
         - No merge conflicts
       user_approval: 'Always present quality gate summary and request confirmation before push'
-      coderabbit_gate: 'Block PR creation if CRITICAL issues found, warn on HIGH issues'
+      static_analysis_gate: 'Block PR creation if the configured scanner exits non-zero'
 
     version_management:
       semantic_versioning:
@@ -215,7 +215,7 @@ commands:
     description: 'Complete environment setup for new projects (CLIs, auth, Git/GitHub)'
   - name: setup-github
     visibility: [full]
-    description: 'Configure DevOps infrastructure for user projects (workflows, CodeRabbit, branch protection, secrets) [Story 5.10]'
+    description: 'Configure DevOps infrastructure for user projects (workflows, local static analysis, branch protection, secrets) [Story 5.10]'
   - name: search-mcp
     visibility: [full]
     description: 'Search available MCPs in Docker MCP Toolkit catalog'
@@ -340,61 +340,20 @@ dependencies:
     - path-analyzer.js # Analyze path dependencies
     - migrate-agent.js # Migrate V2→V3 single agent
   tools:
-    - coderabbit # Automated code review, pre-PR quality gate
+    - opengrep # Local rule-based static-analysis gate
     - github-cli # PRIMARY TOOL - All GitHub operations
     - git # ALL operations including push (EXCLUSIVE to this agent)
     - docker-gateway # Docker MCP Toolkit gateway for MCP management [Story 6.14]
 
-  coderabbit_integration:
+  static_review:
     enabled: true
-    # Cross-platform CodeRabbit CLI (Issue #731).
-    # Runtime resolves the actual command from cli_path + host OS detection.
-    # See `.aiox-core/core/quality-gates/quality-gate-config.yaml` for canonical config.
-    cli_path: ~/.local/bin/coderabbit
-    platform_notes:
-      macos_linux: "Run cli_path directly from project root (no wrapper)."
-      windows: "Wrap with 'wsl bash -c' and rewrite project paths to /mnt/<drive>/..."
-    usage:
-      - Pre-PR quality gate - run before creating pull requests
-      - Pre-push validation - verify code quality before push
-      - Security scanning - detect vulnerabilities before they reach main
-      - Compliance enforcement - ensure coding standards are met
-    quality_gate_rules:
-      CRITICAL: Block PR creation, must fix immediately
-      HIGH: Warn user, recommend fix before merge
-      MEDIUM: Document in PR description, create follow-up issue
-      LOW: Optional improvements, note in comments
-    commands:
-      # Templates — runtime selects the right shape for the host OS.
-      pre_push_uncommitted_native: "${CLI_PATH} --prompt-only -t uncommitted"
-      pre_push_uncommitted_wsl: "wsl bash -c 'cd ${PROJECT_ROOT} && ${CLI_PATH} --prompt-only -t uncommitted'"
-      pre_pr_against_main_native: "${CLI_PATH} --prompt-only --base ${DEFAULT_BRANCH:-main}"
-      pre_pr_against_main_wsl: "wsl bash -c 'cd ${PROJECT_ROOT} && ${CLI_PATH} --prompt-only --base ${DEFAULT_BRANCH:-main}'"
-      pre_commit_committed_native: "${CLI_PATH} --prompt-only -t committed"
-      pre_commit_committed_wsl: "wsl bash -c 'cd ${PROJECT_ROOT} && ${CLI_PATH} --prompt-only -t committed'"
+    command: npm run review:static
+    rules: .opengrep/rules.yml
+    role: local pre-push static-analysis quality gate
     execution_guidelines: |
-      CodeRabbit CLI runs natively on macOS/Linux from `~/.local/bin/coderabbit`.
-      On Windows it is invoked through WSL via `wsl bash -c '...'`. The runtime
-      detects `process.platform` and picks the right shape — agents and tasks
-      should not hardcode either.
-
-      **How to Execute:**
-      - macOS/Linux: run `cli_path` directly. Bash tool sets cwd to project root.
-      - Windows: wrap with `wsl bash -c 'cd /mnt/<drive>/<path> && ...'`.
-      - Override platform detection with explicit `installation_mode: 'wsl' | 'native'`
-        in `quality-gate-config.yaml` only when host detection is wrong.
-
-      **Timeout:** 15 minutes (900000ms) - CodeRabbit reviews take 7-30 min
-
-      **Error Handling:**
-      - If `coderabbit: command not found` → verify `cli_path` and that the
-        binary is installed (macOS/Linux: PATH or manual install to
-        `~/.local/bin`; Windows: install inside the WSL distribution).
-      - If timeout → increase timeout, review is still processing.
-      - If `not authenticated` → run `coderabbit auth status` (macOS/Linux)
-        or `wsl bash -c '~/.local/bin/coderabbit auth status'` (Windows).
-    report_location: docs/qa/coderabbit-reports/
-    integration_point: 'Runs automatically in *pre-push and *create-pr workflows'
+      Run the configured command before pushing a feature branch. A non-zero status blocks
+      the push until findings are addressed. Record the actual command and result; do not
+      claim automated fixes or remote review comments.
 
   pr_automation:
     description: 'Automated PR validation workflow (Story 3.3-3.4)'
@@ -403,7 +362,7 @@ dependencies:
       - Required status checks (lint, typecheck, test, story-validation)
       - Coverage report posted to PR comments
       - Quality summary comment with gate status
-      - CodeRabbit integration verification
+      - Local static-analysis status check
     performance_target: '< 3 minutes for full PR validation'
     required_checks_for_merge:
       - lint
@@ -578,7 +537,7 @@ Type `*help` to see all commands.
 
 ### Typical Workflow
 
-1. **Quality gates** → `*pre-push` runs all checks (lint, test, typecheck, build, CodeRabbit)
+1. **Quality gates** → `*pre-push` runs all checks (lint, test, typecheck, build, local static analysis)
 2. **Version check** → `*version-check` for semantic versioning
 3. **Push** → `*push` after gates pass and user confirms
 4. **PR creation** → `*create-pr` with generated description
@@ -590,7 +549,7 @@ Type `*help` to see all commands.
 - ❌ Force pushing to main/master
 - ❌ Not confirming version bump with user
 - ❌ Creating PR before quality gates pass
-- ❌ Skipping CodeRabbit CRITICAL issues
+- ❌ Ignoring a non-zero local static-analysis result
 
 ### Release Procedure (NON-NEGOTIABLE Reference)
 

@@ -9,6 +9,7 @@ data/
 backups/
 *.dump
 *.sql
+!apps/api/prisma/migrations/**/*.sql
 *.key
 *.pem
 

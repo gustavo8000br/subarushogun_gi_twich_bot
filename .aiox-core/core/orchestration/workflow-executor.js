@@ -8,7 +8,7 @@
  * - Dynamic executor assignment (Story 11.1)
  * - Terminal spawning for clean context (Story 11.2)
  * - Session state persistence (Story 11.5)
- * - Conditional self-healing with CodeRabbit
+ * - Configured local static analysis; findings are reported without automatic edits
  * - Quality gate by different agent
  * - Human checkpoints (GO/PAUSE/REVIEW/ABORT)
  *
@@ -20,7 +20,6 @@
 
 const fs = require('fs').promises;
 const fsSync = require('fs');
-const os = require('os');
 const path = require('path');
 const yaml = require('js-yaml');
 
@@ -223,7 +222,7 @@ class WorkflowExecutor {
         console.log(`[WorkflowExecutor] Config not found at ${this.configPath}, using defaults`);
         console.log(`[WorkflowExecutor] Error: ${error.message}`);
       }
-      this.config = { coderabbit_integration: { enabled: false } };
+      this.config = { opengrep_integration: { enabled: false } };
     }
     return this.config;
   }
@@ -315,7 +314,7 @@ class WorkflowExecutor {
       const phaseNameMap = {
         '1_validation': 'validation',
         '2_development': 'development',
-        '3_self_healing': 'self_healing',
+        '3_static_review': 'static_review',
         '4_quality_gate': 'quality_gate',
         '5_push': 'push',
         '6_checkpoint': 'checkpoint',
@@ -480,8 +479,8 @@ class WorkflowExecutor {
         return this.executeValidationPhase(phase, agent, storyPath, epicContext);
       case '2_development':
         return this.executeDevelopmentPhase(phase, agent, storyPath);
-      case '3_self_healing':
-        return this.executeSelfHealingPhase(phase, agent);
+      case '3_static_review':
+        return this.executeStaticReviewPhase(phase, agent);
       case '4_quality_gate':
         return this.executeQualityGatePhase(phase, agent, storyPath);
       case '5_push':
@@ -514,9 +513,9 @@ class WorkflowExecutor {
    * @returns {boolean} Condition result
    */
   evaluateCondition(condition) {
-    // Handle CodeRabbit integration check
-    if (condition.includes('coderabbit_integration.enabled')) {
-      return this.config?.coderabbit_integration?.enabled === true;
+    // Handle OpenGrep integration check
+    if (condition.includes('opengrep_integration.enabled')) {
+      return this.config?.opengrep_integration?.enabled === true;
     }
     return true;
   }
@@ -651,287 +650,64 @@ class WorkflowExecutor {
   }
 
   /**
-   * Executes Phase 3: Self-Healing (Conditional)
-   * Uses CodeRabbit CLI to detect and auto-fix issues.
+   * Executes Phase 3: local static review.
+   * Findings are reported to the developer; this phase never edits source files.
    * @param {Object} phase - Phase configuration
    * @param {string} agent - Agent ID
    * @returns {Promise<Object>} Phase result
    */
-  async executeSelfHealingPhase(phase, agent) {
+  async executeStaticReviewPhase(phase, _agent) {
+    const config = { ...this.config?.opengrep_integration, ...(phase.config || {}) };
+    if (!config.enabled) {
+      return { status: PhaseStatus.SKIPPED, reason: 'Static analysis is disabled' };
+    }
+
     try {
-      const maxIterations = phase.config?.max_iterations || this.config?.coderabbit_integration?.self_healing?.max_iterations || 3;
-      const severityFilter = phase.config?.severity_filter || ['CRITICAL', 'HIGH'];
-      let iterations = 0;
-      const issuesFixed = [];
-      const issuesRemaining = [];
-
-      // Check if CodeRabbit is available
-      const coderabbitConfig = this.config?.coderabbit_integration;
-      if (!coderabbitConfig?.enabled) {
-        if (this.options.debug) {
-          console.log('[WorkflowExecutor] CodeRabbit not enabled, skipping self-healing');
-        }
-        return {
-          status: PhaseStatus.SKIPPED,
-          reason: 'CodeRabbit integration not enabled',
-        };
-      }
-
-      // Self-healing loop
-      while (iterations < maxIterations) {
-        iterations++;
-
-        if (this.options.debug) {
-          console.log(`[WorkflowExecutor] Self-healing iteration ${iterations}/${maxIterations}`);
-        }
-
-        // Run CodeRabbit analysis
-        const analysisResult = await this.runCodeRabbitAnalysis(coderabbitConfig);
-
-        if (!analysisResult.success) {
-          if (this.options.debug) {
-            console.log(`[WorkflowExecutor] CodeRabbit analysis failed: ${analysisResult.error}`);
-          }
-          // Graceful degradation - continue without self-healing
-          if (coderabbitConfig.graceful_degradation?.skip_if_not_installed) {
-            return {
-              status: PhaseStatus.COMPLETED,
-              healed_code: {
-                iterations,
-                issues_fixed: issuesFixed,
-                issues_remaining: issuesRemaining,
-                note: analysisResult.error || coderabbitConfig.graceful_degradation?.fallback_message,
-              },
-            };
-          }
-          break;
-        }
-
-        // Filter issues by severity
-        const relevantIssues = analysisResult.issues.filter(
-          (issue) => severityFilter.includes(issue.severity),
-        );
-
-        if (relevantIssues.length === 0) {
-          if (this.options.debug) {
-            console.log('[WorkflowExecutor] No relevant issues found, self-healing complete');
-          }
-          break;
-        }
-
-        // Attempt to fix issues
-        for (const issue of relevantIssues) {
-          const fixed = await this.attemptAutoFix(issue);
-          if (fixed) {
-            issuesFixed.push({
-              file: issue.file,
-              line: issue.line,
-              severity: issue.severity,
-              message: issue.message,
-              fixedAt: new Date().toISOString(),
-            });
-          } else {
-            issuesRemaining.push({
-              file: issue.file,
-              line: issue.line,
-              severity: issue.severity,
-              message: issue.message,
-            });
-          }
-        }
-
-        // If no issues were fixed in this iteration, stop
-        if (issuesFixed.length === 0 && iterations > 1) {
-          if (this.options.debug) {
-            console.log('[WorkflowExecutor] No issues fixed in iteration, stopping');
-          }
-          break;
-        }
-      }
-
-      return {
-        status: PhaseStatus.COMPLETED,
-        healed_code: {
-          iterations,
-          issues_fixed: issuesFixed,
-          issues_remaining: issuesRemaining,
-        },
+      const scan = await this.runStaticReviewCommand(config);
+      const staticReview = {
+        command: config.command || 'opengrep scan',
+        exit_code: scan.exitCode,
+        output: (scan.output || '').slice(0, 4000),
+        completed_at: new Date().toISOString(),
       };
+      return scan.success
+        ? { status: PhaseStatus.COMPLETED, static_review: staticReview }
+        : { status: PhaseStatus.FAILED, static_review: staticReview, error: scan.error || 'Static analysis reported findings' };
     } catch (error) {
-      if (this.options.debug) {
-        console.log(`[WorkflowExecutor] Self-healing error: ${error.message}`);
-      }
-      return {
-        status: PhaseStatus.FAILED,
-        error: error.message,
-      };
+      return { status: PhaseStatus.FAILED, error: error.message };
     }
   }
 
   /**
-   * Runs CodeRabbit analysis on the codebase
-   * @param {Object} coderabbitConfig - CodeRabbit configuration
-   * @returns {Promise<Object>} Analysis result with issues array
+   * Runs the configured local static-analysis command.
+   * @param {Object} config - Static-analysis settings
+   * @returns {Promise<Object>} Exit status and bounded output
    */
-  async runCodeRabbitAnalysis(coderabbitConfig) {
+  async runStaticReviewCommand(config) {
+    const childProcess = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(childProcess.exec);
+    const command = config.command || 'opengrep scan';
+    const timeout = (config.timeout_minutes || 5) * 60 * 1000;
+
     try {
-      const childProcess = require('child_process');
-      const { promisify } = require('util');
-      const execAsync = promisify(childProcess.exec);
-
-      // Build command for current platform.
-      // - Explicit installation_mode: 'wsl' | 'native' wins (lets ops override).
-      // - Default: Windows hosts wrap via WSL, macOS/Linux run the binary directly.
-      // - cli_path defaults to ~/.local/bin/coderabbit (matches the CodeRabbit CLI installer default).
-      // - Tilde handling differs per mode: native expands via os.homedir() so the
-      //   resolved absolute path is shell-agnostic; WSL mode keeps the literal `~`
-      //   so the WSL distribution's own bash expands it (the host's HOME would point
-      //   at a Windows path that WSL cannot resolve).
-      const rawCliPath = coderabbitConfig.cli_path || '~/.local/bin/coderabbit';
-      const mode =
-        coderabbitConfig.installation_mode ||
-        (process.platform === 'win32' ? 'wsl' : 'native');
-      let command;
-      if (mode === 'wsl') {
-        // Probe WSL availability before building the command. Gives a clearer
-        // diagnostic than cmd.exe's generic "'wsl' is not recognized" when WSL
-        // is not installed. ENOENT (binary missing) and non-zero exit (WSL
-        // feature present but no distribution installed) both fail this check.
-        const wslProbe = childProcess.spawnSync('wsl', ['-l'], { encoding: 'utf8' });
-        if (wslProbe.error || wslProbe.status !== 0) {
-          throw new Error(
-            'CodeRabbit CLI requires WSL on Windows hosts. Install WSL via ' +
-              '`wsl --install` (https://learn.microsoft.com/windows/wsl/install), ' +
-              'then install the CodeRabbit CLI inside the WSL distribution. ' +
-              'See docs/guides/installation-troubleshooting.md Issue 10. ' +
-              'To bypass this check, set coderabbit.installation_mode=\'native\' in your config.',
-          );
-        }
-        const wslPath = this.projectRoot
-          .replace(/^([A-Za-z]):/, (_, drive) => `/mnt/${drive.toLowerCase()}`)
-          .replace(/\\/g, '/');
-        // Keep literal `~` — WSL bash expands it to the WSL user's HOME.
-        command = `wsl bash -c 'cd "${wslPath}" && ${rawCliPath} --prompt-only -t uncommitted 2>&1'`;
-      } else {
-        const cliPath = rawCliPath.startsWith('~')
-          ? path.join(os.homedir(), rawCliPath.slice(1))
-          : rawCliPath;
-        command = `${cliPath} --prompt-only -t uncommitted`;
-      }
-
-      if (this.options.debug) {
-        console.log(`[WorkflowExecutor] Running CodeRabbit: ${command}`);
-      }
-
       const { stdout, stderr } = await execAsync(command, {
-        timeout: (coderabbitConfig.self_healing?.timeout_minutes || 30) * 60 * 1000,
-        maxBuffer: 10 * 1024 * 1024, // 10MB
+        cwd: this.projectRoot,
+        timeout,
+        maxBuffer: 10 * 1024 * 1024,
       });
-
-      // Parse CodeRabbit output to extract issues
-      const issues = this.parseCodeRabbitOutput([stdout || '', stderr || ''].join('\n'));
-
-      return {
-        success: true,
-        issues,
-        rawOutput: stdout,
-      };
+      return { success: true, exitCode: 0, output: [stdout, stderr].filter(Boolean).join('\n') };
     } catch (error) {
-      // Handle command not found or execution errors
-      if (error.code === 'ENOENT' || error.message?.includes('not found')) {
+      if (error.code !== undefined) {
         return {
           success: false,
-          error: 'CodeRabbit CLI not installed',
-          issues: [],
+          exitCode: error.code,
+          error: `Static analysis command exited with code ${error.code}`,
+          output: [error.stdout, error.stderr].filter(Boolean).join('\n').slice(0, 4000),
         };
       }
-      if (error.code !== undefined && error.code !== 0) {
-        return {
-          success: false,
-          error:
-            `CodeRabbit CLI exited with code ${error.code}. ` +
-            `stdout: ${(error.stdout || '').slice(0, 200)}, ` +
-            `stderr: ${(error.stderr || '').slice(0, 200)}`,
-          issues: [],
-        };
-      }
-      return {
-        success: false,
-        error: error.message,
-        issues: [],
-      };
+      throw error;
     }
-  }
-
-  /**
-   * Parses CodeRabbit CLI output to extract issues
-   * @param {string} output - Raw CodeRabbit output
-   * @returns {Array} Array of issue objects
-   */
-  parseCodeRabbitOutput(output) {
-    const issues = [];
-
-    if (!output) return issues;
-
-    // CodeRabbit outputs issues in various formats
-    // Try to parse structured format first (JSON-like blocks)
-    const jsonMatch = output.match(/```json\n([\s\S]*?)```/);
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[1]);
-        if (Array.isArray(parsed)) {
-          return parsed.map((item) => ({
-            file: item.file || item.path || 'unknown',
-            line: item.line || item.lineNumber || 0,
-            severity: item.severity || 'MEDIUM',
-            message: item.message || item.description || '',
-            suggestion: item.suggestion || item.fix || null,
-          }));
-        }
-      } catch {
-        // Not valid JSON, continue with text parsing
-      }
-    }
-
-    // Parse text-based output (line-by-line issues)
-    const lines = output.split('\n');
-    const severityPattern = /\[(CRITICAL|HIGH|MEDIUM|LOW)\]/i;
-    const filePattern = /([^\s:]+):(\d+)/;
-
-    for (const line of lines) {
-      const severityMatch = line.match(severityPattern);
-      const fileMatch = line.match(filePattern);
-
-      if (severityMatch) {
-        issues.push({
-          file: fileMatch ? fileMatch[1] : 'unknown',
-          line: fileMatch ? parseInt(fileMatch[2], 10) : 0,
-          severity: severityMatch[1].toUpperCase(),
-          message: line.replace(severityPattern, '').replace(filePattern, '').trim(),
-          suggestion: null,
-        });
-      }
-    }
-
-    return issues;
-  }
-
-  /**
-   * Attempts to auto-fix a single issue
-   * @param {Object} issue - Issue to fix
-   * @returns {Promise<boolean>} True if fixed successfully
-   */
-  async attemptAutoFix(issue) {
-    // For MVP, we don't attempt actual auto-fixes
-    // This would require integration with an AI model to generate fixes
-    // Just log the attempt and return false
-    if (this.options.debug) {
-      console.log(`[WorkflowExecutor] Would auto-fix: ${issue.file}:${issue.line} - ${issue.message}`);
-    }
-
-    // If issue has a suggestion, we could apply it
-    // For now, mark as not fixed - requires human review
-    return false;
   }
 
   /**

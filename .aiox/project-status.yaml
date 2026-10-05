@@ -1,18 +1,19 @@
 status:
-  branch: main
+  branch: chore/replace-ai-review-with-opengrep
   modifiedFiles:
-    - .aiox-core/core/quality-gates/quality-gate-config.yaml
-    - .aiox-core/development/agents/dev.md
-    - .aiox/project-status.yaml
-    - CHANGELOG.md
-    - CHANGELOG_INTERNAL.md
-  modifiedFilesTotalCount: 40
+    - .aiox-core/.installed-manifest.yaml
+    - .aiox-core/cli/commands/config/index.js
+    - .aiox-core/cli/commands/metrics/index.js
+    - .aiox-core/cli/commands/metrics/record.js
+    - .aiox-core/cli/commands/metrics/seed.js
+  modifiedFilesTotalCount: 214
   recentCommits:
+    - 'feat: add local runtime and queue domain foundation'
     - 'chore: initialize local Twitch queue bot foundation'
   currentEpic: null
-  currentStory: story
-  lastUpdate: '2026-10-03T02:34:31.803Z'
+  currentStory: null
+  lastUpdate: '2026-10-05T18:13:20.698Z'
   isGitRepo: true
-timestamp: 1790994871806
+timestamp: 1791224000699
 ttl: 60
-gitFingerprint: 1790979000225.0315:1790987736088.2256
+gitFingerprint: 1790996050256.381:1790998617566.1733

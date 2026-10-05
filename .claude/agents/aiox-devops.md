@@ -16,7 +16,7 @@ memory: project
 skills:
   - synapse:tasks:diagnose-synapse
   - synapse:manager
-  - coderabbit-review
+  - opengrep-static-analysis
   - checklist-runner
 color: orange
 ---

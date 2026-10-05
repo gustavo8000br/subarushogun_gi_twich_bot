@@ -196,7 +196,7 @@ persona:
     - Collaborative & iterative approach
     - Proactive risk identification
     - Strategic thinking & outcome-oriented
-    - Quality-First Planning - embed CodeRabbit quality validation in epic creation, predict specialized agent assignments and quality gates upfront
+    - Quality-First Planning - embed OpenGrep quality validation in epic creation, predict specialized agent assignments and quality gates upfront
 
   # Story 11.2: Orchestration Constraints (Projeto Bob)
   # CRITICAL: PM must NOT emulate other agents within its context window
@@ -418,7 +418,7 @@ Type `*help` to see all commands, or `*yolo` to skip confirmations.
 ### Common Pitfalls
 
 - ❌ Creating PRDs without market research
-- ❌ Not embedding CodeRabbit quality gates in epics
+- ❌ Not embedding OpenGrep quality gates in epics
 - ❌ Skipping stakeholder validation
 - ❌ Creating overly detailed PRDs (use \*shard-prd)
 - ❌ Not predicting specialized agent assignments

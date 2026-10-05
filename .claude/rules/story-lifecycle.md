@@ -76,16 +76,14 @@ Draft → Ready → InProgress → InReview → Done
 - Then zero-ambiguity execution
 - Best for: ambiguous requirements, critical work
 
-### CodeRabbit Self-Healing in Dev Phase
+### Local Static Analysis in Dev Phase
 
-```
-iteration = 0
-while CRITICAL issues found AND iteration < 2:
-  auto-fix CRITICAL/HIGH
-  iteration++
-if CRITICAL persist after 2 iterations:
-  HALT — manual intervention required
-```
+Run the configured local static-analysis command from the project root. A zero exit
+status passes this gate; a non-zero status blocks completion until findings are
+reviewed and addressed with the normal test-first development cycle. The scanner
+only reports findings and never edits project files. Record the command, result,
+and any remaining accepted findings in the story evidence. Human QA review remains
+a separate gate.
 
 ## Phase 4: QA Gate (@qa)
 

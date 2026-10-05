@@ -917,7 +917,7 @@
     "infrastructure/scripts/worktree-manager.js": "sha256:76ac6c2638b5ddf9d8a359ac9db887b926ca0993d77220f6511c58255f0cfbd3",
     "infrastructure/scripts/yaml-validator.js": "sha256:2039ecb9a9d3f639c734c65704018efd2c4656c4995f0b0e537670f7417bf23b",
     "infrastructure/templates/aiox-sync.yaml.template": "sha256:0040ad8a9e25716a28631b102c9448b72fd72e84f992c3926eb97e9e514744bb",
-    "infrastructure/templates/coderabbit.yaml.template": "sha256:91a4a76bbc40767a4072fb6a87c480902bb800cfb0a11e9fc1b3183d8f7f3a80",
+    "infrastructure/templates/opengrep.yaml.template": "sha256:91a4a76bbc40767a4072fb6a87c480902bb800cfb0a11e9fc1b3183d8f7f3a80",
     "infrastructure/templates/core-config/core-config-brownfield.tmpl.yaml": "sha256:9bdb0c0e09c765c991f9f142921f7f8e2c0d0ada717f41254161465dc0622d02",
     "infrastructure/templates/core-config/core-config-greenfield.tmpl.yaml": "sha256:87771952385f148667bd9d5464daf3320c92990370625d8e5c08388fa77c7d89",
     "infrastructure/templates/github-workflows/ci.yml.template": "sha256:acbfa2a8a84141fd6a6b205eac74719772f01c221c0afe22ce951356f06a605d",

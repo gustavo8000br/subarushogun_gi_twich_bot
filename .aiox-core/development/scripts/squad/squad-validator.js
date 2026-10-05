@@ -699,7 +699,7 @@ class SquadValidator {
 
     // Resolve path relative to squad directory
     // path.resolve handles both local paths (config/file.md) and relative paths (../../docs/framework/...)
-    // Simplified from redundant path.resolve + path.join (CodeRabbit nitpick)
+    // Simplified from redundant path.resolve + path.join (OpenGrep nitpick)
     const resolvedPath = path.resolve(squadPath, configPath);
     if (await this._pathExists(resolvedPath)) {
       this._log(`Resolved config path: ${configPath} -> ${resolvedPath}`);

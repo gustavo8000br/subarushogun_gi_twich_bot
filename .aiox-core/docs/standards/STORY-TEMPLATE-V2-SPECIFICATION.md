@@ -22,14 +22,14 @@
 
 ### Purpose
 
-The Story Template v2.0 standardizes story documentation across the AIOX project, ensuring consistency, traceability, and integration with automated tools like CodeRabbit.
+The Story Template v2.0 standardizes story documentation across the AIOX project, ensuring consistency, traceability, and integration with configured quality checks.
 
 ### What's New in v2.0
 
 | Feature | v1.x | v2.0 |
 |---------|------|------|
 | Cross-Story Decisions | ❌ | ✅ Required section |
-| CodeRabbit Integration | ❌ | ✅ Story Type Analysis, Agent Assignment |
+| Quality Gate Plan | ❌ | ✅ Story Type Analysis, Agent Assignment |
 | Dev Agent Record | ❌ | ✅ Execution logging |
 | QA Results | ❌ | ✅ Structured test results |
 | Testing Checklist | Informal | ✅ Standardized format |
@@ -110,7 +110,7 @@ AND [additional outcomes]
 
 ---
 
-## 🤖 CodeRabbit Integration
+## Quality Gate Plan
 
 ### Story Type Analysis
 
@@ -129,20 +129,12 @@ AND [additional outcomes]
 | Secondary | @[agent] | [Supporting task] |
 | Review | @[agent] | [Review task] |
 
-### Self-Healing Config
+### Static Analysis Plan
 
-```yaml
-reviews:
-  auto_review:
-    enabled: true
-    drafts: false
-  path_instructions:
-    - path: "[relevant path pattern]"
-      instructions: "[specific review instructions]"
-
-chat:
-  auto_reply: true
-```
+Record the project's configured local scanner command, applicable rules/focus areas,
+and the owner responsible for addressing findings. The scanner is report-only;
+findings follow the story's test-first correction process. Keep human and specialist
+reviews as separate gates.
 
 ### Focus Areas
 
@@ -332,13 +324,13 @@ THEN [expected result]
 AND [additional result]
 ```
 
-### CodeRabbit Integration (NEW in v2.0)
+### Quality Gate Plan (NEW in v2.0)
 
 | Sub-section | Purpose |
 |-------------|---------|
-| Story Type Analysis | Helps CodeRabbit focus review |
+| Story Type Analysis | Helps select relevant quality checks |
 | Agent Assignment | Assigns responsibility |
-| Self-Healing Config | YAML for auto-configuration |
+| Static Analysis Plan | Local scanner command and finding owner |
 | Focus Areas | Key review points |
 
 ### Dev Agent Record (NEW in v2.0)
@@ -374,7 +366,7 @@ Tracks validation by @qa agent:
 
 **Example Tasks:**
 - Update GitHub Actions
-- Configure CodeRabbit
+- Configure static analysis where applicable
 - Setup Husky hooks
 
 ### 💻 Feature
@@ -459,7 +451,7 @@ Use this checklist when creating or reviewing stories:
 - [ ] User Story in proper format
 - [ ] At least one Acceptance Criteria
 - [ ] Tasks organized by phases
-- [ ] CodeRabbit Integration section
+- [ ] Quality Gate Plan section
 - [ ] Definition of Done
 - [ ] Dev Agent Record (empty template)
 - [ ] QA Results (empty template)

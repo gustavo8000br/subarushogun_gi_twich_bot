@@ -164,7 +164,7 @@ class HumanReviewOrchestrator {
   block(layerCheck, stoppedAt, startTime) {
     const blockMessages = {
       layer1: 'Fix linting, tests, and type errors before human review',
-      layer2: 'Fix CodeRabbit and Quinn issues before human review',
+      layer2: 'Resolve static-analysis and Quinn findings before human review',
     };
 
     return {
@@ -204,8 +204,8 @@ class HumanReviewOrchestrator {
         case 'typecheck':
           rec.suggestion = 'Run `npm run typecheck` and resolve type errors';
           break;
-        case 'coderabbit':
-          rec.suggestion = 'Review CodeRabbit feedback and address CRITICAL/HIGH issues';
+        case 'opengrep':
+          rec.suggestion = 'Review OpenGrep feedback and address CRITICAL/HIGH issues';
           break;
         case 'quinn':
           rec.suggestion = 'Review Quinn suggestions and address blocking items';
@@ -266,7 +266,7 @@ class HumanReviewOrchestrator {
       },
       layer2: {
         status: layer2Result?.pass ? 'passed' : 'failed',
-        coderabbit: null,
+        opengrep: null,
         quinn: null,
       },
     };
@@ -282,13 +282,12 @@ class HumanReviewOrchestrator {
       });
     }
 
-    // Layer 2 CodeRabbit summary
-    const coderabbitResult = layer2Result?.results?.find((r) => r.check === 'coderabbit');
-    if (coderabbitResult) {
-      summary.layer2.coderabbit = {
-        status: coderabbitResult.pass ? 'passed' : (coderabbitResult.skipped ? 'skipped' : 'issues_found'),
-        issues: coderabbitResult.issues || { critical: 0, high: 0, medium: 0, low: 0 },
-        details: coderabbitResult.details?.slice(0, 5) || [], // Top 5 issues
+    // Layer 2 OpenGrep summary
+    const opengrepResult = layer2Result?.results?.find((r) => r.check === 'opengrep');
+    if (opengrepResult) {
+      summary.layer2.opengrep = {
+        status: opengrepResult.pass ? 'passed' : (opengrepResult.skipped ? 'skipped' : 'issues_found'),
+        details: opengrepResult.details || '',
       };
     }
 

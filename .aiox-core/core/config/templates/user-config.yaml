@@ -16,8 +16,5 @@ default_model: "claude-sonnet"
 # Default language for agent responses
 default_language: "pt-BR"
 
-# CodeRabbit automated review integration
-coderabbit_integration: true
-
 # Educational mode — provides detailed explanations of actions
 educational_mode: false

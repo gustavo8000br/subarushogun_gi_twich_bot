@@ -593,7 +593,7 @@ This task is part of Epic 6 - QA Evolution's 10-phase loop:
 ```
 
 Phase 1: Story Ready for Review
-Phase 2: CodeRabbit Scan (automated)
+Phase 2: OpenGrep Scan (automated)
 Phase 3: Manual QA Review
 Phase 4: QA Report Generation
 Phase 5: Fix Request Generation ← THIS TASK

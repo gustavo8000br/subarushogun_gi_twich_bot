@@ -233,9 +233,10 @@ class NotificationManager {
     // Add Layer 2 summary
     if (reviewRequest.automatedSummary?.layer2) {
       lines.push('### Layer 2: PR Automation');
-      if (reviewRequest.automatedSummary.layer2.coderabbit) {
-        const cr = reviewRequest.automatedSummary.layer2.coderabbit;
-        lines.push(`- 🐰 CodeRabbit: ${cr.issues.critical} CRITICAL, ${cr.issues.high} HIGH, ${cr.issues.medium} MEDIUM`);
+      if (reviewRequest.automatedSummary.layer2.opengrep) {
+        const review = reviewRequest.automatedSummary.layer2.opengrep;
+        lines.push(`- 🔍 Static analysis: ${review.status}`);
+        if (review.details) lines.push(`  ${review.details}`);
       }
       if (reviewRequest.automatedSummary.layer2.quinn) {
         const q = reviewRequest.automatedSummary.layer2.quinn;

@@ -264,7 +264,7 @@ This quality planning during epic creation ensures:
 
 Proactive quality validation reduces risk to existing systems:
 
-- **CodeRabbit Validation**: All stories include pre-commit reviews
+- **Static Analysis Plan Validation**: All stories include pre-commit reviews
   - Database stories: @db-sage validates schema compliance, service filters, RLS policies
   - API stories: @architect validates contracts, backward compatibility
   - Deployment stories: @github-devops validates configuration, rollback readiness

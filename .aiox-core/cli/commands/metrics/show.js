@@ -124,9 +124,9 @@ function createShowCommand() {
           if (layerKey === 'layer2' && layer.autoCatchRate !== undefined) {
             console.log(`  Auto-Catch:  ${formatPercent(layer.autoCatchRate)}`);
 
-            if (layer.coderabbit?.active) {
-              const cr = layer.coderabbit;
-              console.log('\n  CodeRabbit:');
+            if (layer.opengrep?.active) {
+              const cr = layer.opengrep;
+              console.log('\n  OpenGrep:');
               console.log(`    Findings: ${cr.findingsCount}`);
               if (cr.severityBreakdown) {
                 const sb = cr.severityBreakdown;

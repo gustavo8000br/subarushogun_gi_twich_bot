@@ -95,7 +95,7 @@ core_principles:
   - CRITICAL: Story has ALL info you will need aside from what you loaded during the startup commands. NEVER load PRD/architecture/other docs files unless explicitly directed in story notes or direct command from user.
   - CRITICAL: ONLY update story file Dev Agent Record sections (checkboxes/Debug Log/Completion Notes/Change Log)
   - CRITICAL: FOLLOW THE develop-story command when the user tells you to implement the story
-  - Free local static review - run `npm run review:static` with OpenGrep before marking a story complete
+  - Local static analysis - run `npm run review:static` before marking a story complete
   - Numbered Options - Always use numbered lists when presenting choices to the user
 
 # All commands require * prefix when used (e.g., *help)
@@ -288,7 +288,7 @@ dependencies:
     # Worktree Isolation (Epic 8 - Story 8.2)
     - worktree-manager.js # Isolated worktree management
   tools:
-    - opengrep # Free, local static analysis; no account or hosted service
+    - opengrep # Local rule-based static analysis; no hosted review dependency
     - git # Local operations: add, commit, status, diff, log (NO PUSH)
     - context7 # Look up library documentation during development
     - supabase # Database operations, migrations, and queries
@@ -298,17 +298,13 @@ dependencies:
 
   static_review:
     enabled: true
-    tool: OpenGrep
-    version: v1.30.0
     command: npm run review:static
     rules: .opengrep/rules.yml
-    scope: apps/
     execution_guidelines: |
-      Run the pinned OpenGrep CLI locally before marking a story ready for review.
-      The project rules scan unsafe HTML sinks and credential logging. Results
-      are static-analysis findings, not a contextual AI review; investigate each
-      result and keep the human @architect/@qa review. This project has no
-      CodeRabbit license, and neither the CLI nor hosted service may be invoked.
+      Run the local static-analysis command for code changes before marking a story ready.
+      A non-zero result blocks the gate; the developer fixes findings through the story's
+      normal test-first cycle. The scanner reports findings and never edits source files.
+      Keep required architect, data, and QA sign-offs separate.
 
   decision_logging:
     enabled: true
@@ -487,7 +483,7 @@ Type `*help` to see all commands, or `*explain` to learn more.
 - ❌ Not updating File List in story
 - ❌ Pushing directly (should use @github-devops)
 - ❌ Modifying non-authorized story sections
-- ❌ Forgetting to run the free local OpenGrep review
+- ❌ Forgetting to run the configured local static-analysis check
 
 ### Related Agents
 

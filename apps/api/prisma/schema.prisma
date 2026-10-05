@@ -108,6 +108,7 @@ model Outbox {
   attempts       Int         @default(0)
   nextAttemptAt  DateTime    @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
   leaseUntil     DateTime?   @map("lease_until") @db.Timestamptz(3)
+  leaseToken     String?     @map("lease_token") @db.Uuid
   lastError      String?     @map("last_error")
   entryId        String?     @map("entry_id") @db.Uuid
   redemptionId   String?     @map("redemption_id")
@@ -155,6 +156,7 @@ model OAuthCredential {
   scopes         String[] @default([])
   broadcasterId  String?  @map("broadcaster_id")
   tokenExpiresAt DateTime? @map("token_expires_at") @db.Timestamptz(3)
+  authStatus     String   @default("pending") @map("auth_status")
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   @@map("oauth_credentials")
 }

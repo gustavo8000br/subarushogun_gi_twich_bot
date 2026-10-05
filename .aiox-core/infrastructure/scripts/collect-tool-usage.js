@@ -161,7 +161,7 @@ function generateSampleData(sessionId) {
     { name: 'Glob', inputCost: 150, outputCost: 80 },
     { name: 'Task', inputCost: 400, outputCost: 300 },
     { name: 'git', inputCost: 100, outputCost: 50 },
-    { name: 'coderabbit', inputCost: 300, outputCost: 200 },
+    { name: 'opengrep', inputCost: 300, outputCost: 200 },
     { name: 'context7', inputCost: 200, outputCost: 150 }
   ];
 

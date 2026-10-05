@@ -17,7 +17,7 @@ const KNOWN_STORY_SECTIONS = [
   'executor-assignment',
   'story',
   'acceptance-criteria',
-  'coderabbit-integration',
+  'quality-gate-plan',
   'tasks-subtasks',
   'dev-notes',
   'change-log',

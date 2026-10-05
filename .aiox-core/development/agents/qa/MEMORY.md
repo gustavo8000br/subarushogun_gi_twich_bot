@@ -6,7 +6,6 @@
 ### Review Patterns
 - ONLY update "QA Results" section in story files
 - Gate decisions: PASS / CONCERNS / FAIL / WAIVED
-- CodeRabbit self-healing: max 3 iterations, CRITICAL+HIGH auto-fix
 
 ### Test Infrastructure
 - `npm test` — Jest 30.2.0
@@ -25,7 +24,7 @@
 
 ### Common Issues
 - Windows path separators in test assertions
-- CodeRabbit WSL execution: `wsl bash -c 'cd /mnt/c/... && ~/.local/bin/coderabbit ...'`
+- Run the configured local static-analysis command and treat a non-zero exit status as a blocking finding; keep this check separate from human QA review.
 - SYNAPSE metrics at `.synapse/metrics/`
 - Pipeline benchmarks at `tests/synapse/benchmarks/`
 

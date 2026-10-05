@@ -28,7 +28,6 @@ const USER_FIELDS = [
   'user_profile',
   'default_model',
   'default_language',
-  'coderabbit_integration',
   'educational_mode',
 ];
 

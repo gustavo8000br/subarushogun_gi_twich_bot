@@ -29,7 +29,7 @@ agent_config:
     - Story
     - Objective
     - Scope
-    - CodeRabbit Integration
+    - Quality Gate Plan
     - Tasks Breakdown
     - Testing & Validation
     - Acceptance Criteria
@@ -101,11 +101,11 @@ sections:
     owner: po
     editors: [po, ux-design-expert, architect]
 
-  - id: coderabbit-integration
-    title: 🤖 CodeRabbit Integration
+  - id: quality-gate-plan
+    title: Quality Gate Plan
     instruction: |
-      Define quality gates and specialized agent assignments for design/research work.
-      Even though this is not code, quality standards still apply.
+      Define appropriate human review gates and any static analysis checks for
+      code or configuration artifacts produced by this design/research work.
     elicit: true
     owner: po
     editors: [po, sm]

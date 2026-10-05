@@ -15,7 +15,7 @@
 - [Layer 2: PR Automation](#layer-2-pr-automation)
 - [Layer 3: Human Review](#layer-3-human-review)
 - [Configuration Guide](#configuration-guide)
-- [CodeRabbit Self-Healing](#coderabbit-self-healing)
+- [Local Static Analysis](#local-static-analysis)
 - [Metrics & Impact](#metrics--impact)
 
 ---
@@ -71,7 +71,7 @@ The Quality Gates 3-Layer system ensures code quality through progressive automa
 │   │   Time: < 3 minutes                                               │ │
 │   │   Catches: Additional 50% (80% cumulative)                        │ │
 │   │                                                                   │ │
-│   │   ✓ CodeRabbit AI review                                         │ │
+│   │   ✓ Repository-configured local static analysis                                         │ │
 │   │   ✓ Integration tests                                            │ │
 │   │   ✓ Coverage analysis (threshold: 80%)                           │ │
 │   │   ✓ Security scan (npm audit, Snyk)                              │ │
@@ -189,13 +189,13 @@ npm test -- --onlyChanged --passWithNoTests
 
 ### Purpose
 
-Run comprehensive automated checks on every PR, including AI-powered code review, integration tests, and security scanning.
+Run comprehensive automated checks on every PR, including repository-configured static analysis, integration tests, and security scanning.
 
 ### Checks
 
 | Check | Tool | Threshold | Blocking |
 |-------|------|-----------|----------|
-| AI Code Review | CodeRabbit | N/A (suggestions) | No* |
+| Local Static Analysis | OpenGrep CLI | Blocking rules pass | Yes |
 | Integration Tests | Jest | 100% pass | Yes |
 | Coverage | Jest | 80% minimum | Yes |
 | Security Audit | npm audit | No high/critical | Yes |
@@ -203,7 +203,7 @@ Run comprehensive automated checks on every PR, including AI-powered code review
 | Type Check | TypeScript | 0 errors | Yes |
 | Build | npm/webpack | Success | Yes |
 
-*CodeRabbit suggestions are non-blocking but tracked.
+The scanner reports repository-defined rule matches; human review remains separate.
 
 ### Configuration
 
@@ -264,38 +264,11 @@ jobs:
           fail_ci_if_error: false
 ```
 
-#### .github/coderabbit.yaml
+#### Repository-owned static-analysis rules
 
-```yaml
-# CodeRabbit Configuration
-language: "en"
-tone_instructions: "Be constructive and helpful. Focus on bugs, security, and best practices."
-early_access: false
-
-reviews:
-  profile: "chill"
-  request_changes_workflow: false
-  high_level_summary: true
-  poem: false
-  review_status: true
-  collapse_walkthrough: false
-  auto_review:
-    enabled: true
-    drafts: false
-    base_branches:
-      - main
-      - develop
-  path_filters:
-    - path: "**/*.test.ts"
-      instructions: "Focus on test coverage and edge cases"
-    - path: "**/*.md"
-      instructions: "Check for broken links, typos, and clarity"
-    - path: ".aiox-core/**"
-      instructions: "Ensure consistency with framework standards"
-
-chat:
-  auto_reply: true
-```
+Keep scanner rules in the repository (for example, `.opengrep/rules.yml`) and run
+its configured command locally and in CI. A non-zero result fails the static-analysis
+job. The scanner does not provide contextual review, post comments, or modify code.
 
 ### Expected Results
 
@@ -448,56 +421,16 @@ git commit -m "docs: update readme [skip ci]"
 
 ---
 
-## CodeRabbit Self-Healing
+## Local Static Analysis
 
-### Story Type Analysis
-
-CodeRabbit automatically adjusts review focus based on story type:
-
-| Story Type | Review Focus | Priority Checks |
-|------------|--------------|-----------------|
-| 🔧 Infrastructure | Configuration, CI/CD | Security, backwards compatibility |
-| 💻 Feature | Business logic, UX | Tests, documentation |
-| 📖 Documentation | Clarity, accuracy | Links, terminology |
-| ✅ Validation | Test coverage | Edge cases |
-| 🐛 Bug Fix | Root cause, regression | Tests, side effects |
-
-### Path-Based Instructions
-
-```yaml
-# .github/coderabbit.yaml
-reviews:
-  path_instructions:
-    - path: "**/*.test.ts"
-      instructions: |
-        Focus on:
-        - Test coverage completeness
-        - Edge case handling
-        - Mock appropriateness
-        - Assertion quality
-
-    - path: ".aiox-core/docs/standards/**"
-      instructions: |
-        Verify:
-        - Terminology uses 'Squad' not 'Squad'
-        - All internal links work
-        - Version numbers are v4.2
-
-    - path: "squads/**"
-      instructions: |
-        Check:
-        - squad.yaml manifest is valid
-        - peerDependency on @aiox/core declared
-        - Follows Squad structure conventions
-
-    - path: ".github/workflows/**"
-      instructions: |
-        Review:
-        - No hardcoded secrets
-        - Proper timeout settings
-        - Concurrency configuration
-        - Security best practices
-```
+Projects may configure a local static-analysis command and repository-owned rules.
+The command reports findings and returns a non-zero status when its configured
+blocking policy is met. A non-zero result blocks the quality gate until a developer
+reviews the finding, writes or updates a regression test when behavior is involved,
+and makes the correction. The scanner does not edit files, assign story types,
+invent severity counts, or create issues. Human and specialist reviews remain
+independent quality gates. Record the exact command and observed result in story
+evidence; do not claim a scan ran when it did not.
 
 ---
 
@@ -546,7 +479,7 @@ reviews:
 ## Related Documents
 
 - [AIOX-LIVRO-DE-OURO-V2.1-COMPLETE.md](./AIOX-LIVRO-DE-OURO-V2.1-COMPLETE.md)
-- [CodeRabbit Integration Decisions](../../docs/architecture/coderabbit-integration-decisions.md)
+- [Local static-analysis rules](../../../.opengrep/rules.yml)
 - [STORY-TEMPLATE-V2-SPECIFICATION.md](./STORY-TEMPLATE-V2-SPECIFICATION.md)
 
 ---

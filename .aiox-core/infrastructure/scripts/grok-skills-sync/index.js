@@ -462,7 +462,7 @@ Optional / pre-push:
 
 \`\`\`bash
 npm run build
-# CodeRabbit when available (see coderabbit skill / WSL notes)
+# Local static analysis is configured per project; it reports findings and does not edit files.
 \`\`\`
 
 ## Agent rules

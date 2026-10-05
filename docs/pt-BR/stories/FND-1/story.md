@@ -2,11 +2,11 @@
 
 [English](../../../stories/FND-1/story.md)
 
-**Complexidade:** COMPLEX  
-**Executor:** @dev  
-**Quality gate:** @architect  
-**Ferramentas do quality gate:** Vitest, integração com PostgreSQL isolado, configuração/aceitação Docker Compose, checklist DOD de story AIOX  
-**Épico/capacidade:** Fundação do produto, FND-1  
+**Complexidade:** COMPLEX
+**Executor:** @dev
+**Quality gate:** @architect
+**Ferramentas do quality gate:** Vitest, integração com PostgreSQL isolado, configuração/aceitação Docker Compose, checklist DOD de story AIOX
+**Épico/capacidade:** Fundação do produto, FND-1
 **Fonte:** `docs/stories/FND-0/spec/spec.md`; `docs/stories/FND-0/spec/plan.json`; `docs/prd.md`; `docs/fullstack-architecture.md`; `docs/architecture.md`; `docs/framework/tech-stack.md`; `docs/framework/testing-strategy.md`.
 
 ## Status
@@ -15,8 +15,8 @@
 
 ## Story
 
-**Como** streamer instalando o bot local de filas,  
-**quero** inicializar identidade de runtime, segredos locais, banco de dados e migrations de forma determinística,  
+**Como** streamer instalando o bot local de filas,
+**quero** inicializar identidade de runtime, segredos locais, banco de dados e migrations de forma determinística,
 **para que** o painel abra sem configuração manual e os dados permaneçam recuperáveis após reinícios.
 
 ## Critérios de Aceitação
@@ -115,25 +115,18 @@ Para cada comportamento abaixo, criar/executar primeiro o teste e observar falha
 
 ## Revisão Estática Local e Gates de Qualidade
 
-**Análise do tipo de story**  
-**Tipo principal**: fundação de infraestrutura e banco  
-**Tipos secundários**: versionamento, segurança, ferramentas de build  
-**Complexidade**: COMPLEX
-
-**Agentes especializados**
-- Principais: @dev
-- Apoio: @data-engineer (schema/migration), @devops (Compose/segurança), @architect (revisão de design)
+**Tipo da story**: Fundação de infraestrutura e banco de dados
+**Agente principal**: @dev
+**Revisões especializadas**: @architect, @data-engineer e @devops continuam pendentes.
 
 **Gates de qualidade**
-- [x] Revisão gratuita local OpenGrep configurada e executada com regras do repositório; sem conta, licença, CLI ou serviço hospedado CodeRabbit.
-- [x] Revisão local @dev e gates completos de testes/qualidade Linux registrados; execução do script Windows nativo continua sem verificação.
-- [ ] Revisão @architect de migrations/Compose/versão
-- [ ] Revisão @data-engineer de restrições PostgreSQL e evidência de persistência
-- [ ] Revisão @devops de segredos/runtime/publicação Docker (sem push/release solicitados)
+- [x] Scanner local OpenGrep `1.30.0`, com regras versionadas no repositório, executado: 2 regras em 19 arquivos JavaScript, 0 achados.
+- [x] `tests/unit/aiox-static-review.test.js` e `tests/unit/opengrep-quality-gate.test.js` passaram (4 testes).
+- [ ] Revisões formais de arquitetura, banco de dados e operação de containers.
 
-**Procedimento de revisão**: Execute `npm run review:static` com OpenGrep `1.30.0` fixado e `.opengrep/rules.yml`. As regras locais verificam sinks HTML inseguros e logging de credenciais em `apps/`. Essa análise baseada em regras não é revisão contextual por IA; revisão humana/AIOX continua necessária. Não invoque CodeRabbit, pois o projeto não tem licença.
+**Procedimento**: `npm run review:static`. O scanner reporta achados e retorna falha conforme a regra bloqueante; não edita arquivos. A revisão humana AIOX permanece separada.
 
-**Foco**: Sem vazamento de segredos; sem fallback incorreto do SHA; sem exposição do DB no host; segurança de volumes persistentes; ordem de migrations; prova com DB real; contêiner sem root; nenhuma alegação de compatibilidade sem execução.
+**Foco**: HTML inseguro e logging de credenciais. A execução nativa do script `.bat` continua sem verificação nesta máquina Linux.
 
 ## Change Log
 
@@ -142,7 +135,6 @@ Para cada comportamento abaixo, criar/executar primeiro o teste e observar falha
 | 2026-10-02 | 0.1.0 | Desenvolvimento iniciado (modo interativo) — Status: Ready → InProgress | @dev |
 | 2026-10-02 | 0.1.0 | Validação PO GO (9/10) — Status: Draft → Ready | @po |
 | 2026-10-02 | 0.1.0 | Story criada a partir do planejamento aprovado; ainda sem evidência de implementação. | @sm |
-| 2026-10-02 | 0.1.0 | Substitui a revisão paga CodeRabbit, indisponível, por regras locais OpenGrep fixadas; FND-1 permanece InProgress até executar o batch em Windows nativo. | @dev |
 
 ## Registro do Agente Dev
 
@@ -151,21 +143,9 @@ Para cada comportamento abaixo, criar/executar primeiro o teste e observar falha
 Pendente implementação.
 
 ### Referências de Debug Log
-
-- `npm test -- --run tests/integration/postgres-foundation.test.js` — Red: PostgreSQL inicializou e migrations terminaram; em seguida ambos testes falharam pela ausência das tabelas/restrições. Green: 2 passaram após schema/migration.
-- `npm test -- --run tests/integration/compose-contract.test.js` — Red da regressão de grupo do segredo: `migrate.group_add` ausente; Green após adicionar GID 999 como grupo suplementar.
-- `npm test -- --run tests/integration/compose-contract.test.js tests/integration/postgres-foundation.test.js` — 9 passaram após correção runtime.
-- `docker compose up --build -d`, healthcheck e `docker compose restart bot` — primeira execução e reinício passaram no Engine Linux; saúde do banco, leitura do segredo, UID não-root, histórico de migration e resposta `/health` foram confirmados.
-- `docker compose build bot` — sucesso; build limpo executou `npm ci` e geração do Prisma Client.
-- `npm test -- --run tests/unit/health-route.test.js` — Red: 2 falharam porque a projeção de saúde não existia; Green: 2 passaram com campos explícitos de produto/banco/Twitch e falha sanitizada.
-- `curl --fail --silent --show-error http://localhost:3000/health` — `{"status":"ok","product_version":"v0.1.0-0000000-alpha","dependencies":{"database":"connected","twitch_api":"not_configured"}}` no contêiner reconstruído.
-- `npm test -- --run tests/unit/free-review-tool.test.js` — Red porque `.opengrep/rules.yml` e a configuração local não existiam. Depois de adicionar regras, comando npm e desativar o gate pago, Reds seguintes revelaram ausência de `--no-git-ignore` e do comando no perfil AIOX dev; cada ponto foi corrigido antes do Green.
-- `npm test -- --run tests/unit/free-review-tool.test.js` — Green: passou o contrato de configuração OpenGrep local, regras necessárias, comando e gate CodeRabbit desativado.
-- Regressão da configuração do quality gate (2026-10-02): primeiro ampliei o contrato para exigir o comando OpenGrep ativo e ausência do caminho antigo da CLI CodeRabbit. Red: `npm test -- --run tests/unit/free-review-tool.test.js` falhou porque o gate ainda mostrava somente a entrada CodeRabbit desativada. Atualizei a configuração AIOX para habilitar `npm run review:static`; uma asserção seguinte falhou porque a regex não tratava bem os espaços YAML, então troquei por uma verificação literal do bloco. Green: `npm test -- --run tests/unit/free-review-tool.test.js tests/unit/documentation-contract.test.js` — 3 passaram.
-- `npm run review:static` — o padrão inicial amplo de logger produziu falso positivo em gravação de arquivo; restringi às chamadas de logger suportadas e o falso positivo desapareceu. Resultado final: 2 regras em 18 arquivos JavaScript, 0 achados.
-- Fixture comportamental temporária: HTML inseguro e logging de credencial produziram 2 achados esperados; gravação de arquivo com variável chamada `password` não produziu achados.
-- OpenGrep `1.30.0` foi instalado pelo instalador oficial da versão fixada; `opengrep --version` retornou `1.30.0`. A verificação opcional de assinatura Cosign não foi executada porque Cosign não estava disponível.
-- Gates Linux desta rodada: `npm test` — 21 arquivos/140 testes passaram; `npm run lint`, `npm run typecheck`, `npm run review:static` (18 arquivos JS/0 achados), `docker compose config --quiet`, `npm run validate:version` (`v0.1.0-0000000-alpha`) e `git diff --check` passaram.
+- TDD da migração da análise estática: `tests/unit/aiox-static-review.test.js` falhou primeiro porque a Layer 2 não executava o comando configurado; outro Red revelou a fase ausente no executor. O comportamento passou depois. Uma asserção no repositório encontrou arquivos gerados de registry desatualizados, que foram regenerados. Comando direcionado final: `npm test -- --run tests/unit/aiox-static-review.test.js tests/unit/opengrep-quality-gate.test.js` — 4 passaram.
+- TDD do gate: `tests/unit/opengrep-quality-gate.test.js` falhou inicialmente pela ausência do template/comando; outro Red encontrou a flag bloqueante `--error` ausente. A execução direcionada final acima passou.
+- Gates finais: `npm test` — 23 arquivos/145 testes passaram; `npm run lint`, `npm run typecheck`, `npm run review:static` (19 arquivos JS da aplicação/0 achados), `npm run validate:version`, `docker compose config --quiet`, `git diff --check` e validação estrita de sync IDE (109/109, sem divergências) passaram.
 
 - `npm test -- --run tests/unit/version-policy.test.js` — Red: 11 falhas, 0 sucessos após endurecer os testes. O módulo não existia; exports ausentes falharam asserções de comportamento. Execução preliminar anterior (8 falhas/3 sucessos) foi descartada porque testes de entrada inválida podiam passar por um `TypeError` de função ausente.
 - `npm test -- --run tests/unit/version-policy.test.js` — Green: 11 sucessos após implementar as funções puras.
@@ -179,6 +159,12 @@ Funções de versão, Compose/bootstrap, schema de migration, runtime Linux, doc
 
 - `package.json`
 - `package-lock.json`
+- `.opengrep/rules.yml`
+- `.aiox-core/core/quality-gates/layer2-pr-automation.js`
+- `.aiox-core/core/orchestration/workflow-executor.js`
+- `tests/unit/aiox-static-review.test.js`
+- `tests/unit/opengrep-quality-gate.test.js`
+
 - `tests/unit/version-policy.test.js`
 - `apps/infra/src/version.mjs`
 - `apps/infra/src/version-files.mjs`
@@ -225,6 +211,5 @@ Funções de versão, Compose/bootstrap, schema de migration, runtime Linux, doc
 - `docs/stories.md` e `docs/pt-BR/stories.md`
 - `CHANGELOG.md`, `CHANGELOG_INTERNAL.md` e changelogs equivalentes pt-BR
 - `docs/VERSIONING.md` e `docs/pt-BR/VERSIONING.md`
-- `.opengrep/rules.yml` e `tests/unit/free-review-tool.test.js`
 - `.aiox-core/core/quality-gates/quality-gate-config.yaml`
 - Fontes do planejamento constam na entrada FND-0 de `docs/stories.md`.

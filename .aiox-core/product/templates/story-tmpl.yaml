@@ -16,7 +16,7 @@ agent_config:
     - Status
     - Story
     - Acceptance Criteria
-    - CodeRabbit Integration
+    - Quality Gate Plan
     - Tasks / Subtasks
     - Dev Notes
     - Testing
@@ -93,7 +93,7 @@ sections:
     elicit: true
     owner: scrum-master
     editors: [scrum-master]
-    
+
   - id: acceptance-criteria
     title: Acceptance Criteria
     type: numbered-list
@@ -102,36 +102,13 @@ sections:
     owner: scrum-master
     editors: [scrum-master]
 
-  - id: coderabbit-integration
-    title: 🤖 CodeRabbit Integration
-    # CONDITIONAL SECTION - Story 6.3.3 Self-Healing Integration
-    conditional:
-      config_path: ".aiox-core/core-config.yaml"
-      config_key: "coderabbit_integration.enabled"
-      behavior:
-        when_true: render_full_section
-        when_false: render_skip_notice
-      skip_notice: |
-        > **CodeRabbit Integration**: Disabled
-        >
-        > CodeRabbit CLI is not enabled in `core-config.yaml`.
-        > Quality validation will use manual review process only.
-        > To enable, set `coderabbit_integration.enabled: true` in core-config.yaml
+  - id: quality-gate-plan
+    title: Quality Gate Plan
     instruction: |
-      **CONDITIONAL SECTION** - Check core-config.yaml `coderabbit_integration.enabled`
-
-      **IF enabled=true:**
-        Populate this section with story type analysis, quality gates,
-        specialized agent assignments, and self-healing configuration.
-        This section is auto-generated during story creation.
-
-      **IF enabled=false:**
-        SKIP this entire section. Render only the skip_notice above.
-        Quality validation falls back to manual review process.
-
-      Based on story type analysis, document the predicted quality gates and
-      specialized agent assignments. This section is auto-generated during story
-      creation but can be manually adjusted if needed.
+      List the story-specific quality checks and reviewer roles. For code changes,
+      run the configured local OpenGrep command and record its result. Findings must
+      be fixed by the responsible developer; the scanner does not modify files.
+      Keep architecture, data, and QA sign-offs as separate human review gates.
     elicit: true
     owner: scrum-master
     editors: [scrum-master, po]
@@ -184,7 +161,7 @@ sections:
       - id: quality-gates
         title: Quality Gate Tasks
         instruction: |
-          Predicted CodeRabbit validation checkpoints based on story type and risk:
+          Define relevant static-analysis and human review checkpoints based on story type and risk:
 
           **Pre-Commit** (@dev - always required):
           - Before marking story complete
@@ -205,45 +182,22 @@ sections:
         owner: scrum-master
         editors: [scrum-master]
 
-      - id: self-healing-config
-        title: Self-Healing Configuration
+      - id: static-analysis-check
+        title: Static Analysis Check
         instruction: |
-          **Story 6.3.3 - Self-Healing Integration**
-
-          Document the expected self-healing behavior for this story based on
-          agent-specific configurations in core-config.yaml.
-
-          **Severity Handling by Agent**:
-
-          | Severity | @dev (light) | @qa (full) | @github-devops (check) |
-          |----------|--------------|------------|------------------------|
-          | CRITICAL | auto_fix (2 iter, 15min) | auto_fix (3 iter, 30min) | report_only |
-          | HIGH     | document_only | auto_fix | report_only |
-          | MEDIUM   | ignore | document_as_debt | report_only |
-          | LOW      | ignore | ignore | ignore |
-
-          **Workflow Triggers**:
-          - @dev: story_completion (before marking "Ready for Review")
-          - @qa: review_start (at beginning of QA review)
-          - @github-devops: pr_creation (before creating PR)
+          Record the configured local scan command for code changes and identify
+          who will resolve findings. The scanner does not modify source files.
         template: |
-          **Expected Self-Healing**:
-          - Primary Agent: @{{primary_agent}} ({{self_healing_type}} mode)
-          - Max Iterations: {{max_iterations}}
-          - Timeout: {{timeout_minutes}} minutes
-          - Severity Filter: {{severity_filter}}
-
-          **Predicted Behavior**:
-          - CRITICAL issues: {{critical_behavior}}
-          - HIGH issues: {{high_behavior}}
+          **Static Analysis Command:** `{{static_analysis_command}}`
+          **Finding Owner:** {{finding_owner}}
         elicit: true
         owner: scrum-master
         editors: [scrum-master]
 
       - id: focus-areas
-        title: CodeRabbit Focus Areas
+        title: Static Analysis Focus Areas
         instruction: |
-          Specific patterns for CodeRabbit to validate based on story type:
+          Specific code and configuration risks to inspect based on story type:
 
           **Database Stories**:
           - Service filters: .eq('service', 'ttcx') on all queries
@@ -297,7 +251,7 @@ sections:
     elicit: true
     owner: scrum-master
     editors: [scrum-master, dev-agent]
-    
+
   - id: dev-notes
     title: Dev Notes
     instruction: |
@@ -321,7 +275,7 @@ sections:
         elicit: true
         owner: scrum-master
         editors: [scrum-master]
-        
+
   - id: change-log
     title: Change Log
     type: table
@@ -329,7 +283,7 @@ sections:
     instruction: Track changes made to this story document
     owner: scrum-master
     editors: [scrum-master, dev-agent, qa-agent]
-    
+
   - id: dev-agent-record
     title: Dev Agent Record
     instruction: This section is populated by the development agent during implementation
@@ -342,27 +296,27 @@ sections:
         instruction: Record the specific AI agent model and version used for development
         owner: dev-agent
         editors: [dev-agent]
-        
+
       - id: debug-log-references
         title: Debug Log References
         instruction: Reference any debug logs or traces generated during development
         owner: dev-agent
         editors: [dev-agent]
-        
+
       - id: completion-notes
         title: Completion Notes List
         instruction: Notes about the completion of tasks and any issues encountered
         owner: dev-agent
         editors: [dev-agent]
-        
+
       - id: file-list
         title: File List
         instruction: List all files created, modified, or affected during story implementation
         owner: dev-agent
         editors: [dev-agent]
-        
+
   - id: qa-results
     title: QA Results
     instruction: Results from QA Agent QA review of the completed story implementation
     owner: qa-agent
-    editors: [qa-agent] 
+    editors: [qa-agent]

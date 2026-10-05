@@ -28,11 +28,11 @@ function createRecordCommand() {
     .option('-s, --story <id>', 'Story ID for metadata')
     .option('-b, --branch <name>', 'Branch name for metadata')
     .option('--commit <hash>', 'Commit hash for metadata')
-    .option('--coderabbit', 'Include CodeRabbit metrics', false)
-    .option('--cr-critical <count>', 'CodeRabbit critical findings', '0')
-    .option('--cr-high <count>', 'CodeRabbit high findings', '0')
-    .option('--cr-medium <count>', 'CodeRabbit medium findings', '0')
-    .option('--cr-low <count>', 'CodeRabbit low findings', '0')
+    .option('--opengrep', 'Include OpenGrep metrics', false)
+    .option('--cr-critical <count>', 'OpenGrep critical findings', '0')
+    .option('--cr-high <count>', 'OpenGrep high findings', '0')
+    .option('--cr-medium <count>', 'OpenGrep medium findings', '0')
+    .option('--cr-low <count>', 'OpenGrep low findings', '0')
     .option('--quinn', 'Include Quinn metrics', false)
     .option('--quinn-findings <count>', 'Quinn findings count', '0')
     .option('--quinn-categories <list>', 'Quinn categories (comma-separated)')
@@ -71,8 +71,8 @@ function createRecordCommand() {
 
         // Handle Layer 2 specific metrics
         if (layerNum === 2) {
-          if (options.coderabbit) {
-            result.coderabbit = {
+          if (options.opengrep) {
+            result.opengrep = {
               findingsCount: parseInt(options.crCritical, 10) +
                 parseInt(options.crHigh, 10) +
                 parseInt(options.crMedium, 10) +
@@ -105,8 +105,8 @@ function createRecordCommand() {
             console.log(`Passed: ${run.passed ? '✅' : '❌'}`);
             console.log(`Duration: ${run.durationMs}ms`);
             console.log(`Findings: ${run.findingsCount}`);
-            if (options.coderabbit) {
-              console.log(`CodeRabbit: ${JSON.stringify(result.coderabbit)}`);
+            if (options.opengrep) {
+              console.log(`OpenGrep: ${JSON.stringify(result.opengrep)}`);
             }
             if (options.quinn) {
               console.log(`Quinn: ${JSON.stringify(result.quinn)}`);

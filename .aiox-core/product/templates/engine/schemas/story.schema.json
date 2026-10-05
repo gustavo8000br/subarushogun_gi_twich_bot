@@ -149,7 +149,7 @@
       },
       "description": "Test scenarios"
     },
-    "coderabbitIntegration": {
+    "qualityGatePlan": {
       "type": "object",
       "properties": {
         "storyType": {
@@ -164,17 +164,10 @@
           "type": "array",
           "items": { "type": "string" }
         },
-        "selfHealing": {
-          "type": "object",
-          "properties": {
-            "primaryAgent": { "type": "string" },
-            "maxIterations": { "type": "integer" },
-            "timeout": { "type": "string" },
-            "severityFilter": { "type": "string" }
-          }
-        }
+        "staticAnalysisCommand": { "type": "string" },
+        "focusAreas": { "type": "object" }
       },
-      "description": "CodeRabbit integration configuration"
+      "description": "Story-specific quality gate and static analysis plan"
     },
     "dependencies": {
       "type": "object",

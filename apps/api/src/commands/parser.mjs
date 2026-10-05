@@ -34,7 +34,7 @@ export function parseChatCommand(input) {
   const first = tokens[0].slice(1).toLocaleLowerCase('pt-BR');
   if (globalCommands.has(first)) {
     const args = tokens.slice(1);
-    if (first === 'filas' && args.length > 0) return { kind: 'invalid', code: 'INVALID_SYNTAX' };
+    if ((first === 'filas' && args.length > 0) || (first === 'conta' && (args.length > 1 || (args.length === 1 && normalizeCommand(args[0]) === 'reset' && args[0].toLowerCase() !== 'reset')))) return { kind: 'invalid', code: 'INVALID_SYNTAX' };
     return { kind: 'command', scope: 'global', queueKey: null, command: first, args };
   }
   if (!queueKeyPattern.test(first)) return { kind: 'invalid', code: 'INVALID_SYNTAX' };

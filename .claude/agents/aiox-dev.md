@@ -22,7 +22,7 @@ hooks:
           command: node .claude/hooks/enforce-git-push-authority.cjs
 skills:
   - synapse:tasks:diagnose-synapse
-  - coderabbit-review
+  - opengrep-static-analysis
   - checklist-runner
 color: green
 ---

@@ -52,15 +52,14 @@ Quality gates protect everyone.]]
    - [ ] `npm audit` shows no high/critical vulnerabilities
    - [ ] No sensitive data in logs or error messages
 
-4. **CodeRabbit Review:**
+4. **Local Static Analysis:**
 
-   [[LLM: Automated code review catches issues humans miss]]
+   [[LLM: The configured scanner reports repository-defined rule findings]]
 
-   - [ ] CodeRabbit review executed (if available)
-   - [ ] No CRITICAL issues identified
-   - [ ] HIGH issues addressed or documented
-   - [ ] Security concerns resolved
-   - [ ] Performance issues noted
+   - [ ] Run the configured static-analysis command when applicable
+   - [ ] Record its exact command and exit status
+   - [ ] Resolve blocking findings through the normal test-first cycle
+   - [ ] Keep human and specialist review separate
 
 5. **Git State:**
 

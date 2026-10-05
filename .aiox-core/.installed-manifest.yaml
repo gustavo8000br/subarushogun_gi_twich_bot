@@ -2751,7 +2751,7 @@ files:
   - path: infrastructure/templates/aiox-sync.yaml.template
     hash: sha256:0040ad8a9e25716a28631b102c9448b72fd72e84f992c3926eb97e9e514744bb
     modified_by_user: false
-  - path: infrastructure/templates/coderabbit.yaml.template
+  - path: infrastructure/templates/opengrep.yaml.template
     hash: sha256:91a4a76bbc40767a4072fb6a87c480902bb800cfb0a11e9fc1b3183d8f7f3a80
     modified_by_user: false
   - path: infrastructure/templates/core-config/core-config-brownfield.tmpl.yaml

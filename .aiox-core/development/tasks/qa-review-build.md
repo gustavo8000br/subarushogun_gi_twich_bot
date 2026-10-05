@@ -710,12 +710,12 @@ subphases:
   # Original Phase 6 actions (now Phase 6.3)
   - id: 6.3
     name: 'Code Quality & Patterns'
-    description: 'CodeRabbit, linting, dependency audit'
+    description: 'OpenGrep, linting, dependency audit'
     blocking: true
 
 actions:
   - id: security-scan
-    action: execute_coderabbit
+    action: execute_opengrep
     type: 'security'
     description: 'Run security vulnerability scan'
 

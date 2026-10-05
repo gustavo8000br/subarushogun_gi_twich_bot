@@ -21,7 +21,7 @@ function createQaCommand() {
   const qa = new Command('qa');
 
   qa
-    .description('Quality Gate Manager - orchestrate 3-layer quality pipeline')
+    .description('Quality Gate Manager - orchestrate configured static checks and human quality review')
     .addHelpText('after', `
 Commands:
   run               Execute quality gate pipeline
@@ -36,7 +36,7 @@ Examples:
 
 Layers:
   Layer 1: Pre-commit (lint, test, typecheck) - Fast local checks
-  Layer 2: PR Automation (CodeRabbit, Quinn) - Automated review
+  Layer 2: PR Automation (OpenGrep, Quinn) - Automated review
   Layer 3: Human Review (checklist, sign-off) - Strategic review
 
 Exit Codes:

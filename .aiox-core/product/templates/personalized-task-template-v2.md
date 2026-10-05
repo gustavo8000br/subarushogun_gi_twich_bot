@@ -551,7 +551,7 @@ acceptance-criteria:
 
     **Examples:**
     - Dex: "⚠️ Não consigo implementar sem a tool 'mcp-supabase'. Preciso dela pra continuar."
-    - Quinn: "⚠️ Ferramenta 'coderabbit' ausente. Não posso validar sem ela. Bloqueando task."
+    - Quinn: "⚠️ Scanner estático configurado indisponível. Não posso declarar esse gate validado."
 ```
 
 ### Missing Data

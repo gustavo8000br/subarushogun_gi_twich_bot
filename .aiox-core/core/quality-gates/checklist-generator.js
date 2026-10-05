@@ -231,10 +231,10 @@ class ChecklistGenerator {
 
       // Check for specific issues
       layer.results?.forEach((result) => {
-        if (result.check === 'coderabbit' && result.issues?.high > 0) {
+        if (result.check === 'opengrep' && !result.pass) {
           items.push({
-            id: 'coderabbit-high-issues',
-            text: `Address ${result.issues.high} HIGH severity issues from CodeRabbit`,
+            id: 'opengrep-findings',
+            text: 'Review and resolve the local static-analysis findings',
             category: 'quality',
             priority: 'high',
             checked: false,

@@ -130,62 +130,59 @@ _Test scenarios to be defined._
 
 ---
 
-## 🤖 CodeRabbit Integration
+## Quality Gate Plan
 
-{{#if coderabbitIntegration}}
+{{#if qualityGatePlan}}
 ### Story Type Analysis
 
-**Primary Type:** {{coderabbitIntegration.storyType}}
-{{#if coderabbitIntegration.secondaryTypes}}
-**Secondary Type(s):** {{join coderabbitIntegration.secondaryTypes ", "}}
+**Primary Type:** {{qualityGatePlan.storyType}}
+{{#if qualityGatePlan.secondaryTypes}}
+**Secondary Type(s):** {{join qualityGatePlan.secondaryTypes ", "}}
 {{/if}}
-{{#if coderabbitIntegration.complexity}}
-**Complexity:** {{coderabbitIntegration.complexity}}
+{{#if qualityGatePlan.complexity}}
+**Complexity:** {{qualityGatePlan.complexity}}
 {{/if}}
 
 ### Specialized Agent Assignment
 
-{{#if coderabbitIntegration.primaryAgents}}
+{{#if qualityGatePlan.primaryAgents}}
 **Primary Agents:**
-{{#each coderabbitIntegration.primaryAgents}}
+{{#each qualityGatePlan.primaryAgents}}
 - {{this}}
 {{/each}}
 {{/if}}
 
-{{#if coderabbitIntegration.supportingAgents}}
+{{#if qualityGatePlan.supportingAgents}}
 **Supporting Agents:**
-{{#each coderabbitIntegration.supportingAgents}}
+{{#each qualityGatePlan.supportingAgents}}
 - {{this}}
 {{/each}}
 {{/if}}
 
-{{#if coderabbitIntegration.selfHealing}}
-### Self-Healing Configuration
+### Static Analysis
 
-**Expected Self-Healing:**
-- Primary Agent: {{coderabbitIntegration.selfHealing.primaryAgent}}
-- Max Iterations: {{coderabbitIntegration.selfHealing.maxIterations}}
-- Timeout: {{coderabbitIntegration.selfHealing.timeout}}
-- Severity Filter: {{coderabbitIntegration.selfHealing.severityFilter}}
-{{/if}}
+**Command:** `{{qualityGatePlan.staticAnalysisCommand}}`
+The scanner reports findings and does not edit files. A non-zero result blocks story
+completion until the assigned developer reviews and fixes findings through the test-first
+cycle. Human QA and specialist reviews remain separate gates.
 
-{{#if coderabbitIntegration.focusAreas}}
+{{#if qualityGatePlan.focusAreas}}
 ### Focus Areas
 
 **Primary Focus:**
-{{#each coderabbitIntegration.focusAreas.primary}}
+{{#each qualityGatePlan.focusAreas.primary}}
 - {{this}}
 {{/each}}
 
-{{#if coderabbitIntegration.focusAreas.secondary}}
+{{#if qualityGatePlan.focusAreas.secondary}}
 **Secondary Focus:**
-{{#each coderabbitIntegration.focusAreas.secondary}}
+{{#each qualityGatePlan.focusAreas.secondary}}
 - {{this}}
 {{/each}}
 {{/if}}
 {{/if}}
 {{else}}
-_CodeRabbit integration to be configured._
+_Quality gate plan to be completed._
 {{/if}}
 
 ---

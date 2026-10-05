@@ -134,7 +134,7 @@ The formatter produces XML output:
 <synapse-rules>
 [CONTEXT BRACKET: MODERATE] 40-60% context remaining — all layers active
 [CONSTITUTION] (NON-NEGOTIABLE) CLI First | Agent Authority | Story-Driven | No Invention | Quality First | Absolute Imports
-[ACTIVE AGENT: @dev] Follow story tasks, update Dev Agent Record only, CodeRabbit pre-commit
+[ACTIVE AGENT: @dev] Follow story tasks, update Dev Agent Record only, OpenGrep pre-commit
 [ACTIVE WORKFLOW: story_development] Follow SDC phases, update checkboxes
 [TASK CONTEXT] Current task details
 [SQUAD: mmos] Squad-specific rules

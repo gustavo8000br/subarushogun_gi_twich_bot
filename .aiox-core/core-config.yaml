@@ -209,32 +209,12 @@ github:
     draft_by_default: false
   semantic_release:
     enabled: true
-coderabbit_integration:
+static_review:
   enabled: true
-  installation_mode: wsl
-  wsl_config:
-    distribution: Ubuntu
-    installation_path: ~/.local/bin/coderabbit
-    working_directory: ${PROJECT_ROOT}
-  self_healing:
-    enabled: true
-    type: full
-    max_iterations: 3
-    timeout_minutes: 30
-  severity_handling:
-    CRITICAL: auto_fix
-    HIGH: auto_fix
-    MEDIUM: document_as_debt
-    LOW: ignore
-  graceful_degradation:
-    skip_if_not_installed: true
-    fallback_message: 'CodeRabbit CLI not found. Skipping automated review. Install via: pip install coderabbit-cli'
-  commands:
-    qa_pre_review_uncommitted: |
-      wsl bash -c 'cd ${PROJECT_ROOT} && ~/.local/bin/coderabbit --prompt-only -t uncommitted'
-    qa_story_review_committed: |
-      wsl bash -c 'cd ${PROJECT_ROOT} && ~/.local/bin/coderabbit --prompt-only -t committed --base main'
-  report_location: docs/qa/coderabbit-reports/
+  command: "npm run review:static"
+  timeout_minutes: 5
+  mode: local
+  report_location: docs/qa/opengrep-reports/
 squads:
   templateLocation: templates/squad
   autoLoad: false

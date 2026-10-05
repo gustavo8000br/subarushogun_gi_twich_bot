@@ -42,4 +42,29 @@ describe('local health response contract', () => {
     expect(response.body).not.toContain('private database details');
     await app.close();
   });
+
+  it('reports the live Twitch integration state instead of assuming it is unconfigured', async () => {
+    const app = Fastify();
+    healthModule.registerHealthRoute(app, {
+      pool: { query: vi.fn().mockResolvedValue({ rows: [] }) },
+      productVersion: 'v0.1.0-0000000-alpha',
+      getTwitchStatus: () => 'connected',
+    });
+    const response = await app.inject({ method: 'GET', url: '/health' });
+    expect(response.json().dependencies.twitch_api).toBe('connected');
+    await app.close();
+  });
+
+  it('reports Twitch health as degraded when the integration probe rejects instead of claiming connected', async () => {
+    const app = Fastify();
+    healthModule.registerHealthRoute(app, {
+      pool: { query: vi.fn().mockResolvedValue({ rows: [] }) },
+      productVersion: 'v0.1.0-0000000-alpha',
+      getTwitchStatus: () => { throw new Error('private token details'); },
+    });
+    const response = await app.inject({ method: 'GET', url: '/health' });
+    expect(response.json().dependencies.twitch_api).toBe('unknown');
+    expect(response.body).not.toContain('private token details');
+    await app.close();
+  });
 });

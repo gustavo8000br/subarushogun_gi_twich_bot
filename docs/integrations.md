@@ -2,7 +2,7 @@
 
 [Português brasileiro](pt-BR/integrations.md)
 
-**Documentation checked:** 2026-10-03 (UTC). SDK API shapes were also checked against the versions installed in this repository. The entries below describe the planned adapter contract; the Twitch integration is **not implemented** yet.
+**Documentation checked:** 2026-10-03 (UTC). SDK API shapes were also checked against the versions installed in this repository. OAuth, token validation/refresh, eligibility, Helix redemption/chat adapters, EventSub WebSocket normalization and reconciliation scaffolding are implemented and covered by fakes. No authorized credentials are available for a live Twitch test. Reward lifecycle is not implemented yet: reward creation/edit/archive/delete and recovery are pending, and a locally created queue does not have a managed Twitch reward.
 
 ## Runtime versions
 
@@ -18,10 +18,10 @@
 
 | Operation | Endpoint or EventSub event | Required scope/auth | SDK adaptation |
 | --- | --- | --- | --- |
-| Validate Client ID/Secret | `POST https://id.twitch.tv/oauth2/token` with `grant_type=client_credentials` | Client ID + Secret; app token | Twurple `AppTokenAuthProvider`; do not use a user-token Helix call to validate the secret. |
-| Connect the broadcaster | Authorization Code flow; callback `/callback`; token validation via `GET https://id.twitch.tv/oauth2/validate` | `channel:manage:redemptions`, `user:read:chat`, `user:write:chat` | Twurple user auth provider and `RefreshingAuthProvider`; validate on startup and at least hourly. OAuth `state` must be one-time, short-lived, and bound to the initiating local session. |
-| Read broadcaster eligibility | `GET /helix/users` | User token for the connected broadcaster | Helix users API; inspect `broadcaster_type` (`affiliate`, `partner`, or empty) before enabling channel points. |
-| Create and inspect managed rewards | `POST` / `GET /helix/channel_points/custom_rewards` | `channel:manage:redemptions`; broadcaster must match authorized user | `ApiClient.channels.createCustomReward` and reward lookup. Use only rewards managed by this application. Twitch currently limits a channel to 50 rewards (including disabled rewards); title max 45 and prompt max 200 characters. |
+| Validate Client ID/Secret | `POST https://id.twitch.tv/oauth2/token` with `grant_type=client_credentials` | Client ID + Secret; app token | Implemented with a sanitized backend `fetch`; temporary app token is discarded. Do not use a user-token Helix call to validate the secret. |
+| Connect the broadcaster | Authorization Code flow; callback `/callback`; token validation via `GET https://id.twitch.tv/oauth2/validate` | `channel:manage:redemptions`, `user:read:chat`, `user:write:chat` | `createOAuthStateStore` plus `RefreshingAuthProvider`; startup/hourly token validation and refresh persistence. OAuth `state` is one-time, short-lived, and bound to the initiating local session. |
+| Read broadcaster eligibility | `GET /helix/users` | User token for the connected broadcaster | Implemented through `ApiClient.users.getUserById`; inspect `broadcasterType` before enabling channel points. |
+| Create and inspect managed rewards | `POST` / `GET /helix/channel_points/custom_rewards` | `channel:manage:redemptions`; broadcaster must match authorized user | Reward lifecycle implementation pending. Twurple uses `ApiClient.channelPoints.createCustomReward` and related methods, not `ApiClient.channels`; `autoFulfill=false`, and the adapter normalizes/verification requires `should_redemptions_skip_request_queue=false`. Twitch currently limits a channel to 50 rewards (including disabled rewards); title max 45 and prompt max 200 characters. |
 | Observe reward redemptions | `channel.channel_points_custom_reward_redemption.add` and `.update` | `channel:manage:redemptions` for the connected broadcaster | `EventSubWsListener.onChannelRedemptionAdd` / `onChannelRedemptionUpdate`; normalize SDK values to internal states and deduplicate by redemption ID. WebSocket reconnect does not replay an abrupt gap; reconcile with Helix. |
 | Reconcile pending rewards | `GET /helix/channel_points/custom_rewards/redemptions` (paginate `UNFULFILLED`) | `channel:manage:redemptions`; reward must belong to this app | `ApiClient.channelPoints.getRedemptionsForBroadcasterPaginated`; consume all pages and treat partial failures as incomplete reconciliation. |
 | Cancel or fulfill a redemption | `PATCH /helix/channel_points/custom_rewards/redemptions` | `channel:manage:redemptions`; only the creating application may manage it | `ApiClient.channelPoints.updateRedemptionStatusByIds`; map `CANCELED` to refund and `FULFILLED` to point consumption only after a confirmed result. Query remote state after uncertain responses. |

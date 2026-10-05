@@ -3,7 +3,7 @@
  *
  * Orchestrates the 3-layer quality gate pipeline:
  * - Layer 1: Pre-commit (lint, test, typecheck)
- * - Layer 2: PR Automation (CodeRabbit, Quinn)
+ * - Layer 2: PR Automation (OpenGrep, Quinn)
  * - Layer 3: Human Review (checklist, sign-off)
  *
  * @module core/quality-gates/quality-gate-manager
