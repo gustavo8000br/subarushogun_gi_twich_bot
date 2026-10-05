@@ -1,3 +1,6 @@
+import { createApplicationSetupSubmitHandler } from './application-setup.mjs';
+import { twitchEligibilityMessage } from './setup-messages.mjs';
+
 const $ = (selector) => document.querySelector(selector);
 const state = { csrfToken: null, queues: [], productVersion: '—' };
 
@@ -57,6 +60,7 @@ function renderQueues(queues) {
     const meta = document.createElement('div'); meta.className = 'queue-meta'; meta.append(text('strong', queue.title)); meta.append(text('small', `!${queue.slug} · ${Number(queue.cost).toLocaleString('pt-BR')} pontos · ${queue.isOpen ? 'ABERTA' : 'FECHADA'} · ${queue.remoteSyncStatus || 'sem sincronização'}`)); head.append(meta);
     const controls = document.createElement('div'); controls.className = 'queue-actions';
     controls.append(action('Adicionar', 'add-entry', '', queue.id), action('Próximo', 'call-next', '', queue.id), action(queue.isOpen ? 'Fechar' : 'Abrir', queue.isOpen ? 'close-queue' : 'open-queue', '', queue.id), action('Limpar fila', 'clear-queue', '', queue.id));
+    if (queue.remoteSyncStatus === 'create_unknown') controls.append(action('Vincular recompensa', 'resolve-reward', '', queue.id));
     head.append(controls); card.append(head);
     const active = queue.entries || [];
     card.append(renderEntryGroup('Aguardando', active.filter((entry) => entry.status === 'waiting'), queue, 'waiting'));
@@ -75,7 +79,7 @@ async function refresh() {
     $('#edit-default-account').title = `Padrão atual: ${state.accountDefaultLabel}`;
     $('#callback-url').textContent = setup.callbackUrl;
     $('#channel-name').textContent = setup.connected ? `Canal conectado · ${setup.broadcasterId}` : 'Twitch ainda não conectada';
-    $('#twitch-status').textContent = setup.connected ? 'Recompensas, chat e reconciliação ativos.' : setup.secretConfigured ? 'Aplicativo validado. Conecte o canal para ativar as filas.' : 'Conecte seu canal para ativar as recompensas.';
+    $('#twitch-status').textContent = twitchEligibilityMessage(setup);
     $('#twitch-pill').textContent = setup.status.toUpperCase().replaceAll('_', ' '); $('#twitch-pill').dataset.state = setup.connected ? 'connected' : setup.status;
     $('#secret-state').textContent = setup.secretConfigured ? 'Secret configurado. Para substituir, informe um novo Secret e valide antes de salvar.' : 'O Secret fica guardado localmente e nunca será exibido novamente.';
     if (setup.clientId) $('#credentials-form [name=clientId]').value = setup.clientId;
@@ -112,12 +116,9 @@ async function refresh() {
 
 async function boot() {
   const session = await request('/api/session'); state.csrfToken = session.csrfToken;
-  $('#credentials-form').addEventListener('submit', async (event) => {
-    event.preventDefault(); const values = new FormData(event.currentTarget);
-    const notice = $('#setup-notice'); notice.textContent = 'Validando credenciais na Twitch…';
-    try { await request('/api/setup/application', { method: 'POST', body: JSON.stringify({ clientId: values.get('clientId'), clientSecret: values.get('clientSecret') }) }); event.currentTarget.elements.clientSecret.value = ''; notice.textContent = 'Aplicativo validado e salvo com segurança.'; await refresh(); }
-    catch (error) { notice.textContent = error.message; }
-  });
+  $('#credentials-form').addEventListener('submit', createApplicationSetupSubmitHandler({
+    request, notice: $('#setup-notice'), refresh,
+  }));
   $('#connect-button').addEventListener('click', async () => {
     try { const result = await request('/api/setup/connect', { method: 'POST', body: '{}' }); window.location.assign(result.authorizationUrl); }
     catch (error) { $('#setup-notice').textContent = error.message; }
@@ -126,7 +127,7 @@ async function boot() {
     event.preventDefault(); const values = new FormData(event.currentTarget);
     const aliases = String(values.get('aliases') || '').split(',').map((value) => value.trim()).filter(Boolean);
     const body = { title: values.get('title'), slug: values.get('slug'), aliases, cost: Number(values.get('cost')), rewardPrompt: values.get('rewardPrompt'), uidMode: values.get('uidMode'), callTimeoutMin: Number(values.get('callTimeoutMin')) };
-    try { await request('/api/queues', { method: 'POST', body: JSON.stringify(body) }); $('#queue-notice').textContent = 'Fila criada localmente. A recompensa Twitch ainda não foi vinculada.'; event.currentTarget.reset(); await refresh(); }
+    try { await request('/api/queues', { method: 'POST', body: JSON.stringify(body) }); $('#queue-notice').textContent = 'Fila salva. A criação da recompensa Twitch está pendente; acompanhe o estado abaixo.'; event.currentTarget.reset(); await refresh(); }
     catch (error) { $('#queue-notice').textContent = error.message; }
   });
   $('#queue-list').addEventListener('click', async (event) => {
@@ -134,6 +135,17 @@ async function boot() {
     const { action: actionName, entryId, queueId } = button.dataset;
     try {
       if (actionName === 'add-entry') { $('#entry-form [name=queueId]').value = queueId; $('#entry-dialog').showModal(); return; }
+      if (actionName === 'resolve-reward') {
+        const candidates = await request(`/api/queues/${queueId}/reward-candidates`);
+        if (!candidates.length) { toast('Nenhuma recompensa Twitch compatível foi encontrada. Revise a fila e as recompensas gerenciáveis no console Twitch.'); return; }
+        const form = $('#reward-form'); const select = form.elements.namedItem('rewardId');
+        form.elements.namedItem('queueId').value = queueId; select.replaceChildren();
+        for (const candidate of candidates) {
+          const option = text('option', `${candidate.title} · ${candidate.cost} pontos · ${candidate.id}`);
+          option.value = candidate.id; select.append(option);
+        }
+        $('#reward-notice').textContent = ''; $('#reward-dialog').showModal(); return;
+      }
       if (actionName === 'clear-queue') {
         const preview = await request(`/api/queues/${queueId}/clear-preview`, { method: 'POST', body: '{}' });
         if (preview.status === 'empty') { toast('A fila já está vazia.'); return; }
@@ -155,6 +167,13 @@ async function boot() {
     event.preventDefault(); const values = new FormData(event.currentTarget);
     try { await request(`/api/queues/${values.get('queueId')}/manual-entries`, { method: 'POST', body: JSON.stringify({ login: values.get('login'), uid: values.get('uid') || undefined }) }); $('#entry-dialog').close(); event.currentTarget.reset(); await refresh(); }
     catch (error) { $('#entry-notice').textContent = error.message; }
+  });
+  $('#reward-form').addEventListener('submit', async (event) => {
+    event.preventDefault(); const form = event.currentTarget; const values = new FormData(form);
+    try {
+      await request(`/api/queues/${values.get('queueId')}/resolve-reward`, { method: 'POST', body: JSON.stringify({ rewardId: values.get('rewardId') }) });
+      $('#reward-dialog').close(); await refresh();
+    } catch (error) { $('#reward-notice').textContent = error.message; }
   });
   $('#edit-account').addEventListener('click', async () => {
     const current = $('#account-label').textContent; const value = window.prompt('Nome da conta atual na live (até 60 caracteres):', current);

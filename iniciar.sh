@@ -1,10 +1,12 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")"
+mkdir -p .local
 docker compose up --build -d
-address="http://localhost:${APP_PORT:-3000}"
+printf 'Certificado HTTPS local: %s/.local/localhost-ca.crt (confie-o no sistema antes de conectar à Twitch)\n' "$PWD"
+address="https://localhost:${APP_PORT:-3000}"
 attempt=0
-until curl --silent --fail "$address/health" >/dev/null 2>&1; do
+until curl --insecure --silent --fail "$address/health" >/dev/null 2>&1; do
   attempt=$((attempt + 1))
   if [ "$attempt" -ge 60 ]; then
     printf 'Painel ainda indisponível. Acesse %s e consulte: docker compose logs -f bot\n' "$address"

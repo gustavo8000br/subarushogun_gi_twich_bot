@@ -36,7 +36,7 @@ describe('Twitch OAuth client credential validation', () => {
       stateFactory: () => `state-${++sequence}`,
     });
     const started = store.issue({
-      sessionId: 'session-1', clientId: 'client-123', redirectUri: 'http://localhost:3000/callback',
+      sessionId: 'session-1', clientId: 'client-123', redirectUri: 'https://localhost:3000/callback',
     });
     expect(started.url).toContain('state=state-1');
     expect(started.url).toContain('channel%3Amanage%3Aredemptions');
@@ -45,7 +45,7 @@ describe('Twitch OAuth client credential validation', () => {
     expect(store.consume({ state: started.state, sessionId: 'session-1' })).toBe(false);
 
     const expiring = store.issue({
-      sessionId: 'session-1', clientId: 'client-123', redirectUri: 'http://localhost:3000/callback',
+      sessionId: 'session-1', clientId: 'client-123', redirectUri: 'https://localhost:3000/callback',
     });
     now = new Date(now.getTime() + 10 * 60 * 1000 + 1);
     expect(store.consume({ state: expiring.state, sessionId: 'session-1' })).toBe(false);
@@ -54,13 +54,13 @@ describe('Twitch OAuth client credential validation', () => {
   it('validates token identity/scopes and persists secrets only after a matching OAuth callback', async () => {
     const stateStore = createOAuthStateStore({ stateFactory: () => 'state-flow' });
     const { state } = stateStore.issue({
-      sessionId: 'session-1', clientId: 'client-123', redirectUri: 'http://localhost:3000/callback',
+      sessionId: 'session-1', clientId: 'client-123', redirectUri: 'https://localhost:3000/callback',
     });
     const persistTokens = vi.fn();
     const result = await completeOAuthAuthorization({
       stateStore, sessionId: 'session-1', state, code: 'authorization-code',
       exchangeCode: vi.fn(async (input) => {
-        expect(input).toMatchObject({ clientId: 'client-123', redirectUri: 'http://localhost:3000/callback', code: 'authorization-code' });
+        expect(input).toMatchObject({ clientId: 'client-123', redirectUri: 'https://localhost:3000/callback', code: 'authorization-code' });
         return { accessToken: 'access-secret', refreshToken: 'refresh-secret', expiresIn: 3600, obtainmentTimestamp: 123 };
       }),
       validateToken: vi.fn(async () => ({
@@ -78,7 +78,7 @@ describe('Twitch OAuth client credential validation', () => {
   it('rejects mismatched client, broadcaster scopes, or channel binding without saving tokens', async () => {
     const stateStore = createOAuthStateStore({ stateFactory: () => 'state-mismatch' });
     const { state } = stateStore.issue({
-      sessionId: 'session-1', clientId: 'configured-client', redirectUri: 'http://localhost:3000/callback',
+      sessionId: 'session-1', clientId: 'configured-client', redirectUri: 'https://localhost:3000/callback',
     });
     const persistTokens = vi.fn();
     await expect(completeOAuthAuthorization({

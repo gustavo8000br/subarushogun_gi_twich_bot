@@ -9,19 +9,20 @@ describe('Twurple Helix adapter', () => {
   });
 
   it('creates a reward with the redemption queue preserved and normalizes channel-owned rewards', async () => {
-    const createCustomReward = vi.fn(async (_broadcasterId, data) => ({ id: 'reward-1', ...data, isEnabled: data.isEnabled, isPaused: false }));
+    const createCustomReward = vi.fn(async (_broadcasterId, data) => ({ id: 'reward-1', ...data, isEnabled: data.isEnabled, isPaused: data.isPaused }));
     const getCustomRewards = vi.fn(async () => [{ id: 'reward-1', title: 'Queue', cost: 50, isEnabled: false, isPaused: true, autoFulfill: false }]);
     const adapter = createTwitchApiAdapter({
       api: { channelPoints: { createCustomReward, getCustomRewards } }, broadcasterId: 'channel-1',
     });
 
-    await adapter.createReward({ title: 'Queue', cost: 50, prompt: 'UID', userInputRequired: true });
-    expect(createCustomReward).toHaveBeenCalledWith('channel-1', expect.objectContaining({ autoFulfill: false }));
+    await adapter.createReward({ title: 'Queue', cost: 50, prompt: 'UID', userInputRequired: true, isPaused: true });
+    expect(createCustomReward).toHaveBeenCalledWith('channel-1', expect.objectContaining({ autoFulfill: false, isPaused: true }));
     await expect(adapter.getManagedRewards()).resolves.toEqual([{
       id: 'reward-1', title: 'Queue', cost: 50, prompt: undefined, isEnabled: false,
       isPaused: true, userInputRequired: undefined, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false,
     }]);
   });
+
 
   it('returns sent/drop status from the actual Helix Send Chat Message response', async () => {
     const sendChatMessage = vi.fn(async () => ({ isSent: false, dropReasonCode: 'msg_rejected' }));

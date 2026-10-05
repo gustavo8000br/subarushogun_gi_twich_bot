@@ -8,7 +8,7 @@ function harness({ credential = { clientId: 'client-1', broadcasterId: 'channel-
   const callbacks = {};
   const authRuntimeFactory = vi.fn(async () => authRuntime);
   const apiFactory = vi.fn(() => api);
-  const adapter = { getChannelEligibility: vi.fn(async () => ({ eligible, broadcasterType: eligible ? 'affiliate' : '' })) };
+  const adapter = { getChannelEligibility: vi.fn(async () => ({ eligible, broadcasterType: eligible ? 'affiliate' : 'unknown', channelPointsAvailable: eligible, rewardCount: eligible ? 46 : 0, rewardLimit: 50, nearRewardLimit: eligible })) };
   const adapterFactory = vi.fn(() => adapter);
   const eventSubRuntimeFactory = vi.fn((options) => { Object.assign(callbacks, options); return listener; });
   const reconciler = { run: vi.fn(async () => ({ status: 'complete' })) };
@@ -16,7 +16,10 @@ function harness({ credential = { clientId: 'client-1', broadcasterId: 'channel-
   const onStatus = vi.fn();
   const timers = [];
   const integrationPromise = createTwitchIntegration({
-    credentialRepository: { getAuthRecord: vi.fn(async () => credential) },
+    credentialRepository: {
+      getAuthRecord: vi.fn(async () => credential),
+      getPublicStatus: vi.fn(async () => ({ connected: Boolean(credential), clientId: credential?.clientId ?? null, secretConfigured: Boolean(credential) })),
+    },
     authRuntimeFactory, apiFactory, adapterFactory, eventSubRuntimeFactory, reconcilerFactory,
     onStatus, setIntervalImpl: (handler, delay) => { timers.push({ handler, delay }); return timers.length; },
     clearIntervalImpl: vi.fn(),
@@ -44,6 +47,10 @@ describe('Twitch integration lifecycle', () => {
   it('starts observation before reconciliation, reconciles after readiness/reconnect and shuts down cleanly', async () => {
     const h = harness();
     const integration = await h.integrationPromise;
+    await expect(integration.getSetupState()).resolves.toMatchObject({ eligibility: {
+      eligible: true, broadcasterType: 'affiliate', channelPointsAvailable: true,
+      rewardCount: 46, rewardLimit: 50, nearRewardLimit: true,
+    } });
     expect(integration.status).toBe('connecting');
     expect(h.eventSubRuntimeFactory).toHaveBeenCalledWith(expect.objectContaining({ broadcasterId: 'channel-1' }));
     await h.callbacks.onReady();

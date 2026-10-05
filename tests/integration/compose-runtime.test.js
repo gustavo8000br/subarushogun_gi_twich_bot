@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import https from 'node:https';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +13,7 @@ const projectName = `queuebot-accept-${process.pid}-${randomUUID().slice(0, 8)}`
 const composeFile = `${root}/compose.yaml`;
 let hostPort;
 let composeStarted = false;
+let localCertDirectory;
 
 function dockerCompose(args, options = {}) {
   const result = spawnSync('docker', [
@@ -17,7 +22,7 @@ function dockerCompose(args, options = {}) {
     cwd: root,
     encoding: 'utf8',
     timeout: options.timeout ?? 180_000,
-    env: { ...process.env, APP_PORT: String(hostPort) },
+    env: { ...process.env, APP_PORT: String(hostPort), LOCAL_CERT_DIRECTORY: localCertDirectory },
   });
   if (result.status !== 0) {
     throw new Error(result.stderr || result.stdout || `docker compose ${args.join(' ')} failed`);
@@ -37,7 +42,17 @@ async function getFreePort() {
 }
 
 function health() {
-  return fetch(`http://127.0.0.1:${hostPort}/health`, { signal: AbortSignal.timeout(2000) });
+  return new Promise((resolve, reject) => {
+    const request = https.get(`https://127.0.0.1:${hostPort}/health`, { rejectUnauthorized: false, timeout: 2000 }, (response) => {
+      const peerCertificate = response.socket.getPeerCertificate(true);
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => { body += chunk; });
+      response.on('end', () => resolve({ ok: response.statusCode === 200, status: response.statusCode, json: () => JSON.parse(body), peerCertificate }));
+    });
+    request.on('error', reject);
+    request.on('timeout', () => request.destroy(new Error('HTTPS health request timed out')));
+  });
 }
 
 async function waitForHealthyBot() {
@@ -57,6 +72,7 @@ async function waitForHealthyBot() {
 
 describe('isolated Compose first-run and restart acceptance', () => {
   beforeAll(async () => {
+    localCertDirectory = mkdtempSync(join(tmpdir(), 'queuebot local tls '));
     hostPort = await getFreePort();
     dockerCompose(['up', '--build', '--detach', 'bot']);
     composeStarted = true;
@@ -68,6 +84,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
       'compose', '--project-name', projectName, '--file', composeFile, 'down', '--volumes', '--remove-orphans',
     ], { cwd: root, encoding: 'utf8', timeout: 60_000 });
     if (result.status !== 0) throw new Error(result.stderr || result.stdout || 'isolated Compose cleanup failed');
+    if (localCertDirectory) rmSync(localCertDirectory, { recursive: true, force: true });
   });
 
   it('initializes database and migrations before serving the versioned local health response', async () => {
@@ -83,6 +100,16 @@ describe('isolated Compose first-run and restart acceptance', () => {
     ]);
     expect(Number(migrationCount)).toBeGreaterThan(0);
   }, 120_000);
+
+  it('serves HTTPS on localhost with a generated certificate trusted by the exported local CA', async () => {
+    const response = await health();
+    expect(response.peerCertificate.subjectaltname).toContain('DNS:localhost');
+    expect(existsSync(join(localCertDirectory, 'localhost-ca.crt'))).toBe(true);
+    const leafPath = join(localCertDirectory, 'localhost.crt');
+    dockerCompose(['cp', 'bot:/run/secrets/localhost.crt', leafPath]);
+    const verification = spawnSync('openssl', ['verify', '-CAfile', join(localCertDirectory, 'localhost-ca.crt'), leafPath], { encoding: 'utf8' });
+    expect(verification.status, verification.stderr).toBe(0);
+  }, 30_000);
 
   it('retains the database marker and generated password across a graceful bot stop/start', async () => {
     dockerCompose([

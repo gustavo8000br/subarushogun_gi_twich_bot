@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { chmod, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -54,5 +55,32 @@ describe('local operational secret bootstrap', () => {
 
     await expect(bootstrap.ensureDatabaseSecret({ directory })).rejects.toThrow(/empty|invalid/i);
     expect(await readFile(secretPath, 'utf8')).toBe('');
+  });
+
+  it('creates persistent localhost TLS material with SANs and exports only the public CA certificate', async () => {
+    const directory = await createSecretsDir();
+    const exportDirectory = join(directory, 'host-export');
+    const result = await bootstrap.ensureLocalTlsCertificate({ directory, exportDirectory });
+    const verification = spawnSync('openssl', ['verify', '-CAfile', result.caCertificatePath, result.certificatePath], { encoding: 'utf8' });
+    const details = spawnSync('openssl', ['x509', '-in', result.certificatePath, '-noout', '-ext', 'subjectAltName'], { encoding: 'utf8' });
+
+    expect(verification.status, verification.stderr).toBe(0);
+    expect(details.stdout).toContain('DNS:localhost');
+    expect(details.stdout).toContain('IP Address:127.0.0.1');
+    expect(await readFile(join(exportDirectory, 'localhost-ca.crt'), 'utf8')).toBe(await readFile(result.caCertificatePath, 'utf8'));
+    expect(existsSync(join(exportDirectory, 'localhost-ca.key'))).toBe(false);
+    expect((await stat(result.privateKeyPath)).mode & 0o777).toBe(0o440);
+  });
+
+  it('preserves the same localhost certificate and exported CA across bootstrap runs', async () => {
+    const directory = await createSecretsDir();
+    const exportDirectory = join(directory, 'host-export');
+    const first = await bootstrap.ensureLocalTlsCertificate({ directory, exportDirectory });
+    const certificate = await readFile(first.certificatePath, 'utf8');
+    const privateKey = await readFile(first.privateKeyPath, 'utf8');
+    const second = await bootstrap.ensureLocalTlsCertificate({ directory, exportDirectory });
+
+    expect(await readFile(second.certificatePath, 'utf8')).toBe(certificate);
+    expect(await readFile(second.privateKeyPath, 'utf8')).toBe(privateKey);
   });
 });

@@ -17,8 +17,8 @@ function safeEqual(left, right) {
   return first.length === second.length && timingSafeEqual(first, second);
 }
 
-/** @param {import('fastify').FastifyInstance} app @param {{randomBytes?: (size: number) => Buffer, port?: number}} options */
-export function registerLocalSession(app, { randomBytes = generateRandomBytes, port = Number(process.env.APP_PORT ?? 3000) } = {}) {
+/** @param {import('fastify').FastifyInstance} app @param {{randomBytes?: (size: number) => Buffer, port?: number, secure?: boolean}} options */
+export function registerLocalSession(app, { randomBytes = generateRandomBytes, port = Number(process.env.APP_PORT ?? 3000), secure = true } = {}) {
   const expectedAuthority = new Set([`localhost:${port}`, `127.0.0.1:${port}`, `[::1]:${port}`]);
   app.addHook('onRequest', async (request, reply) => {
     /** @type {LocalRequest} */
@@ -31,7 +31,7 @@ export function registerLocalSession(app, { randomBytes = generateRandomBytes, p
     if (origin) {
       let originUrl;
       try { originUrl = new URL(origin); } catch { return reply.code(403).send({ error: 'Origem inválida.' }); }
-      if (!localHosts.has(originUrl.hostname) || originUrl.port !== String(port)) {
+      if (originUrl.protocol !== 'https:' || !localHosts.has(originUrl.hostname) || originUrl.port !== String(port)) {
         return reply.code(403).send({ error: 'Origem inválida.' });
       }
     }
@@ -55,7 +55,7 @@ export function registerLocalSession(app, { randomBytes = generateRandomBytes, p
       const id = randomBytes(32).toString('hex');
       session = { id, csrfToken: randomBytes(32).toString('hex') };
       sessions.set(id, session);
-      reply.header('set-cookie', `${cookieName}=${id}; Path=/; HttpOnly; SameSite=Lax`);
+      reply.header('set-cookie', `${cookieName}=${id}; Path=/; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`);
       localRequest.localSession = session;
     }
     return { csrfToken: session.csrfToken };

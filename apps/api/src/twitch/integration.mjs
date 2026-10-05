@@ -20,13 +20,14 @@ export async function createTwitchIntegration({
   eventSubRuntimeFactory = (input) => createEventSubRuntime(input),
   reconcilerFactory = (input) => createTwitchReconciler(input),
   setIntervalImpl = setNodeInterval, clearIntervalImpl = clearNodeInterval,
-  redirectUri = process.env.CALLBACK_URL ?? 'http://localhost:3000/callback',
+  redirectUri = process.env.CALLBACK_URL ?? 'https://localhost:3000/callback',
   fetchImpl = fetch,
   oauthStateStore = createOAuthStateStore(),
   authProviderFactory = (config) => new RefreshingAuthProvider(config),
 }) {
   let credential = await credentialRepository.getAuthRecord();
   let status = credential ? 'connecting' : 'not_configured';
+  let channelEligibility = null;
   let stopIntegration = () => undefined;
   const integration = {
     oauthStateStore,
@@ -40,7 +41,7 @@ export async function createTwitchIntegration({
     },
     async getSetupState() {
       const safe = await credentialRepository.getPublicStatus();
-      return { ...safe, status };
+      return { ...safe, status, eligibility: channelEligibility };
     },
     async beginAuthorization(sessionId) {
       if (!credential?.clientId || !sessionId) return null;
@@ -73,8 +74,8 @@ export async function createTwitchIntegration({
       if (authRuntime.status === 'connected' && authRuntime.provider) {
         const api = apiFactory({ authProvider: authRuntime.provider });
         const adapter = adapterFactory({ api, broadcasterId: credential.broadcasterId });
-        const eligibility = await adapter.getChannelEligibility().catch(() => ({ eligible: false, broadcasterType: 'unknown' }));
-        if (eligibility.eligible) {
+        channelEligibility = await adapter.getChannelEligibility().catch(() => ({ eligible: false, broadcasterType: 'unknown', reason: 'eligibility_unknown' }));
+        if (channelEligibility.eligible) {
           const processor = createTwitchRedemptionProcessor({ repository, domainService, broadcasterId: credential.broadcasterId });
           const reconciler = reconcilerFactory({ repository, twitch: adapter, processor, broadcasterId: credential.broadcasterId });
           let listener;
@@ -139,13 +140,15 @@ export async function createTwitchIntegration({
   const twitch = adapterFactory({ api, broadcasterId: credential.broadcasterId });
   let eligibility;
   try {
-    eligibility = await twitch.getChannelEligibility();
+      eligibility = await twitch.getChannelEligibility();
   } catch {
+    channelEligibility = { eligible: false, broadcasterType: 'unknown', reason: 'eligibility_unknown' };
     stopAuth();
     status = 'eligibility_unknown';
     stopIntegration = stopAuth;
     return integration;
   }
+  channelEligibility = eligibility;
   if (!eligibility.eligible) {
     stopAuth();
     onStatus({ status: 'ineligible', broadcasterType: eligibility.broadcasterType });

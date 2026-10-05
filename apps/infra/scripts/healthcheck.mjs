@@ -1,7 +1,16 @@
-const baseUrl = `http://127.0.0.1:${process.env.APP_PORT ?? 3000}`;
-try {
-  const response = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(3000) });
-  if (!response.ok) process.exitCode = 1;
-} catch {
-  process.exitCode = 1;
-}
+import https from 'node:https';
+
+const request = https.request({
+  hostname: '127.0.0.1',
+  port: process.env.APP_PORT ?? 3000,
+  path: '/health',
+  method: 'GET',
+  rejectUnauthorized: false,
+  timeout: 3000,
+}, (response) => {
+  response.resume();
+  if (response.statusCode !== 200) process.exitCode = 1;
+});
+request.on('error', () => { process.exitCode = 1; });
+request.on('timeout', () => { request.destroy(); process.exitCode = 1; });
+request.end();

@@ -21,4 +21,11 @@ describe('local operational file exclusions', () => {
     const ignore = readFileSync(`${root}/.gitignore`, 'utf8');
     expect(ignore.split(/\r?\n/)).toContain('!apps/api/prisma/migrations/**/*.sql');
   });
+
+  it('keeps the exported local TLS CA out of source commits and image build contexts', () => {
+    const ignore = readFileSync(`${root}/.gitignore`, 'utf8');
+    const dockerIgnore = readFileSync(`${root}/.dockerignore`, 'utf8');
+    expect(ignore.split(/\r?\n/)).toContain('.local/');
+    expect(dockerIgnore.split(/\r?\n/)).toContain('.local');
+  });
 });

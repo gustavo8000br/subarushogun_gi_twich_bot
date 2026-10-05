@@ -14,14 +14,29 @@ describe('local panel session and CSRF protection', () => {
     const csrf = state.json().csrfToken;
     expect(cookie.httpOnly).toBe(true);
     expect(cookie.sameSite).toBe('Lax');
+    expect(cookie.secure).toBe(true);
     expect(csrf).toBeTypeOf('string');
 
     const denied = await app.inject({ method: 'POST', url: '/api/mutate', headers: { host: 'localhost:3000', cookie: `${cookie.name}=${cookie.value}` } });
     expect(denied.statusCode).toBe(403);
     const accepted = await app.inject({ method: 'POST', url: '/api/mutate', headers: {
-      host: 'localhost:3000', origin: 'http://localhost:3000', cookie: `${cookie.name}=${cookie.value}`, 'x-csrf-token': csrf,
+      host: 'localhost:3000', origin: 'https://localhost:3000', cookie: `${cookie.name}=${cookie.value}`, 'x-csrf-token': csrf,
     } });
     expect(accepted.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it('rejects insecure local origins on the HTTPS panel', async () => {
+    const app = Fastify();
+    registerLocalSession(app);
+    app.post('/api/mutate', async () => ({ ok: true }));
+    const session = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
+    const cookie = session.cookies[0];
+    const response = await app.inject({ method: 'POST', url: '/api/mutate', headers: {
+      host: 'localhost:3000', origin: 'http://localhost:3000', cookie: `${cookie.name}=${cookie.value}`,
+      'x-csrf-token': session.json().csrfToken,
+    } });
+    expect(response.statusCode).toBe(403);
     await app.close();
   });
 

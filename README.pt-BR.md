@@ -33,7 +33,7 @@ Um bot local e auto-hospedado para gerenciar filas de Genshin Impact pela Twitch
 ## Princípios
 
 - **Dados sob controle local:** a aplicação foi projetada para rodar no computador do streamer. Não possui backend hospedado pelo projeto, banco remoto, sincronização ou telemetria.
-- **Operações recuperáveis:** intenções financeiras persistem em outbox PostgreSQL e têm retry/reconciliação implementados, ainda sem comprovação em canal Twitch real.
+- **Operações recuperáveis:** ordem das filas e operações de pontos são planejadas para sobreviver a reinícios do processo e do computador. A outbox financeira PostgreSQL e a reconciliação Twitch estão implementadas, mas não foram verificadas em um canal real.
 - **Privilégio mínimo:** a integração planejada usa o aplicativo e a conta do streamer, com os escopos necessários para resgates e chat.
 - **Sem credenciais do jogo:** o bot não solicita nem manipula senhas de Genshin. Um UID visível é um identificador público do jogo, não uma credencial.
 - **Teste primeiro:** mudanças de comportamento seguem Red → Green → Refactor. Consulte o [registro das stories](docs/stories.md) para ver comandos e resultados observados.
@@ -45,43 +45,101 @@ A fundação atual oferece:
 - Stack Compose com geração inicial de segredo, PostgreSQL, migrations Prisma e serviço Fastify.
 - Painel local com fluxo de configuração Twitch, criação de fila/entrada, projeção ao vivo e operações financeiras; a API usa sessão local, CSRF e verificações Host/Origin.
 - `/health` informa versão do produto e estado atual do banco/integração Twitch.
-- Base do domínio de filas, resgates, transições, outbox, OAuth/EventSub/reconciliação, parser/autorização do chat e chamadas/timeout.
+- Runtime de chatbot que recebe eventos de resgate/chat da Twitch e processa comandos de fila, acompanhado de um painel local para configuração e administração do streamer. O painel é o console do operador; viewers não entram por ele.
+- Base do domínio de filas, resgates, transições, outbox financeira, OAuth/EventSub/reconciliação, parser/autorização do chat e chamadas/timeout.
+- Criação durável de recompensas Twitch, pausadas por padrão, com verificação de capacidade e recuperação manual auditada quando a resposta Twitch deixa ambígua a associação da recompensa.
 - Volumes persistentes para banco e segredos. A porta do banco não é publicada no host; a aplicação usa `127.0.0.1:3000` por padrão.
 - Scripts para validar/materializar versão e o schema/migration inicial do Prisma.
 
-Esta versão **não está pronta para uma live**. Criar uma fila atualmente só cria o registro local; ainda não cria nem vincula recompensa Twitch. A interface explica essa limitação. Arquivar/apagar fila, concorrência de propriedade da conta entre filas, idempotência/revisão integral, controles de reenvio/histórico e várias rotinas de reconciliação/resolução permanecem incompletos. A pesquisa documental UX está registrada, mas ainda não houve validação de usabilidade. Nenhuma operação Twitch foi verificada com credenciais autorizadas.
+Esta versão **não está pronta para uma live**. Edição/abertura/fechamento/arquivamento/exclusão de recompensa, concorrência de propriedade da conta entre filas, idempotência/revisão integral, controles de reenvio/histórico e várias rotinas de reconciliação/resolução permanecem incompletos. A pesquisa documental UX está registrada, mas ainda não houve validação de usabilidade. Nenhuma operação Twitch foi verificada com credenciais autorizadas.
 
 ## Requisitos
 
-- Docker Engine ou Docker Desktop com Docker Compose v2.
-- Um navegador no mesmo computador.
-- Acesso à internet na primeira construção para baixar imagens e dependências fixadas.
+- Computador **64 bits** com sistema operacional compatível, **Docker Engine ou Docker Desktop no modo de containers Linux**, plugin CLI do Docker Compose (`docker compose`, não o executável standalone legado `docker-compose`) e permissão do usuário para executar comandos Docker. Confira com `docker --version` e `docker compose version`.
+- Navegador atual no mesmo computador (Chrome, Edge ou Firefox recomendados) que consiga confiar em uma autoridade certificadora local.
+- Acesso à internet durante a primeira construção das imagens e enquanto o chatbot se conecta à Twitch.
+- Node.js, PostgreSQL, Git e compilador **não são necessários no computador host para executar a aplicação por Compose**. Node.js `24.20.0` é fixado para desenvolvimento do projeto e executa dentro do contêiner.
 
-Node.js, PostgreSQL e compilador não são necessários para executar a aplicação com Compose. Node.js é necessário para desenvolvimento e verificações locais; o repositório fixa a versão `24.20.0`.
+### Sistemas host compatíveis
+
+- **Ubuntu/Linux:** Ubuntu 24.04 LTS x86-64 com Docker Engine e plugin Compose é o ambiente usado nos testes atuais de aceite Linux. Outras distribuições precisam de Docker Engine suportado, plugin Compose v2 e shell compatível com `iniciar.sh`; nem todas foram testadas.
+- **Windows:** Docker Desktop para containers Linux com backend WSL 2 é a configuração prevista. O guia atual do Docker lista edições/builds Windows compatíveis, WSL 2 versão 2.1.5 ou posterior, CPU de 64 bits compatível com SLAT e virtualização habilitada no BIOS/UEFI. A lista muda; confira os [requisitos Windows atuais do Docker](https://docs.docker.com/desktop/setup/install/windows-install/) antes de instalar. Windows Server não é suportado pelo Docker Desktop.
+- **macOS:** é necessário Docker Desktop para containers Linux e CLI `docker compose`; o comportamento no macOS host não foi validado nesta versão.
+
+### Estimativas de hardware — valores aproximados
+
+> Estes são valores **aproximados para a versão alpha atual**, não mínimos garantidos nem especificações permanentes. Docker Desktop tem requisitos próprios por plataforma. O uso real varia conforme a versão do projeto, reconstrução de imagens, sistema operacional, histórico de filas, logs e outros programas. Os requisitos podem variar por versão; vamos revisar e atualizar essas estimativas conforme as versões e o uso medido mudarem.
+
+- CPU: aproximadamente **2 núcleos lógicos** disponíveis para o Docker; 4 núcleos deixam a primeira construção de imagem mais confortável.
+- Memória: aproximadamente **4 GB disponíveis para o Docker** para aplicação e build inicial; **8 GB de RAM total é uma meta prática**, e o Docker lista 8 GB como requisito de hardware para WSL 2 no Windows atualmente.
+- Disco: mantenha aproximadamente **10 GB livres** antes do primeiro build para imagens, cache de build e volumes iniciais de banco/segredo. Banco e logs podem crescer; espaço necessário depende do uso e retenção.
+- Não é necessária GPU dedicada.
+
+Os valores de hardware para Windows acima não são benchmark do produto. Eles combinam os requisitos atuais do Docker com margem aproximada para esta aplicação. Consulte os guias oficiais do [Docker Desktop para Windows](https://docs.docker.com/desktop/setup/install/windows-install/), [Docker Engine no Ubuntu](https://docs.docker.com/engine/install/ubuntu/), [pós-instalação Linux e acesso ao Docker](https://docs.docker.com/engine/install/linux-postinstall/) e [plugin Compose](https://docs.docker.com/compose/install/linux/).
 
 ## Primeira execução
 
-1. Clone este repositório privado ou extraia uma cópia do projeto recebida de alguém.
-2. Abra um terminal na pasta do projeto. No Linux/macOS, se necessário, dê permissão de execução ao script uma vez com `chmod +x iniciar.sh`.
-3. Inicie a stack:
+### Primeira execução no Windows
+
+> A execução nativa do `iniciar.bat` ainda não foi validada por este projeto. O runtime Compose foi validado no Ubuntu; se o helper falhar no Windows, execute o comando Compose abaixo e reporte o erro exato antes de considerar a instalação Windows validada.
+
+1. Instale ou atualize o WSL 2 e reinicie o Windows se solicitado. Em um PowerShell elevado, use `wsl --install` somente se o WSL ainda não estiver instalado; use `wsl --update` para atualizar uma instalação existente. Depois confira com `wsl --version` (2.1.5 ou posterior) e, se necessário, habilite virtualização no BIOS/UEFI.
+2. Instale Docker Desktop, selecione o backend WSL 2, inicie o Docker Desktop e aguarde o engine ficar pronto. No PowerShell, confira `docker --version` e `docker compose version`. Mantenha o Docker no modo **Linux containers**.
+3. Clone o repositório ou extraia o arquivo do projeto. Abra PowerShell dentro da pasta do projeto; caminhos com espaços são suportados por `iniciar.bat`.
+4. Inicie a aplicação:
+
+   ```powershell
+   .\iniciar.bat
+   ```
+
+   Ou execute o comando Compose padrão:
+
+   ```powershell
+   docker compose up --build -d
+   ```
+
+5. Aguarde o primeiro build e bootstrap. O helper abre o painel quando possível e cria `.local\localhost-ca.crt` com o certificado público necessário ao navegador. Se o navegador abrir antes de confiar no certificado, feche a aba por enquanto.
+6. Confie no certificado local desta instalação para o usuário Windows atual e reinicie o navegador:
+
+   ```powershell
+   Import-Certificate -FilePath (Resolve-Path '.\.local\localhost-ca.crt') -CertStoreLocation Cert:\CurrentUser\Root
+   ```
+
+   Abra `https://localhost:3000`. Esta CA local não é pública; importe somente o certificado gerado na pasta `.local` deste projeto. Se o volume Docker de segredos for removido intencionalmente, o bootstrap criará nova CA e será preciso repetir esta etapa.
+
+### Primeira execução no Ubuntu/Linux
+
+1. Instale Docker Engine e o plugin Compose da sua distribuição. No Ubuntu, siga as [instruções oficiais do Docker Engine](https://docs.docker.com/engine/install/ubuntu/) e confirme que `docker compose version` funciona.
+2. Clone o repositório ou extraia o arquivo do projeto e abra um terminal na pasta. Se necessário, execute `chmod +x iniciar.sh` uma vez.
+3. Inicie a aplicação:
 
    ```sh
    ./iniciar.sh
    ```
 
-   No Windows, execute `iniciar.bat` na pasta do projeto. Os dois scripts constroem e iniciam os serviços do Compose, aguardam o endereço local responder e abrem o navegador quando o sistema oferece um comando de abertura.
+   O helper constrói e inicia o Compose, aguarda o healthcheck HTTPS local e abre o navegador se estiver disponível. Se não conseguir abrir, imprime o endereço.
 
-   Para executar o mesmo fluxo diretamente:
+4. Confie a CA local gerada no repositório de certificados do Ubuntu e atualize o bundle:
 
    ```sh
-   docker compose up --build -d
+   sudo install -Dm644 .local/localhost-ca.crt /usr/local/share/ca-certificates/queuebot-localhost-ca.crt
+   sudo update-ca-certificates
    ```
 
-4. Acesse [http://localhost:3000](http://localhost:3000). O painel inclui configuração Twitch e gerenciamento inicial; a integração de recompensas ainda está incompleta.
-5. Confira a saúde dos serviços:
+   Reinicie o navegador e abra `https://localhost:3000`.
+
+### Continue a configuração em qualquer plataforma
+
+1. No painel, confira se o callback exibido é exatamente `https://localhost:3000/callback` (ou a porta avançada escolhida).
+2. No [Console de Desenvolvedor da Twitch](https://dev.twitch.tv/console/apps), crie ou edite um app confidencial e registre esse callback **HTTPS exato**. Se ele foi cadastrado inicialmente como `http://localhost:3000/callback`, substitua por HTTPS. Protocolo, host, porta e caminho precisam coincidir. As credenciais Twitch devem ser inseridas somente no formulário local; não as envie em chat, issue, captura de tela ou arquivo versionado.
+3. Informe Client ID e Client Secret do app no painel e clique **Validar e salvar aplicativo**. Depois clique **Conectar com a Twitch**, aprove os escopos solicitados e confira se a identidade do canal está correta.
+4. Chatbot e painel têm funções diferentes: viewers entram somente por resgate de recompensa; streamer/moderadores gerenciam filas por comandos autorizados no chat, e o streamer também administra pelo painel local. Criar uma fila solicita uma recompensa personalizada real da Twitch e ocupa uma vaga no limite do canal. Não crie fila de teste em canal de produção sem intenção de criar essa recompensa.
+5. Esta alpha ainda não tem edição/abertura/fechamento/arquivamento/exclusão de recompensa e não foi validada com uma conta Twitch real. Use painel/API para verificações controladas de integração; não para operar uma live sem supervisão.
+
+Para conferir a saúde via CLI Linux depois de confiar na CA:
 
    ```sh
-   curl http://localhost:3000/health
+   curl --cacert .local/localhost-ca.crt https://localhost:3000/health
    ```
 
    A resposta atual se parece com:
@@ -99,6 +157,8 @@ Node.js, PostgreSQL e compilador não são necessários para executar a aplicaç
 
    O SHA zerado é o marcador documentado usado antes de materializar um commit Git de origem na imagem. Isso não indica uma release.
 
+No Windows, depois de importar a CA no repositório do usuário atual, `curl.exe https://localhost:3000/health` também deve validar normalmente. Para usar curl antes da importação, passe `--cacert .\.local\localhost-ca.crt`.
+
 ### Porta local avançada
 
 A porta `3000` não é alterada automaticamente se estiver ocupada. Escolha explicitamente outra porta do host e, quando a configuração Twitch estiver disponível, registre o callback correspondente:
@@ -114,7 +174,7 @@ $env:APP_PORT = "3217"
 docker compose up --build -d
 ```
 
-O endereço passa a ser `http://localhost:3217` e o callback OAuth correspondente será `http://localhost:3217/callback`. O painel apresenta a mesma porta para o callback.
+O endereço passa a ser `https://localhost:3217` e o callback OAuth correspondente será `https://localhost:3217/callback`. O painel apresenta a mesma porta para o callback.
 
 ## Operação diária
 
@@ -141,18 +201,38 @@ git pull --ff-only
 docker compose up --build -d
 docker compose ps
 docker compose logs --tail=100 migrate bot
-curl http://localhost:3000/health
+curl --cacert .local/localhost-ca.crt https://localhost:3000/health
 ```
 
 O Compose reconstrói a imagem e executa as migrations Prisma pendentes antes de iniciar o bot. Os volumes persistentes de banco e segredos são mantidos. Quando houver releases publicadas, leia as notas antes de atualizar; o projeto está em alpha e ainda não tem canal de releases publicado. Se configurou uma `APP_PORT` personalizada, use o mesmo valor ao iniciar ou atualizar.
 
+Os helpers `atualizar.sh` e `atualizar.bat` atendem uma cópia Git limpa na branch `main`. Eles buscam e avançam `origin/main` por fast-forward e então reconstroem/iniciam o Compose. Param se houver alterações locais ou outra branch; faça commit/stash do trabalho ou atualize aquela branch manualmente. Git e acesso ao repositório são necessários para esses helpers, mas não para executar o app. A execução do helper Windows ainda não foi validada em Windows nativo.
+
 Para futuras imagens distribuídas, siga as instruções com versão fixa da release correspondente. Não faça pull de uma tag não fixada `latest`.
+
+## Desinstalação
+
+Execute `./desinstalar.sh` no Linux/macOS ou `desinstalar.bat` no Windows. O helper para e remove este projeto Compose e a imagem local da aplicação, preservando por padrão o banco, credenciais/tokens Twitch, senha gerada do banco e segredos TLS. Ele pergunta se deve apagar os dados; se a resposta for sim, pede que você digite `APAGAR` antes de executar `docker compose down --volumes --rmi local`. Isso apaga permanentemente os volumes Docker do projeto e remove o arquivo exportado da CA pública localhost. Os arquivos fonte do projeto são mantidos. Um `LOCAL_CERT_DIRECTORY` externo personalizado não é removido pelo helper.
+
+Para preservar os dados explicitamente, também é possível usar `docker compose down --rmi local`. Nunca use `docker compose down --volumes` sem intenção de apagar permanentemente os dados locais das filas e os segredos operacionais.
 
 ## Estado da configuração Twitch
 
-As credenciais Twitch e o OAuth são configurados pelo painel local, sem copiar valores para `.env` ou YAML. Validação Client Credentials e base do Authorization Code estão implementadas; não há garantia de criptografia em repouso. Código de renovação de token, EventSub, chat e reconciliação existe, mas não foi exercitado em conta autorizada. A gestão de recompensas está incompleta. Nunca grave Client Secret, token de acesso, código de autorização ou senha do banco em arquivo versionado, issue, captura de tela ou mensagem de chat.
+As credenciais Twitch e o OAuth são configurados pelo painel local, sem copiar valores para `.env` ou YAML. Validação Client Credentials e base do Authorization Code estão implementadas; não há garantia de criptografia em repouso. Código de renovação de token, EventSub, chat e reconciliação existe, mas não foi exercitado em conta autorizada. Criação durável de recompensa e recuperação de associação ambígua estão implementadas; edição, abertura/fechamento, arquivamento e exclusão ainda não. Nunca grave Client Secret, token de acesso, código de autorização ou senha do banco em arquivo versionado, issue, captura de tela ou mensagem de chat.
 
-O callback é `http://localhost:3000/callback`. Registre um aplicativo Twitch confidencial com esse callback exato e habilite a segurança de conta exigida pela Twitch. Consulte [Integrações](docs/integrations.md) para as APIs e a documentação oficial consultada.
+O callback é `https://localhost:3000/callback`. Registre um aplicativo Twitch confidencial com esse callback exato e habilite a segurança de conta exigida pela Twitch. Se o app foi cadastrado inicialmente com `http://localhost:3000/callback`, edite a URI no Console de Desenvolvedor da Twitch para HTTPS antes de conectar; protocolo, host, porta e caminho precisam coincidir exatamente. Consulte [Integrações](docs/integrations.md) para as APIs e a documentação oficial consultada.
+
+#### Confie o certificado HTTPS local uma vez
+
+No primeiro bootstrap do Compose, o projeto cria uma autoridade certificadora local privada e um certificado de servidor para `localhost`. Somente o certificado público da autoridade é exportado para `.local/localhost-ca.crt`; a chave privada fica no volume persistente de segredos do Docker. Importe o certificado no repositório de certificados confiáveis do seu usuário antes de usar o OAuth da Twitch e reinicie o navegador:
+
+```powershell
+Import-Certificate -FilePath .\.local\localhost-ca.crt -CertStoreLocation Cert:\CurrentUser\Root
+```
+
+No Linux, instale-o no repositório confiável do sistema com `sudo install -Dm644 .local/localhost-ca.crt /usr/local/share/ca-certificates/queuebot-localhost-ca.crt && sudo update-ca-certificates`. No macOS, execute `security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db .local/localhost-ca.crt`. Reinicie o navegador após importar.
+
+Esta autoridade certificadora é privada desta instalação e não foi emitida por uma autoridade pública. Se remover o volume de segredos do Docker, o Compose cria outro certificado; importe novamente o novo `.local/localhost-ca.crt`. No Windows, para remover a confiança depois, abra `certmgr.msc`, localize `QueueBot Local Root CA` em **Autoridades de Certificação Raiz Confiáveis > Certificados** e exclua-o.
 
 ## Desenvolvimento
 
@@ -191,7 +271,7 @@ Expectativas para contribuições:
 1. Mantenha o código da aplicação em JavaScript ESM com JSDoc; não adicione TypeScript, transpiler ou bundler de frontend.
 2. Siga Red → Green → Refactor antes de cada comportamento, correção ou mudança de requisito. Use testes reais de integração PostgreSQL para restrições e garantias transacionais.
 3. Mantenha Twitch, banco e chat nas fronteiras dos módulos existentes; use fakes para comportamento remoto Twitch e PostgreSQL de teste real quando persistência for o contrato.
-4. Atualize a documentação afetada em inglês e sua equivalente em `docs/pt-BR/`. Mantenha comandos, caminhos, IDs de stories, datas e evidências equivalentes.
+4. **Documentação é obrigatória.** Atualize todo documento principal afetado em inglês e sua versão equivalente pt-BR na mesma mudança. Mantenha comandos, caminhos, IDs de stories, datas, resultados de testes e evidências fiéis. Uma story não está concluída e um PR não está pronto até conferir os dois idiomas; nunca invente evidência de teste.
 5. Nunca envie `.env`, volumes Docker, dumps de banco, credenciais/tokens Twitch ou payloads brutos de chat/resgate.
 6. Atualize checklist e lista de arquivos da story correspondente; explique verificações que não puderam ser executadas.
 
@@ -232,7 +312,7 @@ Leia os logs de `migrate` e `bot` e, depois de corrigir a causa informada, tente
 
 ### A inicialização não abriu o navegador
 
-Abra `http://localhost:3000` manualmente. Se o sistema não tiver um comando compatível para abrir o navegador, o script de início imprime o endereço.
+Abra `https://localhost:3000` manualmente. Se o navegador indicar certificado não confiável, importe primeiro `.local/localhost-ca.crt` no repositório de certificados raiz confiáveis do usuário. Se o sistema não tiver um comando compatível para abrir o navegador, o script de início imprime o endereço.
 
 ## Roadmap
 
@@ -241,7 +321,7 @@ Abra `http://localhost:3000` manualmente. Se o sistema não tiver um comando com
 | FND-1 | Documentação bilíngue da fundação e verificação da inicialização/encerramento Compose | Em andamento |
 | FND-2 | Domínio das filas, UID, parser, autorização e ordenação PostgreSQL | Em andamento |
 | FND-3 | Outbox financeira durável, tentativas, confirmação e recuperação | Em andamento; worker/lease/outbox implementados, auditoria final pendente |
-| FND-4 | Credenciais Twitch, OAuth, recompensas, EventSub e reconciliação | Em andamento; ciclo de recompensas e Twitch real pendentes |
+| FND-4 | Credenciais Twitch, OAuth, recompensas, EventSub e reconciliação | Implementação concluída; aceite autorizado com Twitch real aguarda validação do operador |
 | FND-5 | Comandos, chamadas, timeout, confirmação de limpeza, conta atual e serviços compartilhados ([issue #1](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/1)) | Em andamento; concorrência da conta entre filas, abrir/fechar remoto de recompensa e cobertura completa de serviços compartilhados pendentes |
 | FND-6 | Planejamento UX com referências, painel completo, assistente, API protegida e segurança local ([issue #6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | Em andamento; ciclo de recompensas, operações completas, idempotência/revisão da API e validação de usabilidade pendentes |
 
