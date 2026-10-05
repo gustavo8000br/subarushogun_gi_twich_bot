@@ -9,7 +9,7 @@
 **Prioridade:** P0 — dados, estilo, gestão de links e segurança; P1 — documentação bilíngue  
 **Épico/capacidade:** Extensão pós-MVP do bot local Twitch para Genshin Impact  
 **Fonte:** Solicitação do streamer e elicitação do Spec Pipeline em 2026-10-05  
-**Spec:** spec/spec.md; requisitos, pesquisa, complexidade, crítica e plano em spec/
+**Spec (English technical artifacts):** `../../../stories/FND-7/spec/spec.md`; requirements, research, complexity, critique, plan and implementation YAML are in the English story folder.
 
 ## Status
 
