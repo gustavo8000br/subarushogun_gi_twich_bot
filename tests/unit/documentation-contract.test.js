@@ -25,10 +25,12 @@ describe('foundation operator documentation contract', () => {
     ]);
     expect(english).toContain('[Português brasileiro](pt-BR/integrations.md)');
     expect(portuguese).toContain('[English](../integrations.md)');
-    for (const term of ['2026-10-03', 'channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'is_sent', 'not implemented']) {
+    expect(english).toMatch(/\*\*Documentation checked:\*\*\s*\d{4}-\d{2}-\d{2}/);
+    expect(portuguese).toMatch(/\*\*Documentação consultada:\*\*\s*\d{4}-\d{2}-\d{2}/);
+    for (const term of ['getCustomRewards(broadcasterId, false)', 'channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'is_sent', 'not implemented']) {
       expect(english.toLowerCase()).toContain(term.toLowerCase());
     }
-    expect(portuguese.toLowerCase()).toContain('2026-10-03');
+    expect(portuguese.toLowerCase()).toContain('getcustomrewards(broadcasterid, false)');
     expect(portuguese.toLowerCase()).toContain('channel:manage:redemptions');
     expect(portuguese.toLowerCase()).toContain('user:read:chat');
     expect(portuguese.toLowerCase()).toContain('user:write:chat');
