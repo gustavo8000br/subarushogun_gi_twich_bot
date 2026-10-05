@@ -1,0 +1,474 @@
+{
+  "storyId": "FND-7",
+  "createdAt": "2026-10-05T17:08:00Z",
+  "createdBy": "@architect (AIOX implementation-plan phase)",
+  "status": "pending",
+  "complexity": "COMPLEX",
+  "estimatedEffort": "Multiple independently reviewable implementation increments; no calendar commitment until FND-5/FND-6 dependencies are mapped.",
+  "dependencies": [
+    {
+      "name": "OBS Studio Browser Source",
+      "version": "Current supported release",
+      "purpose": "Render the local overlay URL in OBS; manually verify actual app behavior by OS/version."
+    },
+    {
+      "name": "Fastify / PostgreSQL / Prisma / vanilla JavaScript",
+      "version": "Existing pinned project versions",
+      "purpose": "Reuse current API, static app, and durable local persistence; no additional dependency planned."
+    },
+    {
+      "name": "FND-2",
+      "version": "Existing story",
+      "purpose": "Queue domain rules, viewer identity, and safe field source."
+    },
+    {
+      "name": "FND-5",
+      "version": "Open issue",
+      "purpose": "Hard prerequisite: all account/call/service projections must be complete and verified before any FND-7 implementation."
+    },
+    {
+      "name": "FND-6",
+      "version": "Open issue",
+      "purpose": "Hard prerequisite: protected panel/session/CSRF/Host-Origin foundations must be complete before any FND-7 implementation."
+    }
+  ],
+  "tddContract": "Every behavior increment starts with a failing behavioral test, then minimum implementation to Green, followed by separate Refactor and retest. PostgreSQL guarantees use isolated PostgreSQL and actual versioned Prisma migrations. Record exact commands/results in docs/stories.md and docs/pt-BR/stories.md; do not claim OBS/OS compatibility or FND-7 tests without observed evidence.",
+  "phases": [
+    {
+      "id": "phase-0",
+      "name": "Readiness and UX approval gates",
+      "description": "No schema, backend, or UI implementation begins until upstream readiness and UX decisions are documented.",
+      "subtasks": [
+        {
+          "id": "0.1",
+          "service": "planning",
+          "description": "Verify FND-5 and FND-6 are fully complete and map every required atomic field to delivered application projections and protected panel/security services; block FND-7 if any prerequisite is incomplete.",
+          "files": [
+            "docs/stories/FND-7/validation.md"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Record upstream story statuses, source service/API for all seven dynamic fields, panel/session/CSRF/Host-Origin primitives, and an explicit all-fields-ready decision. No reduced field subset."
+          },
+          "status": "pending",
+          "dependencies": []
+        },
+        {
+          "id": "0.2",
+          "service": "frontend",
+          "description": "Complete UX review and record accepted font labels, default style, preview, empty/stale/unavailable states, accessible labels/focus, and consistency with existing panel before any UI coding.",
+          "files": [
+            "docs/stories/FND-7/ux-refinement.md"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "@aiox-ux-design-expert approves the journey, loading/error/empty/revocation states, keyboard access, labels, visible focus and readability preview."
+          },
+          "status": "pending",
+          "dependencies": []
+        },
+        {
+          "id": "0.3",
+          "service": "backend",
+          "description": "Write and validate shared Unicode code-point counting examples for 240-character fixed and fallback text.",
+          "files": [
+            "docs/stories/FND-7/validation.md"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Document same code-point rule for browser and server and boundary examples at 240 and 241."
+          },
+          "status": "pending",
+          "dependencies": []
+        }
+      ]
+    },
+    {
+      "id": "phase-1",
+      "name": "Widget persistence foundation",
+      "description": "Test and add durable widget configuration and capability hash after all phase-0 gates pass.",
+      "subtasks": [
+        {
+          "id": "1.1",
+          "service": "database",
+          "description": "Write real PostgreSQL migration-contract tests for widget create/edit/delete, capability hashing, widget scope, rotation, revocation, and restart durability.",
+          "files": [
+            "tests/integration/overlay-widget-repository.test.js"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- --run tests/integration/overlay-widget-repository.test.js"
+          },
+          "status": "pending",
+          "dependencies": [
+            "0.1"
+          ]
+        },
+        {
+          "id": "1.2",
+          "service": "database",
+          "description": "Add the Prisma widget model and SQL migration after the database tests fail for the missing behavior.",
+          "files": [
+            "apps/api/prisma/schema.prisma",
+            "apps/api/prisma/migrations/<timestamp>_overlay_widgets/migration.sql"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- --run tests/integration/overlay-widget-repository.test.js"
+          },
+          "status": "pending",
+          "dependencies": [
+            "0.1",
+            "1.1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-2",
+      "name": "Core field and capability policy",
+      "description": "Implement allowlisted data fields, styling validation, and capability lifecycle.",
+      "subtasks": [
+        {
+          "id": "2.1",
+          "service": "backend",
+          "description": "Write unit tests for field scope, queue selection, fallback states, 240-character Unicode counting, style allowlists, and malicious input.",
+          "files": [
+            "tests/unit/overlay-fields.test.js",
+            "tests/unit/overlay-style.test.js"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- --run tests/unit/overlay-fields.test.js tests/unit/overlay-style.test.js"
+          },
+          "status": "pending",
+          "dependencies": [
+            "0.1",
+            "0.2",
+            "0.3",
+            "1.2"
+          ]
+        },
+        {
+          "id": "2.2",
+          "service": "backend",
+          "description": "Implement pure overlay field and style validation after observing behavioral Red.",
+          "files": [
+            "apps/api/src/domain/overlay-widget.mjs",
+            "apps/api/src/domain/overlay-style.mjs"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- --run tests/unit/overlay-fields.test.js tests/unit/overlay-style.test.js"
+          },
+          "status": "pending",
+          "dependencies": [
+            "2.1",
+            "0.1"
+          ]
+        },
+        {
+          "id": "2.3",
+          "service": "backend",
+          "description": "Write token lifecycle unit tests for random generation, hash-only persistence boundary, one-widget scope, and rotation/revocation.",
+          "files": [
+            "tests/unit/overlay-capability.test.js"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- --run tests/unit/overlay-capability.test.js"
+          },
+          "status": "pending",
+          "dependencies": [
+            "0.1",
+            "0.2",
+            "0.3",
+            "1.2"
+          ]
+        },
+        {
+          "id": "2.4",
+          "service": "backend",
+          "description": "Implement capability issue/verify/revoke policy and retest after Refactor.",
+          "files": [
+            "apps/api/src/domain/overlay-capability.mjs"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- --run tests/unit/overlay-capability.test.js"
+          },
+          "status": "pending",
+          "dependencies": [
+            "2.3",
+            "0.1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-2b",
+      "name": "Widget repository and application service",
+      "description": "Implement durable widget CRUD and capability lifecycle through a service after repository contract tests pass.",
+      "subtasks": [
+        {
+          "id": "2b.1",
+          "service": "backend",
+          "description": "Write real PostgreSQL/application service tests for create/edit/delete, token issue/hash verification, one-time URL, rotate/revoke, and concurrent delete/read atomicity.",
+          "files": [
+            "tests/integration/overlay-widget-service.test.js"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- --run tests/integration/overlay-widget-service.test.js"
+          },
+          "status": "pending",
+          "dependencies": [
+            "0.1",
+            "1.2",
+            "2.4"
+          ]
+        },
+        {
+          "id": "2b.2",
+          "service": "backend",
+          "description": "Implement repository plus application service for widget persistence and capability lifecycle after observing Red.",
+          "files": [
+            "apps/api/src/persistence/overlay-widget-repository.mjs",
+            "apps/api/src/domain/overlay-widget-service.mjs"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- --run tests/integration/overlay-widget-service.test.js"
+          },
+          "status": "pending",
+          "dependencies": [
+            "0.1",
+            "2b.1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "name": "HTTP management and scoped read routes",
+      "description": "Connect protected panel operations and isolated read-only OBS access.",
+      "subtasks": [
+        {
+          "id": "3.1",
+          "service": "backend",
+          "description": "Write HTTP contract tests for management session/CSRF, Host/Origin, token scope, rejected/revoked capabilities, exact data projection, cache/referrer headers, and absence of mutations.",
+          "files": [
+            "tests/integration/overlay-routes.test.js"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- --run tests/integration/overlay-routes.test.js"
+          },
+          "status": "pending",
+          "dependencies": [
+            "0.1",
+            "2.2",
+            "2.4",
+            "2b.2"
+          ]
+        },
+        {
+          "id": "3.2",
+          "service": "backend",
+          "description": "Implement widget management and token-only read routes through shared application/domain projections.",
+          "files": [
+            "apps/api/src/http/overlay-routes.mjs",
+            "apps/api/src/server.mjs"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- --run tests/integration/overlay-routes.test.js"
+          },
+          "status": "pending",
+          "dependencies": [
+            "0.1",
+            "3.1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "name": "Browser Source renderer",
+      "description": "Build safe transparent renderer with update, empty, stale, recovery, and revoke states.",
+      "subtasks": [
+        {
+          "id": "4.1",
+          "service": "frontend",
+          "description": "Write browser tests for safe text, transparent page, selected style, two-second update, empty fallback, transient stale marker, recovery, and 401/403 clearing. Run eight concurrently open widgets on mixed dynamic fields; measure committed-change-to-rendered-DOM over 10 consecutive changes, each <=2s, and record environment.",
+          "files": [
+            "tests/e2e/overlay-browser.test.js"
+          ],
+          "verification": {
+            "type": "e2e",
+            "testFile": "tests/e2e/overlay-browser.test.js",
+            "instructions": "Run against the app and isolated migrated PostgreSQL."
+          },
+          "status": "pending",
+          "dependencies": [
+            "3.2",
+            "0.1",
+            "0.2"
+          ]
+        },
+        {
+          "id": "4.2",
+          "service": "frontend",
+          "description": "Implement the single-widget local renderer and no-faster-than-needed polling using local assets only.",
+          "files": [
+            "apps/web/overlay.html",
+            "apps/web/overlay.js",
+            "apps/web/overlay.css"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- --run tests/e2e/overlay-browser.test.js"
+          },
+          "status": "pending",
+          "dependencies": [
+            "4.1",
+            "0.1",
+            "0.2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-5",
+      "name": "Panel controls and integration",
+      "description": "Refine the UX and add widget source, style, preview, and link lifecycle controls.",
+      "subtasks": [
+        {
+          "id": "5.1",
+          "service": "frontend",
+          "description": "Complete UX review for safe font menu, initial style, empty/stale labels, preview, and link secrecy guidance before panel UI coding.",
+          "files": [
+            "docs/stories/FND-7/ux-refinement.md"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Review against existing panel/UX guidance; record selected values and confirm no arbitrary CSS or remote assets."
+          },
+          "status": "pending",
+          "dependencies": [
+            "0.1",
+            "0.2",
+            "4.2"
+          ]
+        },
+        {
+          "id": "5.2",
+          "service": "frontend",
+          "description": "Write panel browser tests for widget create/edit/delete, field and queue selection, style preview, validation, copy, revoke, and regenerate.",
+          "files": [
+            "tests/e2e/overlay-panel.test.js"
+          ],
+          "verification": {
+            "type": "e2e",
+            "testFile": "tests/e2e/overlay-panel.test.js",
+            "instructions": "Run the operator panel against the local app."
+          },
+          "status": "pending",
+          "dependencies": [
+            "0.1",
+            "0.2",
+            "5.1"
+          ]
+        },
+        {
+          "id": "5.3",
+          "service": "frontend",
+          "description": "Implement tested overlay management controls in the existing local panel.",
+          "files": [
+            "apps/web/index.html",
+            "apps/web/styles.css"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm test -- --run tests/e2e/overlay-panel.test.js"
+          },
+          "status": "pending",
+          "dependencies": [
+            "0.1",
+            "0.2",
+            "5.2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-6",
+      "name": "End-to-end, OBS acceptance, and documentation",
+      "description": "Verify integrated behavior, document only observed support, and run project quality gates.",
+      "subtasks": [
+        {
+          "id": "6.1",
+          "service": "backend",
+          "description": "Verify complete create-to-revoke flow and two-second propagation against real local app/database. Use eight concurrent widgets and record 10 consecutive committed-change-to-rendered-DOM measurements, each <=2s.",
+          "files": [
+            "tests/e2e/overlay-full-flow.test.js"
+          ],
+          "verification": {
+            "type": "e2e",
+            "testFile": "tests/e2e/overlay-full-flow.test.js",
+            "instructions": "Use isolated real PostgreSQL migrations and measure propagation."
+          },
+          "status": "pending",
+          "dependencies": [
+            "5.3",
+            "0.1"
+          ]
+        },
+        {
+          "id": "6.2",
+          "service": "frontend",
+          "description": "Manually verify OBS Browser Source dimensions, transparency, live state, failures, recovery, and link rotation.",
+          "files": [
+            "docs/stories/FND-7/validation.md"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Record OS, OBS version, exact steps, and observed outcome; do not infer support for untested platforms."
+          },
+          "status": "pending",
+          "dependencies": [
+            "6.1",
+            "0.1",
+            "0.2"
+          ]
+        },
+        {
+          "id": "6.3",
+          "service": "infra",
+          "description": "Publish bilingual guides and record exact implementation evidence and quality gate results.",
+          "files": [
+            "docs/integrations.md",
+            "docs/pt-BR/integrations.md",
+            "docs/stories.md"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm run lint && npm run typecheck && npm test && npm run review:static && npm run validate:version && npm exec prisma validate && docker compose config --quiet && git diff --check"
+          },
+          "status": "pending",
+          "dependencies": [
+            "0.1",
+            "0.2",
+            "6.2"
+          ]
+        }
+      ]
+    }
+  ],
+  "workflowDeviation": "The Spec Pipeline declares plan.json while plan-create-implementation.md emits plan/implementation.yaml. Both expected artifacts are provided: this pipeline summary follows docs/stories/FND-0/spec/plan.json and the detailed plan follows the declared implementation task schema.",
+  "nextSteps": [
+    "Wait until FND-5 and FND-6 are fully complete; verify every atomic source projection and protected panel primitive.",
+    "Complete and record @aiox-ux-design-expert approval before any panel UI implementation.",
+    "Begin Red/Green/Refactor only after story approval and phase-0 gates."
+  ]
+}
