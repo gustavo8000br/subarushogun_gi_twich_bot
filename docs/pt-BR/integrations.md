@@ -4,15 +4,22 @@
 
 **Documentação consultada:** 2026-10-05 (UTC). Os formatos da API do SDK também foram conferidos nas versões instaladas neste repositório. OAuth, validação/renovação de token, elegibilidade Affiliate/Partner e disponibilidade da API Channel Points, criação/recuperação de recompensa gerenciada, adapters Helix de resgate/chat, normalização EventSub WebSocket e base de reconciliação estão implementados e cobertos com fakes. Não há credenciais autorizadas para teste Twitch real. Edição/abertura/fechamento/arquivamento/exclusão de recompensas e suas recuperações seguem pendentes. Criar uma fila registra duravelmente a solicitação de recompensa Twitch pausada; criação ambígua pode ser resolvida no painel por ação auditada e revalidada.
 
+### Pesquisa do runtime de contêiner
+
+A imagem da API usa a imagem oficial fixada `node:24.20.0-alpine3.24`. Em 2026-10-05, build Docker AMD64 limpo e inicialização Compose isolada real confirmaram que Prisma 6.19.3 gera e carrega sua engine `linux-musl-openssl-3.0.x` no Alpine 3.24. Bootstrap, as três migrations versionadas, runtime sem root, health HTTPS e conexão ao banco passaram. Depois, a stack Compose local normal foi reconstruída e reiniciada sobre os volumes existentes de PostgreSQL/segredos, sem apagá-los. PostgreSQL continua em `postgres:18.6-bookworm`. O Prisma documenta suporte Alpine ARM64, mas a imagem ARM64 deste repositório ainda aguarda build QEMU no CI; o teste nos hosts Windows/macOS não foi repetido após esta troca de base.
+
+Referências: [tags oficiais da imagem Node](https://hub.docker.com/_/node/tags?name=24.20.0-alpine), [guia de deploy Docker do Prisma](https://docs.prisma.io/docs/guides/deployment/docker), [engines de plataforma do Prisma ORM 6](https://docs.prisma.io/docs/orm/v6/reference/prisma-schema-reference).
+
 ## Versões de runtime
 
 | Componente | Versão | Decisão |
 | --- | --- | --- |
-| Node.js | 24.20.0 | Runtime e versão de desenvolvimento fixados. |
+| Node.js | 24.20.0 | Runtime e desenvolvimento fixados; a imagem do app usa `node:24.20.0-alpine3.24` oficial (musl), enquanto PostgreSQL permanece em `postgres:18.6-bookworm`. Prisma 6.19.3 gerou e carregou `linux-musl-openssl-3.0.x` em Compose Alpine real em 2026-10-05. |
 | `@twurple/auth`, `@twurple/api`, `@twurple/eventsub-ws` | 8.2.0 | Mesma linha de release; usar `RefreshingAuthProvider`, clientes Helix e EventSub WebSocket. |
 | Prisma CLI, `@prisma/client`, `@prisma/adapter-pg` | 6.19.3 | CLI e cliente alinhados; `prisma-client-js` gera saída compatível com JavaScript. O gerador `prisma-client` do Prisma 7 produz TypeScript e não atende a aplicação JavaScript-only. |
 | PostgreSQL | 18.6 | Serviço local Compose; testes usam PostgreSQL isolado e migrations reais. |
 | Docker Compose | v2 | Condições de saúde/conclusão de `depends_on` definem a ordem; volumes nomeados preservam o banco e os segredos locais. |
+| Publicação GHCR | GitHub Actions com QEMU/Buildx e actions Docker fixadas por SHA | Pacote de pré-lançamento é privado por padrão; job de publicação exige `packages: write`. A visibilidade precisa ser alterada para pública antes do lançamento. | Tags `main` e versão completa são manifests multi-plataforma para `linux/amd64` e `linux/arm64`; `-linux-amd64`/`-linux-arm64` expõem variantes individuais. Compose usa `IMAGE_TAG=main` por padrão; pulls de início/atualização selecionam pela arquitetura do host. Publicação ocorre somente em push para `main` após todos os gates de qualidade/build passarem. |
 
 ## Mapa de operações Twitch
 
@@ -44,6 +51,7 @@ Este produto usa EventSub WebSocket e Helix Send Chat Message com a conta do str
 | Encerramento e dados | SIGTERM/SIGINT fecha trabalho HTTP/banco; volumes nomeados do Compose preservam banco e segredo gerado. Instruções normais de parada nunca removem volumes. |
 | ORM / transações | Prisma 6.19.3 usa `PrismaPg({ connectionString })` com `PrismaClient({ adapter })`. Transações interativas são curtas; um advisory lock transacional do PostgreSQL serializa mutações da fila, enquanto índices unique do banco continuam sendo a última proteção de concorrência. Nenhum I/O de rede acontece dentro de transações. |
 | Migrations e testes ORM | Migrations Prisma são versionadas e executadas por `prisma migrate deploy`; contratos de teste usam PostgreSQL real e essas migrations, não SQLite nem Prisma mockado. |
+| Registry de imagens | `ghcr.io/gustavo8000br/subarushogun_gi_twich_bot` | O GHCR cria o pacote inicial como privado. Use PAT clássico com `read:packages` somente nos testes privados de pré-lançamento; altere a visibilidade para pública antes do lançamento para que usuários possam baixar sem credenciais do registry. O produto nunca armazena tokens. |
 
 Os documentos OAuth da Twitch ainda mostram `http://localhost:3000` nos exemplos ([guia OAuth](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/), [Get Started](https://dev.twitch.tv/docs/api/get-started/)). Durante esta instalação, o console de desenvolvedor recusou o valor configurado `http://localhost:3000/callback` e exigiu HTTPS. Por isso, o produto usa `https://localhost:3000/callback` por padrão e documenta a confiança na autoridade certificadora local. O `redirect_uri` OAuth permanece idêntico byte a byte entre o cadastro do app Twitch, o pedido de autorização, a troca do token e a exibição no painel.
 
@@ -63,6 +71,8 @@ Os documentos OAuth da Twitch ainda mostram `http://localhost:3000` nos exemplos
 - [Transações do Prisma ORM 6](https://www.prisma.io/docs/orm/v6/prisma-client/queries/transactions) — API de transação interativa e orientação para evitar trabalho lento/chamadas de rede dentro da transação.
 - [Índices parciais no PostgreSQL 18](https://www.postgresql.org/docs/18/indexes-partial.html) — contrato de unicidade de entradas ativas.
 - [Ordem de inicialização Compose](https://docs.docker.com/compose/how-tos/startup-order/) e [segredos Compose](https://docs.docker.com/compose/how-tos/use-secrets/) — saúde das dependências e montagem de segredos.
+- [Docker: builds multi-plataforma](https://docs.docker.com/build/building/multi-platform/) e [imagens multi-plataforma no GitHub Actions](https://docs.docker.com/build/ci/github-actions/multi-platform/) — manifests, QEMU/binfmt e publicação `linux/amd64` + `linux/arm64`.
+- [GitHub: publicar imagens Docker com Actions](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images) e [trabalhar com GHCR](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry) — `GITHUB_TOKEN`, `packages: write`, autenticação e padrão de pacote privado.
 
 ## Limites da verificação
 

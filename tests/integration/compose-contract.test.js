@@ -87,18 +87,33 @@ describe('local Compose runtime contract', () => {
     expect(config.services.bot.group_add).toContain('999');
   });
 
-  it('pins local app images and installs OpenSSL for Prisma engine detection', () => {
+  it('defaults local app images to the main tag while keeping product identity separate', () => {
     expect(existsSync(composePath), 'product Compose configuration is missing').toBe(true);
     const result = getComposeConfig();
     expect(result.status, result.stderr).toBe(0);
     const config = JSON.parse(result.stdout);
-    for (const serviceName of ['migrate', 'bot']) {
+    for (const serviceName of ['bootstrap', 'migrate', 'bot']) {
       expect(typeof config.services[serviceName].image).toBe('string');
-      expect(config.services[serviceName].image).toMatch(/:v0\.1\.0-0000000-alpha$/);
-      expect(config.services[serviceName].image).not.toMatch(/:latest$/);
+      expect(config.services[serviceName].image).toMatch(/^ghcr\.io\/gustavo8000br\/subarushogun_gi_twich_bot:main$/);
+      expect(config.services[serviceName].build.args.PRODUCT_VERSION).toBe('v0.1.0-0000000-alpha');
     }
     const dockerfile = readFileSync(dockerfilePath, 'utf8');
-    expect(dockerfile).toMatch(/apt-get install[^\n]*openssl/i);
+    expect(dockerfile).toMatch(/^FROM node:24\.20\.0-alpine3\.24 AS dependencies$/m);
+    expect(dockerfile).toMatch(/^RUN apk add --no-cache openssl$/m);
+  });
+
+  it('allows IMAGE_TAG to select a platform-specific GHCR image explicitly', () => {
+    const result = spawnSync('docker', ['compose', '-f', composePath, 'config', '--format', 'json'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, IMAGE_TAG: 'main-linux-arm64' },
+    });
+    expect(result.status, result.stderr).toBe(0);
+    const config = JSON.parse(result.stdout);
+    for (const serviceName of ['bootstrap', 'migrate', 'bot']) {
+      expect(config.services[serviceName].image)
+        .toBe('ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:main-linux-arm64');
+    }
   });
 
   it('provides start scripts that preserve volumes and open or print the configured host address', () => {
@@ -107,7 +122,9 @@ describe('local Compose runtime contract', () => {
     const shell = readFileSync(startShellPath, 'utf8');
     const windows = readFileSync(startWindowsPath, 'utf8');
     for (const script of [shell, windows]) {
-      expect(script).toContain('docker compose up --build -d');
+      expect(script).toContain('docker compose pull');
+      expect(script).toContain('docker compose up -d');
+      expect(script).not.toContain('docker compose up --build -d');
       expect(script).not.toMatch(/docker\s+compose\s+down\s+-v/);
       expect(script).toMatch(/localhost/);
     }
@@ -115,6 +132,12 @@ describe('local Compose runtime contract', () => {
     expect(windows).toMatch(/^cd \/d "%~dp0"$/im);
     expect(shell).toContain('https://localhost');
     expect(windows).toContain('https://localhost');
+  });
+
+  it('waits between Windows panel checks without reading redirected stdin', () => {
+    const windows = readFileSync(startWindowsPath, 'utf8');
+    expect(windows).not.toMatch(/^\s*timeout\s+\/t\s+\d+\s+\/nobreak\b/im);
+    expect(windows).toMatch(/^\s*ping\s+-n\s+3\s+127\.0\.0\.1\s+>nul\s*$/im);
   });
 
   it('serves the callback over HTTPS with TLS material created by bootstrap', () => {

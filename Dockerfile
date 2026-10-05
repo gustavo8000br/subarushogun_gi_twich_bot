@@ -1,18 +1,20 @@
-FROM node:24.20.0-bookworm-slim AS dependencies
+FROM node:24.20.0-alpine3.24 AS dependencies
+RUN apk add --no-cache openssl
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:24.20.0-bookworm-slim AS runtime
+FROM node:24.20.0-alpine3.24 AS runtime
 ENV NODE_ENV=production
-RUN apt-get update && apt-get install -y --no-install-recommends openssl \
-  && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache openssl
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY apps ./apps
 COPY prisma.config.mjs ./prisma.config.mjs
 COPY VERSION .release-stage ./
+ARG PRODUCT_VERSION=v0.1.0-0000000-alpha
+RUN test -z "$PRODUCT_VERSION" || printf '%s\n' "$PRODUCT_VERSION" > VERSION
 RUN DATABASE_URL=postgresql://queuebot:build-only@db:5432/queuebot npm exec -- prisma generate --schema apps/api/prisma/schema.prisma
 USER 10001:10001
 EXPOSE 3000

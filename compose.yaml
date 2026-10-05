@@ -2,8 +2,11 @@ name: subarushogun-gi-twitch-queue-bot
 
 services:
   bootstrap:
-    image: subarushogun/gi-twitch-queue-bot:v0.1.0-0000000-alpha
-    build: .
+    image: ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:${IMAGE_TAG:-main}
+    build:
+      context: .
+      args:
+        PRODUCT_VERSION: ${PRODUCT_VERSION:-v0.1.0-0000000-alpha}
     user: "0:0"
     working_dir: /workspace
     volumes:
@@ -36,8 +39,11 @@ services:
       start_period: 10s
 
   migrate:
-    image: subarushogun/gi-twitch-queue-bot:v0.1.0-0000000-alpha
-    build: .
+    image: ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:${IMAGE_TAG:-main}
+    build:
+      context: .
+      args:
+        PRODUCT_VERSION: ${PRODUCT_VERSION:-v0.1.0-0000000-alpha}
     user: "10001:10001"
     group_add:
       - "999"
@@ -49,8 +55,11 @@ services:
         condition: service_healthy
 
   bot:
-    image: subarushogun/gi-twitch-queue-bot:v0.1.0-0000000-alpha
-    build: .
+    image: ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:${IMAGE_TAG:-main}
+    build:
+      context: .
+      args:
+        PRODUCT_VERSION: ${PRODUCT_VERSION:-v0.1.0-0000000-alpha}
     user: "10001:10001"
     group_add:
       - "999"

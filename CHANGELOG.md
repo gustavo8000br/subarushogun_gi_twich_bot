@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+- Switches the app container from Debian Bookworm to pinned Alpine 3.24 after a clean build and real Compose validation of Prisma musl engine, bootstrap, migrations, HTTPS health, and restart over preserved project data volumes. The local AMD64 image fell from 959 MB to about 770 MB; ARM64 awaits CI validation.
+
+- Publish GHCR images for `linux/amd64` and `linux/arm64`; use multi-platform `main`/version tags and explicit architecture suffix tags. Compose startup and update helpers pull the published image.
+- Remove the selected local GHCR app image during uninstall while preserving project volumes unless the operator confirms data deletion.
+- Materialize the exact source commit's seven-character identity in CI-built container images, starting with the next pull request.
+- Use the `main` Docker image tag by default, separately from the runtime product version.
+- Replace the Windows startup helper's panel-check delay to avoid the stdin-redirection message reported during manual Windows acceptance; a manual retest on that platform is still required.
 - Clarify the one-time `chmod +x iniciar.sh` step for Linux/macOS archive installs and add a macOS first-run guide.
 - Show Twitch setup states in clear Portuguese panel copy; Affiliate/Partner ineligibility now uses a friendly explanation instead of exposing the internal `INELIGIBLE` status code.
 - Added GitHub Actions CI with per-app API/infra/web lint and typecheck, the full test suite, OpenGrep, version/Compose validation, and production image build.

@@ -27,11 +27,13 @@
 4. PostgreSQL não publica porta no host; bot publica `127.0.0.1:3000:3000`, serve Fastify por HTTPS em `0.0.0.0`, aguarda saúde do banco/conclusão de migrations e fornece healthchecks/encerramento gracioso. Scripts normais nunca removem volumes.
 5. Prisma CLI/client/adapter fixados juntos em 6.19.3, `prisma-client-js`, `prisma.config.mjs` e `pg`; migrations impõem unicidade/integridade de chaves globais de fila, resgates, entrada ativa parcial, fonte/ID e operações financeiras.
 6. Suite real de integração PostgreSQL isolado executa migrations versionadas e comprova restrições/persistência/reinício; verificações Compose usam configuração Compose real. Sem SQLite ou Prisma mock como substituto.
-7. Scripts raiz executam `docker compose up --build -d`, aguardam o endereço `https://localhost` publicado configurado, tentam abrir navegador no host e imprimem endereço exato alternativo. No Windows, caminhos do projeto com espaços funcionam.
+7. Scripts raiz baixam a imagem GHCR multi-plataforma `main`, iniciam o Compose, aguardam o endereço `https://localhost` publicado configurado, tentam abrir navegador no host e imprimem endereço exato alternativo. No Windows, caminhos com espaços funcionam; o CI também publica tags explícitas AMD64/ARM64 e manifests versionados.
 8. Contrato do estado/endpoint runtime lê identidade completa sem confundi-la com versão do contrato API ou revisão do estado; URL do banco, senha e outros segredos não aparecem em erros/logs.
 9. Arquivos da aplicação ficam em `apps/web`, `apps/api`, `apps/infra`; `.env.example` AIOX permanece intacto como scaffolding e não é carregado como configuração do produto.
 10. Documentação/changelogs de instalação/versão/integração/stories em inglês e pt-BR são equivalentes e ligados, incluindo a etapa explícita de confiar na CA local. Registrar somente comandos e evidências realmente observados.
-11. O updater Git opcional só avança por fast-forward uma cópia `main` limpa antes de reconstruir o Compose. O desinstalador preserva volumes Docker por padrão; apagar dados permanentemente exige resposta afirmativa e digitar `APAGAR`. Helpers Windows e POSIX seguem o mesmo comportamento e nunca removem o checkout fonte.
+11. O updater Git opcional só avança por fast-forward uma cópia `main` limpa antes de baixar/iniciar a imagem GHCR. O desinstalador preserva volumes Docker por padrão; apagar dados permanentemente exige resposta afirmativa e digitar `APAGAR`. Helpers Windows e POSIX seguem o mesmo comportamento e nunca removem o checkout fonte.
+12. O CI publica no GHCR a origem conferida em `main` para `linux/amd64` e `linux/arm64`; tags `main` e versões completas são manifests multi-plataforma, enquanto `-linux-amd64` e `-linux-arm64` selecionam arquitetura única. O Compose usa a tag manifest por padrão.
+13. O pacote GHCR pode permanecer privado durante testes de pré-lançamento, mas sua visibilidade deve ser alterada para pública antes do lançamento; instalações públicas não exigem credenciais GHCR.
 
 ## Escopo
 
@@ -44,7 +46,7 @@ Fora de escopo: domínio de fila, credenciais/OAuth Twitch, chamadas Twitch reai
 ### Arquitetura e restrições de implementação
 
 - Código de app somente em `apps/*`; `Dockerfile`, `compose.yaml`, scripts de início, package e docs da raiz são pontos de entrada/tooling. Não reutilizar `.env.example`.
-- Versões exatas: imagem Node `node:24.20.0-bookworm-slim`; PostgreSQL `postgres:18.6-bookworm`; Prisma CLI/client/adapter `6.19.3`; Vitest `5.0.3`. Confirmar tags/suporte antes do build.
+- Versões exatas: imagem Node `node:24.20.0-alpine3.24`; PostgreSQL `postgres:18.6-bookworm`; Prisma CLI/client/adapter `6.19.3`; Vitest `5.0.3`. O app usa Alpine/musl; o PostgreSQL continua em Debian Bookworm.
 - Connection string runtime é montada no backend com host Compose `db` e senha montada, com URL encoding correto antes de carregar Prisma. Nunca imprimir.
 - Volumes de segredo/banco são nomeados e persistentes. Bootstrap executa uma vez. Usar dependências Compose `service_healthy` e `service_completed_successfully`.
 - Restrições SQL podem complementar Prisma. Estados ativos: `waiting`, `called`, `in_progress`; fonte `manual` ou `redemption`. Não apagar histórico fisicamente.
@@ -85,6 +87,8 @@ Para cada comportamento abaixo, criar/executar primeiro o teste e observar falha
   - [x] 2.1 Adicionar/executar testes dos arquivos de versão, validação somente leitura, descoberta Git exata e materialização somente do artefato; capturar Red comportamental.
   - [x] 2.2 Implementar `VERSION`, `.release-stage`, CLI de validação e materialização somente após Red observado; comprovar que validação não grava fontes de versão.
   - [x] 2.3 Refatorar resolução de paths CLI e reexecutar testes unitários/integração de versão.
+  - [x] 2.4 Adicionar com teste primeiro materialização da imagem CI a partir do commit exato do checkout; passar a identidade do artefato externo como argumento Compose e verificar `/app/VERSION` dentro da imagem.
+  - [x] 2.4 Adicionar com teste primeiro materialização da imagem CI a partir do commit exato do checkout; passar a identidade do artefato externo como argumento Compose e verificar `/app/VERSION` dentro da imagem.
 - [x] 3. Contrato Compose/bootstrap — Red/Green/Refactor e regressão runtime Linux verificados (AC: 3, 4, 7, 9)
   - [x] 3.1 Testes Compose observaram comportamentos Compose/segredo ausentes antes da implementação.
   - [x] 3.2 Implementar bootstrap one-shot, Compose, imagem e scripts após Red.
@@ -97,15 +101,18 @@ Para cada comportamento abaixo, criar/executar primeiro o teste e observar falha
   - [x] 5.1 Adicionar testes da versão, resultado da consulta real ao banco, Twitch não configurada e falha de banco sanitizada; observar Red.
   - [x] 5.2 Implementar projeção de saúde e ler `VERSION` do runtime; testes focados passam.
   - [x] 5.3 Reconstruir imagem local e conferir resposta via loopback; executar testes, lint e typecheck completos.
-- [ ] 5. Aceitação operacional e documentação (AC: 3, 4, 6, 7, 9, 10, 11)
+- [ ] 5. Aceitação operacional e documentação (AC: 3, 4, 6, 7, 9, 10, 11, 12, 13)
   - [x] 5.1 Adicionar/executar aceitação Compose isolada de primeira execução/reinício; health, migrations reais, marcador persistido, hash do segredo estável e parada/início gracioso do bot foram verificados.
-  - [x] 5.2 Verificar health, encerramento gracioso, ordem Compose e volumes persistentes; helper POSIX passou com cópia do projeto em caminho com espaços e fallback de abertura do navegador. Batch Windows foi conferido estruturalmente, mas não executado neste host Linux.
+  - [x] 5.2 Verificar health, encerramento gracioso, ordem Compose e volumes persistentes; helper POSIX passou com cópia do projeto em caminho com espaços e fallback de abertura do navegador. Operador validou manualmente início Windows, painel/health HTTPS, atualização e desinstalação em `f32c37a`; helper exibiu a mensagem de redirecionamento de stdin relatada. Teste de regressão passa após substituir `timeout /nobreak`; reteste manual Windows pendente.
   - [x] 5.3 Criar READMEs centrais e referência de integrações em inglês/pt-BR com links recíprocos; registrar evidência Red/Green/Refactor do contrato documental e atualizar changelogs pareados.
   - [x] 5.4 Adicionar com teste primeiro bootstrap TLS local, callback HTTPS, cookie de sessão seguro, Origin HTTPS exato e instruções de confiança no host; Compose isolado real confirma TLS/cadeia do certificado e persistência após reinício.
   - [x] 5.5 Adicionar com TDD updater Git fast-forward e helpers interativos de desinstalação POSIX/Windows; preservar volumes por padrão e exigir confirmação digitada para apagar. Comportamento POSIX executado nos testes; `.bat` verificado por contrato somente no Linux.
-- [x] 6. Gates de qualidade e evidências (AC: todos; execução Windows permanece como item explícito de aceitação aberto)
+  - [x] 5.6 Adicionar contratos Compose/workflow para tags GHCR e publicação AMD64/ARM64 condicionada a `main`; fazer helpers de início/atualização baixarem o manifest que seleciona a plataforma; documentar autenticação no pré-lançamento e visibilidade pública antes do lançamento nos dois idiomas. Testes unitários/contratuais passam; primeiro push GHCR real depende do merge em `main`.
+  - [x] 5.7 Testar Alpine antes da adoção: Node/Alpine fixados, engine Prisma musl, bootstrap/migrations/health HTTPS reais em Compose isolado; depois reconstruir e reiniciar o Compose normal preservando volumes de banco/segredos.
+  - [ ] 5.8 Antes do lançamento, alterar a visibilidade do pacote GHCR para pública e confirmar pulls sem autenticação no Linux, Docker Desktop Windows e Docker Desktop macOS.
+- [x] 6. Gates de qualidade e evidências (AC: todos; reteste manual do helper Windows corrigido permanece aberto)
   - [x] 6.1 `npm run lint`, `npm run typecheck`, `npm test`, integração PostgreSQL/migrations, config/aceitação Compose e checks de versão passam em Linux.
-  - [x] 6.2 Atualizar os dois índices de stories e file list/checklist com resultados observados; manter FND-1 InProgress enquanto a execução Windows não estiver disponível.
+  - [x] 6.2 Atualizar os dois índices de stories e file list/checklist com resultados observados; manter FND-1 InProgress até a correção do helper ser confirmada manualmente no Windows.
 
 ## Testes
 
@@ -114,7 +121,7 @@ Para cada comportamento abaixo, criar/executar primeiro o teste e observar falha
 - Integração PostgreSQL: banco isolado, migrations reais e restrições/contenção impostas pelo banco.
 - Aceitação Compose: imagem real local, bootstrap, ordem, usuário não root, persistência de reinício e segredo em cada SO declarado.
 - Checagens estáticas: `docker compose config`, sintaxe/lock, `npm run lint`, `npm run typecheck`, `npm test`.
-- Evidências Red/Green/Refactor estão registradas em `docs/stories.md` e na contraparte em inglês. Execução Windows não é alegada.
+- Evidências Red/Green/Refactor estão registradas em `docs/stories.md` e na contraparte em inglês. A execução Windows informada pelo operador em `f32c37a` está separada dos contratos automatizados Linux; o helper corrigido ainda aguarda confirmação manual no Windows.
 
 ## Revisão Estática Local e Gates de Qualidade
 
@@ -162,6 +169,24 @@ Funções de versão, Compose/bootstrap, schema de migration, runtime Linux, doc
 
 - `package.json`
 - `package-lock.json`
+- `tests/integration/version-cli.test.js`
+- `.github/workflows/ci.yml`
+- `Dockerfile`
+- `compose.yaml`
+- `iniciar.bat`
+- `tests/integration/compose-contract.test.js`
+- `tests/integration/container-publish-contract.test.js`
+- `.github/workflows/ci.yml`
+- `atualizar.sh` e `atualizar.bat`
+- `docs/VERSIONING.md` e `docs/pt-BR/VERSIONING.md`
+- `README.md`
+- `README.pt-BR.md`
+- `docs/stories.md`
+- `docs/pt-BR/stories.md`
+- `CHANGELOG.md`
+- `CHANGELOG_INTERNAL.md`
+- `docs/pt-BR/CHANGELOG.md`
+- `docs/pt-BR/CHANGELOG_INTERNAL.md`
 - `.opengrep/rules.yml`
 - `.aiox-core/core/quality-gates/layer2-pr-automation.js`
 - `.aiox-core/core/orchestration/workflow-executor.js`

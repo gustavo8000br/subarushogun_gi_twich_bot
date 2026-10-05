@@ -110,7 +110,69 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Materialize source identity for this image build
+        run: |
+          node apps/infra/scripts/materialize-version.mjs --root "$GITHUB_WORKSPACE" --output "$RUNNER_TEMP/VERSION"
+          PRODUCT_VERSION="$(cat "$RUNNER_TEMP/VERSION")"
+          printf 'PRODUCT_VERSION=%s\n' "$PRODUCT_VERSION" >> "$GITHUB_ENV"
       - name: Validate Compose configuration
         run: docker compose config --quiet
       - name: Build application image
         run: docker compose build bot
+      - name: Verify materialized version inside image
+        run: |
+          IMAGE_VERSION="$(docker compose run --rm --no-deps --entrypoint cat bot /app/VERSION)"
+          test "$IMAGE_VERSION" = "$PRODUCT_VERSION"
+
+  container-publish:
+    name: Publish Linux multi-platform images to GHCR
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [app-quality, lint-tests, tests, static-analysis, container-build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Materialize source identity for published images
+        run: |
+          node apps/infra/scripts/materialize-version.mjs --root "$GITHUB_WORKSPACE" --output "$RUNNER_TEMP/VERSION"
+          PRODUCT_VERSION="$(cat "$RUNNER_TEMP/VERSION")"
+          printf 'PRODUCT_VERSION=%s\n' "$PRODUCT_VERSION" >> "$GITHUB_ENV"
+      - name: Log in to GitHub Container Registry
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build and publish AMD64 image
+        run: |
+          docker buildx build --platform linux/amd64 \
+            --build-arg "PRODUCT_VERSION=$PRODUCT_VERSION" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --tag "ghcr.io/$GITHUB_REPOSITORY:main-linux-amd64" \
+            --tag "ghcr.io/$GITHUB_REPOSITORY:$PRODUCT_VERSION-linux-amd64" \
+            --cache-from type=gha,scope=container-linux-amd64 \
+            --cache-to type=gha,scope=container-linux-amd64,mode=max \
+            --push .
+      - name: Build and publish ARM64 image
+        run: |
+          docker buildx build --platform linux/arm64 \
+            --build-arg "PRODUCT_VERSION=$PRODUCT_VERSION" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --tag "ghcr.io/$GITHUB_REPOSITORY:main-linux-arm64" \
+            --tag "ghcr.io/$GITHUB_REPOSITORY:$PRODUCT_VERSION-linux-arm64" \
+            --cache-from type=gha,scope=container-linux-arm64 \
+            --cache-to type=gha,scope=container-linux-arm64,mode=max \
+            --push .
+      - name: Publish multi-platform manifest tags
+        run: |
+          docker buildx imagetools create \
+            --tag "ghcr.io/$GITHUB_REPOSITORY:main" \
+            --tag "ghcr.io/$GITHUB_REPOSITORY:$PRODUCT_VERSION" \
+            "ghcr.io/$GITHUB_REPOSITORY:main-linux-amd64" \
+            "ghcr.io/$GITHUB_REPOSITORY:main-linux-arm64"

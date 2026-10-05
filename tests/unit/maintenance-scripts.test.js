@@ -31,13 +31,15 @@ function runScript(scriptName, { input = '', gitState = '', branch = 'main' } = 
 }
 
 describe('maintenance helpers', () => {
-  it('updates a clean main checkout by fast-forward before rebuilding Compose', () => {
+  it('updates a clean main checkout by fast-forward before pulling the published image', () => {
     const { result, commands, temporaryRoot } = runScript('atualizar.sh');
     expect(result.status, result.stderr).toBe(0);
     expect(commands).toContain('git status --porcelain');
     expect(commands).toContain('git fetch origin main');
     expect(commands).toContain('git pull --ff-only origin main');
-    expect(commands).toContain('docker compose up --build -d');
+    expect(commands).toContain('docker compose pull');
+    expect(commands).toContain('docker compose up -d');
+    expect(commands).not.toContain('docker compose up --build -d');
     rmSync(temporaryRoot, { recursive: true, force: true });
   });
 
@@ -57,6 +59,7 @@ describe('maintenance helpers', () => {
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('preservados');
     expect(commands).toContain('docker compose down --rmi local');
+    expect(commands).toContain('docker image rm ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:main');
     expect(commands).not.toContain('--volumes');
     expect(existsSync(localCertificate)).toBe(true);
     rmSync(temporaryRoot, { recursive: true, force: true });
@@ -86,9 +89,11 @@ describe('maintenance helpers', () => {
     const uninstaller = existsSync(uninstallerPath) ? readFileSync(uninstallerPath, 'utf8') : '';
     expect(updater).toContain('cd /d "%~dp0"');
     expect(updater).toContain('git pull --ff-only origin main');
-    expect(updater).toContain('docker compose up --build -d');
+    expect(updater).toContain('docker compose pull');
+    expect(updater).toContain('docker compose up -d');
     expect(uninstaller).toContain('cd /d "%~dp0"');
     expect(uninstaller).toContain('docker compose down --rmi local');
+    expect(uninstaller).toContain('docker image rm "ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:%IMAGE_TAG%"');
     expect(uninstaller).toContain('docker compose down --volumes --rmi local');
     expect(uninstaller).toContain('APAGAR');
   });
