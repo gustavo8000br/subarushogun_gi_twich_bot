@@ -2,8 +2,7 @@
 # Development Cycle Workflow
 # Story 11.3: Projeto Bob - Orquestração de Agentes
 #
-# Ciclo completo: PO → Executor → Quality Gate → DevOps → Push
-# com checkpoints humanos e self-healing integrado.
+# Ciclo completo: PO → Executor → Static Analysis → Quality Gate → DevOps → Push.
 #
 # @version 1.0.0
 # @author @dev (Dex) for Story 11.3
@@ -16,7 +15,7 @@ workflow:
   description: >-
     Workflow orquestrado para ciclo de desenvolvimento por story.
     Implementa o fluxo PO → Executor → Quality Gate → DevOps → Push
-    com suporte a executor dinâmico, self-healing e checkpoints humanos.
+    com análise estática local, executor dinâmico e checkpoints humanos.
   orchestrator: "@po"
 
   # ============================================
@@ -40,11 +39,10 @@ workflow:
     use_terminal_spawning: true
     terminal_spawner_module: ".aiox-core/core/orchestration/terminal-spawner.js"
 
-    # Self-healing configuration
-    self_healing:
-      enabled: "${config.coderabbit_integration.enabled}"
-      max_iterations: 3
-      severity_filter: [CRITICAL, HIGH]
+    # Local static-analysis configuration
+    static_review:
+      enabled: "${config.opengrep_integration.enabled}"
+      command: "${config.opengrep_integration.command}"
 
     # Checkpoint configuration
     checkpoint:
@@ -56,7 +54,7 @@ workflow:
     timeouts:
       validation: "10m"
       development: "2h"
-      self_healing: "30m"
+      static_review: "5m"
       quality_gate: "30m"
       push: "10m"
 
@@ -147,45 +145,38 @@ workflow:
 
       timeout: "${config.timeouts.development}"
 
-      on_success: 3_self_healing
+      on_success: 3_static_review
       on_failure: return_to_po
 
     # ----------------------------------------
-    # Phase 3: Self-Healing (Conditional)
+    # Phase 3: Local Static Analysis (Conditional)
     # ----------------------------------------
-    3_self_healing:
-      id: self_healing
-      name: "Self-Healing"
+    3_static_review:
+      id: static_review
+      name: "Static Analysis"
       agent: "@dev"
-      task: "self-heal"
+      task: "run-static-analysis"
       description: >-
-        Self-healing com CodeRabbit para corrigir issues automaticamente.
-        Só executa se coderabbit_integration.enabled == true.
+        Run the configured local OpenGrep scan and report findings to the developer.
+        This check never modifies source files.
 
-      condition: "${config.coderabbit_integration.enabled} == true"
+      condition: "${config.opengrep_integration.enabled} == true"
 
       inputs:
         - implementation:
             from: 2_development.implementation
 
       outputs:
-        - healed_code:
+        - static_review:
             type: object
             properties:
-              iterations: number
-              issues_fixed: array
-              issues_remaining: array
-
-      config:
-        max_iterations: 3
-        severity_filter:
-          - CRITICAL
-          - HIGH
-        auto_fix: true
+              command: string
+              exit_code: number
+              output: string
 
       on_success: 4_quality_gate
-      on_failure: 4_quality_gate  # Continue even if self-healing fails
-      on_skip: 4_quality_gate     # Skip if condition not met
+      on_failure: 2_development
+      on_skip: 4_quality_gate
 
     # ----------------------------------------
     # Phase 4: Quality Gate
@@ -204,8 +195,8 @@ workflow:
       inputs:
         - implementation:
             from: 2_development.implementation
-        - healed_code:
-            from: 3_self_healing.healed_code
+        - static_review:
+            from: 3_static_review.static_review
             optional: true
         - quality_gate_tools:
             from: story.quality_gate_tools
@@ -345,22 +336,22 @@ workflow:
       outputs:
         - implementation
         - test_results
-      next: self_healing
+      next: static_review
       on_failure: return_to_po
 
-    - step: run_self_healing
-      id: self_healing
+    - step: run_static_review
+      id: static_review
       phase: 3
-      phase_name: "Self-Healing"
+      phase_name: "Static Analysis"
       agent: "@dev"
-      task: "self-heal"
-      action: "Apply automated fixes when enabled"
+      task: "run-static-analysis"
+      action: "Run the local scan and report findings"
       requires: development
-      condition: "${config.coderabbit_integration.enabled} == true"
+      condition: "${config.opengrep_integration.enabled} == true"
       outputs:
-        - healed_code
+        - static_review
       next: quality_gate
-      on_failure: quality_gate
+      on_failure: development
 
     - step: quality_review
       id: quality_gate
@@ -371,7 +362,7 @@ workflow:
       action: "Review code quality and acceptance"
       requires:
         - development
-        - self_healing
+        - static_review
       outputs:
         - review_result
       next: push
@@ -475,7 +466,7 @@ workflow:
     └─────────────────────────────────────────────────────────────┘
 
     ┌──────────┐    ┌──────────────┐    ┌──────────────┐
-    │   PO     │───▶│   Executor   │───▶│ Self-Healing │
+    │   PO     │───▶│   Executor   │───▶│ Static Check │
     │ Validate │    │   (Dynamic)  │    │ (if enabled) │
     └──────────┘    └──────────────┘    └──────────────┘
          │                                      │
@@ -511,5 +502,5 @@ metadata:
     - development-cycle
     - dynamic-executor
     - terminal-spawning
-    - self-healing
+    - static-review
     - checkpoint

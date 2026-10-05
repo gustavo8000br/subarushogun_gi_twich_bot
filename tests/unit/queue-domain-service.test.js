@@ -54,4 +54,52 @@ describe('queue domain service', () => {
       .rejects.toMatchObject({ code: 'INVALID_ENTRY_TRANSITION' });
     expect(persisted).toBe(false);
   });
+
+  it('routes batch calls through the domain decision before asking the repository to persist them', async () => {
+    let decision;
+    const repository = {
+      callNext: vi.fn(async ({ decideTransition }) => {
+        decision = decideTransition({
+          entry: { status: 'waiting', source: 'redemption' },
+          queue: {},
+          input: { to: 'called', origin: 'panel', reason: 'operator_call' },
+        });
+        return [{ id: 'entry-1', status: 'called' }];
+      }),
+    };
+    const service = createQueueDomainService({ repository });
+
+    const result = await service.callNext({ queueId: 'queue-1', count: 1 });
+
+    expect(result).toEqual([{ id: 'entry-1', status: 'called' }]);
+    expect(decision).toMatchObject({
+      accepted: true,
+      previousStatus: 'waiting',
+      nextStatus: 'called',
+      financialDecision: 'no_operation',
+    });
+    expect(repository.callNext).toHaveBeenCalledOnce();
+  });
+
+  it('routes snapshot clearing through the same transition decision function', async () => {
+    let decision;
+    const repository = {
+      clearActiveEntries: vi.fn(async ({ decideTransition }) => {
+        decision = decideTransition({
+          entry: { status: 'in_progress', source: 'redemption' },
+          queue: { refundIfRemovedWhileCalled: false },
+          input: { to: 'removed', origin: 'panel', reason: 'queue_cleared' },
+        });
+        return { status: 'cleared', count: 1, refundsRequested: Number(decision.financialDecision === 'request_cancel') };
+      }),
+    };
+    const service = createQueueDomainService({ repository });
+    const snapshot = [{ id: 'entry-1', version: 1, status: 'in_progress', source: 'redemption', redemptionId: 'redemption-1' }];
+
+    const result = await service.clearActiveEntries({ queueId: 'queue-1', snapshot, origin: 'panel' });
+
+    expect(repository.clearActiveEntries).toHaveBeenCalledOnce();
+    expect(decision).toMatchObject({ previousStatus: 'in_progress', nextStatus: 'removed', financialDecision: 'request_cancel' });
+    expect(result).toMatchObject({ status: 'cleared', refundsRequested: 1 });
+  });
 });

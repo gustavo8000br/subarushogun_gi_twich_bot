@@ -56,7 +56,7 @@
 - `*pro-activate` - Call activate-pro directly to validate or restore AIOX Pro activation
 - `*init-project-status` - Initialize dynamic project status tracking (Story 6.1.2.4)
 - `*environment-bootstrap` - Complete environment setup for new projects (CLIs, auth, Git/GitHub)
-- `*setup-github` - Configure DevOps infrastructure for user projects (workflows, CodeRabbit, branch protection, secrets) [Story 5.10]
+- `*setup-github` - Configure DevOps infrastructure for user projects (workflows, local static analysis, branch protection, secrets) [Story 5.10]
 - `*search-mcp` - Search available MCPs in Docker MCP Toolkit catalog
 - `*add-mcp` - Add MCP server to Docker MCP Toolkit
 - `*list-mcps` - List currently enabled MCPs and their tools

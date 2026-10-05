@@ -187,7 +187,7 @@ persona:
     - Pragmatic Normalization - Balance theory with real-world performance needs
     - Operations Excellence - Automate routine tasks, validate everything
     - Supabase Native Thinking - Leverage RLS, Realtime, Edge Functions, Pooler as architectural advantages
-    - CodeRabbit Schema & Query Review - Leverage automated code review for SQL quality, security, and performance optimization
+    - Local static analysis - Run applicable repository rules; perform database judgment in specialist review
 # All commands require * prefix when used (e.g., `*help`)
 commands:
   # Core Commands
@@ -312,7 +312,7 @@ dependencies:
     - psql
     - pg_dump
     - postgres-explain-analyzer
-    - coderabbit # Automated code review for SQL, migrations, and database code
+    - opengrep # Local source-rule checks; PostgreSQL and SQL behavior require real database tests and specialist review
 
 security_notes:
   - Never echo full secrets - redact passwords/tokens automatically
@@ -332,139 +332,15 @@ usage_tips:
   - 'Performance analysis: `*analyze-performance query SELECT * FROM...` or `*analyze-performance hotpaths`'
   - 'Bootstrap new project: `*bootstrap` to create supabase/ structure'
 
-coderabbit_integration:
+static_review:
   enabled: true
-  focus: SQL quality, schema design, query performance, RLS security, migration safety
-
-  when_to_use:
-    - Before applying migrations (review DDL changes)
-    - After creating RLS policies (check policy logic)
-    - When adding database access code (review query patterns)
-    - During schema refactoring (validate changes)
-    - Before seed data operations (verify data integrity)
-    - When optimizing queries (identify inefficiencies)
-
-  severity_handling:
-    CRITICAL:
-      action: Block migration/deployment
-      focus: SQL injection risks, RLS bypass, data exposure, destructive operations
-      examples:
-        - SQL injection vulnerabilities (string concatenation in queries)
-        - Missing RLS policies on public tables
-        - Hardcoded credentials in migration scripts
-        - DROP statements without safeguards
-        - Unsafe use of SECURITY DEFINER functions
-        - Exposure of sensitive data (passwords, tokens, PII)
-
-    HIGH:
-      action: Fix before applying migration or create rollback plan
-      focus: Performance issues, missing constraints, index problems
-      examples:
-        - N+1 query patterns in API code
-        - Missing indexes on foreign keys
-        - Queries without WHERE clauses on large tables
-        - Missing NOT NULL constraints on required fields
-        - Cascading deletes without safeguards
-        - Unoptimized JOIN patterns
-        - Memory-intensive queries
-
-    MEDIUM:
-      action: Document as technical debt, add to optimization backlog
-      focus: Schema design, normalization, maintainability
-      examples:
-        - Denormalization without justification
-        - Missing foreign key relationships
-        - Lack of comments on complex tables/functions
-        - Inconsistent naming conventions
-        - Missing created_at/updated_at timestamps
-        - Unused indexes
-
-    LOW:
-      action: Note for future refactoring
-      focus: SQL style, readability
-
-  workflow: |
-    When reviewing database changes — invoke the platform-aware command
-    resolved by the runtime (see `quality-gate-config.yaml` → `layer2.coderabbit`):
-    1. BEFORE migration, on migration files:
-       - macOS/Linux: `~/.local/bin/coderabbit --prompt-only -t uncommitted`
-       - Windows:     `wsl bash -c 'cd /mnt/<drive>/<path> && ~/.local/bin/coderabbit --prompt-only -t uncommitted'`
-    2. Focus review on:
-       - Security: SQL injection, RLS bypass, data exposure
-       - Performance: Missing indexes, inefficient queries
-       - Safety: DDL ordering, idempotency, rollback-ability
-       - Integrity: Constraints, foreign keys, validation
-    3. CRITICAL issues MUST be fixed before migration
-    4. HIGH issues require mitigation plan or rollback script
-    5. Document all MEDIUM/HIGH issues in migration notes
-    6. Update database-best-practices.md with patterns found
-
+  command: npm run review:static
+  rules: .opengrep/rules.yml
+  role: local static analysis for source patterns included by project rules
   execution_guidelines: |
-    CodeRabbit CLI runs natively on macOS/Linux from `~/.local/bin/coderabbit`.
-    On Windows it is invoked through WSL. Runtime detects `process.platform`
-    and picks the right shape — do not hardcode either form.
-
-    **How to Execute:**
-    - macOS/Linux: run the binary directly. Bash tool sets cwd to project root.
-    - Windows: wrap with `wsl bash -c 'cd /mnt/<drive>/<path> && ...'`.
-
-    **Timeout:** 15 minutes (900000ms) - CodeRabbit reviews take 7-30 min
-
-    **Error Handling:**
-    - If `coderabbit: command not found` → verify the binary is installed
-      on the host (macOS/Linux: PATH or `~/.local/bin/coderabbit`;
-      Windows: install inside the WSL distribution).
-    - If timeout → increase timeout, review is still processing.
-    - If `not authenticated` → run `coderabbit auth status` (macOS/Linux)
-      or `wsl bash -c '~/.local/bin/coderabbit auth status'` (Windows).
-
-  database_patterns_to_check:
-    security:
-      - SQL injection vulnerabilities (dynamic SQL, string concat)
-      - RLS policy coverage and correctness
-      - SECURITY DEFINER function safety
-      - Sensitive data exposure (logs, errors, columns)
-      - Authentication/authorization bypass risks
-
-    performance:
-      - Missing indexes on foreign keys and WHERE clauses
-      - N+1 query patterns in application code
-      - Inefficient JOIN patterns and subqueries
-      - Full table scans on large tables
-      - Missing pagination on large result sets
-      - Unoptimized aggregations
-
-    schema_design:
-      - Missing NOT NULL constraints on required fields
-      - Missing foreign key relationships
-      - Lack of CHECK constraints for validation
-      - Missing unique constraints where needed
-      - Inconsistent naming conventions
-      - Missing audit fields (created_at, updated_at)
-
-    migrations:
-      - DDL statement ordering (dependencies first)
-      - Idempotency (IF NOT EXISTS, IF EXISTS)
-      - Rollback script completeness
-      - Destructive operations without safeguards
-      - Missing transaction boundaries
-      - Breaking changes without migration path
-
-    queries:
-      - SELECT * usage (specify columns)
-      - Missing WHERE clauses (potential full scans)
-      - Inefficient subqueries (use JOINs or CTEs)
-      - Missing LIMIT on large result sets
-      - Unsafe use of user input in queries
-
-  file_patterns_to_review:
-    - 'supabase/migrations/**/*.sql' # Migration scripts
-    - 'supabase/seed.sql' # Seed data
-    - 'api/src/db/**/*.js' # Database access layer
-    - 'api/src/models/**/*.js' # ORM models
-    - '**/*-repository.js' # Repository pattern files
-    - '**/*-dao.js' # Data access objects
-    - '**/*.sql' # Any SQL files
+    Run the configured scanner where applicable, then review SQL, migrations, and database
+    concurrency contracts directly. The scan only checks configured languages and rules;
+    it does not prove PostgreSQL behavior or modify files.
 
 autoClaude:
   version: '3.0'

@@ -22,10 +22,6 @@
     "educational_mode": {
       "type": "boolean",
       "description": "Enable detailed explanations of actions"
-    },
-    "coderabbit_integration": {
-      "type": "boolean",
-      "description": "Enable CodeRabbit automated review"
     }
   },
   "additionalProperties": true

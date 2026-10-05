@@ -10,7 +10,7 @@ English | [Português brasileiro](README.pt-BR.md)
 
 A local-first, self-hosted Twitch queue bot for Genshin Impact community sessions. The project is being built to let one streamer manage several custom queues while keeping application data in a PostgreSQL database on the streamer's own computer.
 
-> **Development status:** alpha foundation. Docker Compose, PostgreSQL, Prisma migrations, local health reporting, and version identity are in place. Queue behavior, Twitch authorization and event processing, chat commands, financial recovery, and the operator panel are still under development. This repository is private and the current build is not ready to operate a live queue.
+> **Development status:** alpha, active implementation. Compose/PostgreSQL/version identity, queue domain foundation, durable financial outbox, OAuth/EventSub adapters, initial chat handling and a protected local panel/API are present. Twitch reward lifecycle and several required operations are incomplete. Do not use this build to operate a live queue yet.
 
 ## Contents
 
@@ -43,11 +43,13 @@ A local-first, self-hosted Twitch queue bot for Genshin Impact community session
 The current foundation provides:
 
 - A Compose stack with a one-shot secret bootstrap, PostgreSQL, Prisma migrations, and a Fastify service.
-- A local panel placeholder and `GET /health`, reporting the running product version, database connectivity, and whether Twitch API credentials have been configured.
+- A local panel with a Twitch setup flow, queue creation/entry actions, live queue projections and financial-operation status; the API uses local session, CSRF, Host and Origin checks.
+- `/health` reports runtime product version and live database/Twitch integration state.
+- Queue lifecycle, redemption validation/import, state transitions, outbox processing, Twitch OAuth/EventSub/reconciliation foundations, chat parsing/authorization, call notification/timeouts, queue-clear confirmation and single-call account ownership foundations.
 - Persistent database and secret volumes. The database is not published on a host port; the application defaults to `127.0.0.1:3000`.
 - Version validation/materialization scripts and the initial Prisma schema/migration.
 
-The current build does **not** yet connect to Twitch, create Twitch rewards, accept redemptions, run queues, expose an installation wizard, or provide queue administration in a finished panel. Do not use it as the queue operator for a live until the relevant stories are complete.
+The current build is **not ready for live operation**. Creating a queue currently creates only the local queue record: it does not create or associate a Twitch reward. The UI says so. Queue archive/delete, cross-queue account ownership concurrency, complete idempotency/revision protection, resend/history controls, and several reconciliation/resolution flows are still incomplete. UX desk research is documented, but usability validation has not happened. No real Twitch operation has been verified with authorized credentials.
 
 ## Requirements
 
@@ -112,7 +114,7 @@ $env:APP_PORT = "3217"
 docker compose up --build -d
 ```
 
-The address is then `http://localhost:3217`; the corresponding OAuth callback is `http://localhost:3217/callback`. The Twitch wizard is not implemented yet.
+The address is then `http://localhost:3217`; the local panel displays the matching OAuth callback for that port.
 
 ## Daily operation
 
@@ -148,9 +150,9 @@ To update a packaged image in a future release, follow that release's pinned ima
 
 ## Twitch setup status
 
-Twitch credentials and OAuth are intended to be configured in the local panel, not pasted into `.env` or YAML files. The setup wizard, OAuth flow, refresh-token persistence, reward management, EventSub, and chat integration are not implemented yet. Never put a Client Secret, access token, authorization code, or database password in a Git-tracked file, issue, screenshot, or chat message.
+Twitch credentials and OAuth are configured through the local panel, not pasted into `.env` or YAML files. Client Credentials validation and Authorization Code scaffolding are implemented, with encrypted-at-rest storage not guaranteed. Token refresh, EventSub, chat and reconciliation code are present but have not been exercised with an authorized Twitch account. Reward management is incomplete. Never put a Client Secret, access token, authorization code, or database password in a Git-tracked file, issue, screenshot, or chat message.
 
-The planned callback defaults to `http://localhost:3000/callback`. When the wizard is ready, a streamer will need a confidential Twitch application registered with that exact callback and verified Twitch account security requirements. See [Integrations](docs/integrations.md) for the reviewed API plan and official documentation.
+The callback defaults to `http://localhost:3000/callback`. Register a confidential Twitch application with that exact callback and enable the required Twitch account security. See [Integrations](docs/integrations.md) for the reviewed API plan and official documentation.
 
 ## Development
 
@@ -238,10 +240,10 @@ Open `http://localhost:3000` yourself. The startup helper prints the address if 
 | --- | --- | --- |
 | FND-1 | Bilingual foundation docs and Compose startup/shutdown verification | In progress |
 | FND-2 | Queue domain, UID rules, parser, authorization, and PostgreSQL ordering | In progress |
-| FND-3 | Durable financial outbox, retries, confirmation, and recovery | Planned |
-| FND-4 | Twitch credentials, OAuth, rewards, EventSub, and reconciliation | Planned |
-| FND-5 | Chat commands, calls, timeouts, cleanup confirmation, current account, and shared application services for panel operations ([issue #1](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/1)) | Planned |
-| FND-6 | UX planning with real operator-panel references, then complete streamer management panel, setup wizard, protected API, and local security ([issue #6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | Planned |
+| FND-3 | Durable financial outbox, retries, confirmation, and recovery | In progress; worker/lease/outbox implemented, final audit pending |
+| FND-4 | Twitch credentials, OAuth, rewards, EventSub, and reconciliation | In progress; reward lifecycle and live Twitch check pending |
+| FND-5 | Chat commands, calls, timeouts, cleanup confirmation, current account, and shared application services ([issue #1](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/1)) | In progress; cross-queue account concurrency, remote reward open/close and complete shared-service coverage pending |
+| FND-6 | UX planning with references, complete panel, setup wizard, protected API, and local security ([issue #6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | In progress; reward lifecycle, full product operations, API idempotency/revision controls and usability validation pending |
 
 The story log is the source for detailed status and test evidence. A feature is not complete because it appears in this roadmap.
 

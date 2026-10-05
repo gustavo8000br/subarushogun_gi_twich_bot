@@ -421,7 +421,7 @@ Example task structure for brownfield:
 
 #### 4.4 Predict Quality Requirements and Agent Assignment
 
-**CRITICAL FOR BROWNFIELD:** This step populates the `🤖 CodeRabbit Integration` section with brownfield-specific quality gates. Brownfield stories have HIGHER RISK due to integration complexity, so quality planning is essential.
+**CRITICAL FOR BROWNFIELD:** This step populates the story Quality Gate Plan with brownfield-specific quality gates. Brownfield stories have HIGHER RISK due to integration complexity, so quality planning is essential.
 
 **Integration Point Analysis:**
 
@@ -504,12 +504,12 @@ Analyze the story's integration risks based on:
   - Code quality standards
   - Documentation clarity
 
-**CodeRabbit Focus for Brownfield:**
+**Static Analysis and Human Review Focus for Brownfield:**
 
 Regardless of story type, ALL brownfield stories must include these focus areas:
 
 ```yaml
-🤖 CodeRabbit Integration:
+Quality Gate Plan:
 
   Story Type Analysis:
     Primary Type: [Database|API|Frontend|Deployment|Security|Integration]
@@ -528,11 +528,11 @@ Regardless of story type, ALL brownfield stories must include these focus areas:
       - @[supporting-agent-2] (if cross-cutting concerns)
 
   Quality Gate Tasks:
-    - [ ] Pre-Commit (@dev): Run `coderabbit --prompt-only -t uncommitted` before story complete
-    - [ ] Pre-PR (@github-devops): Run `coderabbit --prompt-only --base main` before PR creation
-    - [ ] Pre-Deployment (@github-devops): Run `coderabbit --prompt-only -t committed --base HEAD~10` before production deploy (HIGH RISK stories only)
+    - [ ] Pre-Commit (@dev): Run `npm run review:static` before story complete
+    - [ ] Pre-PR (@github-devops): Run `npm run review:static` before PR creation
+    - [ ] Pre-Deployment (@github-devops): Run `npm run review:static` before production deploy (HIGH RISK stories only)
 
-  CodeRabbit Focus Areas:
+  Static Analysis and Review Focus Areas:
     Primary Focus (Brownfield-Specific):
       - Regression prevention: Existing functionality preserved
       - Integration safety: New code doesn't break existing code
@@ -548,7 +548,7 @@ Regardless of story type, ALL brownfield stories must include these focus areas:
 **Brownfield Example (HIGH RISK Database + API Story):**
 
 ```yaml
-🤖 CodeRabbit Integration:
+Quality Gate Plan:
 
   Story Type Analysis:
     Primary Type: Database
@@ -575,7 +575,7 @@ Regardless of story type, ALL brownfield stories must include these focus areas:
     - [ ] Pre-PR (@github-devops): Run before PR creation
     - [ ] Pre-Deployment (@github-devops): Run before production deploy with rollback plan validation
 
-  CodeRabbit Focus Areas:
+  Static Analysis and Review Focus Areas:
     Primary Focus (Brownfield-Specific):
       - Regression prevention: Existing payment flows MUST work identically
       - Integration safety: New schema compatible with existing queries

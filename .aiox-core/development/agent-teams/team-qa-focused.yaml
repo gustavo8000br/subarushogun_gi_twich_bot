@@ -1,44 +1,42 @@
 bundle:
   name: Team QA-Focused
   icon: 🔍
-  description: Quality-focused team that orchestrates code review, testing, and deployment validation using CodeRabbit integration. Ideal for pre-PR reviews, deployment gates, and comprehensive quality assurance.
+  description: Quality-focused team that orchestrates local static analysis, testing, and deployment validation. Ideal for pre-PR checks, deployment gates, and comprehensive quality assurance.
 
 agents:
-  - dev                # Pre-commit CodeRabbit reviews, development quality
+  - dev                # Local static-analysis checks and development quality
   - qa                 # Automated and manual QA, story validation
   - github-devops      # PR quality gates, deployment safety checks
 
 workflows:
-  - code-quality-gate.yaml          # Unified quality validation (lint, tests, CodeRabbit)
+  - code-quality-gate.yaml          # Unified quality validation (lint, tests, static analysis)
   - pr-validation.yaml              # Comprehensive PR validation before creation
   - deployment-safety-check.yaml    # Pre-deployment security and quality scan
 
 tasks:
-  - run-tests.md                    # Test execution with CodeRabbit integration
+  - run-tests.md                    # Test execution with configured quality checks
   - github-pr-automation.md         # PR automation with quality gates
 
 purpose: |
   This team ensures code quality throughout the development lifecycle:
 
   1. **Development Phase** (@dev):
-     - Pre-commit CodeRabbit reviews catch issues early
-     - Fix CRITICAL issues before commit
-     - Document HIGH issues in story notes
+     - Run the configured static scanner and resolve blocking findings through the test-first cycle
 
   2. **QA Phase** (@qa):
      - Automated code review before human QA
      - Run comprehensive test suites
      - Validate story acceptance criteria
-     - Block completion on CRITICAL issues
+     - Treat scanner failures as blocking findings; human review remains separate
 
   3. **PR Phase** (@github-devops):
-     - Pre-PR quality gate (0 CRITICAL issues required)
+     - Pre-PR quality gate (configured scanner exits successfully)
      - Automated PR validation workflow
-     - Lint + Tests + CodeRabbit scan
+     - Lint + Tests + configured static scan
      - Generate comprehensive PR validation report
 
   4. **Deployment Phase** (@github-devops):
-     - Deep security scan with CodeRabbit
+     - Configured security and static scans
      - Risk analysis and blocking issue detection
      - Environment configuration validation
      - Migration status checks
@@ -57,25 +55,24 @@ quality_gates:
     trigger: Developer marks story complete
     agent: dev
     checks:
-      - coderabbit --prompt-only -t uncommitted
-      - Fix all CRITICAL issues
-      - Document HIGH issues
-    threshold: 0 CRITICAL issues
+      - npm run review:static
+      - Record and address blocking findings
+    threshold: scanner exits successfully
 
   pre_pr:
     trigger: Before creating PR
     agent: github-devops
     checks:
-      - coderabbit --prompt-only --base main
+      - npm run review:static
       - npm run lint
       - npm test
-    threshold: 0 CRITICAL issues, lint PASS, tests PASS
+    threshold: static scan PASS, lint PASS, tests PASS
 
   pre_merge:
     trigger: PR opened/updated
     agent: github-devops
     checks:
-      - GitHub Actions CI (coderabbit-ci.yml)
+      - GitHub Actions CI
       - PR validation workflow
       - Coverage check
     threshold: Quality gate PASS from CI
@@ -84,46 +81,19 @@ quality_gates:
     trigger: Before production/staging deploy
     agent: github-devops
     checks:
-      - Deep CodeRabbit scan (last 10 commits)
+      - Repository-configured static/security scan
       - Environment configuration validation
       - Database migration status
       - Test suite execution
-    threshold: 0 CRITICAL, ≤3 HIGH (production), env 100%, tests PASS
-
-coderabbit_integration:
-  enabled: true
-  version: 0.3.4
-
-  severity_thresholds:
-    CRITICAL: 0      # Block at all gates
-    HIGH: 10         # Warn at development, block at deployment (≤3 for production)
-    MEDIUM: tracked  # Technical debt, does not block
-    LOW: optional    # Improvements, does not block
-
-  workflows_with_integration:
-    - code-quality-gate.yaml
-    - pr-validation.yaml
-    - deployment-safety-check.yaml
-
-  github_actions:
-    - .github/workflows/coderabbit-ci.yml
-
-  scripts:
-    - scripts/generate-quality-dashboard.js
-
-  report_directories:
-    - docs/qa/coderabbit-reports/
-    - docs/qa/pr-validations/
-    - docs/deployments/
+    threshold: static/security checks PASS, env 100%, tests PASS
 
 usage_example: |
   # Typical workflow with this team:
 
   ## 1. Development (by @dev)
   "Mark this story as ready for review"
-  → @dev runs pre-commit CodeRabbit check
-  → Fixes CRITICAL issues
-  → Documents HIGH issues in story
+  → @dev runs configured local static analysis
+  → Resolves blocking findings with test-first changes
   → Story marked complete
 
   ## 2. QA Validation (by @qa)
@@ -136,20 +106,20 @@ usage_example: |
   ## 3. PR Creation (by @github-devops)
   "Create PR for this feature"
   → @github-devops runs pr-validation workflow
-  → Checks: sync, CodeRabbit, lint, tests, coverage
+  → Checks: sync, configured static analysis, lint, tests, coverage
   → Generates validation report
   → Creates PR with report link
 
   ## 4. Deployment (by @github-devops)
   "Run deployment safety check for production"
   → @github-devops runs deployment-safety-check workflow
-  → Deep scan, risk analysis, env check, migrations, tests
+  → Security/static scan, risk analysis, env check, migrations, tests
   → Generates safety report with GO/NO-GO decision
   → Blocks if critical issues found
 
 notes:
-  - All three agents use CodeRabbit CLI v0.3.4
+  - The project configures its local static-analysis command and rules
   - Quality gates are enforced at multiple levels
   - Reports are generated and stored for audit trail
   - GitHub Actions provide automated enforcement
-  - Dashboard aggregates metrics across all reviews
+  - Reports retain observed quality-gate results

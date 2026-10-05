@@ -50,7 +50,7 @@ const ActionType = {
 const Phase = {
   VALIDATION: 'validation',
   DEVELOPMENT: 'development',
-  SELF_HEALING: 'self_healing',
+  STATIC_REVIEW: 'static_review',
   QUALITY_GATE: 'quality_gate',
   PUSH: 'push',
   CHECKPOINT: 'checkpoint',

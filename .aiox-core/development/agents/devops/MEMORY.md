@@ -11,7 +11,7 @@
 ### Quality Gates (Pre-Push)
 1. `npm run lint` — ESLint must PASS
 2. `npm test` — Jest must PASS
-3. CodeRabbit review — 0 CRITICAL issues
+3. Configured local static analysis — command exits 0
 4. Story status = "Done" or "Ready for Review"
 5. No uncommitted changes, no merge conflicts
 

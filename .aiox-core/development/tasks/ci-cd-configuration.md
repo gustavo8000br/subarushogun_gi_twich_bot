@@ -6,7 +6,6 @@ category: devops
 complexity: high
 tools:
   - github-cli       # Manage workflows and repository settings
-  - coderabbit-free  # Automated code review (FREE tier)
 checklists:
   - github-devops-checklist.md
 ---
@@ -15,7 +14,7 @@ checklists:
 
 ## Purpose
 
-To set up a complete, production-ready CI/CD pipeline for a repository, including linting, testing, building, code review (CodeRabbit Free), and deployment automation.
+To set up a complete, production-ready CI/CD pipeline for a repository, including linting, testing, building, configured local static analysis, and deployment automation.
 
 ## Supported CI Providers
 
@@ -55,10 +54,10 @@ To set up a complete, production-ready CI/CD pipeline for a repository, includin
   - **Options**: `"vercel"`, `"netlify"`, `"aws"`, `"none"`
   - **Default**: `"none"`
 
-- **enable_coderabbit**: `boolean`
-  - **Description**: Enable CodeRabbit Free for automated code review
+- **enable_static_analysis**: `boolean`
+  - **Description**: Enable the repository-configured local static-analysis job
   - **Default**: `true`
-  - **Note**: **FREE tier** - No cost, no API keys needed for public repos
+  - **Note**: Runs repository-owned rules in CI; it does not provide hosted PR comments or edit files
 
 - **branch_protection**: `boolean`
   - **Description**: Enable branch protection rules
@@ -83,9 +82,9 @@ To set up a complete, production-ready CI/CD pipeline for a repository, includin
   - **Description**: Applied branch protection settings
   - **Structure**: `{ branch, required_checks, enforce_admins, allow_force_push }`
 
-- **coderabbit_config**: `object` (if enabled)
-  - **Description**: CodeRabbit configuration
-  - **Structure**: `{ enabled: true, config_file: ".coderabbit.yaml", integration_status: "active" }`
+- **opengrep_config**: `object` (if enabled)
+  - **Description**: Local static-analysis configuration
+  - **Structure**: `{ enabled: true, config_file: ".opengrep/rules.yml", command: "npm run review:static" }`
 
 - **secrets_configured**: `array<string>`
   - **Description**: List of secrets successfully stored
@@ -118,88 +117,21 @@ To set up a complete, production-ready CI/CD pipeline for a repository, includin
    - Look for existing workflows
    - Warn if overwriting: "⚠️ Found existing CI config. Backup created at: {path}"
 
-### Phase 2: CodeRabbit Free Setup (2 min) 🆓
+### Phase 2: Local Static Analysis Setup
 
-**Note**: CodeRabbit Free is **100% FREE** for public repositories. No API keys, no credit card, no costs.
+4. **Configure OpenGrep rules**
+   - Ensure `.opengrep/rules.yml` is versioned with the project.
+   - Reuse the checked-in AIOX rules template when starting a new project.
+   - Keep project-specific paths, languages, and security patterns explicit.
 
-4. **Install CodeRabbit GitHub App**
-   - Guide user: "To enable CodeRabbit Free:
-     1. Visit: https://github.com/apps/coderabbitai
-     2. Click 'Install' (FREE for public repos)
-     3. Grant access to repository: {repo_name}
-     4. Return here when done"
-   - Wait for user confirmation
-   - Verify installation via GitHub API
+5. **Configure the local command**
+   - Add a project script such as `"review:static": "opengrep scan --config .opengrep/rules.yml --error ."`.
+   - Run the same script locally and in GitHub Actions.
+   - Treat a non-zero result as a blocking quality-gate failure.
+   - The configured scanner reports repository-owned rule findings; it does not mutate code or post PR comments.
 
-5. **Create CodeRabbit Configuration**
-   - Generate `.coderabbit.yaml`:
-     ```yaml
-     # CodeRabbit Free Configuration
-     # 🆓 FREE for public repositories - No costs, no limits
-     
-     language: "en-US"
-     
-     reviews:
-       profile: "chill"  # balanced review depth
-       request_changes_workflow: false
-       high_level_summary: true
-       poem: false
-       review_status: true
-       collapse_walkthrough: false
-       auto_review:
-         enabled: true
-         ignore_title_keywords:
-           - "WIP"
-           - "DO NOT REVIEW"
-       
-     chat:
-       auto_reply: true
-     
-     # Focus areas (adjust based on project type)
-     focus:
-       - security
-       - performance
-       - best_practices
-       - testing
-       - documentation
-     
-     # Ignore patterns
-     ignore:
-       - "**/*.min.js"
-       - "**/*.min.css"
-       - "**/dist/**"
-       - "**/build/**"
-       - "**/.next/**"
-       - "**/node_modules/**"
-       - "**/.git/**"
-     ```
-   - Commit and push `.coderabbit.yaml`
-   - Log: "✅ CodeRabbit Free configured (Focus: security, performance, best practices)"
-
-6. **Add CodeRabbit Commands to README**
-   - Document available commands:
-     ```markdown
-     ## Code Review (CodeRabbit Free 🆓)
-     
-     **Automatic Reviews**: CodeRabbit automatically reviews all PRs
-     
-     **Manual Commands** (comment on PR):
-     - `@coderabbitai review` - Request full review
-     - `@coderabbitai summary` - Get PR summary
-     - `@coderabbitai resolve` - Mark suggestions as resolved
-     - `@coderabbitai help` - Show available commands
-     
-     **Local Pre-Commit Check** (optional):
-     ```bash
-     # Install CodeRabbit CLI (optional, for local checks)
-     npm install -g @coderabbitai/cli
-     
-     # Run pre-commit review
-     coderabbit --prompt-only -t uncommitted
-     ```
-     
-     [CodeRabbit Docs](https://docs.coderabbit.ai)
-     ```
+6. **Record the check in the README**
+   - Document the command, required binary version, rules path, and expected exit status.
 
 ### Phase 3: GitHub Actions Workflow Creation (5 min)
 
@@ -326,7 +258,7 @@ To set up a complete, production-ready CI/CD pipeline for a repository, includin
        - `lint`
        - `test`
        - `build`
-       - `coderabbitai` (CodeRabbit review)
+       - `static-analysis` (repository-configured scanner)
      - Enforce for administrators: false (for emergency fixes)
      - Require linear history: true
      - Allow force pushes: false
@@ -346,7 +278,7 @@ To set up a complete, production-ready CI/CD pipeline for a repository, includin
     - Add CI/CD badges:
       ```markdown
       [![CI Pipeline](https://github.com/user/repo/actions/workflows/ci.yml/badge.svg)](https://github.com/user/repo/actions/workflows/ci.yml)
-      [![CodeRabbit](https://img.shields.io/badge/CodeRabbit-Free-brightgreen)](https://github.com/apps/coderabbitai)
+      [![Static Analysis](https://img.shields.io/badge/static%20analysis-local-blue)](#quality-gates)
       ```
     - Add CI/CD section (from output)
 
@@ -357,7 +289,7 @@ To set up a complete, production-ready CI/CD pipeline for a repository, includin
     - Verify:
       - CI workflow triggers
       - All checks run
-      - CodeRabbit reviews PR
+      - Local static-analysis job reports rule findings
       - Branch protection enforced
     - Close PR after validation
 
@@ -365,7 +297,7 @@ To set up a complete, production-ready CI/CD pipeline for a repository, includin
     - Document what was configured
     - List workflow files created
     - Show pipeline URL
-    - Confirm CodeRabbit active
+    - Confirm local static-analysis job is configured
     - List next steps
 
 ## Checklist
@@ -390,9 +322,9 @@ To set up a complete, production-ready CI/CD pipeline for a repository, includin
   - **Validation**: Files exist and are tracked by Git
   - **Test**: `git ls-files | grep -E "\.github/workflows|\.gitlab-ci\.yml"`
 
-- [ ] CodeRabbit configuration valid (if enabled)
-  - **Validation**: `.coderabbit.yaml` is valid YAML
-  - **Test**: `yamllint .coderabbit.yaml`
+- [ ] Local static-analysis configuration valid (if enabled)
+  - **Validation**: `.opengrep/rules.yml` is valid YAML
+  - **Test**: `yamllint .opengrep/rules.yml`
 
 - [ ] Branch protection active (if enabled)
   - **Validation**: GitHub API returns protection rules
@@ -408,10 +340,9 @@ To set up a complete, production-ready CI/CD pipeline for a repository, includin
   - **Type**: acceptance
   - **Test**: Push to branch → workflow triggers
 
-- [ ] CodeRabbit reviews all PRs automatically (if enabled)
+- [ ] Local static-analysis job runs on pull requests (if enabled)
   - **Type**: acceptance
-  - **Manual Check**: true
-  - **Test**: Create PR → CodeRabbit comments within 2 min
+  - **Test**: Create a PR → CI executes the configured scanner and reports its exit status
 
 - [ ] Branch protection prevents direct pushes to main
   - **Type**: acceptance
@@ -438,26 +369,16 @@ This repository uses automated CI/CD with {ci_provider}.
 3. **Build**: Production build
 {4. **Deploy**: Automatic deployment to {deployment_target} (main branch only) if applicable}
 
-### Code Review (CodeRabbit Free 🆓)
+### Local Static Analysis
 
-Every PR is automatically reviewed by [CodeRabbit](https://github.com/apps/coderabbitai):
-- Security vulnerabilities
-- Performance issues
-- Best practices
-- Test coverage
-- Documentation
-
-**Commands** (comment on PR):
-- `@coderabbitai review` - Request review
-- `@coderabbitai summary` - Get summary
-- `@coderabbitai resolve` - Mark as resolved
+CI runs the repository-configured OpenGrep CLI command against repository-owned rules. Findings are reported in the job log and a non-zero scanner result fails the job. The scanner does not post comments, provide contextual AI review, or edit files. Human review remains required.
 
 ### Branch Protection
 
 - `main` branch requires:
   - ✅ 1 PR approval
   - ✅ All CI checks passing
-  - ✅ CodeRabbit review complete
+  - ✅ Required CI static-analysis status check passes
   - ❌ No direct pushes
   - ❌ No force pushes
 
@@ -469,7 +390,7 @@ Every PR is automatically reviewed by [CodeRabbit](https://github.com/apps/coder
 4. Create feature branch: `git checkout -b feature/my-feature`
 5. Make changes and commit
 6. Push and create PR
-7. Wait for CI + CodeRabbit review
+7. Wait for CI quality checks and human review
 8. Merge after approval
 ```
 
@@ -480,30 +401,19 @@ Every PR is automatically reviewed by [CodeRabbit](https://github.com/apps/coder
   - **Used For**: Manage workflows, secrets, branch protection
   - **Required**: true (for GitHub Actions)
 
-- **coderabbit-free**:
-  - **Version**: Latest (GitHub App)
-  - **Used For**: Automated code review on every PR
-  - **Cost**: $0 (FREE for public repositories)
-  - **Setup**: Install GitHub App (one-time, 2 minutes)
-  - **Features**:
-    - Automatic PR reviews
-    - Security scanning
-    - Performance analysis
-    - Best practices checks
-    - Interactive chat
-  - **Limitations**: None for open-source (FREE tier is full-featured)
+- **OpenGrep CLI**: Optional local static-analysis tool, configured per repository; no account or hosted service is required.
 
 ## Performance
 
-- **Duration Expected**: 15 minutes (including CodeRabbit setup)
-- **Cost Estimated**: $0 (CodeRabbit Free is free, GitHub Actions has 2,000 free minutes/month)
+- **Duration Expected**: 15 minutes (including local CI quality-check setup)
+- **Cost Estimated**: $0 (GitHub Actions usage depends on repository plan)
 - **Cacheable**: false (configuration is per-repository)
 - **Parallelizable**: false (sequential setup required)
 
 ## Error Handling
 
 - **Strategy**: retry + fallback
-- **Fallback**: If CodeRabbit setup fails, continue without it (can add later)
+- **Fallback**: If the optional static scanner is not configured, document that choice and keep required CI checks explicit
 - **Retry**:
   - **Max Attempts**: 3
   - **Backoff**: exponential
@@ -698,7 +608,7 @@ token_usage: ~3,000-10,000 tokens
 
 ## Usage Examples
 
-### Example 1: Node.js Project with CodeRabbit
+### Example 1: Node.js Project with Local Static Analysis
 
 ```bash
 aiox activate Otto  # github-devops agent
@@ -706,11 +616,11 @@ aiox ci-cd setup \
   --repo="." \
   --provider="github-actions" \
   --type="nodejs" \
-  --enable-coderabbit=true \
+  --enable-static-analysis=true \
   --deploy="vercel"
 ```
 
-**Output**: Complete CI/CD with CodeRabbit Free, Vercel deployment
+**Output**: Complete CI/CD with local static analysis, Vercel deployment
 
 ### Example 2: Python Project (GitLab CI)
 
@@ -731,7 +641,7 @@ aiox ci-cd setup \
   --repo="." \
   --provider="github-actions" \
   --type="monorepo" \
-  --enable-coderabbit=true \
+  --enable-static-analysis=true \
   --branch-protection=true
 ```
 
@@ -739,19 +649,17 @@ aiox ci-cd setup \
 
 ---
 
-## CodeRabbit Free: Key Benefits 🆓
+## Local Static Analysis: Operating Notes
 
-1. **Zero Cost**: FREE forever for public repos
-2. **No Setup Complexity**: Just install GitHub App (2 minutes)
-3. **Automatic Reviews**: Every PR reviewed within minutes
-4. **Security Focus**: Catches vulnerabilities early
-5. **Performance Insights**: Identifies bottlenecks
-6. **Best Practices**: Enforces code quality standards
-7. **Interactive**: Chat with CodeRabbit about suggestions
+1. Keep the scanner version and rules under repository control.
+2. Run the same configured command locally and in CI.
+3. Treat a non-zero result as a blocking check.
+4. Review findings and correct behavior through test-first changes.
+5. Keep human review separate from static-analysis output.
 
-**Why CodeRabbit Free?**
+The CLI reports rule matches; it does not provide hosted reviews or interactive PR comments.
 - Competitor (Copilot, CodeGuru) costs $10-19/month/user
-- CodeRabbit Free: $0 for open-source
+- Local static analysis runs through the project-configured scanner and CI runner
 - Better security coverage than most paid tools
 - Integrated with GitHub (no external tools needed)
 

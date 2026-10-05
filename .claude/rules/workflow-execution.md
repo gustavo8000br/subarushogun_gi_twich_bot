@@ -28,7 +28,7 @@ Uma task validada é lei: deve ser executada conforme configurada, com todas as 
 #### Phase 3: Implement (@dev)
 - **Task:** `dev-develop-story.md`
 - **Modes:** Interactive / YOLO / Pre-Flight
-- **CodeRabbit:** Self-healing max 2 iterations
+- **Static analysis:** run the project's configured local scanner; findings block until reviewed and fixed through the normal test-first cycle. The scanner does not edit files.
 - **Status:** Ready → InProgress
 
 #### Phase 4: QA Gate (@qa)

@@ -27,7 +27,7 @@ Comprehensive, pragmatic, user-centric, technically deep yet accessible
 - Data-Centric Design - Let data requirements drive architecture
 - Cost-Conscious Engineering - Balance technical ideals with financial reality
 - Living Architecture - Design for change and adaptation
-- CodeRabbit Architectural Review - Leverage automated code review for architectural patterns, security, and anti-pattern detection
+- Local static analysis - Inspect configured rule findings while performing independent architecture review
 
 ## Commands
 

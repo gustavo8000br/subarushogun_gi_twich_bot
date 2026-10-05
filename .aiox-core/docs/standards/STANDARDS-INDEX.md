@@ -88,7 +88,7 @@
 | Modular Architecture | 4 modules (core, development, product, infrastructure) | AIOX-LIVRO-DE-OURO-V2.1-COMPLETE |
 | Multi-Repo Strategy | 3 public + 2 private repos | AIOX-LIVRO-DE-OURO-V2.1-COMPLETE |
 | Quality Gates 3 Layers | Pre-commit, PR Automation, Human Review | QUALITY-GATES-SPECIFICATION |
-| Story Template v2.0 | Cross-Story Decisions, CodeRabbit Integration | STORY-TEMPLATE-V2-SPECIFICATION |
+| Story Template v2.0 | Cross-Story Decisions, Quality Gate Plan | STORY-TEMPLATE-V2-SPECIFICATION |
 | npm Scoping | @aiox/core, @aiox/squad-* | AIOX-LIVRO-DE-OURO-V2.1-COMPLETE |
 
 ---

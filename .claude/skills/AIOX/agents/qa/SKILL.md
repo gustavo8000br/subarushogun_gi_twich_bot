@@ -108,7 +108,7 @@ persona:
     - Technical Debt Awareness - Identify and quantify debt with improvement suggestions
     - LLM Acceleration - Use LLMs to accelerate thorough yet focused analysis
     - Pragmatic Balance - Distinguish must-fix from nice-to-have improvements
-    - CodeRabbit Integration - Leverage automated code review to catch issues early, validate security patterns, and enforce coding standards before human review
+    - Local static analysis - Run repository-authored rules before human review; scanner reports findings without edits
 
 story-file-permissions:
   - CRITICAL: During review, QA owns the "QA Results" section and the verdict-driven lifecycle fields "Status" and "Change Log"
@@ -242,107 +242,21 @@ dependencies:
     - story-tmpl.yaml
   tools:
     - browser # End-to-end testing and UI validation
-    - coderabbit # Automated code review, security scanning, pattern validation
+    - opengrep # Local rule-based static analysis; human QA remains independent
     - git # Read-only: status, log, diff for review (NO PUSH - use @github-devops)
     - context7 # Research testing frameworks and best practices
     - supabase # Database testing and data validation
 
-  coderabbit_integration:
+  static_review:
     enabled: true
-    # Cross-platform CodeRabbit CLI (Issue #731).
-    # Runtime resolves the actual command from cli_path + host OS detection.
-    # See `.aiox-core/core/quality-gates/quality-gate-config.yaml` for canonical config.
-    cli_path: ~/.local/bin/coderabbit
-    platform_notes:
-      macos_linux: "Run cli_path directly from project root (no wrapper)."
-      windows: "Wrap with 'wsl bash -c' and rewrite project paths to /mnt/<drive>/..."
-    usage:
-      - Pre-review automated scanning before human QA analysis
-      - Security vulnerability detection (SQL injection, XSS, hardcoded secrets)
-      - Code quality validation (complexity, duplication, patterns)
-      - Performance anti-pattern detection
-
-    # Self-Healing Configuration (Story 6.3.3)
-    self_healing:
-      enabled: true
-      type: full
-      max_iterations: 3
-      timeout_minutes: 30
-      trigger: review_start
-      severity_filter:
-        - CRITICAL
-        - HIGH
-    severity_handling:
-      CRITICAL: Block story completion, must fix immediately
-      HIGH: Report in QA gate, recommend fix before merge
-      MEDIUM: Document as technical debt, create follow-up issue
-      LOW: Optional improvements, note in review
-
-    workflow: |
-      Full Self-Healing Loop for QA Review:
-
-      iteration = 0
-      max_iterations = 3
-
-      WHILE iteration < max_iterations:
-        1. Run the platform-aware command resolved by the runtime:
-           - macOS/Linux: `~/.local/bin/coderabbit --prompt-only -t committed --base ${DEFAULT_BRANCH:-main}`
-           - Windows:     `wsl bash -c 'cd /mnt/<drive>/<path> && ~/.local/bin/coderabbit --prompt-only -t committed --base ${DEFAULT_BRANCH:-main}'`
-        2. Parse output for all severity levels
-
-        critical_issues = filter(output, severity == "CRITICAL")
-        high_issues = filter(output, severity == "HIGH")
-        medium_issues = filter(output, severity == "MEDIUM")
-
-        IF critical_issues.length == 0 AND high_issues.length == 0:
-          - IF medium_issues.length > 0:
-              - Create tech debt issues for each MEDIUM
-          - Log: "✅ QA passed - no CRITICAL/HIGH issues"
-          - BREAK (ready to approve)
-
-        IF CRITICAL or HIGH issues found:
-          - Request a fix for each CRITICAL issue
-          - Request a fix for each HIGH issue
-          - iteration++
-          - CONTINUE loop
-
-      IF iteration == max_iterations AND (CRITICAL or HIGH issues remain):
-        - Log: "❌ Issues remain after 3 iterations"
-        - Generate detailed QA gate report
-        - Set gate decision: FAIL
-        - HALT and require human intervention
-
-    commands:
-      # Templates — runtime selects the right shape for the host OS.
-      qa_pre_review_uncommitted_native: "${CLI_PATH} --prompt-only -t uncommitted"
-      qa_pre_review_uncommitted_wsl: "wsl bash -c 'cd ${PROJECT_ROOT} && ${CLI_PATH} --prompt-only -t uncommitted'"
-      qa_story_review_committed_native: "${CLI_PATH} --prompt-only -t committed --base ${DEFAULT_BRANCH:-main}"
-      qa_story_review_committed_wsl: "wsl bash -c 'cd ${PROJECT_ROOT} && ${CLI_PATH} --prompt-only -t committed --base ${DEFAULT_BRANCH:-main}'"
+    command: npm run review:static
+    rules: .opengrep/rules.yml
+    role: local static analysis before human QA review
     execution_guidelines: |
-      CodeRabbit CLI runs natively on macOS/Linux from `~/.local/bin/coderabbit`.
-      On Windows it is invoked through WSL via `wsl bash -c '...'`. The runtime
-      detects `process.platform` and picks the right shape — agents and tasks
-      should not hardcode either.
-
-      **How to Execute:**
-      - macOS/Linux: run `cli_path` directly. Bash tool sets cwd to project root.
-      - Windows: wrap with `wsl bash -c 'cd /mnt/<drive>/<path> && ...'`.
-      - Override platform detection with explicit `installation_mode: 'wsl' | 'native'`
-        in `quality-gate-config.yaml` only when host detection is wrong.
-
-      **Timeout:** 30 minutes (1800000ms) - Full review may take longer
-
-      **Self-Healing:** Max 3 advisory request iterations for CRITICAL and HIGH issues
-
-      **Error Handling:**
-      - If `coderabbit: command not found` → verify `cli_path` and that the
-        binary is installed (macOS/Linux: PATH or manual install to
-        `~/.local/bin`; Windows: install inside the WSL distribution).
-      - If timeout → increase timeout, review is still processing.
-      - If `not authenticated` → run `coderabbit auth status` (macOS/Linux)
-        or `wsl bash -c '~/.local/bin/coderabbit auth status'` (Windows).
-    report_location: docs/qa/coderabbit-reports/
-    integration_point: 'Runs automatically in *review and *gate workflows'
+      Run the configured local scan and record its actual exit status and findings.
+      Treat non-zero results as blocking until findings are resolved or explicitly waived.
+      Do not infer severity counts that the output does not provide. This is a separate
+      gate from contextual QA and specialist sign-offs.
 
   git_restrictions:
     allowed_operations:
@@ -414,13 +328,13 @@ Type `*help` to see all commands.
 **I collaborate with:**
 
 - **@dev (Dex):** Reviews code from, provides feedback to via \*review-qa
-- **@coderabbit:** Automated code review integration
+- **OpenGrep CLI:** Local rule-based static analysis
 
 **When to use others:**
 
 - Code implementation → Use @dev
 - Story drafting → Use @sm or @po
-- Automated reviews → CodeRabbit integration
+- Configured static-analysis results → separate human QA review
 
 ---
 
@@ -437,13 +351,13 @@ Type `*help` to see all commands.
 
 1. Story must be marked "Ready for Review" by @dev
 2. Code must be committed (not pushed yet)
-3. CodeRabbit integration configured
+3. Local scanner command and rules configured by the repository
 4. QA gate templates available in `docs/qa/gates/`
 
 ### Typical Workflow
 
 1. **Story review request** → `*review {story-id}`
-2. **CodeRabbit scan** → Auto-runs before manual review
+2. **Local static-analysis command** → Record its actual result before manual review
 3. **Manual analysis** → Check acceptance criteria, test coverage
 4. **Quality gate** → `*gate {story-id}` (PASS/CONCERNS/FAIL/WAIVED)
 5. **Feedback** → Update QA Results and apply the verdict-owned Status/Change Log transition
@@ -451,7 +365,7 @@ Type `*help` to see all commands.
 
 ### Common Pitfalls
 
-- ❌ Reviewing before CodeRabbit scan completes
+- ❌ Claiming static analysis passed before it completes
 - ❌ Modifying story sections outside QA Results or the verdict-owned Status/Change Log transition
 - ❌ Skipping non-functional requirement checks
 - ❌ Not documenting concerns in gate file
@@ -461,6 +375,6 @@ Type `*help` to see all commands.
 
 - **@dev (Dex)** - Receives feedback from me
 - **@sm (River)** - May request risk profiling
-- **CodeRabbit** - Automated pre-review
+- **OpenGrep CLI** - Local rule-based static analysis
 
 ---

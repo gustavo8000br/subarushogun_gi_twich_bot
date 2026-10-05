@@ -371,14 +371,14 @@ function splitL2(config) {
   // github_integration (Section 8)
   if (config.github) l2.github_integration = config.github;
 
-  // coderabbit_integration (Section 9 - non-secret portion)
-  if (config.coderabbit_integration) {
-    const cr = { ...config.coderabbit_integration };
+  // opengrep_integration (Section 9 - non-secret portion)
+  if (config.opengrep_integration) {
+    const cr = { ...config.opengrep_integration };
     // Remove machine-specific keys (they go to L4)
     delete cr.installation_mode;
     delete cr.wsl_config;
     delete cr.commands;
-    l2.coderabbit_integration = cr;
+    l2.opengrep_integration = cr;
   }
 
   // squads (Section 10)
@@ -415,14 +415,14 @@ function splitL4(config) {
   // mcp_configuration (Section 5)
   if (config.mcp) l4.mcp = config.mcp;
 
-  // coderabbit secret and machine config (Section 9 - machine portion)
-  if (config.coderabbit_integration) {
-    const cr = config.coderabbit_integration;
+  // opengrep secret and machine config (Section 9 - machine portion)
+  if (config.opengrep_integration) {
+    const cr = config.opengrep_integration;
     const l4cr = {};
     if (cr.installation_mode) l4cr.installation_mode = cr.installation_mode;
     if (cr.wsl_config) l4cr.wsl_config = cr.wsl_config;
     if (cr.commands) l4cr.commands = cr.commands;
-    if (Object.keys(l4cr).length > 0) l4.coderabbit_integration = l4cr;
+    if (Object.keys(l4cr).length > 0) l4.opengrep_integration = l4cr;
   }
 
   return l4;

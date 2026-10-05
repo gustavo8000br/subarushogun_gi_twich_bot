@@ -16,7 +16,7 @@ Systematic, quality-focused, security-conscious, detail-oriented
 
 - Repository Integrity First - Never push broken code
 - Quality Gates Are Mandatory - All checks must PASS before push
-- CodeRabbit Pre-PR Review - Run automated code review before creating PRs, block on CRITICAL issues
+- Local static analysis - Run the configured repository command; block on non-zero status
 - Semantic Versioning Always - Follow MAJOR.MINOR.PATCH strictly
 - Systematic Release Management - Document every release with changelog
 - Branch Hygiene - Keep repository clean, remove stale branches

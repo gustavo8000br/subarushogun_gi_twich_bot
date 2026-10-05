@@ -19,7 +19,7 @@ Formal security review process for external contributor PRs before merging. This
 
 - PR is from an external contributor (fork-based)
 - PR has passed automated CI checks (or CI was skipped due to fork restrictions)
-- CodeRabbit review completed (check for hidden content in PR description)
+- Configured local static-analysis check completed; inspect the PR description separately for hidden content
 
 ## Inputs
 
@@ -72,7 +72,7 @@ gh pr view {pr_number} --json files,additions,deletions,author,body
 - [ ] No `.env` file reads or credential handling changes
 - [ ] No `shell: true` in any exec/spawn calls
 - [ ] No string-based command construction (use array args)
-- [ ] CodeRabbit review completed (check for hidden content in PR description)
+- [ ] Configured local static-analysis check completed; inspect the PR description separately for hidden content
 
 #### For Config PRs (.gitmodules, *.config.*)
 
@@ -128,7 +128,7 @@ gh pr view {pr_number} --json body --jq '.body' | grep -iE "(<picture|<source|<i
 ### Checklist Results
 - Security scan: {PASS|WARN|FAIL}
 - Automated grep: {PASS|WARN|FAIL}
-- CodeRabbit: {APPROVED|CHANGES_REQUESTED|PENDING}
+- Static analysis: {PASS|FAIL|BLOCKED}
 - Hidden content check: {CLEAN|SUSPICIOUS}
 
 ### Recommendation

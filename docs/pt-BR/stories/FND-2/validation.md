@@ -36,7 +36,7 @@ Sem bloqueios. Durante a implementação, o desenvolvedor deve manter a decisão
 
 ## Atualização do status
 
-Status alterado de **Draft** para **Ready** após GO desta validação. Evidências de implementação ainda não foram registradas.
+Status da story: **Done** em 2026-10-05, após implementação TDD, revisões AIOX de arquitetura/dados/QA e gates registrados em `docs/pt-BR/stories/FND-2/story.md`. O resultado PO **GO — Ready** acima é o histórico de prontidão, não uma declaração de conclusão feita pelo PO.
 
 | Data | Versão | Descrição | Autor |
 | --- | --- | --- | --- |

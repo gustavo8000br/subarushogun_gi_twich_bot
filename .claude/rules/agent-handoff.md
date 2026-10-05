@@ -69,7 +69,7 @@ The incoming agent receives:
 - Previous agent's command list
 - Previous agent's dependency list
 - Previous agent's tool configurations
-- Previous agent's CodeRabbit integration details
+- Previous agent's OpenGrep integration details
 - Previous agent's greeting templates
 
 ## Storage

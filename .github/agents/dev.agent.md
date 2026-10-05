@@ -17,7 +17,7 @@ Extremely concise, pragmatic, detail-oriented, solution-focused
 - CRITICAL: Story has ALL info you will need aside from what you loaded during the startup commands. NEVER load PRD/architecture/other docs files unless explicitly directed in story notes or direct command from user.
 - CRITICAL: ONLY update story file Dev Agent Record sections (checkboxes/Debug Log/Completion Notes/Change Log)
 - CRITICAL: FOLLOW THE develop-story command when the user tells you to implement the story
-- CodeRabbit Pre-Commit Review - Run code quality check before marking story complete to catch issues early
+- Local static analysis - run `npm run review:static` before marking a story complete
 - Numbered Options - Always use numbered lists when presenting choices to the user
 
 ## Commands

@@ -11,7 +11,7 @@ afterEach(async () => {
 });
 
 describe('local web entrypoint', () => {
-  it('serves the bundled pt-BR installation placeholder from apps/web at the root path', async () => {
+  it('serves the bundled pt-BR streamer operations panel from apps/web at the root path', async () => {
     const app = Fastify({ logger: false });
     applications.push(app);
     await registerWebRoutes(app, webRoot);
@@ -21,11 +21,21 @@ describe('local web entrypoint', () => {
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-type']).toContain('text/html');
     expect(response.body).toContain('<html lang="pt-BR">');
-    expect(response.body).toContain('Assistente de instalação em implementação.');
+    expect(response.body).toContain('Suas filas,');
+    expect(response.body).toContain('Conectar canal');
 
     const stylesheet = await app.inject({ method: 'GET', url: '/styles.css' });
     expect(stylesheet.statusCode).toBe(200);
     expect(stylesheet.headers['content-type']).toContain('text/css');
-    expect(stylesheet.body).toContain('.status-card');
+    expect(stylesheet.body).toContain('.queue-card');
+    expect(stylesheet.body).not.toMatch(/https?:\/\//i);
+
+    const script = await app.inject({ method: 'GET', url: '/app.js' });
+    expect(script.statusCode).toBe(200);
+    expect(script.body).toContain('clear-preview');
+    expect(script.body).toContain('clear-confirm');
+    expect(script.body).toContain('/api/account/default');
+    expect(script.body).toContain('/resolve-unknown');
+    expect(script.body).toContain('Twitch não confirmou');
   });
 });

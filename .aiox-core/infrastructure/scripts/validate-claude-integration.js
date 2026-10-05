@@ -33,7 +33,7 @@ const ALLOWED_CLAUDE_SKILL_ENTRIES = new Set([
   'apply-qa-fixes',
   'architect-first',
   'checklist-runner',
-  'coderabbit-review',
+  'opengrep-static-analysis',
   'close-story',
   'develop-story',
   'full-sdc',

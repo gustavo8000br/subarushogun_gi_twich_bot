@@ -140,7 +140,7 @@ O AIOX carrega regras contextuais de `.claude/rules/` automaticamente. Regras co
 | `agent-authority.md` | Agent delegation matrix and exclusive operations |
 | `agent-handoff.md` | Agent switch compaction protocol for context optimization |
 | `agent-memory-imports.md` | Agent memory lifecycle and CLAUDE.md ownership |
-| `coderabbit-integration.md` | Automated code review integration rules |
+| `opengrep-static-analysis.md` | Automated code review integration rules |
 | `ids-principles.md` | Incremental Development System principles |
 | `mcp-usage.md` | MCP server usage rules and tool selection priority |
 | `story-lifecycle.md` | Story status transitions and quality gates |

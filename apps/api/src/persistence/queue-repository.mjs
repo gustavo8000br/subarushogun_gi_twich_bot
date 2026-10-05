@@ -40,9 +40,317 @@ function isSafeReason(reason) {
   return typeof reason === 'string' && /^[a-z][a-z0-9_]{1,47}$/.test(reason);
 }
 
+function normalizeRedemptionStatus(status) {
+  const value = String(status ?? 'unknown').toUpperCase();
+  return ['UNFULFILLED', 'FULFILLED', 'CANCELED'].includes(value) ? value : 'UNKNOWN';
+}
+
+function validateAccountLabel(label) {
+  if (typeof label !== 'string' || label.trim().length < 1 || label.trim().length > 60 || Array.from(label).some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) {
+    throw repositoryError('INVALID_ACCOUNT_LABEL', 'Account label is invalid');
+  }
+}
+
+async function createCancellationIntent(tx, redemptionId, entryId = null) {
+  await tx.redemption.update({
+    where: { redemptionId },
+    data: { expectedStatus: 'CANCELED', syncStatus: 'pending' },
+  });
+  await tx.outbox.create({
+    data: {
+      operationType: 'redemption.cancel',
+      entityType: 'redemption',
+      entityId: redemptionId,
+      idempotencyKey: `financial:${redemptionId}`,
+      payload: {},
+      entryId,
+      redemptionId,
+    },
+  });
+}
+
 /** @param {PrismaClientLike} prisma */
 export function createQueueRepository(prisma, { clock = () => new Date() } = {}) {
   return {
+    async listFinancialOperations() {
+      return prisma.outbox.findMany({
+        where: { operationType: { in: ['redemption.cancel', 'redemption.fulfill'] } },
+        select: { id: true, operationType: true, entityId: true, redemptionId: true, status: true, attempts: true, nextAttemptAt: true, lastError: true, createdAt: true, updatedAt: true },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+        take: 200,
+      });
+    },
+    async getCurrentAccount() {
+      const setting = await prisma.setting.findUnique({ where: { key: 'account_state' } });
+      return setting?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
+    },
+
+    async getLocalState() {
+      const [account, credential, queueCount, pendingOperations] = await Promise.all([
+        prisma.setting.findUnique({ where: { key: 'account_state' } }),
+        prisma.oAuthCredential.findFirst({ select: { clientId: true, broadcasterId: true, authStatus: true, scopes: true } }),
+        prisma.queue.count({ where: { lifecycleStatus: { not: 'deleted' } } }),
+        prisma.outbox.count({ where: { status: { in: ['pending', 'retry', 'processing', 'unknown', 'conflict', 'failed'] } } }),
+      ]);
+      return { account: account?.value ?? { label: 'Streamer', source: 'default' }, twitch: credential ? { clientId: credential.clientId, broadcasterId: credential.broadcasterId, status: credential.authStatus, scopes: credential.scopes } : null, queueCount, pendingOperations };
+    },
+
+    async setCurrentAccount(label, actorId = null) {
+      validateAccountLabel(label);
+      return prisma.$transaction(async (tx) => {
+        const current = await tx.setting.findUnique({ where: { key: 'account_state' } });
+        const previous = current?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
+        const next = { ...previous, label: label.trim(), source: 'manual', updatedBy: actorId };
+        await tx.setting.upsert({ where: { key: 'account_state' }, create: { key: 'account_state', value: next }, update: { value: next } });
+        await tx.auditLog.create({ data: { event: 'account.changed', origin: 'panel', actorId, previousState: previous.label, nextState: next.label, reason: 'manual_account_change', safeDetail: { source: 'manual', ownerEntryId: next.ownerEntryId } } });
+        return next;
+      });
+    },
+
+    async setQueueOpen(queueId, isOpen, actorId = null) {
+      if (typeof isOpen !== 'boolean') throw repositoryError('INVALID_QUEUE_OPEN_STATE', 'Queue open state must be boolean');
+      return withQueueTransaction(prisma, queueId, async (tx) => {
+        const queue = await tx.queue.findUnique({ where: { id: queueId } });
+        if (!queue || queue.lifecycleStatus !== 'active' || queue.isArchived) throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be opened or closed');
+        const updated = await tx.queue.update({ where: { id: queueId }, data: { isOpen, remoteSyncStatus: isOpen ? 'pending_open' : 'pending_close', version: { increment: 1 } } });
+        await tx.auditLog.create({ data: { queueId, event: 'queue.open_state_requested', actorId, origin: 'panel', previousState: String(queue.isOpen), nextState: String(isOpen), reason: isOpen ? 'queue_open_requested' : 'queue_close_requested', safeDetail: {} } });
+        return { status: 'pending', isOpen: updated.isOpen, remoteSyncStatus: updated.remoteSyncStatus };
+      });
+    },
+
+    async resetCurrentAccount(actorId = null) {
+      return prisma.$transaction(async (tx) => {
+        const current = await tx.setting.findUnique({ where: { key: 'account_state' } });
+        const previous = current?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
+        const next = { ...previous, label: previous.defaultLabel || 'Streamer', source: 'default', ownerEntryId: null, updatedBy: actorId };
+        await tx.setting.upsert({ where: { key: 'account_state' }, create: { key: 'account_state', value: next }, update: { value: next } });
+        await tx.auditLog.create({ data: { event: 'account.reset', origin: 'panel', actorId, previousState: previous.label, nextState: next.label, reason: 'account_reset', safeDetail: { source: 'default' } } });
+        return next;
+      });
+    },
+
+    async setDefaultAccountLabel(label, actorId = null) {
+      validateAccountLabel(label);
+      return prisma.$transaction(async (tx) => {
+        const current = await tx.setting.findUnique({ where: { key: 'account_state' } });
+        const previous = current?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
+        const next = { ...previous, defaultLabel: label.trim(), ...(previous.source === 'default' ? { label: label.trim() } : {}), updatedBy: actorId };
+        await tx.setting.upsert({ where: { key: 'account_state' }, create: { key: 'account_state', value: next }, update: { value: next } });
+        await tx.auditLog.create({ data: { event: 'account.default_label_changed', origin: 'panel', actorId, previousState: previous.defaultLabel || 'Streamer', nextState: next.defaultLabel, reason: 'default_account_label_changed', safeDetail: { source: next.source, ownerEntryId: next.ownerEntryId } } });
+        return next;
+      });
+    },
+
+
+    async enqueueCallNotification({ entryId, queueId }) {
+      return prisma.$transaction(async (tx) => {
+        const entry = await tx.entry.findUnique({ where: { id: entryId } });
+        if (!entry || entry.queueId !== queueId || entry.status !== 'called') return { status: 'cancelled' };
+        return tx.outbox.create({ data: {
+          operationType: 'chat.call', entityType: 'entry', entityId: entryId,
+          idempotencyKey: `chat.call:${entryId}`, payload: {}, entryId,
+        } });
+      });
+    },
+
+    async recordCallNotificationResult({ entryId, sent, timeoutMin }) {
+      if (!sent) return null;
+      return prisma.$transaction(async (tx) => {
+        const entry = await tx.entry.findUnique({ where: { id: entryId }, include: { queue: { select: { callTimeoutMin: true, uidMode: true, showUidOnCall: true } } } });
+        if (!entry || entry.status !== 'called' || entry.callNotifiedAt) return null;
+        const now = clock();
+        const duration = Number.isInteger(timeoutMin) ? timeoutMin : entry.queue.callTimeoutMin;
+        const deadline = duration === null ? null : new Date(now.getTime() + duration * 60_000);
+        const updated = await tx.entry.update({ where: { id: entryId }, data: { callNotifiedAt: now, callDeadlineAt: deadline, version: { increment: 1 } } });
+        await tx.auditLog.create({ data: { queueId: entry.queueId, entryId, redemptionId: entry.redemptionId, event: 'entry.call_notified', origin: 'chat', reason: 'chat_delivery_confirmed', safeDetail: { deadlineConfigured: deadline !== null } } });
+        return updated;
+      });
+    },
+
+    async listPendingCallNotifications() {
+      return prisma.outbox.findMany({ where: { operationType: 'chat.call', status: { in: ['pending', 'retry'] } }, include: { entry: { include: { queue: true } } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+    },
+
+    async claimNextChatNotification({ now = clock(), leaseMs = 30_000 } = {}) {
+      const leaseUntil = new Date(now.getTime() + leaseMs);
+      const rows = await prisma.$queryRaw`
+        WITH candidate AS (
+          SELECT id FROM outbox
+          WHERE operation_type = 'chat.call'
+            AND ((status IN ('pending', 'retry') AND next_attempt_at <= ${now})
+              OR (status = 'processing' AND lease_until <= ${now}))
+          ORDER BY next_attempt_at ASC, created_at ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT 1
+        )
+        UPDATE outbox AS task
+        SET status = 'processing', attempts = task.attempts + 1,
+            lease_until = ${leaseUntil}, lease_token = gen_random_uuid(), updated_at = ${now}
+        FROM candidate
+        WHERE task.id = candidate.id
+        RETURNING task.id, task.entry_id AS "entryId", task.lease_token AS "leaseToken"
+      `;
+      const claimed = rows[0];
+      if (!claimed) return null;
+      const entry = await prisma.entry.findUnique({ where: { id: claimed.entryId }, include: { queue: true } });
+      if (!entry || entry.status !== 'called') {
+        await this.finishCallNotification(claimed.id, { status: 'cancelled', errorCode: 'entry_not_called' });
+        return { ...claimed, entry: null };
+      }
+      return { ...claimed, entry, callPosition: entry.position };
+    },
+
+    async finishCallNotification(outboxId, { status, errorCode = null }) {
+      return prisma.outbox.updateMany({ where: { id: outboxId, status: { in: ['pending', 'retry', 'processing'] } }, data: { status, lastError: errorCode, leaseToken: null, leaseUntil: null } });
+    },
+
+    async getQueueByKey(key) {
+      return prisma.queue.findFirst({ where: { keys: { some: { key } }, lifecycleStatus: { not: 'deleted' } } });
+    },
+
+    async getQueueById(id) { return prisma.queue.findUnique({ where: { id } }); },
+    async getEntry(id) { return prisma.entry.findUnique({ where: { id } }); },
+
+    async callSpecificEntry({ queueId, entryId, actorId = null, calledAt = clock(), decideTransition }) {
+      if (typeof decideTransition !== 'function') throw repositoryError('DOMAIN_TRANSITION_REQUIRED', 'Queue transitions must use the domain service');
+      return withQueueTransaction(prisma, queueId, async (tx) => {
+        const queue = await tx.queue.findUnique({ where: { id: queueId } });
+        if (!queue || queue.lifecycleStatus !== 'active' || queue.isArchived) throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot call entries');
+        const entry = await tx.entry.findFirst({ where: { id: entryId, queueId, status: 'waiting' } });
+        if (!entry) throw repositoryError('ENTRY_NOT_WAITING', 'Entry is not waiting in this queue');
+        decideTransition({ entry, queue, input: { to: 'called', origin: 'panel', actorId, reason: 'operator_call' } });
+        const updated = await tx.entry.update({ where: { id: entryId }, data: { status: 'called', position: null, calledAt, callNotifiedAt: null, callDeadlineAt: null, version: { increment: 1 } } });
+        await renumberWaitingEntries(tx, queueId);
+        await tx.auditLog.create({ data: { queueId, entryId, redemptionId: entry.redemptionId, event: 'entry.transitioned', actorId, origin: 'panel', previousState: 'waiting', nextState: 'called', reason: 'operator_call', safeDetail: { previousPosition: entry.position } } });
+        return { ...updated, previousPosition: entry.position };
+      });
+    },
+
+    async listEntriesByStatus(queueId, statuses) {
+      return prisma.entry.findMany({ where: { queueId, status: { in: statuses } }, orderBy: [{ position: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }] });
+    },
+
+    async listQueueChatEntries(queueId) {
+      const [waiting, called, inProgress, totalWaiting] = await Promise.all([
+        prisma.entry.findMany({ where: { queueId, status: 'waiting' }, orderBy: [{ position: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }], take: 5 }),
+        prisma.entry.findMany({ where: { queueId, status: 'called' }, orderBy: [{ calledAt: 'asc' }, { createdAt: 'asc' }] }),
+        prisma.entry.findMany({ where: { queueId, status: 'in_progress' }, orderBy: [{ startedAt: 'asc' }, { createdAt: 'asc' }] }),
+        prisma.entry.count({ where: { queueId, status: 'waiting' } }),
+      ]);
+      return { waiting, called, inProgress, totalWaiting };
+    },
+
+    async callNext({ queueId, count = 1, calledAt = clock(), actorId = null, decideTransition }) {
+      if (typeof decideTransition !== 'function') throw repositoryError('DOMAIN_TRANSITION_REQUIRED', 'Queue transitions must use the domain service');
+      if (!Number.isInteger(count) || count < 1 || count > 10) throw repositoryError('INVALID_CALL_COUNT', 'Call count must be between one and ten');
+      return withQueueTransaction(prisma, queueId, async (tx) => {
+        const queue = await tx.queue.findUnique({ where: { id: queueId } });
+        if (!queue || queue.lifecycleStatus !== 'active' || queue.isArchived) throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot call entries');
+        const waiting = await tx.entry.findMany({ where: { queueId, status: 'waiting' }, orderBy: [{ position: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }], take: count });
+        const selected = [];
+        for (const entry of waiting) {
+          decideTransition({ entry, queue, input: { to: 'called', origin: 'panel', actorId, reason: 'operator_call' } });
+          const updated = await tx.entry.update({ where: { id: entry.id }, data: { status: 'called', position: null, calledAt, callNotifiedAt: null, callDeadlineAt: null, version: { increment: 1 } } });
+          await tx.auditLog.create({ data: { queueId, entryId: entry.id, redemptionId: entry.redemptionId, event: 'entry.transitioned', origin: 'panel', previousState: 'waiting', nextState: 'called', reason: 'operator_call', safeDetail: { previousPosition: entry.position } } });
+          selected.push({ ...updated, previousPosition: entry.position });
+        }
+        if (count === 1 && selected.length === 1 && queue.autoSwitchAccount) {
+          const accountSetting = await tx.setting.findUnique({ where: { key: 'account_state' } });
+          const previousAccount = accountSetting?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
+          const nextAccount = { ...previousAccount, label: selected[0].displayName, source: 'queue_auto', ownerEntryId: selected[0].id };
+          await tx.setting.upsert({ where: { key: 'account_state' }, create: { key: 'account_state', value: nextAccount }, update: { value: nextAccount } });
+          await tx.auditLog.create({ data: { queueId, entryId: selected[0].id, event: 'account.auto_switched', actorId, origin: 'panel', previousState: previousAccount.label, nextState: nextAccount.label, reason: 'single_entry_called', safeDetail: { ownerEntryId: selected[0].id } } });
+        }
+        await renumberWaitingEntries(tx, queueId);
+        return selected;
+      });
+    },
+
+    async getActiveEntryForUser(queueId, twitchUserId) {
+      return prisma.entry.findFirst({ where: { queueId, twitchUserId, status: { in: activeStatuses } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+    },
+
+    async listExpiredCalledEntries(cutoff = clock()) {
+      return prisma.entry.findMany({ where: { status: 'called', callDeadlineAt: { lte: cutoff } }, orderBy: [{ callDeadlineAt: 'asc' }, { id: 'asc' }] });
+    },
+
+    async listQueueProjection() {
+      const queues = await prisma.queue.findMany({
+        where: { lifecycleStatus: { not: 'deleted' } },
+        include: { keys: true, entries: { where: { status: { in: activeStatuses } }, orderBy: [{ status: 'asc' }, { position: 'asc' }, { createdAt: 'asc' }] } },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      });
+      return queues.map((queue) => ({
+        id: queue.id, slug: queue.slug, aliases: queue.keys.filter(({ keyType }) => keyType === 'alias').map(({ key }) => key),
+        title: queue.title, rewardPrompt: queue.rewardPrompt, cost: queue.cost, uidMode: queue.uidMode,
+        showUidInList: queue.showUidInList, showUidInOverlay: queue.showUidInOverlay, showUidOnCall: queue.showUidOnCall,
+        isOpen: queue.isOpen, isArchived: queue.isArchived, lifecycleStatus: queue.lifecycleStatus,
+        remoteSyncStatus: queue.remoteSyncStatus, version: queue.version,
+        entries: queue.entries.map((entry) => ({
+          id: entry.id, userId: entry.twitchUserId, userLogin: entry.userLogin, displayName: entry.displayName,
+          uid: queue.uidMode === 'visible' && queue.showUidInOverlay ? entry.uid : null,
+          status: entry.status, position: entry.position, version: entry.version,
+          calledAt: entry.calledAt, callDeadlineAt: entry.callDeadlineAt,
+        })),
+      }));
+    },
+
+    async listManagedQueues() {
+      return prisma.queue.findMany({ where: { rewardId: { not: null }, lifecycleStatus: { not: 'deleted' } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+    },
+
+    async listActiveRedemptionEntries(queueId) {
+      return prisma.entry.findMany({
+        where: { queueId, source: 'redemption', status: { in: activeStatuses } },
+        include: { redemption: { select: { rewardId: true, remoteStatus: true } } },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      });
+    },
+
+    async markQueueRemoteDivergence(queueId, reason) {
+      if (!isSafeReason(reason)) throw repositoryError('INVALID_AUDIT_REASON', 'Remote divergence reason is invalid');
+      return prisma.$transaction(async (tx) => {
+        const queue = await tx.queue.update({ where: { id: queueId }, data: { remoteSyncStatus: 'diverged', version: { increment: 1 } } });
+        await tx.auditLog.create({ data: { queueId, event: 'queue.remote_divergence', origin: 'reconciliation', reason, safeDetail: {} } });
+        return queue;
+      });
+    },
+
+    async markRedemptionUnknown(redemptionId, reason) {
+      if (!isSafeReason(reason)) throw repositoryError('INVALID_AUDIT_REASON', 'Unknown redemption reason is invalid');
+      return prisma.$transaction(async (tx) => {
+        const redemption = await tx.redemption.update({ where: { redemptionId }, data: { syncStatus: 'unknown' } });
+        await tx.outbox.updateMany({ where: { redemptionId, status: { in: ['pending', 'retry', 'processing'] } }, data: { status: 'unknown', leaseToken: null, leaseUntil: null, lastError: reason } });
+        await tx.auditLog.create({ data: { queueId: redemption.queueId, redemptionId, event: 'redemption.state_unknown', origin: 'reconciliation', reason, safeDetail: {} } });
+        return { status: 'unknown', redemptionId };
+      });
+    },
+
+    async clearActiveEntries({ queueId, snapshot, actorId = null, origin = 'panel', decideTransition }) {
+      if (typeof decideTransition !== 'function') throw repositoryError('DOMAIN_TRANSITION_REQUIRED', 'Queue transitions must use the domain service');
+      return withQueueTransaction(prisma, queueId, async (tx) => {
+        const queue = await tx.queue.findUnique({ where: { id: queueId } });
+        if (!queue) throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
+        const active = await tx.entry.findMany({ where: { queueId, status: { in: activeStatuses } }, orderBy: { id: 'asc' } });
+        const actualSnapshot = active.map(({ id, version, status, source, redemptionId }) => ({ id, version, status, source, redemptionId }));
+        const expectedSnapshot = [...snapshot].sort((left, right) => left.id.localeCompare(right.id));
+        if (JSON.stringify(actualSnapshot) !== JSON.stringify(expectedSnapshot)) return { status: 'stale' };
+        let refundsRequested = 0;
+        const now = clock();
+        for (const entry of active) {
+          const decision = decideTransition({ entry, queue, input: { to: 'removed', origin, actorId, reason: 'queue_cleared' } });
+          await tx.entry.update({ where: { id: entry.id }, data: { status: 'removed', position: null, finishedAt: now, terminalReason: 'queue_cleared', callDeadlineAt: null, version: { increment: 1 } } });
+          await tx.auditLog.create({ data: { queueId, entryId: entry.id, redemptionId: entry.redemptionId, event: 'entry.transitioned', actorId, origin, previousState: entry.status, nextState: 'removed', reason: 'queue_cleared', safeDetail: { policySnapshot: decision.policySnapshot, financialDecision: decision.financialDecision } } });
+          if (decision.financialDecision === 'request_cancel' && entry.redemptionId) {
+            await createCancellationIntent(tx, entry.redemptionId, entry.id);
+            refundsRequested += 1;
+          }
+        }
+        await renumberWaitingEntries(tx, queueId);
+        return { status: 'cleared', count: active.length, refundsRequested };
+      });
+    },
+
     async createQueue({ slug, aliases = [], title, cost, ...settings }) {
       const normalizedKeys = normalizeQueueKeys({ slug, aliases });
       try {
@@ -194,6 +502,7 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
     },
 
     async applyEntryTransition({ input, decideTransition }) {
+      if (typeof decideTransition !== 'function') throw repositoryError('DOMAIN_TRANSITION_REQUIRED', 'Queue transitions must use the domain service');
       const { entryId, to, origin = 'system', actorId = null, reason } = input;
       if (!isSafeReason(reason)) throw repositoryError('INVALID_AUDIT_REASON', 'Transition reason is invalid');
       const initial = await prisma.entry.findUnique({ where: { id: entryId }, select: { queueId: true } });
@@ -240,8 +549,367 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
             },
           },
         });
+        if (origin === 'external' && entry.redemptionId && input.remoteStatus) {
+          const remoteStatus = normalizeRedemptionStatus(input.remoteStatus);
+          if (!['FULFILLED', 'CANCELED'].includes(remoteStatus)) {
+            throw repositoryError('INVALID_EXTERNAL_REDEMPTION_STATUS', 'External redemption state is invalid');
+          }
+          if ((to === 'completed' && remoteStatus !== 'FULFILLED') || (to === 'removed' && remoteStatus !== 'CANCELED')) {
+            throw repositoryError('CONFLICTING_EXTERNAL_REDEMPTION_STATUS', 'External redemption state conflicts with the requested transition');
+          }
+          await tx.redemption.update({
+            where: { redemptionId: entry.redemptionId },
+            data: { remoteStatus, expectedStatus: null, syncStatus: 'confirmed' },
+          });
+        }
+        if (decision.financialDecision !== 'no_operation' && entry.source === 'redemption' && entry.redemptionId) {
+          const expectedStatus = decision.financialDecision === 'request_cancel' ? 'CANCELED' : 'FULFILLED';
+          const operationType = decision.financialDecision === 'request_cancel'
+            ? 'redemption.cancel'
+            : 'redemption.fulfill';
+          await tx.redemption.update({
+            where: { redemptionId: entry.redemptionId },
+            data: { expectedStatus, syncStatus: 'pending' },
+          });
+          await tx.outbox.create({
+            data: {
+              operationType,
+              entityType: 'redemption',
+              entityId: entry.redemptionId,
+              idempotencyKey: `financial:${entry.redemptionId}`,
+              payload: {},
+              entryId: entry.id,
+              redemptionId: entry.redemptionId,
+            },
+          });
+        }
+        if (['completed', 'removed', 'no_show'].includes(to)) {
+          const accountSetting = await tx.setting.findUnique({ where: { key: 'account_state' } });
+          const currentAccount = accountSetting?.value;
+          if (currentAccount?.ownerEntryId === entry.id) {
+            const nextAccount = { ...currentAccount, label: currentAccount.defaultLabel || 'Streamer', source: 'default', ownerEntryId: null, updatedBy: actorId };
+            await tx.setting.update({ where: { key: 'account_state' }, data: { value: nextAccount } });
+            await tx.auditLog.create({ data: { queueId: entry.queueId, entryId: entry.id, event: 'account.auto_reset', actorId, origin, previousState: currentAccount.label, nextState: nextAccount.label, reason: 'owner_entry_ended', safeDetail: { ownerEntryId: entry.id } } });
+          }
+        }
         return { ...updated, financialDecision: decision.financialDecision, policySnapshot: decision.policySnapshot };
       });
+    },
+
+    async claimNext({ now = clock(), leaseMs = 30_000 } = {}) {
+      const leaseUntil = new Date(now.getTime() + leaseMs);
+      const rows = await prisma.$queryRaw`
+        WITH candidate AS (
+          SELECT id FROM outbox
+          WHERE operation_type IN ('redemption.cancel', 'redemption.fulfill')
+            AND ((status IN ('pending', 'retry') AND next_attempt_at <= ${now})
+            OR (status = 'processing' AND lease_until <= ${now}))
+          ORDER BY next_attempt_at ASC, created_at ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT 1
+        )
+        UPDATE outbox AS task
+        SET status = 'processing', attempts = task.attempts + 1,
+            lease_until = ${leaseUntil}, lease_token = gen_random_uuid(), updated_at = ${now}
+        FROM candidate, redemptions AS redemption
+        WHERE task.id = candidate.id AND redemption.redemption_id = task.redemption_id
+        RETURNING task.id, task.redemption_id AS "redemptionId", task.operation_type AS "operationType",
+          task.attempts, task.status, task.lease_token AS "leaseToken", redemption.reward_id AS "rewardId"
+      `;
+      return rows[0] ?? null;
+    },
+
+    async confirm(outboxId, remoteStatus, leaseToken) {
+      return prisma.$transaction(async (tx) => {
+        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken } });
+        if (!task) return false;
+        const updated = await tx.outbox.updateMany({
+          where: { id: outboxId, status: 'processing', leaseToken },
+          data: { status: 'confirmed', leaseUntil: null, leaseToken: null, lastError: null },
+        });
+        if (!updated.count) return false;
+        if (task.redemptionId) {
+          await tx.redemption.update({
+            where: { redemptionId: task.redemptionId },
+            data: { remoteStatus, syncStatus: 'confirmed' },
+          });
+        }
+        return true;
+      });
+    },
+
+    async retry(outboxId, { nextAttemptAt, errorCode }, leaseToken) {
+      return prisma.outbox.updateMany({
+        where: { id: outboxId, status: 'processing', leaseToken },
+        data: { status: 'retry', nextAttemptAt, leaseUntil: null, leaseToken: null, lastError: errorCode },
+      });
+    },
+
+    async conflict(outboxId, errorCode, leaseToken) {
+      return prisma.outbox.updateMany({
+        where: { id: outboxId, status: 'processing', leaseToken },
+        data: { status: 'conflict', leaseUntil: null, leaseToken: null, lastError: errorCode },
+      });
+    },
+
+    async unknown(outboxId, errorCode, leaseToken) {
+      return prisma.outbox.updateMany({
+        where: { id: outboxId, status: 'processing', leaseToken },
+        data: { status: 'unknown', leaseUntil: null, leaseToken: null, lastError: errorCode },
+      });
+    },
+
+    async failed(outboxId, errorCode, leaseToken) {
+      return prisma.outbox.updateMany({
+        where: { id: outboxId, status: 'processing', leaseToken },
+        data: { status: 'failed', leaseUntil: null, leaseToken: null, lastError: errorCode },
+      });
+    },
+
+    async recordRejectedRedemption({ redemptionId, broadcasterId, rewardId, userId, redeemedAt, reason }) {
+      if (!isSafeReason(reason)) throw repositoryError('INVALID_REJECTION_REASON', 'Rejection reason is invalid');
+      try {
+        await prisma.$transaction(async (tx) => {
+          await tx.redemption.create({ data: {
+            redemptionId,
+            broadcasterId,
+            rewardId,
+            userId,
+            redeemedAt,
+            remoteStatus: 'UNFULFILLED',
+            expectedStatus: 'CANCELED',
+            syncStatus: 'pending',
+            rejectionReason: reason,
+          } });
+          await tx.outbox.create({ data: {
+            operationType: 'redemption.cancel',
+            entityType: 'redemption',
+            entityId: redemptionId,
+            idempotencyKey: `financial:${redemptionId}`,
+            payload: {},
+            redemptionId,
+          } });
+        });
+        return { status: 'cancellation_pending', redemptionId };
+      } catch (error) {
+        if (isUniqueConstraintError(error)) return { status: 'already_recorded', redemptionId };
+        throw error;
+      }
+    },
+
+    async retryOutboxManually(outboxId) {
+      return prisma.outbox.updateMany({
+        where: { id: outboxId, status: { in: ['unknown', 'conflict', 'failed'] } },
+        data: { status: 'pending', nextAttemptAt: clock(), lastError: null, leaseUntil: null, leaseToken: null },
+      });
+    },
+
+    async resolveUnknownFinancialOperation(outboxId, actorId) {
+      return prisma.$transaction(async (tx) => {
+        const task = await tx.outbox.findFirst({
+          where: { id: outboxId, operationType: { in: ['redemption.cancel', 'redemption.fulfill'] }, status: 'unknown' },
+        });
+        if (!task) return { status: 'not_unknown' };
+        const redemption = task.redemptionId
+          ? await tx.redemption.findUnique({ where: { redemptionId: task.redemptionId } })
+          : null;
+        if (!redemption) return { status: 'redemption_missing' };
+        const updated = await tx.outbox.updateMany({
+          where: { id: outboxId, operationType: { in: ['redemption.cancel', 'redemption.fulfill'] }, status: 'unknown' },
+          data: { status: 'resolved_manual', leaseToken: null, leaseUntil: null },
+        });
+        if (!updated.count) return { status: 'not_unknown' };
+        await tx.redemption.update({ where: { redemptionId: redemption.redemptionId }, data: { syncStatus: 'operator_resolved' } });
+        await tx.auditLog.create({ data: {
+          queueId: redemption.queueId,
+          redemptionId: redemption.redemptionId,
+          event: 'financial.operation_resolved_manually',
+          actorId,
+          origin: 'panel',
+          previousState: 'unknown',
+          nextState: 'resolved_manual',
+          reason: 'operator_acknowledged_unknown',
+          safeDetail: { remoteConfirmed: false, expectedStatus: redemption.expectedStatus },
+        } });
+        return { status: 'resolved_manual', redemptionId: redemption.redemptionId };
+      });
+    },
+
+    async recordTerminalRedemption(event) {
+      const status = normalizeRedemptionStatus(event.status);
+      if (!['FULFILLED', 'CANCELED'].includes(status)) {
+        throw repositoryError('INVALID_TERMINAL_REDEMPTION', 'Redemption is not in a terminal state');
+      }
+      const queue = await prisma.queue.findUnique({ where: { rewardId: event.rewardId } });
+      if (!queue || queue.lifecycleStatus === 'deleted') return { status: 'unmanaged_reward' };
+      return withQueueTransaction(prisma, queue.id, async (tx) => {
+        const existing = await tx.redemption.findUnique({ where: { redemptionId: event.id } });
+        if (existing) {
+          if (existing.remoteStatus === status) return { status: 'already_recorded', redemptionId: event.id };
+          return { status: 'already_recorded', redemptionId: event.id };
+        }
+        await tx.redemption.create({ data: {
+          redemptionId: event.id,
+          broadcasterId: event.broadcasterId,
+          rewardId: event.rewardId,
+          userId: event.userId,
+          queueId: queue.id,
+          redeemedAt: event.redeemedAt,
+          remoteStatus: status,
+          syncStatus: 'confirmed',
+        } });
+        await tx.auditLog.create({ data: {
+          queueId: queue.id,
+          redemptionId: event.id,
+          event: 'redemption.external_terminal_observed',
+          origin: 'eventsub',
+          previousState: 'UNFULFILLED',
+          nextState: status,
+          reason: status === 'CANCELED' ? 'external_cancellation' : 'external_fulfillment',
+          safeDetail: { remoteStatus: status },
+        } });
+        return { status: 'terminal_observed', redemptionId: event.id };
+      });
+    },
+
+    async findEntryByRedemption(redemptionId) {
+      return prisma.entry.findUnique({ where: { redemptionId } });
+    },
+
+    async recordExternalRedemptionState(event) {
+      const status = normalizeRedemptionStatus(event.status);
+      if (!['FULFILLED', 'CANCELED'].includes(status)) return { status: 'ignored_nonterminal' };
+      let existing = await prisma.redemption.findUnique({ where: { redemptionId: event.id } });
+      if (!existing) return this.recordTerminalRedemption(event);
+      if (existing.remoteStatus !== 'UNFULFILLED' && existing.remoteStatus !== status) {
+        return { status: 'conflict', redemptionId: event.id };
+      }
+      const updated = await prisma.$transaction(async (tx) => {
+        if (existing.queueId) await lockQueue(tx, existing.queueId);
+        const current = await tx.redemption.findUnique({ where: { redemptionId: event.id } });
+        if (!current) return { status: 'unknown_redemption', redemptionId: event.id };
+        if (current.remoteStatus !== 'UNFULFILLED' && current.remoteStatus !== status) {
+          return { status: 'conflict', redemptionId: event.id };
+        }
+        await tx.redemption.update({
+          where: { redemptionId: event.id },
+          data: { remoteStatus: status, syncStatus: 'confirmed' },
+        });
+        const task = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${event.id}` } });
+        let outboxStatus = null;
+        if (task && ['pending', 'retry', 'processing', 'unknown', 'resolved_manual'].includes(task.status)) {
+          const expected = task.operationType === 'redemption.cancel' ? 'CANCELED' : 'FULFILLED';
+          outboxStatus = expected === status ? 'confirmed' : 'conflict';
+          await tx.outbox.update({ where: { id: task.id }, data: {
+            status: outboxStatus,
+            lastError: outboxStatus === 'conflict' ? `remote_${status.toLowerCase()}_opposes_${expected.toLowerCase()}` : null,
+            leaseUntil: null,
+            leaseToken: null,
+          } });
+        }
+        await tx.auditLog.create({ data: {
+          queueId: current.queueId,
+          redemptionId: event.id,
+          event: 'redemption.external_state_observed',
+          origin: 'eventsub',
+          previousState: current.remoteStatus,
+          nextState: status,
+          reason: status === 'CANCELED' ? 'external_cancellation' : 'external_fulfillment',
+          safeDetail: { outboxStatus },
+        } });
+        return { status: outboxStatus === 'conflict' ? 'conflict' : 'external_state_recorded', redemptionId: event.id };
+      });
+      return updated;
+    },
+
+    async importRedemption(event) {
+      const status = normalizeRedemptionStatus(event.status);
+      if (status === 'FULFILLED' || status === 'CANCELED') return this.recordTerminalRedemption(event);
+      if (status !== 'UNFULFILLED') return { status: 'unknown_remote_state', redemptionId: event.id };
+      const queue = await prisma.queue.findUnique({ where: { rewardId: event.rewardId } });
+      if (!queue || queue.lifecycleStatus === 'deleted') return { status: 'unmanaged_reward' };
+
+      try {
+        return await withQueueTransaction(prisma, queue.id, async (tx) => {
+          const existing = await tx.redemption.findUnique({ where: { redemptionId: event.id } });
+          if (existing) return { status: 'already_recorded', redemptionId: event.id };
+          const currentQueue = await tx.queue.findUnique({ where: { id: queue.id } });
+          let rejectionReason = null;
+          if (currentQueue.lifecycleStatus !== 'active' || currentQueue.isArchived) rejectionReason = 'queue_unavailable';
+          else if (!currentQueue.isOpen) rejectionReason = 'queue_closed';
+          let uid = null;
+          if (!rejectionReason) {
+            try {
+              uid = validateUidInput({ value: event.userInput, mode: currentQueue.uidMode, required: currentQueue.uidMode === 'visible' }).uid;
+            } catch {
+              rejectionReason = 'invalid_uid';
+            }
+          }
+          if (!rejectionReason) {
+            const duplicate = await tx.entry.findFirst({
+              where: { queueId: queue.id, twitchUserId: event.userId, status: { in: activeStatuses } },
+              select: { id: true },
+            });
+            if (duplicate) rejectionReason = 'duplicate_active_entry';
+          }
+
+          await tx.redemption.create({ data: {
+            redemptionId: event.id,
+            broadcasterId: event.broadcasterId,
+            rewardId: event.rewardId,
+            userId: event.userId,
+            queueId: queue.id,
+            redeemedAt: event.redeemedAt,
+            remoteStatus: 'UNFULFILLED',
+            syncStatus: rejectionReason ? 'pending' : 'observed',
+            rejectionReason,
+          } });
+
+          if (rejectionReason) {
+            await createCancellationIntent(tx, event.id);
+            await tx.auditLog.create({ data: {
+              queueId: queue.id,
+              redemptionId: event.id,
+              event: 'redemption.rejected',
+              origin: 'eventsub',
+              reason: rejectionReason,
+              safeDetail: { cancellationStatus: 'pending' },
+            } });
+            return { status: 'cancellation_pending', reason: rejectionReason, redemptionId: event.id };
+          }
+
+          const tail = await tx.entry.findFirst({
+            where: { queueId: queue.id, status: 'waiting' },
+            orderBy: [{ position: 'desc' }, { createdAt: 'desc' }],
+            select: { position: true },
+          });
+          const position = (tail?.position ?? 0) + 1;
+          const entry = await tx.entry.create({ data: {
+            queueId: queue.id,
+            twitchUserId: event.userId,
+            userLogin: event.userLogin.toLowerCase(),
+            displayName: event.displayName,
+            uid,
+            source: 'redemption',
+            redemptionId: event.id,
+            status: 'waiting',
+            position,
+          } });
+          await tx.auditLog.create({ data: {
+            queueId: queue.id,
+            entryId: entry.id,
+            redemptionId: event.id,
+            event: 'redemption.imported',
+            origin: 'eventsub',
+            nextState: 'waiting',
+            safeDetail: { position },
+          } });
+          return { status: 'added', position, entryId: entry.id, redemptionId: event.id };
+        });
+      } catch (error) {
+        if (isUniqueConstraintError(error)) return { status: 'already_recorded', redemptionId: event.id };
+        throw error;
+      }
     },
   };
 }

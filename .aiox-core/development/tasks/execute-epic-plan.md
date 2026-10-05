@@ -147,7 +147,7 @@ acceptance-criteria:
     blocker: true
     validação: |
       Each story spawned a subagent that followed the full development-cycle
-      (PO validate -> Executor develop -> Self-healing -> Quality gate -> DevOps push)
+      (PO validate -> Executor develop -> Static analysis -> Quality gate -> DevOps PR workflow)
     error_message: "Acceptance criterion not met: Stories did not follow development-cycle"
 
   - [ ] Wave gates were executed between waves
@@ -552,7 +552,7 @@ PROCEDURE execute_wave(wave, stories, state):
           Follow the development-cycle workflow:
           1. @po validates the story draft (read the story, verify acceptance criteria)
           2. @{story.executor} implements the code changes
-          3. Self-healing: fix any lint/test/typecheck errors
+          3. Run quality checks; fix any failures with tests before implementation changes
           4. @{story.quality_gate} reviews the implementation
           5. @devops creates branch {story.branch} and pushes
 
@@ -827,7 +827,7 @@ The executor loads state, reads `current_wave` and story statuses, and picks up 
 Each story spawns the full development-cycle:
 1. `@po` validates story draft
 2. `${story.executor}` develops (spawned in terminal)
-3. `@dev` self-healing (CodeRabbit, conditional)
+3. `@dev` runs configured local static analysis; findings are reviewed and fixed through the normal test-first cycle.
 4. `${story.quality_gate}` reviews (agent != executor)
 5. `@devops` pushes branch + PR
 6. `@po` checkpoint (auto-GO in wave mode)

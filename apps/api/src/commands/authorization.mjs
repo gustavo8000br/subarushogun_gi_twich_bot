@@ -47,7 +47,8 @@ export function authorizeCommand(input) {
     return decision(true, role, message.userId, 'allowed');
   }
   if (command.scope === 'global' && command.command === 'conta') {
-    if (command.args.length === 0 || isManager) return decision(true, role, message.userId, 'allowed');
+    if (command.args.length === 0) return decision(true, role, message.userId, 'allowed');
+    if (isManager) return decision(true, role, message.userId, 'allowed');
     return decision(false, role, message.userId, 'management_required');
   }
   if (command.scope === 'queue' && managementQueueCommands.has(command.command)) {

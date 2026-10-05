@@ -235,157 +235,16 @@ required:
 
 ## Review Process - Adaptive Test Architecture
 
-### 0. CodeRabbit Full Self-Healing Loop (Story 6.3.3)
+### 0. Local Static Analysis Check
 
-**Purpose**: Automated code quality scanning with self-healing before human review
-
-**Configuration**: Full self-healing (max 3 iterations, CRITICAL + HIGH issues)
-
-Execute CodeRabbit self-healing **FIRST** before manual review:
-
-```
-┌───────────────────────────────────────────────────────────────────┐
-│                   CODERABBIT SELF-HEALING                         │
-│                    (Full Mode - @qa)                              │
-├───────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  iteration = 0                                                    │
-│  max_iterations = 3                                               │
-│                                                                   │
-│  WHILE iteration < max_iterations:                                │
-│    ┌─────────────────────────────────────────────────────────┐   │
-│    │ 1. Run CodeRabbit CLI (runtime picks the shape for      │   │
-│    │    process.platform — see Issue #731):                  │   │
-│    │    macOS/Linux: ~/.local/bin/coderabbit --prompt-only   │   │
-│    │                 -t committed --base main                │   │
-│    │    Windows:     wsl bash -c 'cd /mnt/<drive>/<path> &&  │   │
-│    │                 ~/.local/bin/coderabbit --prompt-only   │   │
-│    │                 -t committed --base main'               │   │
-│    │                                                          │   │
-│    │ 2. Parse output for all severity levels                 │   │
-│    └─────────────────────────────────────────────────────────┘   │
-│                          │                                        │
-│                          ▼                                        │
-│    ┌─────────────────────────────────────────────────────────┐   │
-│    │ critical = filter(severity == "CRITICAL")               │   │
-│    │ high = filter(severity == "HIGH")                       │   │
-│    │ medium = filter(severity == "MEDIUM")                   │   │
-│    └─────────────────────────────────────────────────────────┘   │
-│                          │                                        │
-│                          ▼                                        │
-│    ┌─────────────────────────────────────────────────────────┐   │
-│    │ IF critical.length == 0 AND high.length == 0:           │   │
-│    │   - IF medium.length > 0:                               │   │
-│    │       - Create tech debt issues for each MEDIUM         │   │
-│    │   - Log: "✅ CodeRabbit passed"                         │   │
-│    │   - BREAK → Proceed to manual review                    │   │
-│    └─────────────────────────────────────────────────────────┘   │
-│                          │                                        │
-│                          ▼                                        │
-│    ┌─────────────────────────────────────────────────────────┐   │
-│    │ IF CRITICAL or HIGH issues found:                       │   │
-│    │   - Attempt auto-fix for each CRITICAL issue            │   │
-│    │   - Attempt auto-fix for each HIGH issue                │   │
-│    │   - iteration++                                         │   │
-│    │   - CONTINUE loop                                       │   │
-│    └─────────────────────────────────────────────────────────┘   │
-│                          │                                        │
-│                          ▼                                        │
-│  IF iteration == 3 AND (CRITICAL or HIGH issues remain):         │
-│    - Log: "❌ Issues remain after 3 iterations"                  │
-│    - Generate detailed QA gate report                            │
-│    - Set gate: FAIL                                              │
-│    - HALT and require human intervention                         │
-│                                                                   │
-└───────────────────────────────────────────────────────────────────┘
-```
-
-#### Severity Handling
-
-| Severity     | Behavior                  | Notes                                   |
-| ------------ | ------------------------- | --------------------------------------- |
-| **CRITICAL** | Auto-fix (max 3 attempts) | Security vulnerabilities, breaking bugs |
-| **HIGH**     | Auto-fix (max 3 attempts) | Significant quality problems            |
-| **MEDIUM**   | Create tech debt issue    | Document for future sprint              |
-| **LOW**      | Note in review            | Nits, no action required                |
-
-#### Implementation Code
-
-```javascript
-async function runQACodeRabbitSelfHealing(storyPath) {
-  const maxIterations = 3;
-  let iteration = 0;
-
-  console.log('🐰 Starting CodeRabbit Full Self-Healing Loop...');
-  console.log(`   Mode: Full (CRITICAL + HIGH)`);
-  console.log(`   Max Iterations: ${maxIterations}\n`);
-
-  while (iteration < maxIterations) {
-    console.log(`📋 Iteration ${iteration + 1}/${maxIterations}`);
-
-    // Run CodeRabbit CLI against main branch
-    const output = await runCodeRabbitCLI('committed --base main');
-    const issues = parseCodeRabbitOutput(output);
-
-    const criticalIssues = issues.filter((i) => i.severity === 'CRITICAL');
-    const highIssues = issues.filter((i) => i.severity === 'HIGH');
-    const mediumIssues = issues.filter((i) => i.severity === 'MEDIUM');
-    const lowIssues = issues.filter((i) => i.severity === 'LOW');
-
-    console.log(
-      `   Found: ${criticalIssues.length} CRITICAL, ${highIssues.length} HIGH, ${mediumIssues.length} MEDIUM, ${lowIssues.length} LOW`
-    );
-
-    // No CRITICAL or HIGH issues = success
-    if (criticalIssues.length === 0 && highIssues.length === 0) {
-      if (mediumIssues.length > 0) {
-        console.log(`\n📝 Creating tech debt issues for ${mediumIssues.length} MEDIUM issues...`);
-        await createTechDebtIssues(storyPath, mediumIssues);
-      }
-      console.log('\n✅ CodeRabbit Self-Healing: PASSED');
-      return { success: true, iterations: iteration + 1, proceedToManual: true };
-    }
-
-    // Attempt auto-fix for CRITICAL and HIGH issues
-    const allIssues = [...criticalIssues, ...highIssues];
-    console.log(`\n🔧 Attempting auto-fix for ${allIssues.length} issues...`);
-    for (const issue of allIssues) {
-      await attemptAutoFix(issue);
-    }
-
-    iteration++;
-  }
-
-  // Max iterations reached with issues
-  console.log('\n❌ CodeRabbit Self-Healing: FAILED');
-  console.log(`   CRITICAL/HIGH issues remain after ${maxIterations} iterations.`);
-  console.log('   Setting gate: FAIL - Manual intervention required.');
-
-  return { success: false, iterations: maxIterations, gateStatus: 'FAIL' };
-}
-```
-
-#### Timeout
-
-- **Default**: 30 minutes per CodeRabbit run
-- **Total max**: ~90 minutes (3 iterations)
-
-#### Integration with Gate Decision
-
-If self-healing fails:
-
-- Gate automatically set to FAIL
-- `top_issues` populated from remaining CodeRabbit issues
-- `status_reason` includes "CodeRabbit self-healing exhausted"
-
----
+Run the repository-configured static-analysis command and record its exact result. A non-zero exit status is a blocking finding for the quality gate. Review findings as evidence, verify behavior with tests, and keep this automated check separate from the human QA review. The scanner does not edit code, classify severity, or create issues. If execution is blocked, report the limitation and do not claim the scan passed.
 
 ### 0b. Code Intelligence: Reference Impact (Optional)
 
 > This step is **conditional** — only executes when a code intelligence provider is available.
 > If `isCodeIntelAvailable()` returns false, skip silently and proceed to Risk Assessment.
 
-After CodeRabbit self-healing (Step 0), if code intelligence is available:
+After the static-analysis check (Step 0), if code intelligence is available:
 
 1. Collect modified files from the story's File List
 2. Call `getReferenceImpact(files)` from `.aiox-core/core/code-intel/helpers/qa-helper.js`

@@ -163,7 +163,7 @@ class BobOrchestrator {
     const stageMap = {
       '1_validation': 'validation',
       '2_development': 'development',
-      '3_self_healing': 'self_healing',
+      '3_static_review': 'static_review',
       '4_quality_gate': 'quality_gate',
       '5_push': 'push',
       '6_checkpoint': 'checkpoint',
@@ -984,9 +984,9 @@ class BobOrchestrator {
     // AC10: Execute development cycle via WorkflowExecutor
     const result = await this.workflowExecutor.execute(storyPath);
 
-    // Story 12.5 AC5: Track self_healing phase (if applicable)
-    if (result.selfHealing) {
-      await this._updatePhase('self_healing', storyId, assignment.executor);
+    // Story 12.5 AC5: Track static-analysis phase (if applicable)
+    if (result.staticReview) {
+      await this._updatePhase('static_review', storyId, assignment.executor);
     }
 
     // Story 12.5 AC5: Track quality_gate phase

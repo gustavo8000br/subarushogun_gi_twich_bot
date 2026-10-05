@@ -11,7 +11,7 @@
 
 ## Purpose
 
-Configure complete GitHub DevOps infrastructure for user projects created with AIOX. This task copies GitHub Actions workflows, configures CodeRabbit, sets up branch protection, and manages secrets.
+Configure complete GitHub DevOps infrastructure for user projects created with AIOX. This task copies GitHub Actions workflows, configures OpenGrep, sets up branch protection, and manages secrets.
 
 **This task should be executed AFTER `*environment-bootstrap`**, when the Git repository is already initialized and pushed to GitHub.
 
@@ -62,7 +62,7 @@ atomic_layer: Organism
   validação: |
     {
       skip_workflows: boolean,      // Skip GitHub Actions setup
-      skip_coderabbit: boolean,     // Skip CodeRabbit configuration
+      skip_opengrep: boolean,     // Skip OpenGrep configuration
       skip_branch_protection: boolean, // Skip branch protection rules
       skip_secrets: boolean,        // Skip secrets wizard
       project_type: string          // node | python | go | rust | mixed
@@ -148,12 +148,12 @@ post-conditions:
       Test-Path ".github/workflows/ci.yml"
     error_message: "Workflow installation failed"
 
-  - [ ] CodeRabbit config present (if not skipped)
+  - [ ] Local static-analysis rules and command present (if enabled)
     tipo: post-condition
     blocker: false
     validação: |
-      Test-Path ".coderabbit.yaml"
-    warning_message: "CodeRabbit not configured"
+      Test-Path ".opengrep/rules.yml"
+    warning_message: "Local static analysis not configured"
 
   - [ ] DevOps setup report generated
     tipo: post-condition
@@ -265,7 +265,7 @@ changelog:
   1.0.0:
     - Initial implementation for Story 5.10
     - GitHub Actions templates support
-    - CodeRabbit configuration
+    - OpenGrep configuration
     - Branch protection via gh api
     - Secrets wizard integration
 ```
@@ -471,9 +471,10 @@ $ciWorkflow | Out-File -FilePath ".github/workflows/ci.yml" -Encoding utf8
 
 Write-Host "✅ Installed ci.yml"
 
-# Copy pr-automation.yml
-Copy-Item ".aiox-core/infrastructure/templates/github-workflows/pr-automation.yml.template" `
-  -Destination ".github/workflows/pr-automation.yml"
+# Install pr-automation.yml with the local scanner command
+$prTemplate = Get-Content ".aiox-core/infrastructure/templates/github-workflows/pr-automation.yml.template" -Raw
+$prWorkflow = $prTemplate -replace '\{\{OPENGREP_COMMAND\}\}', 'npm run review:static'
+$prWorkflow | Out-File -FilePath ".github/workflows/pr-automation.yml" -Encoding utf8
 Write-Host "✅ Installed pr-automation.yml"
 
 # Copy release.yml
@@ -484,81 +485,29 @@ Write-Host "✅ Installed release.yml"
 
 ---
 
-### Step 4: Configure CodeRabbit
+### Step 4: Configure Local Static Analysis
 
-**Action:** Generate CodeRabbit configuration based on project structure
-
-**Elicitation Point:**
-
-```
-╔════════════════════════════════════════════════════════════════════════╗
-║              CODERABBIT CONFIGURATION                                   ║
-╠════════════════════════════════════════════════════════════════════════╣
-║                                                                         ║
-║  CodeRabbit provides automated code review on PRs.                      ║
-║                                                                         ║
-║  Review profile options:                                                ║
-║  [1] chill     - Minimal feedback, only critical issues                 ║
-║  [2] balanced  - Moderate feedback (RECOMMENDED)                        ║
-║  [3] assertive - Comprehensive feedback, strict standards               ║
-║                                                                         ║
-║  Select profile (1/2/3): _                                              ║
-║                                                                         ║
-║  ⚠️  Note: Install CodeRabbit GitHub App after setup:                   ║
-║      https://github.com/apps/coderabbitai                               ║
-║                                                                         ║
-╚════════════════════════════════════════════════════════════════════════╝
-```
-
-**CodeRabbit Configuration:**
+**Action:** Add the repository's OpenGrep rules and a CI command. the configured OpenGrep command scans source code locally and in GitHub Actions; it does not create review comments or modify files.
 
 ```powershell
-echo "=== Configuring CodeRabbit ==="
-
-# Generate .coderabbit.yaml with project-specific path instructions
-$coderabbitConfig = Get-Content ".aiox-core/infrastructure/templates/coderabbit.yaml.template" -Raw
-
-# Customize based on project structure
-$pathInstructions = @()
-
-if (Test-Path "src") {
-  $pathInstructions += @"
-    - path: "src/**"
-      instructions: |
-        Focus on code quality, performance, and security.
-        Check for proper error handling and input validation.
-"@
+echo "=== Configuring local static analysis ==="
+New-Item -ItemType Directory -Path ".opengrep" -Force | Out-Null
+if (-not (Test-Path ".opengrep/rules.yml")) {
+  Copy-Item ".aiox-core/infrastructure/templates/opengrep.yaml.template" `
+    -Destination ".opengrep/rules.yml"
 }
 
-if (Test-Path "tests" -or Test-Path "__tests__") {
-  $pathInstructions += @"
-    - path: "**/*.test.*"
-      instructions: |
-        Ensure test coverage and edge cases.
-        Verify mock implementations are correct.
-"@
+$package = Get-Content "package.json" -Raw | ConvertFrom-Json
+if (-not $package.scripts.'review:static') {
+  Write-Warning "Add a review:static script that runs opengrep scan with .opengrep/rules.yml."
+  $opengrepConfigured = $false
+} else {
+  $opengrepConfigured = $true
 }
-
-if (Test-Path "docs") {
-  $pathInstructions += @"
-    - path: "docs/**"
-      instructions: |
-        Check clarity and completeness of documentation.
-"@
-}
-
-# Substitute variables
-$coderabbitConfig = $coderabbitConfig `
-  -replace '\{\{REVIEW_PROFILE\}\}', $reviewProfile `
-  -replace '\{\{PATH_INSTRUCTIONS\}\}', ($pathInstructions -join "`n")
-
-$coderabbitConfig | Out-File -FilePath ".coderabbit.yaml" -Encoding utf8
-
-Write-Host "✅ Created .coderabbit.yaml"
-Write-Host ""
-Write-Host "📌 IMPORTANT: Install the CodeRabbit GitHub App:"
-Write-Host "   https://github.com/apps/coderabbitai"
+Write-Host "✅ Local rules: .opengrep/rules.yml"
 ```
+
+The PR workflow runs the configured `review:static` script. No hosted app or service account is needed.
 
 ---
 
@@ -717,11 +666,10 @@ workflows_installed:
   - pr-automation.yml
   - release.yml
 
-coderabbit:
-  configured: true
-  profile: $reviewProfile
-  config_file: ".coderabbit.yaml"
-  github_app_url: "https://github.com/apps/coderabbitai"
+static_analysis:
+  configured: $opengrepConfigured
+  command: "npm run review:static"
+  config_file: ".opengrep/rules.yml"
 
 branch_protection:
   enabled: $branchProtectionEnabled
@@ -736,14 +684,13 @@ secrets_configured:
 $(($secretsConfigured | ForEach-Object { "  - $_" }) -join "`n")
 
 next_steps:
-  - "Install CodeRabbit GitHub App: https://github.com/apps/coderabbitai"
   - "Create first PR to test CI/CD"
   - "Configure additional secrets as needed"
   - "Review branch protection settings: Settings → Branches"
 
 validation_checklist:
   - "[x] GitHub Actions workflows installed"
-  - "[$(if($coderabbitConfigured){'x'}else{' '})] CodeRabbit configured"
+  - "[$(if($opengrepConfigured){'x'}else{' '})] OpenGrep configured"
   - "[$(if($branchProtectionEnabled){'x'}else{' '})] Branch protection enabled"
   - "[$(if($secretsConfigured.Count -gt 0){'x'}else{' '})] Repository secrets configured"
 "@
@@ -779,9 +726,9 @@ Write-Host "✅ Setup report saved to .aiox/devops-setup-report.yaml"
 ║    ✅ pr-automation.yml - Quality summary, coverage                        ║
 ║    ✅ release.yml - Release automation                                     ║
 ║                                                                            ║
-║  CodeRabbit:                                                               ║
-║    ✅ .coderabbit.yaml created (profile: balanced)                        ║
-║    ⚠️  Install GitHub App: https://github.com/apps/coderabbitai            ║
+║  OpenGrep:                                                               ║
+║    ✅ Local static-analysis rules and PR quality job configured             ║
+║    ℹ️  Findings block the job; the scanner never edits source files          ║
 ║                                                                            ║
 ║  Branch Protection (main):                                                 ║
 ║    ✅ Required status checks: lint, typecheck, test                        ║
@@ -796,17 +743,14 @@ Write-Host "✅ Setup report saved to .aiox/devops-setup-report.yaml"
 ║  NEXT STEPS                                                                ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                            ║
-║  1. Install CodeRabbit GitHub App (required for code review):              ║
-║     https://github.com/apps/coderabbitai                                   ║
-║                                                                            ║
-║  2. Create your first PR to test the CI/CD pipeline:                       ║
+║  1. Create your first PR to test the CI/CD pipeline:                       ║
 ║     git checkout -b feature/test-ci                                        ║
 ║     git commit --allow-empty -m "chore: test CI pipeline"                  ║
 ║     git push -u origin feature/test-ci                                     ║
 ║     gh pr create --title "Test CI Pipeline" --body "Testing CI setup"      ║
 ║                                                                            ║
-║  3. Commit the DevOps configuration:                                       ║
-║     git add .github/ .coderabbit.yaml .aiox/                              ║
+║  2. Commit the DevOps configuration:                                       ║
+║     git add .github/ .opengrep/rules.yml .aiox/                              ║
 ║     git commit -m "chore: add DevOps configuration [Story 5.10]"          ║
 ║     git push                                                               ║
 ║                                                                            ║
@@ -824,7 +768,7 @@ Write-Host "✅ Setup report saved to .aiox/devops-setup-report.yaml"
 - [ ] Pre-conditions verified (git, remote, gh auth)
 - [ ] Project type detected
 - [ ] GitHub Actions workflows installed
-- [ ] CodeRabbit configuration created
+- [ ] OpenGrep configuration created
 - [ ] Branch protection configured (if supported)
 - [ ] Secrets configured (if selected)
 - [ ] Setup report generated
@@ -852,12 +796,12 @@ Write-Host "✅ Setup report saved to .aiox/devops-setup-report.yaml"
 2. Check for tab characters (use spaces only)
 3. Verify action versions are valid
 
-### Issue 3: CodeRabbit not reviewing PRs
+### Issue 3: Static analysis fails in GitHub Actions
 
 **Fix:**
-1. Verify GitHub App is installed: https://github.com/apps/coderabbitai
-2. Check app has access to the repository
-3. Verify .coderabbit.yaml is in the default branch
+1. Verify the OpenGrep binary is available to the configured script.
+2. Verify `.opengrep/rules.yml` is valid and committed.
+3. Read the `static-analysis` job output for the failing rule or command.
 
 ---
 
@@ -865,7 +809,7 @@ Write-Host "✅ Setup report saved to .aiox/devops-setup-report.yaml"
 
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [GitHub Branch Protection API](https://docs.github.com/en/rest/branches/branch-protection)
-- [CodeRabbit Documentation](https://docs.coderabbit.ai/)
+- [OpenGrep Documentation](https://github.com/opengrep/opengrep)
 - [Story 5.10 - GitHub DevOps Setup](docs/stories/v4.0.4/sprint-5/story-5.10-github-devops-user-projects.md)
 
 ---

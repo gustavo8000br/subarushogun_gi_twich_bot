@@ -932,7 +932,7 @@ aiox-core/                        # Root project
 │   │   │   └── mcp-manager.js
 │   │   │
 │   │   ├── integrations/
-│   │   │   ├── coderabbit/            # CodeRabbit integration
+│   │   │   ├── static-analysis/     # Local static-analysis integration
 │   │   │   ├── github-cli/
 │   │   │   ├── supabase-cli/
 │   │   │   ├── railway-cli/
@@ -1067,11 +1067,11 @@ aiox-core/                        # Root project
 ├── .github/
 │   ├── workflows/
 │   │   ├── quality-gates-pr.yml
-│   │   ├── coderabbit-review.yml
+│   │   ├── static-analysis.yml
 │   │   ├── tests.yml
 │   │   └── memory-backup.yml          # ⭐ NEW: Memory backup automation
 │   │
-│   └── coderabbit.yaml
+│   └── opengrep-rules.yml
 │
 ├── package.json
 ├── tsconfig.json

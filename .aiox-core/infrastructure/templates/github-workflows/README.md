@@ -20,7 +20,7 @@ Enhanced PR validation workflow:
 - All basic CI checks
 - Coverage report as PR comment
 - Quality gate summary comment
-- CodeRabbit integration status
+- Local static-analysis job status
 
 ### release.yml.template
 

@@ -22,10 +22,10 @@ Use for repository state, history, and branch management.
 - **Recent history:** `git log --oneline -10` — last 10 commits with conventional messages
 - **Branch comparison:** `git diff main...HEAD --stat` — all changes since branching from main
 
-### coderabbit — Automated Code Review
-Use before commits and PRs for quality validation. Runs in WSL.
-- **Pre-commit:** `wsl bash -c 'cd /mnt/c/.../aiox-core && ~/.local/bin/coderabbit --prompt-only -t uncommitted'`
-- **Pre-PR:** `wsl bash -c 'cd /mnt/c/.../aiox-core && ~/.local/bin/coderabbit --prompt-only --base main'`
+### OpenGrep — Local Static Analysis
+Use the project-configured command before commits and PRs. It reports repository-defined rule matches and does not edit code.
+- **Pre-commit:** `npm run review:static`
+- **Pre-PR:** `npm run review:static`
 
 ### browser — Web Testing
 Use for UI validation, console checks, and web interaction.

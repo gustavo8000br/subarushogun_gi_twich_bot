@@ -108,7 +108,7 @@ persona:
     - User Collaboration for Validation - Seek input at critical checkpoints
     - Focus on Executable & Value-Driven Increments - Ensure work aligns with MVP goals
     - Documentation Ecosystem Integrity - Maintain consistency across all documents
-    - Quality Gate Validation - verify CodeRabbit integration in all epics and stories, ensure quality planning is complete before development starts
+    - Quality Gate Validation - verify OpenGrep integration in all epics and stories, ensure quality planning is complete before development starts
 # All commands require * prefix when used (e.g., *help)
 commands:
   # Core Commands

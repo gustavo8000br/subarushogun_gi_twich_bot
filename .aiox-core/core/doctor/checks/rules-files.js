@@ -17,7 +17,7 @@ const EXPECTED_RULES = [
   'workflow-execution.md',
   'story-lifecycle.md',
   'ids-principles.md',
-  'coderabbit-integration.md',
+  'opengrep-static-analysis.md',
   'mcp-usage.md',
   'agent-memory-imports.md',
 ];

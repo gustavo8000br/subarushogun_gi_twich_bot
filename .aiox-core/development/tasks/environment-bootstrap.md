@@ -265,7 +265,6 @@ dependencies:
   - github-cli.yaml
   - supabase-cli.yaml
   - railway-cli.yaml
-  - coderabbit
 tags:
   - bootstrap
   - environment
@@ -277,7 +276,7 @@ changelog:
     - Fixed: Git workflow - commit before gh repo create --push
     - Fixed: PowerShell vs bash syntax separation
     - Added: CLI update detection and offer for outdated tools
-    - Added: Enhanced CodeRabbit CLI verification with WSL support
+    - Added: Project-configured local static-analysis verification
     - Improved: Clear separation of Windows/Unix commands
 ```
 
@@ -373,7 +372,7 @@ Present comprehensive status table:
 ║               │ railway       │ ❌ MISSING│ -          │ OPTIONAL     ║
 ║               │ docker        │ ✅ OK     │ 24.0.7     │ RECOMMENDED  ║
 ╠═══════════════╪═══════════════╪═══════════╪════════════╪══════════════╣
-║ QUALITY       │ coderabbit    │ ⚠️ CHECK  │ 0.8.0      │ RECOMMENDED  ║
+║ QUALITY       │ opengrep    │ ⚠️ CHECK  │ project-pinned │ OPTIONAL ║
 ║               │               │ (WSL/Win) │            │              ║
 ╠═══════════════╪═══════════════╪═══════════╪════════════╪══════════════╣
 ║ OPTIONAL      │ pnpm          │ ❌ MISSING│ -          │ OPTIONAL     ║
@@ -490,51 +489,14 @@ cli_checks:
       note: 'Required for local Supabase development'
 
   quality:
-    coderabbit:
-      check_windows: |
-        # Windows: CodeRabbit CLI is installed in WSL, not native Windows
-        # First check if WSL is available
-        wsl --version
-        if ($LASTEXITCODE -eq 0) {
-          # Then check CodeRabbit in WSL
-          wsl bash -c 'if [ -f ~/.local/bin/coderabbit ]; then ~/.local/bin/coderabbit --version; else echo "NOT_INSTALLED"; fi'
-        } else {
-          Write-Host "WSL not available - CodeRabbit requires WSL on Windows"
-        }
-      check_unix: |
-        # macOS/Linux: Check direct installation
-        if command -v coderabbit >/dev/null 2>&1; then
-          coderabbit --version
-        elif [ -f ~/.local/bin/coderabbit ]; then
-          ~/.local/bin/coderabbit --version
-        else
-          echo "NOT_INSTALLED"
-        fi
-      expected: '0.8.x or higher'
+    opengrep:
+      check: 'opengrep --version'
+      expected: 'the version pinned/documented by the project'
       install:
-        windows_wsl: |
-          # 1. Ensure WSL is installed: wsl --install
-          # 2. In WSL terminal:
-          curl -fsSL https://coderabbit.ai/install.sh | bash
-          # 3. Authenticate:
-          ~/.local/bin/coderabbit auth login
-        macos: 'curl -fsSL https://coderabbit.ai/install.sh | bash'
-        linux: 'curl -fsSL https://coderabbit.ai/install.sh | bash'
-      note: |
-        Cross-platform CodeRabbit CLI (Issue #731):
-        - macOS/Linux: CodeRabbit runs natively. Binary at ~/.local/bin/coderabbit
-          or anywhere on PATH. Invoke directly — no wrapper needed.
-        - Windows: CodeRabbit runs through WSL (no native Windows binary today).
-          Requires WSL with Ubuntu/Debian; binary at ~/.local/bin/coderabbit
-          inside WSL; commands wrapped as `wsl bash -c '...'`.
-        - The aiox-core runtime auto-detects the host (`process.platform`) and
-          builds the right command shape. Override with `installation_mode:
-          'wsl' | 'native'` in `quality-gate-config.yaml` only if detection
-          is wrong.
-        - See: docs/guides/coderabbit/README.md for full setup guide
-      verification:
-        windows: "wsl bash -c '~/.local/bin/coderabbit --version'"
-        unix: 'coderabbit --version'
+        linux_macos: 'Follow the official OpenGrep installation instructions'
+        windows: 'Use the official Windows installation instructions'
+      note: 'Local static analysis only; no account or hosted service. Use the project command and rules. The scanner reports findings and does not edit files.'
+      verification: 'opengrep --version'
 
   optional:
     pnpm:
@@ -586,7 +548,7 @@ INFRASTRUCTURE (recommended):
   [4] docker - Containerization, local Supabase
 
 QUALITY (recommended):
-  [5] coderabbit - Pre-PR code review (WSL required on Windows)
+  [5] opengrep - Optional local static analysis (only if configured by the project)
 
 OPTIONAL:
   [6] pnpm - Fast package manager
@@ -1249,7 +1211,7 @@ Write-Host "✅ Environment report saved to .aiox/environment-report.json"
 ║  ✅ git 2.43.0          ✅ gh 2.40.1 (authenticated)                       ║
 ║  ✅ node 20.10.0        ✅ npm 10.2.4                                      ║
 ║  ✅ supabase 1.123.0    ✅ railway 3.5.0                                   ║
-║  ✅ docker 24.0.7       ⚠️  coderabbit (WSL only)                          ║
+║  ✅ docker 24.0.7       ⚠️  opengrep (project-configured, optional)       ║
 ║                                                                            ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║  Project Structure                                                         ║
@@ -1386,7 +1348,6 @@ gh repo delete REPO_NAME --yes
 - [Supabase CLI Documentation](https://supabase.com/docs/guides/cli)
 - [Railway CLI Documentation](https://docs.railway.app/reference/cli-api)
 - [AIOX Greenfield Workflow](.aiox-core/development/workflows/greenfield-fullstack.yaml)
-- [CodeRabbit Setup Guide](docs/guides/coderabbit/README.md)
 
 ---
 

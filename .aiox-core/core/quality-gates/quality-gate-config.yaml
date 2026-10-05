@@ -32,9 +32,6 @@ layer1:
 # Layer 2: Static review
 layer2:
   enabled: true
-  coderabbit:
-    enabled: false
-    # Paid CodeRabbit is not licensed and must never be invoked.
   opengrep:
     enabled: true
     command: "npm run review:static"

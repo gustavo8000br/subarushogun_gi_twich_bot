@@ -42,7 +42,7 @@ Releases represent commitment to quality.]]
    - [ ] All pre-push checklist items completed
    - [ ] All tests pass on release branch
    - [ ] Build succeeds for all target environments
-   - [ ] CodeRabbit review completed with no CRITICAL issues
+   - [ ] Configured local static-analysis gate passes
    - [ ] No known blocking bugs
 
 3. **Changelog:**

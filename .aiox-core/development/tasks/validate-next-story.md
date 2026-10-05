@@ -316,63 +316,13 @@ To comprehensively validate a story draft before implementation begins, ensuring
 - **Completeness**: Do tasks cover all requirements and acceptance criteria?
 - **Blocking issues**: Are there any tasks that would block others?
 
-### 8. CodeRabbit Integration Validation (CONDITIONAL)
+### 8. Static Analysis Plan Validation
 
-**CONDITIONAL STEP** - Check `coderabbit_integration.enabled` in core-config.yaml
-
-**IF `coderabbit_integration.enabled: false`:**
-- SKIP this entire step
-- Verify the story contains the skip notice in the CodeRabbit Integration section:
-  > **CodeRabbit Integration**: Disabled
-- Log: "ℹ️ CodeRabbit validation skipped - disabled in core-config.yaml"
-- Proceed to Step 9
-
-**IF `coderabbit_integration.enabled: true`:**
-- Validate ALL of the following:
-
-**Section Presence:**
-- Is the `🤖 CodeRabbit Integration` section present?
-- Are all subsections populated (Story Type Analysis, Specialized Agents, Quality Gates, Self-Healing, Focus Areas)?
-
-**Story Type Analysis:**
-- Is the primary story type correctly identified?
-- Does the complexity level match the story scope?
-- Are secondary types listed if applicable?
-
-**Specialized Agent Assignment:**
-- Is @dev listed as primary agent (required for all stories)?
-- Are type-specific agents assigned appropriately?
-  - Database stories → @db-sage
-  - Frontend stories → @ux-expert
-  - Deployment stories → @github-devops
-  - Security stories → @architect
-
-**Quality Gate Tasks:**
-- Are all applicable quality gates defined as checkboxes?
-- Pre-Commit (@dev) - REQUIRED for all stories
-- Pre-PR (@github-devops) - Required if PR will be created
-- Pre-Deployment (@github-devops) - Required for production stories
-
-**Self-Healing Configuration (Story 6.3.3):**
-- Is the self-healing configuration present?
-- Does the mode match the primary agent?
-  - @dev: light mode (2 iterations, 15 min, CRITICAL only)
-  - @qa: full mode (3 iterations, 30 min, CRITICAL+HIGH)
-  - @github-devops: check mode (report only)
-- Is the severity behavior documented?
-
-**Focus Areas:**
-- Do focus areas match the story type?
-- Are type-specific validations listed?
-  - Database: service filters, schema compliance, RLS
-  - API: error handling, security, validation
-  - Frontend: accessibility, performance, responsive
-
-**Validation Result:**
-- [ ] PASS: CodeRabbit section complete and accurate
-- [ ] PARTIAL: Section present but incomplete
-- [ ] FAIL: Section missing or critically incomplete
-- [ ] N/A: CodeRabbit disabled in core-config.yaml
+- Identify the project's configured local static-analysis command and rule path.
+- Ensure the story's quality-gate plan includes that command when code/configuration changes are in scope.
+- Ensure the plan says findings block completion and are fixed using the normal test-first cycle.
+- Ensure it does not promise automatic edits, hosted review, unsupported severity counts, or scanner-generated issue creation.
+- Keep specialist and human review assignments as separate gates.
 
 ### 8.1 Code Intelligence: No Duplicate Functionality (Auto-skip if unavailable)
 
@@ -440,20 +390,12 @@ Provide a structured validation report including:
 - Inconsistencies with architecture documents
 - Invented libraries, patterns, or standards
 
-#### CodeRabbit Integration Findings (CONDITIONAL)
+#### Static Analysis Plan Findings
 
-**IF `coderabbit_integration.enabled: true`:**
-
-- **Story Type Accuracy**: Is the story type correctly classified?
-- **Agent Assignment Completeness**: Are all required agents assigned?
-- **Quality Gate Coverage**: Are all applicable gates defined?
-- **Self-Healing Configuration**: Is Story 6.3.3 configuration present?
-- **Focus Areas Relevance**: Do focus areas match story type?
-
-**IF `coderabbit_integration.enabled: false`:**
-
-- **Skip Notice Present**: Verify skip notice is rendered in story
-- **No Quality Gate Tasks**: Confirm no CodeRabbit checkboxes exist
+- **Command Accuracy**: Does the story name the configured local scanner command?
+- **Blocking Behavior**: Does it state how a non-zero result affects completion?
+- **No Mutation**: Does it avoid claims that the scanner modifies code?
+- **Review Separation**: Are human/specialist reviews listed independently?
 - **Manual Review Fallback**: Note that manual review process applies
 
 #### Final Assessment

@@ -57,7 +57,7 @@ DOMAINPREFIX_RULE_1=Second rule text
 
 AGENT_DEV_RULE_0=Follow story tasks sequentially — read task, implement, test, mark [x]
 AGENT_DEV_RULE_1=ONLY update Dev Agent Record sections in story files
-AGENT_DEV_RULE_2=Run CodeRabbit pre-commit review before marking story complete
+AGENT_DEV_RULE_2=Run OpenGrep pre-commit review before marking story complete
 ```
 
 ### Example: Workflow Domain

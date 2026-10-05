@@ -23,7 +23,7 @@ Este documento é a **versão consolidada v4.2** que incorpora todas as mudança
 - ✅ **Squad System** (nova terminologia, substituindo "Squad")
 - ✅ **Multi-Repo Strategy** (3 repositórios públicos + 2 privados)
 - ✅ **Quality Gates 3 Layers** (Pre-commit, PR Automation, Human Review)
-- ✅ **Story Template v2.0** (Cross-Story Decisions, CodeRabbit Integration)
+- ✅ **Story Template v2.0** (Cross-Story Decisions, Local Static Analysis)
 - ✅ **npm Package Scoping** (@aiox/core, @aiox/squad-\*, @aiox/mcp-presets)
 
 **Referências Legadas:**
@@ -419,11 +419,11 @@ exports:
 │                                                                         │
 │   LAYER 2: PR AUTOMATION (CI/CD)                                       │
 │   ══════════════════════════════                                        │
-│   • CodeRabbit AI review                                                │
+│   • Repository-configured local static analysis                                                │
 │   • Integration tests, coverage                                         │
 │   • Security scan, performance                                          │
-│   • Executor: Agent (QA) + CodeRabbit                                  │
-│   • Tool: GitHub Actions + CodeRabbit App                              │
+│   • Executor: CI job + human QA                                  │
+│   • Tool: GitHub Actions + repository-owned rules                              │
 │   • Blocking: Required checks for merge                                 │
 │   • Catches: Additional 50% (80% total)                                │
 │                                                                         │
@@ -532,7 +532,7 @@ THEN [expected result]
 
 ---
 
-## 🤖 CodeRabbit Integration
+## Local Static Analysis
 
 ### Story Type Analysis
 

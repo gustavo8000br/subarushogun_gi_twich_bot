@@ -50,7 +50,7 @@ const ADAPTABILITY_DEFAULTS = {
 };
 
 const EXTERNAL_TOOLS = new Set([
-  'coderabbit', 'git', 'github-cli', 'docker', 'supabase', 'browser',
+  'opengrep', 'git', 'github-cli', 'docker', 'supabase', 'browser',
   'ffmpeg', 'n8n', 'context7', 'playwright', 'apify', 'clickup',
   'jira', 'slack', 'exa', 'eslint', 'jest', 'npm', 'node',
   'docker-gateway', 'desktop-commander', 'railway',

@@ -117,7 +117,7 @@ quality_gates:
       - typecheck
   layer2:
     enabled: true
-    coderabbit: true
+    opengrep: true
   layer3:
     enabled: true
     required_reviewers: 1

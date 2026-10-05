@@ -3,18 +3,59 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#171923">
-    <title>Bot local de filas</title>
+    <meta name="theme-color" content="#111318">
+    <title>Fila Local · Twitch</title>
     <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/app.js"></script>
   </head>
   <body>
-    <main class="page">
-      <section class="status-card" aria-labelledby="page-title">
-        <p class="eyebrow">Twitch · Genshin Impact</p>
-        <h1 id="page-title">Bot local de filas</h1>
-        <p>Runtime local pronto. Assistente de instalação em implementação.</p>
-        <p class="local-note">Seus dados permanecem neste computador.</p>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Fila Local início"><span class="brand-mark">F</span><span>FILA <b>LOCAL</b></span></a>
+      <div class="runtime"><span id="runtime-version">Versão local</span><span class="runtime-dot"></span><span>Dados neste computador</span></div>
+    </header>
+    <main class="layout">
+      <section class="welcome">
+        <div><p class="eyebrow">PAINEL DO STREAMER</p><h1>Suas filas,<br><em>no seu ritmo.</em></h1><p class="lead">Organize as partidas, acompanhe os resgates e mantenha cada atendimento sob controle.</p></div>
+        <div class="connection-card"><span class="connection-icon">◉</span><div><strong id="channel-name">Twitch ainda não conectada</strong><small id="twitch-status">Conecte seu canal para ativar as recompensas.</small></div><span class="status-pill" id="twitch-pill">DESLIGADA</span></div>
       </section>
+      <section class="grid">
+        <article class="panel setup-panel">
+          <div class="panel-heading"><div><p class="eyebrow">PRIMEIROS PASSOS</p><h2>Conectar canal</h2></div><span class="step-number">01</span></div>
+          <p class="muted">Crie um aplicativo confidencial no console Twitch. O callback deste painel é:</p>
+          <code class="callback" id="callback-url">http://localhost:3000/callback</code>
+          <a class="text-link" href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Abrir console de desenvolvedor ↗</a>
+          <form id="credentials-form" class="form-stack">
+            <label>Client ID<input name="clientId" autocomplete="off" required maxlength="128" placeholder="Seu Client ID"></label>
+            <label>Client Secret<input name="clientSecret" type="password" autocomplete="new-password" maxlength="256" placeholder="••••••••••••••••" required></label>
+            <p id="secret-state" class="hint">O Secret fica guardado localmente e nunca será exibido novamente.</p>
+            <button class="button button-primary" type="submit">Validar e salvar aplicativo</button>
+          </form>
+          <button class="button button-secondary full" id="connect-button" disabled>Conectar com a Twitch</button>
+          <p class="notice" id="setup-notice" role="status"></p>
+        </article>
+        <article class="panel create-panel">
+          <div class="panel-heading"><div><p class="eyebrow">CONFIGURE SUA LIVE</p><h2>Nova fila</h2></div><span class="step-number">02</span></div>
+          <form id="queue-form" class="form-stack two-col">
+            <label>Nome da fila<input name="title" required maxlength="45" placeholder="Ex.: Abismo Espiral"></label>
+            <label>Comando<input name="slug" required minlength="2" maxlength="24" pattern="[a-z0-9-]+" placeholder="abismo"></label>
+            <label>Apelidos<input name="aliases" placeholder="abyss, espiral"></label>
+            <label>Custo em pontos<input name="cost" type="number" min="1" step="1" required value="1000"></label>
+            <label class="wide">Descrição da recompensa<textarea name="rewardPrompt" rows="2" maxlength="180" placeholder="Resgate para entrar na fila. UID somente se solicitado."></textarea></label>
+            <label>Modo do UID<select name="uidMode"><option value="hidden">Oculto</option><option value="visible">Solicitar UID</option></select></label>
+            <label>Prazo de chamada (min)<input name="callTimeoutMin" type="number" min="1" max="120" value="10"></label>
+            <button class="button button-primary wide" type="submit">Criar fila</button>
+          </form>
+          <p class="notice" id="queue-notice" role="status"></p>
+        </article>
+      </section>
+      <section class="panel queues-panel">
+        <div class="panel-heading queue-heading"><div><p class="eyebrow">AO VIVO</p><h2>Filas e atendimentos</h2></div><div class="account"><span>CONTA ATUAL</span><strong id="account-label">Streamer</strong><button id="edit-account" class="icon-button" aria-label="Editar conta atual">✎</button><button id="edit-default-account" class="small-action" type="button">Editar padrão</button></div></div>
+        <div id="queue-list" class="queue-list"><div class="empty-state"><span>◌</span><strong>Preparando suas filas</strong><small>Elas aparecerão aqui conforme você configurar o painel.</small></div></div>
+      </section>
+      <section class="panel operations-panel"><div class="panel-heading"><div><p class="eyebrow">PONTOS E RECUPERAÇÃO</p><h2>Operações financeiras</h2></div></div><div id="operation-list" class="operation-list"><p class="muted">Nenhuma operação pendente.</p></div></section>
+      <footer><span>Fila Local · operação local-first</span><span id="last-refresh">Atualizando estado</span></footer>
     </main>
+    <dialog id="entry-dialog"><form method="dialog" id="entry-form"><div class="panel-heading"><div><p class="eyebrow">ADICIONAR MANUALMENTE</p><h2>Entrada na fila</h2></div><button class="icon-button" value="cancel" aria-label="Fechar">×</button></div><input type="hidden" name="queueId"><label>Login Twitch<input name="login" required maxlength="25" placeholder="@usuario"></label><label>UID (opcional)<input name="uid" inputmode="numeric" pattern="[0-9]{9}" maxlength="9" placeholder="9 dígitos"></label><p class="notice" id="entry-notice" role="status"></p><button class="button button-primary" type="submit">Adicionar à fila</button></form></dialog>
+    <div id="toast" role="status" aria-live="polite"></div>
   </body>
 </html>

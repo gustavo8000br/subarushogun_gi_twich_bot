@@ -196,22 +196,20 @@ class FocusAreaRecommender {
       }
     });
 
-    // Add areas based on CodeRabbit issues
-    const coderabbitResult = layer2Result?.results?.find((r) => r.check === 'coderabbit');
-    if (coderabbitResult?.issues) {
-      if (coderabbitResult.issues.high > 0) {
+    // Add areas based on OpenGrep issues
+    const opengrepResult = layer2Result?.results?.find((r) => r.check === 'opengrep');
+    if (opengrepResult && !opengrepResult.pass) {
         const existingBusinessLogic = primary.find((p) => p.area === 'business-logic');
         if (!existingBusinessLogic) {
           primary.push({
             area: 'code-quality',
-            reason: `${coderabbitResult.issues.high} HIGH severity issues from CodeRabbit`,
+            reason: 'Local static analysis reported findings that need review',
             questions: [
-              'Are the HIGH severity issues acceptable tradeoffs?',
-              'Do these issues indicate deeper architectural problems?',
+              'Have all blocking static-analysis findings been resolved or explicitly waived?',
+              'Do the findings point to a broader security or quality issue?',
             ],
           });
         }
-      }
     }
 
     // Limit to top 3 primary areas

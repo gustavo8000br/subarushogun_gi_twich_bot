@@ -108,39 +108,14 @@
       },
       "additionalProperties": false
     },
-    "coderabbit_integration": {
+    "static_review": {
       "type": "object",
-      "description": "CodeRabbit automated review integration",
+      "description": "Local static analysis command and reporting settings",
       "properties": {
         "enabled": { "type": "boolean" },
-        "self_healing": {
-          "type": "object",
-          "properties": {
-            "enabled": { "type": "boolean" },
-            "type": { "type": "string", "enum": ["light", "full"] },
-            "max_iterations": { "type": "integer", "minimum": 1 },
-            "timeout_minutes": { "type": "integer", "minimum": 1 }
-          },
-          "additionalProperties": false
-        },
-        "severity_handling": {
-          "type": "object",
-          "properties": {
-            "CRITICAL": { "type": "string", "enum": ["auto_fix", "document_as_debt", "ignore"] },
-            "HIGH": { "type": "string", "enum": ["auto_fix", "document_as_debt", "ignore"] },
-            "MEDIUM": { "type": "string", "enum": ["auto_fix", "document_as_debt", "ignore"] },
-            "LOW": { "type": "string", "enum": ["auto_fix", "document_as_debt", "ignore"] }
-          },
-          "additionalProperties": false
-        },
-        "graceful_degradation": {
-          "type": "object",
-          "properties": {
-            "skip_if_not_installed": { "type": "boolean" },
-            "fallback_message": { "type": "string" }
-          },
-          "additionalProperties": false
-        },
+        "command": { "type": "string", "minLength": 1 },
+        "timeout_minutes": { "type": "integer", "minimum": 1 },
+        "mode": { "type": "string", "enum": ["local"] },
         "report_location": { "type": "string" }
       },
       "additionalProperties": false

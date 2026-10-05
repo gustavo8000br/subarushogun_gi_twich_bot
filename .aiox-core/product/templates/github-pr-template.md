@@ -44,7 +44,7 @@ npm test
 - [ ] `npm test` passes
 - [ ] `npm run typecheck` passes (if TypeScript)
 - [ ] `npm run build` succeeds
-- [ ] CodeRabbit review completed (if available)
+- [ ] Configured local static-analysis check passes (if applicable)
 
 ## Screenshots
 <!-- If UI changes, add before/after screenshots -->

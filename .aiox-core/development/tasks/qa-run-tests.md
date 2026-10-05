@@ -3,7 +3,7 @@ name: run-tests
 agent: qa
 requires:
   - jest
-  - coderabbit
+  - opengrep
 ---
 
 # Run Tests (with Code Quality Gate)
@@ -230,7 +230,7 @@ npm run test:integration
 ### 3. Code Quality Review
 ```bash
 # Review code that was tested
-coderabbit --prompt-only -t uncommitted
+npm run review:static
 ```
 
 **Parse output**:
@@ -243,7 +243,7 @@ Use template: `qa-gate-tmpl.yaml`
 
 Include:
 - Test results (pass/fail, coverage %)
-- CodeRabbit summary (issues by severity)
+- OpenGrep summary (issues by severity)
 - Recommendation (approve/reject story)
 
 ### 5. Update Story Status
@@ -258,9 +258,9 @@ If failures:
 - [ ] Create tech debt issues for MEDIUM
 - [ ] Request fixes from @dev
 
-## Integration with CodeRabbit
+## Integration with OpenGrep
 
-**CodeRabbit helps @qa agent**:
+**OpenGrep helps @qa agent**:
 - Catch issues tests might miss (logic errors, race conditions)
 - Validate security patterns (SQL injection, hardcoded secrets)
 - Enforce coding standards automatically
@@ -269,9 +269,9 @@ If failures:
 ## Config
 
 ```yaml
-codeRabbit:
+opengrep:
   enabled: true
   severity_threshold: high
   auto_fix: false  # QA reviews but doesn't auto-fix
-  report_location: docs/qa/coderabbit-reports/
+  report_location: docs/qa/opengrep-reports/
 ```

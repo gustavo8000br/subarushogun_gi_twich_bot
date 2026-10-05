@@ -230,7 +230,7 @@ console.log(colors.success('✓ Environment configured'));
 console.log(colors.warning('⚠️  Node version 16+ recommended (you have 14)'));
 
 // Skipped
-console.log(colors.muted('⊘ CodeRabbit setup skipped'));
+console.log(colors.muted('⊘ OpenGrep setup skipped'));
 ```
 
 **Interactive Prompts:**

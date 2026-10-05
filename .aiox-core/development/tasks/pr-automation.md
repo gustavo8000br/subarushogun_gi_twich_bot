@@ -6,7 +6,6 @@ category: devops
 complexity: medium
 tools:
   - github-cli       # Create PRs, manage repository
-  - coderabbit-free  # Pre-submission code review
 checklists:
   - github-devops-checklist.md
   - pr-quality-checklist.md
@@ -57,8 +56,8 @@ To help users contribute to the AIOX open-source project (`aiox-core`) by automa
   - **Example**: `42`
   - **Link**: Will add "Closes #42" to PR
 
-- **run_coderabbit**: `boolean`
-  - **Description**: Run CodeRabbit pre-check before submitting
+- **run_static_analysis**: `boolean`
+  - **Description**: Run local static scan before submitting
   - **Default**: `true`
   - **Recommendation**: Always true for first-time contributors
 
@@ -81,7 +80,7 @@ To help users contribute to the AIOX open-source project (`aiox-core`) by automa
   - **Description**: Created feature branch
   - **Example**: `"contrib/Squad-content-creator"`
 
-- **coderabbit_report**: `object` (if run_coderabbit=true)
+- **static_analysis_report**: `object` (if run_static_analysis=true)
   - **Structure**: `{ issues_found, security_warnings, suggestions, review_url }`
   - **Description**: Pre-submission code review results
 
@@ -122,13 +121,10 @@ To help users contribute to the AIOX open-source project (`aiox-core`) by automa
    - Check for failures
    - If failures: HALT and show errors
 
-5. **Run CodeRabbit Pre-Check** (if run_coderabbit=true)
-   - Execute: `coderabbit --prompt-only -t uncommitted`
-   - Generate pre-submission review
-   - Identify issues:
-     - 🔴 **Critical**: Security, breaking changes, syntax errors
-     - 🟠 **Important**: Best practices violations, missing tests
-     - 🟡 **Suggestions**: Code style, performance tips
+5. **Run Local Static-Analysis Check** (if run_static_analysis=true)
+   - Execute: `npm run review:static`
+   - Record the command exit status and scanner findings
+   - Resolve blocking rule findings; use tests and human review for behavioral and contextual assessment
 
 6. **Validate Contribution Standards**
    - Check against contribution guidelines:
@@ -141,7 +137,7 @@ To help users contribute to the AIOX open-source project (`aiox-core`) by automa
 7. **Generate Quality Score**
    - **Documentation**: +30 points (README, inline comments, examples)
    - **Tests**: +25 points (test coverage, test quality)
-   - **Code Quality**: +25 points (linting, CodeRabbit score)
+   - **Code Quality**: +25 points (linting, static-analysis gate)
    - **Standards Adherence**: +20 points (follows templates, naming conventions)
    - **Minimum Score**: 70/100 (RECOMMENDED for approval)
 
@@ -223,16 +219,16 @@ To help users contribute to the AIOX open-source project (`aiox-core`) by automa
       - [x] Follows contribution guidelines
       - [x] Tests passing locally
       - [x] Documentation included
-      - [x] CodeRabbit pre-check passed
+      - [x] local static scan passed
       - [x] Quality score: {score}/100
       
       ## Pre-Submission Review
       
-      **CodeRabbit Score**: {coderabbit_score}
+      **Static scan result**: {static_scan_result}
       **Issues Found**: {issues_found}
       **Security Warnings**: {security_warnings}
       
-      {coderabbit_summary}
+      {static_scan_summary}
       
       ## Testing
       
@@ -270,7 +266,7 @@ To help users contribute to the AIOX open-source project (`aiox-core`) by automa
     - `needs-review` - Awaiting maintainer review
 
 17. **Request Reviewers** (automated)
-    - CodeRabbit will auto-review within 2 minutes
+    - CI reports the configured static-analysis job result
     - Maintainers auto-assigned based on contribution type
 
 18. **Provide Next Steps**
@@ -282,13 +278,13 @@ To help users contribute to the AIOX open-source project (`aiox-core`) by automa
       URL: {pr_url}
       
       Next Steps:
-      1. ⏳ CodeRabbit will review your PR within 2 minutes
+      1. ⏳ CI will run configured static-analysis checks
       2. 👤 Maintainers will review within 24-48 hours
       3. 💬 Respond to any feedback or questions
       4. ✅ Once approved, your contribution will be merged!
       
       Timeline:
-      - CodeRabbit review: ~2 minutes
+      - local static analysis: ~2 minutes
       - Maintainer review: 24-48 hours
       - Merge (if approved): Immediate
       
@@ -325,8 +321,8 @@ To help users contribute to the AIOX open-source project (`aiox-core`) by automa
   - **Validation**: `gh pr view {pr_number}` succeeds
   - **Test**: PR URL accessible
 
-- [ ] CodeRabbit review requested
-  - **Validation**: CodeRabbit comments on PR within 5 minutes
+- [ ] local static analysis requested
+  - **Validation**: CI static-analysis status is visible on the PR
   - **Manual Check**: true
 
 - [ ] Quality score meets minimum (if enforced)
@@ -373,7 +369,7 @@ Thank you for your interest in contributing! 🎉
 
 1. ✅ Read the [Contribution Guidelines](docs/CONTRIBUTING.md)
 2. ✅ Run local tests: `npm test`
-3. ✅ Run CodeRabbit pre-check: `coderabbit --prompt-only -t uncommitted`
+3. ✅ Run local static scan: `npm run review:static`
 4. ✅ Follow naming conventions and templates
 5. ✅ Include documentation and examples
 
@@ -388,7 +384,7 @@ Thank you for your interest in contributing! 🎉
 
 ### Review Timeline
 
-- **CodeRabbit Review**: ~2 minutes (automated)
+- **Static-analysis job**: Duration depends on the project and CI runner
 - **Maintainer Review**: 24-48 hours
 - **Merge**: Immediate after approval
 
@@ -406,23 +402,19 @@ Thank you for your interest in contributing! 🎉
   - **Used For**: Create PRs, manage forks, interact with repository
   - **Required**: true
 
-- **coderabbit-free**:
-  - **Version**: Latest (GitHub App)
-  - **Used For**: Pre-submission code review, quality analysis
-  - **Cost**: $0 (FREE for open-source)
-  - **Optional**: false (recommended for quality assurance)
+- **OpenGrep CLI**: Optional local scanner configured by the target repository; findings are reported and do not mutate source files.
 
 ## Performance
 
 - **Duration Expected**: 15 minutes (including quality checks)
-- **Cost Estimated**: $0 (all tools are free for open-source)
+- **Cost Estimated**: GitHub Actions usage depends on repository plan
 - **Cacheable**: false (each PR is unique)
 - **Parallelizable**: false (sequential process)
 
 ## Error Handling
 
 - **Strategy**: fallback + retry
-- **Fallback**: If CodeRabbit fails, continue without pre-check (warn user)
+- **Fallback**: If configured static analysis cannot run, report the blocker and do not claim the gate passed
 - **Retry**:
   - **Max Attempts**: 3 (for network/API errors)
   - **Backoff**: exponential
@@ -434,7 +426,7 @@ Thank you for your interest in contributing! 🎉
 
 - **Story**: Epic 10 (Critical Dependency Resolution)
 - **Version**: 1.0.0
-- **Dependencies**: `github-cli`, `coderabbit-free`
+- **Dependencies**: `github-cli`; optional project-configured static-analysis CLI
 - **Author**: Brad Frost Clone
 - **Created**: 2025-11-13
 - **Updated**: 2025-11-13
@@ -642,7 +634,7 @@ aiox pr create \
   --issue=42
 ```
 
-**Output**: Quality check → PR created → CodeRabbit reviews
+**Output**: Quality checks → PR created → CI status reporteds
 
 ### Example 2: Submit Agent Improvement
 
@@ -683,7 +675,7 @@ aiox pr create \
 
 ### Code Quality (25 points)
 - [ ] Linting passes (+10)
-- [ ] CodeRabbit score >= 80 (+15)
+- [ ] Static scan passes configured blocking rules (+15)
 
 ### Standards Adherence (20 points)
 - [ ] Follows task/agent/tool template (+10)

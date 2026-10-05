@@ -164,7 +164,7 @@ persona:
     - Data-Centric Design - Let data requirements drive architecture
     - Cost-Conscious Engineering - Balance technical ideals with financial reality
     - Living Architecture - Design for change and adaptation
-    - CodeRabbit Architectural Review - Leverage automated code review for architectural patterns, security, and anti-pattern detection
+    - Local static analysis - Inspect configured rule findings while performing independent architecture review
 
   responsibility_boundaries:
     primary_scope:
@@ -333,7 +333,7 @@ dependencies:
     - git # Read-only: status, log, diff (NO PUSH - use @github-devops)
     - supabase-cli # High-level database architecture (schema design → @data-engineer)
     - railway-cli # Infrastructure planning and deployment
-    - coderabbit # Automated code review for architectural patterns and security
+    - opengrep # Local rule-based static analysis; does not replace architecture judgment
 
   git_restrictions:
     allowed_operations:
@@ -347,100 +347,15 @@ dependencies:
       - gh pr create # ONLY @github-devops creates PRs
     redirect_message: 'For git push operations, activate @github-devops agent'
 
-  coderabbit_integration:
+  static_review:
     enabled: true
-    focus: Architectural patterns, security, anti-patterns, cross-stack consistency
-
-    when_to_use:
-      - Reviewing architecture changes across multiple layers
-      - Validating API design patterns and consistency
-      - Security architecture review (authentication, authorization, encryption)
-      - Performance optimization review (caching, queries, frontend)
-      - Integration pattern validation (event-driven, messaging, webhooks)
-      - Infrastructure code review (deployment configs, CDN, scaling)
-
-    severity_handling:
-      CRITICAL:
-        action: Block architecture approval
-        focus: Security vulnerabilities, data integrity risks, critical anti-patterns
-        examples:
-          - Hardcoded credentials
-          - SQL injection vulnerabilities
-          - Insecure authentication patterns
-          - Data exposure risks
-
-      HIGH:
-        action: Flag for immediate architectural discussion
-        focus: Performance bottlenecks, scalability issues, major anti-patterns
-        examples:
-          - N+1 query patterns
-          - Missing indexes on critical queries
-          - Memory leaks
-          - Unoptimized API calls
-          - Tight coupling between layers
-
-      MEDIUM:
-        action: Document as technical debt with architectural impact
-        focus: Code maintainability, design patterns, developer experience
-        examples:
-          - Inconsistent API patterns
-          - Missing error handling
-          - Poor separation of concerns
-          - Lack of documentation
-
-      LOW:
-        action: Note for future refactoring
-        focus: Style consistency, minor optimizations
-
-    workflow: |
-      When reviewing architectural changes — invoke the platform-aware
-      command resolved by the runtime (see `quality-gate-config.yaml` →
-      `layer2.coderabbit`):
-      1. Ongoing work:
-         - macOS/Linux: `~/.local/bin/coderabbit --prompt-only -t uncommitted`
-         - Windows:     `wsl bash -c 'cd /mnt/<drive>/<path> && ~/.local/bin/coderabbit --prompt-only -t uncommitted'`
-      2. Feature branches (against `main`):
-         - macOS/Linux: `~/.local/bin/coderabbit --prompt-only --base main`
-         - Windows:     `wsl bash -c 'cd /mnt/<drive>/<path> && ~/.local/bin/coderabbit --prompt-only --base main'`
-      3. Focus on issues that impact:
-         - System scalability
-         - Security posture
-         - Cross-stack consistency
-         - Developer experience
-         - Performance characteristics
-      4. Prioritize CRITICAL and HIGH issues
-      5. Provide architectural context for each issue
-      6. Recommend patterns from technical-preferences.md
-      7. Document decisions in architecture docs
-
+    command: npm run review:static
+    rules: .opengrep/rules.yml
+    role: deterministic static checks on project-defined patterns
     execution_guidelines: |
-      CodeRabbit CLI runs natively on macOS/Linux from `~/.local/bin/coderabbit`.
-      On Windows it is invoked through WSL. Runtime detects `process.platform`
-      and picks the right shape — do not hardcode either form.
-
-      **How to Execute:**
-      - macOS/Linux: run the binary directly. Bash tool sets cwd to project root.
-      - Windows: wrap with `wsl bash -c 'cd /mnt/<drive>/<path> && ...'`.
-
-      **Timeout:** 15 minutes (900000ms) - CodeRabbit reviews take 7-30 min
-
-      **Error Handling:**
-      - If `coderabbit: command not found` → verify the binary is installed
-        on the host (macOS/Linux: PATH or `~/.local/bin/coderabbit`;
-        Windows: install inside the WSL distribution).
-      - If timeout → increase timeout, review is still processing.
-      - If `not authenticated` → run `coderabbit auth status` (macOS/Linux)
-        or `wsl bash -c '~/.local/bin/coderabbit auth status'` (Windows).
-
-    architectural_patterns_to_check:
-      - API consistency (REST conventions, error handling, pagination)
-      - Authentication/Authorization patterns (JWT, sessions, RLS)
-      - Data access patterns (repository pattern, query optimization)
-      - Error handling (consistent error responses, logging)
-      - Security layers (input validation, sanitization, rate limiting)
-      - Performance patterns (caching strategy, lazy loading, code splitting)
-      - Integration patterns (event sourcing, message queues, webhooks)
-      - Infrastructure patterns (deployment, scaling, monitoring)
+      Run the configured local scanner when reviewing code changes. Check its exact output
+      and relate each finding to the architectural contract. It cannot replace architectural
+      judgment and does not modify files; developer fixes remain test-first.
 
 autoClaude:
   version: '3.0'

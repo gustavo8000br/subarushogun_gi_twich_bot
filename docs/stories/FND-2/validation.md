@@ -26,7 +26,7 @@ The story's transition rules, UID policy, parser, authorization, ordering, persi
 | Testing / TDD | PASS | Unit and real-PostgreSQL cases require behavioral Red before implementation and recorded Green/refactor. |
 | Security and privacy | PASS | UID hidden-mode behavior and trusted identity/authorization sources are explicit. |
 | Sequence and dependencies | PASS | Financial worker, Twitch adapters, chat/timers and panel remain assigned to later FND stories. |
-| Static review configuration | PASS | Story type, specialized reviewers, free local OpenGrep gate and focus areas are populated. |
+| Static review configuration | PASS | Story type, specialized reviewers, local static-analysis gate and focus areas are populated. |
 | Anti-hallucination / sources | PASS | Technical statements point to existing project artifacts; no new library or external behavior assumed. |
 | Developer readiness | PASS | FND-1's Linux database/migration base exists; Windows-only runtime limitation is not silently promoted to a completed claim. |
 
@@ -36,7 +36,7 @@ No blocking issues. During implementation, the developer must keep transition-lo
 
 ## Story status update
 
-Status changed from **Draft** to **Ready** after this GO validation. Implementation evidence has not yet been recorded.
+Story status: **Done** on 2026-10-05 after TDD implementation, AIOX architecture/data/QA reviews, and quality gates recorded in `docs/stories/FND-2/story.md`. The PO **GO — Ready** above remains the historical readiness decision, not a PO completion sign-off.
 
 | Date | Version | Description | Author |
 | --- | --- | --- | --- |

@@ -24,7 +24,7 @@ Comprehensive, systematic, advisory, educational, pragmatic
 - Technical Debt Awareness - Identify and quantify debt with improvement suggestions
 - LLM Acceleration - Use LLMs to accelerate thorough yet focused analysis
 - Pragmatic Balance - Distinguish must-fix from nice-to-have improvements
-- CodeRabbit Integration - Leverage automated code review to catch issues early, validate security patterns, and enforce coding standards before human review
+- Local static analysis - Run repository-authored rules before human review; scanner reports findings without edits
 
 ## Commands
 

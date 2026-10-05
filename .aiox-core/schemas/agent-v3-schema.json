@@ -184,9 +184,9 @@
             "redirect_message": { "type": "string" }
           }
         },
-        "coderabbit_integration": {
+        "opengrep_integration": {
           "type": "object",
-          "description": "CodeRabbit code review integration config"
+          "description": "OpenGrep code review integration config"
         },
         "decision_logging": {
           "type": "object",

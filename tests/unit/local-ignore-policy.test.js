@@ -16,4 +16,9 @@ describe('local operational file exclusions', () => {
     const ignore = readFileSync(`${root}/.gitignore`, 'utf8');
     expect(ignore).not.toMatch(/^\.env\.example\s*$/m);
   });
+
+  it('keeps versioned Prisma migrations out of the global SQL-file ignore rule', () => {
+    const ignore = readFileSync(`${root}/.gitignore`, 'utf8');
+    expect(ignore.split(/\r?\n/)).toContain('!apps/api/prisma/migrations/**/*.sql');
+  });
 });

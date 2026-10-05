@@ -37,12 +37,12 @@ Data Storage:
 
 Layers:
   Layer 1: Pre-commit (lint, test, typecheck)
-  Layer 2: PR Automation (CodeRabbit, Quinn)
+  Layer 2: PR Automation (OpenGrep, Quinn)
   Layer 3: Human Review (checklist, sign-off)
 
 Examples:
   $ aiox metrics record --layer 1 --passed --duration 3200
-  $ aiox metrics record --layer 2 --passed --findings 3 --coderabbit
+  $ aiox metrics record --layer 2 --passed --findings 3 --opengrep
   $ aiox metrics show
   $ aiox metrics show --layer 2
   $ aiox metrics show --format json

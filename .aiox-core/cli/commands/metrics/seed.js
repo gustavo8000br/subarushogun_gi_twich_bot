@@ -85,8 +85,8 @@ function createSeedCommand() {
         console.log(`  Layer 2: ${(metrics.layers.layer2.passRate * 100).toFixed(1)}%`);
         console.log(`  Layer 3: ${(metrics.layers.layer3.passRate * 100).toFixed(1)}%`);
 
-        console.log('\n🔗 CodeRabbit Metrics:');
-        const cr = metrics.layers.layer2.coderabbit;
+        console.log('\n🔗 OpenGrep Metrics:');
+        const cr = metrics.layers.layer2.opengrep;
         if (cr?.active) {
           console.log(`  Total Findings: ${cr.findingsCount}`);
           console.log(`  Critical: ${cr.severityBreakdown.critical}`);

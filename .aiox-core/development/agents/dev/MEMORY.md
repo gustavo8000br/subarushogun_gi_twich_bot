@@ -26,7 +26,7 @@
 - Windows paths: use forward slashes in code, bash shell not cmd
 - `fs.existsSync` for sync checks, `fs.promises` for async
 - atomicWriteSync from `.aiox-core/core/synapse/utils/atomic-write` for safe file writes
-- CodeRabbit runs in WSL, not Windows directly
+- Run the repository-configured local static-analysis command; it reports findings and never edits files.
 
 ### Story Workflow
 - Read task → Implement → Write tests → Validate → Mark checkbox [x]
