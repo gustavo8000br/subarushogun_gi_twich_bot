@@ -1,0 +1,117 @@
+{
+  "storyId": "FND-7",
+  "researchedAt": "2026-10-05T16:50:00Z",
+  "researchedBy": "@analyst (AIOX Spec Pipeline research)",
+  "complexity": "COMPLEX",
+  "dependencies": [
+    {
+      "name": "OBS Studio Browser Source",
+      "type": "service",
+      "version": "Current OBS Studio release; no app dependency",
+      "verified": true,
+      "source": "manual",
+      "existing": {
+        "installed": false,
+        "currentVersion": null,
+        "usageLocations": []
+      },
+      "documentation": {
+        "url": "https://obsproject.com/kb/browser-source",
+        "relevantSections": [
+          "URL",
+          "Width and Height",
+          "Custom CSS",
+          "transparent background",
+          "supported platforms"
+        ]
+      },
+      "patterns": [
+        {
+          "name": "Local browser source",
+          "description": "OBS Browser Source loads a web page by URL, supports a configured viewport and custom CSS; its documented default CSS uses a transparent background, zero margin, and hidden overflow."
+        }
+      ],
+      "compatibility": {
+        "preferred": true,
+        "alternatives": [],
+        "conflicts": []
+      },
+      "id": "R-1"
+    },
+    {
+      "name": "RFC 6750 Bearer Token Usage",
+      "type": "api",
+      "version": "RFC 6750",
+      "verified": true,
+      "source": "manual",
+      "existing": {
+        "installed": false,
+        "currentVersion": null,
+        "usageLocations": []
+      },
+      "documentation": {
+        "url": "https://www.rfc-editor.org/rfc/rfc6750.html",
+        "relevantSections": [
+          "Section 2.1 Authorization header",
+          "Section 2.3 URI query token risks",
+          "Section 5.3 token protection"
+        ]
+      },
+      "patterns": [
+        {
+          "name": "Avoid credentials in request URIs",
+          "description": "Use an Authorization header for the widget data request; RFC 6750 warns that URI bearer tokens are likely to leak through logs/history and recommends against page URLs."
+        }
+      ],
+      "compatibility": {
+        "preferred": true,
+        "alternatives": [],
+        "conflicts": []
+      },
+      "id": "R-2"
+    },
+    {
+      "name": "Existing local web/API architecture",
+      "type": "infrastructure",
+      "version": "Current repository main",
+      "verified": true,
+      "source": "codebase",
+      "existing": {
+        "installed": true,
+        "currentVersion": "Fastify 5.12.5; PostgreSQL 18.6; Prisma 6.19.3; vanilla JavaScript"
+      },
+      "documentation": {
+        "url": "https://github.com/gustavo8000br/subarushogun_gi_twich_bot/blob/main/docs/architecture/internal-boundaries.md",
+        "relevantSections": [
+          "domain services",
+          "persistence",
+          "HTTP routes and projections"
+        ]
+      },
+      "patterns": [
+        {
+          "name": "Shared domain projection",
+          "description": "HTTP routes, chat handlers, EventSub callbacks, workers, and timers call the same domain/application services rather than directly editing state."
+        }
+      ],
+      "compatibility": {
+        "preferred": true,
+        "alternatives": [],
+        "conflicts": []
+      },
+      "id": "R-3"
+    }
+  ],
+  "unverifiedClaims": [
+    "OBS browser-source behavior is documented, but integration must be manually verified on the user's supported OBS/OS installation.",
+    "The local application can satisfy the two-second render SLA; verify with an end-to-end browser test using the real app and isolated PostgreSQL before claiming completion."
+  ],
+  "recommendations": [
+    "Create an overlay page at a same-origin local URL and a separate read-only data endpoint; never expose an administrative session to OBS.",
+    "Place a per-widget random capability in the page fragment, read it client-side, and send it only in the Authorization header; persist only a secure hash, set no-store/no-referrer headers, and revoke/rotate it in the panel.",
+    "Validate every style property against an allowlist and render all labels, fallback text, and source values through text nodes.",
+    "Reuse application/domain read projections and omit UID, Twitch credentials, sessions, operation state, and every other widget's data.",
+    "Use no new runtime dependency; use the existing static panel and server, polling no slower than once per second, and PostgreSQL migration-backed tests."
+  ],
+  "researchNotes": "Official OBS documentation confirms Browser Source accepts local URLs and provides viewport and CSS controls, including transparent default styling. RFC 6750 recommends the Authorization request header and warns against bearer credentials in request URIs because URLs commonly enter logs and history. A URL fragment is not sent in the HTTP request; the page should move the secret into an Authorization header in memory, and server routes must never log or cache it. Existing repository architecture already uses Fastify, PostgreSQL/Prisma, static vanilla JS, local loopback publication, and shared domain services; no additional library is indicated."
+}
