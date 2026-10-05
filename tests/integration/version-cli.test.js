@@ -8,6 +8,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 const projectRoot = fileURLToPath(new URL('../../', import.meta.url));
 const validateCli = join(projectRoot, 'apps/infra/scripts/validate-version.mjs');
 const materializeCli = join(projectRoot, 'apps/infra/scripts/materialize-version.mjs');
+const workflowPath = join(projectRoot, '.github/workflows/ci.yml');
+const composePath = join(projectRoot, 'compose.yaml');
+const dockerfilePath = join(projectRoot, 'Dockerfile');
 const temporaryRoots = [];
 
 async function createFixture({ withGit = false, withCommit = false } = {}) {
@@ -50,6 +53,20 @@ afterEach(async () => {
 });
 
 describe('version source and materialization CLIs', () => {
+  it('materializes the exact committed identity into the CI image without changing checkout sources', async () => {
+    const workflow = await readFile(workflowPath, 'utf8');
+    const compose = await readFile(composePath, 'utf8');
+    const dockerfile = await readFile(dockerfilePath, 'utf8');
+
+    expect(workflow).toContain('apps/infra/scripts/materialize-version.mjs');
+    expect(workflow).toContain('$RUNNER_TEMP/VERSION');
+    expect(workflow).toContain('PRODUCT_VERSION');
+    expect(compose).toContain('PRODUCT_VERSION: ${PRODUCT_VERSION:-v0.1.0-0000000-alpha}');
+    expect(dockerfile).toContain('ARG PRODUCT_VERSION');
+    expect(dockerfile).toContain("printf '%s\\n' \"$PRODUCT_VERSION\" > VERSION");
+    expect(workflow).toContain('IMAGE_VERSION="$(docker compose run --rm --no-deps --entrypoint cat bot /app/VERSION)"');
+  });
+
   it('validates source files without changing the checkout', async () => {
     const root = await createFixture();
     const before = await snapshotSources(root);

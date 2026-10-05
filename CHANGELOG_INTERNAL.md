@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+- Switch the Node app image to `node:24.20.0-alpine3.24`; test-first Compose contract and a clean production build verified Prisma musl/OpenSSL engine, bootstrap, three PostgreSQL migrations, non-root runtime and HTTPS health. Rebuilt/recreated the normal Compose app over the existing database/secrets volumes without deleting them. AMD64 image is 769,822,537 bytes; ARM64 awaits the QEMU CI build.
+
+- Added a main-only GHCR publishing job gated by every quality/build job. QEMU/Buildx publishes `linux/amd64` and `linux/arm64` tags, then creates universal `main` and materialized-version manifests. Compose and startup/update helpers now pull the registry image; README and version policy document pre-release package authentication and the public-visibility launch gate.
+- Updated both uninstallers to remove the selected cached GHCR app tag explicitly; their default path still keeps all named data volumes.
+- Starting with the next PR, materialize the checkout's exact seven-character Git SHA into CI-built container images via the external artifact output and a Compose build argument; verify the version from the built image. The tracked `VERSION` file is unchanged, no SHA commit-back occurs, and development identity remains `v0.1.0-HHHHHHH-alpha`.
+- Decouple the default Compose application image tag (`main`) from the runtime product identity (`PRODUCT_VERSION` build argument).
+- Record the operator-reported manual Windows acceptance at commit `f32c37a` and add a test-first regression for the startup helper; replacing `timeout /nobreak` with a `ping` delay passes the Linux contract test, pending Windows retest.
 - Extend the bilingual README contract for Linux/macOS executable permissions and first-run TLS trust guidance; macOS runtime remains unverified.
 - Add an allowlisted pt-BR label map for Twitch setup status pills and a generic fallback for unknown states; retain the detailed eligibility explanation and record pt-BR-default/English/Spanish/community translation direction without implementing full i18n.
 - Added the `ci/apps-quality-workflow` GitHub Actions workflow, per-app ESLint/TypeScript-check scripts/configs, pinned Node definitions, immutable SHA-pinned Actions, PostgreSQL/Compose-backed tests, OpenGrep installation at the repository-pinned release, and production image build. No frontend bundler was introduced.

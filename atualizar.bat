@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 git rev-parse --is-inside-work-tree >nul 2>&1
 if errorlevel 1 (
-  echo Atualizador disponivel somente em uma copia Git. Baixe a versao desejada e execute docker compose up --build -d.
+  echo Atualizador disponivel somente em uma copia Git com acesso ao GHCR. Autentique o Docker enquanto o pacote estiver privado no pre-lancamento.
   exit /b 1
 )
 for /f "delims=" %%B in ('git branch --show-current') do set "CURRENT_BRANCH=%%B"
@@ -21,6 +21,8 @@ git fetch origin main
 if errorlevel 1 exit /b %errorlevel%
 git pull --ff-only origin main
 if errorlevel 1 exit /b %errorlevel%
-docker compose up --build -d
+docker compose pull
+if errorlevel 1 exit /b 1
+docker compose up -d
 if errorlevel 1 exit /b %errorlevel%
 echo Atualizacao concluida. Os volumes de dados e segredos foram preservados.

@@ -1,6 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
+if not defined IMAGE_TAG set "IMAGE_TAG=main"
 set "DELETE_DATA="
 set /p "DELETE_DATA=Deseja apagar banco e segredos locais? [s/N] "
 if /I not "%DELETE_DATA%"=="s" if /I not "%DELETE_DATA%"=="sim" goto keep_data
@@ -10,6 +11,7 @@ set /p "CONFIRMATION=Digite APAGAR para confirmar: "
 if not "%CONFIRMATION%"=="APAGAR" goto cancelled
 docker compose down --volumes --rmi local
 if errorlevel 1 exit /b %errorlevel%
+docker image rm "ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:%IMAGE_TAG%" >nul 2>&1
 if exist ".local\localhost-ca.crt" del ".local\localhost-ca.crt"
 if exist ".local" rmdir ".local" 2>nul
 echo Aplicacao e dados locais removidos.
@@ -17,6 +19,7 @@ exit /b 0
 :keep_data
 docker compose down --rmi local
 if errorlevel 1 exit /b %errorlevel%
+docker image rm "ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:%IMAGE_TAG%" >nul 2>&1
 echo Aplicacao removida; banco, segredos e certificado publico foram preservados.
 exit /b 0
 :cancelled

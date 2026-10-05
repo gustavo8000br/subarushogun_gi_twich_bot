@@ -58,7 +58,8 @@ The current build is **not ready for live operation**. Queue reward editing/open
 
 - A **64-bit computer** running a supported OS with **Docker Engine or Docker Desktop in Linux-container mode**, the Docker Compose CLI plugin (`docker compose`, not the legacy standalone `docker-compose` command), and permission for your user to run Docker commands. Check with `docker --version` and `docker compose version`.
 - A current browser on the same computer (Chrome, Edge, or Firefox recommended) that can trust a local certificate authority.
-- Internet access during the first image build and whenever the chatbot connects to Twitch.
+- Internet access to GitHub Container Registry (GHCR) for application images and whenever the chatbot connects to Twitch.
+- Access to this private source repository. During pre-release, the first GHCR package is private by default, so authenticate Docker with a GitHub classic personal access token that has `read:packages`: `docker login ghcr.io --username YOUR_GITHUB_USERNAME`, then enter the token at the password prompt. GHCR package visibility must be changed to public before product launch; public pulls do not require registry login. Never paste a token into commands or project files.
 - Node.js, PostgreSQL, Git, and a compiler are **not required on the host to run the Compose application**. Node.js `24.20.0` is pinned for project development and runs inside the container.
 
 ### Supported host setup
@@ -82,12 +83,19 @@ The Windows hardware figures above are not our product benchmark. They combine c
 
 ### Windows first run
 
-> Native Windows execution of `iniciar.bat` has not yet been validated by this project. The project has validated the Compose runtime on Ubuntu; if the helper fails on Windows, run the Compose command below and report the exact error before treating Windows setup as verified.
+> A manual Windows run on Docker Desktop/WSL 2 validated Compose startup, the HTTPS panel and `/health`, update with volume preservation, and both uninstaller choices. That run found a repeated Windows input-redirection message in the startup helper; the helper fix is pending another manual Windows run.
 
 1. Install or update WSL 2 and restart Windows if prompted. In an elevated PowerShell window, use `wsl --install` only if WSL is not installed; use `wsl --update` to update an existing installation. Then verify with `wsl --version` (2.1.5 or later) and enable hardware virtualization in BIOS/UEFI if needed.
 2. Install Docker Desktop, select the WSL 2 backend, start Docker Desktop, and wait until it reports that the engine is running. Verify `docker --version` and `docker compose version` in PowerShell. Keep Docker in **Linux containers** mode.
 3. Clone the repository or extract the project archive. Open PowerShell in the project directory; paths with spaces are supported by `iniciar.bat`.
-4. Start the application:
+4. Until the product launch makes the GHCR package public, authenticate Docker once if the pre-release package is private:
+
+   ```powershell
+   docker login ghcr.io --username YOUR_GITHUB_USERNAME
+   ```
+
+   Enter a GitHub classic personal access token with `read:packages` at the password prompt. Keep the token private; do not put it in the project directory. After GHCR package visibility is public, skip this step.
+5. Start the application:
 
    ```powershell
    .\iniciar.bat
@@ -96,11 +104,12 @@ The Windows hardware figures above are not our product benchmark. They combine c
    Or run the standard Compose command:
 
    ```powershell
-   docker compose up --build -d
+   docker compose pull
+   docker compose up -d
    ```
 
-5. Wait for the first build and bootstrap to finish. The startup helper opens the local panel when it can; it also creates `.local\localhost-ca.crt` with the public certificate needed by the browser. If the browser was opened before trusting the certificate, close that tab for now.
-6. Trust this installation's local certificate for the current Windows user, then restart the browser:
+6. Wait for image downloads and bootstrap to finish. The startup helper opens the local panel when it can; it also creates `.local\localhost-ca.crt` with the public certificate needed by the browser. If the browser was opened before trusting the certificate, close that tab for now.
+7. Trust this installation's local certificate for the current Windows user, then restart the browser:
 
    ```powershell
    Import-Certificate -FilePath (Resolve-Path '.\.local\localhost-ca.crt') -CertStoreLocation Cert:\CurrentUser\Root
@@ -118,15 +127,16 @@ The Windows hardware figures above are not our product benchmark. They combine c
    ```
 
    This changes only the local file permission; it does not need to be repeated unless the permission is lost again.
-3. Start the application:
+3. If the pre-release GHCR package is still private, authenticate Docker once: run `docker login ghcr.io --username YOUR_GITHUB_USERNAME` and enter a GitHub classic personal access token with `read:packages` at the password prompt. Skip this after the package becomes public for launch. Never put the token in project files.
+4. Start the application:
 
    ```sh
    ./iniciar.sh
    ```
 
-   The helper builds and starts Compose, waits for the local HTTPS health endpoint, and opens a browser when available. It prints the address if automatic browser launch is unavailable.
+   The helper pulls the `main` multi-platform image from GHCR and starts Compose, waits for the local HTTPS health endpoint, and opens a browser when available. It prints the address if automatic browser launch is unavailable. Docker selects `linux/amd64` or `linux/arm64` for the host.
 
-4. Trust the generated local CA in the Ubuntu system store and refresh the certificate bundle:
+5. Trust the generated local CA in the Ubuntu system store and refresh the certificate bundle:
 
    ```sh
    sudo install -Dm644 .local/localhost-ca.crt /usr/local/share/ca-certificates/queuebot-localhost-ca.crt
@@ -146,13 +156,14 @@ The Windows hardware figures above are not our product benchmark. They combine c
    chmod +x iniciar.sh
    ```
 
-3. Start the application:
+3. If the pre-release GHCR package is still private, authenticate Docker once: run `docker login ghcr.io --username YOUR_GITHUB_USERNAME` and enter a GitHub classic personal access token with `read:packages` at the password prompt. Skip this after the package becomes public for launch. Never put the token in project files.
+4. Start the application:
 
    ```sh
    ./iniciar.sh
    ```
 
-4. Trust the generated local CA in the macOS login keychain, restart the browser, and open `https://localhost:3000`:
+5. Trust the generated local CA in the macOS login keychain, restart the browser, and open `https://localhost:3000`:
 
    ```sh
    security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db .local/localhost-ca.crt
@@ -187,6 +198,8 @@ For Linux CLI health verification after trusting the CA:
 
    The zero SHA is the documented marker used before a Git source commit has been materialized into a build. It does not indicate a release.
 
+   Starting with the next pull request, CI builds materialize the exact source commit's seven-character SHA into the image (for example, `v0.1.0-a1b2c3d-alpha`) and verify it from inside the image. The versioned `VERSION` file stays on the zero marker; no SHA is committed back. Compose tags application images as `main` by default; this tag does not replace the runtime product identity.
+
 On Windows, after importing the CA into the current-user trust store, `curl.exe https://localhost:3000/health` should also validate normally. To use curl before importing it, pass `--cacert .\.local\localhost-ca.crt`.
 
 ### Advanced local port
@@ -194,14 +207,14 @@ On Windows, after importing the CA into the current-user trust store, `curl.exe 
 Port `3000` is deliberately not changed automatically if it is occupied. Choose another host port explicitly and register the matching callback when Twitch setup becomes available:
 
 ```sh
-APP_PORT=3217 docker compose up --build -d
+   docker compose pull && APP_PORT=3217 docker compose up -d
 ```
 
 For PowerShell:
 
 ```powershell
 $env:APP_PORT = "3217"
-docker compose up --build -d
+docker compose up -d
 ```
 
 The address is then `https://localhost:3217`; the local panel displays the matching OAuth callback for that port.
@@ -218,7 +231,8 @@ Run these commands from the project directory:
 | Stop containers and preserve data | `docker compose stop` |
 | Start stopped containers | `docker compose start` |
 | Stop and remove containers/network, preserving data | `docker compose down` |
-| Start and rebuild the image | `docker compose up --build -d` |
+| Pull the published image | `docker compose pull` |
+| Start services | `docker compose up -d` |
 
 The database and operational secrets are stored in named Docker volumes. `docker compose down` leaves those volumes intact. **Do not use `docker compose down -v` as routine maintenance:** removing volumes deletes local database data and the generated database password. There is no product backup/export workflow yet, so take an appropriate database backup before doing any manual storage maintenance.
 
@@ -228,21 +242,22 @@ For a source checkout with repository access:
 
 ```sh
 git pull --ff-only
-docker compose up --build -d
+docker compose pull
+docker compose up -d
 docker compose ps
 docker compose logs --tail=100 migrate bot
 curl --cacert .local/localhost-ca.crt https://localhost:3000/health
 ```
 
-Compose rebuilds the bot image and runs pending Prisma migrations before starting the bot. The persistent database and secrets volumes remain in place. Read the release notes before updating once published releases are available; this project is currently in alpha and has no published release channel. For a custom `APP_PORT`, use the same value on each start/update command.
+The updater fetches the published GHCR `main` image for the host architecture and runs pending Prisma migrations before starting the bot. The persistent database and secrets volumes remain in place. Read the release notes before updating once published releases are available; this project is currently in alpha and has no published release channel. For a custom `APP_PORT`, use the same value on each start/update command.
 
-The `atualizar.sh` and `atualizar.bat` helpers are for a clean Git checkout on the `main` branch. They fetch and fast-forward `origin/main`, then rebuild and start Compose. They stop if the checkout has local changes or a different branch; commit/stash your work or update that branch manually. Git and repository access are required for these helpers, but not for running the app. Windows helper execution has not yet been validated on native Windows.
+The `atualizar.sh` and `atualizar.bat` helpers are for a clean Git checkout on the `main` branch. They fetch and fast-forward `origin/main`, then pull and start the GHCR image. They stop if the checkout has local changes or a different branch; commit/stash your work or update that branch manually. Git and source-repository access are required; GHCR authentication is needed only while the pre-release package is private. Windows helper execution has not yet been validated on native Windows.
 
-To update a packaged image in a future release, follow that release's pinned image instructions. Do not pull an unpinned `latest` tag.
+`IMAGE_TAG=main` selects the multi-platform manifest. For a diagnostic or explicit architecture pull, use `IMAGE_TAG=main-linux-amd64` or `IMAGE_TAG=main-linux-arm64`. CI also publishes matching versioned tags such as `v0.1.0-abcdef0-alpha-linux-arm64`; a version tag without an architecture suffix is the multi-platform manifest. Do not use an unpinned `latest` tag.
 
 ## Uninstalling
 
-Run `./desinstalar.sh` on Linux/macOS or `desinstalar.bat` on Windows. The helper stops and removes this Compose project and its locally built app image, while preserving the database, Twitch credentials/tokens, generated database password, and TLS secrets by default. It asks whether to delete data; if you answer yes, it asks you to type `APAGAR` before running `docker compose down --volumes --rmi local`. That permanently erases the project's Docker volumes and removes the exported public localhost CA file. The project source checkout is kept. A custom external `LOCAL_CERT_DIRECTORY` is not deleted by the helper.
+Run `./desinstalar.sh` on Linux/macOS or `desinstalar.bat` on Windows. The helper stops and removes this Compose project and the locally cached GHCR image selected by `IMAGE_TAG` (default `main`), while preserving the database, Twitch credentials/tokens, generated database password, and TLS secrets by default. It asks whether to delete data; if you answer yes, it asks you to type `APAGAR` before running `docker compose down --volumes --rmi local`. That permanently erases the project's Docker volumes and removes the exported public localhost CA file. The project source checkout is kept. A custom external `LOCAL_CERT_DIRECTORY` is not deleted by the helper.
 
 You can also preserve data explicitly with `docker compose down --rmi local`. Never use `docker compose down --volumes` unless you intend to permanently erase all local queue data and operational secrets.
 

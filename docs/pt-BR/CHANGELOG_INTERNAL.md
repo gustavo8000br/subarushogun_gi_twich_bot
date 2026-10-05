@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+- Migra a imagem Node do app para `node:24.20.0-alpine3.24`; contrato Compose com teste primeiro e build de produção limpo verificaram engine Prisma musl/OpenSSL, bootstrap, três migrations PostgreSQL, runtime sem root e health HTTPS. O Compose normal foi reconstruído/recriado sobre os volumes atuais de banco/segredos, sem removê-los. Imagem AMD64: 769.822.537 bytes; ARM64 aguarda build QEMU do CI.
+
+- Adiciona publicação GHCR somente para commits em `main`, condicionada à aprovação de todos os gates de qualidade/build. QEMU/Buildx publica tags `linux/amd64` e `linux/arm64` e cria manifests universais `main` e de versão materializada. Compose e helpers de início/atualização baixam a imagem do registry; README e política de versão documentam autenticação durante o pré-lançamento e gate de visibilidade pública antes do lançamento.
+- Atualiza os dois desinstaladores para remover explicitamente a tag GHCR selecionada no cache local; o fluxo padrão ainda preserva todos os volumes nomeados de dados.
+- A partir da próxima PR, materializa o SHA Git exato de sete caracteres do checkout nas imagens CI por meio de saída externa de artefato e argumento de build Compose; verifica a versão dentro da imagem. O arquivo `VERSION` versionado não muda, não há commit de retorno do SHA e a identidade de desenvolvimento permanece `v0.1.0-HHHHHHH-alpha`.
+- Separa a tag de imagem padrão do Compose (`main`) da identidade runtime do produto (argumento de build `PRODUCT_VERSION`).
+- Registra o aceite manual Windows informado pelo operador no commit `f32c37a` e adiciona teste primeiro para a regressão do helper; a troca de `timeout /nobreak` por espera via `ping` passa o contrato no Linux, aguardando reteste Windows.
 - Amplia o contrato dos READMEs bilíngues para permissões de execução no Linux/macOS e confiança TLS na primeira execução; runtime macOS continua sem validação.
 - Adiciona mapa allowlistado de rótulos pt-BR para a pílula de status Twitch e fallback genérico para valores desconhecidos; mantém a explicação detalhada de elegibilidade e registra a direção pt-BR padrão/inglês/espanhol/tradução comunitária sem implementar i18n completo.
 - Adiciona o workflow GitHub Actions `ci/apps-quality-workflow`, scripts/configurações de ESLint e checagem TypeScript por app, tipos Node fixados, Actions fixadas por SHA imutável, testes com PostgreSQL/Compose, instalação da versão OpenGrep fixada pelo repositório e build da imagem de produção. Nenhum bundler frontend foi introduzido.

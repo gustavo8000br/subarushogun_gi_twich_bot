@@ -2,7 +2,7 @@
 set -eu
 cd "$(dirname "$0")"
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  printf 'Atualizador disponível somente em uma cópia Git do projeto. Baixe a versão desejada e execute docker compose up --build -d.\n' >&2
+  printf 'Atualizador disponível somente em uma cópia Git do projeto com acesso ao GHCR.\n' >&2
   exit 1
 fi
 branch=$(git branch --show-current)
@@ -16,5 +16,6 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 git fetch origin main
 git pull --ff-only origin main
-docker compose up --build -d
+docker compose pull
+docker compose up -d
 printf 'Atualização concluída. Os volumes de dados e segredos foram preservados.\n'

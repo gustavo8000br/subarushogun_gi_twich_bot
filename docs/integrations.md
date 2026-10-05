@@ -4,15 +4,22 @@
 
 **Documentation checked:** 2026-10-05 (UTC). SDK API shapes were also checked against the versions installed in this repository. OAuth, token validation/refresh, Affiliate/Partner and Channel Points API eligibility probing, managed reward creation/recovery, Helix redemption/chat adapters, EventSub WebSocket normalization and reconciliation scaffolding are implemented and covered by fakes. No authorized credentials are available for a live Twitch test. Reward editing/open-close/archive/delete and their recovery workflows remain pending. Queue creation durably requests a paused Twitch reward; ambiguous creation can be resolved through an audited, revalidated panel action.
 
+### Container runtime research
+
+The API image is pinned to the official `node:24.20.0-alpine3.24` image. On 2026-10-05, a clean AMD64 Docker build and a real isolated Compose startup confirmed Prisma 6.19.3 generates and loads its `linux-musl-openssl-3.0.x` engine on Alpine 3.24. Bootstrap, the three versioned migrations, non-root runtime, HTTPS health endpoint and database connection passed. The regular local Compose stack was then clean-built and restarted on the existing PostgreSQL/secrets volumes without deleting them. PostgreSQL remains `postgres:18.6-bookworm`. Alpine ARM64 is documented as supported by Prisma but still awaits the repository's QEMU CI image build; Windows/macOS host runs have not been repeated after this base change.
+
+References: [official Node image tags](https://hub.docker.com/_/node/tags?name=24.20.0-alpine), [Prisma Docker deployment guide](https://docs.prisma.io/docs/guides/deployment/docker), [Prisma ORM 6 platform engines](https://docs.prisma.io/docs/orm/v6/reference/prisma-schema-reference).
+
 ## Runtime versions
 
 | Component | Version | Decision |
 | --- | --- | --- |
-| Node.js | 24.20.0 | Pinned runtime and development version. |
+| Node.js | 24.20.0 | Pinned runtime and development version; app image uses official `node:24.20.0-alpine3.24` (musl), while PostgreSQL remains `postgres:18.6-bookworm`. Prisma 6.19.3 generated and loaded `linux-musl-openssl-3.0.x` in an actual Alpine Compose run on 2026-10-05. |
 | `@twurple/auth`, `@twurple/api`, `@twurple/eventsub-ws` | 8.2.0 | Same release line; use `RefreshingAuthProvider`, Helix API clients, and EventSub WebSocket. |
 | Prisma CLI, `@prisma/client`, `@prisma/adapter-pg` | 6.19.3 | Keep CLI and client aligned; `prisma-client-js` generates JavaScript-compatible client output. Prisma 7's `prisma-client` generator outputs TypeScript and does not satisfy this JavaScript-only application. |
 | PostgreSQL | 18.6 | Local Compose service; integration tests use an isolated PostgreSQL database and actual migrations. |
 | Docker Compose | v2 | `depends_on` health/completion conditions establish startup order; named volumes preserve local database and secret state. |
+| GHCR publication | GitHub Actions with QEMU/Buildx and SHA-pinned Docker actions | Pre-release package is private by default; publish job requires `packages: write`. Package visibility must be changed to public before launch. | `main` and complete product-version tags are multi-platform manifests for `linux/amd64` and `linux/arm64`; `-linux-amd64`/`-linux-arm64` expose individual variants. Compose defaults to `IMAGE_TAG=main`; startup/update pulls select by host architecture. Publication is limited to a `main` push after all quality and image-build gates pass. |
 
 ## Twitch operation map
 
@@ -44,6 +51,7 @@ This product uses EventSub WebSocket and Helix Send Chat Message with the stream
 | Shutdown and data | SIGTERM/SIGINT closes HTTP/database work; Compose named volumes preserve the database and generated secret. Normal stop instructions never delete volumes. |
 | ORM / transactions | Prisma 6.19.3 uses `PrismaPg({ connectionString })` with `PrismaClient({ adapter })`. Interactive transactions are short; a PostgreSQL transaction-level advisory lock serializes queue mutations, and database unique indexes remain the final concurrency guard. No network I/O occurs inside a transaction. |
 | ORM migrations and tests | Prisma migrations are versioned and run by `prisma migrate deploy`; test contracts use real PostgreSQL and those migrations, not SQLite or a mocked Prisma client. |
+| Image registry | `ghcr.io/gustavo8000br/subarushogun_gi_twich_bot` | GHCR makes the initial package private by default. Use a classic PAT with `read:packages` only during private pre-release testing; change package visibility to public before launch so product users can pull without registry credentials. The product never stores a token. |
 
 The Twitch OAuth docs currently show `http://localhost:3000` in their examples ([OAuth guide](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/), [Get Started](https://dev.twitch.tv/docs/api/get-started/)). During this installation, the developer console rejected the configured `http://localhost:3000/callback` and required HTTPS. The product therefore uses `https://localhost:3000/callback` by default and documents the local CA trust step. The OAuth `redirect_uri` is kept byte-for-byte aligned across the Twitch app registration, authorization request, token exchange, and panel callback display.
 
@@ -63,6 +71,8 @@ The Twitch OAuth docs currently show `http://localhost:3000` in their examples (
 - [Prisma ORM 6 transactions](https://www.prisma.io/docs/orm/v6/prisma-client/queries/transactions) — interactive transaction API and guidance to avoid slow work/network calls in transactions.
 - [PostgreSQL 18 partial indexes](https://www.postgresql.org/docs/18/indexes-partial.html) — active-entry uniqueness contract.
 - [Docker Compose startup order](https://docs.docker.com/compose/how-tos/startup-order/) and [Compose secrets](https://docs.docker.com/compose/how-tos/use-secrets/) — dependency health and mounted secret handling.
+- [Docker multi-platform builds](https://docs.docker.com/build/building/multi-platform/) and [multi-platform images with GitHub Actions](https://docs.docker.com/build/ci/github-actions/multi-platform/) — manifests, QEMU/binfmt and `linux/amd64` + `linux/arm64` publication.
+- [GitHub: publishing Docker images with Actions](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images) and [working with GHCR](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry) — `GITHUB_TOKEN`, `packages: write`, authentication and private-package defaults.
 
 ## Verification boundary
 

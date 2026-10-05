@@ -2,7 +2,8 @@
 set -eu
 cd "$(dirname "$0")"
 mkdir -p .local
-docker compose up --build -d
+docker compose pull
+docker compose up -d
 printf 'Certificado HTTPS local: %s/.local/localhost-ca.crt (confie-o no sistema antes de conectar à Twitch)\n' "$PWD"
 address="https://localhost:${APP_PORT:-3000}"
 attempt=0
