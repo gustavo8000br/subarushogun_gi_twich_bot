@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Amplia o contrato dos READMEs bilíngues para permissões de execução no Linux/macOS e confiança TLS na primeira execução; runtime macOS continua sem validação.
+- Adiciona mapa allowlistado de rótulos pt-BR para a pílula de status Twitch e fallback genérico para valores desconhecidos; mantém a explicação detalhada de elegibilidade e registra a direção pt-BR padrão/inglês/espanhol/tradução comunitária sem implementar i18n completo.
 - QA revisou a revisão `b7a08b3` da FND-4 e registrou PASS (100/100), ligando os sete critérios de aceitação às evidências automatizadas. Scripts Windows nativos e comportamento real da Twitch continuam explicitamente pendentes para validação do operador.
 
 - Adiciona bootstrap TLS local idempotente: autoridade certificadora privada e certificado de servidor `localhost` persistem no volume de segredos operacionais, somente o certificado público é exportado em `.local/` ignorado, e Fastify/healthcheck/scripts usam HTTPS. O cookie de sessão agora tem `Secure` e origens locais HTTP são rejeitadas. Aceitação Compose real verifica o endpoint HTTPS e a cadeia local; a confiança no host continua sendo uma etapa documentada do operador.

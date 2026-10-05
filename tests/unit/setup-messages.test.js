@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { twitchEligibilityMessage } from '../../apps/web/setup-messages.mjs';
+import * as setupMessages from '../../apps/web/setup-messages.mjs';
+const { twitchEligibilityMessage } = setupMessages;
 
 describe('Twitch setup eligibility message', () => {
   it('shows channel eligibility and reward capacity without hiding the near-limit warning', () => {
@@ -18,5 +19,19 @@ describe('Twitch setup eligibility message', () => {
 
   it('does not claim eligibility when the check has not produced a result', () => {
     expect(twitchEligibilityMessage({ connected: true })).toBe('Canal conectado; verificando elegibilidade e disponibilidade de pontos.');
+  });
+});
+
+
+describe('Twitch setup status label', () => {
+  it('maps ineligible and other API statuses to Portuguese display labels', () => {
+    expect(setupMessages.twitchStatusLabel).toBeTypeOf('function');
+    expect(setupMessages.twitchStatusLabel({ status: 'ineligible' })).toBe('Afiliado ou Parceiro necessário');
+    expect(setupMessages.twitchStatusLabel({ status: 'connected' })).toBe('Conectado');
+    expect(setupMessages.twitchStatusLabel({ status: 'reconnect_required' })).toBe('Reconexão necessária');
+  });
+
+  it('never renders unknown internal status values as panel copy', () => {
+    expect(setupMessages.twitchStatusLabel({ status: 'SECRET_INTERNAL_STATUS' })).toBe('Status indisponível');
   });
 });

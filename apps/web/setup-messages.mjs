@@ -12,3 +12,21 @@ export function twitchEligibilityMessage(setup) {
   if (setup.connected) return 'Canal conectado; verificando elegibilidade e disponibilidade de pontos.';
   return setup.secretConfigured ? 'Aplicativo validado. Conecte o canal para verificar elegibilidade.' : 'Conecte seu canal para ativar as recompensas.';
 }
+
+const statusLabels = Object.freeze({
+  not_configured: 'Não configurado',
+  connected: 'Conectado',
+  connecting: 'Conectando',
+  reconciling: 'Sincronizando',
+  degraded: 'Conexão instável',
+  reconnect_required: 'Reconexão necessária',
+  ineligible: 'Afiliado ou Parceiro necessário',
+  eligibility_unknown: 'Verificando elegibilidade',
+  stopped: 'Desligada',
+});
+
+/** Map internal integration states to safe pt-BR panel copy. */
+export function twitchStatusLabel(setup = {}) {
+  if (setup.connected === true) return statusLabels.connected;
+  return statusLabels[setup.status] ?? 'Status indisponível';
+}
