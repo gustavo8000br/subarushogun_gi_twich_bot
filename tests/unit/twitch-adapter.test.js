@@ -41,4 +41,44 @@ describe('Twurple Helix adapter', () => {
     expect(getRedemptionById).toHaveBeenCalledWith('channel-1', 'reward-1', 'redemption-1');
     expect(updateRedemptionStatusByIds).toHaveBeenCalledWith('channel-1', 'reward-1', ['redemption-1'], 'FULFILLED');
   });
+
+  it('confirms Channel Points API access and counts every channel reward', async () => {
+    const getCustomRewards = vi.fn(async () => Array.from({ length: 46 }, (_, index) => ({ id: `reward-${index}` })));
+    const adapter = createTwitchApiAdapter({ api: {
+      users: { getUserById: vi.fn(async () => ({ broadcasterType: 'affiliate' })) },
+      channelPoints: { getCustomRewards },
+    }, broadcasterId: 'channel-1' });
+
+    await expect(adapter.getChannelEligibility()).resolves.toEqual({
+      eligible: true, broadcasterType: 'affiliate', channelPointsAvailable: true,
+      rewardCount: 46, rewardLimit: 50, nearRewardLimit: true,
+    });
+    expect(getCustomRewards).toHaveBeenCalledWith('channel-1', false);
+  });
+
+  it('does not probe Channel Points for an ineligible broadcaster', async () => {
+    const getCustomRewards = vi.fn();
+    const adapter = createTwitchApiAdapter({ api: {
+      users: { getUserById: vi.fn(async () => ({ broadcasterType: '' })) },
+      channelPoints: { getCustomRewards },
+    }, broadcasterId: 'channel-1' });
+
+    await expect(adapter.getChannelEligibility()).resolves.toMatchObject({
+      eligible: false, broadcasterType: 'unknown', channelPointsAvailable: false,
+      reason: 'channel_ineligible',
+    });
+    expect(getCustomRewards).not.toHaveBeenCalled();
+  });
+
+  it('reports unavailable Channel Points access without leaking SDK errors', async () => {
+    const adapter = createTwitchApiAdapter({ api: {
+      users: { getUserById: vi.fn(async () => ({ broadcasterType: 'partner' })) },
+      channelPoints: { getCustomRewards: vi.fn(async () => { throw new Error('sensitive sdk response'); }) },
+    }, broadcasterId: 'channel-1' });
+
+    await expect(adapter.getChannelEligibility()).resolves.toMatchObject({
+      eligible: false, broadcasterType: 'partner', channelPointsAvailable: false,
+      reason: 'channel_points_unavailable',
+    });
+  });
 });

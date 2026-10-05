@@ -50,7 +50,21 @@ export function createTwitchApiAdapter({ api, broadcasterId }) {
     },
     async getChannelEligibility() {
       const user = await api.users.getUserById(broadcasterId);
-      return { eligible: user?.broadcasterType === 'affiliate' || user?.broadcasterType === 'partner', broadcasterType: user?.broadcasterType ?? 'unknown' };
+      const broadcasterType = String(user?.broadcasterType ?? '').toLowerCase() || 'unknown';
+      if (!['affiliate', 'partner'].includes(broadcasterType)) {
+        return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'channel_ineligible' };
+      }
+      let rewards;
+      try {
+        rewards = await api.channelPoints.getCustomRewards(broadcasterId, false);
+      } catch {
+        return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'channel_points_unavailable' };
+      }
+      const rewardCount = rewards.length;
+      return {
+        eligible: true, broadcasterType, channelPointsAvailable: true, rewardCount, rewardLimit: 50,
+        nearRewardLimit: rewardCount >= 45,
+      };
     },
     async getRedemptionStatus(redemptionId, rewardId) {
       const redemption = await api.channelPoints.getRedemptionById(broadcasterId, rewardId, redemptionId);

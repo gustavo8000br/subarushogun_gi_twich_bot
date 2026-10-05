@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- Verify Twitch Channel Points availability after Affiliate/Partner detection by querying all custom rewards through Twurple, exposing the 45/50 capacity threshold without leaking SDK errors; adapter tests use fakes and no live channel was tested.
 - Fixed `.gitignore` so versioned Prisma migration SQL is included in repository changes while operational SQL dumps remain ignored; a regression test and `git check-ignore` verified all three migration files are visible.
 - Added audited operator resolution for irrecoverably unknown financial outbox operations. The protected panel action records `resolved_manual`, preserves expected and observed Twitch status, and prevents retries without claiming a remote outcome; later authoritative Twitch events still update it to confirmed/conflict. Real PostgreSQL migration/integration and CSRF route tests cover it.
 - Added a shared transition domain service that computes financial intent from locked PostgreSQL state/policy and commits status/order/audit atomically; verified through real migrations and concurrency tests. Chat/EventSub dispatch and financial outbox delivery remain in their assigned later stories.
