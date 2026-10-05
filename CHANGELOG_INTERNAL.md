@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- QA reviewed FND-4 revision `b7a08b3` and recorded PASS (100/100), with all seven acceptance criteria traced to automated evidence. Native Windows scripts and live Twitch behavior remain explicitly unverified operator follow-up.
+
 - Added idempotent local TLS bootstrap: a private CA and `localhost` server certificate persist in the operational-secrets volume, only the CA certificate is exported under ignored `.local/`, and Fastify/healthcheck/start scripts use HTTPS. The protected session cookie now has `Secure`, and HTTP local Origins are rejected. Real Compose acceptance verifies the HTTPS endpoint and local certificate chain; host trust installation remains a documented operator step.
 - Verify Twitch Channel Points availability after Affiliate/Partner detection by querying all custom rewards through Twurple, exposing the 45/50 capacity threshold without leaking SDK errors; adapter tests use fakes and no live channel was tested.
 - Added test-first durable custom reward creation: queue and intent commit atomically; a leased PostgreSQL worker checks eligibility/capacity, creates the reward paused with redemption queueing enabled, confirms its app-managed identity, and recovers lost responses without blind POST retries. Ambiguous ownership stays unknown and prevents queue use. Unit fakes and isolated PostgreSQL tests pass; no live Twitch request has been made. Operator has Twitch credentials ready for future Windows HTTPS acceptance, without sharing them here.

@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- QA revisou a revisão `b7a08b3` da FND-4 e registrou PASS (100/100), ligando os sete critérios de aceitação às evidências automatizadas. Scripts Windows nativos e comportamento real da Twitch continuam explicitamente pendentes para validação do operador.
+
 - Adiciona bootstrap TLS local idempotente: autoridade certificadora privada e certificado de servidor `localhost` persistem no volume de segredos operacionais, somente o certificado público é exportado em `.local/` ignorado, e Fastify/healthcheck/scripts usam HTTPS. O cookie de sessão agora tem `Secure` e origens locais HTTP são rejeitadas. Aceitação Compose real verifica o endpoint HTTPS e a cadeia local; a confiança no host continua sendo uma etapa documentada do operador.
 - Verifica a disponibilidade de Channel Points após detectar Affiliate/Partner consultando todas as recompensas personalizadas via Twurple; expõe o limite 45/50 sem vazar erros do SDK. Testes do adapter usam fakes e nenhum canal real foi testado.
 - Adiciona criação durável de recompensa personalizada com teste primeiro: fila e intenção são gravadas atomicamente; worker PostgreSQL com lease verifica elegibilidade/capacidade, cria recompensa pausada com fila de resgates habilitada, confirma identidade gerenciável pelo app e recupera respostas perdidas sem repetir POST cegamente. Associação ambígua permanece desconhecida e impede uso da fila. Testes unitários com fakes e PostgreSQL isolado passaram; nenhuma chamada Twitch real foi feita. O operador tem credenciais Twitch prontas para aceite HTTPS futuro no Windows, sem compartilhá-las aqui.

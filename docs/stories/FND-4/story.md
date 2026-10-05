@@ -10,7 +10,7 @@
 
 ## Status
 
-**InReview**
+**Done**
 
 ## Story
 
@@ -61,10 +61,62 @@ Files in this review:
 
 ## QA Results
 
-Pending @qa review.
+
+### Review Date: 2026-10-05
+
+### Reviewed By: Quinn (Test Architect)
+
+### Reviewed Revision: b7a08b3
+
+### Code Quality Assessment
+
+PASS (100/100). The seven acceptance criteria map to automated coverage. The financial reward worker keeps remote calls outside database transactions, persists intent before calling Twitch, and stops for operator resolution when ownership is ambiguous. Static analysis and repository quality gates passed. See `docs/qa/gates/FND-4-twitch-integration.yml` for criterion-level Given/When/Then traceability and exact commands.
+
+### Refactoring Performed
+
+None during QA; the reviewed revision remained unchanged.
+
+### Compliance Check
+
+- Coding Standards: ✓ ESM/JSDoc structure and configured lint pass.
+- Project Structure: ✓ Modular apps layout and repository structure checks pass.
+- Testing Strategy: ✓ Unit fakes plus migrated isolated PostgreSQL and Compose integration tests pass.
+- All ACs Met: ✓ automated acceptance coverage is present for AC 1–7.
+
+### Improvements Checklist
+
+- [x] Reviewed all seven acceptance criteria against tests.
+- [x] Reviewed secret handling, local session/CSRF, HTTPS OAuth, durable reward creation and ambiguous-result recovery.
+- [x] Confirmed English and pt-BR integration/story/change documentation is present.
+- [ ] Operator to validate native Windows `.bat` scripts after merge.
+- [ ] Operator to validate OAuth and reward behavior with the authorized Twitch app; no live Twitch success is claimed.
+
+### Security Review
+
+No blocking finding. Mutations use local session/CSRF; OAuth state is session-bound and one-time; secret/token fields are excluded from setup projections; ambiguous Twitch writes are not blindly retried.
+
+### Performance Considerations
+
+No blocking finding. Worker work is leased and bounded, retry delay is capped, and paginated reconciliation is tested. No performance benchmark was in scope.
+
+### Files Modified During Review
+
+`docs/qa/gates/FND-4-twitch-integration.yml`; FND-4 QA Results/status/history and bilingual internal changelogs.
+
+### Gate Status
+
+Gate: PASS → `docs/qa/gates/FND-4-twitch-integration.yml`
+Risk profile: no blocking risks identified.
+NFR assessment: security, performance, reliability and maintainability PASS.
+
+### Lifecycle Transition
+
+PASS: InReview → Done.
+
 
 ## Change Log
 
 | Date | Version | Description | Author |
 | --- | --- | --- | --- |
 | 2026-10-05 | 0.1.0 | FND-4 story formalized from implementation and TDD evidence; submitted to QA review. | @dev |
+| 2026-10-05 | 0.1.0 | QA PASS (100/100) on revision `b7a08b3`; all seven criteria traced to automated evidence. Native Windows and live Twitch checks remain operator follow-up. | @qa |

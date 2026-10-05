@@ -1,0 +1,87 @@
+schema: 1
+story: FND-4
+story_title: Twitch OAuth, adapters, and reconciliation
+gate: PASS
+status_reason: >-
+  All seven acceptance criteria have mapped automated coverage and the recorded repository
+  quality gates pass. Live Twitch acceptance and native Windows batch execution remain
+  explicitly unclaimed operator validations after merge.
+reviewer: Quinn (Test Architect)
+reviewed_revision: b7a08b3
+updated: '2026-10-05T00:00:00-03:00'
+top_issues: []
+waiver:
+  active: false
+quality_score: 100
+expires: '2026-10-19T00:00:00-03:00'
+evidence:
+  tests_reviewed: 283
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7]
+    ac_gaps: []
+  commands:
+    - 'npm test: 45 files, 283 tests passed'
+    - 'npm run lint: passed'
+    - 'npm run typecheck: passed'
+    - 'npm run review:static: 40 application JS files, 0 findings'
+    - 'npm run validate:version: passed; v0.1.0-0000000-alpha preserved'
+    - 'docker compose config --quiet: passed'
+    - 'npm test -- --run tests/integration/compose-runtime.test.js: 3 passed'
+    - 'git diff --check: passed'
+  traceability:
+    - ac: 1
+      given: 'A configured app secret is invalid or replacement validation fails'
+      when: 'The setup validation flow runs'
+      then: 'The replacement is not persisted and secret/token/code values are excluded from responses'
+      tests: ['tests/unit/twitch-oauth.test.js', 'tests/unit/queue-routes.test.js']
+    - ac: 2
+      given: 'OAuth state is expired, reused, or bound to another local session'
+      when: 'The callback is processed'
+      then: 'Authorization is rejected; valid broadcaster identity/scopes and token refresh persistence are enforced'
+      tests: ['tests/unit/twitch-oauth.test.js', 'tests/unit/twitch-auth-runtime.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 3
+      given: 'A channel is ineligible or Channel Points/capacity cannot be queried'
+      when: 'Setup state is projected'
+      then: 'Only allowlisted eligibility fields are returned and the panel can explain the state'
+      tests: ['tests/unit/queue-routes.test.js', 'tests/unit/setup-messages.test.js']
+    - ac: 4
+      given: 'A queue creation or Twitch reward POST has a lost/ambiguous result'
+      when: 'The durable reward worker processes or recovers the leased task'
+      then: 'The reward is created paused with request queue enabled; uncertain ownership is not retried blindly and operator resolution is audited'
+      tests: ['tests/unit/reward-outbox-worker.test.js', 'tests/integration/queue-repository.test.js', 'tests/unit/queue-routes.test.js']
+    - ac: 5
+      given: 'Redemption events duplicate, arrive update-before-add, or reconciliation partially fails'
+      when: 'EventSub/reconciliation processes the observations'
+      then: 'Redemption identity deduplicates, terminal state is preserved and incomplete scans do not infer removal'
+      tests: ['tests/unit/twitch-integration.test.js', 'tests/unit/twitch-reconciliation.test.js', 'tests/unit/twitch-event-processor.test.js', 'tests/unit/eventsub-runtime.test.js']
+    - ac: 6
+      given: 'Credential binding, reward persistence, or worker lease recovery must survive process restart'
+      when: 'The isolated PostgreSQL integration suite applies real migrations'
+      then: 'Persistence constraints and recovery behavior are verified without SQLite or Prisma mocks'
+      tests: ['tests/integration/queue-repository.test.js']
+    - ac: 7
+      given: 'A developer reviews integration decisions'
+      when: 'The English and pt-BR integration guides are inspected'
+      then: 'Dated official links, pinned versions, and operation/event-to-endpoint-to-scope-to-SDK mappings are present'
+      tests: ['tests/unit/documentation-contract.test.js']
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Local session and CSRF protect mutations; HTTPS callback/state validation, secret redaction, allowlisted DTOs, bounded/sanitized worker error codes, and safe text rendering are covered by tests/review.'
+  performance:
+    status: PASS
+    notes: 'Work is paginated and bounded by queue/reward limits; Twitch calls occur outside short database transactions; leased worker retries use capped exponential backoff and honor 429 retry-after.'
+  reliability:
+    status: PASS
+    notes: 'PostgreSQL outbox, transactional enqueue, lease recovery, unknown-result reconciliation, durable OAuth persistence, and isolated Compose startup/restart tests cover crash recovery.'
+  maintainability:
+    status: PASS
+    notes: 'Modular ESM implementation, JSDoc, pinned dependencies, bilingual guides/story/changelogs, integration matrix, and recorded TDD evidence pass the repository checks.'
+recommendations:
+  immediate: []
+  future:
+    - action: 'Run the documented native Windows first-run/updater/uninstaller checks and report their outcome.'
+      refs: ['iniciar.bat', 'atualizar.bat', 'desinstalar.bat']
+    - action: 'Run authorized live Twitch setup, reward creation, redemption/EventSub, and recovery acceptance; do not infer financial success from mocks.'
+      refs: ['docs/stories/FND-4/story.md', 'docs/integrations.md']

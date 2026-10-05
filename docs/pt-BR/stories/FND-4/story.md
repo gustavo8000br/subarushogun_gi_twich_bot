@@ -10,7 +10,7 @@
 
 ## Status
 
-**InReview**
+**Done**
 
 ## História
 
@@ -61,10 +61,62 @@ Arquivos desta revisão:
 
 ## Resultados QA
 
-Revisão de @qa pendente.
+
+### Data da revisão: 2026-10-05
+
+### Revisado por: Quinn (Test Architect)
+
+### Revisão do commit: b7a08b3
+
+### Avaliação da qualidade do código
+
+PASS (100/100). Os sete critérios de aceitação estão ligados a cobertura automatizada. O worker financeiro mantém chamadas remotas fora das transações do banco, persiste a intenção antes de chamar a Twitch e para para resolução do operador quando a propriedade é ambígua. Análise estática e quality gates do repositório passaram. Consulte `docs/qa/gates/FND-4-twitch-integration.yml` para o rastreamento Given/When/Then e comandos exatos.
+
+### Refatoração feita
+
+Nenhuma durante o QA; a revisão avaliada permaneceu inalterada.
+
+### Verificação de conformidade
+
+- Padrões de código: ✓ Estrutura ESM/JSDoc e lint configurado passaram.
+- Estrutura do projeto: ✓ Layout modular apps e verificações estruturais passaram.
+- Estratégia de testes: ✓ Fakes unitários e testes de integração PostgreSQL isolado com migrations reais e Compose passaram.
+- Todos os critérios: ✓ Há cobertura automatizada para AC 1–7.
+
+### Checklist de melhorias
+
+- [x] Critérios de aceitação confrontados com os testes.
+- [x] Revisados segredos, sessão local/CSRF, OAuth HTTPS, criação durável de recompensa e recuperação de resultado ambíguo.
+- [x] Confirmada a documentação de integração/story/changelog em inglês e pt-BR.
+- [ ] Operador validar os scripts `.bat` em Windows nativo após o merge.
+- [ ] Operador validar OAuth e recompensa com o app Twitch autorizado; nenhum sucesso real foi alegado.
+
+### Revisão de segurança
+
+Nenhum achado bloqueador. Mutações usam sessão local/CSRF; state OAuth é único e vinculado à sessão; campos de segredos/tokens ficam fora das projeções do setup; gravações ambíguas na Twitch não são repetidas cegamente.
+
+### Desempenho
+
+Nenhum achado bloqueador. O worker usa leases, o trabalho é limitado, o atraso de retry tem teto e a reconciliação paginada é testada. Benchmark de desempenho não fazia parte do escopo.
+
+### Arquivos alterados durante a revisão
+
+`docs/qa/gates/FND-4-twitch-integration.yml`; Resultados QA/status/histórico da FND-4 e changelogs internos bilíngues.
+
+### Estado do gate
+
+Gate: PASS → `docs/qa/gates/FND-4-twitch-integration.yml`
+Perfil de risco: nenhum risco bloqueador identificado.
+Avaliação NFR: segurança, desempenho, confiabilidade e manutenção PASS.
+
+### Transição do ciclo de vida
+
+PASS: InReview → Done.
+
 
 ## Histórico
 
 | Data | Versão | Descrição | Autor |
 | --- | --- | --- | --- |
 | 2026-10-05 | 0.1.0 | Story FND-4 formalizada com implementação/evidências TDD; enviada para revisão QA. | @dev |
+| 2026-10-05 | 0.1.0 | QA PASS (100/100) no commit `b7a08b3`; os sete critérios foram ligados às evidências automatizadas. Verificações de Windows nativo e Twitch real continuam como validação do operador. | @qa |
