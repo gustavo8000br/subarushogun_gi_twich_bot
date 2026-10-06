@@ -12,12 +12,13 @@ English | [Português brasileiro](README.pt-BR.md)
 
 A local-first, self-hosted Twitch queue bot for Genshin Impact community sessions. The project is being built to let one streamer manage several custom queues while keeping application data in a PostgreSQL database on the streamer's own computer.
 
-> **Development status:** alpha, active implementation. FND-2 through FND-5 are complete, including queue and reward lifecycle, durable point operations, Twitch adapters and chat commands. FND-6 is completing the protected streamer panel and local security. Twitch operations have not been validated with an authorized live channel; do not rely on this alpha for live point handling until that validation is complete.
+> **Development status:** alpha, active implementation. FND-2 through FND-7 are complete; FND-7 passed independent QA at 9.2/10. Local OBS acceptance applies to Ubuntu 24.04 / OBS Studio 32.2.2 / CEF 127.0.6533.120. No live Twitch reward or point write has been verified with an authorized channel.
 
 ## Contents
 
 - [Principles](#principles)
 - [What works today](#what-works-today)
+- [OBS widgets](#obs-widgets)
 - [Requirements](#requirements)
 - [First run](#first-run)
 - [Daily operation](#daily-operation)
@@ -48,12 +49,21 @@ The current foundation provides:
 - A local panel with Twitch setup, queue creation and entry actions, recent terminal history, waiting-entry reordering, and financial-operation status; the API uses local session, CSRF, Host and Origin checks.
 - `/health` reports the product version, local database state, Twitch API connection state, and measured response time for authenticated channels, including channels that are ineligible for Channel Points rewards; the panel shows the same health summary in Portuguese.
 - A chatbot runtime that receives Twitch redemption/chat events and processes queue commands, with a local streamer panel for configuration and administration. The panel is the operator console; viewers do not join through it.
+- Configurable OBS Browser Source widgets with one selected field or fixed text per widget, allowlisted styling, a local read-only projection, and one-time capability URLs. Native OBS Browser Source HTTPS behavior was verified only on Ubuntu 24.04 with OBS Studio 32.2.2 / CEF 127.0.6533.120.
 - Queue lifecycle, redemption validation/import, state transitions, financial outbox processing, Twitch OAuth/EventSub/reconciliation, chat parsing/authorization, call notifications/timeouts, queue-clear confirmation and current-account ownership.
 - Managed Twitch reward creation, editing, open/close, archive and safe deletion, with remote confirmation and recovery for interrupted operations.
 - Persistent database and secret volumes. The database is not published on a host port; the application defaults to `127.0.0.1:3000`.
 - Version validation/materialization scripts and the initial Prisma schema/migration.
 
 The current alpha is **not yet validated for a live queue session**. The panel supports local queue settings, managed Twitch reward edits, manual Twitch reconciliation, recovery controls, and styled OAuth callback recovery. Mutations use persisted idempotency keys. UX desk research is documented, but no moderated streamer usability session has happened. An authorized read-only Helix health lookup has been verified; no Twitch point or reward write operation has been verified.
+
+## OBS widgets
+
+The local panel has a dedicated **OBS widgets** page. A widget can show one selected account/queue/entry value or fixed text. Each widget has independent styling and a private local URL. The URL secret is shown only once when the widget is created or its link is regenerated; copy it directly into OBS and treat it like a password. The panel stores only a hash and can revoke or regenerate the link.
+
+To add one, create it in the panel, copy the one-time URL, then in OBS add **Sources → Browser Source** and paste the URL. Use the widget dimensions shown in the panel and set **Page Permissions** to **None**. OBS and the bot must run on the same computer. Keep HTTPS certificate validation enabled. The local CA workflow has been verified for Ubuntu 24.04 / OBS Studio 32.2.2 / CEF 127.0.6533.120 only; Windows and macOS OBS certificate trust have not been validated. Do not switch the source to HTTP or bypass certificate checks.
+
+Chrome manual acceptance after trusting the current local certificate confirmed widget creation/editing, successful one-time clipboard copy, regeneration, revocation, deletion, and queue-source selection against a disposable local PostgreSQL queue fixture. Native OBS testing on Ubuntu 24.04 / OBS Studio 32.2.2 / CEF 127.0.6533.120 covered eight sources, bot restart recovery, source unload/reload, and capability rotation. No Twitch account was connected, so the fixture verifies local queue selection only. Do not use an unverified overlay URL in a public stream; revoke it from the panel if it was exposed.
 
 ## Requirements
 
@@ -113,7 +123,7 @@ The Windows hardware figures above are not our product benchmark. They combine c
 7. Trust this installation's local certificate for the current Windows user, then restart the browser:
 
    ```powershell
-   Import-Certificate -FilePath (Resolve-Path '.\.local\localhost-ca.crt') -CertStoreLocation Cert:\CurrentUser\Root
+   Import-Certificate -FilePath (Resolve-Path '.\.local\localhost-ca.crt').Path -CertStoreLocation Cert:\CurrentUser\Root
    ```
 
    Open `https://localhost:3000`. This local CA is not a public CA; only import the certificate generated in this project's `.local` directory. If the Docker secrets volume is intentionally removed, bootstrap creates a new CA and this trust step must be repeated.
@@ -140,11 +150,11 @@ The Windows hardware figures above are not our product benchmark. They combine c
 5. Trust the generated local CA in the Ubuntu system store and refresh the certificate bundle:
 
    ```sh
-   sudo install -Dm644 .local/localhost-ca.crt /usr/local/share/ca-certificates/queuebot-localhost-ca.crt
+   sudo install -Dm644 "$PWD/.local/localhost-ca.crt" /usr/local/share/ca-certificates/queuebot-localhost-ca.crt
    sudo update-ca-certificates
    ```
 
-   Restart the browser and open `https://localhost:3000`.
+   Run this from the project directory after bootstrap has created `.local/localhost-ca.crt`. `$PWD` expands to the absolute project path, including when it contains spaces. Restart the browser and open `https://localhost:3000`.
 
 ### macOS first run
 
@@ -167,8 +177,11 @@ The Windows hardware figures above are not our product benchmark. They combine c
 5. Trust the generated local CA in the macOS login keychain, restart the browser, and open `https://localhost:3000`:
 
    ```sh
-   security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db .local/localhost-ca.crt
+   security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db "$PWD/.local/localhost-ca.crt"
    ```
+
+   Run this from the project directory after bootstrap has created the certificate. The command adds this installation's CA to the current user's login keychain; macOS has not yet been validated by this project.
+
 
 ### Continue setup on any platform
 
@@ -287,10 +300,10 @@ The callback defaults to `https://localhost:3000/callback`. Register a confident
 The first Compose bootstrap creates a private local certificate authority and a `localhost` server certificate. Only the public CA certificate is exported to `.local/localhost-ca.crt`; its private key stays in the persistent Docker secrets volume. Import the certificate into your current user's trust store before using Twitch OAuth, then restart the browser:
 
 ```powershell
-Import-Certificate -FilePath .\.local\localhost-ca.crt -CertStoreLocation Cert:\CurrentUser\Root
+Import-Certificate -FilePath (Resolve-Path '.\.local\localhost-ca.crt').Path -CertStoreLocation Cert:\CurrentUser\Root
 ```
 
-On Linux, install it in the system trust store with `sudo install -Dm644 .local/localhost-ca.crt /usr/local/share/ca-certificates/queuebot-localhost-ca.crt && sudo update-ca-certificates`. On macOS, run `security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db .local/localhost-ca.crt`. Restart the browser after importing it.
+On Linux, from the project directory, install it in the system trust store with `sudo install -Dm644 "$PWD/.local/localhost-ca.crt" /usr/local/share/ca-certificates/queuebot-localhost-ca.crt && sudo update-ca-certificates`. On macOS, from the project directory, run `security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db "$PWD/.local/localhost-ca.crt"`. Both commands use the absolute certificate path; macOS behavior is not yet validated by this project. Restart the browser after importing it.
 
 This CA is private to this installation and is not issued by a public authority. If you remove the Docker secrets volume, Compose creates a new certificate; import the new `.local/localhost-ca.crt` again. On Windows, remove trust later with `certmgr.msc`: find `QueueBot Local Root CA` under **Trusted Root Certification Authorities > Certificates** and delete it.
 
@@ -387,8 +400,8 @@ Open `https://localhost:3000` yourself. If the browser reports an untrusted cert
 | FND-3 | Durable financial outbox, retries, confirmation, and recovery | Complete; live Twitch point operations remain unverified |
 | FND-4 | Twitch credentials, OAuth, rewards, EventSub, and reconciliation | Complete; authorized live Twitch acceptance remains for operator validation |
 | FND-5 | Chat commands, calls, timeouts, cleanup confirmation, current account, and shared application services ([issue #1](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/1)) | Complete; QA 9.0/10, live Twitch point operations unverified |
-| FND-6 | UX planning with references, complete panel, setup wizard, protected API, and local security ([issue #6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | In progress; local/reward settings, history, persisted API idempotency and manual reconciliation are implemented; additional recovery controls, callback browser E2E and usability validation remain |
-| FND-7 | Configurable local OBS overlay widgets ([issue #7](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/7)) | Planned; implementation follows FND-6 completion and QA/UX gates |
+| FND-6 | UX planning with references, complete panel, setup wizard, protected API, and local security ([issue #6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | Complete; independent QA 9.0/10. Live Twitch reward writes remain unverified |
+| FND-7 | Configurable local OBS overlay widgets ([issue #7](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/7)) | Complete; independent QA PASS 9.2/10; Twitch synchronization and Windows/macOS OBS trust remain unverified |
 | OPS-2 | Localize Twitch setup states in the panel; future default pt-BR with English/Spanish and community translations | Implementation and QA review in progress |
 
 The future panel localization plan is pt-BR by default, with English and Spanish, and community contributions for additional panel/frontend translations. This release remains pt-BR only. The story log is the source for detailed status and test evidence. A feature is not complete because it appears in this roadmap.

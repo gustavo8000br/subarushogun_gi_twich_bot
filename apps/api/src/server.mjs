@@ -9,10 +9,14 @@ import { registerWebRoutes } from './web-route.mjs';
 import { registerLocalSession } from './http/local-session.mjs';
 import { registerQueueRoutes } from './http/queue-routes.mjs';
 import { createQueueRepository } from './persistence/queue-repository.mjs';
+import { createOverlayWidgetRepository } from './persistence/overlay-widget-repository.mjs';
 import { createTwitchCredentialRepository } from './persistence/twitch-credential-repository.mjs';
 import { createApplicationRuntime } from './runtime.mjs';
 import { createChatCommandHandler } from './commands/chat-handler.mjs';
 import { createClearConfirmationService } from './domain/clear-confirmation.mjs';
+import { createOverlayWidgetService } from './domain/overlay-widget-service.mjs';
+import { createOverlayProjectionService } from './domain/overlay-projection-service.mjs';
+import { registerOverlayRoutes } from './http/overlay-routes.mjs';
 import { fileURLToPath } from 'node:url';
 
 const databaseUrl = await createDatabaseUrl();
@@ -25,6 +29,7 @@ const port = Number(process.env.APP_PORT ?? 3000);
 process.env.DATABASE_URL = databaseUrl;
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
 const repository = createQueueRepository(prisma);
+const overlayRepository = createOverlayWidgetRepository(prisma);
 const credentialRepository = createTwitchCredentialRepository(prisma);
 let runtime;
 let getTwitchHealth = () => null;
@@ -71,6 +76,12 @@ registerQueueRoutes(app, {
   },
   publicBaseUrl: process.env.PUBLIC_BASE_URL ?? `https://localhost:${port}`,
   resolveUser: async (login) => runtime?.integration?.twitch?.getUserByLogin(login) ?? null,
+});
+const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? `https://localhost:${port}`;
+registerOverlayRoutes(app, {
+  repository: overlayRepository,
+  widgetService: createOverlayWidgetService({ repository: overlayRepository, origin: publicBaseUrl }),
+  projectionService: createOverlayProjectionService({ overlayRepository, queueRepository: repository }),
 });
 await registerWebRoutes(app, fileURLToPath(new URL('../../web/', import.meta.url)));
 

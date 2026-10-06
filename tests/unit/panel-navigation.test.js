@@ -36,4 +36,12 @@ describe('local panel navigation', () => {
     expect(selectPanelPage('arbitrary', { navigationItems, pages })).toBe('overview');
     expect(pages.map(({ hidden }) => hidden)).toEqual([false, true]);
   });
+
+  it('opens the dedicated OBS widgets page from the panel navigation', () => {
+    const navigationItems = ['overview', 'widgets'].map((page) => element({ pageTarget: page }));
+    const pages = ['overview', 'widgets'].map((page) => element({ panelPage: page }));
+    expect(selectPanelPage('widgets', { navigationItems, pages })).toBe('widgets');
+    expect(pages.map(({ hidden }) => hidden)).toEqual([true, false]);
+    expect(navigationItems.map(({ attributes }) => attributes['aria-current'] ?? null)).toEqual([null, 'page']);
+  });
 });

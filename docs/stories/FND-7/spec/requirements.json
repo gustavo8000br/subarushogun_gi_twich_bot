@@ -1,11 +1,11 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "storyId": "FND-7",
-  "gatheredAt": "2026-10-05T16:45:00Z",
-  "source": "user",
+  "gatheredAt": "2026-10-06T17:00:00Z",
+  "source": "existing",
   "gatheredBy": "@pm (AIOX Spec Pipeline)",
   "elicitationVersion": "2.0",
-  "sourceDocument": "Conversation request to design and publish an OBS overlay story; user elicitation answers recorded in this artifact.",
+  "sourceDocument": "Existing user-approved FND-7 scope and decisions, refreshed against official OBS/Chromium documentation on 2026-10-06.",
   "functional": [
     {
       "id": "FR-1",
@@ -19,11 +19,11 @@
     },
     {
       "id": "FR-2",
-      "description": "Offer one atomic data widget for current Genshin account label, selected queue name, selected queue open/closed state, selected queue waiting count, called viewer display name, called viewer position, or in-service viewer display name; also support fixed text. Queue-scoped widgets select exactly one queue.",
+      "description": "Offer one atomic data widget for current Genshin account label, selected queue name, selected queue open/closed state, selected queue waiting count, called viewer display name, called viewer original waiting position at call time, or in-service viewer display name; also support fixed text. Queue-scoped widgets select exactly one queue. When multiple viewers are in called state, called-viewer fields resolve to the earliest outstanding call ordered by calledAt then createdAt.",
       "priority": "P0",
       "rationale": "The streamer selected all proposed operational data for the first release; each widget remains limited to its selected field and queue.",
       "acceptance": [
-        "AC-1: Given a new widget, when the streamer selects a source, then the catalog offers these atomic sources: current Genshin account label; selected queue name; selected queue state; selected queue waiting count; called viewer display name; called viewer position; in-service viewer display name; or fixed text. No combined data fields are implicit.",
+        "AC-1: Given a new widget, when the streamer selects a source, then the catalog offers these atomic sources: current Genshin account label; selected queue name; selected queue state; selected queue waiting count; called viewer display name; called viewer original waiting position at the moment of call, read from its audited transition snapshot rather than the now-null waiting position; in-service viewer display name; or fixed text. When multiple viewers are called, resolve called-viewer fields to the earliest outstanding call ordered by calledAt then createdAt. No combined data fields are implicit.",
         "AC-5: Given a valid widget capability, when its projection is read, then only that selected field and required queue scope are returned; UID and unrelated records are absent."
       ]
     },
@@ -85,6 +85,15 @@
       "acceptance": [
         "AC-9: Given a streamer setting up OBS, when they follow either English or pt-BR guide, then it explains browser source, local URL, dimensions, transparency, refresh behavior, preview, and revoke/regenerate steps."
       ]
+    },
+    {
+      "id": "FR-9",
+      "description": "Keep OBS Browser Source limited to rendering the local overlay: do not use OBS-specific JavaScript bindings, scene/control APIs, or OBS data; guide the streamer to set Browser Source Page Permissions to None.",
+      "priority": "P0",
+      "rationale": "The overlay needs only same-origin widget data. Official OBS documentation says the Browser Source exposes configurable page permissions, whose default permits reading OBS status.",
+      "acceptance": [
+        "AC-16: Given the streamer adds a widget in OBS, when they configure the Browser Source, then the guide instructs Page Permissions = None; the overlay does not read window.obsstudio or call OBS-specific APIs."
+      ]
     }
   ],
   "nonFunctional": [
@@ -117,6 +126,11 @@
       "id": "NFR-6",
       "description": "Widget controls are labeled, keyboard-operable, show focus, and provide a readability preview before link copying.",
       "category": "usability"
+    },
+    {
+      "id": "NFR-7",
+      "description": "For every OS/OBS version claimed as supported, the CEF Browser Source loads the local HTTPS overlay using the trusted application certificate without a certificate bypass or insecure HTTP fallback.",
+      "category": "reliability"
     }
   ],
   "constraints": [
@@ -154,6 +168,11 @@
       "id": "CON-7",
       "description": "FND-5 and FND-6 must be fully complete and their field projections and protected panel foundations verified before any FND-7 implementation begins; no reduced field subset is accepted as a workaround.",
       "type": "technical"
+    },
+    {
+      "id": "CON-8",
+      "description": "Keep Browser Source on the app’s local HTTPS origin. Never disable certificate validation or fall back to HTTP to work around CEF trust-store differences; document only trust steps verified on the tested OS/OBS version.",
+      "type": "security"
     }
   ],
   "assumptions": [
@@ -176,6 +195,11 @@
       "id": "ASM-4",
       "description": "Fonts are selected from safe generic/local system font stacks; downloading or embedding third-party fonts is not required.",
       "risk": "low"
+    },
+    {
+      "id": "ASM-5",
+      "description": "The OBS CEF runtime can trust the local HTTPS certificate after platform-appropriate installation; its trust behavior may differ from the desktop browser and must be checked natively.",
+      "risk": "high"
     }
   ],
   "domainModel": [
@@ -196,7 +220,7 @@
     },
     {
       "entity": "OverlayField",
-      "description": "An allowlisted projection of current account, queue, waiting count, called viewer/position, or in-service viewer state.",
+      "description": "An allowlisted projection of current account, queue, waiting count, called viewer/its audited prior waiting position, or in-service viewer state.",
       "relationships": [
         "Reads source state through application/domain projections."
       ]
@@ -261,6 +285,16 @@
       "scenario": "A selected queue is archived/deleted or its widget field is no longer available.",
       "handling": "Do not read another queue; show fallback and identify the configuration as needing repair in the panel.",
       "severity": "medium"
+    },
+    {
+      "scenario": "OBS CEF does not trust the local application CA even though the desktop browser does.",
+      "handling": "Do not bypass TLS or switch the overlay to HTTP. Record the exact OS/OBS/CEF environment, verify the supported trust-store path, and do not claim that environment as supported until the Browser Source loads the local HTTPS page normally.",
+      "severity": "high"
+    },
+    {
+      "scenario": "The Browser Source has unnecessary OBS page privileges enabled.",
+      "handling": "The guide asks the operator to set Page Permissions to None. The overlay remains functional without OBS bindings and never reads OBS state or invokes OBS control APIs.",
+      "severity": "medium"
     }
   ],
   "terminology": [
@@ -297,6 +331,16 @@
     {
       "question": "The custom text limit is 240 Unicode code points; enforce the same counting rule in browser and API.",
       "priority": "low",
+      "blocksProgress": false
+    },
+    {
+      "question": "Which safe default style, font labels, preview and stale/unavailable presentations best fit the panel? Resolve in UX refinement.",
+      "priority": "medium",
+      "blocksProgress": false
+    },
+    {
+      "question": "Which OBS/OS versions have a trusted CEF path for the app’s HTTPS local certificate, and what trust-store steps work without bypassing validation? Verify with native Browser Source before claiming compatibility.",
+      "priority": "high",
       "blocksProgress": false
     }
   ]

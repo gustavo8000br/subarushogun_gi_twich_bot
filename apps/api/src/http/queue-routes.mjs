@@ -114,9 +114,15 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   app.addHook('onSend', async (request, reply, payload) => {
     const record = /** @type {any} */ (request).idempotencyRecord;
     if (!record || reply.statusCode >= 500) return payload;
-    let responseBody = null;
-    try { responseBody = typeof payload === 'string' ? JSON.parse(payload) : payload ?? null; } catch { /* Keep an explicit null result for non-JSON replies. */ }
-    try { await repository.completePanelOperation({ ...record, statusCode: reply.statusCode, responseBody }); }
+    const oneTimeSecretResponse = Boolean((/** @type {any} */ (request)).overlaySecretResponse);
+    let responseBody = oneTimeSecretResponse
+      ? { code: 'OVERLAY_LINK_ALREADY_ISSUED', error: 'O link foi emitido uma vez. Gere outro se precisar copiá-lo novamente.' }
+      : null;
+    const replayStatusCode = oneTimeSecretResponse ? 409 : reply.statusCode;
+    if (!oneTimeSecretResponse) {
+      try { responseBody = typeof payload === 'string' ? JSON.parse(payload) : payload ?? null; } catch { /* Keep an explicit null result for non-JSON replies. */ }
+    }
+    try { await repository.completePanelOperation({ ...record, statusCode: replayStatusCode, responseBody }); }
     catch { reply.header('idempotency-store', 'pending'); }
     return payload;
   });

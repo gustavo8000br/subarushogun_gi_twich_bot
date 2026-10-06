@@ -1,4 +1,4 @@
-const pageIds = new Set(['overview', 'queues', 'new-queue', 'operations', 'commands', 'settings', 'connection']);
+const pageIds = new Set(['overview', 'queues', 'new-queue', 'operations', 'commands', 'widgets', 'settings', 'connection']);
 
 /** @param {{connected?: boolean}} setup */
 export function getInitialPanelPage(setup) {

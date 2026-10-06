@@ -1,6 +1,6 @@
 {
   "name": "subarushogun-gi-twitch-queue-bot",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
+    "test:e2e:overlay": "node tests/e2e/overlay-browser.mjs",
     "validate:version": "node apps/infra/scripts/validate-version.mjs",
     "validate:port-denylist": "node apps/infra/scripts/validate-port-denylist.mjs",
     "materialize:version": "node apps/infra/scripts/materialize-version.mjs",

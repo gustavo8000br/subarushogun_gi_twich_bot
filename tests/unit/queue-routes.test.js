@@ -4,8 +4,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { registerLocalSession } from '../../apps/api/src/http/local-session.mjs';
 import { registerQueueRoutes } from '../../apps/api/src/http/queue-routes.mjs';
 import { createClearConfirmationService } from '../../apps/api/src/domain/clear-confirmation.mjs';
+import { registerOverlayRoutes } from '../../apps/api/src/http/overlay-routes.mjs';
 
-async function createHarness({ domainService, resolveUser = async () => null } = {}) {
+async function createHarness({ domainService, resolveUser = async () => null, beforeSession = async () => undefined } = {}) {
   const app = Fastify();
   registerLocalSession(app, { port: 3000 });
   const queue = { id: 'queue-id', slug: 'abismo', title: 'Abismo', cost: 100, uidMode: 'visible', showUidInOverlay: false, isOpen: false, isArchived: false, lifecycleStatus: 'active', version: 1 };
@@ -33,6 +34,7 @@ async function createHarness({ domainService, resolveUser = async () => null } =
   const integrations = { status: 'not_configured', twitch: null };
   const clearConfirmation = createClearConfirmationService({ repository });
   registerQueueRoutes(app, { repository, domainService, integrations, clearConfirmation, resolveUser, publicBaseUrl: 'https://localhost:3000', productVersion: 'v0.1.0-1234567-alpha' });
+  await beforeSession({ app, repository });
   const inject = app.inject.bind(app);
   const rawInject = app.inject.bind(app);
   app.inject = (options) => {
@@ -78,16 +80,47 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('never replays a one-time OBS capability URL from the idempotency store', async () => {
+    const outcomes = new Map();
+    const capabilityUrl = 'https://localhost:3000/overlay.html#one-time-secret-must-not-replay';
+    const widgetService = { create: vi.fn(async () => ({ widget: { id: 'widget-id', sourceType: 'fixed_text', version: 1 }, capabilityUrl })) };
+    let h;
+    h = await createHarness({ beforeSession: async ({ app, repository }) => {
+      repository.beginPanelOperation = vi.fn(async ({ operationKey, fingerprint }) => {
+        const previous = outcomes.get(operationKey);
+        if (!previous) { outcomes.set(operationKey, { fingerprint, state: 'processing' }); return { status: 'started' }; }
+        if (previous.fingerprint !== fingerprint) return { status: 'conflict' };
+        return { status: 'replay', statusCode: previous.statusCode, responseBody: previous.responseBody };
+      });
+      repository.completePanelOperation = vi.fn(async ({ operationKey, statusCode, responseBody }) => {
+        outcomes.set(operationKey, { ...outcomes.get(operationKey), state: 'completed', statusCode, responseBody });
+      });
+      repository.list = vi.fn(async () => []);
+      registerOverlayRoutes(app, { repository, widgetService, projectionService: { readWithCapability: async () => null } });
+    } });
+    const headers = { ...h.headers, 'idempotency-key': 'one-time-overlay-0001' };
+    const payload = { sourceType: 'fixed_text', fixedText: 'Ready' };
+    const first = await h.app.inject({ method: 'POST', url: '/api/overlay-widgets', headers, payload });
+    const replay = await h.app.inject({ method: 'POST', url: '/api/overlay-widgets', headers, payload });
+    expect(first.statusCode).toBe(201);
+    expect(first.body).toContain(capabilityUrl);
+    expect(replay.statusCode).toBe(409);
+    expect(replay.body).not.toContain('one-time-secret-must-not-replay');
+    expect(widgetService.create).toHaveBeenCalledOnce();
+    expect(h.repository.completePanelOperation).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 409, responseBody: { code: 'OVERLAY_LINK_ALREADY_ISSUED', error: 'O link foi emitido uma vez. Gere outro se precisar copiá-lo novamente.' } }));
+    await h.app.close();
+  });
+
   it('returns a session-protected safe catalog projection with effective command roles', async () => {
     const h = await createHarness();
-    h.repository.getCommandPolicyState.mockResolvedValue({ version: 7, policies: { 'queue:add': ['subscriber'] } });
+    h.repository.getCommandPolicyState.mockResolvedValue({ version: 7, policies: { 'queue:add': ['everyone'], 'global:conta:set': ['everyone'] } });
     const denied = await h.app.inject({ method: 'GET', url: '/api/command-catalog', headers: { host: 'localhost:3000' } });
     expect(denied.statusCode).toBe(401);
     const response = await h.app.inject({ method: 'GET', url: '/api/command-catalog', headers: h.sessionHeaders });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ version: 7, commands: expect.arrayContaining([
-      expect.objectContaining({ key: 'queue:add', allowedRoles: ['subscriber'], configurable: true }),
-      expect.objectContaining({ key: 'global:conta:set', allowedRoles: ['streamer'], configurable: false }),
+      expect.objectContaining({ key: 'queue:add', allowedRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'], configurable: false }),
+      expect.objectContaining({ key: 'global:conta:set', allowedRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'], configurable: false }),
       expect.objectContaining({ key: 'global:queue:ping', allowedRoles: ['streamer', 'moderator'], configurable: false }),
     ]) });
     expect(JSON.stringify(response.json())).not.toContain('clientSecret');
@@ -95,7 +128,7 @@ describe('local queue and setup API', () => {
 
   it('updates only known mutable command policies through CSRF, idempotency and optimistic version checks', async () => {
     const h = await createHarness();
-    const payload = { expectedVersion: 1, policies: { 'queue:add': ['subscriber', 'moderator'] } };
+    const payload = { expectedVersion: 1, policies: { 'queue:lista': ['subscriber', 'moderator'] } };
     const denied = await h.app.inject({ method: 'PATCH', url: '/api/command-policies', headers: h.sessionHeaders, payload });
     expect(denied.statusCode).toBe(403);
     const invalid = await h.app.inject({ method: 'PATCH', url: '/api/command-policies', headers: h.headers, payload: { ...payload, policies: { 'global:conta:set': ['everyone'] } } });

@@ -2,6 +2,15 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.5.0-alpha
+
+- Atualiza evidências de implementação, recuperação e aceite da FND-7. Verifica o comportamento documentado da instalação Linux da CA com caminho absoluto em uma pasta com espaços; atualiza comandos de Windows/macOS e mantém esses fluxos de host explicitamente como não validados. Adiciona limpeza testada de containers/volumes PostgreSQL isolados e registra a auditoria completa do repositório com dez propostas de melhoria nos relatórios bilíngues.
+
+- Adiciona widgets OBS locais configuráveis com modelo PostgreSQL e capabilities de uso único armazenadas somente por hash. Rotas de gestão exigem sessão local e CSRF; o Browser Source recebe projeções de um único campo por endpoint somente de leitura. Inclui validação de estilos permitidos, limite em pontos de código Unicode e testes unitários, de rota, PostgreSQL real e E2E no Chromium do OBS.
+- Verifica HTTPS nativo do OBS e Page Permissions=None no Ubuntu 24.04 / OBS Studio 32.2.2 / CEF 127.0.6533.120; o E2E autenticado final mediu 80 atualizações commit→DOM em oito widgets ativos, com máximo de 905 ms. Também verificou parada/reinício do bot, recuperação do valor stale, descarregamento/recarga da Browser Source e rotação de capability. A aceitação manual no Chrome confirma criar/editar, cópia única, regeneração/revogação, exclusão e seleção da fonte de fila com fixture temporária local do PostgreSQL. A sincronização Twitch não foi exercitada. Correções de QA ocultam estado não confirmado da fila, consultam a cada segundo e limpam o conteúdo em HTTP 403; os testes TDD registram Red e Green. A revisão QA independente passou com 9,2/10; FND-7 está Done.
+- Corrige as políticas de comandos de gestão de filas e conta atual para que streamer/moderador não possam ser ampliados por cargos salvos ou configuração VIP; cobre a regra em testes unitários, de rota e PostgreSQL.
+- Atualiza status bilíngue de README, stories e integrações; inclui guia de configuração OBS e limitações de segurança da FND-7.
+
 ## v0.4.1-alpha
 
 - Adiciona o texto padrão da licença MIT e declara a licença nos metadados do pacote. Sincroniza informações de licença, versão e stories mescladas na documentação em inglês e pt-BR.

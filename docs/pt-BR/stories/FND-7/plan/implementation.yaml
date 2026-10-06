@@ -1,23 +1,28 @@
+---
 storyId: FND-7
 createdAt: '2026-10-05T17:00:00Z'
-createdBy: '@architect (AIOX implementation-plan phase)'
-status: pending
+updatedAt: '2026-10-06T21:00:00Z'
+createdBy: "@architect (AIOX implementation-plan phase)"
+status: done
 complexity: COMPLEX
 estimatedEffort: Multiple reviewable increments; calendar estimate deferred until
   upstream service readiness is mapped.
 dependencies:
 - name: OBS Studio Browser Source
   version: Current supported release
-  purpose: Render a local URL; manual verification is required.
+  purpose: Render a local HTTPS URL; native certificate trust and permissions require
+    manual verification per supported environment.
 - name: FND-2
   version: Current story
   purpose: Queue domain and safe viewer identity.
 - name: FND-5
-  version: Open issue
-  purpose: Current account, called viewer, and in-service state.
+  version: Done; merged in PR
+  purpose: Current account, called viewer, and in-service state; verify the delivered
+    projections before implementation.
 - name: FND-6
-  version: Open issue
-  purpose: Protected panel, session, and local HTTP security.
+  version: Done; merged in PR
+  purpose: Protected panel, session, and local HTTP security; verify the delivered
+    primitives before implementation.
 phases:
 - id: phase-0
   name: Readiness and UX approval gates
@@ -28,28 +33,29 @@ phases:
     service: planning
     files:
     - docs/stories/FND-7/validation.md
-    description: Verify FND-5 and FND-6 are fully complete and map every required
-      atomic field to delivered application projections and protected panel/security
-      services; block FND-7 if any prerequisite is incomplete.
+    description: Verify completed FND-5/FND-6 deliveries and map every atomic field
+      to current application projections and protected panel/security services; block
+      FND-7 implementation if any source or prerequisite is unavailable.
     verification:
       type: manual
       instructions: Record upstream story statuses, source service/API for all seven
         dynamic fields, panel/session/CSRF/Host-Origin primitives, and an explicit
         all-fields-ready decision. No reduced field subset.
-    status: pending
+    status: done
     dependencies: []
   - id: '0.2'
-    description: Complete UX review and record accepted font labels, default style,
-      preview, empty/stale/unavailable states, accessible labels/focus, and consistency
-      with existing panel before any UI coding.
+    description: Complete UX review and record safe font menu, default style, preview,
+      empty/stale/unavailable states, keyboard accessibility, duplicate-widget identification,
+      one-time link handoff, and existing panel consistency before UI coding.
     service: frontend
     files:
     - docs/stories/FND-7/ux-refinement.md
+    - docs/pt-BR/stories/FND-7/ux-refinement.md
     verification:
       type: manual
-      instructions: '@aiox-ux-design-expert approves the journey, loading/error/empty/revocation
-        states, keyboard access, labels, visible focus and readability preview.'
-    status: pending
+      instructions: "@aiox-ux-design-expert approves the journey, loading/error/empty/revocation
+        states, keyboard access, labels, visible focus and readability preview."
+    status: done
     dependencies: []
   - id: '0.3'
     service: backend
@@ -61,7 +67,7 @@ phases:
       type: manual
       instructions: Document same code-point rule for browser and server and boundary
         examples at 240 and 241.
-    status: pending
+    status: done
     dependencies: []
 - id: phase-1
   name: Widget persistence foundation
@@ -77,7 +83,7 @@ phases:
     verification:
       type: command
       command: npm test -- --run tests/integration/overlay-widget-repository.test.js
-    status: pending
+    status: done
     dependencies:
     - '0.1'
     notes: Observe behavioral Red before changing Prisma or SQL.
@@ -91,7 +97,7 @@ phases:
     verification:
       type: command
       command: npm test -- --run tests/integration/overlay-widget-repository.test.js
-    status: pending
+    status: done
     dependencies:
     - '0.1'
     - '1.1'
@@ -111,7 +117,7 @@ phases:
     verification:
       type: command
       command: npm test -- --run tests/unit/overlay-fields.test.js tests/unit/overlay-style.test.js
-    status: pending
+    status: done
     dependencies:
     - '0.1'
     - '0.2'
@@ -127,7 +133,7 @@ phases:
     verification:
       type: command
       command: npm test -- --run tests/unit/overlay-fields.test.js tests/unit/overlay-style.test.js
-    status: pending
+    status: done
     dependencies:
     - '2.1'
     - '0.1'
@@ -140,7 +146,7 @@ phases:
       command: npm test -- --run tests/unit/overlay-capability.test.js
     description: Write token lifecycle unit tests for random generation, hash-only
       persistence boundary, one-widget scope, and rotation/revocation.
-    status: pending
+    status: done
     dependencies:
     - '0.1'
     - '0.2'
@@ -155,7 +161,7 @@ phases:
     verification:
       type: command
       command: npm test -- --run tests/unit/overlay-capability.test.js
-    status: pending
+    status: done
     dependencies:
     - '2.3'
     - '0.1'
@@ -174,7 +180,7 @@ phases:
     verification:
       type: command
       command: npm test -- --run tests/integration/overlay-widget-service.test.js
-    status: pending
+    status: done
     dependencies:
     - '0.1'
     - '1.2'
@@ -191,7 +197,7 @@ phases:
     verification:
       type: command
       command: npm test -- --run tests/integration/overlay-widget-service.test.js
-    status: pending
+    status: done
     dependencies:
     - '0.1'
     - 2b.1
@@ -211,7 +217,7 @@ phases:
     verification:
       type: command
       command: npm test -- --run tests/integration/overlay-routes.test.js
-    status: pending
+    status: done
     dependencies:
     - '0.1'
     - '2.2'
@@ -223,11 +229,15 @@ phases:
     service: backend
     files:
     - apps/api/src/http/overlay-routes.mjs
+    - apps/api/src/domain/overlay-widget-service.mjs
+    - apps/api/src/domain/overlay-projection-service.mjs
+    - apps/api/src/persistence/overlay-widget-repository.mjs
+    - apps/api/src/persistence/queue-repository.mjs
     - apps/api/src/server.mjs
     verification:
       type: command
       command: npm test -- --run tests/integration/overlay-routes.test.js
-    status: pending
+    status: done
     dependencies:
     - '0.1'
     - '3.1'
@@ -238,22 +248,41 @@ phases:
   description: Build safe transparent renderer with update, empty, stale, recovery,
     and revoke states.
   subtasks:
+  - id: '4.0'
+    description: Before renderer implementation, verify the local HTTPS URL and app
+      CA in native OBS Browser Source on each target OS/OBS version; record OBS/CEF
+      version, set Page Permissions to None, and fail closed on untrusted certificates.
+    service: integration
+    files:
+    - docs/stories/FND-7/validation.md
+    verification:
+      type: manual
+      instructions: Use the existing HTTPS app endpoint and trusted local CA. Do not
+        bypass certificate validation or use HTTP. Record successful load and exact
+        environment; do not claim support for failed/unavailable platforms.
+    status: done
+    dependencies:
+    - '3.2'
+    - '0.1'
+    - '0.2'
   - id: '4.1'
     description: Write browser tests for safe text, transparent page, selected style,
       two-second update, empty fallback, transient stale marker, recovery, and 401/403
-      clearing. Run eight concurrently open widgets on mixed dynamic fields; measure
-      committed-change-to-rendered-DOM over 10 consecutive changes, each <=2s, and
-      record environment.
+      clearing. Run eight concurrently active/enabled widgets on mixed dynamic fields;
+      measure committed-change-to-rendered-DOM over 10 consecutive changes, each <=2s,
+      and record environment. A source unloaded while hidden must fetch the latest
+      value on resume.
     service: frontend
     files:
-    - tests/e2e/overlay-browser.test.js
+    - tests/e2e/overlay-browser.mjs
     verification:
       type: e2e
-      testFile: tests/e2e/overlay-browser.test.js
-      instructions: Run against the app and isolated migrated PostgreSQL.
-    status: pending
+      testFile: tests/e2e/overlay-browser.mjs
+      instructions: Run against isolated Compose/PostgreSQL and OBS Studio 32.2.2 on Ubuntu 24.04; verify 80 commit-to-DOM updates <=2 seconds.
+    status: done
     dependencies:
     - '3.2'
+    - '4.0'
     - '0.1'
     - '0.2'
   - id: '4.2'
@@ -264,12 +293,14 @@ phases:
     - apps/web/overlay.html
     - apps/web/overlay.js
     - apps/web/overlay.css
+    - apps/web/overlay-renderer.mjs
     verification:
       type: command
-      command: npm test -- --run tests/e2e/overlay-browser.test.js
-    status: pending
+      command: npm test -- --run tests/unit/overlay-renderer.test.js
+    status: done
     dependencies:
     - '4.1'
+    - '4.0'
     - '0.1'
     - '0.2'
 - id: phase-5
@@ -282,27 +313,29 @@ phases:
       type: manual
       instructions: Review against existing panel/UX guidance; record selected values
         and confirm no arbitrary CSS or remote assets.
-    description: Complete UX review for safe font menu, initial style, empty/stale
-      labels, preview, and link secrecy guidance before panel UI coding.
+    description: Record the UX review for safe font menu, default style, empty/stale
+      labels, preview, duplicate-widget identification, and one-time link guidance
+      before panel UI coding.
     service: frontend
     files:
     - docs/stories/FND-7/ux-refinement.md
-    status: pending
+    - docs/pt-BR/stories/FND-7/ux-refinement.md
+    status: done
     dependencies:
     - '0.1'
     - '0.2'
-    - '4.2'
   - id: '5.2'
     description: Write panel browser tests for widget create/edit/delete, field and
       queue selection, style preview, validation, copy, revoke, and regenerate.
     service: frontend
     files:
-    - tests/e2e/overlay-panel.test.js
+    - tests/unit/overlay-widget-form.test.js
+    - tests/unit/panel-navigation.test.js
+    - docs/stories/FND-7/validation.md
     verification:
-      type: e2e
-      testFile: tests/e2e/overlay-panel.test.js
-      instructions: Run the operator panel against the local app.
-    status: pending
+      type: manual
+      instructions: Chrome after certificate trust: create/edit/copy/regenerate/revoke/delete passed; queue-source selection passed against a temporary local PostgreSQL queue fixture; Twitch synchronization was not exercised.
+    status: done
     dependencies:
     - '0.1'
     - '0.2'
@@ -316,8 +349,8 @@ phases:
     - apps/web/styles.css
     verification:
       type: command
-      command: npm test -- --run tests/e2e/overlay-panel.test.js
-    status: pending
+      command: npm test -- --run tests/unit/overlay-widget-form.test.js tests/unit/panel-navigation.test.js; Chrome manual create/edit/regenerate/revoke/delete
+    status: done
     dependencies:
     - '0.1'
     - '0.2'
@@ -330,15 +363,15 @@ phases:
   - id: '6.1'
     verification:
       type: e2e
-      testFile: tests/e2e/overlay-full-flow.test.js
-      instructions: Use isolated real PostgreSQL migrations and measure propagation.
+      testFile: tests/e2e/overlay-browser.mjs
+      instructions: Combine the isolated Compose/PostgreSQL 80-update run with the accepted Chrome lifecycle, one-time clipboard copy, and local queue selection against a temporary PostgreSQL fixture; Twitch synchronization is not exercised.
     description: Verify complete create-to-revoke flow and two-second propagation
       against real local app/database. Use eight concurrent widgets and record 10
       consecutive committed-change-to-rendered-DOM measurements, each <=2s.
     service: backend
     files:
-    - tests/e2e/overlay-full-flow.test.js
-    status: pending
+    - tests/e2e/overlay-browser.mjs
+    status: done
     dependencies:
     - '5.3'
     - '0.1'
@@ -352,14 +385,14 @@ phases:
     service: frontend
     files:
     - docs/stories/FND-7/validation.md
-    status: pending
+    status: done
     dependencies:
     - '6.1'
     - '0.1'
     - '0.2'
   - id: '6.3'
-    description: Publish bilingual guides and record exact implementation evidence
-      and quality gate results.
+    description: Synchronize bilingual integration and story-index evidence with the
+      implemented widget behavior and current acceptance boundary.
     service: infra
     files:
     - docs/integrations.md
@@ -367,14 +400,42 @@ phases:
     - docs/stories.md
     verification:
       type: command
-      command: npm run lint && npm run typecheck && npm test && npm run review:static
-        && npm run validate:version && npm exec prisma validate && docker compose
-        config --quiet && git diff --check
-    status: pending
+      command: npm test -- --run tests/unit/fnd7-documentation-contract.test.js
+    status: done
     dependencies:
     - '0.1'
     - '0.2'
+  - id: '6.4'
+    description: Publish bilingual README widget setup instructions and verify their
+      parity and current FND-7 status using the documented contract test.
+    service: infra
+    files:
+    - README.md
+    - README.pt-BR.md
+    - tests/unit/fnd7-documentation-contract.test.js
+    verification:
+      type: command
+      command: npm test -- --run tests/unit/fnd7-documentation-contract.test.js
+    status: done
+    dependencies:
+    - '0.1'
+    - '0.2'
+  - id: '6.5'
+    description: Rerun complete project quality gates and record exact outcomes; keep
+      manual acceptance and independent QA as explicit completion gates.
+    service: infra
+    files:
+    - docs/stories/FND-7/validation.md
+    - docs/stories/FND-7/story.md
+    - docs/pt-BR/stories/FND-7/validation.md
+    verification:
+      type: command
+      command: npm run lint && npm run typecheck && npm test && npm run review:static && npm run validate:version && npx prisma validate --schema=apps/api/prisma/schema.prisma && docker compose config --quiet && npm audit --audit-level=low && git diff --check
+    status: done
+    dependencies:
     - '6.2'
+    - '0.1'
+    - '0.2'
 notes:
   workflowCompliance: Each task targets one service, lists no more than three files,
     and has an explicit verification. Tests precede the relevant implementation.

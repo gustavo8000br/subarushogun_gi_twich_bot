@@ -36,10 +36,12 @@ describe('command authorization', () => {
     expect(check(message, parsed('abrir'))).toMatchObject({ allowed: false, role: 'viewer' });
   });
 
-  it('keeps VIP management disabled by default and enables it only from explicit setting plus badge', () => {
+  it('keeps VIP management disabled by default and only permits configurable commands when enabled', () => {
     const vip = localMessage({ badges: [{ setId: 'vip' }] });
     expect(check(vip, parsed('abrir'))).toMatchObject({ allowed: false, role: 'viewer' });
     expect(check(vip, parsed('abrir'), { allowVipManagement: true }))
+      .toMatchObject({ allowed: false, role: 'vip' });
+    expect(check(vip, parsed('lista'), { allowVipManagement: true }))
       .toMatchObject({ allowed: true, role: 'vip' });
   });
 
@@ -50,13 +52,13 @@ describe('command authorization', () => {
       .toMatchObject({ allowed: false, reason: 'wrong_channel' });
   });
 
-  it('allows account query to viewers and makes account changes streamer-only', () => {
+  it('allows account query to viewers and account changes to streamer and moderators only', () => {
     expect(check(localMessage(), { scope: 'global', command: 'conta', args: [] }))
       .toMatchObject({ allowed: true, role: 'viewer' });
     expect(check(localMessage(), { scope: 'global', command: 'conta', args: ['reset'] }))
       .toMatchObject({ allowed: false, role: 'viewer' });
     expect(check(localMessage({ badges: [{ setId: 'moderator' }] }), { scope: 'global', command: 'conta', args: ['reset'] }))
-      .toMatchObject({ allowed: false, role: 'moderator', reason: 'streamer_only' });
+      .toMatchObject({ allowed: true, role: 'moderator' });
     expect(check(localMessage({ userId: 'broadcaster-1' }), { scope: 'global', command: 'conta', args: ['reset'] }))
       .toMatchObject({ allowed: true, role: 'streamer' });
   });

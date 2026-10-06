@@ -39,6 +39,7 @@ model Queue {
   entries                     Entry[]
   redemptions                 Redemption[]
   auditLogs                   AuditLog[]
+  overlayWidgets              OverlayWidget[]
   @@map("queues")
 }
 
@@ -178,4 +179,24 @@ model RuntimeState {
   value     Json
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   @@map("runtime_state")
+}
+
+model OverlayWidget {
+  id                String    @id @default(uuid()) @db.Uuid
+  sourceType        String    @map("source_type")
+  queueId           String?   @map("queue_id") @db.Uuid
+  fixedText         String?   @map("fixed_text")
+  fallbackText      String    @default("") @map("fallback_text")
+  style             Json      @default("{}")
+  capabilityHash    String?   @unique @map("capability_hash")
+  capabilityVersion Int       @default(1) @map("capability_version")
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz(3)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version           Int       @default(1)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  queue             Queue?    @relation(fields: [queueId], references: [id], onDelete: Restrict)
+
+  @@index([queueId, deletedAt])
+  @@map("overlay_widgets")
 }
