@@ -2,6 +2,12 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.5.1-alpha
+
+- Corrige a numeração da primeira execução no macOS para ficar igual nos READMEs bilíngues. Passa explicitamente `.Path` de `Resolve-Path` no PowerShell para `Import-Certificate` e adiciona um teste de contrato das instruções por plataforma. O Red reproduziu o número de etapa pt-BR desatualizado; o Green passou a suíte de contrato focada (6/6). Os comandos de Windows e macOS continuam marcados como não testados nos sistemas nativos.
+- Prepara a versão PATCH somente documental `0.5.1-alpha`; mantém o estágio `alpha`.
+- Registra o gate AIOX não atendido: o SOP canônico obrigatório `docs/guides/release-procedure.md` está ausente. A condição de QA 9,2/10 autorizada pelo proprietário para a FND-7 foi cumprida, mas nenhuma promoção para beta ou tag de release foi feita sem o procedimento obrigatório.
+
 ## v0.5.0-alpha
 
 - Atualiza evidências de implementação, recuperação e aceite da FND-7. Verifica o comportamento documentado da instalação Linux da CA com caminho absoluto em uma pasta com espaços; atualiza comandos de Windows/macOS e mantém esses fluxos de host explicitamente como não validados. Adiciona limpeza testada de containers/volumes PostgreSQL isolados e registra a auditoria completa do repositório com dez propostas de melhoria nos relatórios bilíngues.

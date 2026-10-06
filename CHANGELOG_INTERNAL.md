@@ -2,6 +2,12 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.5.1-alpha
+
+- Normalize the macOS first-run sequence number across the bilingual READMEs. Explicitly pass `.Path` from PowerShell `Resolve-Path` to `Import-Certificate`, and add a contract test for the platform instructions. Red reproduced the stale pt-BR step number; Green passed the focused contract suite (6/6). The Windows and macOS commands remain documented as untested on their native hosts.
+- Prepare documentation-only PATCH version `0.5.1-alpha`; keep the release stage at `alpha`.
+- Record the unmet AIOX release gate: the required canonical `docs/guides/release-procedure.md` is absent. FND-7's owner-approved QA condition is met (9.2/10), but no beta stage promotion or release tag is made without the required procedure.
+
 ## v0.5.0-alpha
 
 - Refresh FND-7 implementation, recovery, and operator acceptance evidence. Verify the documented absolute-path Linux CA installation behavior in a path containing spaces; update Windows/macOS commands and keep those host flows explicitly unverified. Add a regression-tested PostgreSQL test cleanup that removes and verifies isolated containers and volumes; record the full repository audit and ten improvement proposals in bilingual audit reports.

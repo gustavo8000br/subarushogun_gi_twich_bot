@@ -4,6 +4,10 @@
 
 Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.5.1-alpha
+
+- Esclarece as instruções de confiança do certificado local na primeira execução em Windows, Linux e macOS.
+
 ## v0.5.0-alpha
 
 - Streamers podem criar widgets independentes do OBS para exibir dados selecionados das filas ou texto personalizado na transmissão.
