@@ -4,6 +4,10 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.5.1-alpha
+
+- Clarified first-run local certificate setup instructions for Windows, Linux, and macOS.
+
 ## v0.5.0-alpha
 
 - Streamers can create independent OBS widgets to show selected queue information or custom text on stream.

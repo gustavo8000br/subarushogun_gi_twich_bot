@@ -49,4 +49,9 @@ describe('FND-7 operator documentation', () => {
     expect(portuguese).toContain('(resolve-path');
     expect(portuguese).toContain('macos ainda não foi validado');
   });
+
+  it('keeps the macOS first-run step sequence aligned between both READMEs', () => {
+    expect(english).toContain('\n5. trust the generated local ca in the macos login keychain');
+    expect(portuguese).toContain('\n5. confie a ca local gerada no chaveiro de início de sessão do macos');
+  });
 });

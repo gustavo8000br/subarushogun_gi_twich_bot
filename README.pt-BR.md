@@ -174,7 +174,7 @@ Os valores de hardware para Windows acima não são benchmark do produto. Eles c
    ./iniciar.sh
    ```
 
-4. Confie a CA local gerada no chaveiro de início de sessão do macOS, reinicie o navegador e abra `https://localhost:3000`:
+5. Confie a CA local gerada no chaveiro de início de sessão do macOS, reinicie o navegador e abra `https://localhost:3000`:
 
    ```sh
    security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db "$PWD/.local/localhost-ca.crt"
