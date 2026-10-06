@@ -4,6 +4,10 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.3.1-alpha
+
+- Security updates address a reported dependency vulnerability.
+
 ## v0.3.0-alpha
 
 - Streamers can configure redemption limits and cooldowns for queue rewards in the panel.

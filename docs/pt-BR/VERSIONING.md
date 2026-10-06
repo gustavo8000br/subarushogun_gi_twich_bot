@@ -10,7 +10,7 @@ Uma pull request pronta para merge e distribuição na imagem `main` recebe vers
 
 Use `Unreleased` somente enquanto as mudanças ainda não foram mescladas e incluídas na imagem `main`. Ao preparar uma PR que será distribuída, mova as notas de usuário e técnicas para seções da versão correspondente nos changelogs em inglês e pt-BR. Os títulos usam a base SemVer e o estágio (por exemplo `v0.2.0-alpha`). A identidade runtime completa inclui os sete caracteres exatos do SHA do commit de origem (por exemplo `v0.2.0-abcdef0-alpha`); o CI materializa esse valor no artefato depois de o commit existir, então o changelog não precisa conter o SHA do próprio commit.
 
-O incremento distribuído atual da FND-6 é `0.3.0-alpha`. O primeiro beta de lançamento continua previsto como `v1.0.0-HHHHHHH-beta`, condicionado a QA da FND-7 ≥9/10. A FND-8 fica reservada para uma story futura de i18n; depois que essa story for definida e concluída, a primeira MINOR beta pretendida é `v1.1.0-HHHHHHH-beta`. Um incremento SemVer ou testes bem-sucedidos não promovem estágio por si só.
+A versão atual do produto na mainline é `0.3.1-alpha`, um PATCH de segurança após a FND-6. O primeiro beta de lançamento continua previsto como `v1.0.0-HHHHHHH-beta`, condicionado a QA da FND-7 ≥9/10. A FND-8 fica reservada para uma story futura de i18n; depois que essa story for definida e concluída, a primeira MINOR beta pretendida é `v1.1.0-HHHHHHH-beta`. Um incremento SemVer ou testes bem-sucedidos não promovem estágio por si só.
 
 ## Identidade runtime e artefatos
 

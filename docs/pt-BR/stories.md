@@ -108,6 +108,10 @@ A ordem abaixo segue as etapas sugeridas na especificação. Cada story deve ser
 - **Evidência TDD:** ver os ciclos observados de versão, Compose/bootstrap, regressão do runtime, PostgreSQL, discovery de testes, scripts de qualidade, projeção health, documentação, aceitação Compose, helper POSIX e ponto de entrada web estático acima. FND-1 segue InProgress somente pela validação ainda não executada no host Windows.
 - **TDD da migração da análise estática:** `tests/unit/aiox-static-review.test.js` falhou primeiro porque a Layer 2 não executava o comando configurado; um Red posterior revelou a fase de análise estática ausente no executor de workflow. `tests/unit/opengrep-quality-gate.test.js` falhou inicialmente pela ausência do template/comando e depois detectou a falta da flag bloqueante `--error`. Os testes direcionados passam após corrigir esses comportamentos. `npm run review:static` reporta 0 achados em 19 arquivos JavaScript da aplicação. Uma fixture temporária confirmou anteriormente as regras para HTML inseguro e logging de credenciais.
 
+##### TDD de segurança das dependências Prisma (2026-10-06)
+
+`npm test -- --run tests/unit/prisma-dependency-security.test.js` Red — 1 falhou porque não havia override corrigido no manifesto. Green — 2 passaram após fixar somente a dependência `deepmerge-ts` de `@prisma/config` em 8.0.2; CLI/client/adapter Prisma permanecem alinhados em 6.19.3. `npm ci` e `npm audit --audit-level=high` informam zero vulnerabilidades. Suíte completa: 53 arquivos/386 testes; lint, typecheck, validação da versão (`v0.3.1-0000000-alpha`), OpenGrep (0 achados), configuração Compose e diff passaram. Build Alpine Compose sem cache e primeira execução isolada na porta 3221 concluíram bootstrap, migration PostgreSQL, bot saudável e conectividade do banco em `/health`. Containers e volumes descartáveis foram removidos; a instalação ativa não foi tocada.
+
 #### FND-2 — Domínio de filas, validação, ordenação e parser
 
 **Status:** Done (2026-10-05; critérios, revisões de domínio/dados e QA e gates obrigatórios passaram)
