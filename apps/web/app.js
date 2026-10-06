@@ -5,12 +5,22 @@ import { formatHealthStatus } from './health-status.mjs';
 import { priorityBenefitLabel } from './priority-labels.mjs';
 import { getInitialPanelPage, selectPanelPage } from './panel-navigation.mjs';
 import { collectCommandPolicies, mergeCommandPolicyState, projectCommandCatalog } from './command-catalog-view.mjs';
+import { buildOverlayWidgetPayload, countOverlayTextCodePoints } from './overlay-widget-form.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const optionalLimit = (value) => String(value ?? '').trim() ? Number(value) : null;
 const state = { csrfToken: null, queues: [], productVersion: '—', initialPageSelected: false, twitchConnected: null };
 const commandRoleLabels = { everyone: 'Todos', subscriber: 'Inscritos', vip: 'VIPs', moderator: 'Moderadores' };
 let commandCatalog = null;
+let overlayWidgetsLoaded = false;
+
+const overlaySourceLabels = {
+  account_label: 'Conta atual', queue_name: 'Nome da fila', queue_state: 'Estado da fila',
+  queue_waiting_count: 'Pessoas aguardando', called_viewer_display_name: 'Pessoa chamada',
+  called_viewer_position: 'Posição original da pessoa chamada', in_service_viewer_display_name: 'Pessoa em atendimento', fixed_text: 'Texto fixo',
+};
+const overlayStyleFields = ['textColor', 'backgroundColor', 'backgroundOpacity', 'fontFamily', 'fontSize', 'fontWeight', 'alignment', 'effect', 'outlineWidth', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY', 'width', 'height', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'overflow'];
+const queueScopedOverlaySources = new Set(['queue_name', 'queue_state', 'queue_waiting_count']);
 
 function showPanelPage(pageId) {
   const navigationItems = /** @type {HTMLButtonElement[]} */ ([...document.querySelectorAll('.panel-navigation [data-page-target]')]);
@@ -173,6 +183,156 @@ async function saveCommandPolicies(event) {
   } catch (error) { $('#command-catalog-notice').textContent = error.message; }
 }
 
+function updateOverlayPreview() {
+  const form = $('#overlay-editor-form');
+  const preview = $('#overlay-preview-text');
+  if (!form || !preview) return;
+  const values = new FormData(form);
+  const sourceType = String(values.get('sourceType') ?? 'account_label');
+  const fixedText = String(values.get('fixedText') ?? '').trim();
+  const fixedCount = $('#overlay-fixed-count');
+  const fallbackCount = $('#overlay-fallback-count');
+  if (fixedCount) fixedCount.textContent = `${countOverlayTextCodePoints(values.get('fixedText'))}/240`;
+  if (fallbackCount) fallbackCount.textContent = `${countOverlayTextCodePoints(values.get('fallbackText'))}/240`;
+  const sample = sourceType === 'fixed_text' ? fixedText || 'Exemplo do widget'
+    : sourceType === 'queue_waiting_count' ? '4 aguardando'
+      : sourceType === 'queue_state' ? 'Aberta' : sourceType === 'account_label' ? 'Asia 1'
+        : sourceType.includes('called') ? 'Viewer chamado' : sourceType.includes('in_service') ? 'Viewer em atendimento'
+          : String($('#overlay-queue-field select')?.selectedOptions?.[0]?.textContent ?? 'Nome da fila');
+  preview.textContent = sample;
+  const color = String(values.get('textColor') || '#ffffff');
+  const background = String(values.get('backgroundColor') || '#000000');
+  const opacity = Math.max(0, Math.min(100, Number(values.get('backgroundOpacity') || 0))) / 100;
+  preview.style.color = color;
+  preview.style.backgroundColor = `rgba(${Number.parseInt(background.slice(1, 3), 16)}, ${Number.parseInt(background.slice(3, 5), 16)}, ${Number.parseInt(background.slice(5, 7), 16)}, ${opacity})`;
+  preview.style.fontFamily = String(values.get('fontFamily') || 'system-ui');
+  preview.style.fontSize = `${Number(values.get('fontSize') || 32)}px`;
+  preview.style.fontWeight = String(values.get('fontWeight') || 700);
+  preview.style.textAlign = String(values.get('alignment') || 'center');
+  const effect = String(values.get('effect') || 'none');
+  preview.style.webkitTextStroke = effect === 'outline' ? `${Number(values.get('outlineWidth') || 1)}px ${color}` : '';
+  preview.style.textShadow = effect === 'shadow' ? `${Number(values.get('shadowOffsetX') || 0)}px ${Number(values.get('shadowOffsetY') || 0)}px ${Number(values.get('shadowBlur') || 0)}px #000000` : '';
+  preview.style.width = values.get('width') === 'auto' ? 'auto' : `${Number(values.get('width') || 640)}px`;
+  preview.style.minHeight = values.get('height') === 'auto' ? 'auto' : `${Number(values.get('height') || 100)}px`;
+  preview.style.margin = `${Number(values.get('marginTop') || 0)}px ${Number(values.get('marginRight') || 0)}px ${Number(values.get('marginBottom') || 0)}px ${Number(values.get('marginLeft') || 0)}px`;
+  preview.style.whiteSpace = values.get('overflow') === 'ellipsis' ? 'nowrap' : '';
+  preview.style.overflow = ['clip', 'ellipsis'].includes(String(values.get('overflow'))) ? 'hidden' : '';
+  preview.style.textOverflow = values.get('overflow') === 'ellipsis' ? 'ellipsis' : '';
+  preview.style.overflowWrap = values.get('overflow') === 'wrap' ? 'anywhere' : '';
+}
+
+function populateOverlayQueueOptions(selectedId = '') {
+  const select = /** @type {HTMLSelectElement} */ ($('#overlay-queue-field select'));
+  const placeholder = document.createElement('option'); placeholder.textContent = 'Selecione uma fila'; placeholder.value = '';
+  select.replaceChildren(placeholder);
+  for (const queue of state.queues.filter((item) => (item.id === selectedId || !item.isArchived) && item.lifecycleStatus !== 'deleting' && item.lifecycleStatus !== 'deleted')) {
+    const option = document.createElement('option'); option.textContent = queue.title; option.value = queue.id; select.append(option);
+  }
+  select.value = selectedId;
+}
+
+function showOneTimeOverlayLink(url) {
+  $('#overlay-link-value').value = url;
+  $('#overlay-link-notice').textContent = 'Copie agora. O link não será exibido novamente.';
+  $('#overlay-link-dialog').showModal();
+}
+
+function overlayAction(label, handler, danger = false) {
+  const button = text('button', label, danger ? 'button button-danger' : 'button button-secondary');
+  button.type = 'button'; button.addEventListener('click', handler); return button;
+}
+
+function renderOverlayWidgets(widgets) {
+  const container = $('#overlay-widget-list'); container.replaceChildren();
+  if (!widgets.length) {
+    const empty = document.createElement('div'); empty.className = 'empty-state';
+    empty.append(text('span', '◌'), text('strong', 'Nenhum widget criado'), text('small', 'Crie uma fonte com um único dado da sua live para adicionar ao OBS.'));
+    const create = overlayAction('Criar primeiro widget', () => openOverlayEditor()); create.classList.add('button-primary'); empty.append(create); container.append(empty); return;
+  }
+  for (const widget of widgets) {
+    const card = document.createElement('article'); card.className = 'overlay-widget-card';
+    const heading = document.createElement('div'); heading.className = 'overlay-widget-heading';
+    const title = text('h3', overlaySourceLabels[widget.sourceType] ?? 'Widget');
+    const queue = state.queues.find((item) => item.id === widget.queueId);
+    const status = widget.deleted ? 'Widget indisponível' : widget.capabilityActive ? 'Link ativo' : 'Revogado';
+    heading.append(title, text('span', status, widget.capabilityActive ? 'status-pill status-connected' : 'status-pill'));
+    const details = text('p', `${queue ? `${queue.title} · ` : ''}${widget.style?.width ?? 'auto'} × ${widget.style?.height ?? 'auto'} · Widget ${widget.id.slice(0, 8)}`, 'muted');
+    const preview = text('p', widget.sourceType === 'fixed_text' ? widget.fixedText : widget.fallbackText || 'Prévia simulada', 'overlay-card-preview');
+    const actions = document.createElement('div'); actions.className = 'overlay-widget-actions';
+    actions.append(overlayAction('Editar', () => openOverlayEditor(widget)));
+    if (widget.capabilityActive) {
+      actions.append(overlayAction('Regenerar link', async () => {
+        if (!window.confirm('O link atual deixará de funcionar. Gerar um novo link agora?')) return;
+        try { const result = await request(`/api/overlay-widgets/${widget.id}/regenerate`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) }); showOneTimeOverlayLink(result.capabilityUrl); await loadOverlayWidgets(); }
+        catch (error) { toast(error.message); }
+      }));
+      actions.append(overlayAction('Revogar', async () => {
+        if (!window.confirm('A fonte do OBS deixará de receber dados. Revogar este link?')) return;
+        try { await request(`/api/overlay-widgets/${widget.id}/revoke`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) }); await loadOverlayWidgets(); }
+        catch (error) { toast(error.message); }
+      }, true));
+    } else if (!widget.deleted) {
+      actions.append(overlayAction('Gerar link', async () => {
+        try { const result = await request(`/api/overlay-widgets/${widget.id}/regenerate`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) }); showOneTimeOverlayLink(result.capabilityUrl); await loadOverlayWidgets(); }
+        catch (error) { toast(error.message); }
+      }));
+    }
+    actions.append(overlayAction('Excluir', async () => {
+      if (!window.confirm('Excluir este widget? A URL atual será invalidada e não poderá ser recuperada.')) return;
+      try { await request(`/api/overlay-widgets/${widget.id}`, { method: 'DELETE', body: JSON.stringify({ expectedVersion: widget.version }) }); await loadOverlayWidgets(); }
+      catch (error) { toast(error.message); }
+    }, true));
+    card.append(heading, details, preview, actions); container.append(card);
+  }
+}
+
+async function loadOverlayWidgets() {
+  try { const widgets = await request('/api/overlay-widgets'); renderOverlayWidgets(widgets); overlayWidgetsLoaded = true; }
+  catch (error) { $('#overlay-widget-list').replaceChildren(text('p', error.message, 'muted')); }
+}
+
+function openOverlayEditor(widget = null) {
+  const form = /** @type {HTMLFormElement} */ ($('#overlay-editor-form'));
+  form.reset();
+  populateOverlayQueueOptions(widget?.queueId ?? '');
+  const setValue = (name, value) => { const field = /** @type {HTMLInputElement|null} */ (form.elements.namedItem(name)); if (field) field.value = String(value ?? ''); };
+  setValue('id', widget?.id ?? ''); setValue('version', widget?.version ?? '');
+  setValue('sourceType', widget?.sourceType ?? 'account_label'); setValue('fixedText', widget?.fixedText ?? '');
+  setValue('fallbackText', widget?.fallbackText ?? '');
+  const defaults = { textColor: '#FFFFFF', backgroundColor: '#000000', backgroundOpacity: 0, fontFamily: 'system-ui', fontSize: 32, fontWeight: 700, alignment: 'center', effect: 'none', outlineWidth: 1, shadowBlur: 0, shadowOffsetX: 0, shadowOffsetY: 0, width: 640, height: 100, marginTop: 8, marginRight: 8, marginBottom: 8, marginLeft: 8, overflow: 'wrap' };
+  for (const field of overlayStyleFields) setValue(field, widget?.style?.[field] ?? defaults[field]);
+  $('#overlay-editor-title').textContent = widget ? 'Editar widget' : 'Criar widget';
+  $('#overlay-editor-notice').textContent = '';
+  const sourceType = /** @type {HTMLSelectElement} */ (form.elements.namedItem('sourceType')).value;
+  $('#overlay-queue-field').hidden = !queueScopedOverlaySources.has(sourceType);
+  $('#overlay-fixed-field').hidden = sourceType !== 'fixed_text';
+  updateOverlayPreview();
+  $('#overlay-editor-dialog').showModal();
+}
+
+async function saveOverlayWidget(event) {
+  event.preventDefault();
+  const form = /** @type {HTMLFormElement} */ (event.currentTarget);
+  let payload;
+  try { payload = buildOverlayWidgetPayload(new FormData(form)); }
+  catch (error) { $('#overlay-editor-notice').textContent = error.message; return; }
+  const id = String(new FormData(form).get('id') ?? '');
+  try {
+    const result = id
+      ? await request(`/api/overlay-widgets/${id}`, { method: 'PATCH', body: JSON.stringify({ expectedVersion: Number(new FormData(form).get('version')), changes: payload }) })
+      : await request('/api/overlay-widgets', { method: 'POST', body: JSON.stringify(payload) });
+    $('#overlay-editor-dialog').close();
+    if (result.capabilityUrl) showOneTimeOverlayLink(result.capabilityUrl);
+    await loadOverlayWidgets();
+  } catch (error) { $('#overlay-editor-notice').textContent = error.message; }
+}
+
+async function copyOverlayLink() {
+  const input = /** @type {HTMLInputElement} */ ($('#overlay-link-value'));
+  try { await window.navigator.clipboard.writeText(input.value); $('#overlay-link-notice').textContent = 'Link copiado.'; }
+  catch { input.select(); $('#overlay-link-notice').textContent = 'Selecione e copie o link. Ele não será exibido novamente ao fechar.'; }
+}
+
 async function refresh() {
   try {
     const [apiState, setup, health] = await Promise.all([
@@ -247,11 +407,25 @@ async function boot() {
     if (target) {
       showPanelPage(target.dataset.pageTarget);
       if (target.dataset.pageTarget === 'commands' && !commandCatalog) void loadCommandCatalog();
+      if (target.dataset.pageTarget === 'widgets' && !overlayWidgetsLoaded) void loadOverlayWidgets();
     }
     const closeButton = /** @type {HTMLElement|null} */ (eventTarget?.closest('[data-close-dialog]') ?? null);
     if (closeButton) (/** @type {HTMLDialogElement|null} */ (document.getElementById(closeButton.dataset.closeDialog)))?.close();
   });
   $('#command-catalog-form').addEventListener('submit', saveCommandPolicies);
+  $('#create-overlay-widget').addEventListener('click', () => openOverlayEditor());
+  $('#overlay-editor-form').addEventListener('submit', saveOverlayWidget);
+  $('#overlay-editor-form').addEventListener('input', updateOverlayPreview);
+  $('#overlay-editor-form').addEventListener('change', (event) => {
+    if (event.target?.name === 'sourceType') {
+      const sourceType = event.target.value;
+      $('#overlay-queue-field').hidden = !queueScopedOverlaySources.has(sourceType);
+      $('#overlay-fixed-field').hidden = sourceType !== 'fixed_text';
+    }
+    updateOverlayPreview();
+  });
+  $('#copy-overlay-link').addEventListener('click', copyOverlayLink);
+  $('#overlay-link-dialog').addEventListener('close', () => { $('#overlay-link-value').value = ''; $('#overlay-link-notice').textContent = ''; });
   $('#credentials-form').addEventListener('submit', createApplicationSetupSubmitHandler({
     request, notice: $('#credentials-notice'), refresh,
   }));

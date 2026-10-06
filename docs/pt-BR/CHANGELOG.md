@@ -4,6 +4,12 @@
 
 Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.5.0-alpha
+
+- Streamers podem criar widgets independentes do OBS para exibir dados selecionados das filas ou texto personalizado na transmissão.
+- Os widgets se atualizam automaticamente e voltam a funcionar após uma reinicialização; links revogados ou substituídos deixam de exibir dados.
+- Comandos de gestão de filas, incluindo controles da conta atual, ficam restritos ao streamer e aos moderadores.
+
 ## v0.4.1-alpha
 
 - O projeto agora está disponível sob a licença MIT.

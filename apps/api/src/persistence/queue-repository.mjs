@@ -192,6 +192,47 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
       return setting?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
     },
 
+    async getOverlaySourceValue({ sourceType, queueId = null, tx = prisma }) {
+      if (sourceType === 'account_label') {
+        const setting = await tx.setting.findUnique({ where: { key: 'account_state' } });
+        return typeof setting?.value?.label === 'string' ? setting.value.label : 'Streamer';
+      }
+      if (sourceType === 'queue_name' || sourceType === 'queue_state' || sourceType === 'queue_waiting_count') {
+        if (typeof queueId !== 'string') return null;
+        const queue = await tx.queue.findUnique({ where: { id: queueId }, select: { title: true, isOpen: true, lifecycleStatus: true, remoteSyncStatus: true } });
+        if (!queue || queue.lifecycleStatus === 'deleted') return null;
+        if (sourceType === 'queue_name') return queue.title;
+        if (sourceType === 'queue_state') {
+          if (!['synced', 'synced_manual', 'delete_pending'].includes(queue.remoteSyncStatus)) return null;
+          return queue.isOpen ? 'open' : 'closed';
+        }
+        return tx.entry.count({ where: { queueId, status: 'waiting' } });
+      }
+      if (sourceType === 'called_viewer_display_name' || sourceType === 'called_viewer_position') {
+        const entry = await tx.entry.findFirst({
+          where: { status: 'called', calledAt: { not: null } },
+          orderBy: [{ calledAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+          select: { id: true, displayName: true },
+        });
+        if (!entry) return null;
+        if (sourceType === 'called_viewer_display_name') return entry.displayName;
+        const transition = await tx.auditLog.findFirst({
+          where: { entryId: entry.id, event: 'entry.transitioned', previousState: 'waiting', nextState: 'called' },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { safeDetail: true },
+        });
+        return Number.isInteger(transition?.safeDetail?.previousPosition) ? transition.safeDetail.previousPosition : null;
+      }
+      if (sourceType === 'in_service_viewer_display_name') {
+        const entry = await tx.entry.findFirst({
+          where: { status: 'in_progress', startedAt: { not: null } },
+          orderBy: [{ startedAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+          select: { displayName: true },
+        });
+        return entry?.displayName ?? null;
+      }
+      return null;
+    },
+
     async claimChatCommand({ messageId, channelId, userId, role, cooldownExempt = false, now = clock(), cooldownMs = 5_000 }) {
       if (typeof messageId !== 'string' || !messageId || typeof channelId !== 'string' || !channelId
           || typeof userId !== 'string' || !userId || !['viewer', 'vip', 'moderator', 'streamer'].includes(role)

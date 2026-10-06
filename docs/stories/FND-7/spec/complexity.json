@@ -1,16 +1,39 @@
 {
   "storyId": "FND-7",
-  "assessedAt": "2026-10-05T16:48:00Z",
-  "assessedBy": "@architect (AIOX Spec Pipeline assessment)",
+  "assessedAt": "2026-10-06T17:10:00Z",
+  "assessedBy": "@architect (AIOX Spec Pipeline reassessment after official-source research and codebase review)",
   "result": "COMPLEX",
   "overridden": false,
-  "totalScore": 17,
+  "totalScore": 19,
   "dimensions": {
-    "scope": {"score": 4, "notes": "Cross-cuts widget configuration UI, protected local API, read-only browser rendering, field projections, persistence/migrations, security controls, and bilingual docs; estimated 11-20 implementation/test/doc files."},
-    "integration": {"score": 3, "notes": "Adds an internal read-only overlay API and consumes the existing application/domain projections; OBS connects through its standard browser source and no external service integration is needed."},
-    "infrastructure": {"score": 4, "notes": "Capability hashes and independently managed widget configuration require durable PostgreSQL schema and a real Prisma migration."},
-    "knowledge": {"score": 3, "notes": "Uses existing Fastify/PostgreSQL/vanilla JS patterns plus verified OBS browser-source behavior and bearer-token handling guidance."},
-    "risk": {"score": 3, "notes": "A leaked capability can disclose one widget's public stream data; incorrect scoping, stale display, or UID/secret projection would create privacy and broadcast correctness issues, but revocation is immediate and access is local."}
+    "scope": {
+      "score": 4,
+      "notes": "Cross-cuts widget configuration UI, protected local API, read-only browser rendering, field projections, persistence/migrations, security controls, and bilingual docs; estimated 11-20 implementation/test/doc files."
+    },
+    "integration": {
+      "score": 3,
+      "notes": "Adds a same-origin local browser-source page/read projection and depends on native OBS CEF, HTTPS certificate trust, and OBS page-permission behavior; no external Twitch/API integration or runtime service is added."
+    },
+    "infrastructure": {
+      "score": 4,
+      "notes": "Capability hashes and independently managed widget configuration require durable PostgreSQL schema and a real Prisma migration."
+    },
+    "knowledge": {
+      "score": 4,
+      "notes": "Uses existing stack, plus platform-specific OBS CEF behavior, OBS page permissions, and Chromium certificate trust guidance; exact bundled CEF trust behavior must be validated natively."
+    },
+    "risk": {
+      "score": 4,
+      "notes": "Widget capability leakage, stale broadcast data, UID/secret projection, local CA trust mismatch in embedded CEF, and resource cost of multiple browser sources require explicit tests and native acceptance."
+    }
   },
-  "flags": ["Architectural review required for scoped capability and read-only projection.", "Use real PostgreSQL integration tests for capability persistence/revocation.", "Keep the overlay local and separate from FND-0 MVP baseline.", "Second critique required by COMPLEX Spec Pipeline."]
+  "flags": [
+    "Architectural review required for widget-scoped read capability and shared projections.",
+    "Use real PostgreSQL migrations for capability persistence/revocation.",
+    "Validate local HTTPS CA trust in the exact OBS CEF runtime; never bypass validation or fall back to HTTP.",
+    "Measure eight active widgets at the two-second DOM SLA and inspect OBS resource behavior.",
+    "Set OBS Browser Source Page Permissions to None; do not use OBS bindings.",
+    "Keep FND-7 separate from FND-0 MVP baseline.",
+    "COMPLEX Spec Pipeline requires a second QA critique after revision."
+  ]
 }

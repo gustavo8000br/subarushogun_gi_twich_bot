@@ -1,7 +1,7 @@
 {
   "storyId": "FND-7",
-  "researchedAt": "2026-10-05T16:50:00Z",
-  "researchedBy": "@analyst (AIOX Spec Pipeline research)",
+  "researchedAt": "2026-10-06T17:05:00Z",
+  "researchedBy": "@analyst (AIOX Spec Pipeline refresh; official sources checked 2026-10-06)",
   "complexity": "COMPLEX",
   "dependencies": [
     {
@@ -100,18 +100,130 @@
         "conflicts": []
       },
       "id": "R-3"
+    },
+    {
+      "id": "R-4",
+      "name": "OBS Browser Source and obs-browser CEF plugin",
+      "type": "service",
+      "version": "Current official OBS documentation/repository as consulted 2026-10-06; no OBS version installed or app dependency selected",
+      "verified": true,
+      "source": "manual",
+      "existing": {
+        "installed": false,
+        "currentVersion": null,
+        "usageLocations": []
+      },
+      "documentation": {
+        "url": "https://obsproject.com/kb/browser-source",
+        "additionalUrls": [
+          "https://github.com/obsproject/obs-browser"
+        ],
+        "relevantSections": [
+          "URL/local file",
+          "viewport width and height",
+          "transparent default CSS",
+          "shutdown when not visible",
+          "refresh when scene becomes active",
+          "Page Permissions",
+          "CEF-based cross-platform plugin"
+        ]
+      },
+      "patterns": [
+        {
+          "name": "Local, least-privilege browser source",
+          "description": "Use the URL source with the app local HTTPS origin; keep OBS Page Permissions at None because the widget needs no OBS bindings. OBS documentation describes transparent default CSS, viewport dimensions, visibility/refresh controls, and page permissions; the official obs-browser project identifies CEF and platform packaging."
+        }
+      ],
+      "compatibility": {
+        "preferred": true,
+        "alternatives": [],
+        "conflicts": [
+          "Application HTTPS CA trust inside the exact bundled CEF version is not established by the OBS feature page and requires native verification."
+        ]
+      }
+    },
+    {
+      "id": "R-5",
+      "name": "OBS Browser Source performance guidance",
+      "type": "service",
+      "version": "Current OBS Knowledge Base page as consulted 2026-10-06",
+      "verified": true,
+      "source": "manual",
+      "existing": {
+        "installed": false,
+        "currentVersion": null,
+        "usageLocations": []
+      },
+      "documentation": {
+        "url": "https://obsproject.com/kb/encoding-performance-troubleshooting",
+        "relevantSections": [
+          "Reduce Browser Sources",
+          "Reduce source dimensions",
+          "browser sources can affect performance"
+        ]
+      },
+      "patterns": [
+        {
+          "name": "Bounded active sources",
+          "description": "OBS warns that browser sources are resource-intensive and multiple sources can significantly affect performance; measure the accepted eight-active-widget SLA in the real app and keep configured viewport dimensions near actual use."
+        }
+      ],
+      "compatibility": {
+        "preferred": true,
+        "alternatives": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "R-6",
+      "name": "Chromium Linux certificate management (CEF compatibility input)",
+      "type": "infrastructure",
+      "version": "Current Chromium documentation as consulted 2026-10-06; exact OBS-bundled CEF version unknown",
+      "verified": true,
+      "source": "manual",
+      "existing": {
+        "installed": false,
+        "currentVersion": null,
+        "usageLocations": []
+      },
+      "documentation": {
+        "url": "https://chromium.googlesource.com/chromium/src/+/main/docs/linux/cert_management.md",
+        "relevantSections": [
+          "NSS shared database on Linux",
+          "certificate trust import",
+          "database path version note"
+        ]
+      },
+      "patterns": [
+        {
+          "name": "Do not infer CEF trust from desktop browser alone",
+          "description": "Chromium documents a Linux NSS shared certificate database and a version-dependent database path. OBS Browser Source embeds CEF, but this alone does not prove which trust store the installed OBS CEF build uses; native HTTPS loading must verify it."
+        }
+      ],
+      "compatibility": {
+        "preferred": true,
+        "alternatives": [],
+        "conflicts": [
+          "OBS CEF exact version and its certificate-store behavior must be observed per supported OS before publishing installation steps."
+        ]
+      }
     }
   ],
   "unverifiedClaims": [
     "OBS browser-source behavior is documented, but integration must be manually verified on the user's supported OBS/OS installation.",
-    "The local application can satisfy the two-second render SLA; verify with an end-to-end browser test using the real app and isolated PostgreSQL before claiming completion."
+    "The local application can satisfy the two-second render SLA; verify with an end-to-end browser test using the real app and isolated PostgreSQL before claiming completion.",
+    "The app local CA is trusted by the exact OBS CEF runtime on Windows, macOS, and Linux; official OBS docs identify CEF but do not establish this app certificate path. Validate natively per OS/OBS version without bypassing TLS.",
+    "Eight live Browser Sources satisfy the two-second commit-to-DOM SLA without unacceptable OBS/game rendering cost; the SLA requires a measured E2E run and OBS smoke test."
   ],
   "recommendations": [
     "Create an overlay page at a same-origin local URL and a separate read-only data endpoint; never expose an administrative session to OBS.",
     "Place a per-widget random capability in the page fragment, read it client-side, and send it only in the Authorization header; persist only a secure hash, set no-store/no-referrer headers, and revoke/rotate it in the panel.",
     "Validate every style property against an allowlist and render all labels, fallback text, and source values through text nodes.",
     "Reuse application/domain read projections and omit UID, Twitch credentials, sessions, operation state, and every other widget's data.",
-    "Use no new runtime dependency; use the existing static panel and server, polling no slower than once per second, and PostgreSQL migration-backed tests."
+    "Use no new runtime dependency; use the existing static panel and server, polling no slower than once per second, and PostgreSQL migration-backed tests.",
+    "Set OBS Browser Source Page Permissions to None and never use window.obsstudio or OBS control APIs; the feature needs only app widget data.",
+    "Keep local HTTPS certificate validation enabled. Add a platform-specific CA trust instruction only after verifying it works in the exact OBS CEF runtime; do not recommend HTTP or certificate bypass.",
+    "In the guide, explain that shutdown-when-not-visible unloads a source and refresh-on-scene-activation reloads it; test that a reloaded source fetches the latest value and clearly scope the two-second SLA to active rendered sources."
   ],
-  "researchNotes": "Official OBS documentation confirms Browser Source accepts local URLs and provides viewport and CSS controls, including transparent default styling. RFC 6750 recommends the Authorization request header and warns against bearer credentials in request URIs because URLs commonly enter logs and history. A URL fragment is not sent in the HTTP request; the page should move the secret into an Authorization header in memory, and server routes must never log or cache it. Existing repository architecture already uses Fastify, PostgreSQL/Prisma, static vanilla JS, local loopback publication, and shared domain services; no additional library is indicated."
+  "researchNotes": "Official-source refresh performed 2026-10-06. OBS Browser Source documentation (https://obsproject.com/kb/browser-source) confirms URL/local-file modes, viewport dimensions, transparent default CSS, unload-on-hidden and refresh-on-scene controls, and a Page Permissions setting whose default permits reading OBS status. The official obs-browser repository (https://github.com/obsproject/obs-browser) identifies the plugin as CEF-based and documents permission level NONE; platform inclusion is listed for official Windows/macOS packages, Ubuntu PPA and Flatpak. OBS performance guidance (https://obsproject.com/kb/encoding-performance-troubleshooting) warns Browser Sources can be resource intensive and recommends reducing their count and dimensions. Chromium Linux certificate documentation (https://chromium.googlesource.com/chromium/src/+/main/docs/linux/cert_management.md) describes NSS shared certificate storage and a version-dependent path; because OBS bundles a specific CEF runtime and the installed version is unknown, applying Chromium desktop trust instructions to OBS is an inference, not established fact. Therefore page permission NONE and no use of OBS bindings are requirements; certificate trust, performance and compatibility require native validation before support claims. No OBS installation/version was available in this research run."
 }

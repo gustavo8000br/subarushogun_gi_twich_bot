@@ -43,6 +43,30 @@ describe('Twitch chat command handler', () => {
     expect(h.twitch.sendChatMessage).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['VIP with management toggle', [{ setId: 'vip' }], true],
+    ['subscriber', [{ setId: 'subscriber' }], false],
+  ])('does not execute queue mutations from %s', async (_label, badges, allowVipManagement) => {
+    const h = setup();
+    h.handler = createChatCommandHandler({
+      repository: h.repository,
+      domainService: h.domainService,
+      twitch: h.twitch,
+      settings: h.settings,
+      clearConfirmation: createClearConfirmationService({ repository: h.repository }),
+      broadcasterId: 'broadcaster-1',
+      allowVipManagement,
+    });
+
+    await h.handler({ id: `denied-${_label}`, text: '!abismo remover viewer', userId: 'role-user', userLogin: 'roleuser', displayName: 'Role User', channelId: 'broadcaster-1', badges });
+
+    expect(h.repository.getQueueByKey).not.toHaveBeenCalled();
+    expect(h.repository.getActiveEntryForUser).not.toHaveBeenCalled();
+    expect(h.domainService.transitionEntry).not.toHaveBeenCalled();
+    expect(h.twitch.getUserByLogin).not.toHaveBeenCalled();
+    expect(h.twitch.sendChatMessage).not.toHaveBeenCalled();
+  });
+
   it('calls a bounded group only for a moderator and reports the actual count', async () => {
     const h = setup();
     await h.handler({ id: 'message-3', text: '!abismo próximo 2', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });

@@ -4,6 +4,12 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.5.0-alpha
+
+- Streamers can create independent OBS widgets to show selected queue information or custom text on stream.
+- Widgets refresh automatically and resume after a restart; revoked or replaced links no longer show data.
+- Queue management commands, including current-account controls, are fixed to streamer and moderator access.
+
 ## v0.4.1-alpha
 
 - The project is now available under the MIT License.

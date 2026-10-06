@@ -1,8 +1,8 @@
 # Spec: OBS Overlay Widgets
 
-> **Story ID:** FND-7  
-> **Generated:** 2026-10-05  
-> **Complexity:** COMPLEX (17/25)  
+> **Story ID:** FND-7
+> **Refreshed:** 2026-10-06
+> **Complexity:** COMPLEX (19/25)
 > **Pipeline Phases:** Gather → Assess → Research → Write → Critique 1 → Revise → Critique 2 → Plan
 
 ## 1. Overview
@@ -16,7 +16,7 @@ This is a separately tracked post-MVP addition that explicitly extends the origi
 ### 1.2 Goals
 
 - Create, preview, edit, and remove separately styled overlay widgets.
-- Display current Genshin account label; a selected queue's name and state; waiting count; called viewer and position; in-service viewer; or custom fixed text.
+- Display current Genshin account label; a selected queue's name and state; waiting count; called viewer and the viewer's original waiting position recorded at call time; in-service viewer; or custom fixed text.
 - Generate one local, read-only, independently revocable OBS URL per widget.
 - Update live values within two seconds; show fallback for empty values, and mark the last value stale during a transient outage until recovery.
 - Keep administrative controls, Twitch credentials, UIDs, and unrelated widget data out of the OBS surface.
@@ -38,13 +38,14 @@ This is a separately tracked post-MVP addition that explicitly extends the origi
 | ID | Requirement | Priority | Traceability and acceptance |
 | --- | --- | --- | --- |
 | FR-1 | Create, edit and delete independent widgets, each with exactly one atomic allowlisted field or fixed text, optional queue scope, style and fallback. | P0 | requirements.json FR-1 GWT AC-1/AC-12; story AC-1/AC-6 |
-| FR-2 | Offer current Genshin account label, selected queue name, selected queue state, selected queue waiting count, called viewer display name, called viewer position, or in-service viewer display name, or fixed text. | P0 | requirements.json FR-2 GWT AC-1/AC-5; story AC-1/AC-5; atomic fields only |
+| FR-2 | Offer current Genshin account label, selected queue name, selected queue state, selected queue waiting count, called viewer display name, called viewer position, or in-service viewer display name, or fixed text. When several viewers are called, select the earliest outstanding call by `calledAt`, then `createdAt`, matching existing called-entry order. | P0 | requirements.json FR-2 GWT AC-1/AC-5; story AC-1/AC-5; atomic fields only |
 | FR-3 | Configure text/background colors, opacity, allowlisted font, size/weight/alignment, outline/shadow, dimensions/margins/overflow, and fallback/fixed text up to 240 Unicode code points. | P0 | requirements.json FR-3 GWT AC-3/AC-10; story AC-3 |
 | FR-4 | Preview; receive newly issued URL once at create/regenerate; copy, revoke and regenerate each widget URL independently of source/style. | P0 | requirements.json FR-4 GWT AC-2/AC-6; story AC-2/AC-6 |
 | FR-5 | Update live values within two seconds; use fallback for empty fields, stale-mark the last value during transient outage, and clear on 401/403. | P0 | requirements.json FR-5 GWT AC-7/AC-11; story AC-4/AC-7 |
 | FR-6 | Serve browser page and read-only projection through existing application/domain services. | P0 | requirements.json FR-6 GWT AC-13/AC-8; story AC-5/AC-8 |
 | FR-7 | Restrict each local link to read-only access to one widget, with revocation and no administrative privilege. | P0 | requirements.json FR-7 GWT AC-14/AC-15; story AC-2/AC-6/AC-8 |
 | FR-8 | Document OBS setup and lifecycle in English and pt-BR. | P1 | requirements.json FR-8 GWT AC-9; story AC-9 |
+| FR-9 | Keep Browser Source limited to rendering app data; set Page Permissions to None and use no OBS bindings. | P0 | requirements.json FR-9 GWT AC-16; OBS page permissions are separately configurable (R-4) |
 
 Every FR acceptance statement is specified in requirements.json as Given/When/Then text, not as an unresolved AC pointer.
 
@@ -58,6 +59,7 @@ Every FR acceptance statement is specified in requirements.json as Given/When/Th
 | NFR-4 | Reliability | Empty values use fallback; transient failures show last value with stale marker and retry; invalid/revoked capability clears it. | requirements.json NFR-4 / FR-5 |
 | NFR-5 | Safe rendering | Text and style are constrained; no HTML/script/arbitrary CSS or remote assets. | requirements.json NFR-5 / CON-2 |
 | NFR-6 | Accessibility | Labeled keyboard-operable controls, visible focus, and readability preview before link copy. | requirements.json NFR-6 / phase-0 UX gate |
+| NFR-7 | Compatibility | Load the local HTTPS overlay in native OBS CEF without certificate bypass or HTTP fallback. | requirements.json NFR-7/CON-8; validate each claimed OS/OBS version (R-6) |
 
 ### 2.3 Constraints
 
@@ -68,6 +70,7 @@ Every FR acceptance statement is specified in requirements.json as Given/When/Th
 - **[CON-5] Scope governance:** explicit user-approved post-MVP extension; FND-0 remains historically accurate.
 - **[CON-6] Operator surface:** use the approved mutable local panel; no separate product CLI for overlay management.
 - **[CON-7] Upstream gate:** FND-5 and FND-6 must be fully complete; verify all field projections and panel/security primitives before any FND-7 implementation. Do not substitute a reduced field set.
+- **[CON-8] OBS least privilege and TLS:** Set Browser Source Page Permissions to None; use no `window.obsstudio` or OBS control APIs. Keep the local HTTPS origin and certificate validation; do not use HTTP or certificate bypass. Document only trust steps verified in the tested OBS/OS environment.
 
 ### 2.4 Assumptions
 
@@ -78,12 +81,18 @@ Every FR acceptance statement is specified in requirements.json as Given/When/Th
 - A widget has one data field or fixed text, one optional queue scope, one style, and one independently revocable link. Duplicate widgets are allowed. Deletion commits atomically with capability invalidation.
 - Use generic/local system font stacks; no external font download is needed.
 - The visible account value is the Genshin account label managed by existing account functionality, not the Twitch broadcaster's credential or ID.
+- Called-viewer position is the waiting position immediately before selection, from the persisted `entry.transitioned` audit event's `safeDetail.previousPosition`; `entries.position` is null after the entry becomes called. It is not a rank in the called group.
+- Called-viewer fields select the earliest outstanding `called` entry ordered by `calledAt`, then `createdAt`, consistent with `listQueueChatEntries`; each widget remains a single value.
+- Queue name/state/waiting-count sources require one selected `queue_id`. Account label and the oldest called/in-service viewer are channel-wide projections because these fields have no queue selector in the approved product requirement. Fixed text has no queue scope. This source-scope mapping is enforced by PostgreSQL checks and the application policy.
+- The two-second commit-to-DOM target applies to enabled, active Browser Source pages. A page OBS has unloaded because it is hidden fetches the latest projection when it loads again.
+- Browser Source Page Permissions are set to None; widget rendering does not use OBS bindings or read OBS state.
+- Native CEF may not share the desktop browser's certificate store. Its local-CA behavior is unverified and must be tested on each OS/OBS version claimed as supported; no insecure fallback is allowed.
 
 ## 3. Technical Approach
 
 ### 3.1 Architecture Overview
 
-**Traceability:** FR-1/FR-2/FR-5/FR-6/FR-7, NFR-1/NFR-2/NFR-4, CON-1/CON-3/CON-4.
+**Traceability:** FR-1–FR-9, NFR-1–NFR-7, CON-1–CON-8; research R-1–R-6.
 
 Add overlay management to the existing protected operator panel, persistence for widget configuration and a per-widget capability hash, a same-origin local Browser Source page, and a read-only data route. The browser page obtains its source value through an explicit field projection resolved by the existing application/domain layer. It must not read Prisma records directly or reconstruct queue/account rules.
 
@@ -91,7 +100,7 @@ The page URL includes an opaque widget identifier and a random secret in the URL
 
 Poll at an interval that allows the two-second propagation requirement (nominally once per second). On an empty result, render the configured fallback. On a transient network/server failure, retain the last value only with a visible stale marker, retry automatically, and replace it on recovery. If initial fetch fails before any value, show a neutral unavailable state. A successful empty projection shows configured fallback. On invalid/revoked capability (401/403) or unknown/deleted widget (404), clear the value on that response. Render all data as text. Validate both UI and API against this bounded style contract: text/background color #RRGGBB; opacity 0–100%; font stack enum system-ui, Arial/sans-serif, Verdana/sans-serif, Georgia/serif, or Courier New/monospace; integer size 8–128px; weight 300/400/500/600/700/800/900; alignment left/center/right; effect none/outline/shadow; outline 1–8px; shadow blur 0–32px and x/y offsets −32..32px; width auto or 1–3840px; height auto or 1–2160px; per-side margin 0–256px; overflow wrap/clip/ellipsis. Do not accept arbitrary CSS.
 
-The overlay host is the loopback address 127.0.0.1 and the configured application port. The protected panel chooses one atomic field; queue-scoped fields require exactly one selected queue. OBS receives only a widget-scoped projection. The page uses a transparent background and no external requests.
+The overlay host is the loopback address 127.0.0.1 and the configured application port. The protected panel chooses one atomic field; queue-scoped fields require exactly one selected queue. The called-viewer position comes from the call transition's audited `previousPosition`, not the cleared waiting `position`. OBS receives only a widget-scoped projection. The page uses a transparent background, makes no external requests, uses no OBS-specific bindings, and is configured with Page Permissions = None.
 
 ### 3.2 Key Decisions
 
@@ -104,6 +113,9 @@ The overlay host is the loopback address 127.0.0.1 and the configured applicatio
 - Configured fallback for empty values; transient connection failures retain the last value with a visible stale marker, while invalid/revoked capabilities clear the value.
 - Generic/local fonts and validated style properties only; no arbitrary CSS or remote resource loading.
 - Reuse the existing static web assets, Fastify process and PostgreSQL persistence; no new runtime dependency or service.
+- Set OBS Browser Source Page Permissions to None. Do not read `window.obsstudio` or use OBS control APIs.
+- Keep local HTTPS and certificate validation. Test the actual OBS CEF trust path before publishing OS-specific certificate instructions or compatibility claims; do not fall back to HTTP.
+- Scope the two-second SLA to active, enabled widget pages. When OBS unloads a hidden source, reload must fetch the latest value; benchmark eight active sources because OBS warns that Browser Sources can consume significant resources.
 
 ### 3.3 Patterns to Use
 
@@ -129,8 +141,10 @@ The overlay host is the loopback address 127.0.0.1 and the configured applicatio
 
 | Name | Version | Purpose | Verified |
 | --- | --- | --- | --- |
-| OBS Studio Browser Source | Current supported release | Load local overlay URL with viewport and transparent CSS. | Official OBS documentation reviewed 2026-10-05 |
-| RFC 6750 | Standards Track | Authorization header and URI bearer-token leakage guidance. | RFC Editor source reviewed 2026-10-05 |
+| OBS Studio Browser Source / obs-browser | Current docs/repository reviewed 2026-10-06; exact native version not selected | Load local HTTPS overlay; viewport, transparency, page permissions, CEF runtime. | Official OBS docs/repository reviewed 2026-10-06; native app not installed here |
+| Chromium Linux certificate guidance | Current documentation reviewed 2026-10-06; OBS CEF build version unknown | Identify a trust-store compatibility risk; not proof of OBS behavior. | Official Chromium docs reviewed 2026-10-06; native OBS test required |
+| RFC 6750 | Standards Track | Authorization header and URI bearer-token leakage guidance. | RFC Editor source reviewed 2026-10-06 |
+| OBS rendering performance guidance | Current OBS Knowledge Base page reviewed 2026-10-06 | Bound viewport and measure eight concurrent Browser Sources. | Official OBS page reviewed 2026-10-06 |
 
 No new npm runtime or test dependency is indicated.
 
@@ -145,7 +159,7 @@ No new npm runtime or test dependency is indicated.
 ### 4.3 Unverified Claims
 
 - The two-second end-to-end refresh target must be measured against the running app and isolated PostgreSQL.
-- Manual OBS verification is still required on the supported operating systems; official feature availability alone does not prove this application's URL works in every installation.
+- Manual OBS verification is still required on the supported OS/OBS versions. Desktop-browser CA trust does not prove trust in OBS's bundled CEF; no version-specific CA instructions can be published before testing.
 - Default style preset, colors and exact font menu remain for UX refinement; no external font dependency should be added.
 
 ## 5. Files to Modify/Create
@@ -203,6 +217,8 @@ None expected.
 - UX reviewer approves the documented journey, loading/error/empty states, keyboard/label/focus behavior, readability preview, font allowlist and design consistency before UI implementation.
 
 - Add a widget URL as OBS Studio Browser Source; confirm transparent background, dimensions, no scrollbars, legible styling and live update.
+- Set Browser Source Page Permissions to None; confirm the widget still works and does not require `window.obsstudio` or OBS control APIs.
+- Load the existing local HTTPS health page in native Browser Source as a CEF certificate-trust preflight. Record OS, OBS and CEF versions and verify the normal trusted-CA setup works without certificate bypass; do not claim support if it fails.
 - Verify link remains local, source shows the last value marked stale when the bot stops, then recovers after restart, and replacement link works after recovery.
 - Test on each supported OS before claiming compatibility; do not claim a native Windows/macOS/Linux test unless actually executed.
 
@@ -219,15 +235,16 @@ None expected.
 
 ## 8. Open Questions
 
-- UX refinement must choose the initial default style/preset and exact safe font menu, then record the choice before panel UI implementation.
+- UX refinement must choose the initial default style/preset and exact safe font menu, then record the choice before panel UI implementation. Include hidden-source/reload behavior, the Page Permissions = None instruction, and safe certificate troubleshooting without weakening HTTPS.
 - The 240-code-point limit and shared browser/server counting rule are defined; validate implementation against boundary cases.
-- FND-5 and FND-6 must complete their relevant application projections and protected panel/session/CSRF/Host-Origin foundations before any FND-7 implementation begins.
+- FND-5 and FND-6 are complete (PR #16 and PR #22). Verify their delivered application projections and protected panel/session/CSRF/Host-Origin foundations against the current code before FND-7 implementation; no reduced field catalog is accepted.
 
 ## 9. Implementation Checklist
 
-**Traceability:** FR-1–FR-8, NFR-1–NFR-6, CON-1–CON-7, R-1–R-3.
+**Traceability:** FR-1–FR-9, NFR-1–NFR-7, CON-1–CON-8, R-1–R-6.
 
-- [ ] Verify source projections and upstream FND-5/FND-6 readiness.
+- [ ] Verify source projections and completed upstream FND-5/FND-6 readiness.
+- [ ] Verify native OBS CEF loads the existing `https://localhost:<APP_PORT>/health` endpoint with the trusted app CA; never bypass TLS or fall back to HTTP.
 - [ ] Complete UX refinement of defaults/font allowlist before panel UI.
 - [ ] Write and observe Red tests before each field, persistence, security, renderer, and panel implementation increment.
 - [ ] Use an isolated real PostgreSQL database and actual migration tests for widget/token lifecycle.

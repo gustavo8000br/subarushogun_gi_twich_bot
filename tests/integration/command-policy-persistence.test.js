@@ -51,26 +51,28 @@ describe('command policy PostgreSQL persistence', () => {
   it('loads defaults, persists policy and audit atomically, then reloads after repository reconstruction', async () => {
     await expect(repository.getCommandPolicyState()).resolves.toEqual({ version: 1, policies: {} });
     const actorId = `local-session-${randomUUID()}`;
-    await expect(repository.updateCommandPolicies({ expectedVersion: 1, policies: { 'queue:add': ['subscriber'] }, actorId }))
-      .resolves.toMatchObject({ version: 2, policies: { 'queue:add': ['subscriber'] } });
+    await expect(repository.updateCommandPolicies({ expectedVersion: 1, policies: { 'queue:lista': ['subscriber'] }, actorId }))
+      .resolves.toMatchObject({ version: 2, policies: { 'queue:lista': ['subscriber'] } });
 
     const freshRepository = createQueueRepository(prisma);
-    await expect(freshRepository.getCommandPolicyState()).resolves.toEqual({ version: 2, policies: { 'queue:add': ['subscriber'] } });
+    await expect(freshRepository.getCommandPolicyState()).resolves.toEqual({ version: 2, policies: { 'queue:lista': ['subscriber'] } });
     const audit = await prisma.auditLog.findFirst({ where: { event: 'command.policies_updated', actorId } });
-    expect(audit).toMatchObject({ origin: 'panel', reason: 'command_role_policy_changed', safeDetail: { commandIds: ['queue:add'], version: 2 } });
+    expect(audit).toMatchObject({ origin: 'panel', reason: 'command_role_policy_changed', safeDetail: { commandIds: ['queue:lista'], version: 2 } });
   });
 
-  it('rejects an HTTP-style attempt to relax an immutable streamer-only command', async () => {
+  it('rejects attempts to configure protected actions at the persistence boundary', async () => {
+    await expect(repository.updateCommandPolicies({ expectedVersion: 2, policies: { 'queue:add': ['everyone'] }, actorId: 'operator' }))
+      .rejects.toMatchObject({ code: 'INVALID_COMMAND_POLICY' });
     await expect(repository.updateCommandPolicies({ expectedVersion: 2, policies: { 'global:conta:set': ['everyone'] }, actorId: 'operator' }))
       .rejects.toMatchObject({ code: 'INVALID_COMMAND_POLICY' });
-    await expect(repository.getCommandPolicyState()).resolves.toMatchObject({ version: 2, policies: { 'queue:add': ['subscriber'] } });
+    await expect(repository.getCommandPolicyState()).resolves.toMatchObject({ version: 2, policies: { 'queue:lista': ['subscriber'] } });
   });
 
   it('serializes concurrent updates and rejects the stale policy version', async () => {
     const expectedVersion = 2;
     const attempts = await Promise.allSettled([
-      repository.updateCommandPolicies({ expectedVersion, policies: { 'queue:remover': ['moderator'] }, actorId: 'operator-a' }),
-      repository.updateCommandPolicies({ expectedVersion, policies: { 'queue:proximo': ['subscriber'] }, actorId: 'operator-b' }),
+      repository.updateCommandPolicies({ expectedVersion, policies: { 'queue:lista': ['moderator'] }, actorId: 'operator-a' }),
+      repository.updateCommandPolicies({ expectedVersion, policies: { 'queue:posicao': ['subscriber'] }, actorId: 'operator-b' }),
     ]);
     expect(attempts.filter(({ status }) => status === 'fulfilled')).toHaveLength(1);
     expect(attempts.filter(({ status, reason }) => status === 'rejected' && reason?.code === 'COMMAND_POLICY_VERSION_CONFLICT')).toHaveLength(1);

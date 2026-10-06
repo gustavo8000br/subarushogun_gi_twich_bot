@@ -1,0 +1,52 @@
+:root,
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+}
+
+html,
+body {
+  overflow: hidden;
+}
+
+body {
+  color: #ffffff;
+  font-family: system-ui, sans-serif;
+}
+
+.overlay-widget {
+  position: relative;
+  width: max-content;
+  max-width: 100%;
+  min-height: 1em;
+  padding: 0;
+  transition: opacity 120ms ease;
+}
+
+.overlay-value {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.overlay-status {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font: 12px/1.2 system-ui, sans-serif;
+}
+
+.overlay-widget.is-stale {
+  opacity: 0.82;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay-widget {
+    transition: none;
+  }
+}

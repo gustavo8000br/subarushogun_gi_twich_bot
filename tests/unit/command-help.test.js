@@ -11,10 +11,10 @@ describe('role-aware chat command help and ping copy', () => {
     expect(help.length).toBeLessThanOrEqual(500);
   });
 
-  it('lists only queue-specific forms allowed by the same explicit role policy', () => {
-    const policies = { 'queue:proximo': ['subscriber'], 'queue:add': ['moderator'] };
+  it('does not list protected queue actions for subscribers even if saved policy requests them', () => {
+    const policies = { 'queue:proximo': ['subscriber'], 'queue:add': ['everyone'] };
     const sub = renderQueueCommandHelp({ queueSlug: 'abismo', roles: ['subscriber'], policies, allowVipManagement: false });
-    expect(sub).toContain('!abismo proximo');
+    expect(sub).not.toContain('!abismo proximo');
     expect(sub).not.toContain('!abismo add');
     expect(sub).toContain('!abismo comandos');
   });

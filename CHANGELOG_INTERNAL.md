@@ -2,6 +2,15 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.5.0-alpha
+
+- Refresh FND-7 implementation, recovery, and operator acceptance evidence. Verify the documented absolute-path Linux CA installation behavior in a path containing spaces; update Windows/macOS commands and keep those host flows explicitly unverified. Add a regression-tested PostgreSQL test cleanup that removes and verifies isolated containers and volumes; record the full repository audit and ten improvement proposals in bilingual audit reports.
+
+- Add configurable local OBS widgets backed by a PostgreSQL model and hash-only one-time capabilities. Management routes require the local session and CSRF protection; the Browser Source receives one-field projections through a read-only endpoint. Add allowlisted style validation and Unicode code-point limits, with unit, route, real-PostgreSQL, and OBS Chromium E2E coverage.
+- Verify native OBS HTTPS trust and Page Permissions=None on Ubuntu 24.04 / OBS Studio 32.2.2 / CEF 127.0.6533.120; the final authenticated E2E measured 80 commit-to-DOM updates across eight active widgets at a maximum of 905 ms. It also verified bot stop/restart, stale-value recovery, Browser Source unload/reload, and capability rotation. Chrome manual acceptance confirms widget create/edit, one-time clipboard copy, regeneration/revocation, deletion, and queue-source selection against a temporary local PostgreSQL fixture. No Twitch synchronization was exercised. Follow-up QA fixes hide unconfirmed queue state, poll once per second, and clear content on HTTP 403; TDD regression tests record Red and Green. Independent QA re-review passed at 9.2/10; FND-7 is Done.
+- Fix queue-management and current-account command policies so streamer/moderator access cannot be broadened by saved roles or VIP settings; cover the policy in unit, route, and PostgreSQL tests.
+- Refresh bilingual README, story and integration status; add the FND-7 OBS setup guide and security limitations.
+
 ## v0.4.1-alpha
 
 - Add the standard MIT license text and declare the license in package metadata. Synchronize licensing, version, and merged-story records in the English and pt-BR documentation.
