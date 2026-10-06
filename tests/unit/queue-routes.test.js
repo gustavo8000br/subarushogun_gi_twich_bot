@@ -27,6 +27,8 @@ async function createHarness({ domainService, resolveUser = async () => null } =
     enqueueCallNotification: vi.fn(async () => undefined),
     clearActiveEntries: vi.fn(async ({ snapshot }) => ({ status: 'cleared', count: snapshot.length, refundsRequested: 1 })),
     setDefaultAccountLabel: vi.fn(async (label) => ({ label, defaultLabel: label, source: 'default' })),
+    getCommandPolicyState: vi.fn(async () => ({ version: 1, policies: {} })),
+    updateCommandPolicies: vi.fn(async ({ expectedVersion, policies }) => ({ version: expectedVersion + 1, policies })),
   };
   const integrations = { status: 'not_configured', twitch: null };
   const clearConfirmation = createClearConfirmationService({ repository });
@@ -74,6 +76,35 @@ describe('local queue and setup API', () => {
     expect(conflict.statusCode).toBe(409);
     expect(h.repository.createQueueWithRewardIntent).toHaveBeenCalledOnce();
     await h.app.close();
+  });
+
+  it('returns a session-protected safe catalog projection with effective command roles', async () => {
+    const h = await createHarness();
+    h.repository.getCommandPolicyState.mockResolvedValue({ version: 7, policies: { 'queue:add': ['subscriber'] } });
+    const denied = await h.app.inject({ method: 'GET', url: '/api/command-catalog', headers: { host: 'localhost:3000' } });
+    expect(denied.statusCode).toBe(401);
+    const response = await h.app.inject({ method: 'GET', url: '/api/command-catalog', headers: h.sessionHeaders });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ version: 7, commands: expect.arrayContaining([
+      expect.objectContaining({ key: 'queue:add', allowedRoles: ['subscriber'], configurable: true }),
+      expect.objectContaining({ key: 'global:conta:set', allowedRoles: ['streamer'], configurable: false }),
+      expect.objectContaining({ key: 'global:queue:ping', allowedRoles: ['streamer', 'moderator'], configurable: false }),
+    ]) });
+    expect(JSON.stringify(response.json())).not.toContain('clientSecret');
+  });
+
+  it('updates only known mutable command policies through CSRF, idempotency and optimistic version checks', async () => {
+    const h = await createHarness();
+    const payload = { expectedVersion: 1, policies: { 'queue:add': ['subscriber', 'moderator'] } };
+    const denied = await h.app.inject({ method: 'PATCH', url: '/api/command-policies', headers: h.sessionHeaders, payload });
+    expect(denied.statusCode).toBe(403);
+    const invalid = await h.app.inject({ method: 'PATCH', url: '/api/command-policies', headers: h.headers, payload: { ...payload, policies: { 'global:conta:set': ['everyone'] } } });
+    expect(invalid.statusCode).toBe(400);
+    expect(h.repository.updateCommandPolicies).not.toHaveBeenCalled();
+    const updated = await h.app.inject({ method: 'PATCH', url: '/api/command-policies', headers: h.headers, payload });
+    expect(updated.statusCode).toBe(200);
+    expect(h.repository.updateCommandPolicies).toHaveBeenCalledWith({ expectedVersion: 1, policies: payload.policies, actorId: expect.any(String), origin: 'panel' });
+    expect(updated.json()).toEqual({ version: 2, policies: payload.policies });
   });
 
   it('rejects mutations that omit a valid idempotency key', async () => {

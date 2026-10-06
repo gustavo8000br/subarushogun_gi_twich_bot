@@ -1,0 +1,18 @@
+{
+  "storyId": "OPS-3",
+  "researchedAt": "2026-10-06T12:00:00Z",
+  "researchedBy": "@analyst",
+  "complexity": "COMPLEX",
+  "dependencies": [
+    { "name": "Twitch EventSub channel.chat.message", "type": "api", "version": "1", "verified": true, "source": "official-documentation", "existing": { "installed": true, "currentVersion": "@twurple/eventsub-ws 8.2.0", "usageLocations": ["apps/api/src/twitch/eventsub-runtime.mjs"] }, "documentation": { "url": "https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/", "relevantPatterns": ["Current event contains badges with set_id moderator, subscriber, VIP and current broadcaster/chat identity fields.", "Shared Chat events distinguish source badges/source broadcaster from badges in the current target chat."] } },
+    { "name": "Twitch chat badge freshness", "type": "api", "version": "current", "verified": true, "source": "official-documentation", "existing": { "installed": true, "currentVersion": "@twurple/eventsub-ws 8.2.0", "usageLocations": ["apps/api/src/twitch/eventsub-runtime.mjs", "apps/api/src/commands/authorization.mjs"] }, "documentation": { "url": "https://dev.twitch.tv/docs/chat/send-receive-messages/", "relevantPatterns": ["Use badge information from the incoming chat message for authorization; do not preserve role badges as a durable role cache." ] } },
+    { "name": "Twitch Get Channel Followers", "type": "api", "version": "current", "verified": true, "source": "official-documentation", "existing": { "installed": true, "currentVersion": "@twurple/api 8.2.0", "usageLocations": [] }, "documentation": { "url": "https://dev.twitch.tv/docs/api/reference/", "relevantPatterns": ["Individual follower lookup requires moderator:read:followers and broadcaster/moderator token identity; intentionally excluded from this story." ] } }
+  ],
+  "architectureFindings": [
+    { "id": "RF-1", "finding": "No new runtime dependency is needed. Existing Twurple 8.2.0 EventSub adapter already maps the current event badges and rejects a source channel that differs from the local broadcaster.", "source": "codebase", "references": ["apps/api/src/twitch/eventsub-runtime.mjs"] },
+    { "id": "RF-2", "finding": "Current authorization is hardcoded in a pure module and chat handler calls it before command claim and execution; extend this seam so denied mutating commands have no repository/domain/Twitch effects.", "source": "codebase", "references": ["apps/api/src/commands/authorization.mjs", "apps/api/src/commands/chat-handler.mjs"] },
+    { "id": "RF-3", "finding": "The panel already uses protected Fastify mutation routes, CSRF, local sessions, PostgreSQL repositories, and vanilla navigation; integrate the catalog within those patterns.", "source": "codebase", "references": ["apps/api/src/http/queue-routes.mjs", "apps/api/src/http/local-session.mjs", "apps/web/panel-navigation.mjs"] },
+    { "id": "RF-4", "finding": "Existing generic Setting rows store JSON and can be transactionally audited; decide whether this policy merits a dedicated migration-backed table during implementation review. Persistence guarantees must be tested on PostgreSQL either way.", "source": "codebase", "references": ["apps/api/prisma/schema.prisma", "apps/api/src/persistence/queue-repository.mjs"] }
+  ],
+  "scopeDecision": { "roles": ["streamer", "moderator", "vip", "subscriber", "everyone"], "matching": "explicit allowlist, OR across current trusted user roles; no hierarchy inheritance", "vipGate": "existing allowVipManagement toggle remains mandatory", "follower": "excluded; do not add moderator:read:followers", "immutableCommands": ["!conta <nome>", "!conta reset"], "initialPolicy": "preserve existing access otherwise" }
+}

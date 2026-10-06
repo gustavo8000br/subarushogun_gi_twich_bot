@@ -1,10 +1,9 @@
+import { CHAT_COMMANDS } from './catalog.mjs';
+
 /** @typedef {{kind: 'invalid', code: string}|{kind: 'command', scope: string, queueKey: string|null, command: string, args: string[]}} ParsedCommand */
 
-const globalCommands = new Set(['filas', 'conta']);
-const queueCommands = new Set([
-  'add', 'remover', 'sair', 'posicao', 'proximo', 'atender', 'concluir', 'mover',
-  'abrir', 'fechar', 'limpar', 'lista',
-]);
+const globalCommands = new Set(CHAT_COMMANDS.filter(({ scope }) => scope === 'global').map(({ command }) => command));
+const queueCommands = new Set(CHAT_COMMANDS.filter(({ scope }) => scope === 'queue').map(({ command }) => command));
 const queueKeyPattern = /^[a-z0-9-]{2,24}$/;
 
 function normalizeCommand(value) {
@@ -34,7 +33,9 @@ export function parseChatCommand(input) {
   const first = tokens[0].slice(1).toLocaleLowerCase('pt-BR');
   if (globalCommands.has(first)) {
     const args = tokens.slice(1);
-    if ((first === 'filas' && args.length > 0) || (first === 'conta' && (args.length > 1 || (args.length === 1 && normalizeCommand(args[0]) === 'reset' && args[0].toLowerCase() !== 'reset')))) return { kind: 'invalid', code: 'INVALID_SYNTAX' };
+    if ((first === 'filas' && args.length > 0)
+      || (first === 'conta' && (args.length > 1 || (args.length === 1 && normalizeCommand(args[0]) === 'reset' && args[0].toLowerCase() !== 'reset')))
+      || (first === 'queue' && (args.length !== 1 || !['comandos', 'ping'].includes(normalizeCommand(args[0]))))) return { kind: 'invalid', code: 'INVALID_SYNTAX' };
     return { kind: 'command', scope: 'global', queueKey: null, command: first, args };
   }
   if (!queueKeyPattern.test(first)) return { kind: 'invalid', code: 'INVALID_SYNTAX' };

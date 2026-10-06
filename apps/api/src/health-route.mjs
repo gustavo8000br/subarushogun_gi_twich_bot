@@ -51,4 +51,12 @@ export function registerHealthRoute(app, {
       });
     }
   });
+
+  return {
+    getTwitchHealth() {
+      if (!cachedProbe) return null;
+      if (now() - cachedAt >= probeCacheMs) return null;
+      return { ...cachedProbe };
+    },
+  };
 }

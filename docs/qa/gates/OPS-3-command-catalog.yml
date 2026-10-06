@@ -1,0 +1,100 @@
+schema: 1
+story: OPS-3
+story_title: Command catalog and role permissions
+gate: PASS
+status_reason: >-
+  Independent QA found and reproduced a high-severity mismatch between Twurple's object-map
+  badge contract and array-only authorization. A test-first fix accepts both forms and passes
+  end-to-end EventSub-to-authorization coverage. The complete command catalog was reviewed in
+  Chrome; no saved policy was changed. Local automated gates pass. Live chat writes were not run.
+reviewer: Quinn (Independent Test Architect)
+reviewed_revision: '4f3e319 + uncommitted feature worktree after QA fix'
+updated: '2026-10-06T15:43:20Z'
+top_issues: []
+risk_summary:
+  highest_score: 2
+  rationale: >-
+    No blocking issue remains after the regression fix. Twitch chat mutations and reward writes
+    were not exercised against the live channel and are not claimed as verified.
+waiver:
+  active: false
+quality_score: 92
+evidence:
+  tests_reviewed: 37
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    ac_gaps: []
+  commands:
+    - 'Full project suite: 57 files, 416 tests passed after QA fix'
+    - 'Focused QA suite: 5 files, 37 tests passed'
+    - 'npm run lint: passed'
+    - 'npm run typecheck: passed'
+    - 'npm run review:static: OpenGrep scanned 48 JavaScript files, 0 findings'
+    - 'docker compose up --build in isolated project queuebot-ops3-clean: healthy; /health returned database=connected, Twitch=not_configured'
+  traceability:
+    - ac: 2
+      given: 'A chat event arrives from the authenticated target broadcaster'
+      when: 'Twurple supplies badges as an object map or a normalized test supplies an array'
+      then: 'Authorization recognizes moderator/VIP/subscriber badges only under the configured policy'
+      tests: ['tests/unit/eventsub-runtime.test.js', 'tests/unit/command-authorization.test.js']
+    - ac: 6
+      given: 'A Shared Chat message originates from another broadcaster'
+      when: 'Authorization resolves the current message roles'
+      then: 'External broadcaster roles do not grant local privileges'
+      tests: ['tests/unit/command-authorization.test.js']
+    - ac: 3
+      given: 'A moderator attempts an immutable streamer-only account operation'
+      when: 'Current message identity and badges are authorized'
+      then: 'Only the broadcaster identity can change or reset the account label'
+      tests: ['tests/unit/command-authorization.test.js']
+    - ac: 4
+      given: 'The operator saves a command policy'
+      when: 'The repository commits policy state'
+      then: 'Policy and audit survive restart and stale-version updates conflict'
+      tests: ['tests/integration/command-policy-persistence.test.js']
+    - ac: 5
+      given: 'A viewer requests global or queue-scoped help'
+      when: 'Help is rendered from the canonical catalog and effective roles'
+      then: 'Only available commands are returned within chat limits'
+      tests: ['tests/unit/command-help.test.js', 'tests/unit/chat-command-handler.test.js']
+    - ac: 7
+      given: 'A viewer attempts an unauthorized management action'
+      when: 'Authorization denies the command'
+      then: 'No entry/account lookup or mutation effect runs'
+      tests: ['tests/unit/chat-command-handler.test.js']
+    - ac: 8
+      given: 'A local caller reads or mutates command policies'
+      when: 'Session, CSRF, idempotency, schema, and version checks run'
+      then: 'Only protected valid changes persist and immutable policy cannot be broadened'
+      tests: ['tests/unit/queue-routes.test.js']
+    - ac: 9
+      given: 'The story acceptance is exercised'
+      when: 'Unit, route, and database integration suites run'
+      then: 'TDD evidence and real PostgreSQL migration coverage are recorded in paired story docs'
+      tests: ['tests/unit/command-catalog.test.js', 'tests/integration/command-policy-persistence.test.js']
+    - ac: 10
+      given: 'The implementation is handed over'
+      when: 'The English and pt-BR stories/changelogs are inspected'
+      then: 'Their scope/evidence match and FND-7 remains deferred until merge'
+      tests: ['docs/stories/OPS-3/story.md', 'docs/pt-BR/stories/OPS-3/story.md']
+    - ac: 1
+      given: 'The streamer opens the local command catalog'
+      when: 'The complete page is rendered in Chrome'
+      then: 'All 19 command rows, editable role selections and immutable rows are visible; review does not mutate saved policy'
+      tests: ['Chrome full-page visual inspection', 'tests/unit/command-catalog-view.test.js']
+    - ac: 11
+      given: 'A moderator or viewer uses `!queue ping`'
+      when: 'Authorization and reply rendering execute'
+      then: 'Only streamer/moderator receive Pong with runtime version and cached Twitch latency'
+      tests: ['tests/unit/chat-command-handler.test.js', 'tests/unit/command-authorization.test.js']
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Immutable streamer-only commands, VIP toggle gating, and external Shared Chat source rejection were rechecked; OpenGrep reports 0 findings.'
+  performance:
+    status: PASS
+    notes: 'Ping uses cached Twitch latency; no per-message Helix request was introduced.'
+  reliability:
+    status: PASS
+    notes: 'Command policy persistence and audit are covered by real PostgreSQL migrations; 416 tests pass.'

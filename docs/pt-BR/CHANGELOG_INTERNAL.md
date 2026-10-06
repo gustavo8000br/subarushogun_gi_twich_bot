@@ -2,6 +2,16 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.4.0-alpha
+
+- Corrige a autorização da OPS-3 para o mapa de badges de chat do EventSub Twurple; adiciona teste de regressão de ponta a ponta entre EventSub e autorização. QA independente reproduziu o defeito que classificava moderador como viewer (7/10), depois revalidou a correção test-first e aprovou com 9,2/10.
+
+- Adicionado registro canônico de comandos usado pelo parser, autorização por cargo, ajuda e API protegida do catálogo. Listas explícitas por comando são persistidas no `Setting` PostgreSQL com lock transacional, versão otimista e auditoria na mesma transação; política inválida falha fechada. Alterações de rótulo da conta permanecem imutáveis para o streamer; `!queue ping` é imutável para streamer/moderador. `queue` foi reservado para slugs e aliases.
+- Adicionado `!queue comandos` global filtrado por cargo, preservando `!<fila> comandos`, e página Comandos protegida com seletores de permissões explícitas e ações fixas não editáveis. Rotas exigem sessão/CSRF/idempotência/versão e renderização usa `textContent`.
+- O handler de chat recebe somente o último snapshot sanitizado de probe Twitch do `/health`; ping mostra versão em execução e latência em cache sem iniciar chamada Helix. Testes focados de handler/rota/painel e integração com PostgreSQL real/migrations. Ping em chat Twitch real não foi validado nesta implementação.
+
+- Mantém as notas técnicas agrupadas sob o cabeçalho de versão correspondente em inglês e pt-BR.
+
 ## v0.3.1-alpha
 
 - Atualizada a dependência vulnerável `deepmerge-ts` do Prisma Config para a versão corrigida 8.0.2 por override npm restrito; CLI, client e adapter PostgreSQL do Prisma permanecem alinhados em 6.19.3. `npm audit` informa zero vulnerabilidades.

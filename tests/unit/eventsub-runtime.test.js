@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEventSubRuntime } from '../../apps/api/src/twitch/eventsub-runtime.mjs';
+import { authorizeCommand } from '../../apps/api/src/commands/authorization.mjs';
+import { parseChatCommand } from '../../apps/api/src/commands/parser.mjs';
 
 function listenerFake() {
   const handlers = {};
@@ -61,6 +63,29 @@ describe('EventSub WebSocket runtime', () => {
     expect(onUpdate).not.toHaveBeenCalled();
     expect(onChat).toHaveBeenCalledOnce();
     expect(onChat).toHaveBeenCalledWith(expect.objectContaining({ id: 'message-2', userId: 'viewer-1', userLogin: 'viewer', channelId: 'channel-1', text: '!fila' }));
+  });
+
+  it('authorizes commands using Twurple badge objects emitted by the real EventSub callback', () => {
+    const listener = listenerFake();
+    let decision;
+    createEventSubRuntime({
+      apiClient: {}, broadcasterId: 'channel-1', listenerFactory: () => listener,
+      onRedemptionAdd() {}, onRedemptionUpdate() {},
+      onChatMessage: (message) => {
+        decision = authorizeCommand({
+          broadcasterId: 'channel-1', message,
+          command: parseChatCommand('!fila proximo'),
+        });
+      },
+    });
+
+    listener.handlers.chat({
+      broadcasterId: 'channel-1', chatterId: 'mod-1', chatterName: 'moderator',
+      chatterDisplayName: 'Moderator', messageId: 'message-3', messageText: '!fila proximo',
+      badges: { moderator: '1', subscriber: '12' }, sourceBroadcasterId: null,
+    });
+
+    expect(decision).toMatchObject({ allowed: true, role: 'moderator', roles: ['moderator', 'subscriber'] });
   });
 
   it('requests reconciliation after a real socket drop and reports revocation', () => {

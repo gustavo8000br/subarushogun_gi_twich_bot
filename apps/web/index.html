@@ -21,6 +21,7 @@
           <button type="button" data-page-target="queues">Filas e atendimentos</button>
           <button type="button" data-page-target="new-queue">Nova fila</button>
           <button type="button" data-page-target="operations">Operações financeiras</button>
+          <button type="button" data-page-target="commands">Comandos do chat</button>
           <button type="button" data-page-target="settings">Configurações</button>
           <button type="button" data-page-target="connection">Conexão Twitch</button>
         </nav>
@@ -75,6 +76,11 @@
         <section class="panel-page" data-panel-page="operations" hidden>
           <section class="page-heading"><p class="eyebrow">PONTOS E RECUPERAÇÃO</p><h1>Operações financeiras</h1><p class="lead">Acompanhe pedidos de reembolso e consumo até a confirmação da Twitch.</p></section>
           <section class="panel operations-panel"><div id="operation-list" class="operation-list"><p class="muted">Nenhuma operação pendente.</p></div></section>
+        </section>
+
+        <section class="panel-page" data-panel-page="commands" hidden>
+          <section class="page-heading"><p class="eyebrow">CHAT DA LIVE</p><h1>Comandos disponíveis</h1><p class="lead">Consulte as permissões e escolha quais cargos podem usar cada comando. Vários cargos marcados funcionam como opções independentes.</p></section>
+          <section class="panel"><div class="command-policy-note"><strong>Como as permissões funcionam</strong><p class="muted">O streamer sempre pode gerenciar os comandos. VIP só vale quando a opção de gerenciamento por VIP está ativada. Comandos exclusivos e o teste de conexão não podem ser ampliados.</p></div><form id="command-catalog-form"><div id="command-catalog" class="command-catalog"><p class="muted">Carregando catálogo…</p></div><p id="command-catalog-notice" class="notice" role="status" aria-live="polite"></p><button class="button button-primary" type="submit">Salvar permissões</button></form></section>
         </section>
 
         <section class="panel-page" data-panel-page="settings" hidden>

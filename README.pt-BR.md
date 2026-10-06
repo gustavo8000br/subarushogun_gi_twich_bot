@@ -183,6 +183,14 @@ Se um bot antigo já recebe resgates para a fila, pause a recompensa no app que 
 
 Para prioridade por PIX, Bits, inscrição ou outro benefício externo, streamer/mod confere o benefício no serviço de origem e registra o viewer pelo painel local. O operador pode marcar a entrada aguardando como prioritária. Entradas prioritárias seguem FIFO antes das normais; cada faixa preserva FIFO e nenhum atendimento ativo é interrompido. A auditoria registra o operador local e a categoria do benefício, sem comprovantes ou dados de pagamento. É uma declaração manual do operador: o bot não verifica pagamentos/inscrições, não processa dinheiro e não cria operações de pontos Twitch para entradas manuais. Adições pelo comando `add` no chat continuam na faixa normal.
 
+### Descoberta de comandos no chat
+
+- `!queue comandos` lista os comandos disponíveis para o cargo atual de quem enviou. O streamer recebe orientação para consultar a página **Comandos do chat** no painel local.
+- `!<fila> comandos` mostra os comandos permitidos especificamente naquela fila.
+- O streamer configura no painel os cargos permitidos para os comandos configuráveis. Qualquer cargo selecionado concede acesso; não existe herança entre cargos. VIP continua dependendo da configuração atual de gerenciamento por VIP.
+- `!queue ping` fica disponível somente para streamer e moderadores. Responde `Pong 🏓`, versão do produto em execução e a última latência Twitch em cache; não consulta a Twitch a cada mensagem.
+- `queue` é reservado para esses comandos globais e não pode ser slug ou alias de fila.
+
 Para conferir a saúde via CLI Linux depois de confiar na CA:
 
    ```sh
@@ -194,7 +202,7 @@ Para conferir a saúde via CLI Linux depois de confiar na CA:
    ```json
    {
      "status": "ok",
-     "product_version": "v0.1.0-0000000-alpha",
+     "product_version": "v0.4.0-0000000-alpha",
      "dependencies": {
        "database": "connected",
        "twitch_api": "not_configured"

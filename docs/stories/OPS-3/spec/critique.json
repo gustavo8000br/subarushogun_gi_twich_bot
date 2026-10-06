@@ -1,0 +1,18 @@
+{
+  "storyId": "OPS-3",
+  "critiqueDate": "2026-10-06T12:00:00Z",
+  "reviewer": "@qa",
+  "iteration": 2,
+  "verdict": "APPROVED",
+  "scores": { "accuracy": 5, "completeness": 5, "consistency": 5, "feasibility": 5, "alignment": 5 },
+  "findings": [
+    { "id": "Q-1", "severity": "high", "dimension": "accuracy", "finding": "User choices are recorded exactly: explicit allowlists, roles, initial behavior and the two immutable account write commands.", "resolution": "Accepted and traced to FR/AC." },
+    { "id": "Q-2", "severity": "high", "dimension": "completeness", "finding": "Security, no-side-effect denial, real persistence and bilingual documentation have testable acceptance criteria.", "resolution": "Accepted; include focused fakes at external boundaries and real PostgreSQL integration for persistence." },
+    { "id": "Q-3", "severity": "medium", "dimension": "consistency", "finding": "A catalog duplicated independently from the parser could become stale.", "resolution": "Revised spec to require one canonical command-definition registry shared by parser, help and catalog." },
+    { "id": "Q-4", "severity": "high", "dimension": "feasibility", "finding": "Shared Chat source badges must not confer moderation/subscriber privileges in the target channel.", "resolution": "Use only current target-channel event roles and retain the existing wrong-source-channel guard." },
+    { "id": "Q-5", "severity": "medium", "dimension": "alignment", "finding": "Follower lookup adds scope and freshness behavior outside confirmed decisions.", "resolution": "Explicitly excluded; no new scope." }
+  ],
+  "residualRisks": ["Permission regression during migration/default resolution; guarded by default-policy matrix tests and fail-closed malformed policy handling.", "Help output length; bounded single-message responses and explicit compact hint."],
+  "revisionSummary": "Critique iteration 1 identified command catalog drift risk; iteration 2 specifies a single shared command definition registry. All criteria are measurable and no open blocking question remains.",
+  "selfCritique": { "accuracy": "All requirements map to user answers, issue #17, existing product contracts, or official Twitch findings.", "completeness": "All listed acceptance criteria have corresponding test classes.", "consistency": "No conflict between explicit OR permissions, VIP gate, streamer identity override, and immutable account commands.", "feasibility": "Existing stack supports implementation without new dependencies; persistence is validated on PostgreSQL.", "alignment": "No UX expert or FND-7 work is started in this phase." }
+}

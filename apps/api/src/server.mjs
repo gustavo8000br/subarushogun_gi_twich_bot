@@ -27,6 +27,7 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: data
 const repository = createQueueRepository(prisma);
 const credentialRepository = createTwitchCredentialRepository(prisma);
 let runtime;
+let getTwitchHealth = () => null;
 const currentCredential = await credentialRepository.getAuthRecord().catch(() => null);
 const domainServiceProxy = {
   transitionEntry: (input) => runtime.domainService.transitionEntry(input),
@@ -44,17 +45,17 @@ const buildChatHandler = (broadcasterId) => createChatCommandHandler({
     getAccount: () => repository.getCurrentAccount(),
     setAccount: (label, actorId) => repository.setCurrentAccount(label, actorId),
     resetAccount: (actorId) => repository.resetCurrentAccount(actorId),
-  }, broadcasterId, onError: () => undefined,
+  }, broadcasterId, productVersion, getTwitchHealth, onError: () => undefined,
 });
 let chatHandler = currentCredential?.broadcasterId ? buildChatHandler(currentCredential.broadcasterId) : null;
 
 registerLocalSession(app, { port });
-registerHealthRoute(app, {
+({ getTwitchHealth } = registerHealthRoute(app, {
   pool,
   productVersion,
   getTwitchStatus: () => runtime?.twitchStatus ?? 'connecting',
   probeTwitchApi: () => runtime?.integration?.probeTwitchApi?.() ?? false,
-});
+}));
 registerQueueRoutes(app, {
   repository,
   domainService: domainServiceProxy,

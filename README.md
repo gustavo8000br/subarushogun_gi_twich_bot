@@ -183,6 +183,14 @@ If an older bot already accepts queue redemptions, pause that reward in the app 
 
 For PIX, Bits, subscriptions, or another external priority benefit, the streamer/mod verifies it in the original service and records the viewer through the local panel. The operator may mark that waiting entry as priority. Priority entries are FIFO ahead of standard entries; each lane remains FIFO, and an active service is never interrupted. The audit records the local operator and benefit category, not receipts or payment details. This is a manual operator assertion: the bot does not verify payments/subscriptions, handle money, or create Twitch point operations for manual entries. Chat `add` entries remain standard.
 
+### Chat command discovery
+
+- `!queue comandos` lists the commands available to the sender's current role. The streamer is directed to the local panel's **Comandos do chat** page.
+- `!<queue> comandos` shows the role-filtered commands for that queue.
+- The streamer configures explicit allowed roles for supported commands in the panel. Any selected role grants access; roles do not inherit from one another. VIP access still requires the existing VIP management setting.
+- `!queue ping` is available only to the streamer and moderators. It replies with `Pong 🏓`, the running product version and the latest cached Twitch API latency; it does not probe Twitch for every chat message.
+- `queue` is reserved for these global commands and cannot be used as a queue slug or alias.
+
 For Linux CLI health verification after trusting the CA:
 
    ```sh
@@ -194,7 +202,7 @@ For Linux CLI health verification after trusting the CA:
    ```json
    {
      "status": "ok",
-     "product_version": "v0.1.0-0000000-alpha",
+     "product_version": "v0.4.0-0000000-alpha",
      "dependencies": {
        "database": "connected",
        "twitch_api": "not_configured"

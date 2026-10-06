@@ -1,0 +1,101 @@
+schema: 1
+story: OPS-3
+story_title: Catálogo de comandos e permissões por cargo
+gate: PASS
+status_reason: >-
+  O QA independente encontrou e reproduziu incompatibilidade de alta severidade entre o contrato
+  de badges em mapa de objetos do Twurple e a autorização que aceitava somente arrays. A correção
+  test-first aceita os dois formatos e passa na cobertura ponta a ponta de EventSub até autorização.
+  O catálogo inteiro foi revisado no Chrome sem alterar políticas salvas. Gates locais passam.
+  Não foram executadas mutações de chat em live.
+reviewer: Quinn (Arquiteto de Testes Independente)
+reviewed_revision: '4f3e319 + worktree da feature após correção do QA'
+updated: '2026-10-06T15:43:20Z'
+top_issues: []
+risk_summary:
+  highest_score: 2
+  rationale: >-
+    Não restam bloqueadores após a correção de regressão. Escritas no chat Twitch e alterações
+    de recompensas não foram exercitadas no canal real e não são declaradas como verificadas.
+waiver:
+  active: false
+quality_score: 92
+evidence:
+  tests_reviewed: 37
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    ac_gaps: []
+  commands:
+    - 'Suíte completa do projeto: 56 arquivos, 413 testes passaram após a correção QA'
+    - 'Suíte focada de QA: 5 arquivos, 37 testes passaram'
+    - 'npm run lint: passou'
+    - 'npm run typecheck: passou'
+    - 'npm run review:static: OpenGrep analisou 48 arquivos JavaScript, 0 achados'
+    - 'docker compose up --build no projeto isolado queuebot-ops3-clean: saudável; /health retornou banco=connected, Twitch=not_configured'
+  traceability:
+    - ac: 2
+      given: 'Um evento de chat chega do broadcaster alvo autenticado'
+      when: 'Twurple envia badges como mapa de objetos ou um teste fornece array normalizado'
+      then: 'A autorização reconhece badges de moderador/VIP/inscrito somente conforme a política configurada'
+      tests: ['tests/unit/eventsub-runtime.test.js', 'tests/unit/command-authorization.test.js']
+    - ac: 6
+      given: 'Uma mensagem Shared Chat vem de outro broadcaster'
+      when: 'A autorização resolve cargos da mensagem atual'
+      then: 'Cargos externos não concedem privilégios locais'
+      tests: ['tests/unit/command-authorization.test.js']
+    - ac: 3
+      given: 'Um moderador tenta executar alteração exclusiva e imutável do streamer'
+      when: 'A autorização confere identidade e badges da mensagem atual'
+      then: 'Somente a identidade do broadcaster pode alterar ou resetar o rótulo da conta'
+      tests: ['tests/unit/command-authorization.test.js']
+    - ac: 4
+      given: 'O operador salva uma política de comando'
+      when: 'O repositório confirma a política'
+      then: 'Política e auditoria persistem após reinício e versão obsoleta conflita'
+      tests: ['tests/integration/command-policy-persistence.test.js']
+    - ac: 5
+      given: 'Viewer solicita ajuda global ou de uma fila'
+      when: 'A ajuda é montada a partir do catálogo canônico e dos cargos efetivos'
+      then: 'Somente comandos disponíveis são retornados respeitando limites de chat'
+      tests: ['tests/unit/command-help.test.js', 'tests/unit/chat-command-handler.test.js']
+    - ac: 7
+      given: 'Viewer tenta ação de gestão sem autorização'
+      when: 'A autorização nega o comando'
+      then: 'Nenhuma consulta de fila/conta ou efeito de mutação acontece'
+      tests: ['tests/unit/chat-command-handler.test.js']
+    - ac: 8
+      given: 'Cliente local consulta ou altera políticas de comandos'
+      when: 'São conferidos sessão, CSRF, idempotência, schema e versão'
+      then: 'Somente alterações protegidas e válidas persistem e política imutável não é ampliada'
+      tests: ['tests/unit/queue-routes.test.js']
+    - ac: 9
+      given: 'O aceite da story é exercitado'
+      when: 'Executam suítes unitárias, de rota e integração de banco'
+      then: 'Evidências TDD e PostgreSQL real com migrations são registradas nas stories pareadas'
+      tests: ['tests/unit/command-catalog.test.js', 'tests/integration/command-policy-persistence.test.js']
+    - ac: 10
+      given: 'A implementação é entregue'
+      when: 'As stories e changelogs em inglês e pt-BR são conferidos'
+      then: 'Escopo/evidências equivalem e FND-7 permanece adiada até o merge'
+      tests: ['docs/stories/OPS-3/story.md', 'docs/pt-BR/stories/OPS-3/story.md']
+    - ac: 1
+      given: 'O streamer abre o catálogo local de comandos'
+      when: 'A página completa é exibida no Chrome'
+      then: 'As 19 linhas, seleções editáveis e linhas imutáveis foram vistas; a revisão não altera políticas salvas'
+      tests: ['Inspeção visual completa da página no Chrome', 'tests/unit/command-catalog-view.test.js']
+    - ac: 11
+      given: 'Moderador ou viewer usa `!queue ping`'
+      when: 'A autorização e resposta são executadas'
+      then: 'Somente streamer/moderador recebe Pong com versão e latência Twitch em cache'
+      tests: ['tests/unit/chat-command-handler.test.js', 'tests/unit/command-authorization.test.js']
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Comandos imutáveis exclusivos do streamer, toggle VIP e rejeição de origem Shared Chat externa foram rechecados; OpenGrep encontrou 0 itens.'
+  performance:
+    status: PASS
+    notes: 'Ping usa latência Twitch em cache; não adiciona consulta Helix por mensagem.'
+  reliability:
+    status: PASS
+    notes: 'Persistência/auditoria das políticas é coberta por migrations PostgreSQL reais; 413 testes passaram.'

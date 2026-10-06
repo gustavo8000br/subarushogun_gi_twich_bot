@@ -1,5 +1,6 @@
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { validateUidInput } from '../domain/uid.mjs';
+import { CHAT_COMMANDS, CONFIGURABLE_COMMAND_ROLES } from '../commands/catalog.mjs';
 
 /** @typedef {Record<string, any>} PrismaClientLike */
 
@@ -48,6 +49,34 @@ function isSafeReason(reason) {
   return typeof reason === 'string' && /^[a-z][a-z0-9_]{1,47}$/.test(reason);
 }
 
+function parseCommandPolicyState(value) {
+  if (!value) return { version: 1, policies: {} };
+  if (!value || typeof value !== 'object' || Array.isArray(value) || !Number.isInteger(value.version) || value.version < 1
+      || !value.policies || typeof value.policies !== 'object' || Array.isArray(value.policies)) {
+    throw repositoryError('INVALID_COMMAND_POLICY_STATE', 'Stored command policy state is invalid');
+  }
+  return { version: value.version, policies: value.policies };
+}
+
+function validateCommandPolicyChanges(policies) {
+  if (!policies || typeof policies !== 'object' || Array.isArray(policies) || !Object.keys(policies).length) {
+    throw repositoryError('INVALID_COMMAND_POLICY', 'Command policy update is invalid');
+  }
+  for (const [key, roles] of Object.entries(policies)) {
+    const definition = CHAT_COMMANDS.find((entry) => entry.key === key);
+    if (!definition || definition.immutableRoles || !Array.isArray(roles)
+        || roles.some((role) => !CONFIGURABLE_COMMAND_ROLES.includes(role))
+        || new Set(roles).size !== roles.length) {
+      throw repositoryError('INVALID_COMMAND_POLICY', 'Command policy update is invalid');
+    }
+  }
+}
+
+async function readCommandPolicyState(prisma) {
+  const record = await prisma.setting.findUnique({ where: { key: 'chat_command_policies' } });
+  return parseCommandPolicyState(record?.value);
+}
+
 function normalizeRedemptionStatus(status) {
   const value = String(status ?? 'unknown').toUpperCase();
   return ['UNFULFILLED', 'FULFILLED', 'CANCELED'].includes(value) ? value : 'UNKNOWN';
@@ -80,6 +109,40 @@ async function createCancellationIntent(tx, redemptionId, entryId = null) {
 /** @param {PrismaClientLike} prisma */
 export function createQueueRepository(prisma, { clock = () => new Date() } = {}) {
   return {
+    async getCommandPolicyState() {
+      return readCommandPolicyState(prisma);
+    },
+
+    async getCommandPolicies() {
+      return (await readCommandPolicyState(prisma)).policies;
+    },
+
+    async updateCommandPolicies({ expectedVersion, policies, actorId = null, origin = 'panel' }) {
+      if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+        throw repositoryError('INVALID_COMMAND_POLICY', 'Command policy update is invalid');
+      }
+      validateCommandPolicyChanges(policies);
+      return prisma.$transaction(async (tx) => {
+        await lockScopedOperation(tx, 'setting:chat-command-policies');
+        const record = await tx.setting.findUnique({ where: { key: 'chat_command_policies' } });
+        const current = parseCommandPolicyState(record?.value);
+        if (current.version !== expectedVersion) {
+          throw repositoryError('COMMAND_POLICY_VERSION_CONFLICT', 'Command policy version changed');
+        }
+        const next = { version: current.version + 1, policies: { ...current.policies, ...policies } };
+        await tx.setting.upsert({
+          where: { key: 'chat_command_policies' },
+          create: { key: 'chat_command_policies', value: next },
+          update: { value: next },
+        });
+        await tx.auditLog.create({ data: {
+          event: 'command.policies_updated', actorId, origin, reason: 'command_role_policy_changed',
+          safeDetail: { commandIds: Object.keys(policies).sort(), changedPolicies: policies, version: next.version },
+        } });
+        return next;
+      });
+    },
+
     async beginPanelOperation({ operationKey, fingerprint }) {
       try {
         await prisma.processedOperation.create({ data: { operationKey, result: { kind: 'panel_mutation', fingerprint, state: 'processing' } } });
