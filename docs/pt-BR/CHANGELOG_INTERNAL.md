@@ -4,6 +4,7 @@
 
 ## v0.3.0-alpha
 
+- Conclui QA independente da FND-6 na revisão `165c5c4`: 384 testes e gates do repositório passaram; callback de recusa/recuperação em 30 segundos e probe Twitch autorizado somente de leitura foram verificados. Registra CONCERNS (90/100) porque efeitos de recompensa/chat/EventSub em canal elegível não puderam ser exercitados com o canal conectado inelegível; nenhuma escrita real é alegada.
 - Preserva em `/health` o estado Twitch autenticado enquanto mede a latência Helix para canais autenticados inelegíveis. Mantém a renovação do token para a consulta somente de leitura, sem iniciar processamento de recompensas/chat EventSub; valida com consulta Helix real somente de leitura (193 ms; atualização posterior do painel 322 ms).
 - Exige `Idempotency-Key` vinculado à sessão nas mutações da API local. Calcula hash canônico de método/rota/corpo sem guardar conteúdo do pedido; persiste estados iniciado/concluído em `processed_operations`; reproduz respostas JSON concluídas, rejeita conflitos de chave/payload e bloqueia repetição durante reserva pendente. Inclui testes de replay e disputa de chave na rota e em PostgreSQL real.
 - Adiciona endpoint protegido e ação no painel para reconciliação manual com a Twitch. Reutiliza o reconciliador de inicialização/reconexão, agrupa execuções simultâneas e informa claramente quando a integração não está disponível. Estiliza sucesso e falha do callback OAuth no padrão do painel, remove parâmetros da URL no histórico do navegador e retorna ao painel após 30 segundos.

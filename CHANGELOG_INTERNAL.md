@@ -4,6 +4,7 @@
 
 ## v0.3.0-alpha
 
+- Complete independent FND-6 QA on revision `165c5c4`: 384 tests and repository gates pass; the browser callback denial/30-second recovery and authorized read-only Twitch health probe were verified. Record CONCERNS (90/100) because eligible-channel reward/chat/EventSub effects could not be exercised with the connected ineligible channel; no live write is claimed.
 - Preserve the authenticated Twitch status in `/health` while measuring Helix latency for authenticated ineligible channels. Keep token refresh available for the read-only probe without starting reward/chat EventSub processing; verify with a live read-only Helix request (193 ms; later panel refresh 322 ms).
 - Require a session-scoped `Idempotency-Key` on local API mutations. Hash canonical method/path/body without retaining request content; persist processing/completed state in `processed_operations`; replay completed JSON responses, reject key/payload conflicts, and block duplicate work while a reservation is pending. Cover replay and concurrent key claims with route and real-PostgreSQL tests.
 - Add a protected manual Twitch reconciliation endpoint and connection-page action. Reuse the startup/reconnect reconciler, coalesce overlapping runs, and report unavailable integration clearly. Style OAuth callback success and failure states to match the panel, scrub query parameters from browser history, and return to the panel after 30 seconds.

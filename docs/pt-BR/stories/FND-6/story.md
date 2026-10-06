@@ -6,7 +6,7 @@
 **Executor:** @dev<br>
 **Gate de qualidade:** @qa<br>
 **Épico/capacidade:** Painel local e operações do streamer (FND-6)<br>
-**Status:** InReview<br>
+**Status:** Done<br>
 **Issue:** [#6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)<br>
 **Planejamento UX:** `docs/stories/FND-6/ux-research.md` e equivalente pt-BR. A pesquisa documental e a direção visual estão concluídas; não se alega sessão de usabilidade.
 
@@ -169,3 +169,72 @@ Verificação em 2026-10-06: `npm test` — 52 arquivos, 384 testes passaram; `n
 | Data | Versão | Alteração | Autor |
 | --- | --- | --- | --- |
 | 2026-10-06 | 0.3.0 | Implementação e evidências TDD da FND-6 preparadas para revisão QA independente. | @dev |
+| 2026-10-06 | 0.3.0 | Gate QA CONCERNS (90/100) — Status: InReview → Done; escritas Twitch em canal elegível seguem sem validação. | @qa |
+
+## Resultados de QA
+
+### Data da revisão: 2026-10-06
+
+### Revisado por: Quinn (Test Architect)
+
+### Revisão
+
+`165c5c458e4451706269152b0ac2179aff624cf9`
+
+### Avaliação da qualidade do código
+
+A revisão independente relacionou os 17 critérios de aceite a testes de UI/API/domínio/PostgreSQL ou às verificações documentadas de navegador/runtime. Nenhum defeito bloqueante de código foi encontrado. Os 384 testes passaram, incluindo persistência e migrations em PostgreSQL real. Os controles locais de recuperação, idempotência, projeções explícitas, privacidade e recuperação do callback Twitch têm contratos observáveis.
+
+### Refatoração realizada
+
+Nenhuma. QA encontrou uma afirmação bilíngue contraditória e devolveu o trabalho para correção antes da revisão final. Desenvolvimento corrigiu o texto no commit `165c5c4`; QA revisou então esta revisão final. Nenhum código de implementação foi alterado durante QA.
+
+### Verificação de conformidade
+
+- Padrões de código: ✓ ESM/JSDoc; lint e typecheck do repositório passaram.
+- Estrutura do projeto: ✓ mudanças permanecem em `apps/api`, `apps/web`, Prisma e testes existentes.
+- Estratégia de testes: ✓ 384 testes passaram; garantias de persistência usam PostgreSQL e migrations reais, não mock de banco.
+- Todos os critérios de aceite: ✓ cobertura automatizada e operacional local; comportamento de escrita externa em canal elegível permanece como ressalva não bloqueante e não é alegado como testado.
+
+### Lista de melhorias
+
+- [x] Revisei os 17 critérios e associei evidências de teste/runtime no arquivo do gate.
+- [x] Verifiquei no Chrome a recusa do callback, o tratamento privado de erro e o retorno automático em 30 segundos.
+- [x] Verifiquei conectividade Twitch Helix autorizada, somente leitura, para o canal conectado porém inelegível.
+- [ ] Repetir criação/edição de recompensa, resgate, envio de chat e recuperação EventSub com canal Afiliado/Parceiro autorizado antes de declarar validação em canal real.
+- [ ] Fazer sessões moderadas de usabilidade do painel caso seja exigida evidência de pesquisa com usuários; nenhuma foi alegada nesta revisão.
+
+### Revisão de segurança
+
+Nenhum problema bloqueante encontrado. OpenGrep reportou 0 achados em 45 arquivos JavaScript da aplicação. A cobertura automatizada verifica sessão local/CSRF/Host/Origin, sessão/state do callback OAuth, renderização segura de texto, não exposição de secrets e filtragem de UID. A recusa no callback real do navegador não mostrou o `error_description` da Twitch. Nenhuma credencial ou segredo da resposta Twitch foi incluído neste registro.
+
+### Considerações de desempenho
+
+O probe de saúde usa cache de 60 segundos e agrupa requisições simultâneas; o painel consulta somente o estado local. Alterações de fila usam transações PostgreSQL curtas e chamadas de rede ficam fora delas. Nenhum problema bloqueante foi encontrado. O probe somente de leitura mediu 193 ms em `/health`; é uma observação, não uma garantia de desempenho.
+
+### Arquivos modificados durante a revisão
+
+Nenhum arquivo de código. Desenvolvimento corrigiu a contradição documental antes da revisão desta versão.
+
+### Status do gate
+
+Gate: CONCERNS → `docs/qa/gates/FND-6-local-streamer-panel.yml` e `docs/pt-BR/qa/gates/FND-6-local-streamer-panel.yml`<br>
+Perfil de risco: `docs/qa/assessments/FND-6-risk-20261006.md` e `docs/pt-BR/qa/assessments/FND-6-risk-20261006.md`<br>
+Avaliação NFR: `docs/qa/assessments/FND-6-nfr-20261006.md` e `docs/pt-BR/qa/assessments/FND-6-nfr-20261006.md`
+
+### Evidências do gate
+
+- `npm test`: 52 arquivos, 384 testes passaram.
+- `npm run lint`: passou.
+- `npm run typecheck`: passou.
+- `npm run review:static`: 45 arquivos JavaScript da aplicação, 0 achados.
+- `npm run validate:version`: passou; `v0.3.0-0000000-alpha`.
+- `docker compose config --quiet`: passou.
+- `git diff HEAD --check`: passou; árvore de trabalho limpa na revisão verificada.
+- `docker compose up -d --build`: banco e bot ficaram saudáveis, preservando volumes PostgreSQL e de segredos operacionais existentes.
+- Navegador: recusa OAuth simulada exibiu a tela visual de recuperação, ocultou o texto do provedor e retornou ao painel após 30 segundos.
+- Twitch autorizada: `/health` retornou HTTP 200, banco `connected`, Twitch `ineligible` e ping Helix somente leitura de `193 ms`. Nenhuma alteração de recompensa, resgate, envio de chat ou recuperação EventSub foi feita porque o canal é inelegível.
+
+### Transição de ciclo
+
+CONCERNS: InReview → Done. O gate não bloqueia esta story porque implementação e contratos locais passaram; efeitos Twitch em canal elegível permanecem explicitamente sem validação e não devem ser apresentados como aceitação em canal real.
