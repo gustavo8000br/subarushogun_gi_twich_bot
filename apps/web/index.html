@@ -13,49 +13,109 @@
       <a class="brand" href="/" aria-label="Fila Local início"><span class="brand-mark">F</span><span>FILA <b>LOCAL</b></span></a>
       <div class="runtime"><span id="runtime-version">Versão local</span><span class="runtime-dot"></span><span>Dados neste computador</span></div>
     </header>
-    <main class="layout">
-      <section class="welcome">
-        <div><p class="eyebrow">PAINEL DO STREAMER</p><h1>Suas filas,<br><em>no seu ritmo.</em></h1><p class="lead">Organize as partidas, acompanhe os resgates e mantenha cada atendimento sob controle.</p></div>
-        <div class="connection-card"><span class="connection-icon">◉</span><div><strong id="channel-name">Twitch ainda não conectada</strong><small id="twitch-status">Conecte seu canal para ativar as recompensas.</small></div><span class="status-pill" id="twitch-pill">DESLIGADA</span></div>
-      </section>
-      <section class="grid">
-        <article class="panel setup-panel">
-          <div class="panel-heading"><div><p class="eyebrow">PRIMEIROS PASSOS</p><h2>Conectar canal</h2></div><span class="step-number">01</span></div>
-          <p class="muted">Crie um aplicativo confidencial no console Twitch. O callback deste painel é:</p>
-          <code class="callback" id="callback-url">https://localhost:3000/callback</code>
-          <a class="text-link" href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Abrir console de desenvolvedor ↗</a>
-          <form id="credentials-form" class="form-stack">
-            <label>Client ID<input name="clientId" autocomplete="off" required maxlength="128" placeholder="Seu Client ID"></label>
-            <label>Client Secret<input name="clientSecret" type="password" autocomplete="new-password" maxlength="256" placeholder="••••••••••••••••" required></label>
-            <p id="secret-state" class="hint">O Secret fica guardado localmente e nunca será exibido novamente.</p>
-            <button class="button button-primary" type="submit">Validar e salvar aplicativo</button>
-          </form>
-          <button class="button button-secondary full" id="connect-button" disabled>Conectar com a Twitch</button>
-          <p class="notice" id="setup-notice" role="status"></p>
-        </article>
-        <article class="panel create-panel">
-          <div class="panel-heading"><div><p class="eyebrow">CONFIGURE SUA LIVE</p><h2>Nova fila</h2></div><span class="step-number">02</span></div>
-          <form id="queue-form" class="form-stack two-col">
-            <label>Nome da fila<input name="title" required maxlength="45" placeholder="Ex.: Abismo Espiral"></label>
-            <label>Comando<input name="slug" required minlength="2" maxlength="24" pattern="[a-z0-9-]+" placeholder="abismo"></label>
-            <label>Apelidos<input name="aliases" placeholder="abyss, espiral"></label>
-            <label>Custo em pontos<input name="cost" type="number" min="1" step="1" required value="1000"></label>
-            <label class="wide">Descrição da recompensa<textarea name="rewardPrompt" rows="2" maxlength="180" placeholder="Resgate para entrar na fila. UID somente se solicitado."></textarea></label>
-            <label>Modo do UID<select name="uidMode"><option value="hidden">Oculto</option><option value="visible">Solicitar UID</option></select></label>
-            <label>Prazo de chamada (min)<input name="callTimeoutMin" type="number" min="1" max="120" value="10"></label>
-            <button class="button button-primary wide" type="submit">Criar fila</button>
-          </form>
-          <p class="notice" id="queue-notice" role="status"></p>
-        </article>
-      </section>
-      <section class="panel queues-panel">
-        <div class="panel-heading queue-heading"><div><p class="eyebrow">AO VIVO</p><h2>Filas e atendimentos</h2></div><div class="account"><span>CONTA ATUAL</span><strong id="account-label">Streamer</strong><button id="edit-account" class="icon-button" aria-label="Editar conta atual">✎</button><button id="edit-default-account" class="small-action" type="button">Editar padrão</button></div></div>
-        <div id="queue-list" class="queue-list"><div class="empty-state"><span>◌</span><strong>Preparando suas filas</strong><small>Elas aparecerão aqui conforme você configurar o painel.</small></div></div>
-      </section>
-      <section class="panel operations-panel"><div class="panel-heading"><div><p class="eyebrow">PONTOS E RECUPERAÇÃO</p><h2>Operações financeiras</h2></div></div><div id="operation-list" class="operation-list"><p class="muted">Nenhuma operação pendente.</p></div></section>
-      <footer><span>Fila Local · operação local-first</span><span id="last-refresh">Atualizando estado</span></footer>
+    <main class="app-shell">
+      <aside class="sidebar">
+        <p class="eyebrow">PAINEL DO STREAMER</p>
+        <nav class="panel-navigation" aria-label="Navegação principal">
+          <button type="button" data-page-target="overview">Visão geral</button>
+          <button type="button" data-page-target="queues">Filas e atendimentos</button>
+          <button type="button" data-page-target="new-queue">Nova fila</button>
+          <button type="button" data-page-target="operations">Operações financeiras</button>
+          <button type="button" data-page-target="settings">Configurações</button>
+          <button type="button" data-page-target="connection">Conexão Twitch</button>
+        </nav>
+        <p class="sidebar-note">O painel e os dados ficam neste computador.</p>
+      </aside>
+      <div class="workspace">
+        <section class="panel-page" data-panel-page="overview">
+          <section class="welcome">
+            <div><p class="eyebrow">AO VIVO</p><h1>Suas filas,<br><em>no seu ritmo.</em></h1><p class="lead">Acompanhe a live, o estado das integrações e o movimento das suas filas.</p></div>
+            <div class="connection-stack">
+              <div class="connection-card"><span class="connection-icon">◉</span><div><strong id="channel-name">Twitch ainda não conectada</strong><small id="twitch-status">Conecte seu canal para ativar as recompensas.</small></div><span class="status-pill" id="twitch-pill">DESLIGADA</span></div>
+              <section class="runtime-health" aria-label="Saúde da instalação" role="status" aria-live="polite">
+                <span>Banco de dados <strong id="database-health">Verificando</strong></span>
+                <span>API da Twitch <strong id="twitch-api-health">Verificando</strong><small id="twitch-api-ping">Sem medição</small></span>
+              </section>
+            </div>
+          </section>
+          <section class="summary-grid" aria-label="Resumo da operação">
+            <article class="summary-card"><span>FILAS</span><strong id="summary-queues">0</strong><small>configuradas</small></article>
+            <article class="summary-card"><span>AGUARDANDO</span><strong id="summary-waiting">0</strong><small>viewers na fila</small></article>
+            <article class="summary-card"><span>EM ATENDIMENTO</span><strong id="summary-active">0</strong><small>chamados ou iniciados</small></article>
+          </section>
+          <section class="panel overview-next"><div><p class="eyebrow">OPERAÇÃO</p><h2>Pronto para a live?</h2><p class="muted">Gerencie as pessoas aguardando e os atendimentos em uma página própria.</p></div><button class="button button-primary" type="button" data-page-target="queues">Abrir filas</button></section>
+        </section>
+
+        <section class="panel-page" data-panel-page="queues" hidden>
+          <section class="page-heading"><p class="eyebrow">AO VIVO</p><h1>Filas e atendimentos</h1><p class="lead">Acompanhe aguardantes, chamadas e atendimentos em andamento.</p></section>
+          <section class="panel queues-panel"><div id="queue-list" class="queue-list"><div class="empty-state"><span>◌</span><strong>Preparando suas filas</strong><small>Elas aparecerão aqui conforme você configurar o painel.</small></div></div></section>
+        </section>
+
+        <section class="panel-page" data-panel-page="new-queue" hidden>
+          <section class="page-heading"><p class="eyebrow">CONFIGURE SUA LIVE</p><h1>Nova fila</h1><p class="lead">Cada fila usa uma Custom Reward própria da Twitch.</p></section>
+          <article class="panel create-panel">
+            <form id="queue-form" class="form-stack two-col">
+              <label>Nome da fila<input name="title" required maxlength="45" placeholder="Ex.: Abismo Espiral"></label>
+              <label>Comando<input name="slug" required minlength="2" maxlength="24" pattern="[a-z0-9-]+" placeholder="abismo"></label>
+              <label>Apelidos<input name="aliases" placeholder="abyss, espiral"></label>
+              <label>Custo em pontos<input name="cost" type="number" min="1" step="1" required value="1000"></label>
+              <label>Limite por live (opcional)<input name="maxRedemptionsPerStream" type="number" min="1" step="1" placeholder="Sem limite"></label>
+              <label>Limite por pessoa por live (opcional)<input name="maxRedemptionsPerUserPerStream" type="number" min="1" step="1" placeholder="Sem limite"></label>
+              <label>Intervalo global em segundos (opcional)<input name="globalCooldownSeconds" type="number" min="1" step="1" placeholder="Sem intervalo"></label>
+              <p class="hint wide">Esses limites são aplicados pela própria Twitch. Deixe vazio para desativar.</p>
+              <label class="wide">Descrição da recompensa<textarea name="rewardPrompt" rows="2" maxlength="180" placeholder="Resgate para entrar na fila. UID somente se solicitado."></textarea></label>
+              <label>Modo do UID<select name="uidMode"><option value="hidden">Oculto</option><option value="visible">Solicitar UID</option></select></label>
+              <label>Prazo de chamada (min)<input name="callTimeoutMin" type="number" min="1" max="120" value="10"></label>
+              <button class="button button-primary wide" type="submit">Criar fila</button>
+            </form>
+            <p class="notice" id="queue-notice" role="status"></p>
+          </article>
+        </section>
+
+        <section class="panel-page" data-panel-page="operations" hidden>
+          <section class="page-heading"><p class="eyebrow">PONTOS E RECUPERAÇÃO</p><h1>Operações financeiras</h1><p class="lead">Acompanhe pedidos de reembolso e consumo até a confirmação da Twitch.</p></section>
+          <section class="panel operations-panel"><div id="operation-list" class="operation-list"><p class="muted">Nenhuma operação pendente.</p></div></section>
+        </section>
+
+        <section class="panel-page" data-panel-page="settings" hidden>
+          <section class="page-heading"><p class="eyebrow">PREFERÊNCIAS</p><h1>Configurações</h1><p class="lead">Ajuste os rótulos de conta usados durante os atendimentos.</p></section>
+          <section class="panel settings-panel"><div class="panel-heading"><div><p class="eyebrow">CONTA ATUAL</p><h2 id="account-label">Streamer</h2></div><button id="edit-account" class="button button-secondary" type="button">Alterar conta atual</button></div><p class="muted">O rótulo atual pode ficar associado a uma pessoa chamada. O rótulo padrão é usado quando não há troca automática.</p><div class="settings-row"><span>Conta padrão</span><button id="edit-default-account" class="small-action" type="button">Editar padrão</button></div></section>
+        </section>
+
+        <section class="panel-page" data-panel-page="connection" hidden>
+          <section class="page-heading"><p class="eyebrow">TWITCH</p><h1>Conexão do canal</h1><p class="lead">O assistente aparece durante a configuração ou quando uma reconexão é necessária.</p></section>
+          <article class="panel connection-wizard" id="connection-wizard">
+            <div class="panel-heading"><div><p class="eyebrow">PRIMEIROS PASSOS</p><h2>Conectar canal</h2></div><span class="step-number">01</span></div>
+            <p class="muted">Crie um aplicativo confidencial no console Twitch. O callback deste painel é:</p>
+            <code class="callback" id="callback-url">https://localhost:3000/callback</code>
+            <a class="text-link" href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Abrir console de desenvolvedor ↗</a>
+            <button class="button button-secondary full" id="connect-button" disabled>Conectar com a Twitch</button>
+            <p class="notice" id="setup-notice" role="status"></p>
+          </article>
+          <article class="panel connection-summary" id="connection-summary" hidden>
+            <div class="panel-heading"><div><p class="eyebrow">CANAL AUTORIZADO</p><h2 id="connected-channel-name">Canal conectado</h2></div><span class="status-pill" id="connection-pill">CONECTADA</span></div>
+            <p class="muted" id="connection-status-copy">A Twitch está conectada a este painel local.</p>
+            <button class="button button-secondary" id="reconnect-button" type="button">Reconectar com a Twitch</button>
+            <button class="button button-secondary" id="reconcile-now" type="button">Sincronizar agora</button>
+            <p class="notice" id="reconciliation-notice" role="status" aria-live="polite"></p>
+          </article>
+          <article class="panel credentials-panel"><div class="panel-heading"><div><p class="eyebrow">APLICATIVO CONFIDENCIAL</p><h2>Credenciais Twitch</h2></div></div>
+            <form id="credentials-form" class="form-stack">
+              <label>Client ID<input name="clientId" autocomplete="off" required maxlength="128" placeholder="Seu Client ID"></label>
+              <label>Client Secret<input name="clientSecret" type="password" autocomplete="new-password" required maxlength="256" placeholder="••••••••••••••••"></label>
+              <p id="secret-state" class="hint">O Secret fica guardado localmente e nunca será exibido novamente.</p>
+              <p class="notice" id="credentials-notice" role="status"></p>
+              <button class="button button-primary" type="submit">Validar e salvar aplicativo</button>
+            </form>
+          </article>
+        </section>
+
+        <footer><span>Fila Local · operação local-first</span><span id="last-refresh">Atualizando estado</span></footer>
+      </div>
     </main>
-    <dialog id="entry-dialog"><form method="dialog" id="entry-form"><div class="panel-heading"><div><p class="eyebrow">ADICIONAR MANUALMENTE</p><h2>Entrada na fila</h2></div><button class="icon-button" value="cancel" aria-label="Fechar">×</button></div><input type="hidden" name="queueId"><label>Login Twitch<input name="login" required maxlength="25" placeholder="@usuario"></label><label>UID (opcional)<input name="uid" inputmode="numeric" pattern="[0-9]{9}" maxlength="9" placeholder="9 dígitos"></label><p class="notice" id="entry-notice" role="status"></p><button class="button button-primary" type="submit">Adicionar à fila</button></form></dialog>
+     <dialog id="queue-settings-dialog"><form id="queue-settings-form" class="form-stack"><div class="panel-heading"><div><p class="eyebrow">CONFIGURAÇÃO LOCAL</p><h2>Opções da fila</h2></div><button class="icon-button" type="button" data-close-dialog="queue-settings-dialog" aria-label="Fechar">×</button></div><input type="hidden" name="queueId"><input type="hidden" name="expectedVersion"><label>Prazo para iniciar atendimento (minutos; vazio desativa)<input type="number" name="callTimeoutMin" min="1" max="120"></label><label>Mensagem de chamada<textarea name="callMessage" rows="2" maxlength="350"></textarea><small class="hint">Campos aceitos: {user}, {queue}, {position}, {uid}, {account}.</small></label><label class="check-label"><input type="checkbox" name="showUidInList"> Mostrar UID na lista do chat</label><label class="check-label"><input type="checkbox" name="showUidInOverlay"> Permitir UID na projeção de overlay</label><label class="check-label"><input type="checkbox" name="showUidOnCall"> Mostrar UID na chamada</label><label class="check-label"><input type="checkbox" name="autoSwitchAccount"> Trocar conta automaticamente ao chamar uma pessoa</label><label class="check-label"><input type="checkbox" name="refundIfRemovedWhileCalled"> Solicitar reembolso ao remover pessoa chamada/em atendimento</label><label class="check-label"><input type="checkbox" name="refundOnNoShow"> Solicitar reembolso quando houver ausência</label><label class="check-label"><input type="checkbox" name="refundIfViewerLeavesCalled"> Solicitar reembolso se a pessoa chamada sair</label><p class="muted">A política de UID e a recompensa são editadas em “Editar recompensa”, com sincronização confirmada pela Twitch.</p><p class="notice" id="queue-settings-notice" role="status"></p><button class="button button-primary" type="submit">Salvar configurações</button></form></dialog>
+     <dialog id="reward-settings-dialog"><form id="reward-settings-form" class="form-stack"><div class="panel-heading"><div><p class="eyebrow">CUSTOM REWARD DA FILA</p><h2>Editar recompensa</h2></div><button class="icon-button" type="button" data-close-dialog="reward-settings-dialog" aria-label="Fechar">×</button></div><input type="hidden" name="queueId"><input type="hidden" name="expectedVersion"><label>Nome da recompensa<input name="title" required maxlength="45"></label><label>Custo em pontos<input name="cost" type="number" min="1" step="1" required></label><label>Descrição<textarea name="rewardPrompt" maxlength="200" rows="3"></textarea></label><label>Campo de UID<select name="uidMode"><option value="hidden">Não solicitar UID</option><option value="visible">Solicitar UID</option></select></label><label>Limite por live (vazio desativa)<input name="maxRedemptionsPerStream" type="number" min="1" step="1"></label><label>Limite por pessoa por live<input name="maxRedemptionsPerUserPerStream" type="number" min="1" step="1"></label><label>Intervalo global em segundos<input name="globalCooldownSeconds" type="number" min="1" step="1"></label><p class="hint">A Twitch aplica os limites e cooldown. Alterações ficam pendentes até a API confirmar. Ocultar UID também remove os valores locais armazenados.</p><p class="notice" id="reward-settings-notice" role="status"></p><button class="button button-primary" type="submit">Solicitar atualização na Twitch</button></form></dialog>
+    <dialog id="entry-dialog"><form method="dialog" id="entry-form"><div class="panel-heading"><div><p class="eyebrow">ADICIONAR MANUALMENTE</p><h2>Entrada na fila</h2></div><button class="icon-button" value="cancel" aria-label="Fechar">×</button></div><input type="hidden" name="queueId"><label>Login Twitch<input name="login" required maxlength="25" placeholder="@usuario"></label><label>UID (opcional)<input name="uid" inputmode="numeric" pattern="[0-9]{9}" maxlength="9" placeholder="9 dígitos"></label><label class="check-label"><input type="checkbox" name="priority"> Prioridade conferida por mim</label><label>Benefício conferido<select name="priorityReason"><option value="external_payment">Pagamento externo (ex.: PIX)</option><option value="bits">Bits</option><option value="subscription">Inscrição</option><option value="operator_override">Outro benefício conferido</option></select></label><p class="muted">A confirmação fica auditada com seu usuário. O bot não verifica pagamento/inscrição nem guarda comprovantes. Entradas prioritárias seguem FIFO na faixa prioritária e não criam operações de pontos.</p><p class="notice" id="entry-notice" role="status"></p><button class="button button-primary" type="submit">Adicionar à fila</button></form></dialog>
     <dialog id="reward-dialog"><form method="dialog" id="reward-form"><div class="panel-heading"><div><p class="eyebrow">ASSOCIAÇÃO MANUAL</p><h2>Recompensa Twitch</h2></div><button class="icon-button" value="cancel" aria-label="Fechar">×</button></div><p class="muted">A resposta anterior da Twitch ficou ambígua. Escolha a recompensa gerenciável que corresponde a esta fila. Essa escolha será auditada e não afirma confirmação financeira pela API.</p><input type="hidden" name="queueId"><label>Recompensas compatíveis<select name="rewardId" required></select></label><p class="notice" id="reward-notice" role="status"></p><button class="button button-primary" type="submit">Vincular recompensa selecionada</button></form></dialog>
     <div id="toast" role="status" aria-live="polite"></div>
   </body>

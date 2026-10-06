@@ -49,7 +49,12 @@ const buildChatHandler = (broadcasterId) => createChatCommandHandler({
 let chatHandler = currentCredential?.broadcasterId ? buildChatHandler(currentCredential.broadcasterId) : null;
 
 registerLocalSession(app, { port });
-registerHealthRoute(app, { pool, productVersion, getTwitchStatus: () => runtime?.twitchStatus ?? 'connecting' });
+registerHealthRoute(app, {
+  pool,
+  productVersion,
+  getTwitchStatus: () => runtime?.twitchStatus ?? 'connecting',
+  probeTwitchApi: () => runtime?.integration?.probeTwitchApi?.() ?? false,
+});
 registerQueueRoutes(app, {
   repository,
   domainService: domainServiceProxy,
@@ -61,6 +66,7 @@ registerQueueRoutes(app, {
     async validateAndSaveApplication(input) { return runtime?.integration?.validateAndSaveApplication?.(input); },
     async beginAuthorization(sessionId) { return runtime?.integration?.beginAuthorization?.(sessionId); },
     async completeAuthorization(input) { return runtime?.integration?.completeAuthorization?.(input); },
+    async reconcileNow() { return runtime?.integration?.reconcileNow?.(); },
   },
   publicBaseUrl: process.env.PUBLIC_BASE_URL ?? `https://localhost:${port}`,
   resolveUser: async (login) => runtime?.integration?.twitch?.getUserByLogin(login) ?? null,

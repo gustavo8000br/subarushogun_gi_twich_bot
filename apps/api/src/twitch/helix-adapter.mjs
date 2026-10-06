@@ -28,6 +28,9 @@ function rewardProjection(reward) {
     isPaused: reward.isPaused,
     userInputRequired: reward.userInputRequired,
     autoFulfill: reward.autoFulfill,
+    maxRedemptionsPerStream: reward.maxRedemptionsPerStream ?? null,
+    maxRedemptionsPerUserPerStream: reward.maxRedemptionsPerUserPerStream ?? null,
+    globalCooldown: reward.globalCooldown ?? null,
     shouldRedemptionsSkipRequestQueue: reward.shouldRedemptionsSkipRequestQueue ?? reward.should_redemptions_skip_request_queue ?? false,
   };
 }
@@ -35,6 +38,11 @@ function rewardProjection(reward) {
 /** @param {{api: Record<string, any>, broadcasterId: string}} dependencies */
 export function createTwitchApiAdapter({ api, broadcasterId }) {
   return {
+    async ping() {
+      const user = await api.users.getUserById(broadcasterId);
+      if (!user) throw new Error('Twitch API health probe did not find the configured broadcaster');
+      return true;
+    },
     async createReward(data) {
       return rewardProjection(await api.channelPoints.createCustomReward(broadcasterId, normalizeRewardCreateInput(data)));
     },

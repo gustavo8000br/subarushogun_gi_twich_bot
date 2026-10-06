@@ -13,6 +13,9 @@ model Queue {
   title                       String
   rewardPrompt                String     @default("") @map("reward_prompt")
   cost                        Int
+  maxRedemptionsPerStream     Int?       @map("max_redemptions_per_stream")
+  maxRedemptionsPerUserPerStream Int?    @map("max_redemptions_per_user_per_stream")
+  globalCooldownSeconds      Int?       @map("global_cooldown_seconds")
   callMessage                 String     @default("{user}, sua vez!") @map("call_message")
   callTimeoutMin              Int?       @default(10) @map("call_timeout_min")
   uidMode                     String     @default("hidden") @map("uid_mode")
@@ -59,6 +62,8 @@ model Entry {
   source            String
   redemptionId      String?     @unique @map("redemption_id")
   status            String      @default("waiting")
+  priorityClass     String      @default("standard") @map("priority_class")
+  priorityReason    String?     @map("priority_reason")
   position          Int?
   version           Int         @default(1)
   createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -72,7 +77,7 @@ model Entry {
   redemption        Redemption? @relation("EntryRedemption", fields: [redemptionId], references: [redemptionId], onDelete: Restrict)
   outbox            Outbox[]
   auditLogs         AuditLog[]
-  @@index([queueId, status, position])
+  @@index([queueId, status, priorityClass, position])
   @@index([twitchUserId])
   @@map("entries")
 }

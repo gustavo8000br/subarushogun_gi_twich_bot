@@ -1,0 +1,143 @@
+schema: 1
+story: FND-6
+story_title: Painel local do streamer, API protegida e experiência de operação
+gate: CONCERNS
+status_reason: >-
+  Os 17 critérios de aceite têm evidência automatizada ou operacional local, os 384 testes e
+  gates de qualidade passaram e nenhum defeito bloqueante de código foi encontrado. A conta
+  Twitch autorizada é inelegível, portanto escrita de recompensa, resgates, envio de chat e
+  recuperação EventSub não puderam ser validados em canal elegível ao vivo.
+reviewer: Quinn (Test Architect)
+reviewed_revision: 165c5c458e4451706269152b0ac2179aff624cf9
+updated: '2026-10-06T05:30:00Z'
+top_issues: []
+risk_summary:
+  highest_score: 8
+  rationale: >-
+    O comportamento de escrita real na Twitch segue incerto porque o broadcaster autorizado
+    não é elegível como Afiliado/Parceiro. É uma limitação de validação, não uma falha nos contratos locais.
+waiver:
+  active: false
+quality_score: 90
+expires: '2026-10-20T05:30:00Z'
+evidence:
+  tests_reviewed: 384
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    ac_gaps: []
+  commands:
+    - 'npm test: 52 arquivos, 384 testes passaram; integração PostgreSQL usa migrations reais'
+    - 'npm run lint: passou'
+    - 'npm run typecheck: passou'
+    - 'npm run review:static: OpenGrep verificou 45 arquivos JavaScript da aplicação, 0 achados'
+    - 'npm run validate:version: passou; v0.3.0-0000000-alpha'
+    - 'docker compose config --quiet: passou'
+    - 'git diff HEAD --check: passou; árvore de trabalho limpa na revisão'
+    - 'docker compose up -d --build: bot e banco saudáveis; volumes de dados/secrets preservados'
+  traceability:
+    - ac: 1
+      given: 'Operador abre o painel local'
+      when: 'Aplicação exibe as seções do painel aprovado'
+      then: 'Visão geral, filas, configuração, recuperação de pontos, Twitch e runtime ficam disponíveis'
+      tests: ['tests/unit/panel-navigation.test.js', 'tests/unit/web-route.test.js']
+    - ac: 2
+      given: 'Instalação está sem configuração, conectada ou requer reconexão'
+      when: 'Operador navega pelo painel e callback OAuth'
+      then: 'Estado e páginas acessíveis correspondem à conexão; recuperação do callback redireciona com segurança'
+      tests: ['tests/unit/panel-navigation.test.js', 'tests/unit/queue-routes.test.js', 'tests/unit/web-route.test.js', 'Chrome: recusa de callback/retorno em 30 segundos']
+    - ac: 3
+      given: 'Operador promove ou reordena uma entrada aguardando'
+      when: 'Prioridade é aplicada sob transação da fila'
+      then: 'FIFO prioritária vem antes da padrão sem alterar atendimento chamado/em andamento'
+      tests: ['tests/unit/queue-routes.test.js', 'tests/integration/queue-repository.test.js', 'tests/unit/priority-labels.test.js']
+    - ac: 4
+      given: 'Admissão manual recebe prioridade conferida pelo operador'
+      when: 'Admissão é persistida e auditada'
+      then: 'Nenhum comprovante/payload de pagamento ou alegação de verificação automática é armazenado e nenhum resgate é criado'
+      tests: ['tests/unit/queue-routes.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 5
+      given: 'Fila é criada ou recompensa do app é editada'
+      when: 'Operador configura limites/cooldown nativos da Twitch'
+      then: 'Campos persistem e são mapeados pelo adapter sem contadores paralelos locais'
+      tests: ['tests/unit/twitch-adapter.test.js', 'tests/unit/queue-routes.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 6
+      given: 'Criação/edição perde resposta ou estado remoto muda'
+      when: 'Worker durável tenta novamente ou reconcilia'
+      then: 'Verifica identidade imutável de recompensa do app, confirma estado correspondente ou mantém desconhecido com segurança'
+      tests: ['tests/unit/reward-outbox-worker.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 7
+      given: 'Operador administra entradas e ciclo de vida da fila'
+      when: 'Painel aciona as operações disponíveis'
+      then: 'Rotas usam contratos compartilhados de serviço/repositório e preservam estado/ordem'
+      tests: ['tests/unit/queue-routes.test.js', 'tests/unit/web-route.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 8
+      given: 'Ação do painel está disponível ou bloqueada pelo estado'
+      when: 'Operador a aciona'
+      then: 'Executa requisição real ou mostra estado de bloqueio/recuperação acionável'
+      tests: ['tests/unit/web-route.test.js', 'tests/unit/queue-routes.test.js']
+    - ac: 9
+      given: 'Credencial OAuth ou elegibilidade de conexão muda'
+      when: 'Setup, conexão ou estado de recuperação são projetados'
+      then: 'Secrets/tokens permanecem privados e a interface orienta os próximos passos'
+      tests: ['tests/unit/queue-routes.test.js', 'tests/unit/twitch-integration.test.js', 'tests/unit/web-route.test.js']
+    - ac: 10
+      given: 'Sessão local do painel solicita `/api/state`'
+      when: 'API constrói a projeção do estado'
+      then: 'Versões, revisão, conta, conectividade, filas e UID com privacidade são explícitos'
+      tests: ['tests/unit/queue-routes.test.js', 'tests/unit/local-session.test.js']
+    - ac: 11
+      given: 'Banco local está saudável e Twitch está configurada'
+      when: 'Rota de saúde verifica as dependências'
+      then: 'Informa banco, estado Twitch, versão do produto e ping somente leitura medido/em cache'
+      tests: ['tests/unit/health-route.test.js', 'tests/unit/health-status.test.js', 'probe autorizado ao vivo em `/health`']
+    - ac: 12
+      given: 'Broadcaster autorizado está conectado porém inelegível'
+      when: 'Runtime inicia e a saúde é consultada'
+      then: 'Refresh/probe somente leitura permanece disponível e processamento EventSub/recompensas/chat fica desligado'
+      tests: ['tests/unit/twitch-integration.test.js', 'tests/unit/health-route.test.js']
+    - ac: 13
+      given: 'Chega mutação sem sessão, cross-origin, stale ou duplicada'
+      when: 'API valida a requisição'
+      then: 'Sessão, Host/Origin, CSRF, revisão e idempotência impedem efeitos não autorizados/duplicados'
+      tests: ['tests/unit/local-session.test.js', 'tests/unit/queue-routes.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 14
+      given: 'Operador solicita ação destrutiva ou alteração remota'
+      when: 'API cria intenção durável'
+      then: 'Interface exige confirmação e estado desejado permanece distinto da confirmação remota'
+      tests: ['tests/unit/queue-routes.test.js', 'tests/unit/web-route.test.js', 'tests/unit/reward-outbox-worker.test.js']
+    - ac: 15
+      given: 'Conteúdo controlado pelo usuário, erro OAuth, secret ou UID entra no sistema'
+      when: 'É renderizado, retornado, registrado ou projetado'
+      then: 'Texto é escapado, dados do provedor/secrets são omitidos e UID segue a política atual'
+      tests: ['tests/unit/web-route.test.js', 'tests/unit/queue-routes.test.js', 'tests/unit/health-route.test.js']
+    - ac: 16
+      given: 'Operador usa teclado, indicadores, polling ou janela desktop estreita'
+      when: 'Navegação e estado do painel são atualizados'
+      then: 'Foco e estado acessível são preservados e layout se adapta; nenhuma sessão moderada é alegada'
+      tests: ['tests/unit/panel-navigation.test.js', 'tests/unit/web-route.test.js', 'verificação manual Chrome de callback/painel']
+    - ac: 17
+      given: 'Operador instala, conecta, recupera ou atualiza o produto'
+      when: 'Consulta os guias bilíngues'
+      then: 'Ambos READMEs explicam fluxos, estados de pontos, recuperação e limites de validação por plataforma'
+      tests: ['tests/unit/documentation-contract.test.js', 'revisão bilíngue dos READMEs']
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Sessão/CSRF/Host/Origin, callback OAuth, projeções, escape de texto, não exposição de secrets e privacidade de UID são testados; OpenGrep sem achados.'
+  performance:
+    status: PASS
+    notes: 'Probes de saúde são armazenados em cache/agrupados, polling é local e chamadas externas ficam fora de transações curtas. A observação real de 193 ms não é garantia.'
+  reliability:
+    status: CONCERNS
+    notes: 'PostgreSQL e recuperação passaram nos testes/checagens locais. Escritas em canal elegível, envio de chat e recuperação EventSub não foram testados porque o canal conectado é inelegível.'
+  maintainability:
+    status: PASS
+    notes: 'Estrutura modular ESM/JSDoc, documentação bilíngue e 384 testes; nenhum bloqueio de manutenção encontrado.'
+recommendations:
+  immediate: []
+  future:
+    - action: 'Validar criação/edição de recompensa, reconciliação de resgate, chat e EventSub com canal Afiliado/Parceiro autorizado antes de alegar operação em canal real.'
+      refs: ['docs/pt-BR/stories/FND-6/story.md', 'docs/pt-BR/integrations.md']
+    - action: 'Fazer sessões moderadas com operadores se forem necessárias para alegações futuras de aceite UX; este gate não alega nenhuma.'
+      refs: ['docs/pt-BR/stories/FND-6/ux-research.md']

@@ -1,0 +1,143 @@
+schema: 1
+story: FND-6
+story_title: Local streamer panel, protected API, and operator experience
+gate: CONCERNS
+status_reason: >-
+  All 17 acceptance criteria have automated or local operational evidence, all 384 tests and
+  project quality gates pass, and no blocking code issue was found. The authorized Twitch
+  account is ineligible, so reward writes, redemptions, chat delivery, and EventSub recovery
+  could not be validated against an eligible live channel.
+reviewer: Quinn (Test Architect)
+reviewed_revision: 165c5c458e4451706269152b0ac2179aff624cf9
+updated: '2026-10-06T05:30:00Z'
+top_issues: []
+risk_summary:
+  highest_score: 8
+  rationale: >-
+    Live Twitch write behavior remains uncertain because the authorized broadcaster is not
+    Affiliate/Partner eligible. This is a validation limitation, not a failing local contract.
+waiver:
+  active: false
+quality_score: 90
+expires: '2026-10-20T05:30:00Z'
+evidence:
+  tests_reviewed: 384
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    ac_gaps: []
+  commands:
+    - 'npm test: 52 files, 384 tests passed; PostgreSQL integration tests use real migrations'
+    - 'npm run lint: passed'
+    - 'npm run typecheck: passed'
+    - 'npm run review:static: OpenGrep scanned 45 application JavaScript files, 0 findings'
+    - 'npm run validate:version: passed; v0.3.0-0000000-alpha'
+    - 'docker compose config --quiet: passed'
+    - 'git diff HEAD --check: passed; reviewed worktree clean'
+    - 'docker compose up -d --build: bot and database healthy; existing data/secret volumes preserved'
+  traceability:
+    - ac: 1
+      given: 'The operator opens the local panel'
+      when: 'The application renders the approved panel sections'
+      then: 'Overview, queues, configuration, point recovery, Twitch and runtime status are available'
+      tests: ['tests/unit/panel-navigation.test.js', 'tests/unit/web-route.test.js']
+    - ac: 2
+      given: 'The installation is unconfigured, connected, or requires reconnection'
+      when: 'The operator navigates the panel and OAuth callback'
+      then: 'The correct connection state and accessible page are shown; callback recovery redirects safely'
+      tests: ['tests/unit/panel-navigation.test.js', 'tests/unit/queue-routes.test.js', 'tests/unit/web-route.test.js', 'Chrome callback denial/30-second return']
+    - ac: 3
+      given: 'An operator promotes or reorders a waiting entry'
+      when: 'Priority is applied under the queue transaction'
+      then: 'Priority FIFO is ahead of standard FIFO without changing called/in-progress service'
+      tests: ['tests/unit/queue-routes.test.js', 'tests/integration/queue-repository.test.js', 'tests/unit/priority-labels.test.js']
+    - ac: 4
+      given: 'A manual admission receives an operator-verified priority category'
+      when: 'The admission is stored and audited'
+      then: 'No receipt/payment payload or automatic verification claim is stored and no redemption is created'
+      tests: ['tests/unit/queue-routes.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 5
+      given: 'A queue is created or its app-owned reward is edited'
+      when: 'The operator configures Twitch-native limits and cooldown'
+      then: 'The fields persist and map through the adapter without local shadow counters'
+      tests: ['tests/unit/twitch-adapter.test.js', 'tests/unit/queue-routes.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 6
+      given: 'A reward create/edit has a lost response or changed remote state'
+      when: 'The durable worker retries or reconciles'
+      then: 'It checks app-owned immutable reward identity, confirms matching state, or leaves safe unknown state'
+      tests: ['tests/unit/reward-outbox-worker.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 7
+      given: 'The operator manages queue entries and lifecycle'
+      when: 'The panel invokes supported queue actions'
+      then: 'Routes use the shared service/repository contracts and preserve queue state/order'
+      tests: ['tests/unit/queue-routes.test.js', 'tests/unit/web-route.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 8
+      given: 'A visible panel action is available or blocked by state'
+      when: 'The operator activates it'
+      then: 'It performs a real request or displays an actionable disabled/recovery state'
+      tests: ['tests/unit/web-route.test.js', 'tests/unit/queue-routes.test.js']
+    - ac: 9
+      given: 'OAuth credentials or connection eligibility change'
+      when: 'Setup, connection, or recovery state is projected'
+      then: 'Secrets/tokens remain private and the UI can explain next steps'
+      tests: ['tests/unit/queue-routes.test.js', 'tests/unit/twitch-integration.test.js', 'tests/unit/web-route.test.js']
+    - ac: 10
+      given: 'A local panel session requests `/api/state`'
+      when: 'The API builds the state projection'
+      then: 'Version identities, revision, account, connectivity, queues and privacy-filtered UIDs are explicit'
+      tests: ['tests/unit/queue-routes.test.js', 'tests/unit/local-session.test.js']
+    - ac: 11
+      given: 'The local database is healthy and Twitch is configured'
+      when: 'The health route probes dependencies'
+      then: 'It reports database state, Twitch state, product version and measured/cached read-only ping'
+      tests: ['tests/unit/health-route.test.js', 'tests/unit/health-status.test.js', 'authorized live `/health` probe']
+    - ac: 12
+      given: 'The authorized broadcaster is connected but ineligible'
+      when: 'Runtime initialization and health probing occur'
+      then: 'Read-only token refresh/probe remains available while reward/chat EventSub processing stays off'
+      tests: ['tests/unit/twitch-integration.test.js', 'tests/unit/health-route.test.js']
+    - ac: 13
+      given: 'An unauthenticated, cross-origin, stale, or duplicate panel mutation arrives'
+      when: 'The API checks the request'
+      then: 'Session, Host/Origin, CSRF, revision and idempotency rules prevent unauthorized/duplicate effects'
+      tests: ['tests/unit/local-session.test.js', 'tests/unit/queue-routes.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 14
+      given: 'An operator requests a destructive operation or remote setting change'
+      when: 'The API creates durable intent'
+      then: 'The UI provides confirmation and desired state stays distinct from remote confirmation'
+      tests: ['tests/unit/queue-routes.test.js', 'tests/unit/web-route.test.js', 'tests/unit/reward-outbox-worker.test.js']
+    - ac: 15
+      given: 'User-controlled content, OAuth error data, secrets, or UID enters the system'
+      when: 'It is rendered, returned, logged, or projected'
+      then: 'Text is escaped, secret/provider error data is omitted, and UID follows current privacy policy'
+      tests: ['tests/unit/web-route.test.js', 'tests/unit/queue-routes.test.js', 'tests/unit/health-route.test.js']
+    - ac: 16
+      given: 'The operator uses the panel with keyboard, status indicators, polling, or narrow desktop width'
+      when: 'Panel navigation and status update'
+      then: 'Focus and accessible state are preserved and layout adapts; no moderated usability session is claimed'
+      tests: ['tests/unit/panel-navigation.test.js', 'tests/unit/web-route.test.js', 'manual Chrome callback/panel check']
+    - ac: 17
+      given: 'An operator installs, connects, recovers, or updates the product'
+      when: 'The bilingual guides are consulted'
+      then: 'Both READMEs explain current workflows, point states, recovery and platform validation limits'
+      tests: ['tests/unit/documentation-contract.test.js', 'bilingual README review']
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Session/CSRF/Host/Origin, OAuth callback checks, explicit projections, text escaping, secret non-disclosure and UID privacy are tested; OpenGrep has 0 findings.'
+  performance:
+    status: PASS
+    notes: 'Health probes are cached/coalesced, status polling is local, and external network calls remain outside short persistence transactions. One 193 ms live observation is not a guarantee.'
+  reliability:
+    status: CONCERNS
+    notes: 'PostgreSQL and recovery flows pass local tests/runtime checks. Eligible-channel remote writes, chat sends and EventSub recovery remain untested because the connected channel is ineligible.'
+  maintainability:
+    status: PASS
+    notes: 'ESM/JSDoc modular structure, bilingual docs and 384 passing tests; no blocking review issue.'
+recommendations:
+  immediate: []
+  future:
+    - action: 'Validate reward create/edit, redemption reconciliation, chat delivery, and EventSub recovery with an authorized Affiliate/Partner channel before claiming real-channel operation.'
+      refs: ['docs/stories/FND-6/story.md', 'docs/integrations.md']
+    - action: 'Run moderated operator usability sessions if they are required for a later UX acceptance claim; none are asserted by this gate.'
+      refs: ['docs/stories/FND-6/ux-research.md']

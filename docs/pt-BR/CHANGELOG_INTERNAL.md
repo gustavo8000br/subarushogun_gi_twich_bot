@@ -2,6 +2,27 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.3.0-alpha
+
+- Conclui QA independente da FND-6 na revisão `165c5c4`: 384 testes e gates do repositório passaram; callback de recusa/recuperação em 30 segundos e probe Twitch autorizado somente de leitura foram verificados. Registra CONCERNS (90/100) porque efeitos de recompensa/chat/EventSub em canal elegível não puderam ser exercitados com o canal conectado inelegível; nenhuma escrita real é alegada.
+- Preserva em `/health` o estado Twitch autenticado enquanto mede a latência Helix para canais autenticados inelegíveis. Mantém a renovação do token para a consulta somente de leitura, sem iniciar processamento de recompensas/chat EventSub; valida com consulta Helix real somente de leitura (193 ms; atualização posterior do painel 322 ms).
+- Exige `Idempotency-Key` vinculado à sessão nas mutações da API local. Calcula hash canônico de método/rota/corpo sem guardar conteúdo do pedido; persiste estados iniciado/concluído em `processed_operations`; reproduz respostas JSON concluídas, rejeita conflitos de chave/payload e bloqueia repetição durante reserva pendente. Inclui testes de replay e disputa de chave na rota e em PostgreSQL real.
+- Adiciona endpoint protegido e ação no painel para reconciliação manual com a Twitch. Reutiliza o reconciliador de inicialização/reconexão, agrupa execuções simultâneas e informa claramente quando a integração não está disponível. Estiliza sucesso e falha do callback OAuth no padrão do painel, remove parâmetros da URL no histórico do navegador e retorna ao painel após 30 segundos.
+- Restringe mudanças de privacidade do UID à atualização durável da recompensa gerenciada pelo app. Remove o bypass das configurações locais/repositório; a limpeza de UID PostgreSQL e o cancelamento de chamadas pendentes fazem parte da intenção remota.
+
+- Adiciona limites nativos de resgates por live/por pessoa e cooldown global ao modelo Prisma, migration, criação, DTOs e verificação de recompensa criada pelo app. Implementa edição remota versionada por rota protegida e diálogo do painel; registra estado anterior e intenção desejada na mesma transação, apaga UIDs e cancela avisos pendentes ao ocultar UID, e confirma alterações por worker outbox com preflight da propriedade/configuração e reconciliação de respostas PATCH ambíguas. Adiciona checks PostgreSQL para valores configurados positivos. Atualiza a tela callback OAuth para seguir o visual do painel, mostrar retorno em 30 segundos, escapar o nome do canal e remover code/state do histórico após a troca. Chamadas Twitch reais continuam sem validação.
+- Conclui o cruzamento oficial de capacidades Twitch em 2026-10-06 com FND-0–FND-9, OPS-1/OPS-2 e issues GitHub #17–#21; identifica limites nativos de reward ausentes nas configurações FND-6 e registra a decisão de escopo follower para #17. Publica issues de acompanhamento #20/#21 e atualiza corpos das issues abertas #6/#17/#19 sem comentários.
+- Separar o painel em páginas acessíveis de resumo, filas, nova fila, operações, configurações e conexão Twitch; exibir configuração/recuperação até conectar, mostrar o resumo do canal conectado depois e restaurar o campo obrigatório e retorno de validação do Client Secret.
+- Adiciona classe/categoria de prioridade com restrições PostgreSQL; bloqueia a fila, audita a confirmação manual do benefício pelo operador, anexa promoções ao fim da faixa destino, limita movimento manual à mesma faixa e chama prioridade FIFO antes da fila normal sem alterar intents de pontos.
+- Adiciona ações protegidas no painel e opção de prioridade em adição manual para categorias conferidas pelo operador (inscrição, Bits, pagamento externo, outro); expõe somente rótulos allowlistados em português, nunca comprovantes, e mantém `add` pelo chat na faixa normal.
+- Converte posições contínuas exibidas no chat em posições locais da faixa ao reorganizar; rejeita movimento entre faixas e cobre ambos os casos com testes do handler.
+- Registra decisões aprovadas de planejamento da FND-9 para canais inelegíveis, incluindo Pontos do Canal Twitch ganhos pelos viewers, uma Custom Reward dedicada criada pelo bot por fila elegível, recompensas sem relação preservadas e fallback manual por streamer/moderador.
+- Expõe a operação existente de movimentação de aguardantes, bloqueada por fila, em rota protegida por sessão/CSRF; valida posição e adiciona controles desabilitados nos limites.
+- Adiciona projeção de histórico por fila protegida por sessão, limitada a 100 entradas terminais, seleciona somente campos de apresentação e omite UID/payloads de resgate; painel carrega sob demanda.
+- Adiciona probe de saúde Twurple Helix `getUserById` com cache de 60 segundos; `/health` retorna somente estado sanitizado da integração e milissegundos decorridos.
+- Adiciona ao overview ao vivo do painel um resumo pt-BR de saúde do banco local, estado da API Twitch e tempo de resposta medido.
+- Formaliza as stories FND-6 bilíngues e atualiza documentação operacional/de integração sobre a conclusão da FND-5 e o novo comportamento de saúde.
+
 ## v0.2.0-alpha
 
 A identidade runtime completa de cada artefato distribuído acrescenta o SHA exato de sete caracteres do commit de origem, materializado pelo CI.

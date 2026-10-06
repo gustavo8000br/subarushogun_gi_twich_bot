@@ -4,6 +4,15 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.3.0-alpha
+
+- Streamers can configure redemption limits and cooldowns for queue rewards in the panel.
+- Chat queue positions now respect the priority and standard lanes when moderators reorder viewers.
+
+- Separate panel pages organize queue and connection settings, show local service status and Twitch response time even for ineligible channels, allow Twitch resynchronization, and return to the panel after channel connection.
+- Streamers can review recent queue outcomes and reorder waiting viewers from the panel.
+- Streamers can mark a waiting viewer as priority after checking an external benefit; priority and standard viewers are served FIFO in separate lanes.
+
 ## v0.2.0-alpha
 
 - Streamers can now pause, reopen, archive, and safely remove managed queues while keeping unfinished work available for recovery.
@@ -13,9 +22,9 @@ This file highlights changes that matter to streamers and viewers. Technical and
 
 ## First materialized alpha image — v0.1.0-3e0c935-alpha (2026-10-05)
 
-- The first alpha made it possible to run the bot and its streamer panel on the streamer's own computer, with setup guidance for Windows, Linux, and macOS.
+- The first alpha made it possible to run the bot and its streamer panel on the streamer's own computer, with setup guidance for Windows and Linux.
 - The panel introduced Twitch account setup and the starting tools for creating and managing queues and their rewards.
-- Setup now explains in Portuguese when a Twitch channel cannot use Channel Points, instead of showing an internal status code.
-- The local panel and Twitch sign-in use HTTPS, with first-run instructions for trusting the local certificate.
+- Setup now explains in Portuguese when a channel cannot use reward points, instead of showing an internal error message.
+- The local panel and Twitch sign-in use a secure connection, with first-run setup instructions.
 
 This is an early alpha. Some queue management and recovery features are still being completed.

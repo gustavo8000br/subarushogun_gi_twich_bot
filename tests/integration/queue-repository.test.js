@@ -23,6 +23,26 @@ function docker(args) {
 }
 
 describe('PostgreSQL queue repository', () => {
+  it('persists idempotency reservations, completed responses, and payload conflicts', async () => {
+    const operationKey = `panel:${randomUUID()}`;
+    const fingerprint = 'a'.repeat(64);
+    await expect(repository.beginPanelOperation({ operationKey, fingerprint })).resolves.toEqual({ status: 'started' });
+    await expect(repository.beginPanelOperation({ operationKey, fingerprint })).resolves.toMatchObject({ status: 'in_progress' });
+    await repository.completePanelOperation({ operationKey, fingerprint, statusCode: 201, responseBody: { id: 'queue-id' } });
+    await expect(repository.beginPanelOperation({ operationKey, fingerprint })).resolves.toEqual({ status: 'replay', statusCode: 201, responseBody: { id: 'queue-id' } });
+    await expect(repository.beginPanelOperation({ operationKey, fingerprint: 'b'.repeat(64) })).resolves.toEqual({ status: 'conflict' });
+  });
+
+  it('serializes concurrent first use of the same idempotency key in PostgreSQL', async () => {
+    const operationKey = `panel:${randomUUID()}`;
+    const fingerprint = 'c'.repeat(64);
+    const attempts = await Promise.all([
+      repository.beginPanelOperation({ operationKey, fingerprint }),
+      repository.beginPanelOperation({ operationKey, fingerprint }),
+    ]);
+    expect(attempts.map(({ status }) => status).sort()).toEqual(['in_progress', 'started']);
+  });
+
   beforeAll(async () => {
     docker(['run', '--detach', '--rm', '--name', containerName,
       '--env', 'POSTGRES_USER=queuebot', '--env', 'POSTGRES_PASSWORD=isolated-test-password', '--env', 'POSTGRES_DB=queuebot',
@@ -69,6 +89,81 @@ describe('PostgreSQL queue repository', () => {
     ]);
   });
 
+  it('audits who manually admitted a viewer without linking the entry to point redemption', async () => {
+    const queue = await repository.createQueue({ slug: `manual-audit-${randomUUID().slice(0, 8)}`, title: 'Manual audit', cost: 1 });
+    const actorId = `operator-${randomUUID()}`;
+    const result = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `external-${randomUUID()}`, userLogin: 'external_viewer', displayName: 'External Viewer', actorId, origin: 'panel' });
+    const audit = await prisma.auditLog.findFirst({ where: { entryId: result.entry.id, event: 'entry.manual_added' } });
+
+    expect(audit).toMatchObject({ actorId, origin: 'panel', nextState: 'waiting', reason: 'manual_admission', safeDetail: { source: 'manual' } });
+    expect(result.entry).toMatchObject({ source: 'manual', redemptionId: null });
+  });
+
+  it('keeps verified priority entries ahead of standard entries in FIFO order without creating point operations', async () => {
+    const queue = await repository.createQueue({ slug: `priority-${randomUUID().slice(0, 8)}`, title: 'Priority', cost: 1 });
+    const standardA = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `std-a-${randomUUID()}`, userLogin: 'standard_a', displayName: 'Standard A' });
+    const priorityA = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `pri-a-${randomUUID()}`, userLogin: 'priority_a', displayName: 'Priority A' });
+    const standardB = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `std-b-${randomUUID()}`, userLogin: 'standard_b', displayName: 'Standard B' });
+    const actorId = `operator-${randomUUID()}`;
+
+    const promoted = await repository.setEntryPriority({ queueId: queue.id, entryId: priorityA.entry.id, priority: true, reason: 'external_payment', actorId });
+    const promotedLater = await repository.setEntryPriority({ queueId: queue.id, entryId: standardB.entry.id, priority: true, reason: 'subscription', actorId });
+
+    expect(promoted).toMatchObject({ status: 'updated', priorityClass: 'priority' });
+    expect(promotedLater).toMatchObject({ status: 'updated', priorityClass: 'priority' });
+    expect(await repository.listWaiting(queue.id)).toMatchObject([
+      { id: priorityA.entry.id, position: 1, priorityClass: 'priority' },
+      { id: standardB.entry.id, position: 2, priorityClass: 'priority' },
+      { id: standardA.entry.id, position: 3, priorityClass: 'standard' },
+    ]);
+    expect(await prisma.auditLog.findFirst({ where: { entryId: priorityA.entry.id, event: 'entry.priority_changed' } }))
+      .toMatchObject({ actorId, reason: 'external_payment', safeDetail: { priorityClass: 'priority', verification: 'operator' } });
+    expect(await prisma.outbox.count({ where: { entryId: { in: [standardA.entry.id, priorityA.entry.id, standardB.entry.id] } } })).toBe(0);
+  });
+
+  it('admits an operator verified external-benefit viewer directly into the priority FIFO lane', async () => {
+    const queue = await repository.createQueue({ slug: `priority-add-${randomUUID().slice(0, 8)}`, title: 'Priority add', cost: 1 });
+    const standard = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `std-${randomUUID()}`, userLogin: 'standard', displayName: 'Standard' });
+    const actorId = `operator-${randomUUID()}`;
+    const priority = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `vip-${randomUUID()}`, userLogin: 'benefit_viewer', displayName: 'Benefit Viewer', priorityReason: 'bits', actorId, origin: 'panel' });
+
+    expect(priority.entry).toMatchObject({ priorityClass: 'priority', priorityReason: 'bits', redemptionId: null, position: 1 });
+    expect(await repository.listWaiting(queue.id)).toMatchObject([
+      { id: priority.entry.id, priorityClass: 'priority', position: 1 },
+      { id: standard.entry.id, priorityClass: 'standard', position: 2 },
+    ]);
+    expect(await prisma.outbox.count({ where: { entryId: priority.entry.id } })).toBe(0);
+    expect(await prisma.auditLog.findFirst({ where: { entryId: priority.entry.id, event: 'entry.priority_changed' } }))
+      .toMatchObject({ actorId, origin: 'panel', reason: 'bits', safeDetail: { verification: 'operator', benefitCategory: 'bits' } });
+  });
+
+  it('enforces allowed priority classes and benefit categories in the PostgreSQL migration', async () => {
+    const queue = await repository.createQueue({ slug: `priority-check-${randomUUID().slice(0, 8)}`, title: 'Priority check', cost: 1 });
+    await expect(prisma.entry.create({ data: {
+      queueId: queue.id, twitchUserId: `invalid-${randomUUID()}`, userLogin: 'invalid', displayName: 'Invalid',
+      source: 'manual', status: 'waiting', priorityClass: 'vip', position: 1,
+    } })).rejects.toThrow();
+    await expect(prisma.entry.create({ data: {
+      queueId: queue.id, twitchUserId: `invalid-${randomUUID()}`, userLogin: 'invalid', displayName: 'Invalid',
+      source: 'manual', status: 'waiting', priorityClass: 'priority', priorityReason: 'untrusted-text', position: 1,
+    } })).rejects.toThrow();
+    await expect(prisma.entry.create({ data: {
+      queueId: queue.id, twitchUserId: `inconsistent-${randomUUID()}`, userLogin: 'inconsistent', displayName: 'Inconsistent',
+      source: 'manual', status: 'waiting', priorityClass: 'priority', priorityReason: null, position: 1,
+    } })).rejects.toThrow();
+  });
+
+  it('calls priority FIFO entries before standard entries regardless of global position history', async () => {
+    const queue = await repository.createQueue({ slug: `priority-call-${randomUUID().slice(0, 8)}`, title: 'Priority call', cost: 1 });
+    const standard = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `std-${randomUUID()}`, userLogin: 'standard', displayName: 'Standard' });
+    const priority = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `pri-${randomUUID()}`, userLogin: 'priority', displayName: 'Priority' });
+    await repository.setEntryPriority({ queueId: queue.id, entryId: priority.entry.id, priority: true, reason: 'bits', actorId: 'operator' });
+
+    const called = await queueService.callNext({ queueId: queue.id, count: 1 });
+    expect(called.map(({ id }) => id)).toEqual([priority.entry.id]);
+    expect(await repository.listWaiting(queue.id)).toMatchObject([{ id: standard.entry.id, position: 1, priorityClass: 'standard' }]);
+  });
+
   it('persists queue creation and a managed reward creation intent atomically', async () => {
     const slug = `reward-${randomUUID().slice(0, 8)}`;
     const result = await repository.createQueueWithRewardIntent({
@@ -77,21 +172,63 @@ describe('PostgreSQL queue repository', () => {
       cost: 250,
       rewardPrompt: 'Send only your UID.',
       uidMode: 'visible',
+      maxRedemptionsPerStream: 20,
+      maxRedemptionsPerUserPerStream: 2,
+      globalCooldownSeconds: 90,
       actorId: 'operator-session',
     });
 
-    expect(result.queue).toMatchObject({ slug, title: 'Reward queue', rewardId: null, remoteSyncStatus: 'pending_create' });
+    expect(result.queue).toMatchObject({ slug, title: 'Reward queue', rewardId: null, remoteSyncStatus: 'pending_create', maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: 2, globalCooldownSeconds: 90 });
+    await expect(repository.listQueueProjection()).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: result.queue.id, maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: 2, globalCooldownSeconds: 90 }),
+    ]));
     const task = await prisma.outbox.findUnique({ where: { idempotencyKey: `queue:${result.queue.id}:reward.create` } });
     expect(task).toMatchObject({
       operationType: 'reward.create',
       entityType: 'queue',
       entityId: result.queue.id,
       status: 'pending',
-      payload: { title: 'Reward queue', cost: 250, prompt: 'Send only your UID.', uidMode: 'visible' },
+      payload: { title: 'Reward queue', cost: 250, prompt: 'Send only your UID.', uidMode: 'visible', maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: 2, globalCooldownSeconds: 90 },
     });
     expect(await prisma.auditLog.findMany({ where: { queueId: result.queue.id } })).toMatchObject([
       { event: 'queue.reward_creation_requested', actorId: 'operator-session', origin: 'panel' },
     ]);
+  });
+
+  it('enforces positive values for persisted Twitch-native reward limits', async () => {
+    const queue = await repository.createQueue({ slug: `lim-${randomUUID().slice(0, 8)}`, title: 'Limit check', cost: 1 });
+    await expect(prisma.queue.update({ where: { id: queue.id }, data: { globalCooldownSeconds: 0 } })).rejects.toThrow(/queues_global_cooldown_seconds_positive_check/);
+    await expect(prisma.queue.update({ where: { id: queue.id }, data: { maxRedemptionsPerStream: -1 } })).rejects.toThrow(/queues_max_redemptions_per_stream_positive_check/);
+  });
+
+  it('persists app-owned reward edits and their prior snapshot atomically', async () => {
+    const queue = await repository.createQueue({ slug: `edit-${randomUUID().slice(0, 8)}`, title: 'Old reward', cost: 100, rewardPrompt: 'Old prompt', uidMode: 'visible' });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'synced', maxRedemptionsPerStream: 10 } });
+    const viewer = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `viewer-${randomUUID()}`, userLogin: 'viewer', displayName: 'Viewer', uid: '123456789' });
+    await prisma.outbox.create({ data: { operationType: 'chat.call', entityType: 'entry', entityId: viewer.entry.id, idempotencyKey: `chat.call:${viewer.entry.id}`, payload: { renderedText: 'uid 123456789' }, entryId: viewer.entry.id } });
+    const result = await repository.updateQueueRewardSettings({
+      queueId: queue.id, expectedVersion: 1,
+      settings: { title: 'New reward', cost: 200, rewardPrompt: 'New prompt', uidMode: 'hidden', maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: null, globalCooldownSeconds: 60 },
+      actorId: 'operator', origin: 'panel',
+    });
+    expect(result.status).toBe('pending');
+    expect(result.queue).toMatchObject({ title: 'New reward', cost: 200, rewardId, remoteSyncStatus: 'pending_update', version: 2, uidMode: 'hidden' });
+    expect(await prisma.entry.findUnique({ where: { id: viewer.entry.id } })).toMatchObject({ uid: null });
+    expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `chat.call:${viewer.entry.id}` } })).toMatchObject({ status: 'cancelled', payload: {} });
+    await expect(repository.updateQueueRewardSettings({ queueId: queue.id, expectedVersion: 2, settings: { title: 'Later' } })).rejects.toMatchObject({ code: 'QUEUE_REWARD_UPDATE_PENDING' });
+    const outbox = await prisma.outbox.findUnique({ where: { idempotencyKey: `queue:${queue.id}:reward.update:2` } });
+    expect(outbox).toMatchObject({
+      operationType: 'reward.update', status: 'pending',
+      payload: { queueVersion: 2, requestMayHaveReachedTwitch: false, previous: { title: 'Old reward', cost: 100, prompt: 'Old prompt', uidMode: 'visible', maxRedemptionsPerStream: 10, maxRedemptionsPerUserPerStream: null, globalCooldownSeconds: null } },
+    });
+    const claimed = await repository.claimNextRewardOperation();
+    expect(claimed).toMatchObject({ id: outbox.id, operationType: 'reward.update', queue: { id: queue.id, rewardId } });
+    await expect(repository.prepareRewardUpdate(outbox.id, claimed.leaseToken)).resolves.toBe(true);
+    await expect(repository.confirmRewardUpdated(outbox.id, claimed.leaseToken)).resolves.toBe(true);
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ remoteSyncStatus: 'synced', version: 3 });
+    expect(await prisma.outbox.findUnique({ where: { id: outbox.id } })).toMatchObject({ status: 'confirmed', payload: { requestMayHaveReachedTwitch: true } });
+    expect(await prisma.auditLog.findMany({ where: { queueId: queue.id, event: 'queue.reward_settings_confirmed' } })).toHaveLength(1);
   });
 
   it('rolls back queue and reward intent together when queue keys collide', async () => {
@@ -199,7 +336,7 @@ describe('PostgreSQL queue repository', () => {
 
     expect(called).toMatchObject({ id: second.entry.id, status: 'called', previousPosition: 2 });
     expect(await repository.listWaiting(queue.id)).toMatchObject([{ id: first.entry.id, position: 1 }]);
-    expect(await prisma.auditLog.findMany({ where: { entryId: second.entry.id } })).toMatchObject([
+    expect(await prisma.auditLog.findMany({ where: { entryId: second.entry.id, event: 'entry.transitioned' } })).toMatchObject([
       { previousState: 'waiting', nextState: 'called', reason: 'operator_call' },
     ]);
   });
@@ -584,6 +721,19 @@ describe('PostgreSQL queue repository', () => {
     expect(new Set(waiting.map(({ id }) => id))).toEqual(new Set(entries.map(({ entry }) => entry.id)));
   });
 
+  it('projects a bounded terminal history for the operator without exposing redemption payloads', async () => {
+    const queue = await repository.createQueue({ slug: `history-${randomUUID().slice(0, 8)}`, title: 'History', cost: 1, uidMode: 'visible' });
+    const active = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `viewer-${randomUUID()}`, userLogin: 'history_viewer', displayName: 'History Viewer', uid: '123456789' });
+    await queueService.transitionEntry({ entryId: active.entry.id, to: 'removed', origin: 'panel', actorId: 'operator', reason: 'operator_removed' });
+
+    const projection = await repository.listQueueHistoryProjection(queue.id);
+
+    expect(projection).toHaveLength(1);
+    expect(projection[0]).toMatchObject({ id: active.entry.id, status: 'removed', displayName: 'History Viewer', terminalReason: 'operator_removed' });
+    expect(projection[0]).not.toHaveProperty('redemptionId');
+    expect(projection[0]).not.toHaveProperty('payload');
+  });
+
   it('prevents another queue from claiming an existing slug or alias key', async () => {
     await repository.createQueue({ slug: `keys-${randomUUID().slice(0, 8)}`, aliases: ['shared-alias'], title: 'Keys', cost: 1 });
     await expect(repository.createQueue({ slug: 'shared-alias', title: 'Collision', cost: 1 }))
@@ -633,10 +783,11 @@ describe('PostgreSQL queue repository', () => {
       .toMatchObject([{ key: first.slug, keyType: 'slug' }, { key: 'owned-alias', keyType: 'alias' }]);
   });
 
-  it('clears stored UIDs atomically when a queue changes to hidden mode', async () => {
+  it('clears stored UIDs atomically through a Twitch reward edit to hidden mode', async () => {
     const queue = await repository.createQueue({
       slug: `privacy-${randomUUID().slice(0, 8)}`, title: 'Privacy', cost: 1, uidMode: 'visible',
     });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `privacy-reward-${randomUUID()}`, remoteSyncStatus: 'synced' } });
     const added = await repository.addManualEntry({
       queueId: queue.id, twitchUserId: 'privacy-user', userLogin: 'privacy', displayName: 'Privacy', uid: '123456789',
     });
@@ -646,13 +797,46 @@ describe('PostgreSQL queue repository', () => {
       idempotencyKey: `call-${randomUUID()}`, payload: { text: 'Privacy: 123456789' }, entryId: added.entry.id,
     } });
 
-    await repository.setUidMode({ queueId: queue.id, uidMode: 'hidden' });
+    await repository.updateQueueRewardSettings({
+      queueId: queue.id, expectedVersion: 1,
+      settings: { uidMode: 'hidden' },
+    });
 
     expect(await prisma.entry.findUnique({ where: { id: added.entry.id } })).toMatchObject({ uid: null });
     expect(await repository.listWaiting(queue.id)).toMatchObject([{ uid: null }]);
     expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ uidMode: 'hidden' });
     expect(await prisma.outbox.findUnique({ where: { id: notification.id } }))
       .toMatchObject({ status: 'cancelled', payload: {} });
+  });
+
+  it('updates operator queue settings without changing Twitch reward privacy', async () => {
+    const queue = await repository.createQueue({ slug: `settings-${randomUUID().slice(0, 8)}`, title: 'Settings', cost: 1, uidMode: 'visible', showUidOnCall: true });
+    const entry = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `settings-user-${randomUUID()}`, userLogin: 'settings_user', displayName: 'Settings User', uid: '123456789' });
+    const notification = await prisma.outbox.create({ data: {
+      operationType: 'chat.call', entityType: 'entry', entityId: entry.entry.id,
+      idempotencyKey: `settings-call-${randomUUID()}`, payload: { text: '123456789' }, entryId: entry.entry.id,
+    } });
+    const actorId = `operator-${randomUUID()}`;
+
+    const updated = await repository.updateLocalQueueSettings({
+      queueId: queue.id, expectedVersion: 1, actorId, origin: 'panel',
+      settings: { callTimeoutMin: null, showUidOnCall: true, autoSwitchAccount: true },
+    });
+
+    expect(updated).toMatchObject({ version: 2, callTimeoutMin: null, uidMode: 'visible', showUidOnCall: true, autoSwitchAccount: true });
+    expect(await prisma.entry.findUnique({ where: { id: entry.entry.id } })).toMatchObject({ uid: '123456789' });
+    expect(await prisma.outbox.findUnique({ where: { id: notification.id } })).toMatchObject({ status: 'pending', payload: { text: '123456789' } });
+    expect(await prisma.auditLog.findFirst({ where: { queueId: queue.id, event: 'queue.settings_updated' } }))
+      .toMatchObject({ actorId, origin: 'panel', safeDetail: { updatedFields: expect.arrayContaining(['callTimeoutMin', 'autoSwitchAccount']) } });
+    await expect(repository.updateLocalQueueSettings({ queueId: queue.id, expectedVersion: 1, settings: { callTimeoutMin: 5 } }))
+      .rejects.toMatchObject({ code: 'STALE_QUEUE_VERSION' });
+  });
+
+  it('rejects UID visibility changes through the local-only settings path', async () => {
+    const queue = await repository.createQueue({ slug: `local-${randomUUID().slice(0, 8)}`, title: 'Local settings', cost: 1, uidMode: 'visible' });
+    await expect(repository.updateLocalQueueSettings({ queueId: queue.id, expectedVersion: 1, settings: { uidMode: 'hidden' } }))
+      .rejects.toMatchObject({ code: 'INVALID_LOCAL_QUEUE_SETTING' });
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ uidMode: 'visible', version: 1 });
   });
 
   it('applies entry transitions, audit, and waiting renumbering inside PostgreSQL transactions', async () => {
@@ -679,7 +863,7 @@ describe('PostgreSQL queue repository', () => {
       entryId: first.entry.id, to: 'no_show', origin: 'timer', actorId: null, reason: 'timeout',
     })).rejects.toMatchObject({ code: 'INVALID_ENTRY_TRANSITION' });
     expect(await prisma.entry.findUnique({ where: { id: first.entry.id } })).toMatchObject({ status: 'in_progress' });
-    const audit = await prisma.auditLog.findMany({ where: { entryId: first.entry.id }, orderBy: { createdAt: 'asc' } });
+    const audit = await prisma.auditLog.findMany({ where: { entryId: first.entry.id, event: 'entry.transitioned' }, orderBy: { createdAt: 'asc' } });
     expect(audit).toHaveLength(2);
     expect(audit[0]).toMatchObject({
       origin: 'panel', actorId: 'broadcaster', previousState: 'waiting', nextState: 'called', reason: 'operator_call',
@@ -997,7 +1181,7 @@ describe('PostgreSQL queue repository', () => {
 
     expect(outcomes.filter(({ status }) => status === 'fulfilled')).toHaveLength(1);
     expect(outcomes.filter(({ status, reason }) => status === 'rejected' && reason.code === 'INVALID_ENTRY_TRANSITION')).toHaveLength(1);
-    expect(await prisma.auditLog.count({ where: { entryId: added.entry.id } })).toBe(2);
+    expect(await prisma.auditLog.count({ where: { entryId: added.entry.id, event: 'entry.transitioned' } })).toBe(2);
     expect(await prisma.entry.findUnique({ where: { id: added.entry.id } })).toMatchObject({
       status: expect.stringMatching(/^(completed|removed)$/), position: null,
     });

@@ -8,7 +8,10 @@ function harness({ credential = { clientId: 'client-1', broadcasterId: 'channel-
   const callbacks = {};
   const authRuntimeFactory = vi.fn(async () => authRuntime);
   const apiFactory = vi.fn(() => api);
-  const adapter = { getChannelEligibility: vi.fn(async () => ({ eligible, broadcasterType: eligible ? 'affiliate' : 'unknown', channelPointsAvailable: eligible, rewardCount: eligible ? 46 : 0, rewardLimit: 50, nearRewardLimit: eligible })) };
+  const adapter = {
+    getChannelEligibility: vi.fn(async () => ({ eligible, broadcasterType: eligible ? 'affiliate' : 'unknown', channelPointsAvailable: eligible, rewardCount: eligible ? 46 : 0, rewardLimit: 50, nearRewardLimit: eligible })),
+    ping: vi.fn(async () => true),
+  };
   const adapterFactory = vi.fn(() => adapter);
   const eventSubRuntimeFactory = vi.fn((options) => { Object.assign(callbacks, options); return listener; });
   const reconciler = { run: vi.fn(async () => ({ status: 'complete' })) };
@@ -40,6 +43,8 @@ describe('Twitch integration lifecycle', () => {
     const integration = await h.integrationPromise;
     expect(integration.status).toBe('ineligible');
     expect(h.eventSubRuntimeFactory).not.toHaveBeenCalled();
+    await expect(integration.probeTwitchApi()).resolves.toBe(true);
+    expect(h.adapterFactory).toHaveBeenCalledOnce();
     integration.stop();
     expect(h.authRuntime.stop).toHaveBeenCalledOnce();
   });
@@ -61,5 +66,28 @@ describe('Twitch integration lifecycle', () => {
     integration.stop();
     expect(h.listener.stop).toHaveBeenCalledOnce();
     expect(h.authRuntime.stop).toHaveBeenCalledOnce();
+  });
+
+  it('exposes operator reconciliation and coalesces overlapping requests', async () => {
+    const h = harness();
+    const integration = await h.integrationPromise;
+    let resolveRun;
+    h.reconciler.run.mockImplementationOnce(() => new Promise((resolve) => { resolveRun = resolve; }));
+    const first = integration.reconcileNow();
+    const second = integration.reconcileNow();
+    expect(h.reconciler.run).toHaveBeenCalledTimes(1);
+    resolveRun({ status: 'complete', imported: 1, issues: [] });
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { status: 'complete', imported: 1, issues: [] }, { status: 'complete', imported: 1, issues: [] },
+    ]);
+    expect(integration.status).toBe('connected');
+    integration.stop();
+  });
+
+  it('exposes a safe Twitch API probe only after an eligible authenticated adapter is ready', async () => {
+    const h = harness();
+    const integration = await h.integrationPromise;
+    await expect(integration.probeTwitchApi()).resolves.toBe(true);
+    expect(h.adapterFactory).toHaveBeenCalledOnce();
   });
 });

@@ -1,0 +1,125 @@
+{
+  "storyId": "FND-9",
+  "status": "planning_complete_pending_sequence_approval",
+  "source": "user",
+  "summary": "Plan manual queue admission for Twitch channels that cannot use Channel Points rewards, while eligible channels use one dedicated Twitch Custom Reward created by the bot per queue.",
+  "functionalRequirements": [
+    {
+      "id": "FR-1",
+      "priority": "P0",
+      "description": "A configured and authorized Twitch broadcaster can keep the chatbot connected to channel chat even when the broadcaster cannot use Channel Points custom rewards.",
+      "acceptance": "The integration reports chat readiness separately from Channel Points availability and does not stop chat commands solely because rewards are unavailable."
+    },
+    {
+      "id": "FR-2",
+      "priority": "P0",
+      "description": "The streamer and currently authorized moderators can manually add a Twitch viewer to a selected queue using the existing queue add command.",
+      "acceptance": "The command resolves a login to a Twitch user ID, applies current UID and duplicate rules, and creates a manual entry through the shared queue service."
+    },
+    {
+      "id": "FR-3",
+      "priority": "P0",
+      "description": "Manual admissions do not claim a Channel Points redemption and do not create refund or fulfillment operations.",
+      "acceptance": "The entry has source manual, redemptionId null, and no financial outbox task; its later lifecycle is auditable."
+    },
+    {
+      "id": "FR-4",
+      "priority": "P1",
+      "description": "The local operator panel explains that an ineligible channel is using manual queue admission and describes the authorized chat command.",
+      "acceptance": "The state is understandable in pt-BR and distinguishes unavailable points rewards from Twitch chat connection health."
+    },
+    {
+      "id": "FR-5",
+      "priority": "P1",
+      "description": "For each eligible queue, create and manage a dedicated Twitch Custom Reward through this app; do not adopt or alter pre-existing rewards.",
+      "acceptance": "The reward is created through Twitch API, linked by its immutable reward ID, and only that ID is used for queue redemptions and lifecycle operations."
+    }
+  ],
+  "nonFunctionalRequirements": [
+    {
+      "id": "NFR-1",
+      "category": "security",
+      "requirement": "Use trusted current EventSub message identity and Twitch badges for streamer/mod authorization; do not infer privilege from login text, mentions, request body, or another shared-chat channel.",
+      "target": "All queue mutation command tests cover trusted and untrusted authorization inputs."
+    },
+    {
+      "id": "NFR-2",
+      "category": "privacy",
+      "requirement": "Do not persist raw chat messages or invalid arguments. Manual entries never store payment receipts or claim external payment verification.",
+      "target": "PostgreSQL records contain only allowlisted entry/audit data."
+    },
+    {
+      "id": "NFR-3",
+      "category": "reliability",
+      "requirement": "Chat reconnect and local database restart must preserve existing queue entries and operation history.",
+      "target": "Existing isolated PostgreSQL migrations and recovery tests pass."
+    },
+    {
+      "id": "NFR-4",
+      "category": "compatibility",
+      "requirement": "Do not add Twitch scopes or network services without a documented need; keep the local-first Docker Compose model.",
+      "target": "No public webhook, payment integration, or additional service is required for manual-only admission."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "CON-1",
+      "description": "The user proposes streamer/moderator manual admission by chat command as the simplest path for a channel that is ineligible for Channel Points rewards."
+    },
+    {
+      "id": "CON-2",
+      "description": "The product is a Twitch chatbot with a local operator panel; chat is a required operating surface."
+    },
+    {
+      "id": "CON-3",
+      "description": "Viewers cannot self-enroll by command or through the panel."
+    },
+    {
+      "id": "CON-4",
+      "description": "Each eligible queue uses a dedicated Twitch Custom Reward created by this bot via API. Pre-existing streamer rewards, such as drink-water, are not queue triggers and are not adopted."
+    },
+    {
+      "id": "CON-5",
+      "description": "The existing integration currently stops before EventSub startup when channel eligibility is false, so chat and points lifecycle must be separated."
+    }
+  ],
+  "assumptions": [
+    "Manual-only admission is used for ineligible channels; eligible channels retain Channel Points redemption admission through a dedicated bot-created Twitch Custom Reward for each queue.",
+    "Existing authorized queue add command is reused rather than adding a second command syntax.",
+    "Manual admissions are FIFO in the standard lane unless an explicitly verified priority decision says otherwise; benefits such as paid priority remain outside this FND-9 scope."
+  ],
+  "openQuestions": [
+    {
+      "id": "Q-1",
+      "question": "Which roles may execute manual add: streamer and moderators, streamer only, or configurable VIPs too?",
+      "owner": "Product owner",
+      "status": "resolved: streamer and moderators (2026-10-06)"
+    },
+    {
+      "id": "Q-2",
+      "question": "Should eligible channels keep Channel Points redemption admission through a dedicated Twitch Custom Reward created by the bot, while ineligible channels use manual chat admission?",
+      "owner": "Product owner",
+      "status": "resolved: yes; each queue gets a dedicated bot-created Twitch Custom Reward (2026-10-06)"
+    },
+    {
+      "id": "Q-3",
+      "question": "Should new manual queue entries remain possible in a closed queue, as the existing product rule says, including in manual-only mode?",
+      "owner": "Product specification",
+      "status": "resolved by existing requirement: yes"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-1",
+      "decision": "For eligible channels, the bot creates one dedicated Twitch Custom Reward through the API for each queue. Existing custom rewards are not adopted by title or used as queue triggers.",
+      "owner": "Product owner",
+      "status": "approved (2026-10-06)"
+    },
+    {
+      "id": "D-2",
+      "decision": "For ineligible channels, streamer/moderator manual chat admission is the fallback; eligible channels retain redemption admission.",
+      "owner": "Product owner",
+      "status": "approved (2026-10-06)"
+    }
+  ]
+}

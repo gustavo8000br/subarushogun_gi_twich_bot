@@ -1,0 +1,93 @@
+{
+  "storyId": "FND-9",
+  "checkedAt": "2026-10-06 UTC",
+  "targets": [
+    {
+      "target": "Pontos do Canal Twitch e Custom Rewards do criador",
+      "type": "product",
+      "requirements": [
+        "FR-1",
+        "FR-5"
+      ],
+      "source": "https://help.twitch.tv/s/article/channel-points-guide",
+      "finding": "Viewers ganham Pontos do Canal específicos por canal enquanto assistem e resgatam recompensas configuradas pelo criador. O fluxo da fila deve usar uma Custom Reward dedicada criada pelo bot para aquela fila; recompensas comuns existentes, como beber água, são independentes.",
+      "status": "guia oficial do produto; consultado em 2026-10-06"
+    },
+    {
+      "target": "Elegibilidade de recompensas personalizadas de Pontos do Canal Twitch",
+      "type": "api",
+      "requirements": [
+        "FR-1",
+        "FR-5"
+      ],
+      "source": "https://dev.twitch.tv/docs/api/reference/",
+      "finding": "Criar recompensas personalizadas exige channel:manage:redemptions e a Twitch retorna 403 quando o broadcaster não é Afiliado ou Parceiro.",
+      "status": "verified"
+    },
+    {
+      "target": "Autorização EventSub Twitch channel.chat.message",
+      "type": "api",
+      "requirements": [
+        "FR-1",
+        "NFR-1"
+      ],
+      "source": "https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/",
+      "finding": "A assinatura exige user:read:chat do usuário que lê o chat; sua condição associa broadcaster_user_id e user_id. A referência não lista requisito Afiliado/Parceiro para esse evento de chat.",
+      "status": "verified_documentation; full product-path behavior unverified"
+    },
+    {
+      "target": "Chatbots instalados e EventSub WebSocket da Twitch",
+      "type": "api",
+      "requirements": [
+        "FR-1",
+        "FR-2"
+      ],
+      "source": "https://dev.twitch.tv/docs/chat/authenticating/",
+      "finding": "A Twitch documenta chatbots instalados com o token de usuário do broadcaster; leitura exige user:read:chat e envio, opcionalmente/para este produto, exige user:write:chat. EventSub WebSocket é recomendado para chatbots hospedados no computador do usuário.",
+      "status": "verified"
+    },
+    {
+      "target": "Integração Twitch existente no repositório",
+      "type": "codebase",
+      "requirements": [
+        "FR-1",
+        "FR-2",
+        "FR-3"
+      ],
+      "finding": "apps/api/src/twitch/integration.mjs encerra auth e retorna antes de construir EventSub quando getChannelEligibility informa inelegibilidade. apps/api/src/twitch/auth-runtime.mjs exige channel:manage:redemptions, user:read:chat e user:write:chat para qualquer token. O callback EventSub de chat e o comando add já existem; addManualEntry persiste source=manual sem ID de resgate nem intenção financeira.",
+      "status": "verified_in_repository"
+    },
+    {
+      "target": "Propriedade de recompensas existentes e recompensas sem relação",
+      "type": "api",
+      "requirements": [
+        "FR-5"
+      ],
+      "source": "https://dev.twitch.tv/docs/api/reference/",
+      "finding": "O ciclo da recompensa de fila permanece restrito ao ID gerenciado pelo app. Uma recompensa pré-existente de beber água não tem relação e não deve ser pausada, adotada, concluída ou apagada pela configuração da fila.",
+      "status": "verified_constraint; behavior will receive a regression test"
+    },
+    {
+      "target": "Criação, propriedade e recuperação de resgates de Custom Rewards Twitch",
+      "type": "api",
+      "requirements": [
+        "FR-5",
+        "NFR-3"
+      ],
+      "source": "https://dev.twitch.tv/docs/api/reference/",
+      "finding": "A Helix pode listar recompensas com only_manageable_rewards=false, mas somente o app que criou a recompensa pode consultar seus resgates; alterações e exclusão também exigem o Client ID criador. Portanto cada fila elegível precisa de uma Custom Reward dedicada criada por este app, vinculada pelo ID e não pelo título, para manter reconciliação e atualização do estado dos pontos.",
+      "status": "documentação verificada; operação Twitch real ainda não testada"
+    }
+  ],
+  "inference": [
+    "Como a Twitch documenta escopos/condições EventSub de chat sem gate Afiliado/Parceiro, enquanto o endpoint de criação de Pontos do Canal lista esse gate explicitamente, o chat pode funcionar de modo independente para broadcaster não afiliado. É uma inferência de contratos separados e ainda requer aceitação controlada em canal real antes de afirmar funcionamento completo.",
+    "A arquitetura menor parece preservar OAuth/chat e autorização de comandos e desabilitar condicionalmente somente assinaturas de resgate, workers de recompensa e reconciliação de Pontos do Canal para canais inelegíveis. Confirmar requisitos de escopos do token e comportamento Twurple antes de implementar.",
+    "Usar uma recompensa personalizada preexistente qualquer como gatilho permitiria observar eventos, mas não ofereceria a recuperação Helix de resgates nem o controle de status para um Client ID diferente; isso conflita com os requisitos de confiabilidade e auditoria financeira do produto."
+  ],
+  "unverifiedClaims": [
+    "Nenhum canal não afiliado autorizado foi testado com o fluxo EventSub de chat instalado deste repositório.",
+    "A política exata de validação OAuth Twitch para canal inelegível sem channel:manage:redemptions não foi exercitada na Twitch.",
+    "Mensagens e respostas reais de canal inelegível não foram testadas."
+  ],
+  "noNewDependencies": true
+}

@@ -92,7 +92,18 @@ export function createChatCommandHandler({ repository, domainService = repositor
         const user = await twitch.getUserByLogin(normalizedLogin(args[0]));
         if (!user) return reply(message, 'Esse usuário da Twitch não foi encontrado.');
         const entry = await repository.getActiveEntryForUser(queue.id, user.id);
-        const result = entry && await repository.moveWaitingEntry({ queueId: queue.id, entryId: entry.id, position: Number(args[1]) });
+        if (!entry) return reply(message, 'Não foi possível mover essa pessoa.');
+        const waiting = await repository.listWaiting(queue.id);
+        const current = waiting.find(({ id }) => id === entry.id);
+        const displayedPosition = Number(args[1]);
+        if (!current || !Number.isInteger(displayedPosition)) return reply(message, 'Não foi possível mover essa pessoa.');
+        const priorityCount = waiting.filter(({ priorityClass }) => priorityClass === 'priority').length;
+        const currentIsPriority = current.priorityClass === 'priority';
+        const minPosition = currentIsPriority ? 1 : priorityCount + 1;
+        const maxPosition = currentIsPriority ? priorityCount : waiting.length;
+        if (displayedPosition < minPosition || displayedPosition > maxPosition) return reply(message, 'Não foi possível mover essa pessoa.');
+        const lanePosition = currentIsPriority ? displayedPosition : displayedPosition - priorityCount;
+        const result = await repository.moveWaitingEntry({ queueId: queue.id, entryId: entry.id, position: lanePosition });
         return reply(message, result?.status === 'moved' ? 'Posição atualizada.' : 'Não foi possível mover essa pessoa.');
       }
       case 'remover': {
@@ -106,7 +117,7 @@ export function createChatCommandHandler({ repository, domainService = repositor
       case 'add': {
         const user = await twitch.getUserByLogin(normalizedLogin(args[0]));
         if (!user) return reply(message, 'Esse usuário da Twitch não foi encontrado.');
-        const result = await repository.addManualEntry({ queueId: queue.id, twitchUserId: user.id, userLogin: user.login, displayName: user.displayName, uid: args[1] });
+        const result = await repository.addManualEntry({ queueId: queue.id, twitchUserId: user.id, userLogin: user.login, displayName: user.displayName, uid: args[1], actorId: authorized.actorId, origin: 'chat' });
         return reply(message, result.status === 'created' ? `@${user.login} adicionado à fila.` : 'Essa pessoa já está ativa nesta fila.');
       }
       case 'limpar': {
