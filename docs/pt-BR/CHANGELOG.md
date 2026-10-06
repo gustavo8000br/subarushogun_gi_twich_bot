@@ -4,11 +4,15 @@
 
 ## Unreleased
 
-- Migra a imagem do app de Debian Bookworm para Alpine 3.24 fixado após build limpo e validação Compose real da engine musl do Prisma, bootstrap, migrations, health HTTPS e reinício com os volumes existentes preservados. A imagem AMD64 local caiu de 959 MB para cerca de 770 MB; ARM64 aguarda validação no CI.
+## Primeira imagem alpha materializada — v0.1.0-3e0c935-alpha (2026-10-05)
+
+- Publica a primeira imagem alpha identificada pelo commit para `linux/amd64` e `linux/arm64` após aprovação dos gates de qualidade/build do CI. O pacote GHCR permanece privado. Essa identidade não é a release pública de lançamento; o produto continua no major `0` e estágio `alpha`.
+
+- Migra a imagem do app de Debian Bookworm para Alpine 3.24 fixado após build limpo e validação Compose real da engine musl do Prisma, bootstrap, migrations, health HTTPS e reinício com os volumes existentes preservados. A imagem AMD64 local caiu de 959 MB para cerca de 770 MB; o CI QEMU pós-merge compilou e publicou as duas arquiteturas.
 
 - Publica no GHCR imagens para `linux/amd64` e `linux/arm64`, com tags multi-plataforma `main`/versão e tags explícitas com sufixo de arquitetura. Os helpers Compose de início e atualização baixam a imagem publicada.
 - Remove durante a desinstalação a imagem GHCR local selecionada, preservando os volumes do projeto salvo se o operador confirmar a exclusão dos dados.
-- Materializa nas imagens de CI a identidade de sete caracteres do commit exato de origem, a partir da próxima pull request.
+- Materializa nas imagens de CI a identidade de sete caracteres do commit exato de origem sem alterar o `VERSION` versionado nem gravar o SHA em commit de retorno.
 - Usa `main` como tag Docker padrão, separada da versão runtime do produto.
 - Corrige a espera entre verificações do painel no `iniciar.bat` para evitar a mensagem de redirecionamento de stdin observada no Windows; requer reteste manual nessa plataforma.
 - Esclarece o passo único `chmod +x iniciar.sh` para instalações por arquivo no Linux/macOS e adiciona um guia de primeira execução no macOS.

@@ -198,7 +198,7 @@ Para conferir a saúde via CLI Linux depois de confiar na CA:
 
    O SHA zerado é o marcador documentado usado antes de materializar um commit Git de origem na imagem. Isso não indica uma release.
 
-   A partir da próxima pull request, o CI materializa na imagem o SHA de sete caracteres do commit exato de origem (por exemplo, `v0.1.0-a1b2c3d-alpha`) e o verifica dentro dela. O arquivo versionado `VERSION` permanece com o marcador zero; nenhum SHA é gravado em um commit de retorno. Por padrão, o Compose usa a tag `main` nas imagens do app; essa tag não substitui a identidade runtime do produto.
+   A primeira imagem alpha materializada é `v0.1.0-3e0c935-alpha` (commit de origem `3e0c935dbf63dc3edef265394f6b9da5c78a33fd`); o GitHub Actions verificou e publicou seu manifest AMD64/ARM64. Cada imagem CI posterior usa os sete primeiros caracteres do SHA exato do commit de origem e verifica a identidade dentro da imagem. O arquivo versionado `VERSION` permanece com o marcador zero; nenhum SHA é gravado em um commit de retorno. Por padrão, o Compose usa a tag `main` nas imagens do app; essa tag não substitui a identidade runtime do produto. Essa identidade alpha não é uma release de lançamento nem uma promoção de estágio.
 
 No Windows, depois de importar a CA no repositório do usuário atual, `curl.exe https://localhost:3000/health` também deve validar normalmente. Para usar curl antes da importação, passe `--cacert .\.local\localhost-ca.crt`.
 

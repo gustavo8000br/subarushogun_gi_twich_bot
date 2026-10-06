@@ -198,7 +198,7 @@ For Linux CLI health verification after trusting the CA:
 
    The zero SHA is the documented marker used before a Git source commit has been materialized into a build. It does not indicate a release.
 
-   Starting with the next pull request, CI builds materialize the exact source commit's seven-character SHA into the image (for example, `v0.1.0-a1b2c3d-alpha`) and verify it from inside the image. The versioned `VERSION` file stays on the zero marker; no SHA is committed back. Compose tags application images as `main` by default; this tag does not replace the runtime product identity.
+   The first materialized alpha image is `v0.1.0-3e0c935-alpha` (source commit `3e0c935dbf63dc3edef265394f6b9da5c78a33fd`); GitHub Actions verified and published its AMD64/ARM64 manifest. Every later CI image uses the exact source commit's seven-character SHA and is verified inside the image. The versioned `VERSION` file stays on the zero marker; no SHA is committed back. Compose tags application images as `main` by default; this tag does not replace the runtime product identity. This alpha image identity is not a launch release or stage promotion.
 
 On Windows, after importing the CA into the current-user trust store, `curl.exe https://localhost:3000/health` should also validate normally. To use curl before importing it, pass `--cacert .\.local\localhost-ca.crt`.
 
