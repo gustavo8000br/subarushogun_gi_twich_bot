@@ -4,11 +4,15 @@
 
 ## Unreleased
 
-- Migra a imagem Node do app para `node:24.20.0-alpine3.24`; contrato Compose com teste primeiro e build de produção limpo verificaram engine Prisma musl/OpenSSL, bootstrap, três migrations PostgreSQL, runtime sem root e health HTTPS. O Compose normal foi reconstruído/recriado sobre os volumes atuais de banco/segredos, sem removê-los. Imagem AMD64: 769.822.537 bytes; ARM64 aguarda build QEMU do CI.
+## Primeira imagem alpha materializada — v0.1.0-3e0c935-alpha (2026-10-05)
+
+- A execução GitHub Actions `37391271083` passou todos os gates, materializou a identidade exata de sete caracteres da origem e publicou a imagem privada GHCR multi-plataforma para `linux/amd64` e `linux/arm64`. Os manifests `main` e de versão apontaram para o mesmo índice de imagem. Nenhuma GitHub Release ou tag Git foi criada; `package.json`, `.release-stage` e `VERSION` versionado permanecem, respectivamente, `0.1.0`, `alpha` e o marcador zero.
+
+- Migra a imagem Node do app para `node:24.20.0-alpine3.24`; contrato Compose com teste primeiro e build de produção limpo verificaram engine Prisma musl/OpenSSL, bootstrap, três migrations PostgreSQL, runtime sem root e health HTTPS. O Compose normal foi reconstruído/recriado sobre os volumes atuais de banco/segredos, sem removê-los. Imagem AMD64: 769.822.537 bytes; CI QEMU pós-merge compilou e publicou as duas arquiteturas.
 
 - Adiciona publicação GHCR somente para commits em `main`, condicionada à aprovação de todos os gates de qualidade/build. QEMU/Buildx publica tags `linux/amd64` e `linux/arm64` e cria manifests universais `main` e de versão materializada. Compose e helpers de início/atualização baixam a imagem do registry; README e política de versão documentam autenticação durante o pré-lançamento e gate de visibilidade pública antes do lançamento.
 - Atualiza os dois desinstaladores para remover explicitamente a tag GHCR selecionada no cache local; o fluxo padrão ainda preserva todos os volumes nomeados de dados.
-- A partir da próxima PR, materializa o SHA Git exato de sete caracteres do checkout nas imagens CI por meio de saída externa de artefato e argumento de build Compose; verifica a versão dentro da imagem. O arquivo `VERSION` versionado não muda, não há commit de retorno do SHA e a identidade de desenvolvimento permanece `v0.1.0-HHHHHHH-alpha`.
+- CI materializa o SHA Git exato de sete caracteres do checkout nas imagens por saída externa de artefato e argumento de build Compose, e verifica a versão dentro da imagem. O `VERSION` versionado não muda nem recebe commit de retorno; a identidade publicada é `v0.1.0-3e0c935-alpha`.
 - Separa a tag de imagem padrão do Compose (`main`) da identidade runtime do produto (argumento de build `PRODUCT_VERSION`).
 - Registra o aceite manual Windows informado pelo operador no commit `f32c37a` e adiciona teste primeiro para a regressão do helper; a troca de `timeout /nobreak` por espera via `ping` passa o contrato no Linux, aguardando reteste Windows.
 - Amplia o contrato dos READMEs bilíngues para permissões de execução no Linux/macOS e confiança TLS na primeira execução; runtime macOS continua sem validação.

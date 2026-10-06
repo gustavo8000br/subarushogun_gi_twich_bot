@@ -4,11 +4,15 @@
 
 ## Unreleased
 
-- Switches the app container from Debian Bookworm to pinned Alpine 3.24 after a clean build and real Compose validation of Prisma musl engine, bootstrap, migrations, HTTPS health, and restart over preserved project data volumes. The local AMD64 image fell from 959 MB to about 770 MB; ARM64 awaits CI validation.
+## First materialized alpha image — v0.1.0-3e0c935-alpha (2026-10-05)
+
+- Published the first commit-identified alpha image for `linux/amd64` and `linux/arm64` after CI quality/build gates passed. The GHCR package remains private. This image identity is not the public launch release; the product remains on major version `0` and `alpha`.
+
+- Switches the app container from Debian Bookworm to pinned Alpine 3.24 after a clean build and real Compose validation of Prisma musl engine, bootstrap, migrations, HTTPS health, and restart over preserved project data volumes. The local AMD64 image fell from 959 MB to about 770 MB; post-merge QEMU CI built and published both architectures.
 
 - Publish GHCR images for `linux/amd64` and `linux/arm64`; use multi-platform `main`/version tags and explicit architecture suffix tags. Compose startup and update helpers pull the published image.
 - Remove the selected local GHCR app image during uninstall while preserving project volumes unless the operator confirms data deletion.
-- Materialize the exact source commit's seven-character identity in CI-built container images, starting with the next pull request.
+- Materialize the exact source commit's seven-character identity in CI-built container images without changing the tracked `VERSION` file or committing the SHA back.
 - Use the `main` Docker image tag by default, separately from the runtime product version.
 - Replace the Windows startup helper's panel-check delay to avoid the stdin-redirection message reported during manual Windows acceptance; a manual retest on that platform is still required.
 - Clarify the one-time `chmod +x iniciar.sh` step for Linux/macOS archive installs and add a macOS first-run guide.

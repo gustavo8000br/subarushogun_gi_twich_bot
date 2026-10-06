@@ -4,11 +4,15 @@
 
 ## Unreleased
 
-- Switch the Node app image to `node:24.20.0-alpine3.24`; test-first Compose contract and a clean production build verified Prisma musl/OpenSSL engine, bootstrap, three PostgreSQL migrations, non-root runtime and HTTPS health. Rebuilt/recreated the normal Compose app over the existing database/secrets volumes without deleting them. AMD64 image is 769,822,537 bytes; ARM64 awaits the QEMU CI build.
+## First materialized alpha image — v0.1.0-3e0c935-alpha (2026-10-05)
+
+- GitHub Actions run `37391271083` passed all gates, materialized the exact seven-character source identity, and published the private GHCR multi-platform image for `linux/amd64` and `linux/arm64`. The `main` and version manifest resolved to the same image index. No GitHub Release or Git tag was created; `package.json`, `.release-stage`, and tracked `VERSION` remain `0.1.0`, `alpha`, and the zero marker respectively.
+
+- Switch the Node app image to `node:24.20.0-alpine3.24`; test-first Compose contract and a clean production build verified Prisma musl/OpenSSL engine, bootstrap, three PostgreSQL migrations, non-root runtime and HTTPS health. Rebuilt/recreated the normal Compose app over the existing database/secrets volumes without deleting them. AMD64 image is 769,822,537 bytes; post-merge QEMU CI built and published both architectures.
 
 - Added a main-only GHCR publishing job gated by every quality/build job. QEMU/Buildx publishes `linux/amd64` and `linux/arm64` tags, then creates universal `main` and materialized-version manifests. Compose and startup/update helpers now pull the registry image; README and version policy document pre-release package authentication and the public-visibility launch gate.
 - Updated both uninstallers to remove the selected cached GHCR app tag explicitly; their default path still keeps all named data volumes.
-- Starting with the next PR, materialize the checkout's exact seven-character Git SHA into CI-built container images via the external artifact output and a Compose build argument; verify the version from the built image. The tracked `VERSION` file is unchanged, no SHA commit-back occurs, and development identity remains `v0.1.0-HHHHHHH-alpha`.
+- CI materializes the checkout's exact seven-character Git SHA into container images via external artifact output and a Compose build argument, then verifies the version from the built image. The tracked `VERSION` file is unchanged, no SHA commit-back occurs, and the published identity is `v0.1.0-3e0c935-alpha`.
 - Decouple the default Compose application image tag (`main`) from the runtime product identity (`PRODUCT_VERSION` build argument).
 - Record the operator-reported manual Windows acceptance at commit `f32c37a` and add a test-first regression for the startup helper; replacing `timeout /nobreak` with a `ping` delay passes the Linux contract test, pending Windows retest.
 - Extend the bilingual README contract for Linux/macOS executable permissions and first-run TLS trust guidance; macOS runtime remains unverified.
