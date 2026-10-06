@@ -6,7 +6,7 @@
 
 ## Status
 
-**Done** — implementação, QA independente (PASS, 9,2/10), inspeção visual completa da página no Chrome e gates automatizados passaram. Publicação e merge do PR pertencem ao @devops.
+**Concluída e mesclada** — implementação, QA independente (PASS, 9,2/10), inspeção visual completa da página no Chrome, gates automatizados e merge da PR #24 passaram.
 
 ## História
 

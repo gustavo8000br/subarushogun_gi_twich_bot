@@ -6,6 +6,7 @@
 [![Node.js 24.20.0](https://img.shields.io/badge/Node.js-24.20.0-339933?logo=nodedotjs&logoColor=white)](package.json)
 [![Docker Compose v2](https://img.shields.io/badge/Docker-Compose_v2-2496ed?logo=docker&logoColor=white)](compose.yaml)
 [![TDD](https://img.shields.io/badge/testes-Red%E2%86%92Green%E2%86%92Refactor-bb3333)](docs/stories.md)
+[![Licença: MIT](https://img.shields.io/badge/Licen%C3%A7a-MIT-yellow.svg)](LICENSE)
 
 [English](README.md) | Português (Brasil)
 
@@ -202,7 +203,7 @@ Para conferir a saúde via CLI Linux depois de confiar na CA:
    ```json
    {
      "status": "ok",
-     "product_version": "v0.4.0-0000000-alpha",
+     "product_version": "v0.4.1-0000000-alpha",
      "dependencies": {
        "database": "connected",
        "twitch_api": "not_configured"
@@ -415,4 +416,4 @@ A estrutura deste guia foi inspirada por projetos públicos reais, sem copiar a 
 
 ## Licença
 
-Ainda não foi publicada uma licença. Até que os mantenedores escolham e adicionem uma, o código não recebe por padrão autorização para redistribuição ou reutilização.
+Este projeto está licenciado sob a licença MIT. Consulte [LICENSE](LICENSE).
