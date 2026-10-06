@@ -2,6 +2,10 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.4.1-alpha
+
+- Add the standard MIT license text and declare the license in package metadata. Synchronize licensing, version, and merged-story records in the English and pt-BR documentation.
+
 ## v0.4.0-alpha
 
 - Fix OPS-3 authorization for Twurple's EventSub chat badge object map; add an end-to-end EventSub-to-authorization regression test. Independent QA reproduced the moderator-as-viewer defect (7/10), then revalidated the test-first fix and passed at 9.2/10.

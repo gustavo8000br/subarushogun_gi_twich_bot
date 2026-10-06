@@ -4,6 +4,10 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.4.1-alpha
+
+- The project is now available under the MIT License.
+
 ## v0.4.0-alpha
 
 - Streamers can review every chat command in the panel and choose which roles can use supported commands.

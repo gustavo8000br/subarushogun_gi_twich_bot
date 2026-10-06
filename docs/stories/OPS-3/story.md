@@ -6,7 +6,7 @@
 
 ## Status
 
-**Done** — implementation, independent QA (PASS, 9.2/10), complete Chrome page inspection, and automated quality gates passed. PR publication and merge remain with @devops.
+**Done and merged** — implementation, independent QA (PASS, 9.2/10), complete Chrome page inspection, automated quality gates, and PR #24 merge passed.
 
 ## Quality Gate Plan
 

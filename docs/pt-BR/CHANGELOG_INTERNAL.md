@@ -2,6 +2,10 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.4.1-alpha
+
+- Adiciona o texto padrão da licença MIT e declara a licença nos metadados do pacote. Sincroniza informações de licença, versão e stories mescladas na documentação em inglês e pt-BR.
+
 ## v0.4.0-alpha
 
 - Corrige a autorização da OPS-3 para o mapa de badges de chat do EventSub Twurple; adiciona teste de regressão de ponta a ponta entre EventSub e autorização. QA independente reproduziu o defeito que classificava moderador como viewer (7/10), depois revalidou a correção test-first e aprovou com 9,2/10.

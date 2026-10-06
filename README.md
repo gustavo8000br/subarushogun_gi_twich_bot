@@ -6,6 +6,7 @@
 [![Node.js 24.20.0](https://img.shields.io/badge/Node.js-24.20.0-339933?logo=nodedotjs&logoColor=white)](package.json)
 [![Docker Compose v2](https://img.shields.io/badge/Docker-Compose_v2-2496ed?logo=docker&logoColor=white)](compose.yaml)
 [![TDD](https://img.shields.io/badge/tests-Red%E2%86%92Green%E2%86%92Refactor-bb3333)](docs/stories.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 English | [Português brasileiro](README.pt-BR.md)
 
@@ -202,7 +203,7 @@ For Linux CLI health verification after trusting the CA:
    ```json
    {
      "status": "ok",
-     "product_version": "v0.4.0-0000000-alpha",
+     "product_version": "v0.4.1-0000000-alpha",
      "dependencies": {
        "database": "connected",
        "twitch_api": "not_configured"
@@ -415,4 +416,4 @@ The structure of this guide was informed by public, real projects rather than co
 
 ## License
 
-No license file has been published. Until the project maintainers choose and add a license, the source code is not granted for redistribution or reuse by default.
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
