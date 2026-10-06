@@ -6,7 +6,7 @@ services:
     build:
       context: .
       args:
-        PRODUCT_VERSION: ${PRODUCT_VERSION:-v0.1.0-0000000-alpha}
+        PRODUCT_VERSION: ${PRODUCT_VERSION:-}
     user: "0:0"
     working_dir: /workspace
     volumes:
@@ -43,7 +43,7 @@ services:
     build:
       context: .
       args:
-        PRODUCT_VERSION: ${PRODUCT_VERSION:-v0.1.0-0000000-alpha}
+        PRODUCT_VERSION: ${PRODUCT_VERSION:-}
     user: "10001:10001"
     group_add:
       - "999"
@@ -59,7 +59,7 @@ services:
     build:
       context: .
       args:
-        PRODUCT_VERSION: ${PRODUCT_VERSION:-v0.1.0-0000000-alpha}
+        PRODUCT_VERSION: ${PRODUCT_VERSION:-}
     user: "10001:10001"
     group_add:
       - "999"

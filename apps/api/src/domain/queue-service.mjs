@@ -3,7 +3,7 @@ import { decideEntryTransition } from './entry-transitions.mjs';
 /** @typedef {{entryId: string, to: string, origin?: string, actorId?: string|null, reason: string}} TransitionInput */
 /** @typedef {{status: string, source: string}} EntrySnapshot */
 /** @typedef {{refundIfRemovedWhileCalled?: boolean, refundOnNoShow?: boolean, refundIfViewerLeavesCalled?: boolean}} QueuePolicySnapshot */
-/** @typedef {{repository: {applyEntryTransition: (args: {input: TransitionInput, decideTransition: (context: {entry: EntrySnapshot, queue: QueuePolicySnapshot, input: TransitionInput}) => object}) => Promise<object>, callNext?: (input: object) => Promise<Array<object>>, callSpecificEntry?: (input: object) => Promise<object>, clearActiveEntries?: (input: object) => Promise<object>}}} Dependencies */
+/** @typedef {{repository: {applyEntryTransition: (args: {input: TransitionInput, decideTransition: (context: {entry: EntrySnapshot, queue: QueuePolicySnapshot, input: TransitionInput}) => object}) => Promise<object>, callNext?: (input: object) => Promise<Array<object>>, callSpecificEntry?: (input: object) => Promise<object>, clearActiveEntries?: (input: object) => Promise<object>, requestQueueDeletion?: (input: object) => Promise<object>}}} Dependencies */
 
 function decideTransition({ entry, queue, input }) {
   return decideEntryTransition({
@@ -48,6 +48,11 @@ export function createQueueDomainService({ repository }) {
     clearActiveEntries(input) {
       if (!repository.clearActiveEntries) throw new Error('Queue clearing is unavailable');
       return repository.clearActiveEntries({ ...input, decideTransition });
+    },
+    /** @param {{queueId: string, actorId?: string|null, origin?: string}} input */
+    deleteQueue(input) {
+      if (!repository.requestQueueDeletion) throw new Error('Queue deletion is unavailable');
+      return repository.requestQueueDeletion({ ...input, decideTransition });
     },
   };
 }

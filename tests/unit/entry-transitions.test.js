@@ -98,6 +98,13 @@ describe('entry transition decisions', () => {
     }).financialDecision).toBe('request_cancel');
   });
 
+  it('always requests cancellation for queue deletion regardless of queue policy', () => {
+    expect(decideEntryTransition({
+      from: 'called', to: 'removed', source: 'redemption', origin: 'panel', reason: 'queue_deleted',
+      policy: { refundIfRemovedWhileCalled: false, refundIfViewerLeavesWhileCalled: false },
+    }).financialDecision).toBe('request_cancel');
+  });
+
   it('requests point consumption only for a local redemption completion', () => {
     expect(decideEntryTransition({
       from: 'in_progress', to: 'completed', source: 'redemption', origin: 'panel', reason: 'service_completed',

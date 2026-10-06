@@ -105,6 +105,56 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('queues an explicit call notification resend through the protected panel API', async () => {
+    const h = await createHarness();
+    h.repository.resendCallNotification = vi.fn(async () => ({ status: 'queued', entryId: 'entry-id' }));
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/call-notification/resend', headers: h.headers, payload: {} });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ status: 'queued', entryId: 'entry-id' });
+    expect(h.repository.resendCallNotification).toHaveBeenCalledWith({ entryId: 'entry-id', actorId: h.headers.cookie.split('=')[1] });
+    await h.app.close();
+  });
+
+  it('requires the local session and CSRF token for call notification resend', async () => {
+    const h = await createHarness();
+    h.repository.resendCallNotification = vi.fn();
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/call-notification/resend', headers: h.sessionHeaders, payload: {} });
+    expect(response.statusCode).toBe(403);
+    expect(h.repository.resendCallNotification).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it('archives and unarchives queues through explicit protected routes', async () => {
+    const h = await createHarness();
+    h.repository.archiveQueue = vi.fn(async () => ({ status: 'pending', queue: { id: 'queue-id', isArchived: true, isOpen: false, lifecycleStatus: 'active' } }));
+    h.repository.unarchiveQueue = vi.fn(async () => ({ status: 'unarchived', queue: { id: 'queue-id', isArchived: false, isOpen: false, lifecycleStatus: 'active' } }));
+
+    const archived = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive', headers: h.headers, payload: {} });
+    expect(archived.statusCode).toBe(200);
+    expect(archived.json()).toMatchObject({ status: 'pending', queue: { isArchived: true } });
+    expect(h.repository.archiveQueue).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' });
+    const unarchived = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/unarchive', headers: h.headers, payload: {} });
+    expect(unarchived.statusCode).toBe(200);
+    expect(unarchived.json()).toMatchObject({ status: 'unarchived', queue: { isArchived: false, isOpen: false } });
+    await h.app.close();
+  });
+
+  it('requires CSRF and calls the domain service to request queue deletion', async () => {
+    const domainService = { deleteQueue: vi.fn(async () => ({ status: 'pending', activeRemoved: 2, refundsRequested: 1, queue: { id: 'queue-id', isArchived: true, isOpen: false, lifecycleStatus: 'deleting' } })) };
+    const h = await createHarness({ domainService });
+    const denied = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.sessionHeaders, payload: {} });
+    expect(denied.statusCode).toBe(403);
+    expect(domainService.deleteQueue).not.toHaveBeenCalled();
+    const missingConfirmation = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: {} });
+    expect(missingConfirmation.statusCode).toBe(400);
+    expect(domainService.deleteQueue).not.toHaveBeenCalled();
+    const accepted = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: { confirm: true } });
+    expect(accepted.statusCode).toBe(200);
+    expect(accepted.json()).toMatchObject({ status: 'pending', activeRemoved: 2, refundsRequested: 1, queue: { lifecycleStatus: 'deleting' } });
+    expect(domainService.deleteQueue).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' });
+    await h.app.close();
+  });
+
   it('includes a visible UID in the state projection only when the overlay toggle is enabled', async () => {
     const h = await createHarness();
     h.repository.listQueueProjection.mockResolvedValue([{ ...h.repository.createQueue.mock.results[0]?.value, uidMode: 'visible', showUidInOverlay: true, entries: [{ id: 'entry-id', status: 'waiting', uid: '123456789' }] }]);
@@ -131,6 +181,16 @@ describe('local queue and setup API', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ status: 'resolved_manual', remoteConfirmed: false });
     expect(h.repository.resolveUnknownFinancialOperation).toHaveBeenCalledWith('op-id', h.headers.cookie.split('=')[1]);
+    await h.app.close();
+  });
+
+  it('exposes only safe queue-deletion operation fields to the protected operations panel', async () => {
+    const h = await createHarness();
+    h.repository.listFinancialOperations = vi.fn(async () => [{ id: 'delete-task', operationType: 'reward.delete', entityId: 'queue-id', status: 'unknown', attempts: 3, lastError: 'queue_delete_result_unknown', secret: 'must-not-leak' }]);
+    const response = await h.app.inject({ method: 'GET', url: '/api/operations', headers: h.sessionHeaders });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual([{ id: 'delete-task', type: 'reward.delete', entityId: 'queue-id', status: 'unknown', attempts: 3, lastError: 'queue_delete_result_unknown', nextAttemptAt: null }]);
+    expect(response.body).not.toContain('must-not-leak');
     await h.app.close();
   });
 

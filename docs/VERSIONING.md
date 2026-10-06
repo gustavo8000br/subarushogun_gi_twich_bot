@@ -2,12 +2,22 @@
 
 [Português brasileiro](pt-BR/VERSIONING.md)
 
-The product follows SemVer. `package.json` stores only the base `MAJOR.MINOR.PATCH`; `.release-stage` is the sole stage source (`alpha`, `beta`, `rc`, or `stable`); `VERSION` stores the runtime identity `vMAJOR.MINOR.PATCH-HHHHHHH-STAGE`. Development remains on major `0` with the `alpha` stage until the human-approved launch release. The initial source identity is `v0.1.0-0000000-alpha`.
+The product follows SemVer. `package.json` stores only `MAJOR.MINOR.PATCH`; `.release-stage` is the sole stage source (`alpha`, `beta`, `rc`, or `stable`); and `VERSION` stores the runtime identity `vMAJOR.MINOR.PATCH-HHHHHHH-STAGE`.
 
-The first materialized alpha image is `v0.1.0-3e0c935-alpha`, built from source commit `3e0c935dbf63dc3edef265394f6b9da5c78a33fd` and published as an AMD64/ARM64 manifest after all CI gates passed. This is a versioned alpha image identity, not a launch release, Git tag, or stage promotion. Every subsequent CI image materializes the first seven hexadecimal characters of its exact source commit and verifies the value inside the image; the SHA is never written back into the checkout. A Git discovery error is a build error, never a reason to use the zero marker. Normal validation, startup, documentation and code commits do not update version files. The zero marker remains for unmaterialized local source builds. Stage promotion requires explicit human approval. Releases and tags are managed by `@devops`.
+## Version each shipped main build
 
-GHCR image tags follow one platform convention: `main` and a complete version such as `v0.1.0-abcdef0-alpha` identify multi-platform manifests; `main-linux-amd64`, `main-linux-arm64`, and their versioned equivalents identify single-platform images. Compose defaults to `IMAGE_TAG=main`, allowing Docker to select the host architecture from the manifest. `IMAGE_TAG` can override the tag. Image tags do not determine `product_version`; runtime identity remains embedded in the image.
+A pull request that is ready to merge and ship in the `main` image gets a version before merge. Increment `PATCH` for a small fix or documentation-only change. Increment `MINOR` for a new feature, a large implementation, or a complex fix. Increment `MAJOR` only for a major product change, such as an official launch release explicitly authorized by the owner. Update `package.json`, `package-lock.json`, and tracked `VERSION` consistently. Only the product owner may change the release stage. Implementation work and version increments never change it automatically.
 
-The launch release follows the complete planned SemVer/release workflow, including its approved product version and stage; development CI builds do not create a release or tag.
+Use `Unreleased` only while changes have not yet been merged and included in the `main` image. When preparing a shipping PR, move the user-facing and technical notes into matching version sections in both English and pt-BR changelogs. Changelog headings use the SemVer base and stage (for example `v0.2.0-alpha`). The full runtime identity includes the exact seven-character SHA of the source commit (for example `v0.2.0-abcdef0-alpha`); CI materializes it in the artifact after the commit exists, so the changelog commit never has to contain its own SHA.
 
-Every release updates both changelogs and passes the project quality gates. User-visible changes belong in `CHANGELOG.md`; implementation and operational changes belong in `CHANGELOG_INTERNAL.md`. Runtime identity is distinct from API contract version and state revision.
+The current FND-5 shipping increment is `0.2.0-alpha`. The first launch beta target remains `v1.0.0-HHHHHHH-beta`, conditional on FND-7 achieving QA ≥9/10. FND-8 is reserved for a later i18n story; after that story is defined and completed, the intended first beta MINOR is `v1.1.0-HHHHHHH-beta`. No stage promotion is implied by a SemVer increment or successful tests.
+
+## Runtime identity and artifacts
+
+The initial source identity was `v0.1.0-0000000-alpha`. The first materialized alpha image was `v0.1.0-3e0c935-alpha`, built from source commit `3e0c935dbf63dc3edef265394f6b9da5c78a33fd` and published as an AMD64/ARM64 manifest after all CI gates passed. It was a versioned alpha image, not a launch release, GitHub Release, Git tag, or stage promotion.
+
+For each CI image, materialize the first seven hexadecimal characters of the exact source commit and verify the identity inside the image. Do not write the SHA back into the source checkout. A Git discovery error is a build error, never a reason to use the zero marker. The zero marker is for unmaterialized local source builds; a destination computer without Git keeps the identity embedded in the image.
+
+GHCR image tags follow one platform convention: `main` and a full version such as `v0.2.0-abcdef0-alpha` identify multi-platform manifests; `main-linux-amd64`, `main-linux-arm64`, and their versioned equivalents identify single-platform images. Compose defaults to `IMAGE_TAG=main`. Image tags do not determine `product_version`; runtime identity remains embedded in the image.
+
+GitHub Releases and tags remain exclusively managed by `@devops`. Publishing a versioned CI image does not create a GitHub Release or Git tag. Stage promotion requires explicit human approval. The product version, API contract version, and state revision have separate purposes.

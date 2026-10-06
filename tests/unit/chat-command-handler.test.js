@@ -67,6 +67,25 @@ describe('Twitch chat command handler', () => {
     expect(h.twitch.sendChatMessage).toHaveBeenCalledTimes(1);
   });
 
+  it('claims each authorized command durably before applying its effects', async () => {
+    const h = setup();
+    h.repository.claimChatCommand = vi.fn(async () => ({ status: 'duplicate' }));
+    await h.handler({ id: 'durable-message-1', text: '!abismo proximo', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+    expect(h.repository.claimChatCommand).toHaveBeenCalledWith(expect.objectContaining({
+      messageId: 'durable-message-1', channelId: 'broadcaster-1', userId: 'mod-1', role: 'moderator', cooldownExempt: false,
+    }));
+    expect(h.domainService.callNext).not.toHaveBeenCalled();
+    expect(h.twitch.sendChatMessage).not.toHaveBeenCalled();
+  });
+
+  it('does not announce an opening reward as open before Twitch confirmation', async () => {
+    const h = setup();
+    h.repository.getQueueByKey.mockResolvedValue({ id: 'queue-1', slug: 'abismo', title: 'Abismo', uidMode: 'hidden', showUidInList: false, isOpen: true, remoteSyncStatus: 'pending_open' });
+    await h.handler({ id: 'pending-open-list', text: '!abismo lista', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+    expect(h.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringContaining('abertura pendente'));
+    expect(h.twitch.sendChatMessage).not.toHaveBeenCalledWith(expect.stringContaining('Abismo · Aguardando'));
+  });
+
   it('requires the same authorized actor and channel to confirm queue clearing before mutation', async () => {
     const h = setup();
     await h.handler({ id: 'clear-1', text: '!abismo limpar', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });

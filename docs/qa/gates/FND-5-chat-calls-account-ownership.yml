@@ -1,0 +1,99 @@
+schema: 1
+story: FND-5
+story_title: Chat commands, calls, service lifecycle, and account ownership
+gate: CONCERNS
+status_reason: >-
+  All FND-5 acceptance criteria have mapped unit and real-PostgreSQL coverage, all 329 tests
+  and repository quality gates pass, and no blocking code issue was found. The live Twitch
+  operation remains unverified without authorized credentials and must not be inferred from fakes.
+reviewer: Quinn (Test Architect)
+reviewed_revision: worktree-source-sha256:e672280cd8705933b2b04fbae506a600d77db32c97e1a88ac766bf30bbe74b59
+updated: '2026-10-06T01:42:00Z'
+top_issues: []
+risk_summary:
+  highest_score: 8
+  rationale: 'Live Twitch point-operation validation remains outstanding; user authorization/credentials are not present in this review.'
+waiver:
+  active: false
+quality_score: 90
+expires: '2026-10-20T01:42:00Z'
+evidence:
+  tests_reviewed: 329
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    ac_gaps: []
+  commands:
+    - 'npm test: 48 files, 329 tests passed; isolated PostgreSQL migrations and Compose first-run integration included'
+    - 'npm run lint: passed'
+    - 'npm run typecheck: passed'
+    - 'npm run review:static: OpenGrep scanned 41 JavaScript files, 0 findings'
+    - 'npm run validate:version: passed; v0.2.0-0000000-alpha'
+    - 'docker compose config --quiet: passed'
+    - 'git diff --check: passed'
+  traceability:
+    - ac: 1
+      given: 'A viewer or manager submits a Twitch chat command, including a duplicate or a command during cooldown'
+      when: 'The chat handler parses, authorizes, claims and dispatches the message'
+      then: 'Trusted channel/identity/badges govern authorization; viewer cooldown and message deduplication persist; manager permissions follow role rules'
+      tests: ['tests/unit/command-parser.test.js', 'tests/unit/command-authorization.test.js', 'tests/unit/chat-command-handler.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 2
+      given: 'A call is requested, retried, privacy settings change, or the process restarts'
+      when: 'The chat outbox delivers or recovers a call'
+      then: 'Notification intent is durable, current privacy is checked at send time, backoff/429 delay persists and timeout starts only after confirmed send'
+      tests: ['tests/integration/queue-repository-chat.test.js', 'tests/unit/chat-outbox-worker.test.js', 'tests/unit/call-notification-actions.test.js']
+    - ac: 3
+      given: 'An operator starts service or a persisted call deadline expires during recovery/concurrent action'
+      when: 'The domain transition and timeout loop compete'
+      then: 'Starting service ends no-show eligibility and stale timers do not override the committed transition'
+      tests: ['tests/unit/entry-transitions.test.js', 'tests/unit/call-timeout-loop.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 4
+      given: 'A clear confirmation is expired, actor/queue differs, or active-entry snapshot changed'
+      when: 'Chat or panel confirms clear'
+      then: 'No entries or points operation are changed; a valid confirmation removes exactly the reviewed snapshot'
+      tests: ['tests/unit/clear-confirmation.test.js', 'tests/unit/queue-routes.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 5
+      given: 'Concurrent calls in separate queues, a manual account override, reset, or an unrelated terminal transition occurs'
+      when: 'The account owner state changes'
+      then: 'Global PostgreSQL serialization preserves audit order and only the current owner may return the account to the latest default'
+      tests: ['tests/integration/queue-repository.test.js']
+    - ac: 6
+      given: 'Chat, panel or timeout code requests a queue transition/call/clear/delete'
+      when: 'The operation passes through the shared domain service'
+      then: 'The application does not mutate entry status through bypass paths'
+      tests: ['tests/unit/queue-domain-service.test.js', 'tests/unit/queue-transition-boundary.test.js', 'tests/unit/queue-routes.test.js', 'tests/unit/chat-command-handler.test.js']
+    - ac: 7
+      given: 'An operator archives or restores a queue and a viewer/operator lists or services existing entries'
+      when: 'Queue lifecycle changes'
+      then: 'Archive hides discovery, preserves current service, and restore requires confirmed pause without reopening'
+      tests: ['tests/integration/queue-repository.test.js', 'tests/unit/queue-routes.test.js', 'tests/unit/chat-command-handler.test.js']
+    - ac: 8
+      given: 'A deletion request is unconfirmed, cancellations are pending/conflicted, work is retried, or the DELETE response is lost'
+      when: 'The deletion worker advances its durable stages'
+      then: 'No Twitch DELETE occurs before every unfulfilled redemption cancellation is confirmed; state stays recoverable and queue keys release only after remote deletion is confirmed'
+      tests: ['tests/unit/queue-routes.test.js', 'tests/unit/web-route.test.js', 'tests/unit/reward-outbox-worker.test.js', 'tests/integration/queue-repository.test.js']
+    - ac: 9
+      given: 'Point intents, messages or text may be retried or rejected'
+      when: 'Workers and chat handling process failure cases'
+      then: 'Idempotency, leases, retry/reconciliation, sanitized state and UID privacy prevent duplicate or unintended effects'
+      tests: ['tests/unit/reward-outbox-worker.test.js', 'tests/unit/chat-outbox-worker.test.js', 'tests/unit/chat-command-handler.test.js', 'tests/integration/queue-repository.test.js']
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Mutation routes enforce local session/CSRF; chat authorization uses trusted event metadata; user text is not echoed or persisted raw; sensitive output is allowlisted and panel rendering uses text nodes.'
+  performance:
+    status: PASS
+    notes: 'Queue operations are serialized in short transactions, Twitch calls remain outside transactions, retries are bounded/backed off, and paginated reward work is covered. One low residual optimization opportunity is that local deletion blocker aggregation reads a queue redemption history into memory.'
+  reliability:
+    status: PASS
+    notes: 'Real PostgreSQL migration tests cover concurrency, durable intents, retry state, lease/restart recovery, key release and task visibility; Compose first-run uses an isolated stack.'
+  maintainability:
+    status: PASS
+    notes: 'ESM/JSDoc structure remains modular; implementation and documentation are covered by 329 tests and bilingual story/changelog/versioning records.'
+recommendations:
+  immediate: []
+  future:
+    - action: 'Run authorized live Twitch setup and one controlled reward open/close/redemption recovery acceptance before claiming real-channel operation; no such test is claimed by this gate.'
+      refs: ['docs/integrations.md', 'docs/stories/FND-5/story.md']
+    - action: 'Replace full local redemption history loading in deletion blocker aggregation with bounded/count-based queries if channels accumulate very large redemption histories.'
+      refs: ['apps/api/src/persistence/queue-repository.mjs']

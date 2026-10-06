@@ -95,7 +95,7 @@ describe('local Compose runtime contract', () => {
     for (const serviceName of ['bootstrap', 'migrate', 'bot']) {
       expect(typeof config.services[serviceName].image).toBe('string');
       expect(config.services[serviceName].image).toMatch(/^ghcr\.io\/gustavo8000br\/subarushogun_gi_twich_bot:main$/);
-      expect(config.services[serviceName].build.args.PRODUCT_VERSION).toBe('v0.1.0-0000000-alpha');
+      expect(config.services[serviceName].build.args.PRODUCT_VERSION).toBe('');
     }
     const dockerfile = readFileSync(dockerfilePath, 'utf8');
     expect(dockerfile).toMatch(/^FROM node:24\.20\.0-alpine3\.24 AS dependencies$/m);

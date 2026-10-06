@@ -12,6 +12,11 @@ Este arquivo define as instrucoes do projeto para o Codex CLI.
 5. Documentacao e obrigatoria: atualize os documentos afetados em ingles e pt-BR no mesmo incremento; uma story ou PR nao esta concluida sem ambas as versoes equivalentes e verificadas
 <!-- AIOX-MANAGED-END: core -->
 
+## Sincronização de stories e issues
+
+- O @devops atualiza o corpo e o status da issue correspondente quando publicar uma story marcada como Done por PR mesclada.
+- Não publicar comentários em issues; comentários só são publicados se forem necessários para registrar uma decisão ou bloqueio que não caiba no corpo da issue.
+
 <!-- AIOX-MANAGED-START: quality -->
 ## Quality Gates
 
