@@ -10,7 +10,7 @@ A pull request that is ready to merge and ship in the `main` image gets a versio
 
 Use `Unreleased` only while changes have not yet been merged and included in the `main` image. When preparing a shipping PR, move the user-facing and technical notes into matching version sections in both English and pt-BR changelogs. Changelog headings use the SemVer base and stage (for example `v0.2.0-alpha`). The full runtime identity includes the exact seven-character SHA of the source commit (for example `v0.2.0-abcdef0-alpha`); CI materializes it in the artifact after the commit exists, so the changelog commit never has to contain its own SHA.
 
-The current FND-6 shipping increment is `0.3.0-alpha`. The first launch beta target remains `v1.0.0-HHHHHHH-beta`, conditional on FND-7 achieving QA ≥9/10. FND-8 is reserved for a later i18n story; after that story is defined and completed, the intended first beta MINOR is `v1.1.0-HHHHHHH-beta`. No stage promotion is implied by a SemVer increment or successful tests.
+The current mainline product version is `0.4.0-alpha`, which includes the OPS-3 command catalog feature and the earlier `0.3.1-alpha` security patch. The first launch beta target remains `v1.0.0-HHHHHHH-beta`, conditional on FND-7 achieving QA ≥9/10. FND-8 is reserved for a later i18n story; after that story is defined and completed, the intended first beta MINOR is `v1.1.0-HHHHHHH-beta`. No stage promotion is implied by a SemVer increment or successful tests.
 
 ## Runtime identity and artifacts
 

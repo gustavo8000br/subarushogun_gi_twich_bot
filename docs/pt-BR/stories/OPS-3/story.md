@@ -94,7 +94,13 @@ O QA independente inicialmente retornou FAIL (7/10) pela incompatibilidade de fo
 
 Codex GPT-6, atuando como orquestrador AIOX Master e executor da story.
 
-### Lista de arquivos
+#### Integração do patch de segurança e build Compose limpo
+
+- Após integrar o patch de segurança a esta branch, `npm ci` resolveu `deepmerge-ts@8.0.2` pelo override restrito do Prisma Config; CLI/client/adapter Prisma permaneceram em 6.19.3. `npm audit --audit-level=high` informou 0 vulnerabilidades.
+- `IMAGE_TAG=ops3-pr-final-20261006 APP_PORT=3222 LOCAL_CERT_DIRECTORY=/tmp/queuebot-ops3-pr-certs docker compose -p queuebot-ops3-pr-final build --no-cache` — as três imagens do app foram construídas; Prisma Client 6.19.3 foi gerado.
+- `IMAGE_TAG=ops3-pr-final-20261006 APP_PORT=3222 LOCAL_CERT_DIRECTORY=/tmp/queuebot-ops3-pr-certs docker compose -p queuebot-ops3-pr-final up -d` — bootstrap concluiu, PostgreSQL ficou saudável, migrations terminaram com sucesso e healthcheck do bot ficou saudável. `curl -k https://localhost:3222/health` retornou `status: ok`, produto `v0.4.0-0000000-alpha`, banco `connected`, Twitch `not_configured`. Esta instalação isolada vazia permanece disponível na porta 3222; os projetos Compose existentes do streamer não foram tocados.
+
+## Lista de arquivos
 
 - `apps/api/src/commands/catalog.mjs`, `help.mjs`, `authorization.mjs`, `parser.mjs`, `chat-handler.mjs`
 - `apps/api/src/domain/queue-keys.mjs`, `health-route.mjs`, `server.mjs`
@@ -107,6 +113,7 @@ Codex GPT-6, atuando como orquestrador AIOX Master e executor da story.
 - `docs/stories.md`, `docs/pt-BR/stories.md`, stories OPS-3 pareadas/spec e JSON de planejamento em `docs/stories/OPS-3/` e `docs/pt-BR/stories/OPS-3/`
 - `CHANGELOG.md`, `CHANGELOG_INTERNAL.md`, `docs/pt-BR/CHANGELOG.md`, `docs/pt-BR/CHANGELOG_INTERNAL.md`
 - `package.json`, `package-lock.json`, `VERSION`
+- `docs/VERSIONING.md`, `docs/pt-BR/VERSIONING.md`
 - `docs/qa/gates/OPS-3-command-catalog.yml` e o par em pt-BR registram o gate independente aprovado.
 
 ## QA

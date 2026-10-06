@@ -109,6 +109,10 @@ The order below follows the specification's suggested stages. Each story must be
 - **TDD evidence:** see the observed version, Compose/bootstrap, runtime regression, PostgreSQL, test discovery, quality-script, health projection, docs, Compose acceptance, POSIX helper, and static web-entrypoint checks above. FND-1 remains InProgress only for unexecuted Windows host validation.
 - **Static-review migration TDD:** `tests/unit/aiox-static-review.test.js` first failed because Layer 2 did not execute its configured command; a later Red exposed the missing static-review workflow phase. `tests/unit/opengrep-quality-gate.test.js` first failed because the story template/command were missing, then caught the absent blocking `--error` flag. Focused tests pass after correcting those behaviors. `npm run review:static` reports 0 findings across 19 application JavaScript files. A temporary fixture previously confirmed the unsafe HTML and credential-logging rules.
 
+##### Prisma dependency security TDD (2026-10-06)
+
+`npm test -- --run tests/unit/prisma-dependency-security.test.js` Red — 1 failed because the manifest had no patched override. Green — 2 passed after pinning only `@prisma/config`’s `deepmerge-ts` dependency to 8.0.2; Prisma CLI/client/adapter remain aligned at 6.19.3. `npm ci` and `npm audit --audit-level=high` report zero vulnerabilities. Full suite: 53 files/386 tests; lint, typecheck, version validation (`v0.3.1-0000000-alpha`), OpenGrep (0 findings), Compose config and diff checks passed. A no-cache Alpine Compose build and isolated first run at port 3221 completed bootstrap, PostgreSQL migration, healthy bot, and `/health` database connectivity. Disposable test containers and volumes were removed; the active installation was untouched.
+
 #### FND-2 — Queue domain, validation, ordering, and parser
 
 **Status:** Done (2026-10-05; acceptance checks, PostgreSQL/domain review, QA review, and required gates passed)

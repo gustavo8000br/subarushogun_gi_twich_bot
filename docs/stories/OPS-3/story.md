@@ -69,7 +69,7 @@
 ### Full quality gates
 
 - `npm test -- --run tests/unit/command-catalog.test.js tests/unit/command-catalog-view.test.js tests/unit/command-parser.test.js tests/unit/command-authorization.test.js tests/unit/command-help.test.js tests/unit/chat-command-handler.test.js tests/unit/health-route.test.js tests/unit/queue-keys.test.js tests/unit/queue-routes.test.js tests/integration/command-policy-persistence.test.js` — 124 tests passed across 10 files before the final response-merge regression was added.
-- Final `npm run lint`, `npm run typecheck`, `npm test` — passed; **412 tests in 56 files**.
+- Final `npm run lint`, `npm run typecheck`, `npm test` — passed; **416 tests in 57 files**.
 - `npm run review:static` — OpenGrep scanned 48 JavaScript files; 0 findings.
 - Per-area lint/typecheck for API, infra and web — passed. `npm run validate:version` — `v0.4.0-0000000-alpha`; `docker compose config --quiet` and `git diff --check` — passed.
 - Final focused rerun after the response-merge fix: `npm test -- --run tests/integration/command-policy-persistence.test.js tests/unit/command-catalog-view.test.js tests/unit/chat-command-handler.test.js tests/unit/health-route.test.js` — 25 tests passed across 4 files.
@@ -99,6 +99,12 @@ Independent QA initially returned FAIL (7/10) for the Twurple badge-object misma
 
 Each increment starts with its focused failing Vitest contract. Run relevant unit/route tests and migration-backed PostgreSQL tests after changes. Before story completion, run all story quality gates listed above and verify every AC.
 
+### Security patch integration and clean Compose build
+
+- After merging the security patch into this feature branch, `npm ci` resolved `deepmerge-ts@8.0.2` through the scoped Prisma config override; Prisma CLI/client/adapter remained at 6.19.3. `npm audit --audit-level=high` reported 0 vulnerabilities.
+- `IMAGE_TAG=ops3-pr-final-20261006 APP_PORT=3222 LOCAL_CERT_DIRECTORY=/tmp/queuebot-ops3-pr-certs docker compose -p queuebot-ops3-pr-final build --no-cache` — all three app images built; Prisma 6.19.3 client generated.
+- `IMAGE_TAG=ops3-pr-final-20261006 APP_PORT=3222 LOCAL_CERT_DIRECTORY=/tmp/queuebot-ops3-pr-certs docker compose -p queuebot-ops3-pr-final up -d` — bootstrap completed, PostgreSQL healthy, migrations exited successfully, and bot healthcheck became healthy. `curl -k https://localhost:3222/health` returned `status: ok`, product `v0.4.0-0000000-alpha`, database `connected`, Twitch `not_configured`. This isolated empty installation remains available on port 3222; the streamer's existing Compose projects were untouched.
+
 ## File List
 
 ### Completion Notes
@@ -124,13 +130,14 @@ Codex GPT-6, operating as the AIOX Master orchestrator and story executor.
 - `docs/stories.md`, `docs/pt-BR/stories.md`, paired OPS-3 story/spec documents and planning JSON under `docs/stories/OPS-3/` and `docs/pt-BR/stories/OPS-3/`
 - `CHANGELOG.md`, `CHANGELOG_INTERNAL.md`, `docs/pt-BR/CHANGELOG.md`, `docs/pt-BR/CHANGELOG_INTERNAL.md`
 - `package.json`, `package-lock.json`, `VERSION`
+- `docs/VERSIONING.md`, `docs/pt-BR/VERSIONING.md`
 - `docs/qa/gates/OPS-3-command-catalog.yml` and its pt-BR pair record the independent PASS gate.
 
 ## QA Results
 
  - **Initial independent review:** FAIL, 7/10. High finding: Twurple provides chat badges as an object map, but authorization recognized arrays only. Reproduced end to end: moderator was classified as viewer and `!fila proximo` was denied.
  - **Revalidation:** PASS, 9.2/10 after a test-first regression and fix. Reviewer confirmed array/object badge formats, streamer identity, moderator policy, VIP toggle and allowlist, subscriber allowlist, streamer-only `!conta reset`, and rejection of external Shared Chat privileges. Focused suite: 37/37; OpenGrep: 0 findings; lint, typecheck and diff-check passed. Reviewer made no code edits.
- - Full quality gates after fix: `npm run lint`, `npm run typecheck`, `npm test` (56 files, 413 tests), and `npm run review:static` (48 JS files, 0 findings) passed. Clean Compose rebuild and protected API smoke are recorded above.
+ - Full quality gates after fix: `npm run lint`, `npm run typecheck`, `npm test` (57 files, 416 tests), and `npm run review:static` (48 JS files, 0 findings) passed. Clean Compose rebuild and protected API smoke are recorded above.
 
 ## Change Log
 

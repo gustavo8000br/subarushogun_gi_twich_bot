@@ -26,7 +26,7 @@ evidence:
     ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     ac_gaps: []
   commands:
-    - 'Full project suite: 56 files, 413 tests passed after QA fix'
+    - 'Full project suite: 57 files, 416 tests passed after QA fix'
     - 'Focused QA suite: 5 files, 37 tests passed'
     - 'npm run lint: passed'
     - 'npm run typecheck: passed'
@@ -97,4 +97,4 @@ nfr_validation:
     notes: 'Ping uses cached Twitch latency; no per-message Helix request was introduced.'
   reliability:
     status: PASS
-    notes: 'Command policy persistence and audit are covered by real PostgreSQL migrations; 413 tests pass.'
+    notes: 'Command policy persistence and audit are covered by real PostgreSQL migrations; 416 tests pass.'

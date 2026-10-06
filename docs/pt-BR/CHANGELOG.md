@@ -9,6 +9,10 @@ Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes t�
 - Streamers podem consultar todos os comandos de chat no painel e escolher quais cargos podem usar os comandos configuráveis.
 - Viewers podem pedir no chat a lista de comandos disponíveis para seu cargo; streamer e moderadores podem verificar se o bot responde.
 
+## v0.3.1-alpha
+
+- Atualizações de segurança corrigem uma vulnerabilidade reportada em dependência.
+
 ## v0.3.0-alpha
 
 - Streamers podem configurar limites de resgate e intervalo das recompensas da fila no painel.
