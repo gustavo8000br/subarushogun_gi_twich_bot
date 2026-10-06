@@ -1,21 +1,19 @@
 status:
-  branch: fix/fnd5-account-owner-serialization
+  branch: feat/fnd-6-streamer-panel-security
   modifiedFiles:
     - .aiox/project-status.yaml
-    - AGENTS.md
     - CHANGELOG.md
     - CHANGELOG_INTERNAL.md
-    - VERSION
-  modifiedFilesTotalCount: 35
+    - README.md
+    - README.pt-BR.md
+  modifiedFilesTotalCount: 57
   recentCommits:
+    - 'feat(fnd-5): complete chat queue lifecycle and account ownership (#16)'
     - 'docs(version): record first materialized alpha image (#15)'
-    - >-
-      feat(containers): publish multi-platform GHCR images and adopt Alpine
-      (#14)
   currentEpic: null
   currentStory: null
-  lastUpdate: '2026-10-06T01:47:51.669Z'
+  lastUpdate: '2026-10-06T05:20:48.563Z'
   isGitRepo: true
-timestamp: 1791251271671
+timestamp: 1791264048564
 ttl: 60
-gitFingerprint: 1791246215097.1465:1791250633004.5322
+gitFingerprint: 1791251869144.0989:1791251811758.3938

@@ -11,6 +11,9 @@ function matchesRequestedReward(reward, queue) {
     && reward.cost === queue.cost
     && (reward.prompt ?? '') === (queue.rewardPrompt ?? '')
     && reward.userInputRequired === (queue.uidMode === 'visible')
+    && (reward.maxRedemptionsPerStream ?? null) === (queue.maxRedemptionsPerStream ?? null)
+    && (reward.maxRedemptionsPerUserPerStream ?? null) === (queue.maxRedemptionsPerUserPerStream ?? null)
+    && (reward.globalCooldown ?? null) === (queue.globalCooldownSeconds ?? null)
     && reward.autoFulfill === false
     && reward.shouldRedemptionsSkipRequestQueue === false
     && reward.isEnabled === true
@@ -36,10 +39,102 @@ function matchesManagedRewardState(reward, queue) {
     && reward.cost === queue.cost
     && (reward.prompt ?? '') === (queue.rewardPrompt ?? '')
     && reward.userInputRequired === (queue.uidMode === 'visible')
+    && (reward.maxRedemptionsPerStream ?? null) === (queue.maxRedemptionsPerStream ?? null)
+    && (reward.maxRedemptionsPerUserPerStream ?? null) === (queue.maxRedemptionsPerUserPerStream ?? null)
+    && (reward.globalCooldown ?? null) === (queue.globalCooldownSeconds ?? null)
     && reward.autoFulfill === false
     && reward.shouldRedemptionsSkipRequestQueue === false
     && reward.isEnabled === true
     && typeof reward.isPaused === 'boolean';
+}
+
+function matchesRewardConfiguration(reward, configuration, rewardId) {
+  return reward?.id === rewardId
+    && reward.title === configuration.title
+    && reward.cost === configuration.cost
+    && (reward.prompt ?? '') === (configuration.prompt ?? '')
+    && reward.userInputRequired === (configuration.uidMode === 'visible')
+    && (reward.maxRedemptionsPerStream ?? null) === (configuration.maxRedemptionsPerStream ?? null)
+    && (reward.maxRedemptionsPerUserPerStream ?? null) === (configuration.maxRedemptionsPerUserPerStream ?? null)
+    && (reward.globalCooldown ?? null) === (configuration.globalCooldownSeconds ?? null)
+    && reward.autoFulfill === false
+    && reward.shouldRedemptionsSkipRequestQueue === false
+    && reward.isEnabled === true;
+}
+
+function queueRewardConfiguration(queue) {
+  return {
+    title: queue.title, cost: queue.cost, prompt: queue.rewardPrompt, uidMode: queue.uidMode,
+    maxRedemptionsPerStream: queue.maxRedemptionsPerStream,
+    maxRedemptionsPerUserPerStream: queue.maxRedemptionsPerUserPerStream,
+    globalCooldownSeconds: queue.globalCooldownSeconds,
+  };
+}
+
+async function processRewardUpdateTask({ repository, adapter, task, clock, random }) {
+  const queue = task.queue;
+  const previous = task.payload?.previous;
+  if (!queue || queue.lifecycleStatus !== 'active' || !queue.rewardId
+    || !['pending_update', 'update_unknown'].includes(queue.remoteSyncStatus) || !previous) {
+    await repository.failedRewardOperation(task.id, 'reward_update_operation_invalid', task.leaseToken);
+    return 'failed';
+  }
+  let current;
+  try { current = await adapter.getReward(queue.rewardId); }
+  catch {
+    if (task.payload?.requestMayHaveReachedTwitch === true) {
+      await repository.unknownRewardOperation(task.id, 'reward_update_result_unknown', task.leaseToken);
+      return 'unknown';
+    }
+    await repository.retryRewardOperation(task.id, { nextAttemptAt: new Date(clock().getTime() + retryDelay({}, task.attempts, random)), errorCode: 'reward_update_lookup_failed' }, task.leaseToken);
+    return 'retry';
+  }
+  const desired = queueRewardConfiguration(queue);
+  if (matchesRewardConfiguration(current, desired, queue.rewardId)) {
+    const confirmed = await repository.confirmRewardUpdated(task.id, task.leaseToken);
+    return confirmed ? 'confirmed' : 'lease_lost';
+  }
+  if (!matchesRewardConfiguration(current, previous, queue.rewardId)) {
+    await repository.unknownRewardOperation(task.id, 'reward_update_reward_diverged', task.leaseToken);
+    return 'unknown';
+  }
+  if (task.payload?.requestMayHaveReachedTwitch === true) {
+    await repository.retryRewardOperation(task.id, {
+      nextAttemptAt: new Date(clock().getTime() + retryDelay({}, task.attempts, random)),
+      errorCode: 'reward_update_remote_still_previous', payloadUpdates: { requestMayHaveReachedTwitch: false },
+    }, task.leaseToken);
+    return 'retry';
+  }
+  if (!await repository.prepareRewardUpdate(task.id, task.leaseToken)) return 'lease_lost';
+  try {
+    const updated = await adapter.updateReward(queue.rewardId, {
+      title: desired.title, cost: desired.cost, prompt: desired.prompt, userInputRequired: desired.uidMode === 'visible',
+      maxRedemptionsPerStream: desired.maxRedemptionsPerStream ?? null,
+      maxRedemptionsPerUserPerStream: desired.maxRedemptionsPerUserPerStream ?? null,
+      globalCooldown: desired.globalCooldownSeconds ?? null, autoFulfill: false,
+    });
+    if (!matchesRewardConfiguration(updated, desired, queue.rewardId)) {
+      await repository.unknownRewardOperation(task.id, 'reward_update_response_unverified', task.leaseToken);
+      return 'unknown';
+    }
+    const confirmed = await repository.confirmRewardUpdated(task.id, task.leaseToken);
+    return confirmed ? 'confirmed' : 'lease_lost';
+  } catch (error) {
+    if (error?.status === 429 || error?.status === 401) {
+      await repository.retryRewardOperation(task.id, {
+        nextAttemptAt: new Date(clock().getTime() + retryDelay(error?.status === 429 ? error : {}, task.attempts, random)),
+        errorCode: error?.status === 429 ? safeError(error, 'reward_update_rate_limited') : 'twitch_authorization_required',
+        payloadUpdates: { requestMayHaveReachedTwitch: false },
+      }, task.leaseToken);
+      return 'retry';
+    }
+    if (isPermanentFailure(error)) {
+      await repository.failedRewardOperation(task.id, safeError(error, 'reward_update_rejected'), task.leaseToken);
+      return 'failed';
+    }
+    await repository.unknownRewardOperation(task.id, 'reward_update_result_unknown', task.leaseToken);
+    return 'unknown';
+  }
 }
 
 async function processOpenStateTask({ repository, adapter, task, clock, random }) {
@@ -193,6 +288,7 @@ export function createRewardOutboxWorker({ repository, twitch, getTwitch, clock 
       if (!adapter) return 'idle';
       const task = await repository.claimNextRewardOperation({ now: clock() });
       if (!task) return 'idle';
+      if (task.operationType === 'reward.update') return processRewardUpdateTask({ repository, adapter, task, clock, random });
       if (task.operationType === 'reward.set_open') return processOpenStateTask({ repository, adapter, task, clock, random });
       if (task.operationType === 'reward.delete') return processDeleteTask({ repository, adapter, task, clock, random });
       if (task.operationType !== 'reward.create' || !task.queue || task.queue.lifecycleStatus !== 'active') {
@@ -260,6 +356,9 @@ export function createRewardOutboxWorker({ repository, twitch, getTwitch, clock 
         cost: task.queue.cost,
         prompt: task.queue.rewardPrompt,
         userInputRequired: task.queue.uidMode === 'visible',
+        maxRedemptionsPerStream: task.queue.maxRedemptionsPerStream ?? null,
+        maxRedemptionsPerUserPerStream: task.queue.maxRedemptionsPerUserPerStream ?? null,
+        globalCooldown: task.queue.globalCooldownSeconds ?? null,
         autoFulfill: false,
         shouldRedemptionsSkipRequestQueue: false,
         isEnabled: true,

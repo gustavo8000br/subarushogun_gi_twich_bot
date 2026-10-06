@@ -6,6 +6,7 @@
 **Executor:** @dev
 **Quality gate:** @qa
 **Capability:** Local setup panel
+**GitHub issue:** [#21](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/21)
 
 ## Status
 

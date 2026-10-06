@@ -51,6 +51,36 @@ describe('Twitch chat command handler', () => {
     expect(h.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringContaining('1 pessoa chamada'));
   });
 
+  it('maps the displayed queue position into the same priority lane when moving from chat', async () => {
+    const h = setup();
+    h.repository.getActiveEntryForUser.mockResolvedValue({ id: 'entry-standard', status: 'waiting', priorityClass: 'standard', position: 3 });
+    h.repository.listWaiting = vi.fn(async () => [
+      { id: 'entry-priority-1', priorityClass: 'priority' },
+      { id: 'entry-priority-2', priorityClass: 'priority' },
+      { id: 'entry-standard', priorityClass: 'standard' },
+      { id: 'entry-standard-2', priorityClass: 'standard' },
+    ]);
+
+    await h.handler({ id: 'move-standard-1', text: '!abismo mover viewer 4', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+
+    expect(h.repository.moveWaitingEntry).toHaveBeenCalledWith({ queueId: 'queue-1', entryId: 'entry-standard', position: 2 });
+    expect(h.twitch.sendChatMessage).toHaveBeenCalledWith('Posição atualizada.');
+  });
+
+  it('does not move a standard entry into a displayed priority-lane position', async () => {
+    const h = setup();
+    h.repository.getActiveEntryForUser.mockResolvedValue({ id: 'entry-standard', status: 'waiting', priorityClass: 'standard' });
+    h.repository.listWaiting = vi.fn(async () => [
+      { id: 'entry-priority', priorityClass: 'priority' },
+      { id: 'entry-standard', priorityClass: 'standard' },
+    ]);
+
+    await h.handler({ id: 'move-standard-cross-lane', text: '!abismo mover viewer 1', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+
+    expect(h.repository.moveWaitingEntry).not.toHaveBeenCalled();
+    expect(h.twitch.sendChatMessage).toHaveBeenCalledWith('Não foi possível mover essa pessoa.');
+  });
+
   it('routes viewer exit through the shared domain service', async () => {
     const h = setup();
     await h.handler({ id: 'exit-1', text: '!abismo sair', userId: 'viewer-exit-1', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });

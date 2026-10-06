@@ -40,10 +40,21 @@ describe('managed reward creation outbox worker', () => {
     await expect(h.worker.processOne()).resolves.toBe('confirmed');
     expect(h.twitch.createReward).toHaveBeenCalledWith({
       title: 'Abismo', cost: 250, prompt: 'Envie somente UID.', userInputRequired: true,
+      maxRedemptionsPerStream: null, maxRedemptionsPerUserPerStream: null, globalCooldown: null,
       autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true,
     });
     expect(h.repository.prepareRewardCreate).toHaveBeenCalledWith('outbox-1', { baselineRewardIds: [], requestMayHaveReachedTwitch: true }, 'lease-1');
     expect(h.repository.confirmRewardCreated).toHaveBeenCalledWith('outbox-1', { rewardId: 'reward-new' }, 'lease-1');
+  });
+
+  it('sends the persisted Twitch-native limits in the reward creation request and verifies them', async () => {
+    const h = makeHarness();
+    Object.assign(h.queue, { maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: 2, globalCooldownSeconds: 90 });
+    Object.assign(h.createdReward, { maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: 2, globalCooldown: 90 });
+    await expect(h.worker.processOne()).resolves.toBe('confirmed');
+    expect(h.twitch.createReward).toHaveBeenCalledWith(expect.objectContaining({
+      maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: 2, globalCooldown: 90,
+    }));
   });
 
   it('does not call Twitch create when the channel already has 50 rewards', async () => {
@@ -183,5 +194,56 @@ describe('managed reward creation outbox worker', () => {
     expect(repository.prepareRewardDelete).toHaveBeenCalledWith(task.id, task.leaseToken);
     expect(repository.completeQueueDeletion).toHaveBeenCalledWith(task.id, task.leaseToken);
     expect(twitch.deleteReward).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('managed reward settings update outbox worker', () => {
+  function setup({ requestMayHaveReachedTwitch = false, remote = 'previous' } = {}) {
+    const queue = {
+      id: 'queue-update', title: 'New title', cost: 200, rewardPrompt: 'New prompt', uidMode: 'visible',
+      maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: null, globalCooldownSeconds: 60,
+      rewardId: 'reward-owned', lifecycleStatus: 'active', remoteSyncStatus: 'pending_update', version: 2,
+    };
+    const previous = { title: 'Old title', cost: 100, prompt: 'Old prompt', uidMode: 'hidden', maxRedemptionsPerStream: 10, maxRedemptionsPerUserPerStream: null, globalCooldownSeconds: null };
+    const desiredReward = { id: queue.rewardId, title: queue.title, cost: queue.cost, prompt: queue.rewardPrompt, userInputRequired: true, maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: null, globalCooldown: 60, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true };
+    const previousReward = { id: queue.rewardId, title: previous.title, cost: previous.cost, prompt: previous.prompt, userInputRequired: false, maxRedemptionsPerStream: 10, maxRedemptionsPerUserPerStream: null, globalCooldown: null, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true };
+    const task = { id: 'update-outbox', operationType: 'reward.update', attempts: 1, leaseToken: 'lease-update', payload: { queueVersion: 2, requestMayHaveReachedTwitch, previous }, queue };
+    const repository = {
+      claimNextRewardOperation: vi.fn(async () => task), prepareRewardUpdate: vi.fn(async () => true),
+      confirmRewardUpdated: vi.fn(async () => true), retryRewardOperation: vi.fn(async () => true),
+      failedRewardOperation: vi.fn(async () => true), unknownRewardOperation: vi.fn(async () => true),
+    };
+    const twitch = {
+      getReward: vi.fn(async () => remote === 'desired' ? desiredReward : remote === 'previous' ? previousReward : ({ ...previousReward, title: 'Externally changed' })),
+      updateReward: vi.fn(async () => desiredReward),
+    };
+    const worker = createRewardOutboxWorker({ repository, twitch, random: () => 0 });
+    return { worker, repository, twitch, task, queue, previous, desiredReward };
+  }
+
+  it('preflights ownership/config and confirms the desired app-owned reward settings', async () => {
+    const h = setup();
+    await expect(h.worker.processOne()).resolves.toBe('confirmed');
+    expect(h.twitch.updateReward).toHaveBeenCalledWith('reward-owned', expect.objectContaining({
+      title: 'New title', cost: 200, prompt: 'New prompt', userInputRequired: true,
+      maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: null, globalCooldown: 60,
+      autoFulfill: false,
+    }));
+    expect(h.repository.prepareRewardUpdate).toHaveBeenCalledWith('update-outbox', 'lease-update');
+    expect(h.repository.confirmRewardUpdated).toHaveBeenCalledWith('update-outbox', 'lease-update');
+  });
+
+  it('resolves a lost PATCH response by reading the desired state without repeating the update', async () => {
+    const h = setup({ requestMayHaveReachedTwitch: true, remote: 'desired' });
+    await expect(h.worker.processOne()).resolves.toBe('confirmed');
+    expect(h.twitch.updateReward).not.toHaveBeenCalled();
+    expect(h.repository.confirmRewardUpdated).toHaveBeenCalled();
+  });
+
+  it('does not PATCH when the owned reward no longer matches the recorded previous state', async () => {
+    const h = setup({ remote: 'diverged' });
+    await expect(h.worker.processOne()).resolves.toBe('unknown');
+    expect(h.twitch.updateReward).not.toHaveBeenCalled();
+    expect(h.repository.unknownRewardOperation).toHaveBeenCalledWith('update-outbox', 'reward_update_reward_diverged', 'lease-update');
   });
 });

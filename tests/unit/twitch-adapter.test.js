@@ -20,7 +20,52 @@ describe('Twurple Helix adapter', () => {
     await expect(adapter.getManagedRewards()).resolves.toEqual([{
       id: 'reward-1', title: 'Queue', cost: 50, prompt: undefined, isEnabled: false,
       isPaused: true, userInputRequired: undefined, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false,
+      maxRedemptionsPerStream: null, maxRedemptionsPerUserPerStream: null, globalCooldown: null,
     }]);
+  });
+
+  it('normalizes Twitch native reward redemption caps and global cooldown', async () => {
+    const createCustomReward = vi.fn(async (_broadcasterId, data) => ({
+      id: 'reward-limits', ...data,
+      maxRedemptionsPerStream: data.maxRedemptionsPerStream,
+      maxRedemptionsPerUserPerStream: data.maxRedemptionsPerUserPerStream,
+      globalCooldown: data.globalCooldown,
+      autoFulfill: false,
+      shouldRedemptionsSkipRequestQueue: false,
+    }));
+    const adapter = createTwitchApiAdapter({ api: { channelPoints: { createCustomReward } }, broadcasterId: 'channel-1' });
+    const requested = {
+      title: 'Abyss', cost: 100, maxRedemptionsPerStream: 20,
+      maxRedemptionsPerUserPerStream: 2, globalCooldown: 90,
+    };
+
+    await expect(adapter.createReward(requested)).resolves.toMatchObject({
+      id: 'reward-limits', maxRedemptionsPerStream: 20,
+      maxRedemptionsPerUserPerStream: 2, globalCooldown: 90,
+    });
+    expect(createCustomReward).toHaveBeenCalledWith('channel-1', expect.objectContaining({
+      maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: 2, globalCooldown: 90,
+      autoFulfill: false,
+    }));
+  });
+
+  it('normalizes disabled Twitch reward limits as null', async () => {
+    const updateCustomReward = vi.fn(async () => ({
+      id: 'reward-limits', title: 'Abyss', cost: 100,
+      maxRedemptionsPerStream: null, maxRedemptionsPerUserPerStream: null, globalCooldown: null,
+      autoFulfill: false, shouldRedemptionsSkipRequestQueue: false,
+    }));
+    const adapter = createTwitchApiAdapter({ api: { channelPoints: { updateCustomReward } }, broadcasterId: 'channel-1' });
+
+    await expect(adapter.updateReward('reward-limits', {
+      maxRedemptionsPerStream: null, maxRedemptionsPerUserPerStream: null, globalCooldown: null,
+    })).resolves.toMatchObject({
+      maxRedemptionsPerStream: null, maxRedemptionsPerUserPerStream: null, globalCooldown: null,
+    });
+    expect(updateCustomReward).toHaveBeenCalledWith('channel-1', 'reward-limits', expect.objectContaining({
+      maxRedemptionsPerStream: null, maxRedemptionsPerUserPerStream: null, globalCooldown: null,
+      autoFulfill: false,
+    }));
   });
 
 
@@ -55,6 +100,14 @@ describe('Twurple Helix adapter', () => {
       rewardCount: 46, rewardLimit: 50, nearRewardLimit: true,
     });
     expect(getCustomRewards).toHaveBeenCalledWith('channel-1', false);
+  });
+
+  it('checks Twitch API reachability with the configured broadcaster ID and returns no profile data', async () => {
+    const getUserById = vi.fn(async () => ({ id: 'channel-1', displayName: 'Private channel data' }));
+    const adapter = createTwitchApiAdapter({ api: { users: { getUserById } }, broadcasterId: 'channel-1' });
+
+    await expect(adapter.ping()).resolves.toBe(true);
+    expect(getUserById).toHaveBeenCalledWith('channel-1');
   });
 
   it('does not probe Channel Points for an ineligible broadcaster', async () => {

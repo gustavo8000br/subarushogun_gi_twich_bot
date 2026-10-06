@@ -34,12 +34,14 @@ describe('foundation operator documentation contract', () => {
     const technicalTerms = /advisory lock|outbox|retry-after|qemu|prisma|opengrep|ghcr|linux\/amd64|linux\/arm64|959\s*mb|musl|endpoint|ci quality gates|identidade runtime|identidade de runtime|backoff|worker durável/i;
     for (const document of [english, portuguese]) {
       expect(document).not.toMatch(technicalTerms);
+      expect(document).toContain('v0.3.0-alpha');
       expect(document).toContain('v0.2.0-alpha');
       expect(document).toContain('v0.1.0-3e0c935-alpha');
       const releaseSections = document.split(/^## /m).slice(1);
       for (const section of releaseSections) {
         const bulletCount = section.split('\n').filter((line) => /^-\s/.test(line)).length;
         expect(bulletCount).toBeLessThanOrEqual(5);
+        expect(section.split('\n').filter((line) => /^-\s/.test(line)).join(' ')).not.toMatch(/\b(API|CI|SDK|UID|PostgreSQL|HTTPS|OAuth|Twitch Helix)\b/i);
       }
     }
     expect(english.toLowerCase()).toContain('streamer');
@@ -105,7 +107,7 @@ describe('foundation operator documentation contract', () => {
     expect(portuguese).toContain('[English](../integrations.md)');
     expect(english).toMatch(/\*\*Documentation checked:\*\*\s*\d{4}-\d{2}-\d{2}/);
     expect(portuguese).toMatch(/\*\*Documentação consultada:\*\*\s*\d{4}-\d{2}-\d{2}/);
-    for (const term of ['getCustomRewards(broadcasterId, false)', 'channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'is_sent', 'durable worker creates paused rewards', 'editing/open-close/archive/delete remain pending']) {
+    for (const term of ['getCustomRewards(broadcasterId, false)', 'channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'is_sent', 'queue creation durably requests a paused twitch reward']) {
       expect(english.toLowerCase()).toContain(term.toLowerCase());
     }
     expect(portuguese.toLowerCase()).toContain('getcustomrewards(broadcasterid, false)');
@@ -113,7 +115,6 @@ describe('foundation operator documentation contract', () => {
     expect(portuguese.toLowerCase()).toContain('user:read:chat');
     expect(portuguese.toLowerCase()).toContain('user:write:chat');
     expect(portuguese.toLowerCase()).toContain('is_sent');
-    expect(portuguese.toLowerCase()).toContain('worker durável usa');
-    expect(portuguese.toLowerCase()).toContain('edição/abertura/fechamento/arquivamento/exclusão seguem pendentes');
+    expect(portuguese.toLowerCase()).toContain('criar uma fila registra duravelmente a solicitação de recompensa twitch pausada');
   });
 });

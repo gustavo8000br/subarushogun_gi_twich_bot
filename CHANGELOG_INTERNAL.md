@@ -2,6 +2,26 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.3.0-alpha
+
+- Preserve the authenticated Twitch status in `/health` while measuring Helix latency for authenticated ineligible channels. Keep token refresh available for the read-only probe without starting reward/chat EventSub processing; verify with a live read-only Helix request (193 ms; later panel refresh 322 ms).
+- Require a session-scoped `Idempotency-Key` on local API mutations. Hash canonical method/path/body without retaining request content; persist processing/completed state in `processed_operations`; replay completed JSON responses, reject key/payload conflicts, and block duplicate work while a reservation is pending. Cover replay and concurrent key claims with route and real-PostgreSQL tests.
+- Add a protected manual Twitch reconciliation endpoint and connection-page action. Reuse the startup/reconnect reconciler, coalesce overlapping runs, and report unavailable integration clearly. Style OAuth callback success and failure states to match the panel, scrub query parameters from browser history, and return to the panel after 30 seconds.
+- Restrict UID privacy changes to the durable app-managed Twitch reward update. Remove the local-settings/repository bypass; preserve PostgreSQL UID cleanup and cancellation of pending call notices as part of the remote intent.
+
+- Add Twitch-native per-stream/per-user redemption caps and global cooldown to the Prisma model, migration, create flow, explicit DTOs, and app-owned reward matching. Add version-checked remote reward edits through a protected route and panel dialog; record prior settings and desired intent transactionally, purge stored UIDs/cancel pending call notices when UID mode becomes hidden, and confirm updates through an outbox worker that preflights reward ownership/configuration and reconciles ambiguous PATCH responses. Add PostgreSQL checks for positive configured values. Refresh the OAuth callback screen to match panel styling, show a 30-second return countdown, escape the channel label, and scrub code/state from browser history after exchange. Twitch live calls remain unverified.
+- Complete the 2026-10-06 official Twitch capability crosswalk against FND-0–FND-9, OPS-1/OPS-2, and GitHub issues #17–#21; identify native reward limits as missing from FND-6 settings and record follower-scope decision for #17. Publish tracking issues #20/#21 and refresh open issue bodies #6/#17/#19 without comments.
+- Split the streamer panel into accessible overview, queues, new-queue, operations, settings, and Twitch connection pages; select setup/recovery until connected, show the connected-channel summary afterward, and restore required Client Secret validation feedback.
+- Add PostgreSQL priority class/reason fields and checks; lock a queue, audit the operator's manual benefit verification, append promotions to the destination lane, preserve same-lane movement, and select priority FIFO before standard FIFO without changing points intents.
+- Add protected panel actions and manual-admission options for operator-verified priority categories (subscription, Bits, external payment, other); expose only allowlisted Portuguese labels, never payment evidence, and keep chat `add` standard.
+- Translate continuous displayed chat positions into lane-local reordering positions; reject cross-lane moves and cover both cases with handler tests.
+- Record FND-9's approved planning decisions for non-eligible channels, including Twitch Channel Points as viewer-earned channel-specific points, a dedicated Custom Reward created by the bot per eligible queue, unrelated rewards left untouched, and the manual streamer/moderator fallback.
+- Expose the existing queue-locked waiting-entry move operation through a session/CSRF-protected panel route; validate position and add boundary-disabled move controls.
+- Add a session-protected queue history projection capped at 100 terminal entries, selecting only presentation fields and omitting UID/redemption payloads; load it on demand in the queue panel.
+- Add a cached Twitch Helix `getUserById` health probe with a 60-second TTL; `/health` reports only sanitized integration state and elapsed milliseconds.
+- Add a pt-BR runtime health summary to the panel's live overview for local database, Twitch API state, and measured response time.
+- Add formal bilingual FND-6 story records and update operator/integration documentation for FND-5 completion and the new health behavior.
+
 ## v0.2.0-alpha
 
 The full runtime identity for each shipped artifact adds the exact seven-character source commit SHA, materialized by CI.

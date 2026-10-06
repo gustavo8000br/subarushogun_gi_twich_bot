@@ -6,6 +6,7 @@
 **Executor:** @dev
 **Quality gate:** @qa
 **Capability:** Repository CI
+**GitHub issue:** [#20](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/20)
 
 ## Status
 

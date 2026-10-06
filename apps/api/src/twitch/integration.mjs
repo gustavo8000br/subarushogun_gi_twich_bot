@@ -28,10 +28,12 @@ export async function createTwitchIntegration({
   let credential = await credentialRepository.getAuthRecord();
   let status = credential ? 'connecting' : 'not_configured';
   let channelEligibility = null;
+  let twitchApiProbe = null;
   let stopIntegration = () => undefined;
   const integration = {
     oauthStateStore,
     get status() { return status; },
+    async probeTwitchApi() { return twitchApiProbe ? twitchApiProbe() : false; },
     async validateAndSaveApplication({ clientId, clientSecret }) {
       const validated = await validateClientCredentials({ clientId, clientSecret, fetchImpl });
       const saved = await credentialRepository.saveValidatedApplication({ clientId: validated.clientId, clientSecret });
@@ -71,21 +73,34 @@ export async function createTwitchIntegration({
         providerFactory: authProviderFactory,
         onAuthLost: () => { status = 'reconnect_required'; stopIntegration(); },
       });
+      stopIntegration = () => { authRuntime.stop?.(); status = 'stopped'; };
       if (authRuntime.status === 'connected' && authRuntime.provider) {
         const api = apiFactory({ authProvider: authRuntime.provider });
         const adapter = adapterFactory({ api, broadcasterId: credential.broadcasterId });
         channelEligibility = await adapter.getChannelEligibility().catch(() => ({ eligible: false, broadcasterType: 'unknown', reason: 'eligibility_unknown' }));
+        twitchApiProbe = () => adapter.ping();
         if (channelEligibility.eligible) {
           const processor = createTwitchRedemptionProcessor({ repository, domainService, broadcasterId: credential.broadcasterId });
           const reconciler = reconcilerFactory({ repository, twitch: adapter, processor, broadcasterId: credential.broadcasterId });
           let listener;
           let reconcileTimer;
           let stopped = false;
+          let reconciliationPromise = null;
           const reconcile = async () => {
-            if (stopped) return;
+            if (stopped) return null;
+            if (reconciliationPromise) return reconciliationPromise;
             status = 'reconciling';
-            try { const outcome = await reconciler.run(); status = outcome.status === 'complete' ? 'connected' : 'degraded'; }
-            catch { status = 'degraded'; }
+            reconciliationPromise = (async () => {
+              try {
+                const outcome = await reconciler.run();
+                status = outcome.status === 'complete' ? 'connected' : 'degraded';
+                return outcome;
+              } catch {
+                status = 'degraded';
+                return { status: 'failed', issues: [{ code: 'reconciliation_failed' }] };
+              } finally { reconciliationPromise = null; }
+            })();
+            return reconciliationPromise;
           };
           listener = eventSubRuntimeFactory({ apiClient: api, broadcasterId: credential.broadcasterId,
             onRedemptionAdd: processor.onRedemptionAdd, onRedemptionUpdate: processor.onRedemptionUpdate, onChatMessage,
@@ -94,9 +109,8 @@ export async function createTwitchIntegration({
             onRevoked: (_type, revokeStatus) => { if (revokeStatus === 'authorization_revoked') { status = 'reconnect_required'; void credentialRepository.markReconnectRequired(credential.clientId); listener?.stop(); } else status = 'degraded'; },
           });
           stopIntegration = () => { if (stopped) return; stopped = true; if (reconcileTimer) clearIntervalImpl(reconcileTimer); listener?.stop(); authRuntime.stop?.(); status = 'stopped'; };
-          Object.assign(integration, { api, twitch: adapter, processor, reconciler });
+          Object.assign(integration, { api, twitch: adapter, processor, reconciler, reconcileNow: () => reconcile() });
         } else {
-          authRuntime.stop?.();
           status = 'ineligible';
         }
       } else status = authRuntime.status;
@@ -111,6 +125,7 @@ export async function createTwitchIntegration({
   let stopped = false;
   status = 'connecting';
   let reconciler;
+  let reconciliationPromise = null;
   const publishStatus = (nextStatus, details = {}) => {
     status = nextStatus;
     onStatus({ status, ...details });
@@ -149,26 +164,36 @@ export async function createTwitchIntegration({
     return integration;
   }
   channelEligibility = eligibility;
+  twitchApiProbe = () => twitch.ping();
   if (!eligibility.eligible) {
-    stopAuth();
     onStatus({ status: 'ineligible', broadcasterType: eligibility.broadcasterType });
     status = 'ineligible';
     stopIntegration = stopAuth;
     return integration;
   }
 
+  twitchApiProbe = () => twitch.ping();
+
   const processor = createTwitchRedemptionProcessor({ repository, domainService, broadcasterId: credential.broadcasterId });
   reconciler = reconcilerFactory({ repository, twitch, processor, broadcasterId: credential.broadcasterId });
   let firstReady = false;
   const reconcile = async (trigger) => {
-    if (stopped) return;
+    if (stopped || !reconciler) return null;
+    if (reconciliationPromise) return reconciliationPromise;
     publishStatus('reconciling', { trigger });
-    try {
-      const result = await reconciler.run();
-      if (!stopped) publishStatus(result.status === 'complete' ? 'connected' : 'degraded', { lastReconciliation: result.finishedAt, issues: result.issues });
-    } catch {
-      if (!stopped) publishStatus('degraded', { lastError: 'reconciliation_failed' });
-    }
+    reconciliationPromise = (async () => {
+      try {
+        const result = await reconciler.run();
+        if (!stopped) publishStatus(result.status === 'complete' ? 'connected' : 'degraded', { lastReconciliation: result.finishedAt, issues: result.issues });
+        return result;
+      } catch {
+        if (!stopped) publishStatus('degraded', { lastError: 'reconciliation_failed' });
+        return { status: 'failed', issues: [{ code: 'reconciliation_failed' }] };
+      } finally {
+        reconciliationPromise = null;
+      }
+    })();
+    return reconciliationPromise;
   };
   eventSubRuntime = eventSubRuntimeFactory({
     apiClient: api,
@@ -198,6 +223,7 @@ export async function createTwitchIntegration({
 
   Object.assign(integration, {
     api, twitch, processor, reconciler,
+    reconcileNow: () => reconcile('operator'),
     stop() {
       if (stopped) return;
       stopped = true;

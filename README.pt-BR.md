@@ -11,7 +11,7 @@
 
 Um bot local e auto-hospedado para gerenciar filas de Genshin Impact pela Twitch. O projeto está sendo construído para permitir que um streamer mantenha várias filas personalizadas, com os dados em um PostgreSQL no próprio computador.
 
-> **Estado do desenvolvimento:** alpha, implementação ativa. Compose/PostgreSQL/identidade de versão, base do domínio de filas, outbox financeira, adapters OAuth/EventSub, tratamento inicial do chat e painel/API local protegidos estão presentes. O ciclo de recompensas Twitch e várias operações exigidas permanecem incompletos. Ainda não use para operar filas durante uma live.
+> **Estado do desenvolvimento:** alpha, implementação ativa. FND-2 a FND-5 estão concluídas, incluindo ciclo de vida das filas/recompensas, operações duráveis de pontos, adapters Twitch e comandos de chat. FND-6 está concluindo o painel protegido do streamer e a segurança local. As operações Twitch ainda não foram validadas em um canal real autorizado; não dependa desta versão alpha para processar pontos ao vivo até essa validação.
 
 ## Conteúdo
 
@@ -35,7 +35,7 @@ Um bot local e auto-hospedado para gerenciar filas de Genshin Impact pela Twitch
 
 - **Dados sob controle local:** a aplicação foi projetada para rodar no computador do streamer. Não possui backend hospedado pelo projeto, banco remoto, sincronização ou telemetria.
 - **Operações recuperáveis:** ordem das filas e operações de pontos são planejadas para sobreviver a reinícios do processo e do computador. A outbox financeira PostgreSQL e a reconciliação Twitch estão implementadas, mas não foram verificadas em um canal real.
-- **Privilégio mínimo:** a integração planejada usa o aplicativo e a conta do streamer, com os escopos necessários para resgates e chat.
+- **Privilégio mínimo:** a integração Twitch usa o aplicativo e a conta do streamer, com somente os escopos necessários para resgates e chat; o comportamento em canal real ainda depende de validação do operador.
 - **Sem credenciais do jogo:** o bot não solicita nem manipula senhas de Genshin. Um UID visível é um identificador público do jogo, não uma credencial.
 - **Teste primeiro:** mudanças de comportamento seguem Red → Green → Refactor. Consulte o [registro das stories](docs/stories.md) para ver comandos e resultados observados.
 
@@ -44,15 +44,15 @@ Um bot local e auto-hospedado para gerenciar filas de Genshin Impact pela Twitch
 A fundação atual oferece:
 
 - Stack Compose com geração inicial de segredo, PostgreSQL, migrations Prisma e serviço Fastify.
-- Painel local com fluxo de configuração Twitch, criação de fila/entrada, projeção ao vivo e operações financeiras; a API usa sessão local, CSRF e verificações Host/Origin.
-- `/health` informa versão do produto e estado atual do banco/integração Twitch.
+- Painel local com configuração Twitch, criação e ações de fila, histórico terminal recente, reordenação de aguardantes e operações financeiras; a API usa sessão local, CSRF e verificações Host/Origin.
+- `/health` informa versão do produto, estado do banco local, conexão à API Twitch e tempo de resposta medido para canais autenticados, inclusive canais inelegíveis para recompensas de Pontos do Canal; o painel mostra o mesmo resumo de saúde em português.
 - Runtime de chatbot que recebe eventos de resgate/chat da Twitch e processa comandos de fila, acompanhado de um painel local para configuração e administração do streamer. O painel é o console do operador; viewers não entram por ele.
-- Base do domínio de filas, resgates, transições, outbox financeira, OAuth/EventSub/reconciliação, parser/autorização do chat e chamadas/timeout.
-- Criação durável de recompensas Twitch, pausadas por padrão, com verificação de capacidade e recuperação manual auditada quando a resposta Twitch deixa ambígua a associação da recompensa.
+- Domínio das filas, validação/importação de resgates, transições, outbox financeira, OAuth/EventSub/reconciliação, parser/autorização do chat, notificações/timeout e propriedade da conta atual.
+- Criação, edição, abrir/fechar, arquivamento e exclusão segura de recompensas Twitch gerenciadas, com confirmação remota e recuperação de operações interrompidas.
 - Volumes persistentes para banco e segredos. A porta do banco não é publicada no host; a aplicação usa `127.0.0.1:3000` por padrão.
 - Scripts para validar/materializar versão e o schema/migration inicial do Prisma.
 
-Esta versão **não está pronta para uma live**. Edição/abertura/fechamento/arquivamento/exclusão de recompensa, concorrência de propriedade da conta entre filas, idempotência/revisão integral, controles de reenvio/histórico e várias rotinas de reconciliação/resolução permanecem incompletos. A pesquisa documental UX está registrada, mas ainda não houve validação de usabilidade. Nenhuma operação Twitch foi verificada com credenciais autorizadas.
+Esta versão alpha **ainda não foi validada para uma sessão de fila ao vivo**. O painel permite editar configurações locais e recompensas gerenciadas, solicitar reconciliação manual com a Twitch e oferece controles de recuperação e telas de callback. Mutações usam chaves de idempotência persistidas. A pesquisa documental UX está registrada, mas não houve sessão moderada de usabilidade com streamer. Uma consulta Helix autorizada somente de leitura foi verificada; nenhuma escrita de pontos ou recompensas Twitch foi validada.
 
 ## Requisitos
 
@@ -175,7 +175,13 @@ Os valores de hardware para Windows acima não são benchmark do produto. Eles c
 2. No [Console de Desenvolvedor da Twitch](https://dev.twitch.tv/console/apps), crie ou edite um app confidencial e registre esse callback **HTTPS exato**. Se ele foi cadastrado inicialmente como `http://localhost:3000/callback`, substitua por HTTPS. Protocolo, host, porta e caminho precisam coincidir. As credenciais Twitch devem ser inseridas somente no formulário local; não as envie em chat, issue, captura de tela ou arquivo versionado.
 3. Informe Client ID e Client Secret do app no painel e clique **Validar e salvar aplicativo**. Depois clique **Conectar com a Twitch**, aprove os escopos solicitados e confira se a identidade do canal está correta.
 4. Chatbot e painel têm funções diferentes: viewers entram somente por resgate de recompensa; streamer/moderadores gerenciam filas por comandos autorizados no chat, e o streamer também administra pelo painel local. Criar uma fila solicita uma recompensa personalizada real da Twitch e ocupa uma vaga no limite do canal. Não crie fila de teste em canal de produção sem intenção de criar essa recompensa.
-5. Esta alpha ainda não tem edição/abertura/fechamento/arquivamento/exclusão de recompensa e não foi validada com uma conta Twitch real. Use painel/API para verificações controladas de integração; não para operar uma live sem supervisão.
+5. Esta alpha permite abrir, fechar, arquivar e excluir recompensas gerenciadas com segurança, mas a edição das configurações de fila/recompensa e a validação Twitch ao vivo continuam pendentes. Use painel/API para verificações controladas de integração; não para operar uma live sem supervisão.
+
+### Recompensas de fila existentes e benefícios prioritários
+
+Se um bot antigo já recebe resgates para a fila, pause a recompensa no app que a criou (ou no Twitch Creator Dashboard) e desative o comando de entrada do bot antigo antes de abrir a recompensa substituta deste bot. Resolva os resgates pendentes no sistema antigo primeiro. Esta aplicação não pode adotar a recompensa de outro app nem reembolsar/concluir seus resgates com segurança. Crie aqui uma nova recompensa, inicialmente pausada, e revise-a antes de abrir a fila.
+
+Para prioridade por PIX, Bits, inscrição ou outro benefício externo, streamer/mod confere o benefício no serviço de origem e registra o viewer pelo painel local. O operador pode marcar a entrada aguardando como prioritária. Entradas prioritárias seguem FIFO antes das normais; cada faixa preserva FIFO e nenhum atendimento ativo é interrompido. A auditoria registra o operador local e a categoria do benefício, sem comprovantes ou dados de pagamento. É uma declaração manual do operador: o bot não verifica pagamentos/inscrições, não processa dinheiro e não cria operações de pontos Twitch para entradas manuais. Adições pelo comando `add` no chat continuam na faixa normal.
 
 Para conferir a saúde via CLI Linux depois de confiar na CA:
 
@@ -263,7 +269,7 @@ Para preservar os dados explicitamente, também é possível usar `docker compos
 
 ## Estado da configuração Twitch
 
-As credenciais Twitch e o OAuth são configurados pelo painel local, sem copiar valores para `.env` ou YAML. Validação Client Credentials e base do Authorization Code estão implementadas; não há garantia de criptografia em repouso. Código de renovação de token, EventSub, chat e reconciliação existe, mas não foi exercitado em conta autorizada. Criação durável de recompensa e recuperação de associação ambígua estão implementadas; edição, abertura/fechamento, arquivamento e exclusão ainda não. Nunca grave Client Secret, token de acesso, código de autorização ou senha do banco em arquivo versionado, issue, captura de tela ou mensagem de chat.
+As credenciais Twitch e o OAuth são configurados pelo painel local, sem copiar valores para `.env` ou YAML. Validação Client Credentials e fluxo Authorization Code estão implementados; não há garantia de criptografia em repouso. Uma consulta Helix autorizada somente de leitura alimenta o probe de saúde; renovação de token, EventSub, chat, reconciliação e escritas de recompensa/pontos ainda não foram validados ao vivo. Criação/edição de recompensa gerenciada, abrir/fechar, arquivar e exclusão segura têm recuperação durável. O callback apresenta sucesso ou instrução de recuperação e retorna ao painel após 30 segundos. Nunca grave Client Secret, token de acesso, código de autorização ou senha do banco em arquivo versionado, issue, captura de tela ou mensagem de chat.
 
 O callback é `https://localhost:3000/callback`. Registre um aplicativo Twitch confidencial com esse callback exato e habilite a segurança de conta exigida pela Twitch. Se o app foi cadastrado inicialmente com `http://localhost:3000/callback`, edite a URI no Console de Desenvolvedor da Twitch para HTTPS antes de conectar; protocolo, host, porta e caminho precisam coincidir exatamente. Consulte [Integrações](docs/integrations.md) para as APIs e a documentação oficial consultada.
 
@@ -353,7 +359,7 @@ Execute `docker compose ps` e `docker compose logs --tail=150 bootstrap db migra
 
 ### O bot não está saudável
 
-Confira `docker compose ps` e `docker compose logs -f bot db migrate`. O serviço `bot` aguarda o banco saudável e a conclusão bem-sucedida das migrations. `/health` informa conectividade do banco e estado da integração Twitch separadamente. `not_configured` é esperado até salvar credenciais no painel.
+Confira `docker compose ps` e `docker compose logs -f bot db migrate`. O serviço `bot` aguarda o banco saudável e a conclusão bem-sucedida das migrations. `/health` informa conexão do banco, estado da API Twitch e o último tempo de resposta medido. `not_configured` é esperado até salvar credenciais Twitch e conectar o canal pelo painel. Um canal autenticado porém inelegível ainda exibe a conectividade da API somente para leitura; o processamento de recompensas/chat EventSub continua desabilitado enquanto o canal não for elegível. Uma resposta lenta ou indisponibilidade da Twitch não impede a abertura do painel local.
 
 ### Uma migration ou construção da imagem falhou
 
@@ -368,11 +374,12 @@ Abra `https://localhost:3000` manualmente. Se o navegador indicar certificado n�
 | Story | Escopo | Estado |
 | --- | --- | --- |
 | FND-1 | Documentação bilíngue da fundação e verificação da inicialização/encerramento Compose | Em andamento |
-| FND-2 | Domínio das filas, UID, parser, autorização e ordenação PostgreSQL | Em andamento |
-| FND-3 | Outbox financeira durável, tentativas, confirmação e recuperação | Em andamento; worker/lease/outbox implementados, auditoria final pendente |
-| FND-4 | Credenciais Twitch, OAuth, recompensas, EventSub e reconciliação | Implementação concluída; aceite autorizado com Twitch real aguarda validação do operador |
-| FND-5 | Comandos, chamadas, timeout, confirmação de limpeza, conta atual e serviços compartilhados ([issue #1](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/1)) | Em andamento; concorrência da conta entre filas, abrir/fechar remoto de recompensa e cobertura completa de serviços compartilhados pendentes |
-| FND-6 | Planejamento UX com referências, painel completo, assistente, API protegida e segurança local ([issue #6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | Em andamento; ciclo de recompensas, operações completas, idempotência/revisão da API e validação de usabilidade pendentes |
+| FND-2 | Domínio das filas, UID, parser, autorização e ordenação PostgreSQL | Concluída |
+| FND-3 | Outbox financeira durável, tentativas, confirmação e recuperação | Concluída; operações reais de pontos Twitch ainda não foram validadas |
+| FND-4 | Credenciais Twitch, OAuth, recompensas, EventSub e reconciliação | Concluída; aceite autorizado com Twitch real ainda aguarda validação do operador |
+| FND-5 | Comandos, chamadas, timeout, confirmação de limpeza, conta atual e serviços compartilhados ([issue #1](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/1)) | Concluída; QA 9,0/10, operações reais de pontos Twitch não verificadas |
+| FND-6 | Planejamento UX com referências, painel completo, assistente, API protegida e segurança local ([issue #6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | Em andamento; configurações locais/recompensa, histórico, idempotência persistida e reconciliação manual implementados; controles adicionais de recuperação, E2E do callback no navegador e usabilidade seguem pendentes |
+| FND-7 | Widgets configuráveis para overlay local OBS ([issue #7](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/7)) | Planejada; implementação após concluir FND-6 e seus gates de QA/UX |
 | OPS-2 | Rótulos pt-BR para status Twitch no painel; plano futuro de pt-BR padrão, inglês/espanhol e traduções da comunidade | Implementação e revisão QA em andamento |
 
 O plano futuro de localização do painel usa pt-BR por padrão, inglês e espanhol, com contribuições da comunidade para outros idiomas do painel/frontend. Esta versão permanece somente em pt-BR. O registro das stories é a fonte de detalhes de estado e evidências de teste. Uma funcionalidade não está concluída apenas porque aparece neste roadmap.

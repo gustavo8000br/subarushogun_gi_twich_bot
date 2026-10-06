@@ -1,0 +1,125 @@
+{
+  "storyId": "FND-9",
+  "status": "planning_complete_pending_sequence_approval",
+  "source": "user",
+  "summary": "Planejar adição manual à fila para canais Twitch que não podem usar recompensas de Pontos do Canal; canais elegíveis usam uma Custom Reward dedicada da Twitch, criada pelo bot para cada fila.",
+  "functionalRequirements": [
+    {
+      "id": "FR-1",
+      "priority": "P0",
+      "description": "Um broadcaster Twitch configurado e autorizado pode manter o chatbot conectado ao chat do canal mesmo quando não pode usar recompensas personalizadas de Pontos do Canal.",
+      "acceptance": "A integração informa prontidão do chat separadamente da disponibilidade dos Pontos do Canal e não interrompe comandos apenas porque recompensas estão indisponíveis."
+    },
+    {
+      "id": "FR-2",
+      "priority": "P0",
+      "description": "Streamer e moderadores atualmente autorizados podem adicionar manualmente um viewer Twitch a uma fila selecionada usando o comando de adição existente.",
+      "acceptance": "O comando resolve o login para um ID Twitch, aplica regras atuais de UID/duplicidade e cria entrada manual pelo serviço compartilhado de filas."
+    },
+    {
+      "id": "FR-3",
+      "priority": "P0",
+      "description": "Admissões manuais não afirmam existir resgate de Pontos do Canal e não criam operações de reembolso ou consumo.",
+      "acceptance": "A entrada tem origem manual, redemptionId nulo e nenhuma tarefa financeira na outbox; seu ciclo posterior fica auditável."
+    },
+    {
+      "id": "FR-4",
+      "priority": "P1",
+      "description": "O painel local explica que um canal inelegível está usando entrada manual de fila e apresenta o comando autorizado no chat.",
+      "acceptance": "O estado é claro em pt-BR e distingue Pontos do Canal indisponíveis da conectividade de chat Twitch."
+    },
+    {
+      "id": "FR-5",
+      "priority": "P1",
+      "description": "Para cada fila elegível, criar e gerenciar uma Custom Reward dedicada da Twitch por este app; não adotar nem alterar recompensas preexistentes.",
+      "acceptance": "A recompensa é criada pela API Twitch, vinculada pelo ID imutável, e somente esse ID é usado para resgates e operações do ciclo de vida da fila."
+    }
+  ],
+  "nonFunctionalRequirements": [
+    {
+      "id": "NFR-1",
+      "category": "security",
+      "requirement": "Usar identidade confiável da mensagem EventSub atual e badges Twitch para autorizar streamer/mod; não inferir privilégio de texto de login, menções, corpo da requisição ou outro canal no Shared Chat.",
+      "target": "Todos os testes de mutação do chat cobrem entradas confiáveis e não confiáveis de autorização."
+    },
+    {
+      "id": "NFR-2",
+      "category": "privacy",
+      "requirement": "Não persistir mensagens brutas do chat nem argumentos inválidos. Entradas manuais nunca guardam comprovantes nem afirmam verificação de pagamento externo.",
+      "target": "Registros PostgreSQL contêm apenas dados allowlistados de entrada/auditoria."
+    },
+    {
+      "id": "NFR-3",
+      "category": "reliability",
+      "requirement": "Reconexão do chat e reinicialização do banco local devem preservar entradas existentes e histórico de operações.",
+      "target": "Migrations PostgreSQL isoladas e testes de recuperação existentes passam."
+    },
+    {
+      "id": "NFR-4",
+      "category": "compatibility",
+      "requirement": "Não adicionar escopos Twitch ou serviços de rede sem necessidade documentada; preservar o modelo local-first com Docker Compose.",
+      "target": "Nenhum webhook público, integração de pagamento ou novo serviço é necessário para entrada manual."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "CON-1",
+      "description": "O usuário propõe admissão manual no chat por streamer/moderador como caminho simples para canais inelegíveis a recompensas de Pontos do Canal."
+    },
+    {
+      "id": "CON-2",
+      "description": "O produto é um chatbot Twitch com painel local do operador; chat é uma superfície operacional obrigatória."
+    },
+    {
+      "id": "CON-3",
+      "description": "Viewers não se inscrevem sozinhos por comando nem pelo painel."
+    },
+    {
+      "id": "CON-4",
+      "description": "Cada fila elegível usa uma Custom Reward dedicada da Twitch criada por este bot via API. Recompensas preexistentes do streamer, como beber água, não são gatilhos de fila nem são adotadas."
+    },
+    {
+      "id": "CON-5",
+      "description": "A integração atual para antes de iniciar EventSub quando a elegibilidade do canal é falsa; chat e ciclo de Pontos do Canal precisam ser separados."
+    }
+  ],
+  "assumptions": [
+    "Canais inelegíveis usam entrada manual; canais elegíveis mantêm entrada por resgate de Pontos do Canal em uma Custom Reward dedicada criada pelo bot para cada fila.",
+    "O comando autorizado existente de adição à fila é reutilizado, sem criar outra sintaxe.",
+    "Adições manuais usam FIFO na faixa normal salvo decisão explícita de prioridade; benefícios pagos permanecem fora do escopo da FND-9."
+  ],
+  "openQuestions": [
+    {
+      "id": "Q-1",
+      "question": "Quais cargos podem executar a adição manual: streamer e moderadores, somente streamer ou VIPs configuráveis também?",
+      "owner": "Product owner",
+      "status": "resolvido: streamer e moderadores (2026-10-06)"
+    },
+    {
+      "id": "Q-2",
+      "question": "Canais elegíveis devem manter entrada por Pontos do Canal usando uma Custom Reward dedicada criada pelo bot, enquanto canais inelegíveis usam entrada manual pelo chat?",
+      "owner": "Product owner",
+      "status": "resolvido: sim; cada fila recebe Custom Reward dedicada criada pelo bot (2026-10-06)"
+    },
+    {
+      "id": "Q-3",
+      "question": "Novas entradas manuais continuam permitidas em fila fechada, conforme regra atual, inclusive no modo somente manual?",
+      "owner": "Product specification",
+      "status": "resolvido pelo requisito existente: sim"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-1",
+      "decision": "Em canais elegíveis, o bot cria pela API uma Custom Reward dedicada da Twitch para cada fila. Recompensas personalizadas preexistentes não são adotadas pelo título nem usadas como gatilho da fila.",
+      "owner": "Product owner",
+      "status": "approved (2026-10-06)"
+    },
+    {
+      "id": "D-2",
+      "decision": "Em canais inelegíveis, a alternativa é entrada manual pelo chat por streamer/moderador; canais elegíveis mantêm entrada por resgate.",
+      "owner": "Product owner",
+      "status": "approved (2026-10-06)"
+    }
+  ]
+}
