@@ -19,14 +19,14 @@ describe('local panel navigation', () => {
   });
 
   it('shows one page and marks only its navigation item current', () => {
-    const navigationItems = ['overview', 'queues', 'new-queue', 'operations', 'settings', 'connection'].map((page) => element({ pageTarget: page }));
-    const pages = ['overview', 'queues', 'new-queue', 'operations', 'settings', 'connection'].map((page) => element({ panelPage: page }));
+    const navigationItems = ['overview', 'queues', 'new-queue', 'operations', 'commands', 'settings', 'connection'].map((page) => element({ pageTarget: page }));
+    const pages = ['overview', 'queues', 'new-queue', 'operations', 'commands', 'settings', 'connection'].map((page) => element({ panelPage: page }));
 
-    const selected = selectPanelPage('new-queue', { navigationItems, pages });
+    const selected = selectPanelPage('commands', { navigationItems, pages });
 
-    expect(selected).toBe('new-queue');
-    expect(pages.map(({ hidden }) => hidden)).toEqual([true, true, false, true, true, true]);
-    expect(navigationItems.map(({ attributes }) => attributes['aria-current'] ?? null)).toEqual([null, null, 'page', null, null, null]);
+    expect(selected).toBe('commands');
+    expect(pages.map(({ hidden }) => hidden)).toEqual([true, true, true, true, false, true, true]);
+    expect(navigationItems.map(({ attributes }) => attributes['aria-current'] ?? null)).toEqual([null, null, null, null, 'page', null, null]);
   });
 
   it('falls back to the overview if a requested page is unknown', () => {

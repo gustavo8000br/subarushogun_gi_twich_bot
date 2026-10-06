@@ -5,6 +5,17 @@ const root = new URL('../../', import.meta.url);
 const read = (path) => readFile(new URL(path, root), 'utf8');
 
 describe('foundation operator documentation contract', () => {
+  it('puts each shipping changelog version above its own entries in both languages', async () => {
+    const [englishPublic, englishInternal, portuguesePublic, portugueseInternal] = await Promise.all([
+      read('CHANGELOG.md'), read('CHANGELOG_INTERNAL.md'),
+      read('docs/pt-BR/CHANGELOG.md'), read('docs/pt-BR/CHANGELOG_INTERNAL.md'),
+    ]);
+
+    for (const changelog of [englishPublic, englishInternal, portuguesePublic, portugueseInternal]) {
+      expect(changelog.indexOf('## v0.4.0-alpha')).toBeGreaterThanOrEqual(0);
+      expect(changelog.indexOf('## v0.3.0-alpha')).toBeGreaterThan(changelog.indexOf('## v0.4.0-alpha'));
+    }
+  });
   it('defines the owner-controlled per-PR version increment and release-stage policy in both languages', async () => {
     const [english, portuguese] = await Promise.all([
       read('docs/VERSIONING.md'), read('docs/pt-BR/VERSIONING.md'),

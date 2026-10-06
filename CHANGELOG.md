@@ -4,6 +4,11 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.4.0-alpha
+
+- Streamers can review every chat command in the panel and choose which roles can use supported commands.
+- Viewers can ask chat which commands are available to them; streamers and moderators can check that the bot is responding.
+
 ## v0.3.0-alpha
 
 - Streamers can configure redemption limits and cooldowns for queue rewards in the panel.

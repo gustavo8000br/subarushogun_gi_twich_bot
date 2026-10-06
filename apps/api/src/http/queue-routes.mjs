@@ -1,5 +1,6 @@
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { createHash } from 'node:crypto';
+import { CHAT_COMMANDS, CONFIGURABLE_COMMAND_ROLES, resolveAllowedRoles } from '../commands/catalog.mjs';
 
 function canonicalValue(value) {
   if (Array.isArray(value)) return value.map(canonicalValue);
@@ -130,6 +131,54 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       queues: (await repository.listQueueProjection?.() ?? []).map((queue) => queueDto(queue)),
       pending_operations: await repository.listFinancialOperations?.() ?? [],
     };
+  });
+  app.get('/api/command-catalog', async (_request, reply) => {
+    if (typeof repository.getCommandPolicyState !== 'function') return reply.code(503).send({ error: 'O catálogo de comandos não está disponível.' });
+    try {
+      const state = await repository.getCommandPolicyState();
+      return {
+        version: state.version,
+        configurableRoles: CONFIGURABLE_COMMAND_ROLES,
+        commands: CHAT_COMMANDS.map((definition) => ({
+          key: definition.key, scope: definition.scope, syntax: definition.syntax,
+          description: definition.description, defaultRoles: definition.defaultRoles,
+          allowedRoles: resolveAllowedRoles(definition, state.policies),
+          immutableRoles: definition.immutableRoles ?? null,
+          configurable: !definition.immutableRoles,
+        })),
+      };
+    } catch {
+      return reply.code(503).send({ error: 'Não foi possível carregar o catálogo de comandos.' });
+    }
+  });
+  app.patch('/api/command-policies', async (request, reply) => {
+    const localRequest = /** @type {any} */ (request);
+    const body = localRequest.body && typeof localRequest.body === 'object' && !Array.isArray(localRequest.body) ? localRequest.body : {};
+    const policies = body.policies;
+    if (!Number.isInteger(body.expectedVersion) || body.expectedVersion < 1
+      || !policies || typeof policies !== 'object' || Array.isArray(policies) || !Object.keys(policies).length
+      || Object.keys(body).some((key) => !['expectedVersion', 'policies'].includes(key))) {
+      return reply.code(400).send({ error: 'Atualize o catálogo e informe permissões válidas.' });
+    }
+    for (const [key, roles] of Object.entries(policies)) {
+      const definition = CHAT_COMMANDS.find((entry) => entry.key === key);
+      if (!definition || definition.immutableRoles || !Array.isArray(roles)
+        || roles.some((role) => !CONFIGURABLE_COMMAND_ROLES.includes(role))
+        || new Set(roles).size !== roles.length) {
+        return reply.code(400).send({ error: 'Um ou mais comandos têm cargos inválidos ou não podem ser alterados.' });
+      }
+    }
+    if (typeof repository.updateCommandPolicies !== 'function') return reply.code(503).send({ error: 'A gravação do catálogo de comandos não está disponível.' });
+    try {
+      return await repository.updateCommandPolicies({
+        expectedVersion: body.expectedVersion, policies,
+        actorId: localRequest.localSession?.id ?? null, origin: 'panel',
+      });
+    } catch (error) {
+      if (error?.code === 'COMMAND_POLICY_VERSION_CONFLICT') return reply.code(409).send({ error: 'As permissões mudaram. Atualize o catálogo antes de salvar.' });
+      if (error?.code === 'INVALID_COMMAND_POLICY') return reply.code(400).send({ error: 'Revise os cargos selecionados para cada comando.' });
+      return reply.code(503).send({ error: 'Não foi possível salvar as permissões dos comandos.' });
+    }
   });
   app.get('/api/operations', async () => (await repository.listFinancialOperations?.() ?? []).map((operation) => ({
     id: operation.id, type: operation.operationType, redemptionId: operation.redemptionId,

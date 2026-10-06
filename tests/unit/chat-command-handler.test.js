@@ -23,7 +23,8 @@ function setup() {
     callNext: vi.fn(async () => [{ id: 'entry-1', twitchUserId: 'viewer-1', userLogin: 'viewer', displayName: 'Viewer', previousPosition: 1, status: 'called' }]),
   };
   const clearConfirmation = createClearConfirmationService({ repository });
-  return { handler: createChatCommandHandler({ repository, domainService, twitch, settings, clearConfirmation, broadcasterId: 'broadcaster-1' }), repository, domainService, twitch, settings };
+  const getTwitchHealth = vi.fn(() => ({ status: 'connected', pingMs: 82 }));
+  return { handler: createChatCommandHandler({ repository, domainService, twitch, settings, clearConfirmation, broadcasterId: 'broadcaster-1', productVersion: 'v0.4.0-1234567-alpha', getTwitchHealth }), repository, domainService, twitch, settings, getTwitchHealth };
 }
 
 describe('Twitch chat command handler', () => {
@@ -126,5 +127,31 @@ describe('Twitch chat command handler', () => {
     await h.handler({ id: 'clear-3', text: '!abismo limpar confirmar', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
     expect(h.repository.clearActiveEntries).toHaveBeenCalledOnce();
     expect(h.twitch.sendChatMessage).toHaveBeenLastCalledWith(expect.stringContaining('reembolsos solicitados e pendentes'));
+  });
+
+  it('answers global ping for a moderator using cached health and the running version', async () => {
+    const h = setup();
+    await h.handler({ id: 'ping-mod', text: '!queue ping', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+    expect(h.getTwitchHealth).toHaveBeenCalledOnce();
+    expect(h.twitch.sendChatMessage).toHaveBeenCalledWith('Pong 🏓 Bot ativo · v0.4.0-1234567-alpha · Twitch: 82 ms');
+    expect(h.repository.getQueueByKey).not.toHaveBeenCalled();
+    expect(h.twitch.getUserByLogin).not.toHaveBeenCalled();
+  });
+
+  it('does not read ping status or respond to an unauthorized viewer', async () => {
+    const h = setup();
+    await h.handler({ id: 'ping-viewer', text: '!queue ping', userId: 'viewer-1', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
+    expect(h.getTwitchHealth).not.toHaveBeenCalled();
+    expect(h.twitch.sendChatMessage).not.toHaveBeenCalled();
+    expect(h.repository.getQueueByKey).not.toHaveBeenCalled();
+  });
+
+  it('accepts case-insensitive global command discovery and ping subcommands', async () => {
+    const h = setup();
+    await h.handler({ id: 'ping-case', text: '!queue PING', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+    await h.handler({ id: 'help-case', text: '!queue COMANDOS', userId: 'viewer-case', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
+    expect(h.twitch.sendChatMessage).toHaveBeenNthCalledWith(1, expect.stringContaining('Pong 🏓'));
+    expect(h.twitch.sendChatMessage).toHaveBeenNthCalledWith(2, expect.stringContaining('!queue comandos'));
+    expect(h.repository.getQueueByKey).not.toHaveBeenCalled();
   });
 });

@@ -4,10 +4,13 @@ import { twitchEligibilityMessage, twitchStatusLabel } from './setup-messages.mj
 import { formatHealthStatus } from './health-status.mjs';
 import { priorityBenefitLabel } from './priority-labels.mjs';
 import { getInitialPanelPage, selectPanelPage } from './panel-navigation.mjs';
+import { collectCommandPolicies, mergeCommandPolicyState, projectCommandCatalog } from './command-catalog-view.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const optionalLimit = (value) => String(value ?? '').trim() ? Number(value) : null;
 const state = { csrfToken: null, queues: [], productVersion: '—', initialPageSelected: false, twitchConnected: null };
+const commandRoleLabels = { everyone: 'Todos', subscriber: 'Inscritos', vip: 'VIPs', moderator: 'Moderadores' };
+let commandCatalog = null;
 
 function showPanelPage(pageId) {
   const navigationItems = /** @type {HTMLButtonElement[]} */ ([...document.querySelectorAll('.panel-navigation [data-page-target]')]);
@@ -126,6 +129,50 @@ function renderQueues(queues) {
   }
 }
 
+function renderCommandCatalog(catalog) {
+  const container = $('#command-catalog'); container.replaceChildren();
+  if (!catalog?.commands?.length) { container.append(text('p', 'O catálogo ainda não está disponível.', 'muted')); return; }
+  commandCatalog = catalog;
+  for (const command of projectCommandCatalog(catalog)) {
+    const card = document.createElement('article'); card.className = 'command-policy-card';
+    const description = document.createElement('div');
+    description.append(text('h2', command.description));
+    description.append(text('code', command.syntax, 'command-policy-syntax'));
+    const roles = document.createElement('fieldset'); roles.className = 'command-policy-roles';
+    roles.setAttribute('aria-label', `Cargos de ${command.syntax}`);
+    const selected = new Set(command.roles);
+    for (const role of catalog.configurableRoles) {
+      const label = document.createElement('label');
+      if (command.locked) label.classList.add('locked-role');
+      const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.value = role;
+      checkbox.checked = selected.has(role); checkbox.disabled = command.locked;
+      label.append(checkbox, document.createTextNode(commandRoleLabels[role] ?? role)); roles.append(label);
+    }
+    const status = text('p', command.locked ? `Acesso fixo: ${(command.immutableRoles ?? command.roles).map((role) => role === 'streamer' ? 'streamer' : commandRoleLabels[role] ?? role).join(' e ')}.` : 'Qualquer cargo marcado pode usar este comando.', 'muted');
+    description.append(status); card.append(description, roles); card.dataset.commandKey = command.key; container.append(card);
+  }
+}
+
+async function loadCommandCatalog() {
+  try {
+    commandCatalog = await request('/api/command-catalog');
+    renderCommandCatalog(commandCatalog);
+    $('#command-catalog-notice').textContent = '';
+  } catch (error) { $('#command-catalog').replaceChildren(text('p', error.message, 'muted')); }
+}
+
+async function saveCommandPolicies(event) {
+  event.preventDefault();
+  if (!commandCatalog) return;
+  const policies = collectCommandPolicies(commandCatalog.commands, [...$('#command-catalog').children]);
+  try {
+    const result = await request('/api/command-policies', { method: 'PATCH', body: JSON.stringify({ expectedVersion: commandCatalog.version, policies }) });
+    commandCatalog = mergeCommandPolicyState(commandCatalog, result);
+    renderCommandCatalog(commandCatalog);
+    $('#command-catalog-notice').textContent = 'Permissões dos comandos atualizadas.';
+  } catch (error) { $('#command-catalog-notice').textContent = error.message; }
+}
+
 async function refresh() {
   try {
     const [apiState, setup, health] = await Promise.all([
@@ -197,10 +244,14 @@ async function boot() {
   document.addEventListener('click', (event) => {
     const eventTarget = /** @type {Element|null} */ (event.target);
     const target = /** @type {HTMLElement|null} */ (eventTarget?.closest('[data-page-target]') ?? null);
-    if (target) showPanelPage(target.dataset.pageTarget);
+    if (target) {
+      showPanelPage(target.dataset.pageTarget);
+      if (target.dataset.pageTarget === 'commands' && !commandCatalog) void loadCommandCatalog();
+    }
     const closeButton = /** @type {HTMLElement|null} */ (eventTarget?.closest('[data-close-dialog]') ?? null);
     if (closeButton) (/** @type {HTMLDialogElement|null} */ (document.getElementById(closeButton.dataset.closeDialog)))?.close();
   });
+  $('#command-catalog-form').addEventListener('submit', saveCommandPolicies);
   $('#credentials-form').addEventListener('submit', createApplicationSetupSubmitHandler({
     request, notice: $('#credentials-notice'), refresh,
   }));

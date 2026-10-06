@@ -1,0 +1,10 @@
+{
+  "storyId": "OPS-3",
+  "assessedAt": "2026-10-06T12:00:00Z",
+  "assessedBy": "@architect",
+  "dimensions": { "scope": { "score": 5, "reason": "Cross-cuts parser, authorization, chat handler, persistence, protected API, cached health sharing, navigation, frontend, tests, and bilingual docs." }, "integration": { "score": 2, "reason": "Uses existing internal API, PostgreSQL, and Twitch EventSub data; no new external integration." }, "infrastructure": { "score": 4, "reason": "Requires persistent policy storage and real PostgreSQL migration-backed contract tests; likely additive migration or existing JSON setting contract." }, "knowledge": { "score": 3, "reason": "Existing patterns cover these technologies, but command catalog-to-runtime parity and per-command authorization require careful domain design." }, "risk": { "score": 4, "reason": "A permission regression may expose queue mutations or change access during a live stream." } },
+  "total": 18,
+  "result": "COMPLEX",
+  "pipelinePhases": ["gather", "assess", "research", "spec", "critique_1", "revise", "critique_2", "plan"],
+  "flags": ["Authorization is safety-sensitive", "Preserve current policy as migration/default behavior", "Real PostgreSQL tests required", "Do not start FND-7 planning before this implementation is complete"]
+}

@@ -4,6 +4,11 @@
 
 Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.4.0-alpha
+
+- Streamers podem consultar todos os comandos de chat no painel e escolher quais cargos podem usar os comandos configuráveis.
+- Viewers podem pedir no chat a lista de comandos disponíveis para seu cargo; streamer e moderadores podem verificar se o bot responde.
+
 ## v0.3.0-alpha
 
 - Streamers podem configurar limites de resgate e intervalo das recompensas da fila no painel.

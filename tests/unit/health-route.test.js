@@ -97,6 +97,23 @@ describe('local health response contract', () => {
     await app.close();
   });
 
+  it('exposes only the last cached Twitch status and ping for local consumers', async () => {
+    const app = Fastify();
+    const probeTwitchApi = vi.fn(async () => true);
+    const health = healthModule.registerHealthRoute(app, {
+      pool: { query: vi.fn().mockResolvedValue({ rows: [] }) },
+      productVersion: 'v0.3.0-0000000-alpha', getTwitchStatus: () => 'connected',
+      probeTwitchApi, now: () => 1000,
+    });
+
+    expect(health.getTwitchHealth()).toBeNull();
+    await app.inject({ method: 'GET', url: '/health' });
+
+    expect(health.getTwitchHealth()).toEqual({ status: 'connected', pingMs: 0 });
+    expect(probeTwitchApi).toHaveBeenCalledOnce();
+    await app.close();
+  });
+
   it('reports Twitch health as degraded when the integration probe rejects instead of claiming connected', async () => {
     const app = Fastify();
     healthModule.registerHealthRoute(app, {

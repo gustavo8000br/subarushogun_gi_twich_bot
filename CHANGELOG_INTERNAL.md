@@ -2,6 +2,16 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.4.0-alpha
+
+- Fix OPS-3 authorization for Twurple's EventSub chat badge object map; add an end-to-end EventSub-to-authorization regression test. Independent QA reproduced the moderator-as-viewer defect (7/10), then revalidated the test-first fix and passed at 9.2/10.
+
+- Add a canonical command definition registry used by parsing, role authorization, chat help, and the protected catalog API. Persist explicit per-command role allowlists in PostgreSQL `Setting` with transaction lock, optimistic version, and same-transaction audit; malformed policies fail closed. Account-label writes stay immutable streamer-only; global `!queue ping` stays immutable streamer/moderator-only. `queue` is reserved from slugs and aliases.
+- Add global role-filtered `!queue comandos` while retaining `!<queue> comandos`; add the protected Commands panel page with explicit allowlist controls, immutable rows, session/CSRF/idempotency/version checks, and DOM `textContent` rendering.
+- Share only the latest sanitized `/health` Twitch probe snapshot with the chat handler; ping includes runtime version and cached latency and does not initiate a Helix request. Add focused handler, route, panel, and real PostgreSQL migration-backed tests. Live Twitch chat ping was not verified during this implementation.
+
+- Keep technical changelog entries under matching release headings in English and pt-BR.
+
 ## v0.3.0-alpha
 
 - Complete independent FND-6 QA on revision `165c5c4`: 384 tests and repository gates pass; the browser callback denial/30-second recovery and authorized read-only Twitch health probe were verified. Record CONCERNS (90/100) because eligible-channel reward/chat/EventSub effects could not be exercised with the connected ineligible channel; no live write is claimed.

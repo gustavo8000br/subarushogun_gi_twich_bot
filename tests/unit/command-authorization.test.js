@@ -50,17 +50,28 @@ describe('command authorization', () => {
       .toMatchObject({ allowed: false, reason: 'wrong_channel' });
   });
 
-  it('allows account query to viewers and requires management for account changes', () => {
+  it('allows account query to viewers and makes account changes streamer-only', () => {
     expect(check(localMessage(), { scope: 'global', command: 'conta', args: [] }))
       .toMatchObject({ allowed: true, role: 'viewer' });
     expect(check(localMessage(), { scope: 'global', command: 'conta', args: ['reset'] }))
       .toMatchObject({ allowed: false, role: 'viewer' });
     expect(check(localMessage({ badges: [{ setId: 'moderator' }] }), { scope: 'global', command: 'conta', args: ['reset'] }))
-      .toMatchObject({ allowed: true, role: 'moderator' });
+      .toMatchObject({ allowed: false, role: 'moderator', reason: 'streamer_only' });
+    expect(check(localMessage({ userId: 'broadcaster-1' }), { scope: 'global', command: 'conta', args: ['reset'] }))
+      .toMatchObject({ allowed: true, role: 'streamer' });
   });
 
   it('does not let a manager use viewer self-service commands against another identity', () => {
     expect(check(localMessage({ badges: [{ setId: 'moderator' }] }), parsed('sair', ['other-user'])))
       .toMatchObject({ allowed: false, reason: 'viewer_identity_required' });
+  });
+
+  it('allows global ping only to the broadcaster or a current target-channel moderator', () => {
+    const ping = { scope: 'global', command: 'queue', args: ['ping'] };
+    expect(check(localMessage(), ping)).toMatchObject({ allowed: false, reason: 'role_not_allowed' });
+    expect(check(localMessage({ badges: [{ setId: 'moderator' }] }), ping)).toMatchObject({ allowed: true, role: 'moderator' });
+    expect(check(localMessage({ userId: 'broadcaster-1' }), ping)).toMatchObject({ allowed: true, role: 'streamer' });
+    expect(check(localMessage({ badges: [{ setId: 'moderator' }], sourceChannelId: 'other-channel' }), ping))
+      .toMatchObject({ allowed: false, reason: 'wrong_channel' });
   });
 });

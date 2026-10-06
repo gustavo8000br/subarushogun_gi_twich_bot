@@ -1,0 +1,18 @@
+{
+  "storyId": "OPS-3",
+  "createdAt": "2026-10-06T12:00:00Z",
+  "createdBy": "@architect",
+  "status": "in_progress",
+  "workstreams": [
+    { "id": "W1", "order": 1, "behavior": "Canonical command catalog and pure role-policy resolution", "redTests": ["catalog contains all parsed commands", "role matching: explicit OR, everyone, VIP toggle, streamer identity", "account writes streamer-only and policy tampering rejected"], "greenScope": ["registry", "policy pure module", "authorization function"] },
+    { "id": "W2", "order": 2, "behavior": "Command help parser and role-specific chat response", "redTests": ["parser accepts comandos", "role-specific list/help and streamer panel direction", "no lookup or mutation on denied command", "bounded/cooldown response"], "greenScope": ["parser", "chat help path", "chat handler tests"] },
+    { "id": "W3", "order": 3, "behavior": "Durable policy read/write and audit", "redTests": ["migration-backed default read/write/audit/reload", "stale version conflict", "invalid roles and immutable broaden rejected"], "greenScope": ["Prisma/schema migration if needed", "repository", "real PostgreSQL integration tests"] },
+    { "id": "W4", "order": 4, "behavior": "Protected catalog and command policy API", "redTests": ["session/CSRF", "schema, idempotency, version, immutable policy"] , "greenScope": ["Fastify routes", "safe DTO", "HTTP tests"] },
+    { "id": "W5", "order": 5, "behavior": "Local Comandos panel page and cached Twitch ping", "redTests": ["navigation exposes catalog", "all definitions and roles visible", "immutable commands not editable", "safe text rendering", "merge policy update response back into the catalog", "ping exposes only the last cached health probe"] , "greenScope": ["vanilla page/nav/js/css", "DOM/route tests", "health cache reader shared with chat"] },
+    { "id": "W6", "order": 6, "behavior": "Bilingual record, acceptance, quality and review", "redTests": ["documentation parity contract", "all acceptance mapped"] , "greenScope": ["stories, integration guide, changelogs, READMEs if affected"] }
+  ],
+  "qualityGates": ["focused Vitest after each increment", "real isolated PostgreSQL migrations", "npm run lint", "npm run typecheck", "npm test", "npm run review:static", "npm run validate:version", "docker compose config --quiet", "git diff --check", "English/pt-BR parity"],
+  "release": { "baseVersion": "0.4.0", "stage": "alpha", "reason": "New user-facing capability; apply the owner's version rule for the next PR. Do not promote stage or create release/tag." },
+  "deferred": ["FND-7 planning/research", "$aiox-ux-design-expert activation"],
+  "pushAndPR": "After story QA, hand off repository publication to @devops; use the required feature branch -> PR -> main flow. Never create a tag/release."
+}

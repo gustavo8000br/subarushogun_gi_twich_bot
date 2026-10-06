@@ -1,0 +1,60 @@
+{
+  "storyId": "OPS-3",
+  "sourceIssue": 17,
+  "gatheredAt": "2026-10-06T12:00:00Z",
+  "source": "user",
+  "gatheredBy": "@pm",
+  "elicitationVersion": "2.0",
+  "functional": [
+    { "id": "FR-1", "description": "Show a local panel catalog of every implemented chat command with syntax, purpose, supported roles, and whether access can be changed.", "priority": "P0", "rationale": "The streamer needs one complete reference and control surface.", "acceptance": ["AC-1", "AC-2"] },
+    { "id": "FR-2", "description": "Allow the streamer to configure an explicit allowlist of roles for each mutable command and persist the same policy used by panel help and chat authorization.", "priority": "P0", "rationale": "One source of truth avoids the catalog promising access that execution denies.", "acceptance": ["AC-3", "AC-4"] },
+    { "id": "FR-3", "description": "Keep the initial policy consistent with existing access: self-service commands and read-only global commands stay available to everyone; existing management access stays with streamer and moderator, with VIP access gated by the existing toggle.", "priority": "P0", "rationale": "Configurable policy must not silently change current channel behavior.", "acceptance": ["AC-3", "AC-4"] },
+    { "id": "FR-4", "description": "Keep !conta <nome> and !conta reset immutable and streamer-only in chat, panel metadata, and API validation.", "priority": "P0", "rationale": "These account-label controls are explicitly reserved for the streamer.", "acceptance": ["AC-5"] },
+    { "id": "FR-5", "description": "Support global command discovery through !queue comandos, returning all commands available across the product using the same persisted policy; direct the streamer to the panel. Keep !<fila> comandos for queue-specific help.", "priority": "P0", "rationale": "Viewers and moderators need role-specific help without exposing unavailable controls.", "acceptance": ["AC-6", "AC-7"] },
+    { "id": "FR-6", "description": "Recognize streamer identity, current-message moderator/VIP/subscriber badges, and the everyone role; VIP grants remain disabled unless the existing VIP-management toggle is enabled.", "priority": "P0", "rationale": "Authorization must use trustworthy Twitch event data and preserve the existing VIP safety switch.", "acceptance": ["AC-3", "AC-4", "AC-8"] },
+    { "id": "FR-7", "description": "Ensure denied commands and hidden command discovery produce no queue lookup, mutation, account lookup, or external API call beyond the minimal work required to identify the queue help response.", "priority": "P0", "rationale": "Authorization denials must not trigger side effects or reveal protected operations.", "acceptance": ["AC-7", "AC-8"] },
+    { "id": "FR-8", "description": "Keep help responses within existing chat cooldown and 500-character limits and provide a concise Portuguese empty/denied response appropriate to the sender role.", "priority": "P1", "rationale": "Chat help must be usable without flooding or disclosing hidden commands.", "acceptance": ["AC-6", "AC-7"] },
+    { "id": "FR-9", "description": "Provide global !queue ping restricted immutably to streamer and moderators; reply with Pong, a ping-pong emoji, running version and latest cached Twitch API latency.", "priority": "P0", "rationale": "Operator can verify chat response and recent Twitch connectivity from chat.", "acceptance": ["AC-9", "AC-10"] },
+    { "id": "FR-10", "description": "Reserve queue as a global command namespace so no queue slug or alias can shadow !queue comandos or !queue ping.", "priority": "P0", "rationale": "Global commands need unambiguous parsing and authorization.", "acceptance": ["AC-11"] }
+  ],
+  "nonFunctional": [
+    { "id": "NFR-1", "category": "security", "description": "Only the authenticated local panel can read or change the command catalog policy; all mutations continue through session, CSRF, operation-idempotency, and schema checks.", "metric": "Unauthenticated/cross-site mutations rejected; streamer-only roles cannot be relaxed by any request." },
+    { "id": "NFR-2", "category": "reliability", "description": "Persist policy across bot restarts and use a single source of truth for rendering help and authorizing commands.", "metric": "Real PostgreSQL migration-backed integration tests pass across repository reconstruction." },
+    { "id": "NFR-3", "category": "usability", "description": "Panel and chat copy remain pt-BR and distinguish configurable from immutable command access.", "metric": "All user-visible catalog and help labels are Portuguese and fit the existing 500-character chat limit." }
+  ],
+  "constraints": [
+    { "id": "CON-1", "type": "technical", "description": "Application remains JavaScript ESM, Fastify, vanilla frontend, PostgreSQL and Prisma; no additional runtime service or dependency is introduced.", "impact": "Use existing modules, setting persistence and panel navigation patterns." },
+    { "id": "CON-2", "type": "business", "description": "Configurable role set is streamer, moderator, VIP, subscriber, and everyone, with VIP controlled by the existing global toggle; follower is excluded from v1.", "impact": "Do not add the Twitch followers scope or infer follower status." },
+    { "id": "CON-3", "type": "business", "description": "Multiple allowed roles use explicit OR semantics without hierarchy inheritance; the streamer retains access except for no command, while streamer-only commands remain locked to streamer.", "impact": "A user may match multiple current-event badges; matching any configured eligible role allows the command." },
+    { "id": "CON-4", "type": "business", "description": "The initial policy preserves current access, except !conta <nome> and !conta reset become streamer-only; !queue ping is fixed to streamer and moderator.", "impact": "Seed default behavior and fixed audiences." },
+    { "id": "CON-5", "type": "technical", "description": "!queue ping reads only the latest in-process health probe cache and does not perform a Twitch API request for each command.", "impact": "Share safe health snapshot with chat handler and show unavailable when no probe exists." }
+  ],
+  "assumptions": [
+    { "id": "ASM-1", "description": "The existing local-panel session represents the streamer/operator; the command policy UI is not a public control surface.", "risk_if_wrong": "An additional operator role/access-control model would be required.", "validation_needed": false },
+    { "id": "ASM-2", "description": "Twitch chat events expose current moderator, VIP, and subscriber badges and the current broadcaster identity.", "risk_if_wrong": "Some configurable roles would need a different data source and explicit scope review.", "validation_needed": false }
+  ],
+  "domainModel": [
+    { "id": "DM-1", "entity": "ChatCommandDefinition", "attributes": ["id", "syntax", "description", "scope", "immutableRoles"], "relationships": [] },
+    { "id": "DM-2", "entity": "CommandRolePolicy", "attributes": ["commandId", "allowedRoles", "version", "updatedAt"], "relationships": [{ "type": "belongs_to", "target": "ChatCommandDefinition" }] },
+    { "id": "DM-3", "entity": "ChatMessageIdentity", "attributes": ["userId", "channelId", "currentBadges", "sourceChannelId"], "relationships": [] }
+  ],
+  "interactions": [
+    { "id": "INT-1", "trigger": "Streamer opens the Comandos panel page", "flow": ["Fetch the command catalog and effective persisted policy", "Render descriptions, syntax, allowed roles, and locked streamer-only commands", "Edit mutable role allowlists", "Submit a CSRF-protected versioned update", "Refresh the same effective policy used by the chat handler"], "states": { "loading": "Show a compact loading state", "error": "Show a safe Portuguese error and preserve current selections", "empty": "Show an explicit no-commands state only if the catalog is empty" } },
+    { "id": "INT-2", "trigger": "Viewer, subscriber, VIP, moderator, or streamer sends !queue comandos", "flow": ["Parse without executing queue behavior", "Resolve current trusted roles", "Load persisted policy", "Return all permitted command syntax or direct streamer to panel", "Apply viewer cooldown and message limit"], "states": { "loading": "No intermediate message", "error": "Use a generic Portuguese error", "empty": "Explain that no commands are available to this role" } },
+    { "id": "INT-3", "trigger": "Streamer or target-channel moderator sends !queue ping", "flow": ["Authorize before reading health", "Read cached Twitch API latency and running product version", "Reply Pong 🏓 with version and latency without calling Helix"], "states": { "loading": "No intermediate message", "error": "Show latency unavailable if no probe is cached", "empty": "Not applicable" } }
+  ],
+  "edgeCases": [
+    { "id": "EC-1", "scenario": "An API request attempts to add a non-streamer role to an immutable command", "handling": "Reject before persistence and return a safe validation error; preserve current policy.", "severity": "critical" },
+    { "id": "EC-2", "scenario": "A user has multiple trusted badges, such as moderator and subscriber", "handling": "Authorize when any eligible role in the explicit allowlist matches; VIP still requires the existing toggle.", "severity": "high" },
+    { "id": "EC-3", "scenario": "Subscriber badge is absent, stale, or supplied only by another broadcaster in Shared Chat", "handling": "Use only badges and identity from the current target-channel event; never persist/reuse badge state and reject wrong-channel events.", "severity": "critical" },
+    { "id": "EC-4", "scenario": "Persisted policy is missing, malformed, or has a newer version than submitted", "handling": "Use a safe built-in default only when no record exists; reject malformed/conflicting writes and do not open permissions implicitly.", "severity": "high" },
+    { "id": "EC-5", "scenario": "A role has no eligible commands or the help response would exceed 500 characters", "handling": "Return concise Portuguese no-access or a bounded syntax list with a panel hint.", "severity": "medium" },
+    { "id": "EC-6", "scenario": "Ping arrives before a health probe has produced Twitch latency", "handling": "Still reply Pong and version, label latency unavailable, and do not initiate a network request.", "severity": "medium" }
+  ],
+  "terminology": [
+    { "term": "everyone", "definition": "Allowlist role that permits the command to any sender, including users with other badges.", "synonyms": ["todos"], "avoid": ["viewer role implying every command is safe"] },
+    { "term": "current-message badge", "definition": "Role badge included in the Twitch EventSub chat message currently being authorized.", "synonyms": ["badge atual"], "avoid": ["cached role", "historical permission"] },
+    { "term": "streamer-only command", "definition": "Command that only the broadcaster identity may execute and that the panel/API cannot broaden.", "synonyms": ["comando exclusivo do streamer"], "avoid": ["admin command unless explicitly equivalent"] }
+  ],
+  "openQuestions": []
+}

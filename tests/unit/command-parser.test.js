@@ -27,6 +27,19 @@ describe('pure pt-BR chat command parser', () => {
     expect(parseChatCommand(text)).toMatchObject({ kind: 'command', command });
   });
 
+  it('parses queue command discovery separately from queue execution commands', () => {
+    expect(parseChatCommand('!abismo comandos')).toEqual({
+      kind: 'command', scope: 'queue', queueKey: 'abismo', command: 'comandos', args: [],
+    });
+  });
+
+  it.each([
+    ['!queue comandos', 'comandos'],
+    ['!queue ping', 'ping'],
+  ])('parses the global bot command namespace: %s', (text, command) => {
+    expect(parseChatCommand(text)).toEqual({ kind: 'command', scope: 'global', queueKey: null, command: 'queue', args: [command] });
+  });
+
   it('keeps login arguments distinct and does not resolve display names or permissions', () => {
     expect(parseChatCommand('!abismo remover @SomeLogin')).toEqual({
       kind: 'command', scope: 'queue', queueKey: 'abismo', command: 'remover', args: ['@SomeLogin'],

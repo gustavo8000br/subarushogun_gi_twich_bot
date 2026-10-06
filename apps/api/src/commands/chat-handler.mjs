@@ -1,5 +1,7 @@
 import { authorizeCommand } from './authorization.mjs';
 import { parseChatCommand } from './parser.mjs';
+import { getCommandDefinition } from './catalog.mjs';
+import { renderGlobalCommandHelp, renderPingResponse, renderQueueCommandHelp } from './help.mjs';
 
 const seenMessages = new Map();
 const cooldowns = new Map();
@@ -24,8 +26,8 @@ function mention(entry, showUid) {
   return `@${entry.userLogin}${uid}`;
 }
 
-/** @param {{repository: any, domainService?: any, twitch: any, settings?: any, clearConfirmation?: any, broadcasterId: string, allowVipManagement?: boolean, onError?: (code: string) => unknown}} dependencies */
-export function createChatCommandHandler({ repository, domainService = repository, twitch, settings = {}, clearConfirmation = null, broadcasterId, allowVipManagement = false, onError = () => undefined }) {
+/** @param {{repository: any, domainService?: any, twitch: any, settings?: any, clearConfirmation?: any, broadcasterId: string, allowVipManagement?: boolean, productVersion?:string, getTwitchHealth?:()=>any, onError?: (code: string) => unknown}} dependencies */
+export function createChatCommandHandler({ repository, domainService = repository, twitch, settings = {}, clearConfirmation = null, broadcasterId, allowVipManagement = false, productVersion = 'unknown', getTwitchHealth = () => null, onError = () => undefined }) {
   function reply(message, text) {
     const body = safeMessage(text);
     if (!body) return;
@@ -33,7 +35,7 @@ export function createChatCommandHandler({ repository, domainService = repositor
     return body;
   }
 
-  async function queueAction(message, parsed, authorized) {
+  async function queueAction(message, parsed, authorized, policies) {
     const queue = await repository.getQueueByKey(parsed.queueKey);
     if (!queue) return reply(message, 'Essa fila não foi encontrada.');
     const args = parsed.args;
@@ -46,6 +48,9 @@ export function createChatCommandHandler({ repository, domainService = repositor
         const called = snapshot.called.map((entry) => mention(entry, queue.uidMode === 'visible' && queue.showUidInList));
         const playing = snapshot.inProgress.map((entry) => mention(entry, queue.uidMode === 'visible' && queue.showUidInList));
         return reply(message, `${queue.title}${queueOpenSuffix(queue)} · Aguardando: ${waiting.join(', ') || 'ninguém'}${rest ? ` e mais ${rest}` : ''}${called.length ? ` · Chamados: ${called.join(', ')}` : ''}${playing.length ? ` · Em atendimento: ${playing.join(', ')}` : ''}`);
+      }
+      case 'comandos': {
+        return reply(message, renderQueueCommandHelp({ queueSlug: queue.slug, roles: authorized.roles, policies, allowVipManagement }));
       }
       case 'posicao': {
         const entry = await ownEntry();
@@ -145,7 +150,15 @@ export function createChatCommandHandler({ repository, domainService = repositor
       || (message.sourceChannelId && message.sourceChannelId !== broadcasterId)) return;
     const parsed = parseChatCommand(message.text);
     if (parsed.kind !== 'command') return;
-    const authorized = authorizeCommand({ broadcasterId, message, command: parsed, allowVipManagement });
+    const definition = getCommandDefinition(parsed);
+    let policies = {};
+    if (definition && !definition.immutableRoles) {
+      try { policies = await repository.getCommandPolicies?.() ?? {}; } catch {
+        onError('command_policy_read_failed');
+        return reply(message, 'Não foi possível validar os comandos agora. Tente novamente em instantes.');
+      }
+    }
+    const authorized = authorizeCommand({ broadcasterId, message, command: parsed, allowVipManagement, policies });
     if (!authorized.allowed) return;
     const cooldownExempt = parsed.scope === 'global' && parsed.command === 'conta' && parsed.args.length === 0;
     if (typeof repository.claimChatCommand === 'function') {
@@ -175,7 +188,7 @@ export function createChatCommandHandler({ repository, domainService = repositor
       }
     }
     try {
-      if (parsed.scope === 'queue') return await queueAction(message, parsed, authorized);
+      if (parsed.scope === 'queue') return await queueAction(message, parsed, authorized, policies);
       if (parsed.command === 'filas') {
         const queues = await repository.listQueueProjection();
         return reply(message, queues.filter((queue) => !queue.isArchived && queue.lifecycleStatus === 'active').map((queue) => `${queue.slug}${queueOpenSuffix(queue)}`).join(' · ') || 'Não há filas disponíveis.');
@@ -184,6 +197,13 @@ export function createChatCommandHandler({ repository, domainService = repositor
         if (!parsed.args.length) return reply(message, `Conta atual: ${(await settings.getAccount?.())?.label ?? 'Streamer'}.`);
         const result = parsed.args[0].toLowerCase() === 'reset' ? await settings.resetAccount?.(authorized.actorId) : await settings.setAccount?.(parsed.args.join(' '), authorized.actorId);
         return reply(message, `Conta atual: ${result?.label ?? 'Streamer'}.`);
+      }
+      const queueActionName = parsed.args[0]?.toLocaleLowerCase('pt-BR');
+      if (parsed.command === 'queue' && queueActionName === 'ping') {
+        return reply(message, renderPingResponse({ productVersion, twitchHealth: getTwitchHealth() }));
+      }
+      if (parsed.command === 'queue' && queueActionName === 'comandos') {
+        return reply(message, renderGlobalCommandHelp({ roles: authorized.roles, policies, allowVipManagement }));
       }
     } catch {
       onError('chat_command_failed');
