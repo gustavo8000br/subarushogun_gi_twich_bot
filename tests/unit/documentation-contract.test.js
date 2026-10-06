@@ -5,6 +5,47 @@ const root = new URL('../../', import.meta.url);
 const read = (path) => readFile(new URL(path, root), 'utf8');
 
 describe('foundation operator documentation contract', () => {
+  it('defines the owner-controlled per-PR version increment and release-stage policy in both languages', async () => {
+    const [english, portuguese] = await Promise.all([
+      read('docs/VERSIONING.md'), read('docs/pt-BR/VERSIONING.md'),
+    ]);
+    const englishPolicy = english.replaceAll('`', '');
+    const portuguesePolicy = portuguese.replaceAll('`', '');
+    expect(englishPolicy).toContain('Increment PATCH for a small fix or documentation-only change.');
+    expect(englishPolicy).toContain('Increment MINOR for a new feature, a large implementation, or a complex fix.');
+    expect(englishPolicy).toContain('Increment MAJOR only for a major product change');
+    expect(englishPolicy).toContain('Only the product owner may change the release stage.');
+    expect(portuguesePolicy).toContain('Incremente PATCH para uma correção pequena ou mudança somente documental.');
+    expect(portuguesePolicy).toContain('Incremente MINOR para uma funcionalidade nova, implementação grande ou correção complexa.');
+    expect(portuguesePolicy).toContain('Incremente MAJOR somente para uma mudança significativa do produto');
+    expect(portuguesePolicy).toContain('Somente o proprietário do produto decide quando avançar o estágio.');
+  });
+
+  it('requires DevOps to update the linked issue after publishing a completed story', async () => {
+    const instructions = await read('AGENTS.md');
+    expect(instructions).toContain('O @devops atualiza o corpo e o status da issue correspondente quando publicar uma story marcada como Done por PR');
+    expect(instructions).toContain('comentários só são publicados se forem necessários');
+  });
+
+  it('keeps public changelogs concise and readable without implementation jargon in both languages', async () => {
+    const [english, portuguese] = await Promise.all([
+      read('CHANGELOG.md'), read('docs/pt-BR/CHANGELOG.md'),
+    ]);
+    const technicalTerms = /advisory lock|outbox|retry-after|qemu|prisma|opengrep|ghcr|linux\/amd64|linux\/arm64|959\s*mb|musl|endpoint|ci quality gates|identidade runtime|identidade de runtime|backoff|worker durável/i;
+    for (const document of [english, portuguese]) {
+      expect(document).not.toMatch(technicalTerms);
+      expect(document).toContain('v0.2.0-alpha');
+      expect(document).toContain('v0.1.0-3e0c935-alpha');
+      const releaseSections = document.split(/^## /m).slice(1);
+      for (const section of releaseSections) {
+        const bulletCount = section.split('\n').filter((line) => /^-\s/.test(line)).length;
+        expect(bulletCount).toBeLessThanOrEqual(5);
+      }
+    }
+    expect(english.toLowerCase()).toContain('streamer');
+    expect(portuguese.toLowerCase()).toContain('streamer');
+  });
+
   it('provides linked English and Brazilian Portuguese setup and operations guides', async () => {
     const [english, portuguese] = await Promise.all([read('README.md'), read('README.pt-BR.md')]);
     expect(english).toContain('[Português brasileiro](README.pt-BR.md)');

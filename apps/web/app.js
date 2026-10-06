@@ -1,4 +1,5 @@
 import { createApplicationSetupSubmitHandler } from './application-setup.mjs';
+import { resendCallNotification } from './call-notification-actions.mjs';
 import { twitchEligibilityMessage, twitchStatusLabel } from './setup-messages.mjs';
 
 const $ = (selector) => document.querySelector(selector);
@@ -40,7 +41,7 @@ function renderEntryGroup(title, entries, queue, group) {
     if (queue.uidMode === 'visible' && entry.uid && (group === 'waiting' ? queue.showUidInList : queue.showUidOnCall)) row.append(text('small', `UID ${entry.uid}`));
     const buttons = document.createElement('span'); buttons.className = 'entry-buttons';
     if (group === 'waiting') buttons.append(action('chamar', 'call-one', entry.id, queue.id));
-    if (group === 'called') buttons.append(action('atender', 'in_progress', entry.id, queue.id), action('concluir', 'completed', entry.id, queue.id));
+    if (group === 'called') buttons.append(action('atender', 'in_progress', entry.id, queue.id), action('concluir', 'completed', entry.id, queue.id), action('Reenviar chamada', 'resend-call', entry.id, queue.id));
     if (group === 'in_progress') buttons.append(action('concluir', 'completed', entry.id, queue.id));
     buttons.append(action('remover', 'removed', entry.id, queue.id)); row.append(buttons); section.append(row);
   }
@@ -58,11 +59,26 @@ function renderQueues(queues) {
     const head = document.createElement('div'); head.className = 'queue-card-head';
     head.append(text('span', queue.title?.slice(0, 1)?.toUpperCase() || 'Q', 'queue-symbol'));
     const meta = document.createElement('div'); meta.className = 'queue-meta'; meta.append(text('strong', queue.title)); meta.append(text('small', `!${queue.slug} · ${Number(queue.cost).toLocaleString('pt-BR')} pontos · ${queue.isOpen ? 'ABERTA' : 'FECHADA'} · ${queue.remoteSyncStatus || 'sem sincronização'}`)); head.append(meta);
+    const active = queue.entries || [];
     const controls = document.createElement('div'); controls.className = 'queue-actions';
-    controls.append(action('Adicionar', 'add-entry', '', queue.id), action('Próximo', 'call-next', '', queue.id), action(queue.isOpen ? 'Fechar' : 'Abrir', queue.isOpen ? 'close-queue' : 'open-queue', '', queue.id), action('Limpar fila', 'clear-queue', '', queue.id));
+    if (queue.lifecycleStatus === 'deleting') {
+      controls.append(text('span', 'Exclusão pendente: aguardando confirmação dos cancelamentos e da recompensa.', 'muted'));
+    } else {
+      controls.append(action('Excluir fila', 'delete-queue', '', queue.id));
+    }
+    if (queue.lifecycleStatus === 'deleting') {
+      // Queue mutation controls stay disabled while the durable deletion workflow is pending.
+    } else if (queue.isArchived) {
+      controls.append(action('Desarquivar', 'unarchive-queue', '', queue.id));
+      if (active.some((entry) => entry.status === 'waiting')) controls.append(action('Próximo', 'call-next', '', queue.id));
+      controls.append(action('Limpar fila', 'clear-queue', '', queue.id));
+    } else {
+      controls.append(action('Adicionar', 'add-entry', '', queue.id), action('Próximo', 'call-next', '', queue.id));
+      if (['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) controls.append(action(queue.isOpen ? 'Fechar' : 'Abrir', queue.isOpen ? 'close-queue' : 'open-queue', '', queue.id), action('Arquivar', 'archive-queue', '', queue.id));
+      controls.append(action('Limpar fila', 'clear-queue', '', queue.id));
+    }
     if (queue.remoteSyncStatus === 'create_unknown') controls.append(action('Vincular recompensa', 'resolve-reward', '', queue.id));
     head.append(controls); card.append(head);
-    const active = queue.entries || [];
     card.append(renderEntryGroup('Aguardando', active.filter((entry) => entry.status === 'waiting'), queue, 'waiting'));
     card.append(renderEntryGroup('Chamados', active.filter((entry) => entry.status === 'called'), queue, 'called'));
     card.append(renderEntryGroup('Em atendimento', active.filter((entry) => entry.status === 'in_progress'), queue, 'in_progress'));
@@ -90,10 +106,10 @@ async function refresh() {
     if (!operations.length) operationList.append(text('p', 'Nenhuma operação pendente.', 'muted'));
     for (const operation of operations) {
       const row = document.createElement('div'); row.className = 'operation-row'; row.dataset.status = operation.status;
-      row.append(text('strong', operation.type === 'redemption.cancel' ? 'REEMBOLSO' : 'CONSUMO'));
+      row.append(text('strong', operation.type === 'redemption.cancel' ? 'REEMBOLSO' : operation.type === 'redemption.fulfill' ? 'CONSUMO' : 'EXCLUSÃO DE FILA'));
       const statusLabel = operation.status === 'resolved_manual' ? 'resolvido manualmente · Twitch não confirmou' : operation.status;
-      row.append(text('small', `${operation.redemptionId} · ${statusLabel} · ${operation.attempts} tentativas${operation.lastError ? ` · ${operation.lastError}` : ''}`));
-      if (operation.status === 'unknown') {
+      row.append(text('small', `${operation.redemptionId ?? operation.entityId ?? ''} · ${statusLabel} · ${operation.attempts} tentativas${operation.lastError ? ` · ${operation.lastError}` : ''}`));
+      if (operation.status === 'unknown' && operation.type.startsWith('redemption.')) {
         const button = text('button', 'Registrar resolução manual'); button.type = 'button';
         button.addEventListener('click', async () => {
           const accepted = window.confirm('O estado dos pontos não pôde ser confirmado pela Twitch. Registrar que você revisou e encerrou o acompanhamento automático? Isso não confirma reembolso nem consumo e não haverá novas tentativas automáticas.');
@@ -135,6 +151,27 @@ async function boot() {
     const { action: actionName, entryId, queueId } = button.dataset;
     try {
       if (actionName === 'add-entry') { $('#entry-form [name=queueId]').value = queueId; $('#entry-dialog').showModal(); return; }
+      if (actionName === 'resend-call') {
+        const result = await resendCallNotification({ request, refresh, entryId });
+        toast(result.status === 'already_queued' ? 'A chamada já está na fila de envio.' : 'Reenvio solicitado. O prazo de ausência foi mantido.');
+        return;
+      }
+      if (actionName === 'archive-queue' || actionName === 'unarchive-queue') {
+        const archiving = actionName === 'archive-queue';
+        if (!window.confirm(archiving ? 'Arquivar esta fila? Ela deixará de aparecer em !filas, mas as entradas existentes serão preservadas. A recompensa será pausada.' : 'Desarquivar esta fila? Ela continuará fechada até você abri-la.')) return;
+        const result = await request(`/api/queues/${queueId}/${archiving ? 'archive' : 'unarchive'}`, { method: 'POST', body: '{}' });
+        toast(archiving && result.status === 'pending' ? 'Arquivamento solicitado; aguardando confirmação da Twitch.' : archiving ? 'Fila arquivada.' : 'Fila desarquivada e continua fechada.');
+        await refresh(); return;
+      }
+      if (actionName === 'delete-queue') {
+        const queue = state.queues.find((item) => item.id === queueId);
+        const activeCount = (queue?.entries ?? []).filter((entry) => ['waiting', 'called', 'in_progress'].includes(entry.status)).length;
+        const accepted = window.confirm(`Excluir a fila “${queue?.title ?? ''}” e sua recompensa Twitch? ${activeCount} entradas ativas serão removidas e seus resgates terão cancelamento solicitado. A recompensa só será excluída depois da confirmação de todos os cancelamentos. A operação pode permanecer pendente se a Twitch não confirmar.`);
+        if (!accepted) return;
+        const result = await request(`/api/queues/${queueId}/delete`, { method: 'POST', body: JSON.stringify({ confirm: true }) });
+        toast(result.status === 'pending' ? 'Exclusão iniciada. A fila ficará pendente até a Twitch confirmar os cancelamentos e a exclusão da recompensa.' : 'A exclusão já estava concluída.');
+        await refresh(); return;
+      }
       if (actionName === 'resolve-reward') {
         const candidates = await request(`/api/queues/${queueId}/reward-candidates`);
         if (!candidates.length) { toast('Nenhuma recompensa Twitch compatível foi encontrada. Revise a fila e as recompensas gerenciáveis no console Twitch.'); return; }

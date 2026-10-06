@@ -1,19 +1,21 @@
 status:
-  branch: chore/replace-ai-review-with-opengrep
+  branch: fix/fnd5-account-owner-serialization
   modifiedFiles:
-    - .aiox-core/.installed-manifest.yaml
-    - .aiox-core/cli/commands/config/index.js
-    - .aiox-core/cli/commands/metrics/index.js
-    - .aiox-core/cli/commands/metrics/record.js
-    - .aiox-core/cli/commands/metrics/seed.js
-  modifiedFilesTotalCount: 214
+    - .aiox/project-status.yaml
+    - AGENTS.md
+    - CHANGELOG.md
+    - CHANGELOG_INTERNAL.md
+    - VERSION
+  modifiedFilesTotalCount: 35
   recentCommits:
-    - 'feat: add local runtime and queue domain foundation'
-    - 'chore: initialize local Twitch queue bot foundation'
+    - 'docs(version): record first materialized alpha image (#15)'
+    - >-
+      feat(containers): publish multi-platform GHCR images and adopt Alpine
+      (#14)
   currentEpic: null
   currentStory: null
-  lastUpdate: '2026-10-05T18:13:20.698Z'
+  lastUpdate: '2026-10-06T01:47:51.669Z'
   isGitRepo: true
-timestamp: 1791224000699
+timestamp: 1791251271671
 ttl: 60
-gitFingerprint: 1790996050256.381:1790998617566.1733
+gitFingerprint: 1791246215097.1465:1791250633004.5322

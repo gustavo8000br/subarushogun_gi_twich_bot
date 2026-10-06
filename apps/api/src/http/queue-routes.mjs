@@ -70,8 +70,9 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   });
   app.get('/api/operations', async () => (await repository.listFinancialOperations?.() ?? []).map((operation) => ({
     id: operation.id, type: operation.operationType, redemptionId: operation.redemptionId,
+    ...(operation.operationType.startsWith('reward.') ? { entityId: operation.entityId } : {}),
     status: operation.status, attempts: operation.attempts, lastError: operation.lastError,
-    nextAttemptAt: operation.nextAttemptAt,
+    nextAttemptAt: operation.nextAttemptAt ?? null,
   })));
   app.post('/api/operations/:operationId/retry', async (request, reply) => {
     const result = await repository.retryOutboxManually(/** @type {any} */ (request.params).operationId);
@@ -86,7 +87,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   });
   app.post('/api/setup/application', async (request, reply) => {
     /** @type {Record<string, any>} */
-    const body = request.body && typeof request.body === 'object' ? request.body : {};
+    const body = /** @type {Record<string, any>} */ (request.body && typeof request.body === 'object' ? request.body : {});
     if (typeof body.clientId !== 'string' || body.clientId.trim().length < 1 || body.clientId.length > 128
       || typeof body.clientSecret !== 'string' || body.clientSecret.length < 1 || body.clientSecret.length > 256) {
       return reply.code(400).send({ error: 'Informe Client ID e Secret válidos.' });
@@ -203,6 +204,18 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       return { id: result.id, status: result.status, financialDecision: result.financialDecision };
     } catch (error) { return reply.code(routeError(error)).send({ error: userError(error) }); }
   });
+  app.post('/api/entries/:entryId/call-notification/resend', async (request, reply) => {
+    /** @type {any} */
+    const localRequest = request;
+    try {
+      const result = await repository.resendCallNotification({ entryId: localRequest.params.entryId, actorId: localRequest.localSession?.id });
+      if (result.status === 'entry_not_found' || result.status === 'notification_not_found') return reply.code(404).send({ error: 'A chamada não está disponível para reenvio.' });
+      if (result.status === 'entry_not_called' || result.status === 'already_processing') return reply.code(409).send({ error: 'A chamada mudou de estado ou já está sendo enviada.' });
+      return { status: result.status, entryId: result.entryId };
+    } catch {
+      return reply.code(503).send({ error: 'Não foi possível enfileirar o reenvio da chamada.' });
+    }
+  });
   app.post('/api/queues/:queueId/call', async (request, reply) => {
     /** @type {Record<string, any>} */
     const body = request.body && typeof request.body === 'object' ? request.body : {};
@@ -244,6 +257,41 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     if (typeof body.isOpen !== 'boolean') return reply.code(400).send({ error: 'Estado da fila inválido.' });
     try { return await repository.setQueueOpen(localRequest.params.queueId, body.isOpen, localRequest.localSession.id); }
     catch (error) { return reply.code(routeError(error)).send({ error: userError(error) }); }
+  });
+  app.post('/api/queues/:queueId/archive', async (request, reply) => {
+    /** @type {any} */
+    const localRequest = request;
+    try {
+      const result = await repository.archiveQueue({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
+      return { status: result.status, queue: queueDto(result.queue, { operator: true }) };
+    } catch (error) {
+      return reply.code(error?.code === 'QUEUE_NOT_AVAILABLE' || error?.code === 'QUEUE_REWARD_NOT_READY' ? 409 : 503)
+        .send({ error: 'Não foi possível arquivar a fila neste estado. Verifique a sincronização da recompensa.' });
+    }
+  });
+  app.post('/api/queues/:queueId/unarchive', async (request, reply) => {
+    /** @type {any} */
+    const localRequest = request;
+    try {
+      const result = await repository.unarchiveQueue({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
+      return { status: result.status, queue: queueDto(result.queue, { operator: true }) };
+    } catch (error) {
+      return reply.code(error?.code === 'QUEUE_NOT_AVAILABLE' || error?.code === 'QUEUE_REWARD_NOT_READY' || error?.code === 'QUEUE_OPEN_WHILE_ARCHIVED' ? 409 : 503)
+        .send({ error: 'Não foi possível desarquivar a fila. Confirme primeiro que a recompensa está pausada.' });
+    }
+  });
+  app.post('/api/queues/:queueId/delete', async (request, reply) => {
+    /** @type {any} */
+    const localRequest = request;
+    const body = /** @type {Record<string, any>} */ (request.body && typeof request.body === 'object' ? request.body : {});
+    if (body.confirm !== true) return reply.code(400).send({ error: 'Confirme explicitamente a exclusão desta fila.' });
+    try {
+      const result = await domainService.deleteQueue({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
+      return { status: result.status, activeRemoved: result.activeRemoved, refundsRequested: result.refundsRequested, queue: queueDto(result.queue, { operator: true }) };
+    } catch (error) {
+      return reply.code(error?.code === 'QUEUE_NOT_FOUND' ? 404 : error?.code === 'QUEUE_REWARD_NOT_READY' || error?.code === 'QUEUE_NOT_AVAILABLE' ? 409 : 503)
+        .send({ error: 'A exclusão não pode começar agora. Resolva a sincronização da recompensa antes de tentar novamente.' });
+    }
   });
   app.post('/api/account', async (request, reply) => {
     /** @type {any} */

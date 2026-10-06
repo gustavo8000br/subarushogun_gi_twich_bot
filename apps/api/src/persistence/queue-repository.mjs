@@ -17,6 +17,14 @@ async function lockQueue(tx, queueId) {
   await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtextextended(${queueId}, 0))) AS queue_lock`;
 }
 
+async function lockCurrentAccount(tx) {
+  await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(1868787013, 1)) AS account_lock`;
+}
+
+async function lockScopedOperation(tx, key) {
+  await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))) AS operation_lock`;
+}
+
 async function withQueueTransaction(prisma, queueId, callback) {
   return prisma.$transaction(async (tx) => {
     await lockQueue(tx, queueId);
@@ -73,16 +81,57 @@ async function createCancellationIntent(tx, redemptionId, entryId = null) {
 export function createQueueRepository(prisma, { clock = () => new Date() } = {}) {
   return {
     async listFinancialOperations() {
-      return prisma.outbox.findMany({
-        where: { operationType: { in: ['redemption.cancel', 'redemption.fulfill'] } },
-        select: { id: true, operationType: true, entityId: true, redemptionId: true, status: true, attempts: true, nextAttemptAt: true, lastError: true, createdAt: true, updatedAt: true },
-        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
-        take: 200,
-      });
+      const deletingQueues = await prisma.queue.findMany({ where: { lifecycleStatus: 'deleting' }, select: { id: true } });
+      const [financialOperations, deletionOperations] = await Promise.all([
+        prisma.outbox.findMany({
+          where: { operationType: { in: ['redemption.cancel', 'redemption.fulfill'] } },
+          select: { id: true, operationType: true, entityId: true, redemptionId: true, status: true, attempts: true, nextAttemptAt: true, lastError: true, createdAt: true, updatedAt: true },
+          orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+          take: 200,
+        }),
+        deletingQueues.length ? prisma.outbox.findMany({
+          where: { operationType: { in: ['reward.set_open', 'reward.delete'] }, entityId: { in: deletingQueues.map(({ id }) => id) } },
+          select: { id: true, operationType: true, entityId: true, redemptionId: true, status: true, attempts: true, nextAttemptAt: true, lastError: true, createdAt: true, updatedAt: true },
+          orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+        }) : Promise.resolve([]),
+      ]);
+      return [...financialOperations, ...deletionOperations].sort((first, second) => second.updatedAt.getTime() - first.updatedAt.getTime() || second.id.localeCompare(first.id));
     },
     async getCurrentAccount() {
       const setting = await prisma.setting.findUnique({ where: { key: 'account_state' } });
       return setting?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
+    },
+
+    async claimChatCommand({ messageId, channelId, userId, role, cooldownExempt = false, now = clock(), cooldownMs = 5_000 }) {
+      if (typeof messageId !== 'string' || !messageId || typeof channelId !== 'string' || !channelId
+          || typeof userId !== 'string' || !userId || !['viewer', 'vip', 'moderator', 'streamer'].includes(role)
+          || !(now instanceof Date) || !Number.isFinite(now.getTime()) || !Number.isInteger(cooldownMs) || cooldownMs < 0) {
+        throw repositoryError('INVALID_CHAT_OPERATION', 'Chat operation identity or timing is invalid');
+      }
+      return prisma.$transaction(async (tx) => {
+        const messageKey = `chat-message:${messageId}`;
+        await lockScopedOperation(tx, messageKey);
+        const previousMessage = await tx.processedOperation.findUnique({ where: { operationKey: messageKey } });
+        if (previousMessage) return { status: 'duplicate' };
+
+        if (role === 'viewer' && !cooldownExempt) {
+          const cooldownKey = `chat-viewer-cooldown:${channelId}:${userId}`;
+          await lockScopedOperation(tx, cooldownKey);
+          const cooldownRecord = await tx.processedOperation.findUnique({ where: { operationKey: cooldownKey } });
+          const lastAcceptedAt = cooldownRecord?.result?.lastAcceptedAt ? new Date(cooldownRecord.result.lastAcceptedAt) : null;
+          if (lastAcceptedAt && now.getTime() - lastAcceptedAt.getTime() < cooldownMs) {
+            await tx.processedOperation.create({ data: { operationKey: messageKey, result: { status: 'cooldown', channelId, userId } } });
+            return { status: 'cooldown' };
+          }
+          await tx.processedOperation.upsert({
+            where: { operationKey: cooldownKey },
+            create: { operationKey: cooldownKey, result: { lastAcceptedAt: now.toISOString() } },
+            update: { result: { lastAcceptedAt: now.toISOString() } },
+          });
+        }
+        await tx.processedOperation.create({ data: { operationKey: messageKey, result: { status: 'accepted', channelId, userId, role } } });
+        return { status: 'accepted' };
+      });
     },
 
     async getLocalState() {
@@ -98,6 +147,7 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
     async setCurrentAccount(label, actorId = null) {
       validateAccountLabel(label);
       return prisma.$transaction(async (tx) => {
+        await lockCurrentAccount(tx);
         const current = await tx.setting.findUnique({ where: { key: 'account_state' } });
         const previous = current?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
         const next = { ...previous, label: label.trim(), source: 'manual', updatedBy: actorId };
@@ -107,19 +157,129 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
       });
     },
 
-    async setQueueOpen(queueId, isOpen, actorId = null) {
+    async setQueueOpen(queueId, isOpen, actorId = null, origin = 'panel') {
       if (typeof isOpen !== 'boolean') throw repositoryError('INVALID_QUEUE_OPEN_STATE', 'Queue open state must be boolean');
       return withQueueTransaction(prisma, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.lifecycleStatus !== 'active' || queue.isArchived) throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be opened or closed');
-        const updated = await tx.queue.update({ where: { id: queueId }, data: { isOpen, remoteSyncStatus: isOpen ? 'pending_open' : 'pending_close', version: { increment: 1 } } });
-        await tx.auditLog.create({ data: { queueId, event: 'queue.open_state_requested', actorId, origin: 'panel', previousState: String(queue.isOpen), nextState: String(isOpen), reason: isOpen ? 'queue_open_requested' : 'queue_close_requested', safeDetail: {} } });
+        if (queue.isOpen === isOpen) {
+          if (['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) return { status: 'confirmed', isOpen, remoteSyncStatus: queue.remoteSyncStatus };
+          if (['pending_open', 'pending_close'].includes(queue.remoteSyncStatus)) return { status: 'pending', isOpen, remoteSyncStatus: queue.remoteSyncStatus };
+          return { status: queue.remoteSyncStatus, isOpen, remoteSyncStatus: queue.remoteSyncStatus };
+        }
+        if (!queue.rewardId || !['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) throw repositoryError('QUEUE_REWARD_NOT_READY', 'Queue reward is not ready for an open-state change');
+        const nextVersion = queue.version + 1;
+        const updated = await tx.queue.update({ where: { id: queueId }, data: { isOpen, remoteSyncStatus: isOpen ? 'pending_open' : 'pending_close', version: nextVersion } });
+        await tx.outbox.create({ data: {
+          operationType: 'reward.set_open', entityType: 'queue', entityId: queueId,
+          idempotencyKey: `queue:${queueId}:reward.open:${nextVersion}`,
+          payload: { isOpen, queueVersion: nextVersion, requestMayHaveReachedTwitch: false },
+        } });
+        await tx.auditLog.create({ data: { queueId, event: 'queue.open_state_requested', actorId, origin, previousState: String(queue.isOpen), nextState: String(isOpen), reason: isOpen ? 'queue_open_requested' : 'queue_close_requested', safeDetail: { remoteSyncStatus: updated.remoteSyncStatus } } });
         return { status: 'pending', isOpen: updated.isOpen, remoteSyncStatus: updated.remoteSyncStatus };
+      });
+    },
+
+    async archiveQueue({ queueId, actorId = null, origin = 'panel' }) {
+      return withQueueTransaction(prisma, queueId, async (tx) => {
+        const queue = await tx.queue.findUnique({ where: { id: queueId } });
+        if (!queue || queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be archived');
+        if (queue.isArchived) return { status: queue.remoteSyncStatus === 'pending_close' ? 'pending' : 'archived', queue };
+        if (!queue.rewardId || !['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) throw repositoryError('QUEUE_REWARD_NOT_READY', 'Queue reward is not ready to archive');
+        const nextVersion = queue.version + 1;
+        if (!queue.isOpen) {
+          const archived = await tx.queue.update({ where: { id: queueId }, data: { isArchived: true, version: nextVersion } });
+          await tx.auditLog.create({ data: { queueId, event: 'queue.archived', actorId, origin, previousState: 'active', nextState: 'archived', reason: 'queue_archived_while_closed', safeDetail: { remoteSyncStatus: queue.remoteSyncStatus } } });
+          return { status: 'archived', queue: archived };
+        }
+        const archived = await tx.queue.update({ where: { id: queueId }, data: { isArchived: true, isOpen: false, remoteSyncStatus: 'pending_close', version: nextVersion } });
+        await tx.outbox.create({ data: {
+          operationType: 'reward.set_open', entityType: 'queue', entityId: queueId,
+          idempotencyKey: `queue:${queueId}:reward.archive:${nextVersion}`,
+          payload: { isOpen: false, queueVersion: nextVersion, archiveAfterConfirm: true, requestMayHaveReachedTwitch: false },
+        } });
+        await tx.auditLog.create({ data: { queueId, event: 'queue.archive_requested', actorId, origin, previousState: 'active', nextState: 'archived_pending_pause', reason: 'queue_archive_requested', safeDetail: { rewardId: queue.rewardId } } });
+        return { status: 'pending', queue: archived };
+      });
+    },
+
+    async unarchiveQueue({ queueId, actorId = null, origin = 'panel' }) {
+      return withQueueTransaction(prisma, queueId, async (tx) => {
+        const queue = await tx.queue.findUnique({ where: { id: queueId } });
+        if (!queue || queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be unarchived');
+        if (!queue.isArchived) return { status: 'unchanged', queue };
+        if (queue.isOpen) throw repositoryError('QUEUE_OPEN_WHILE_ARCHIVED', 'Archived queue must remain closed');
+        if (!['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) throw repositoryError('QUEUE_REWARD_NOT_READY', 'Queue pause must be confirmed before unarchiving');
+        const updated = await tx.queue.update({ where: { id: queueId }, data: { isArchived: false, version: { increment: 1 } } });
+        await tx.auditLog.create({ data: { queueId, event: 'queue.unarchived', actorId, origin, previousState: 'archived', nextState: 'active_closed', reason: 'queue_unarchived_closed', safeDetail: { isOpen: false } } });
+        return { status: 'unarchived', queue: updated };
+      });
+    },
+
+    async requestQueueDeletion({ queueId, actorId = null, origin = 'panel', decideTransition }) {
+      if (typeof decideTransition !== 'function') throw repositoryError('DOMAIN_TRANSITION_REQUIRED', 'Queue transitions must use the domain service');
+      return withQueueTransaction(prisma, queueId, async (tx) => {
+        const queue = await tx.queue.findUnique({ where: { id: queueId } });
+        if (!queue) throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
+        if (queue.lifecycleStatus === 'deleted') return { status: 'deleted', queue, activeRemoved: 0, refundsRequested: 0 };
+        if (queue.lifecycleStatus === 'deleting') return { status: 'pending', queue, activeRemoved: 0, refundsRequested: 0 };
+        if (!queue.rewardId || !['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) throw repositoryError('QUEUE_REWARD_NOT_READY', 'Managed reward must be resolved and synchronized before deletion');
+
+        const active = await tx.entry.findMany({ where: { queueId, status: { in: activeStatuses } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+        const nextVersion = queue.version + 1;
+        const needsPause = queue.isOpen;
+        const next = await tx.queue.update({ where: { id: queueId }, data: {
+          lifecycleStatus: 'deleting', isArchived: true, isOpen: false,
+          remoteSyncStatus: needsPause ? 'pending_close' : 'delete_pending', version: nextVersion,
+        } });
+        let refundsRequested = 0;
+        const now = clock();
+        let accountSetting = null;
+        if (active.length) {
+          await lockCurrentAccount(tx);
+          accountSetting = await tx.setting.findUnique({ where: { key: 'account_state' } });
+        }
+        const currentAccount = accountSetting?.value;
+        let ownerEntryEnded = false;
+        for (const entry of active) {
+          const decision = decideTransition({ entry, queue, input: { to: 'removed', origin, actorId, reason: 'queue_deleted' } });
+          await tx.entry.update({ where: { id: entry.id }, data: { status: 'removed', position: null, finishedAt: now, terminalReason: 'queue_deleted', callDeadlineAt: null, version: { increment: 1 } } });
+          await tx.auditLog.create({ data: { queueId, entryId: entry.id, redemptionId: entry.redemptionId, event: 'entry.transitioned', actorId, origin, previousState: entry.status, nextState: 'removed', reason: 'queue_deleted', safeDetail: { policySnapshot: decision.policySnapshot, financialDecision: decision.financialDecision } } });
+          if (decision.financialDecision === 'request_cancel' && entry.redemptionId) {
+            await createCancellationIntent(tx, entry.redemptionId, entry.id);
+            refundsRequested += 1;
+          }
+          if (entry.id === currentAccount?.ownerEntryId) ownerEntryEnded = true;
+        }
+        if (active.length) await renumberWaitingEntries(tx, queueId);
+        if (ownerEntryEnded) {
+          if (currentAccount?.ownerEntryId && active.some(({ id }) => id === currentAccount.ownerEntryId)) {
+            const reset = { ...currentAccount, label: currentAccount.defaultLabel || 'Streamer', source: 'default', ownerEntryId: null, updatedBy: actorId };
+            await tx.setting.update({ where: { key: 'account_state' }, data: { value: reset } });
+            await tx.auditLog.create({ data: { queueId, event: 'account.auto_reset', actorId, origin, previousState: currentAccount.label, nextState: reset.label, reason: 'owner_entry_ended', safeDetail: { ownerEntryId: currentAccount.ownerEntryId } } });
+          }
+        }
+        if (needsPause) {
+          await tx.outbox.create({ data: {
+            operationType: 'reward.set_open', entityType: 'queue', entityId: queueId,
+            idempotencyKey: `queue:${queueId}:reward.delete.pause:${nextVersion}`,
+            payload: { isOpen: false, queueVersion: nextVersion, deleteAfterConfirm: true, requestMayHaveReachedTwitch: false },
+          } });
+        } else {
+          await tx.outbox.create({ data: {
+            operationType: 'reward.delete', entityType: 'queue', entityId: queueId,
+            idempotencyKey: `queue:${queueId}:reward.delete`,
+            payload: { requestMayHaveReachedTwitch: false, safeToDelete: false },
+          } });
+        }
+        await tx.auditLog.create({ data: { queueId, event: 'queue.deletion_requested', actorId, origin, previousState: queue.lifecycleStatus, nextState: 'deleting', reason: 'operator_requested_queue_deletion', safeDetail: { rewardId: queue.rewardId, activeRemoved: active.length, refundsRequested } } });
+        return { status: 'pending', queue: next, activeRemoved: active.length, refundsRequested };
       });
     },
 
     async resetCurrentAccount(actorId = null) {
       return prisma.$transaction(async (tx) => {
+        await lockCurrentAccount(tx);
         const current = await tx.setting.findUnique({ where: { key: 'account_state' } });
         const previous = current?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
         const next = { ...previous, label: previous.defaultLabel || 'Streamer', source: 'default', ownerEntryId: null, updatedBy: actorId };
@@ -132,6 +292,7 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
     async setDefaultAccountLabel(label, actorId = null) {
       validateAccountLabel(label);
       return prisma.$transaction(async (tx) => {
+        await lockCurrentAccount(tx);
         const current = await tx.setting.findUnique({ where: { key: 'account_state' } });
         const previous = current?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
         const next = { ...previous, defaultLabel: label.trim(), ...(previous.source === 'default' ? { label: label.trim() } : {}), updatedBy: actorId };
@@ -150,6 +311,28 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
           operationType: 'chat.call', entityType: 'entry', entityId: entryId,
           idempotencyKey: `chat.call:${entryId}`, payload: {}, entryId,
         } });
+      });
+    },
+
+    async resendCallNotification({ entryId, actorId = null }) {
+      const entry = await prisma.entry.findUnique({ where: { id: entryId } });
+      if (!entry) return { status: 'entry_not_found' };
+      return withQueueTransaction(prisma, entry.queueId, async (tx) => {
+        const current = await tx.entry.findUnique({ where: { id: entryId } });
+        if (!current || current.status !== 'called') return { status: 'entry_not_called' };
+        const task = await tx.outbox.findUnique({ where: { idempotencyKey: `chat.call:${entryId}` } });
+        if (!task) return { status: 'notification_not_found' };
+        if (task.status === 'processing') return { status: 'already_processing' };
+        if (['pending'].includes(task.status)) return { status: 'already_queued' };
+        await tx.outbox.update({ where: { id: task.id }, data: {
+          status: 'pending', attempts: 0, nextAttemptAt: clock(), lastError: null, leaseToken: null, leaseUntil: null,
+        } });
+        await tx.auditLog.create({ data: {
+          queueId: entry.queueId, entryId, event: 'entry.call_notification_resent', actorId, origin: 'panel',
+          previousState: task.status, nextState: 'pending', reason: 'operator_call_notification_resend',
+          safeDetail: { callDeadlinePreserved: true },
+        } });
+        return { status: 'queued', entryId };
       });
     },
 
@@ -188,7 +371,7 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
             lease_until = ${leaseUntil}, lease_token = gen_random_uuid(), updated_at = ${now}
         FROM candidate
         WHERE task.id = candidate.id
-        RETURNING task.id, task.entry_id AS "entryId", task.lease_token AS "leaseToken"
+        RETURNING task.id, task.entry_id AS "entryId", task.attempts, task.lease_token AS "leaseToken"
       `;
       const claimed = rows[0];
       if (!claimed) return null;
@@ -200,8 +383,11 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
       return { ...claimed, entry, callPosition: entry.position };
     },
 
-    async finishCallNotification(outboxId, { status, errorCode = null }) {
-      return prisma.outbox.updateMany({ where: { id: outboxId, status: { in: ['pending', 'retry', 'processing'] } }, data: { status, lastError: errorCode, leaseToken: null, leaseUntil: null } });
+    async finishCallNotification(outboxId, { status, errorCode = null, nextAttemptAt = null }) {
+      return prisma.outbox.updateMany({ where: { id: outboxId, status: { in: ['pending', 'retry', 'processing'] } }, data: {
+        status, lastError: errorCode, leaseToken: null, leaseUntil: null,
+        ...(status === 'retry' && nextAttemptAt instanceof Date ? { nextAttemptAt } : {}),
+      } });
     },
 
     async getQueueByKey(key) {
@@ -215,7 +401,7 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
       if (typeof decideTransition !== 'function') throw repositoryError('DOMAIN_TRANSITION_REQUIRED', 'Queue transitions must use the domain service');
       return withQueueTransaction(prisma, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
-        if (!queue || queue.lifecycleStatus !== 'active' || queue.isArchived) throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot call entries');
+        if (!queue || queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot call entries');
         const entry = await tx.entry.findFirst({ where: { id: entryId, queueId, status: 'waiting' } });
         if (!entry) throw repositoryError('ENTRY_NOT_WAITING', 'Entry is not waiting in this queue');
         decideTransition({ entry, queue, input: { to: 'called', origin: 'panel', actorId, reason: 'operator_call' } });
@@ -245,7 +431,7 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
       if (!Number.isInteger(count) || count < 1 || count > 10) throw repositoryError('INVALID_CALL_COUNT', 'Call count must be between one and ten');
       return withQueueTransaction(prisma, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
-        if (!queue || queue.lifecycleStatus !== 'active' || queue.isArchived) throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot call entries');
+        if (!queue || queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot call entries');
         const waiting = await tx.entry.findMany({ where: { queueId, status: 'waiting' }, orderBy: [{ position: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }], take: count });
         const selected = [];
         for (const entry of waiting) {
@@ -255,6 +441,7 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
           selected.push({ ...updated, previousPosition: entry.position });
         }
         if (count === 1 && selected.length === 1 && queue.autoSwitchAccount) {
+          await lockCurrentAccount(tx);
           const accountSetting = await tx.setting.findUnique({ where: { key: 'account_state' } });
           const previousAccount = accountSetting?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
           const nextAccount = { ...previousAccount, label: selected[0].displayName, source: 'queue_auto', ownerEntryId: selected[0].id };
@@ -423,9 +610,17 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
       const rows = await prisma.$queryRaw`
         WITH candidate AS (
           SELECT outbox.id, outbox.entity_id FROM outbox
-          WHERE operation_type = 'reward.create'
-            AND EXISTS (SELECT 1 FROM queues WHERE queues.id::text = outbox.entity_id
-              AND queues.remote_sync_status IN ('pending_create', 'create_unknown'))
+          WHERE (
+            (operation_type = 'reward.create'
+              AND EXISTS (SELECT 1 FROM queues WHERE queues.id::text = outbox.entity_id
+                AND queues.remote_sync_status IN ('pending_create', 'create_unknown')))
+            OR (operation_type = 'reward.set_open'
+              AND EXISTS (SELECT 1 FROM queues WHERE queues.id::text = outbox.entity_id
+                AND queues.remote_sync_status IN ('pending_open', 'pending_close')))
+            OR (operation_type = 'reward.delete'
+              AND EXISTS (SELECT 1 FROM queues WHERE queues.id::text = outbox.entity_id
+                AND queues.lifecycle_status = 'deleting' AND queues.remote_sync_status = 'delete_pending'))
+          )
             AND ((outbox.status IN ('pending', 'retry') AND outbox.next_attempt_at <= ${now})
               OR (outbox.status = 'processing' AND outbox.lease_until <= ${now}))
           ORDER BY outbox.created_at DESC, outbox.id ASC
@@ -452,6 +647,142 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
       if (!current) return false;
       const updated = await prisma.outbox.updateMany({ where: { id: outboxId, status: 'processing', leaseToken }, data: { payload: { ...current.payload, ...payload } } });
       return updated.count === 1;
+    },
+
+    async prepareRewardOpen(outboxId, leaseToken) {
+      const current = await prisma.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken, operationType: 'reward.set_open' } });
+      if (!current) return false;
+      const updated = await prisma.outbox.updateMany({ where: { id: outboxId, status: 'processing', leaseToken }, data: { payload: { ...current.payload, requestMayHaveReachedTwitch: true } } });
+      return updated.count === 1;
+    },
+
+    async confirmRewardOpen(outboxId, { isOpen }, leaseToken) {
+      return prisma.$transaction(async (tx) => {
+        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken, operationType: 'reward.set_open' } });
+        if (!task || !task.entityId || typeof task.payload?.isOpen !== 'boolean' || task.payload.isOpen !== isOpen) return false;
+        const queue = await tx.queue.findUnique({ where: { id: task.entityId } });
+        if (!queue || queue.version !== task.payload.queueVersion || queue.isOpen !== isOpen) return false;
+        const deleting = task.payload?.deleteAfterConfirm === true && !isOpen;
+        const updated = await tx.queue.updateMany({ where: { id: queue.id, version: task.payload.queueVersion, isOpen, remoteSyncStatus: isOpen ? 'pending_open' : 'pending_close' }, data: { remoteSyncStatus: deleting ? 'delete_pending' : 'synced', version: { increment: 1 } } });
+        if (updated.count !== 1) return false;
+        await tx.outbox.update({ where: { id: outboxId }, data: { status: 'confirmed', lastError: null, leaseToken: null, leaseUntil: null } });
+        await tx.auditLog.create({ data: { queueId: queue.id, event: deleting ? 'queue.deletion_pause_confirmed' : 'queue.open_state_confirmed', origin: 'system', previousState: 'pending', nextState: deleting ? 'delete_pending' : String(isOpen), reason: deleting ? 'reward_paused_for_queue_deletion' : isOpen ? 'queue_open_confirmed' : 'queue_close_confirmed', safeDetail: { rewardId: queue.rewardId, remoteSyncStatus: deleting ? 'delete_pending' : 'synced' } } });
+        if (deleting) await tx.outbox.create({ data: {
+          operationType: 'reward.delete', entityType: 'queue', entityId: queue.id,
+          idempotencyKey: `queue:${queue.id}:reward.delete`,
+          payload: { requestMayHaveReachedTwitch: false, safeToDelete: false },
+        } });
+        return true;
+      });
+    },
+
+    async recordQueueDeletionRedemptions({ queueId, redemptions }) {
+      let recorded = 0;
+      let conflicts = 0;
+      for (let offset = 0; offset < redemptions.length; offset += 50) {
+        const batch = redemptions.slice(offset, offset + 50);
+        const result = await withQueueTransaction(prisma, queueId, async (tx) => {
+          const queue = await tx.queue.findUnique({ where: { id: queueId } });
+          if (!queue || queue.lifecycleStatus !== 'deleting' || !queue.rewardId) throw repositoryError('QUEUE_DELETION_NOT_PENDING', 'Queue deletion is not pending');
+          let batchRecorded = 0;
+          let batchConflicts = 0;
+          for (const item of batch) {
+            if (item.rewardId !== queue.rewardId || typeof item.id !== 'string' || !item.id || typeof item.userId !== 'string' || !item.userId || !(item.redeemedAt instanceof Date)) continue;
+            const redemption = await tx.redemption.findUnique({ where: { redemptionId: item.id } });
+            if (!redemption) {
+              await tx.redemption.create({ data: {
+                redemptionId: item.id, broadcasterId: item.broadcasterId, rewardId: item.rewardId, userId: item.userId,
+                queueId, redeemedAt: item.redeemedAt, remoteStatus: 'UNFULFILLED', expectedStatus: 'CANCELED',
+                syncStatus: 'pending', rejectionReason: 'queue_deleting',
+              } });
+              await tx.outbox.create({ data: {
+                operationType: 'redemption.cancel', entityType: 'redemption', entityId: item.id,
+                idempotencyKey: `financial:${item.id}`, payload: {}, redemptionId: item.id,
+              } });
+              batchRecorded += 1;
+              continue;
+            }
+            const existingTask = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${item.id}` } });
+            if (existingTask?.operationType === 'redemption.fulfill' && existingTask.status !== 'confirmed') {
+              await tx.outbox.update({ where: { id: existingTask.id }, data: { status: 'conflict', lastError: 'queue_delete_conflicts_with_fulfillment', leaseToken: null, leaseUntil: null } });
+              await tx.auditLog.create({ data: { queueId, redemptionId: item.id, event: 'queue.deletion_financial_conflict', origin: 'system', previousState: existingTask.status, nextState: 'conflict', reason: 'fulfillment_intent_exists', safeDetail: {} } });
+              batchConflicts += 1;
+              continue;
+            }
+            if (redemption.remoteStatus !== 'UNFULFILLED') continue;
+            if (!existingTask) {
+              await tx.redemption.update({ where: { redemptionId: item.id }, data: { queueId, expectedStatus: 'CANCELED', syncStatus: 'pending', rejectionReason: 'queue_deleting' } });
+              await tx.outbox.create({ data: {
+                operationType: 'redemption.cancel', entityType: 'redemption', entityId: item.id,
+                idempotencyKey: `financial:${item.id}`, payload: {}, redemptionId: item.id,
+              } });
+              batchRecorded += 1;
+            } else if (existingTask.operationType === 'redemption.cancel') {
+              await tx.redemption.update({ where: { redemptionId: item.id }, data: { expectedStatus: 'CANCELED', syncStatus: 'pending', rejectionReason: 'queue_deleting' } });
+            }
+          }
+          return { recorded: batchRecorded, conflicts: batchConflicts };
+        });
+        recorded += result.recorded;
+        conflicts += result.conflicts;
+      }
+      return { status: conflicts ? 'conflict' : 'recorded', recorded, conflicts };
+    },
+
+    async getQueueDeletionBlockers(queueId) {
+      const redemptions = await prisma.redemption.findMany({ where: { queueId }, include: { outbox: true } });
+      let pending = 0;
+      let blocked = 0;
+      for (const redemption of redemptions) {
+        if (redemption.remoteStatus !== 'UNFULFILLED') continue;
+        const task = redemption.outbox.find(({ operationType }) => ['redemption.cancel', 'redemption.fulfill'].includes(operationType));
+        if (!task || ['pending', 'retry', 'processing'].includes(task.status)) pending += 1;
+        else blocked += 1;
+      }
+      return { pending, blocked };
+    },
+
+    async prepareRewardDelete(outboxId, leaseToken) {
+      return prisma.$transaction(async (tx) => {
+        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken, operationType: 'reward.delete' } });
+        if (!task?.entityId) return false;
+        await lockQueue(tx, task.entityId);
+        const queue = await tx.queue.findUnique({ where: { id: task.entityId } });
+        if (!queue || queue.lifecycleStatus !== 'deleting' || queue.remoteSyncStatus !== 'delete_pending' || !queue.rewardId) return false;
+        const unresolved = await tx.redemption.findFirst({
+          where: { queueId: queue.id, rewardId: queue.rewardId, OR: [
+            { remoteStatus: 'UNFULFILLED' },
+            { outbox: { some: { operationType: { in: ['redemption.cancel', 'redemption.fulfill'] }, status: { not: 'confirmed' } } } },
+          ] }, select: { redemptionId: true },
+        });
+        if (unresolved) return false;
+        const payload = { ...task.payload, safeToDelete: true, requestMayHaveReachedTwitch: true };
+        const updated = await tx.outbox.updateMany({ where: { id: outboxId, status: 'processing', leaseToken }, data: { payload } });
+        return updated.count === 1;
+      });
+    },
+
+    async completeQueueDeletion(outboxId, leaseToken) {
+      return prisma.$transaction(async (tx) => {
+        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken, operationType: 'reward.delete' } });
+        if (!task?.entityId || task.payload?.safeToDelete !== true) return false;
+        await lockQueue(tx, task.entityId);
+        const queue = await tx.queue.findUnique({ where: { id: task.entityId } });
+        if (!queue || queue.lifecycleStatus !== 'deleting' || queue.remoteSyncStatus !== 'delete_pending') return false;
+        const unresolved = await tx.redemption.findFirst({
+          where: { queueId: queue.id, rewardId: queue.rewardId, OR: [
+            { remoteStatus: 'UNFULFILLED' },
+            { outbox: { some: { operationType: { in: ['redemption.cancel', 'redemption.fulfill'] }, status: { not: 'confirmed' } } } },
+          ] }, select: { redemptionId: true },
+        });
+        if (unresolved) return false;
+        const tombstoneSlug = `deleted-${queue.id}`;
+        await tx.queue.update({ where: { id: queue.id }, data: { slug: tombstoneSlug, lifecycleStatus: 'deleted', isArchived: true, isOpen: false, remoteSyncStatus: 'deleted', deletedAt: clock(), version: { increment: 1 } } });
+        await tx.queueKey.deleteMany({ where: { queueId: queue.id } });
+        await tx.outbox.update({ where: { id: outboxId }, data: { status: 'confirmed', lastError: null, leaseToken: null, leaseUntil: null } });
+        await tx.auditLog.create({ data: { queueId: queue.id, event: 'queue.deletion_confirmed', origin: 'system', previousState: 'deleting', nextState: 'deleted', reason: 'reward_deleted_after_refunds_confirmed', safeDetail: { rewardId: queue.rewardId, slugReleased: queue.slug } } });
+        return true;
+      });
     },
 
     async confirmRewardCreated(outboxId, { rewardId }, leaseToken) {
@@ -483,20 +814,33 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
 
     async failedRewardOperation(outboxId, errorCode, leaseToken) {
       return prisma.$transaction(async (tx) => {
-        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken, operationType: 'reward.create' } });
+        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken, operationType: { in: ['reward.create', 'reward.set_open', 'reward.delete'] } } });
         if (!task) return false;
         await tx.outbox.update({ where: { id: outboxId }, data: { status: 'failed', lastError: errorCode, leaseToken: null, leaseUntil: null } });
-        if (task.entityId) await tx.queue.updateMany({ where: { id: task.entityId, rewardId: null }, data: { remoteSyncStatus: 'create_failed', version: { increment: 1 } } });
+        if (task.entityId && task.operationType === 'reward.create') await tx.queue.updateMany({ where: { id: task.entityId, rewardId: null }, data: { remoteSyncStatus: 'create_failed', version: { increment: 1 } } });
+        if (task.entityId && task.operationType === 'reward.set_open') {
+          const queue = await tx.queue.findUnique({ where: { id: task.entityId } });
+          const state = task.payload?.isOpen === true ? 'open' : 'close';
+          await tx.queue.updateMany({ where: { id: task.entityId, version: task.payload?.queueVersion }, data: { remoteSyncStatus: `${state}_failed`, version: { increment: 1 } } });
+          await tx.auditLog.create({ data: { queueId: task.entityId, event: 'queue.open_state_failed', origin: 'system', previousState: queue?.remoteSyncStatus ?? 'unknown', nextState: `${state}_failed`, reason: errorCode, safeDetail: { rewardId: queue?.rewardId ?? null } } });
+        }
         return true;
       });
     },
 
     async unknownRewardOperation(outboxId, errorCode, leaseToken) {
       return prisma.$transaction(async (tx) => {
-        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken, operationType: 'reward.create' } });
+        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken, operationType: { in: ['reward.create', 'reward.set_open', 'reward.delete'] } } });
         if (!task) return false;
         await tx.outbox.update({ where: { id: outboxId }, data: { status: 'unknown', lastError: errorCode, leaseToken: null, leaseUntil: null } });
-        if (task.entityId) await tx.queue.updateMany({ where: { id: task.entityId, rewardId: null }, data: { remoteSyncStatus: 'create_unknown', version: { increment: 1 } } });
+        if (task.entityId && task.operationType === 'reward.create') await tx.queue.updateMany({ where: { id: task.entityId, rewardId: null }, data: { remoteSyncStatus: 'create_unknown', version: { increment: 1 } } });
+        if (task.entityId && task.operationType === 'reward.set_open') {
+          const queue = await tx.queue.findUnique({ where: { id: task.entityId } });
+          const state = task.payload?.isOpen === true ? 'open' : 'close';
+          const status = `${state}_unknown`;
+          await tx.queue.updateMany({ where: { id: task.entityId, version: task.payload?.queueVersion }, data: { remoteSyncStatus: status, version: { increment: 1 } } });
+          await tx.auditLog.create({ data: { queueId: task.entityId, event: 'queue.open_state_unknown', origin: 'system', previousState: queue?.remoteSyncStatus ?? 'unknown', nextState: status, reason: errorCode, safeDetail: { rewardId: queue?.rewardId ?? null } } });
+        }
         return true;
       });
     },
@@ -740,6 +1084,7 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
           });
         }
         if (['completed', 'removed', 'no_show'].includes(to)) {
+          await lockCurrentAccount(tx);
           const accountSetting = await tx.setting.findUnique({ where: { key: 'account_state' } });
           const currentAccount = accountSetting?.value;
           if (currentAccount?.ownerEntryId === entry.id) {
@@ -854,9 +1199,23 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
     },
 
     async retryOutboxManually(outboxId) {
-      return prisma.outbox.updateMany({
-        where: { id: outboxId, status: { in: ['unknown', 'conflict', 'failed'] } },
-        data: { status: 'pending', nextAttemptAt: clock(), lastError: null, leaseUntil: null, leaseToken: null },
+      return prisma.$transaction(async (tx) => {
+        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: { in: ['unknown', 'conflict', 'failed'] } } });
+        if (!task) return { count: 0 };
+        const updated = await tx.outbox.updateMany({
+          where: { id: outboxId, status: task.status },
+          data: { status: 'pending', nextAttemptAt: clock(), lastError: null, leaseUntil: null, leaseToken: null },
+        });
+        if (!updated.count || !task.entityId) return updated;
+        const queue = ['reward.delete', 'reward.set_open'].includes(task.operationType)
+          ? await tx.queue.findUnique({ where: { id: task.entityId } })
+          : null;
+        if (task.operationType === 'reward.delete' && queue?.lifecycleStatus === 'deleting') {
+          await tx.queue.updateMany({ where: { id: queue.id, lifecycleStatus: 'deleting' }, data: { remoteSyncStatus: 'delete_pending', version: { increment: 1 } } });
+        } else if (task.operationType === 'reward.set_open' && task.payload?.deleteAfterConfirm === true && queue?.lifecycleStatus === 'deleting') {
+          await tx.queue.updateMany({ where: { id: queue.id, lifecycleStatus: 'deleting' }, data: { remoteSyncStatus: 'pending_close', version: { increment: 1 } } });
+        }
+        return updated;
       });
     },
 

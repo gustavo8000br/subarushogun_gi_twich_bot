@@ -13,7 +13,7 @@ COPY package.json package-lock.json ./
 COPY apps ./apps
 COPY prisma.config.mjs ./prisma.config.mjs
 COPY VERSION .release-stage ./
-ARG PRODUCT_VERSION=v0.1.0-0000000-alpha
+ARG PRODUCT_VERSION
 RUN test -z "$PRODUCT_VERSION" || printf '%s\n' "$PRODUCT_VERSION" > VERSION
 RUN DATABASE_URL=postgresql://queuebot:build-only@db:5432/queuebot npm exec -- prisma generate --schema apps/api/prisma/schema.prisma
 USER 10001:10001

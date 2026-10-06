@@ -2,7 +2,24 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
-## Unreleased
+## v0.2.0-alpha
+
+The full runtime identity for each shipped artifact adds the exact seven-character source commit SHA, materialized by CI.
+
+- Add a PostgreSQL transaction advisory lock shared by automatic account switches, owner resets, and manual/default account mutations; add a real-PostgreSQL regression test for stale ownership across queues.
+- Claim chat command IDs and viewer cooldown timestamps atomically in `processed_operations`, protected by message/viewer advisory locks; management roles bypass the viewer cooldown.
+- Add durable `reward.set_open` outbox operations with queue-version checks, managed-reward preflight, Twitch confirmation, and safe re-query after ambiguous responses; persist capped chat notification backoff and 429 retry-after scheduling.
+- Add `POST /api/entries/:entryId/call-notification/resend` with local session/CSRF protection; reuses the idempotent outbox row, rejects stale or processing calls, audits the operator, and preserves existing timeout timestamps.
+- Fix repeated `setQueueOpen` requests so pending intent is returned as pending without adding an outbox duplicate or reporting remote confirmation from local desired state.
+- Add persistent archive/unarchive lifecycle: archive closes the managed reward and retains active-entry service; unarchive requires confirmed pause and leaves the queue closed.
+- Add protected explicit queue-delete confirmation and staged deletion worker: enumerate remote unfulfilled pages, record missing redemption cancellations, block Twitch DELETE until confirmed, recheck remotely, and release queue keys only after final confirmation.
+- Expose deletion tasks to the protected operation panel and restore `pending_close`/`delete_pending` when an operator retries an unknown or failed deletion stage. Reconcile a lost reward DELETE only after the persisted safe-to-delete gate.
+- Keep deletion lifecycle tasks visible independently of the 200-row financial-operation history limit; a PostgreSQL regression covers an older pending deletion behind 205 newer records.
+- Define per-PR version increments: small fixes/documentation use PATCH, new features/large implementations/complex fixes use MINOR, and MAJOR is reserved for significant product changes such as an owner-authorized official launch; only the product owner advances the stage.
+- Require `@devops` to update the linked GitHub issue body and status after a Done story is published by merged PR; issue comments are avoided unless necessary to record a decision or blocker that does not fit the issue body.
+- Shorten the public changelogs to user-visible outcomes in plain language; retain implementation, CI, and infrastructure details in this internal changelog.
+- Add a tested `npm run validate:port-denylist` entry point for the AIOX pre-push security gate.
+- Remove the stale v0.1.0 Compose/Docker build-argument fallback; local builds now retain the tracked `VERSION`, while CI continues to inject the materialized source identity.
 
 ## First materialized alpha image — v0.1.0-3e0c935-alpha (2026-10-05)
 

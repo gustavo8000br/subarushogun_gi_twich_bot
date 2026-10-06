@@ -48,4 +48,27 @@ describe('local web entrypoint', () => {
     expect(setupModule.statusCode).toBe(200);
     expect(setupModule.body).toContain("form.elements.namedItem('clientSecret')");
   });
+
+  it('serves the called-entry resend action in the panel script', async () => {
+    const app = Fastify();
+    await registerWebRoutes(app, webRoot);
+    const script = await app.inject({ method: 'GET', url: '/app.js' });
+    expect(script.statusCode).toBe(200);
+    expect(script.body).toContain("action('Reenviar chamada', 'resend-call'");
+    expect(script.body).toContain("actionName === 'resend-call'");
+    expect(script.body).toContain("action('Desarquivar', 'unarchive-queue'");
+    expect(script.body).toContain("action('Arquivar', 'archive-queue'");
+    await app.close();
+  });
+
+  it('offers explicit queue deletion confirmation and freezes mutation actions while deletion is pending', async () => {
+    const app = Fastify();
+    await registerWebRoutes(app, webRoot);
+    const script = await app.inject({ method: 'GET', url: '/app.js' });
+    expect(script.body).toContain("action('Excluir fila', 'delete-queue'");
+    expect(script.body).toContain('body: JSON.stringify({ confirm: true })');
+    expect(script.body).toContain('A recompensa só será excluída depois da confirmação de todos os cancelamentos');
+    expect(script.body).toContain('Exclusão pendente: aguardando confirmação');
+    await app.close();
+  });
 });

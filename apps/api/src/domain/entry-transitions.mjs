@@ -45,8 +45,8 @@ export function decideEntryTransition(input) {
 
   const policySnapshot = { ...policy };
   let financialDecision = 'no_operation';
-  const clearOverridesRefundPolicy = source === 'redemption' && to === 'removed' && reason === 'queue_cleared';
-  if (origin !== 'external' && (clearOverridesRefundPolicy
+  const queueRemovalOverridesRefundPolicy = source === 'redemption' && to === 'removed' && ['queue_cleared', 'queue_deleted'].includes(reason);
+  if (origin !== 'external' && (queueRemovalOverridesRefundPolicy
       || shouldRequestCancellation({ from, source, origin, to, policy: policySnapshot })
       || shouldRequestNoShowCancellation({ source, to, policy: policySnapshot }))) {
     financialDecision = 'request_cancel';

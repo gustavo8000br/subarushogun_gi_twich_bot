@@ -204,6 +204,44 @@ describe('PostgreSQL queue repository', () => {
     ]);
   });
 
+  it('does not reclaim a chat call notification until its persisted retry time', async () => {
+    const queue = await repository.createQueue({ slug: `chat-retry-${randomUUID().slice(0, 8)}`, title: 'Chat retry', cost: 1 });
+    const added = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `retry-${randomUUID()}`, userLogin: 'retryuser', displayName: 'Retry User' });
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: added.entry.id, actorId: 'operator' });
+    const dueAt = new Date(Date.now() + 120_000);
+    await repository.enqueueCallNotification({ queueId: queue.id, entryId: added.entry.id });
+    const task = await prisma.outbox.findFirst({ where: { operationType: 'chat.call', entityId: added.entry.id } });
+    expect(task).toBeTruthy();
+    const claimed = await repository.claimNextChatNotification({ now: new Date() });
+    expect(claimed).toMatchObject({ id: task.id });
+    await repository.finishCallNotification(task.id, {
+      status: 'retry', errorCode: 'chat_delivery_not_confirmed', nextAttemptAt: dueAt,
+    });
+
+    expect(await repository.claimNextChatNotification({ now: new Date(dueAt.getTime() - 1) })).toBeNull();
+    expect(await repository.claimNextChatNotification({ now: dueAt })).toMatchObject({ id: task.id });
+  });
+
+  it('resends an existing call notification without changing the call transition or deadline', async () => {
+    const queue = await repository.createQueue({ slug: `call-resend-${randomUUID().slice(0, 8)}`, title: 'Call resend', cost: 1 });
+    const added = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `resend-${randomUUID()}`, userLogin: 'resenduser', displayName: 'Resend User' });
+    const called = await queueService.callSpecificEntry({ queueId: queue.id, entryId: added.entry.id, actorId: 'operator' });
+    const deadline = new Date(Date.now() + 60_000);
+    await prisma.entry.update({ where: { id: added.entry.id }, data: { callNotifiedAt: new Date(), callDeadlineAt: deadline } });
+    await repository.enqueueCallNotification({ queueId: queue.id, entryId: added.entry.id });
+    const original = await prisma.outbox.findUnique({ where: { idempotencyKey: `chat.call:${added.entry.id}` } });
+    await prisma.outbox.update({ where: { id: original.id }, data: { status: 'confirmed', attempts: 1 } });
+
+    const result = await repository.resendCallNotification({ entryId: added.entry.id, actorId: 'operator' });
+
+    expect(result).toMatchObject({ status: 'queued', entryId: added.entry.id });
+    expect(await prisma.outbox.findUnique({ where: { id: original.id } })).toMatchObject({ status: 'pending', attempts: 0 });
+    expect(await prisma.entry.findUnique({ where: { id: added.entry.id } })).toMatchObject({ status: 'called', calledAt: called.calledAt, callDeadlineAt: deadline });
+    expect(await prisma.auditLog.findMany({ where: { entryId: added.entry.id, event: 'entry.call_notification_resent' } })).toMatchObject([
+      { actorId: 'operator', reason: 'operator_call_notification_resend' },
+    ]);
+  });
+
   it('resolves a viewer entry strictly by Twitch identity and moves only waiting entries', async () => {
     const queue = await repository.createQueue({ slug: `viewer-ops-${randomUUID().slice(0, 8)}`, title: 'Viewer ops', cost: 1 });
     const first = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `v-${randomUUID()}`, userLogin: 'first', displayName: 'First' });
@@ -262,6 +300,212 @@ describe('PostgreSQL queue repository', () => {
     const only = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `group-${randomUUID()}`, userLogin: 'group', displayName: 'Group Viewer' });
     await queueService.callNext({ queueId: queue.id, count: 2, actorId: 'operator' });
     expect(await repository.getCurrentAccount()).not.toMatchObject({ label: 'Group Viewer', ownerEntryId: only.entry.id });
+  });
+
+  it('serializes automatic account ownership across concurrent calls from separate queues', async () => {
+    await repository.resetCurrentAccount('operator');
+    const firstQueue = await repository.createQueue({ slug: `account-race-a-${randomUUID().slice(0, 8)}`, title: 'Account Race A', cost: 1, autoSwitchAccount: true });
+    const secondQueue = await repository.createQueue({ slug: `account-race-b-${randomUUID().slice(0, 8)}`, title: 'Account Race B', cost: 1, autoSwitchAccount: true });
+    const first = await repository.addManualEntry({ queueId: firstQueue.id, twitchUserId: `race-a-${randomUUID()}`, userLogin: 'racea', displayName: 'Race A' });
+    const second = await repository.addManualEntry({ queueId: secondQueue.id, twitchUserId: `race-b-${randomUUID()}`, userLogin: 'raceb', displayName: 'Race B' });
+    await prisma.$executeRawUnsafe(`CREATE FUNCTION test_delay_account_state_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.key = 'account_state' THEN PERFORM pg_sleep(0.2); END IF; RETURN NEW; END $$`);
+    await prisma.$executeRawUnsafe('CREATE TRIGGER test_delay_account_state_write BEFORE INSERT OR UPDATE ON settings FOR EACH ROW EXECUTE FUNCTION test_delay_account_state_write()');
+
+    try {
+      await Promise.all([
+        queueService.callNext({ queueId: firstQueue.id, count: 1, actorId: 'operator' }),
+        queueService.callNext({ queueId: secondQueue.id, count: 1, actorId: 'operator' }),
+      ]);
+    } finally {
+      await prisma.$executeRawUnsafe('DROP TRIGGER test_delay_account_state_write ON settings');
+      await prisma.$executeRawUnsafe('DROP FUNCTION test_delay_account_state_write()');
+    }
+
+    const switches = await prisma.auditLog.findMany({
+      where: { event: 'account.auto_switched', entryId: { in: [first.entry.id, second.entry.id] } },
+      orderBy: { createdAt: 'asc' },
+    });
+    expect(switches).toHaveLength(2);
+    expect(switches.map((item) => item.previousState)).toEqual(['Streamer', switches[0].nextState]);
+    const account = await repository.getCurrentAccount();
+    expect(account).toMatchObject({ ownerEntryId: switches[1].entryId, label: switches[1].nextState });
+  });
+
+  it('persists chat message deduplication and viewer cooldown across repository recreation', async () => {
+    const now = new Date('2026-10-06T12:00:00.000Z');
+    const claim = (messageId, at) => repository.claimChatCommand({
+      messageId, channelId: 'broadcaster-1', userId: 'viewer-cooldown-1', role: 'viewer',
+      cooldownExempt: false, now: new Date(now.getTime() + at),
+    });
+    expect(await claim('cooldown-message-1', 0)).toEqual({ status: 'accepted' });
+    expect(await createQueueRepository(prisma).claimChatCommand({
+      messageId: 'cooldown-message-1', channelId: 'broadcaster-1', userId: 'viewer-cooldown-1', role: 'viewer',
+      cooldownExempt: false, now: new Date(now.getTime() + 10_000),
+    })).toEqual({ status: 'duplicate' });
+    expect(await claim('cooldown-message-2', 4_999)).toEqual({ status: 'cooldown' });
+    expect(await claim('cooldown-message-2', 10_000)).toEqual({ status: 'duplicate' });
+    expect(await claim('cooldown-message-3', 5_000)).toEqual({ status: 'accepted' });
+  });
+
+  it('serializes viewer cooldown claims across concurrent messages and exempts managers', async () => {
+    const now = new Date('2026-10-06T12:01:00.000Z');
+    const claimViewer = (messageId) => repository.claimChatCommand({
+      messageId, channelId: 'broadcaster-1', userId: 'viewer-race-1', role: 'viewer', cooldownExempt: false, now,
+    });
+    const parallel = await Promise.all([claimViewer('cooldown-race-1'), claimViewer('cooldown-race-2')]);
+    expect(parallel.map(({ status }) => status).sort()).toEqual(['accepted', 'cooldown']);
+    expect(await repository.claimChatCommand({
+      messageId: 'manager-race-1', channelId: 'broadcaster-1', userId: 'moderator-1', role: 'moderator', cooldownExempt: false, now,
+    })).toEqual({ status: 'accepted' });
+    expect(await repository.claimChatCommand({
+      messageId: 'manager-race-2', channelId: 'broadcaster-1', userId: 'moderator-1', role: 'moderator', cooldownExempt: false, now,
+    })).toEqual({ status: 'accepted' });
+  });
+
+  it('persists a remote reward pause intent when opening a managed queue', async () => {
+    const queue = await repository.createQueue({ slug: `open-${randomUUID().slice(0, 8)}`, title: 'Open queue', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, remoteSyncStatus: 'synced' } });
+
+    const result = await repository.setQueueOpen(queue.id, true, 'moderator-1');
+    const task = await prisma.outbox.findFirst({ where: { operationType: 'reward.set_open', entityId: queue.id } });
+
+    expect(result).toMatchObject({ status: 'pending', isOpen: true, remoteSyncStatus: 'pending_open' });
+    expect(task).toMatchObject({ operationType: 'reward.set_open', entityType: 'queue', status: 'pending', payload: { isOpen: true } });
+    expect(task.idempotencyKey).toMatch(new RegExp(`^queue:${queue.id}:reward\\.open:`));
+    const claimed = await repository.claimNextRewardOperation();
+    expect(claimed).toMatchObject({ id: task.id, operationType: 'reward.set_open', queue: { id: queue.id, rewardId: expect.any(String) } });
+    expect(await repository.prepareRewardOpen(claimed.id, claimed.leaseToken)).toBe(true);
+    expect(await repository.confirmRewardOpen(claimed.id, { isOpen: true }, claimed.leaseToken)).toBe(true);
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ isOpen: true, remoteSyncStatus: 'synced' });
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'confirmed', leaseToken: null });
+  });
+
+  it('keeps a repeated open request pending until the remote reward state is confirmed', async () => {
+    const queue = await repository.createQueue({ slug: `open-repeat-${randomUUID().slice(0, 8)}`, title: 'Open repeat', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, remoteSyncStatus: 'synced' } });
+
+    expect(await repository.setQueueOpen(queue.id, true, 'operator-1')).toMatchObject({ status: 'pending', remoteSyncStatus: 'pending_open' });
+    const repeated = await repository.setQueueOpen(queue.id, true, 'operator-2');
+
+    expect(repeated).toMatchObject({ status: 'pending', isOpen: true, remoteSyncStatus: 'pending_open' });
+    expect(await prisma.outbox.count({ where: { operationType: 'reward.set_open', entityId: queue.id } })).toBe(1);
+  });
+
+  it('archives an open queue with a durable pause intent and preserves active entries', async () => {
+    const queue = await repository.createQueue({ slug: `archive-${randomUUID().slice(0, 8)}`, title: 'Archive', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, remoteSyncStatus: 'synced', isOpen: true } });
+    const entry = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `archive-user-${randomUUID()}`, userLogin: 'archiveuser', displayName: 'Archive User' });
+
+    const result = await repository.archiveQueue({ queueId: queue.id, actorId: 'operator-archive' });
+
+    expect(result).toMatchObject({ status: 'pending', queue: { isArchived: true, isOpen: false, remoteSyncStatus: 'pending_close' } });
+    expect(await prisma.outbox.findFirst({ where: { operationType: 'reward.set_open', entityId: queue.id } })).toMatchObject({ status: 'pending', payload: { isOpen: false, archiveAfterConfirm: true } });
+    expect(await repository.getEntry(entry.entry.id)).toMatchObject({ status: 'waiting', position: 1 });
+    await expect(repository.addManualEntry({ queueId: queue.id, twitchUserId: 'other-archive-user', userLogin: 'other', displayName: 'Other' }))
+      .rejects.toMatchObject({ code: 'QUEUE_NOT_AVAILABLE' });
+  });
+
+  it('keeps archived queue entries callable while blocking new entries', async () => {
+    const queue = await repository.createQueue({ slug: `archive-call-${randomUUID().slice(0, 8)}`, title: 'Archive call', cost: 1 });
+    const entry = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `archive-call-user-${randomUUID()}`, userLogin: 'archivecaller', displayName: 'Archive Caller' });
+    await prisma.queue.update({ where: { id: queue.id }, data: { isArchived: true } });
+
+    const called = await queueService.callNext({ queueId: queue.id, count: 1 });
+
+    expect(called).toMatchObject([{ id: entry.entry.id, status: 'called' }]);
+    await expect(repository.addManualEntry({ queueId: queue.id, twitchUserId: 'new-archive-user', userLogin: 'newuser', displayName: 'New User' }))
+      .rejects.toMatchObject({ code: 'QUEUE_NOT_AVAILABLE' });
+  });
+
+  it('unarchives a queue without reopening it or changing its entries', async () => {
+    const queue = await repository.createQueue({ slug: `unarchive-${randomUUID().slice(0, 8)}`, title: 'Unarchive', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, remoteSyncStatus: 'synced', isOpen: false } });
+    const entry = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `unarchive-user-${randomUUID()}`, userLogin: 'unarchiveuser', displayName: 'Unarchive User' });
+    await prisma.queue.update({ where: { id: queue.id }, data: { isArchived: true } });
+    const result = await repository.unarchiveQueue({ queueId: queue.id, actorId: 'operator-unarchive' });
+
+    expect(result).toMatchObject({ status: 'unarchived', queue: { isArchived: false, isOpen: false, remoteSyncStatus: 'synced' } });
+    expect(await repository.getEntry(entry.entry.id)).toMatchObject({ status: 'waiting', position: 1 });
+  });
+
+  it('requests resumable deletion, removes active entries and forces cancellation regardless of queue policy', async () => {
+    const queue = await repository.createQueue({ slug: `delete-open-${randomUUID().slice(0, 8)}`, title: 'Delete open', cost: 1, refundIfRemovedWhileCalled: false });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'synced', isOpen: true } });
+    const redemptionId = `delete-r-${randomUUID()}`;
+    const redemption = await repository.importRedemption({ id: redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: 'delete-user', userLogin: 'deleteuser', displayName: 'Delete User', userInput: '', redeemedAt: new Date(), status: 'UNFULFILLED' });
+    expect(redemption.status).toBe('added');
+    const manual = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `delete-manual-${randomUUID()}`, userLogin: 'manual', displayName: 'Manual' });
+
+    const result = await queueService.deleteQueue({ queueId: queue.id, actorId: 'operator-delete' });
+
+    expect(result).toMatchObject({ status: 'pending', activeRemoved: 2, refundsRequested: 1, queue: { lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'pending_close' } });
+    expect(await repository.getEntry(redemption.entryId)).toMatchObject({ status: 'removed', terminalReason: 'queue_deleted' });
+    expect(await repository.getEntry(manual.entry.id)).toMatchObject({ status: 'removed', terminalReason: 'queue_deleted' });
+    expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${redemptionId}` } })).toMatchObject({ operationType: 'redemption.cancel', status: 'pending' });
+    expect(await prisma.outbox.findFirst({ where: { operationType: 'reward.set_open', entityId: queue.id } })).toMatchObject({ payload: { isOpen: false, deleteAfterConfirm: true } });
+  });
+
+  it('restores the pending pause stage when an operator retries an unknown queue deletion', async () => {
+    const queue = await repository.createQueue({ slug: `delete-retry-${randomUUID().slice(0, 8)}`, title: 'Delete retry', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, remoteSyncStatus: 'synced', isOpen: true } });
+    await queueService.deleteQueue({ queueId: queue.id, actorId: 'operator-delete' });
+    const task = await prisma.outbox.findFirst({ where: { operationType: 'reward.set_open', entityId: queue.id } });
+    const leaseToken = randomUUID();
+    await prisma.outbox.update({ where: { id: task.id }, data: { status: 'processing', leaseToken, leaseUntil: new Date(Date.now() + 60_000) } });
+
+    expect(await repository.unknownRewardOperation(task.id, 'reward_open_result_unknown', leaseToken)).toBe(true);
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ remoteSyncStatus: 'close_unknown', lifecycleStatus: 'deleting' });
+    expect((await repository.retryOutboxManually(task.id)).count).toBe(1);
+
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ remoteSyncStatus: 'pending_close', lifecycleStatus: 'deleting' });
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'pending' });
+  });
+
+  it('keeps deletion tasks visible when the financial operation history exceeds the panel page limit', async () => {
+    const queue = await repository.createQueue({ slug: `delete-visible-${randomUUID().slice(0, 8)}`, title: 'Delete visible', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_pending' } });
+    const old = new Date(Date.now() - 60_000);
+    const deletion = await prisma.outbox.create({ data: { operationType: 'reward.delete', entityType: 'queue', entityId: queue.id, idempotencyKey: `queue:${queue.id}:reward.delete`, payload: {}, status: 'unknown', createdAt: old, updatedAt: old } });
+    await prisma.outbox.createMany({ data: Array.from({ length: 205 }, (_, index) => ({ operationType: 'redemption.cancel', entityType: 'redemption', entityId: `noise-${queue.id}-${index}`, idempotencyKey: `noise:${queue.id}:${index}`, payload: {}, status: 'confirmed' })) });
+
+    const operations = await repository.listFinancialOperations();
+
+    expect(operations.some(({ id }) => id === deletion.id)).toBe(true);
+  });
+
+  it('starts reward deletion directly only when the managed reward is already confirmed paused', async () => {
+    const queue = await repository.createQueue({ slug: `delete-closed-${randomUUID().slice(0, 8)}`, title: 'Delete closed', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, remoteSyncStatus: 'synced', isOpen: false } });
+
+    const result = await queueService.deleteQueue({ queueId: queue.id, actorId: 'operator-delete' });
+
+    expect(result).toMatchObject({ status: 'pending', queue: { lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_pending' } });
+    expect(await prisma.outbox.findFirst({ where: { operationType: 'reward.delete', entityId: queue.id } })).toMatchObject({ status: 'pending' });
+  });
+
+  it('prevents reward deletion while any redemption cancellation is unconfirmed and releases keys only after confirmation', async () => {
+    const slug = `delete-safe-${randomUUID().slice(0, 8)}`;
+    const queue = await repository.createQueue({ slug, aliases: [`safe-${slug.slice(-6)}`], title: 'Delete safe', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_pending' } });
+    const redemptionId = `delete-safe-r-${randomUUID()}`;
+    await prisma.redemption.create({ data: { redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: 'delete-safe-user', queueId: queue.id, redeemedAt: new Date(), remoteStatus: 'UNFULFILLED', expectedStatus: 'CANCELED', syncStatus: 'pending' } });
+    const deletion = await prisma.outbox.create({ data: { operationType: 'reward.delete', entityType: 'queue', entityId: queue.id, idempotencyKey: `queue:${queue.id}:reward.delete`, payload: { safeToDelete: true }, status: 'processing', leaseToken: randomUUID() } });
+    const leaseToken = deletion.leaseToken;
+    expect(await repository.prepareRewardDelete(deletion.id, leaseToken)).toBe(false);
+    expect(await repository.completeQueueDeletion(deletion.id, leaseToken)).toBe(false);
+
+    await prisma.redemption.update({ where: { redemptionId }, data: { remoteStatus: 'CANCELED', syncStatus: 'confirmed' } });
+    await prisma.outbox.create({ data: { operationType: 'redemption.cancel', entityType: 'redemption', entityId: redemptionId, idempotencyKey: `financial:${redemptionId}`, payload: {}, redemptionId, status: 'confirmed' } });
+    expect(await repository.prepareRewardDelete(deletion.id, leaseToken)).toBe(true);
+    expect(await repository.completeQueueDeletion(deletion.id, leaseToken)).toBe(true);
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ lifecycleStatus: 'deleted', remoteSyncStatus: 'deleted', deletedAt: expect.any(Date) });
+    expect(await prisma.queueKey.count({ where: { queueId: queue.id } })).toBe(0);
+
+    const replacement = await repository.createQueue({ slug, title: 'Replacement', cost: 1 });
+    expect(replacement.id).not.toBe(queue.id);
+    expect(await prisma.redemption.findUnique({ where: { redemptionId } })).toMatchObject({ queueId: queue.id, remoteStatus: 'CANCELED' });
   });
 
   it('serializes competing duplicate adds to one active entry per queue', async () => {

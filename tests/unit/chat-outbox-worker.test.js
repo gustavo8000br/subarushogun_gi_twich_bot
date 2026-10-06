@@ -33,4 +33,16 @@ describe('chat call outbox', () => {
     expect(h.twitch.sendChatMessage).not.toHaveBeenCalled();
     expect(h.repository.finishCallNotification).toHaveBeenCalledWith('task', { status: 'cancelled', errorCode: 'entry_not_called' });
   });
+
+  it('backs off after unconfirmed delivery instead of retrying chat immediately', async () => {
+    const h = harness({ sent: false });
+    const now = new Date('2026-10-06T12:00:00.000Z');
+    h.repository.claimNextChatNotification.mockResolvedValue({ id: 'task', attempts: 3, entry: { id: 'entry', status: 'called', userLogin: 'viewer', uid: null, callPosition: 3, queue: { title: 'Abyss', uidMode: 'hidden', showUidOnCall: false, callMessage: '{user} {queue} {position}', callTimeoutMin: 10 } } });
+    const worker = createChatOutboxWorker({ repository: h.repository, twitch: h.twitch, clock: () => now, random: () => 0 });
+
+    expect(await worker.processOne()).toBe('retry');
+    expect(h.repository.finishCallNotification).toHaveBeenCalledWith('task', expect.objectContaining({
+      status: 'retry', errorCode: 'chat_delivery_not_confirmed', nextAttemptAt: new Date(now.getTime() + 4_000),
+    }));
+  });
 });

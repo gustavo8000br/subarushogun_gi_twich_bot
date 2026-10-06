@@ -2,7 +2,24 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
-## Unreleased
+## v0.2.0-alpha
+
+A identidade runtime completa de cada artefato distribuído acrescenta o SHA exato de sete caracteres do commit de origem, materializado pelo CI.
+
+- Adiciona advisory lock transacional PostgreSQL compartilhado por trocas automáticas, resets do proprietário e alterações manuais/do padrão; inclui regressão PostgreSQL real para propriedade obsoleta entre filas.
+- Reivindica IDs de comandos Twitch e timestamps de cooldown de viewer atomicamente em `processed_operations`, protegidos por advisory locks por mensagem/viewer; cargos de gestão ignoram o cooldown de viewer.
+- Adiciona operações duráveis `reward.set_open` na outbox com verificação da versão da fila, preflight de recompensa gerenciada, confirmação Twitch e nova consulta segura após resposta ambígua; persiste backoff limitado de notificações e agendamento pelo retry-after de 429.
+- Adiciona `POST /api/entries/:entryId/call-notification/resend` protegido por sessão local/CSRF; reutiliza a linha idempotente da outbox, recusa chamada obsoleta ou em processamento, audita o operador e preserva timestamps de timeout existentes.
+- Corrige pedidos repetidos de `setQueueOpen`: intenção pendente retorna como pendente sem duplicar a outbox nem declarar confirmação remota com base somente no estado local desejado.
+- Adiciona ciclo persistente de arquivamento/desarquivamento: arquivar fecha a recompensa gerenciada e mantém atendimento das entradas existentes; desarquivar exige pausa confirmada e mantém a fila fechada.
+- Adiciona confirmação explícita protegida e worker de exclusão em etapas: pagina resgates não cumpridos, registra cancelamentos ausentes, bloqueia DELETE Twitch até confirmação, consulta novamente e libera chaves da fila somente após confirmação final.
+- Expõe tarefas de exclusão no painel de operações protegido e restaura `pending_close`/`delete_pending` quando o operador tenta novamente uma etapa de exclusão desconhecida ou com falha. Reconcilia resposta perdida do DELETE apenas depois da barreira persistida de segurança.
+- Mantém tarefas do ciclo de exclusão visíveis independentemente do limite de 200 linhas do histórico financeiro; regressão PostgreSQL cobre uma exclusão pendente antiga atrás de 205 operações recentes.
+- Define incrementos de versão por PR: correções pequenas/documentação usam PATCH, funcionalidades novas/implementações grandes/correções complexas usam MINOR, e MAJOR fica reservado a mudanças significativas do produto, como lançamento oficial autorizado pelo proprietário; somente o proprietário avança o estágio.
+- Exige que `@devops` atualize o corpo e o status da issue GitHub vinculada depois que uma story Done for publicada por PR mesclada; comentários são evitados, salvo se necessários para registrar uma decisão ou bloqueio que não caiba no corpo da issue.
+- Encurta os changelogs públicos para destacar resultados percebidos por usuários em linguagem simples; detalhes de implementação, CI e infraestrutura ficam neste changelog interno.
+- Adiciona uma entrada testada `npm run validate:port-denylist` para o gate de segurança pre-push do AIOX.
+- Remove o fallback antigo v0.1.0 dos argumentos de build Compose/Docker; builds locais preservam o `VERSION` versionado e o CI continua injetando a identidade materializada da origem.
 
 ## Primeira imagem alpha materializada — v0.1.0-3e0c935-alpha (2026-10-05)
 

@@ -7,6 +7,18 @@ const cooldownMs = 5_000;
 
 function safeMessage(text) { return Array.from(String(text), (char) => char.charCodeAt(0) < 32 ? ' ' : char).join('').slice(0, 500); }
 function normalizedLogin(value) { return String(value ?? '').replace(/^@/, '').toLowerCase(); }
+function queueOpenLabel(queue) {
+  if (queue.remoteSyncStatus === 'pending_open') return 'abertura pendente';
+  if (queue.remoteSyncStatus === 'pending_close') return 'fechamento pendente';
+  if (queue.remoteSyncStatus === 'open_unknown') return 'abertura sem confirmação';
+  if (queue.remoteSyncStatus === 'close_unknown') return 'fechamento sem confirmação';
+  if (queue.remoteSyncStatus && !['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) return 'recompensa indisponível';
+  return queue.isOpen ? 'aberta' : 'fechada';
+}
+function queueOpenSuffix(queue) {
+  const label = queueOpenLabel(queue);
+  return label === 'aberta' ? '' : ` (${label})`;
+}
 function mention(entry, showUid) {
   const uid = showUid && entry.uid ? ` · UID ${entry.uid}` : '';
   return `@${entry.userLogin}${uid}`;
@@ -33,7 +45,7 @@ export function createChatCommandHandler({ repository, domainService = repositor
         const rest = Math.max(0, snapshot.totalWaiting - waiting.length);
         const called = snapshot.called.map((entry) => mention(entry, queue.uidMode === 'visible' && queue.showUidInList));
         const playing = snapshot.inProgress.map((entry) => mention(entry, queue.uidMode === 'visible' && queue.showUidInList));
-        return reply(message, `${queue.title}${queue.isOpen ? '' : ' (fechada)'} · Aguardando: ${waiting.join(', ') || 'ninguém'}${rest ? ` e mais ${rest}` : ''}${called.length ? ` · Chamados: ${called.join(', ')}` : ''}${playing.length ? ` · Em atendimento: ${playing.join(', ')}` : ''}`);
+        return reply(message, `${queue.title}${queueOpenSuffix(queue)} · Aguardando: ${waiting.join(', ') || 'ninguém'}${rest ? ` e mais ${rest}` : ''}${called.length ? ` · Chamados: ${called.join(', ')}` : ''}${playing.length ? ` · Em atendimento: ${playing.join(', ')}` : ''}`);
       }
       case 'posicao': {
         const entry = await ownEntry();
@@ -109,7 +121,7 @@ export function createChatCommandHandler({ repository, domainService = repositor
       }
       case 'abrir':
       case 'fechar': {
-        const result = await repository.setQueueOpen(queue.id, parsed.command === 'abrir', authorized.actorId);
+        const result = await repository.setQueueOpen(queue.id, parsed.command === 'abrir', authorized.actorId, 'chat');
         if (result.status !== 'confirmed') return reply(message, 'Alteração solicitada. A recompensa ainda aguarda confirmação da Twitch.');
         return reply(message, parsed.command === 'abrir' ? 'Fila aberta e recompensa confirmada.' : 'Fila fechada e recompensa pausada.');
       }
@@ -120,25 +132,42 @@ export function createChatCommandHandler({ repository, domainService = repositor
   return async function handleChatMessage(message) {
     if (!message || typeof message.id !== 'string' || typeof message.text !== 'string' || message.channelId !== broadcasterId
       || (message.sourceChannelId && message.sourceChannelId !== broadcasterId)) return;
-    const now = Date.now();
-    if (seenMessages.has(message.id)) return;
-    seenMessages.set(message.id, now);
-    for (const [id, stamp] of seenMessages) if (now - stamp > 60 * 60 * 1000) seenMessages.delete(id);
     const parsed = parseChatCommand(message.text);
     if (parsed.kind !== 'command') return;
     const authorized = authorizeCommand({ broadcasterId, message, command: parsed, allowVipManagement });
     if (!authorized.allowed) return;
-    if (authorized.role === 'viewer' && !(parsed.scope === 'global' && parsed.command === 'conta' && parsed.args.length === 0)) {
-      const key = `${message.channelId}:${message.userId}`;
-      const previous = cooldowns.get(key) ?? 0;
-      if (now - previous < cooldownMs) return;
-      cooldowns.set(key, now);
+    const cooldownExempt = parsed.scope === 'global' && parsed.command === 'conta' && parsed.args.length === 0;
+    if (typeof repository.claimChatCommand === 'function') {
+      try {
+        const claim = await repository.claimChatCommand({
+          messageId: message.id,
+          channelId: message.channelId,
+          userId: message.userId,
+          role: authorized.role,
+          cooldownExempt,
+        });
+        if (claim.status !== 'accepted') return;
+      } catch {
+        onError('chat_command_claim_failed');
+        return reply(message, 'Não foi possível validar este comando. Tente novamente em instantes.');
+      }
+    } else {
+      const now = Date.now();
+      if (seenMessages.has(message.id)) return;
+      seenMessages.set(message.id, now);
+      for (const [id, stamp] of seenMessages) if (now - stamp > 60 * 60 * 1000) seenMessages.delete(id);
+      if (authorized.role === 'viewer' && !cooldownExempt) {
+        const key = `${message.channelId}:${message.userId}`;
+        const previous = cooldowns.get(key) ?? 0;
+        if (now - previous < cooldownMs) return;
+        cooldowns.set(key, now);
+      }
     }
     try {
       if (parsed.scope === 'queue') return await queueAction(message, parsed, authorized);
       if (parsed.command === 'filas') {
         const queues = await repository.listQueueProjection();
-        return reply(message, queues.filter((queue) => !queue.isArchived && queue.lifecycleStatus === 'active').map((queue) => `${queue.slug}${queue.isOpen ? '' : ' (fechada)'}`).join(' · ') || 'Não há filas disponíveis.');
+        return reply(message, queues.filter((queue) => !queue.isArchived && queue.lifecycleStatus === 'active').map((queue) => `${queue.slug}${queueOpenSuffix(queue)}`).join(' · ') || 'Não há filas disponíveis.');
       }
       if (parsed.command === 'conta') {
         if (!parsed.args.length) return reply(message, `Conta atual: ${(await settings.getAccount?.())?.label ?? 'Streamer'}.`);

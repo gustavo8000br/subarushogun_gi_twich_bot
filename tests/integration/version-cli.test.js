@@ -61,7 +61,7 @@ describe('version source and materialization CLIs', () => {
     expect(workflow).toContain('apps/infra/scripts/materialize-version.mjs');
     expect(workflow).toContain('$RUNNER_TEMP/VERSION');
     expect(workflow).toContain('PRODUCT_VERSION');
-    expect(compose).toContain('PRODUCT_VERSION: ${PRODUCT_VERSION:-v0.1.0-0000000-alpha}');
+    expect(compose).toContain('PRODUCT_VERSION: ${PRODUCT_VERSION:-}');
     expect(dockerfile).toContain('ARG PRODUCT_VERSION');
     expect(dockerfile).toContain("printf '%s\\n' \"$PRODUCT_VERSION\" > VERSION");
     expect(workflow).toContain('IMAGE_VERSION="$(docker compose run --rm --no-deps --entrypoint cat bot /app/VERSION)"');
