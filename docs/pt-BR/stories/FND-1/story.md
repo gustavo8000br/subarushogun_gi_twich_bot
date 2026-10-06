@@ -154,6 +154,7 @@ Para cada comportamento abaixo, criar/executar primeiro o teste e observar falha
 Pendente implementação.
 
 ### Referências de Debug Log
+- **TDD de segurança das dependências Prisma (2026-10-06):** `npm test -- --run tests/unit/prisma-dependency-security.test.js` Red — 1 falhou porque não havia override corrigido de `deepmerge-ts`; o alinhamento CLI/client/adapter Prisma já passou. Green — 2 passaram após adicionar override restrito em `@prisma/config` para `8.0.2`; o lockfile resolve 8.0.2 e mantém todos os pacotes Prisma em 6.19.3. `npm ci` e `npm audit --audit-level=high` informam 0 vulnerabilidades; `npx prisma generate` passou. `npx prisma validate` primeiro falhou sem `DATABASE_URL`, depois passou com URL local de teste. Suíte completa: 53 arquivos/386 testes; lint, typecheck, validação de versão, OpenGrep (0 achados), configuração Compose e diff passaram. `docker compose -p queuebot-security-audit build --no-cache` e a primeira execução isolada na porta 3221 passaram: bootstrap concluiu, PostgreSQL ficou saudável, migrations terminaram com sucesso, `/health` retornou `status: ok` com banco conectado e o healthcheck do bot ficou saudável. Foram removidos somente os containers/rede/volumes descartáveis de `queuebot-security-audit`; a instalação atual não foi tocada.
 - TDD da migração da análise estática: `tests/unit/aiox-static-review.test.js` falhou primeiro porque a Layer 2 não executava o comando configurado; outro Red revelou a fase ausente no executor. O comportamento passou depois. Uma asserção no repositório encontrou arquivos gerados de registry desatualizados, que foram regenerados. Comando direcionado final: `npm test -- --run tests/unit/aiox-static-review.test.js tests/unit/opengrep-quality-gate.test.js` — 4 passaram.
 - TDD do gate: `tests/unit/opengrep-quality-gate.test.js` falhou inicialmente pela ausência do template/comando; outro Red encontrou a flag bloqueante `--error` ausente. A execução direcionada final acima passou.
 - Gates finais: `npm test` — 23 arquivos/145 testes passaram; `npm run lint`, `npm run typecheck`, `npm run review:static` (19 arquivos JS da aplicação/0 achados), `npm run validate:version`, `docker compose config --quiet`, `git diff --check` e validação estrita de sync IDE (109/109, sem divergências) passaram.
@@ -169,6 +170,8 @@ Funções de versão, Compose/bootstrap, schema de migration, runtime Linux, doc
 ## Lista de Arquivos
 
 - `package.json`
+- `tests/unit/prisma-dependency-security.test.js`
+- `VERSION`
 - `package-lock.json`
 - `tests/integration/version-cli.test.js`
 - `.github/workflows/ci.yml`

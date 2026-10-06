@@ -4,6 +4,10 @@
 
 Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.3.1-alpha
+
+- Atualizações de segurança corrigem uma vulnerabilidade reportada em dependência.
+
 ## v0.3.0-alpha
 
 - Streamers podem configurar limites de resgate e intervalo das recompensas da fila no painel.

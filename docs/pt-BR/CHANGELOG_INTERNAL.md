@@ -2,6 +2,10 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.3.1-alpha
+
+- Atualizada a dependência vulnerável `deepmerge-ts` do Prisma Config para a versão corrigida 8.0.2 por override npm restrito; CLI, client e adapter PostgreSQL do Prisma permanecem alinhados em 6.19.3. `npm audit` informa zero vulnerabilidades.
+
 ## v0.3.0-alpha
 
 - Conclui QA independente da FND-6 na revisão `165c5c4`: 384 testes e gates do repositório passaram; callback de recusa/recuperação em 30 segundos e probe Twitch autorizado somente de leitura foram verificados. Registra CONCERNS (90/100) porque efeitos de recompensa/chat/EventSub em canal elegível não puderam ser exercitados com o canal conectado inelegível; nenhuma escrita real é alegada.

@@ -2,6 +2,10 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.3.1-alpha
+
+- Update Prisma config’s vulnerable `deepmerge-ts` dependency to patched 8.0.2 through a scoped npm override; keep Prisma CLI, client, and PostgreSQL adapter aligned at 6.19.3. `npm audit` reports zero vulnerabilities.
+
 ## v0.3.0-alpha
 
 - Complete independent FND-6 QA on revision `165c5c4`: 384 tests and repository gates pass; the browser callback denial/30-second recovery and authorized read-only Twitch health probe were verified. Record CONCERNS (90/100) because eligible-channel reward/chat/EventSub effects could not be exercised with the connected ineligible channel; no live write is claimed.
