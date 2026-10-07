@@ -63,6 +63,15 @@ jobs:
             --cache-from type=gha,scope=container-linux-arm64 \
             --cache-to type=gha,scope=container-linux-arm64,mode=max \
             --push .
+      - name: Publish and verify versioned multi-platform manifest
+        run: |
+          docker buildx imagetools create \
+            --tag "ghcr.io/$GITHUB_REPOSITORY:$PRODUCT_VERSION" \
+            "ghcr.io/$GITHUB_REPOSITORY:$GITHUB_SHA-linux-amd64" \
+            "ghcr.io/$GITHUB_REPOSITORY:$GITHUB_SHA-linux-arm64"
+          manifest="$(docker buildx imagetools inspect "ghcr.io/$GITHUB_REPOSITORY:$PRODUCT_VERSION")"
+          grep -q 'Platform:.*linux/amd64' <<< "$manifest"
+          grep -q 'Platform:.*linux/arm64' <<< "$manifest"
       - name: Avoid moving the main manifest backward
         id: source-current
         env:
@@ -75,7 +84,7 @@ jobs:
           else
             echo "current=true" >> "$GITHUB_OUTPUT"
           fi
-      - name: Promote current architecture images and manifests
+      - name: Promote current architecture images and moving main manifest
         if: steps.source-current.outputs.current == 'true'
         run: |
           docker buildx imagetools create \
@@ -86,9 +95,5 @@ jobs:
             "ghcr.io/$GITHUB_REPOSITORY:$GITHUB_SHA-linux-arm64"
           docker buildx imagetools create \
             --tag "ghcr.io/$GITHUB_REPOSITORY:main" \
-            --tag "ghcr.io/$GITHUB_REPOSITORY:$PRODUCT_VERSION" \
             "ghcr.io/$GITHUB_REPOSITORY:$GITHUB_SHA-linux-amd64" \
             "ghcr.io/$GITHUB_REPOSITORY:$GITHUB_SHA-linux-arm64"
-          manifest="$(docker buildx imagetools inspect "ghcr.io/$GITHUB_REPOSITORY:$PRODUCT_VERSION")"
-          grep -q 'Platform:.*linux/amd64' <<< "$manifest"
-          grep -q 'Platform:.*linux/arm64' <<< "$manifest"

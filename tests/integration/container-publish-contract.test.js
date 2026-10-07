@@ -1,9 +1,13 @@
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
+const require = createRequire(import.meta.url);
+const yaml = require('js-yaml');
 const workflow = (() => { try { return readFileSync(`${root}/.github/workflows/main-cd.yml`, 'utf8'); } catch { return ''; } })();
+const parsedWorkflow = yaml.load(workflow);
 const image = 'ghcr.io/$GITHUB_REPOSITORY';
 
 describe('GHCR multi-platform publish contract', () => {
@@ -32,10 +36,25 @@ describe('GHCR multi-platform publish contract', () => {
   it('promotes moving architecture tags only from immutable images after confirming the source is current', () => {
     expect(workflow).toContain(`--tag "${image}:$GITHUB_SHA-linux-amd64"`);
     expect(workflow).toContain(`--tag "${image}:$GITHUB_SHA-linux-arm64"`);
-    expect(workflow).toContain('Promote current architecture images and manifests');
+    expect(workflow).toContain('Promote current architecture images and moving main manifest');
     expect(workflow).toContain(`"${image}:$GITHUB_SHA-linux-amd64"`);
     expect(workflow).toContain(`"${image}:$GITHUB_SHA-linux-arm64"`);
     expect(workflow).not.toMatch(/Build and publish AMD64 image[\s\S]*?--tag "\$\{image\}:main-linux-amd64"/);
     expect(workflow).not.toMatch(/Build and publish ARM64 image[\s\S]*?--tag "\$\{image\}:main-linux-arm64"/);
+  });
+
+  it('publishes the exact versioned manifest even when a newer main commit supersedes this run', () => {
+    const steps = parsedWorkflow.jobs['publish-image'].steps;
+    const versionManifest = steps.find((step) => step.name === 'Publish and verify versioned multi-platform manifest');
+    const movingTags = steps.find((step) => step.name === 'Promote current architecture images and moving main manifest');
+
+    expect(versionManifest).toBeDefined();
+    expect(versionManifest.if).toBeUndefined();
+    expect(versionManifest.run).toContain(`--tag "${image}:$PRODUCT_VERSION"`);
+    expect(versionManifest.run).toContain(`${image}:$GITHUB_SHA-linux-amd64`);
+    expect(versionManifest.run).toContain(`${image}:$GITHUB_SHA-linux-arm64`);
+    expect(movingTags.if).toContain("steps.source-current.outputs.current == 'true'");
+    expect(movingTags.run).toContain(`--tag "${image}:main"`);
+    expect(movingTags.run).not.toContain(`--tag "${image}:$PRODUCT_VERSION"`);
   });
 });

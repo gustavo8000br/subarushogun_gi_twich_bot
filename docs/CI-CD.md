@@ -9,13 +9,13 @@ This guide explains how pull request checks, main image publication, and tagged 
 | Workflow | Trigger | Responsibility | Registry/release write access |
 | --- | --- | --- | --- |
 | `ci.yml` | Pull request targeting `main`; manual dispatch | Calls `quality-gates.yml`; reports one stable aggregate required check | None |
-| `quality-gates.yml` | Reusable `workflow_call` | API/infra/web lint and typecheck, shared lint/typecheck, installer smoke on Linux/macOS/Windows, Vitest with PostgreSQL/Compose, OpenGrep/version checks, Compose validation, and production image build | None |
+| `quality-gates.yml` | Reusable `workflow_call` | API/infra/web lint and typecheck, shared lint/typecheck, installer smoke on Linux/macOS/Windows, Vitest with PostgreSQL/Compose, actionlint, OpenGrep/version/localization checks, Compose validation, and production image build | None |
 | `main-cd.yml` | Push to `main` | Re-runs the shared quality gates for the merged commit, then builds and publishes validated Linux images | `packages: write` only in the publishing job |
 | `release.yml` | Push of a version tag `v*` | Validates the tag/source and successful main CD run, builds native installer assets, then publishes bilingual release notes | `contents: write` only in the release job |
 
 Pull requests never run the GHCR publisher. The active `main-pr-and-ci` ruleset requires the stable reusable workflow check; it does not require a main-only publishing job. GitHub names reusable workflow checks as `<caller job> / <reusable job>`, so the configured required context is verified from an actual PR run.
 
-The shared workflow ends in an aggregate job that requires every validation job to finish successfully. Failed, canceled, or skipped constituent jobs fail the aggregate. Installer smoke files are temporary and are not uploaded from normal CI; only the release workflow uploads the tested `.bat`, `.command`, and `.sh` installers.
+The shared workflow ends in an aggregate job that requires every validation job to finish successfully. Failed, canceled, or skipped constituent jobs fail the aggregate. The workflow linter is pinned to actionlint `1.7.12`; ShellCheck integration is disabled because this gate validates GitHub Actions workflows. Its narrow `queue` schema warning suppression is needed because GitHub's supported `concurrency.queue: max` syntax is not yet recognized by that linter release. Installer smoke files are temporary and are not uploaded from normal CI; only the release workflow uploads the tested `.bat`, `.command`, and `.sh` installers.
 
 ## Image tags and publication safety
 
@@ -29,7 +29,7 @@ The shared workflow ends in an aggregate job that requires every validation job 
 | `vMAJOR.MINOR.PATCH-SHA7-STAGE` | Versioned AMD64/ARM64 manifest, materialized from the exact source commit |
 | `vMAJOR.MINOR.PATCH-SHA7-STAGE-linux-amd64`, `...-linux-arm64` | Versioned single-architecture images |
 
-The publisher queues main runs without canceling an active publish. It builds immutable per-commit architecture images first, checks whether the source is still the current `main` commit, and only then promotes moving architecture tags and the multi-platform manifest. A superseded run may leave its immutable versioned images available, but it cannot move the shared `main` tags backward. Re-running a failed publication for the same source is safe; the immutable tags identify that exact source.
+The publisher queues main runs without canceling an active publish. It builds immutable per-commit architecture images first and publishes the versioned multi-platform manifest for that exact commit. It then checks whether the source is still the current `main` commit and only then promotes moving architecture tags and the multi-platform `main` manifest. A superseded run keeps its exact versioned image available for a later tagged release, but cannot move shared `main` tags backward. Re-running a failed publication for the same source is safe; the immutable tags identify that exact source.
 
 The image build uses GitHub Actions cache scopes separated by architecture. `main` images are continuously published from validated merges; a GitHub Release and its installer downloads are created only by a version tag after release validation. Publishing a `main` image does not create a release or promote `.release-stage`.
 
@@ -49,5 +49,6 @@ Consulted 2026-10-07:
 - [Ruleset troubleshooting](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/troubleshooting-rules) — required context naming for reusable workflows.
 - [Status checks](https://docs.github.com/en/pull-requests/reference/status-checks) — skipped job status behavior.
 - [Secure use of GitHub Actions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions) — pinned actions and permissions guidance.
+- [actionlint releases](https://github.com/rhysd/actionlint/releases) and [usage](https://github.com/rhysd/actionlint/blob/main/docs/usage.md) — pinned workflow linter and supported invocation.
 
 See also [development setup](DEVELOPMENT.md), [versioning and releases](VERSIONING.md), and the [project roadmap](ROADMAP.md).

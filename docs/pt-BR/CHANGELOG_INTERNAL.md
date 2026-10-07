@@ -7,7 +7,10 @@
 - OPS-10 separa o CI de pull requests do CD da branch main. Ambos chamam o mesmo workflow reutilizável de qualidade; o gate agregado de PR é o único check obrigatório. A permissão de escrita em pacotes existe somente no job publicador da main.
 - Remove uploads de instaladores não consumidos pela CI comum. Os testes nativos de instaladores continuam em Linux/macOS/Windows; o workflow de release continua anexando os artefatos testados.
 - O CD da main serializa a promoção de imagens, constrói imagens imutáveis por commit/arquitetura e só promove as tags móveis `main-linux-*` e o manifest multiplataforma `main` se a origem validada ainda for o commit mais recente da branch. Isso impede uma execução antiga em fila de retroceder as tags de arquitetura.
+- Adiciona actionlint `1.7.12` fixado e verificado por SHA-256, além de executar `npm run validate:localization` no gate reutilizável. A exceção do actionlint é restrita ao campo `concurrency.queue: max`, suportado pelo GitHub e ainda ausente do schema fixado do linter.
+- Publica o manifest multiplataforma imutável da identidade de produto antes de conferir se a origem ainda é atual. Uma origem superada continua instalável pela identidade exata da release; somente a origem atual promove as tags móveis de arquitetura e manifest `main`.
 - A validação de release consulta agora a execução bem-sucedida de `main-cd.yml` para o commit exato da tag. A documentação bilíngue CI/CD registra gatilhos, permissões, tags de imagem, retries e limites de release.
+- A PR #46 confirmou o nome do check reutilizável como `CI quality gates / Required quality gate`; o ruleset ativo `main-pr-and-ci` agora exige somente esse check. A execução inicial passou os 11 checks antes da adição final de actionlint/localização; os checks devem ser repetidos no commit final.
 - Incrementa MINOR para `0.13.0`; mantém `.release-stage` em `alpha`. Esta mudança não cria release nem tag Git.
 
 ## v0.12.0-alpha

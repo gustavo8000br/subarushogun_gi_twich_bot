@@ -48,6 +48,10 @@ describe('GitHub Actions application CI contract', () => {
     expect(qualityWorkflow).toContain('npm test');
     expect(qualityWorkflow).toContain('npm run review:static');
     expect(qualityWorkflow).toContain('npm run validate:version');
+    expect(qualityWorkflow).toContain('npm run validate:localization');
+    expect(qualityWorkflow).toContain('actionlint -shellcheck= -ignore');
+    expect(qualityWorkflow).toContain('v1.7.12');
+    expect(qualityWorkflow).toContain('8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8');
     expect(qualityWorkflow).toContain('docker compose config --quiet');
     expect(qualityWorkflow).toContain('docker compose build bot');
   });

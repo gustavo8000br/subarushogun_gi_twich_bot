@@ -44,7 +44,7 @@ para que PRs não exibam publicação de imagem como check ignorado e somente co
 - [x] Criar CI exclusivo de PR e CD em push para main; remover uploads CI e limitar escrita de pacote ao publicador.
 - [x] Proteger publicação contra cancelamentos/concorrência; preservar convenção de tags por arquitetura.
 - [x] Atualizar a verificação de CI da release para usar o CD da main e validar a origem exata.
-- [ ] Atualizar o ruleset ativo para exigir somente o check agregado de PR verificado.
+- [x] Atualizar o ruleset ativo para exigir somente o check agregado de PR verificado.
 - [x] Atualizar versão para `0.13.0` mantendo `alpha`; atualizar changelogs, roadmap, índices das stories e documentação CI/CD nos dois idiomas.
 - [ ] Executar revisão independente do `$aiox-qa` e registrar evidências/gate.
 - [ ] Confirmar checks e comportamento do ruleset no GitHub; não mesclar com checks ausentes ou falhos.
@@ -64,7 +64,12 @@ para que PRs não exibam publicação de imagem como check ignorado e somente co
 - **Red inicial dos contratos de workflow:** `npm test -- --run tests/unit/ci-workflow-contract.test.js tests/integration/container-publish-contract.test.js` — 10 verificações de comportamento falharam porque o CI de PR ainda continha publicação GHCR condicional, não havia workflow reutilizável/CD exclusivo da main e a release ainda consultava `ci.yml`. O parse YAML e a configuração dos testes funcionaram; as falhas eram dos comportamentos ausentes/incorretos.
 - **Red da regressão de tags por arquitetura:** `npm test -- --run tests/integration/container-publish-contract.test.js` — 1 falhou / 2 passaram porque os builds ainda escreviam tags móveis `main-linux-*` antes de verificar se a origem continuava atual.
 - **Green:** `npm test -- --run tests/unit/ci-workflow-contract.test.js tests/integration/container-publish-contract.test.js tests/integration/version-cli.test.js` — 16 passaram após extrair verificações compartilhadas, separar gatilhos/permissões, conferir a origem antes da promoção e usar imagens imutáveis identificadas pelo SHA completo como base das tags móveis.
-- **Evidências GitHub pendentes:** a execução Actions da PR deve confirmar o contexto real do check obrigatório antes de alterar o ruleset ativo. Nenhum resultado de check GitHub ou veredito final de QA foi declarado ainda.
+- **Red do seguimento de QA:** após a revisão de Quinn, `npm test -- --run tests/unit/ci-workflow-contract.test.js` falhou 1/8 porque o pipeline reutilizável não executava `npm run validate:localization` nem actionlint. O setup foi interpretado; a falha foi o comportamento de gate ausente.
+- **Green do seguimento de QA:** `npm test -- --run tests/unit/ci-workflow-contract.test.js tests/integration/container-publish-contract.test.js tests/integration/version-cli.test.js` — 16 passaram depois de adicionar actionlint `1.7.12` fixado (com SHA-256) e validação de localização. `/tmp/actionlint -ignore 'unexpected key "queue" for "concurrency" section'` passou localmente; a exceção estreita cobre o campo de fila suportado pelo GitHub mas ausente do schema atual do actionlint.
+- **Red do manifest versionado:** `npm test -- --run tests/integration/container-publish-contract.test.js` — 1 falhou / 3 passaram porque uma execução superada da main pulava a criação de seu manifest versionado exato e poderia deixar uma futura release sem a tag da imagem.
+- **Green/refatoração do manifest:** `/tmp/actionlint -shellcheck= -ignore 'unexpected key "queue" for "concurrency" section'` e os contratos combinados de workflow/versão passaram localmente; `npm test -- --run tests/unit/ci-workflow-contract.test.js tests/integration/container-publish-contract.test.js tests/integration/version-cli.test.js` — 17 passaram após publicar cada manifest imutável de versão antes da verificação da origem e proteger somente as tags móveis `main`.
+- **Gates locais de qualidade:** `npm test` — 88 arquivos / 727 testes passaram; `npm run lint`, `npm run typecheck`, `npm run review:static` (0 achados), actionlint 1.7.12, `npm run validate:version`, `npm run validate:localization`, `docker compose config --quiet` e `git diff --check` passaram. Containers e volumes isolados da suíte Compose/PostgreSQL foram limpos; os serviços e volumes ativos do produto permaneceram intactos.
+- **Evidência GitHub:** execução `37689341108` da PR #46 mostrou `CI quality gates / Required quality gate` e os 11 checks passaram antes do ajuste do QA. O ruleset ativo `main-pr-and-ci` foi atualizado e reinspecionado com esse agregado exato como único contexto obrigatório. O commit final ainda precisa de nova execução Actions e validação QA independente.
 
 ## Lista de arquivos
 
@@ -75,6 +80,7 @@ para que PRs não exibam publicação de imagem como check ignorado e somente co
 - `tests/unit/ci-workflow-contract.test.js`
 - `tests/integration/container-publish-contract.test.js`
 - `tests/integration/version-cli.test.js`
+- Download do actionlint fixado e verificação SHA-256 em `.github/workflows/quality-gates.yml`
 - `package.json`, `package-lock.json`, `VERSION`
 - `CHANGELOG.md`, `CHANGELOG_INTERNAL.md`
 - `docs/pt-BR/CHANGELOG.md`, `docs/pt-BR/CHANGELOG_INTERNAL.md`
@@ -84,3 +90,21 @@ para que PRs não exibam publicação de imagem como check ignorado e somente co
 - `docs/ROADMAP.md`, `docs/pt-BR/ROADMAP.md`
 - `docs/stories.md`, `docs/pt-BR/stories.md`
 - `docs/stories/OPS-10/story.md`, `docs/pt-BR/stories/OPS-10/story.md`
+
+## Resultados do QA
+
+### Data da revisão: 2026-10-07
+
+### Revisado por: Quinn (`$aiox-qa`)
+
+**Gate: FAIL — 7,6/10.** Os testes locais de contrato dos workflows e as verificações de qualidade passaram, mas os critérios de check/ruleset do GitHub ainda não foram atendidos e alguns documentos de CI/CD afirmam que a alteração pendente do ruleset já está ativa.
+
+**Evidências locais:** `npm exec -- vitest run tests/unit/ci-workflow-contract.test.js tests/integration/container-publish-contract.test.js tests/integration/version-cli.test.js` passou 16/16; `npm run validate:version`, `npm run validate:localization`, `npm run typecheck`, `npm run lint`, `npm run review:static` (0 achados) e `git diff --check` passaram. A suíte completa e comandos Docker/Compose não foram executados nesta revisão somente leitura, para não alterar a instalação local nem volumes.
+
+**Achados:**
+
+1. **Alto — REQ-001, check real de PR e ruleset ainda são incompatíveis.** A inspeção somente leitura no GitHub não encontrou PR nem execução de Actions para `feat/ops-10-ci-cd-pipeline`. O ruleset ativo `main-pr-and-ci` (ID `24656777`) ainda exige contextos antigos de jobs, inclusive `Publish Linux multi-platform images to GHCR`, e não exige o novo contexto agregado `CI quality gates`. O nome real do check do workflow reutilizável não pode ser confirmado até existir uma execução de PR. Os critérios de aceite 6 e 10 continuam pendentes. Criar a PR, observar o check real, solicitar ao `@devops` a atualização do ruleset para o agregado de PR confirmado e reinspecionar o ruleset ativo antes do merge.
+2. **Médio — DOC-001, documentação afirma um estado ainda não implantado.** `docs/CI-CD.md` e a versão pt-BR dizem que o ruleset ativo já exige o check estável do workflow reutilizável; os dois changelogs internos afirmam que o agregado é o único check obrigatório. O ruleset real ainda lista os checks individuais antigos e o publicador GHCR. Sincronizar os dois idiomas e changelogs com o estado verificado após a atualização do ruleset.
+3. **Médio — TEST-001, duas validações declaradas não estão no gate reutilizável.** O critério de aceite 10 exige lint/validação de YAML de workflows e validação de localização. O teste de contrato interpreta YAML com `js-yaml`, mas nenhum linter específico de GitHub Actions, como `actionlint`, é executado; `quality-gates.yml` também não chama `npm run validate:localization`. Adicionar essas verificações ou resolver a divergência com os critérios de aceite antes de concluir.
+
+**Não validados nesta revisão:** contextos de Actions da PR, smoke tests nativos de instaladores em runners GitHub, publicação no GHCR e execução real do CD da main. Nenhum comando Docker foi executado e nenhum volume foi alterado. O status atual da story já é `InProgress`; a pré-condição da transição de ciclo de vida exige `InReview` e uma seção Change Log, então nenhum campo de ciclo de vida foi alterado.

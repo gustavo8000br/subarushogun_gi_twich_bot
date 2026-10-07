@@ -7,7 +7,10 @@
 - OPS-10 separates pull request CI from main-branch CD. Both call the same reusable quality workflow; the PR-facing aggregate is the only required CI check. Package write permission exists only in the main publisher job.
 - Removes unused installer uploads from ordinary CI. Native Linux/macOS/Windows smoke tests still run; release workflows continue to upload tested installer assets.
 - Main CD serializes image promotion, builds immutable per-commit/per-architecture images, and promotes `main-linux-*` and multi-platform `main` tags only if its validated source is still the latest commit on `main`. This prevents an older queued run from moving architecture tags backward.
+- Adds pinned actionlint `1.7.12` with SHA-256 verification and runs `npm run validate:localization` in the reusable quality gate. The actionlint ignore is narrowly scoped to the GitHub-supported `concurrency.queue: max` field not yet recognized by that pinned schema.
+- Publishes the immutable product-version multi-platform manifest before checking whether the source is current. A superseded source therefore remains installable by its exact release identity, while only the current source can promote moving `main` architecture and manifest tags.
 - Release verification now checks the successful `main-cd.yml` run for the exact tagged commit. Bilingual CI/CD documentation records triggers, permissions, image tags, retry behavior, and release boundaries.
+- GitHub PR #46 verified the reusable check name as `CI quality gates / Required quality gate`; active ruleset `main-pr-and-ci` now requires only that check. The initial PR run passed all 11 job checks before the follow-up actionlint/localization addition; those checks must rerun for the final commit.
 - Increment MINOR to `0.13.0`; keep `.release-stage` at `alpha`. No release or Git tag is created by this change.
 
 ## v0.12.0-alpha
