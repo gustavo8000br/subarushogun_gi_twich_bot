@@ -6,7 +6,7 @@ This file highlights changes that matter to streamers and viewers. Technical and
 
 ## v0.8.0-alpha
 
-- One installer per operating system handles setup, updates, and removal of saved data, and stays on the version selected from its release.
+- One installer per operating system handles setup, updates, and removal of saved data, keeps Windows' first-run language choice, and stays on the version selected from its release.
 - Updates preserve saved queues and settings by default; erasing them requires a clear confirmation.
 - Linux now explains how to launch the installer if it opens without an interactive terminal.
 - Installation guidance now separates normal prebuilt-image use from developer build requirements.

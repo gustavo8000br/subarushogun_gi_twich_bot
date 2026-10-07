@@ -5,7 +5,7 @@ const installer = readFileSync(new URL('../../apps/infra/installer/installer.ps1
 
 describe('Windows installer first-run language prompt', () => {
   it('keeps the locale unset until a clean install asks the operator to choose it', () => {
-    expect(installer).toMatch(/\$Locale\s*=\s*''/);
+    expect(installer).toMatch(/\$script:Locale\s*=\s*''/);
     expect(installer).toMatch(/if\s*\(-not\s*\(Test-Path\s+\$EnvFile\)\s+-and\s+-not\s+\(Prompt-Language\)\)\s*\{\s*exit 1\s*\}/);
     expect(installer).toContain("$script:Locale='pt-BR'");
     expect(installer).toContain("$script:Locale='en'");
@@ -23,6 +23,8 @@ describe('Windows installer first-run language prompt', () => {
   });
 
   it('uses Portuguese copy until a fresh install chooses its product locale', () => {
-    expect(installer).toMatch(/function T\(\[string\]\$Key\)\s*\{\s*\$copyLocale\s*=\s*if\s*\(\$Locale\)\s*\{\s*\$Locale\s*\}\s*else\s*\{\s*'pt-BR'\s*\}\s*;?\s*return \[string\]\$Copy\[\$copyLocale\]\[\$Key\]\s*\}/);
+    expect(installer).toMatch(/function T\(\[string\]\$Key\)\s*\{\s*\$copyLocale\s*=\s*if\s*\(\$script:Locale\)\s*\{\s*\$script:Locale\s*\}\s*else\s*\{\s*'pt-BR'\s*\}\s*;?\s*return \[string\]\$Copy\[\$copyLocale\]\[\$Key\]\s*\}/);
+    expect(installer).toMatch(/if \(-not \$script:Locale -and -not \(Prompt-Language\)\)/);
+    expect(installer).not.toMatch(/(?<!script:)\$Locale\b/);
   });
 });

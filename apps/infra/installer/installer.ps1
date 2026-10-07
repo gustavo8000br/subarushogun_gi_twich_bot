@@ -66,7 +66,7 @@ $Copy = @{
   }
 }
 
-$Locale = ''
+$script:Locale = ''
 $script:TestInputLines = @()
 $script:TestInputIndex = 0
 if ($TestMode -and $env:QUEUEBOT_TEST_INPUT_FILE -and (Test-Path -LiteralPath $env:QUEUEBOT_TEST_INPUT_FILE)) {
@@ -74,10 +74,10 @@ if ($TestMode -and $env:QUEUEBOT_TEST_INPUT_FILE -and (Test-Path -LiteralPath $e
 }
 if (Test-Path -LiteralPath $EnvFile) {
   $existing = (Get-Content -LiteralPath $EnvFile | Where-Object { $_ -match '^PRODUCT_INITIAL_LOCALE=(pt-BR|en|es)$' } | Select-Object -First 1) -replace '^PRODUCT_INITIAL_LOCALE=', ''
-  if ($existing) { $Locale = $existing } else { $Locale = 'pt-BR' }
+  if ($existing) { $script:Locale = $existing } else { $script:Locale = 'pt-BR' }
 }
 function T([string]$Key) {
-  $copyLocale = if ($Locale) { $Locale } else { 'pt-BR' }
+  $copyLocale = if ($script:Locale) { $script:Locale } else { 'pt-BR' }
   return [string]$Copy[$copyLocale][$Key]
 }
 function Read-Answer([string]$Prompt = '') {
@@ -106,7 +106,7 @@ function Ensure-Docker {
     if ($LASTEXITCODE -eq 0) { & $Docker info *> $null; if ($LASTEXITCODE -eq 0) { return $true } }
   } catch { }
   $answer = Read-Answer (T 'missing')
-  if (($Locale -eq 'en' -and $answer -match '^(y|yes)$') -or ($Locale -ne 'en' -and $answer -match '^(s|sim|sí|si)$')) { Open-Url 'https://docs.docker.com/desktop/setup/install/windows-install/' }
+  if (($script:Locale -eq 'en' -and $answer -match '^(y|yes)$') -or ($script:Locale -ne 'en' -and $answer -match '^(s|sim|sí|si)$')) { Open-Url 'https://docs.docker.com/desktop/setup/install/windows-install/' }
   Write-Host (T 'manual')
   return $false
 }
@@ -141,7 +141,7 @@ function Read-Port {
 }
 function Save-Config([int]$Port) {
   New-Item -ItemType Directory -Force -Path $InstallHome | Out-Null
-  Set-Content -LiteralPath $EnvFile -Encoding ascii -Value @("APP_PORT=$Port","IMAGE_TAG=$ReleaseImageTag","PRODUCT_INITIAL_LOCALE=$Locale")
+  Set-Content -LiteralPath $EnvFile -Encoding ascii -Value @("APP_PORT=$Port","IMAGE_TAG=$ReleaseImageTag","PRODUCT_INITIAL_LOCALE=$script:Locale")
   Write-ComposeFile
 }
 function Save-ImageTag {
@@ -170,13 +170,13 @@ function Setup-Product {
     $port=if ($portLine) { [int]($portLine -replace '^APP_PORT=','') } else { 3000 }
     $currentLocale=(Get-Content $EnvFile | Where-Object { $_ -match '^PRODUCT_INITIAL_LOCALE=(pt-BR|en|es)$' } | Select-Object -First 1) -replace '^PRODUCT_INITIAL_LOCALE=',''
     if ($currentLocale) { $script:Locale=$currentLocale }
-    Write-Host "Current settings: locale=$Locale port=$port"
+    Write-Host "Current settings: locale=$script:Locale port=$port"
     $keepPrompt='Manter configurações? [S/n]'
-    if ($Locale -eq 'en') { $keepPrompt='Keep settings? [Y/n]' } elseif ($Locale -eq 'es') { $keepPrompt='¿Mantener la configuración? [S/n]' }
+    if ($script:Locale -eq 'en') { $keepPrompt='Keep settings? [Y/n]' } elseif ($script:Locale -eq 'es') { $keepPrompt='¿Mantener la configuración? [S/n]' }
     $keep=Read-Answer $keepPrompt
     if ($keep -match '^n') { Prompt-Language; $port=Read-Port; Save-Config $port }
   } else {
-  if (-not $Locale -and -not (Prompt-Language)) { return }
+  if (-not $script:Locale -and -not (Prompt-Language)) { return }
     $port=Read-Port
     Save-Config $port
   }
@@ -208,7 +208,7 @@ function Update-Product {
   }
   if ($choice -ne '2') { return }
   Write-Host (T 'confirm'); $answer=Read-Answer
-  if ($answer -cne [string]$Copy[$Locale].word) { return }
+  if ($answer -cne [string]$Copy[$script:Locale].word) { return }
   if (-not (Compose @('pull') $ReleaseImageTag)) { Write-Host (T 'failure'); return }
   if (-not (Compose @('down','--volumes','--remove-orphans'))) { Write-Host (T 'failure'); return }
   Remove-Item -LiteralPath (Join-Path $InstallHome '.local'),$EnvFile -Recurse -Force -ErrorAction SilentlyContinue
@@ -227,7 +227,7 @@ function Uninstall-Product {
   }
   if ($choice -ne '2') { return }
   Write-Host (T 'confirmUninstall'); $answer=Read-Answer
-  if ($answer -cne [string]$Copy[$Locale].word) { return }
+  if ($answer -cne [string]$Copy[$script:Locale].word) { return }
   if (-not (Compose @('down','--volumes','--remove-orphans'))) { Write-Host (T 'failure'); return }
   Remove-ImageIfUnused
   Remove-Item -LiteralPath $InstallHome -Recurse -Force

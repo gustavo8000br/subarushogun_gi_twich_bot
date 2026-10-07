@@ -19,6 +19,7 @@
 - Use the single unified installer filename `subarushogun_twich_bot_setup` with the platform extension (`.bat`, `.command`, or `.sh`); the menu contains install/start, update, and uninstall actions. This replaces separate lifecycle filenames; it is not a family of three downloadable tools. Synchronize Actions artifact labels and bilingual operator documentation.
 - Clarify that packaged installer files are generated from source in CI and are absent from the source checkout; release downloads come from GitHub Releases and are opened directly. Add documentation regression contracts for release paths and exact asset names.
 - The next native Windows run passed installer process exit but did not write the expected `.env`; improve the CI harness to include installer stdout/stderr when that assertion fails. Windows diagnosis and rerun remain open.
+- Diagnose the missing Windows `.env` from the improved native-runner output: the selected locale was assigned to script scope while installer helpers read an unscoped variable, causing the language prompt to repeat and consume later answers. Use `$script:Locale` consistently and add a regression assertion; local focused tests pass, native rerun pending.
 - Bump the product MINOR to `0.8.0`; keep the owner-selected `alpha` stage and `0000000` pre-commit identity marker.
 
 ## v0.7.2-alpha
