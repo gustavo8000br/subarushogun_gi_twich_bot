@@ -1,0 +1,72 @@
+translation.unavailable	Product text unavailable.
+panel.document.title	Local Queue · Twitch
+panel.brand.home	Local Queue home
+panel.runtime.version	Local version
+panel.runtime.local_data	Data on this computer
+panel.sidebar.title	STREAMER PANEL
+panel.navigation.label	Main navigation
+panel.navigation.overview	Overview
+panel.navigation.queues	Queues and service
+panel.navigation.new_queue	New queue
+panel.navigation.operations	Financial operations
+panel.navigation.commands	Chat commands
+panel.navigation.widgets	OBS widgets
+panel.navigation.settings	Settings
+panel.navigation.connection	Twitch connection
+panel.sidebar.local_note	The panel and data stay on this computer.
+panel.health.label	Installation health
+panel.health.database	Database
+panel.health.twitch_api	Twitch API
+panel.health.database.connected	Connected
+panel.health.database.unavailable	Unavailable
+panel.health.database.checking	Checking
+panel.health.twitch.connected	Connected
+panel.health.twitch.not_configured	Not configured
+panel.health.twitch.connecting	Connecting
+panel.health.twitch.reconciling	Reconciling
+panel.health.twitch.degraded	Unstable
+panel.health.twitch.reconnect_required	Reconnect required
+panel.health.twitch.ineligible	Channel ineligible
+panel.health.twitch.stopped	Disconnected
+panel.health.twitch.unknown	Unknown state
+panel.health.ping_unavailable	No measurement
+panel.health.overall.operational	Operational
+panel.health.overall.check	Check connection
+panel.summary.label	Operation summary
+panel.summary.queues	QUEUES
+panel.summary.configured	configured
+panel.summary.waiting	WAITING
+panel.summary.viewers_waiting	viewers in queue
+panel.summary.in_service	IN SERVICE
+panel.summary.called_or_started	called or started
+panel.overview.eyebrow	LIVE
+panel.overview.ready	Ready for your stream?
+panel.overview.description	Manage people waiting and active service on their own page.
+panel.overview.open_queues	Open queues
+panel.queues.eyebrow	LIVE
+panel.queues.title	Queues and service
+panel.queues.description	Track people waiting, called, and currently in service.
+panel.new_queue.eyebrow	SET UP YOUR STREAM
+panel.new_queue.title	New queue
+panel.new_queue.description	Each queue uses its own Twitch Custom Reward.
+panel.operations.eyebrow	POINTS AND RECOVERY
+panel.operations.title	Financial operations
+panel.operations.description	Track refund and fulfillment requests until Twitch confirms them.
+panel.commands.eyebrow	LIVE CHAT
+panel.commands.title	Available commands
+panel.commands.description	Review permissions and choose which roles can use each command. Selected roles are independent options.
+panel.widgets.eyebrow	STREAM SOURCES
+panel.widgets.title	OBS widgets
+panel.widgets.description	Each widget shows one data point in OBS through a local HTTPS connection. OBS and the bot must run on this computer.
+panel.settings.eyebrow	PREFERENCES
+panel.settings.title	Settings
+panel.settings.description	Adjust the account labels used during service.
+panel.connection.eyebrow	TWITCH
+panel.connection.title	Channel connection
+panel.connection.description	The assistant appears during setup or when reconnection is needed.
+panel.locale.label	Language
+panel.locale.save	Save
+panel.locale.eyebrow	PRODUCT LANGUAGE
+panel.locale.title	Panel language
+panel.locale.description	The selected language is also used for bot messages. Complete community catalogs appear automatically.
+panel.locale.available	Available language

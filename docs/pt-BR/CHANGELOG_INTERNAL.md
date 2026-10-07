@@ -2,9 +2,40 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.6.0-alpha
+
+- Persiste o locale da instalação no PostgreSQL com revisão otimista/auditoria, expõe uma API de catálogos protegida por sessão, descobre dinamicamente arquivos TSV completos por módulo/locale e grava uma projeção atômica do locale legível pelo host.
+- Adiciona raízes de chat por idioma e textos suportados de ajuda/resposta, rótulos gerados pelo OBS, textos de configuração/status Twitch e ferramentas host. Conteúdo escrito pelo streamer para filas/widgets continua inalterado.
+- Adiciona entrypoints genéricos `subarushogun_twich_bot_{setup,update,uninstall}`. Ferramentas POSIX usam o locale salvo; entrypoints `.bat` delegam ao executor PowerShell. Há testes de contrato, mas o executor não foi rodado nativamente porque PowerShell/Windows não está disponível neste ambiente.
+- Atualiza documentação bilíngue de contribuição/operação e valida contratos de catálogo, API/persistência/projeção de locale, ciclo de vida shell, wrappers e Compose.
+- Gates em 2026-10-06: `npm run lint`, `npm run typecheck`, `npm test` (85 arquivos / 612 testes), `npm run validate:port-denylist` (1.024 arquivos, zero achados), `npm run validate:version`, `npm run review:static` (zero achados / 69 arquivos JS da aplicação), `npm run validate:localization` (5 módulos; en/es/pt-BR), `git diff --check` e `docker compose config --quiet` passaram. Localização integral do painel, validação runtime do PowerShell e QA independente final seguem pendentes.
+
 ## v0.5.2-alpha
 
-- Conclui e publica o baseline bilíngue de planejamento v3 da FND-8: pesquisa, requisitos, arquitetura, complexidade, registro da revisão QA, matriz de aceite e sequência de implementação TDD. O planejamento está concluído; a implementação e o QA independente final seguem em andamento.
+- Valida o incremento atual da FND-8 com a suíte completa: `npm test` passou em 79 arquivos / 566 testes; validação dos catálogos, typecheck, lint e `git diff --check` passaram. A FND-8 continua em andamento; a localização ampla do produto e o QA independente seguem pendentes.
+- Adiciona seletor de locale no painel com base nos catálogos completos descobertos; salva locale/revisão em `settings` PostgreSQL com auditoria transacional e conflito de revisão, e usa catálogos nos rótulos do assistente Twitch. Compose monta novos arquivos comunitários como somente leitura e o painel os descobre na atualização. Testes PostgreSQL reais cobrem padrão, auditoria, IDs inválidos e disputa concorrente; verificações focadas de painel/API/repositório passaram 161/161. Localização completa da interface/chat/OBS/ferramentas host continua pendente.
+- Preserva escolha de locale ainda não salva durante atualizações em segundo plano por meio de seletor puro testado (3/3). Adiciona instruções de contribuição bilíngues com caminhos, validação e descoberta ao vivo de catálogos.
+- Adiciona `npm run validate:localization` para validar pela CLI, com saída segura, a cobertura de módulos/locales. Red reproduziu a ausência do script; Green passou 2/2 testes CLI, e a árvore real de catálogos valida o módulo setup em en/es/pt-BR. Suítes combinadas de localização passaram 44/44; typecheck e lint passaram.
+- Adiciona API local de catálogos protegida por sessão que verifica novamente os arquivos TSV dos módulos a cada requisição; o TDD comprovou a descoberta de um novo locale comunitário completo com o servidor ativo. A composição Fastify de produção registra a rota, e os catálogos iniciais de configuração Twitch agora têm arquivos pt-BR, inglês e espanhol. Integração focada passou 21/21; typecheck e lint passaram. Renderização no browser e locale persistido continuam pendentes.
+- Adiciona resolvedor compartilhado de catálogos com TDD. Red mostrou o módulo ausente; Green passou 7/7 testes de fallback de locale/chave e interpolação escalar allowlistada. O resolvedor ainda não está conectado aos catálogos do browser nem ao estado de locale do produto.
+- Adiciona contratos ESM compartilhados de catálogo com TDD: parser TSV literal, tradutor seguro, decoder UTF-8 estrito, parser bytes→catálogo, validação dinâmica de locale/chaves/placeholders e descoberta de arquivos por módulo. Um teste real de filesystem encontrou e corrigiu a exposição de catálogo adicional incompleto; integração de descoberta/paridade passou 15/15 e suítes combinadas de catálogo passaram 32/32. Completude global entre módulos e paridade browser/scripts de host seguem pendentes.
+- Planeja OPS-5 como story de entrypoint de ciclo de vida multiplataforma. Pesquisa matriz Actions e artefatos por plataforma; distingue o runner MIT/open source do serviço hospedado GitHub, e esclarece que artefatos vêm de fontes revisadas, CI não cria commits automáticos e atualização do Docker do host fica fora do workflow. Publica issue de planejamento #30; implementação ainda não começou.
+- Localiza as mensagens de estado incompleto do assistente Twitch em inglês e espanhol com TDD. Red reproduziu 6 traduções ausentes; Green passou 39/39 testes focados, e a refatoração centralizou o fallback pt-BR.
+- Localiza o resumo de canal Twitch elegível para inglês e espanhol com TDD. Red reproduziu 2 asserções não traduzidas; Green passou 33/33 testes focados, e a implementação refatorada com mapa de locales passou na mesma suíte.
+- Localiza as orientações de elegibilidade Twitch para inglês e espanhol com TDD; 4 casos Red reproduziram a ausência do comportamento, e a suíte focada passou 31/31 após Green.
+
+- Registra a política aprovada para colisões: preservar chaves, bloquear somente a raiz global conflitante e exigir renomeação explícita pelo painel, sem alteração automática.
+
+- O proprietário aprovou preservar nomes, descrições, templates e textos fixos de widget do streamer exatamente como inseridos na troca de locale; somente textos do produto são localizados.
+
+- Localiza todos os rótulos de status da integração Twitch para inglês e espanhol com TDD; 15 asserções Red reproduziram traduções ausentes, e a suíte focada passou 27/27 após Green.
+
+- Corrige dois defeitos de precedência do status Twitch com testes de regressão primeiro: canal conectado, mas inelegível, mostrava rótulo incorreto; motivo antigo de elegibilidade podia esconder reconexão necessária. A reavaliação QA independente aprovou OPS-2 com 9,3/10; nenhuma conta Twitch real foi usada.
+- Registra PASS QA independente 9,3/10 para OPS-1, OPS-2 e OPS-4 nos registros bilíngues de story e gate. Conclusão de OPS-1/2 e sincronização das issues aguardam revisão/merge desta branch; OPS-4 já foi mesclada.
+- Inicia incrementos TDD P0 independentes da FND-8. O primeiro localiza o rótulo de elegibilidade Twitch para en/es; o Red falhou em 2 asserções e o Green passou com 9/9 no teste focado. O locale persistido ainda não está conectado ao painel.
+- Registra decisão do proprietário para os nomes `subarushogun_twich_bot_setup`, `subarushogun_twich_bot_update` e `subarushogun_twich_bot_uninstall`.
+- Atualiza a spec bilíngue FND-8 para v3: define PostgreSQL como autoridade do locale com projeção atômica/revisionada para ferramentas offline e TSV UTF-8 literal para catálogos; sincroniza pesquisas/story EN-pt-BR. QA v2 permaneceu CONCERNS sem nova nota; decisões de produto e nova revisão QA ainda bloqueiam implementação.
+- Atualiza somente PATCH para `0.5.2`; mantém `.release-stage` em `alpha` e `VERSION` no marcador de origem zero do checkout ainda sem commit.
 
 ## v0.5.1-alpha
 

@@ -272,12 +272,12 @@ A ordem abaixo segue as etapas sugeridas na especificação. Cada story deve ser
 
 #### OPS-2 — Traduzir o status Twitch no painel
 
-**Status:** Concluída e mergeada na PR #23. **Issue GitHub:** [#21](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/21).
+**Status:** Localização inicial mergeada na PR #13; esta worktree contém dois fixes adicionais guiados por testes, com QA independente PASS 9,3/10. A issue [#21](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/21) foi atualizada e permanece aberta até o merge desses fixes.
 **Story:** `docs/stories/OPS-2/story.md` e `docs/pt-BR/stories/OPS-2/story.md`.
 **Escopo:** Traduzir estados internos da integração Twitch para rótulos pt-BR seguros. A direção futura de idiomas é pt-BR padrão, inglês e espanhol, com contribuições da comunidade para as demais strings do painel/frontend; i18n completo não faz parte desta correção.
 #### OPS-1 — CI para API, infraestrutura e web
 
-**Status:** InReview. **Issue GitHub:** [#20](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/20).
+**Status:** Concluída e mergeada na PR #12; QA independente PASS 9,3/10 com base na execução bem-sucedida do Actions `37525101710` em `c008f07`. A issue GitHub [#20](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/20) foi sincronizada e encerrada.
 **Story:** `docs/stories/OPS-1/story.md` e `docs/pt-BR/stories/OPS-1/story.md`.
 **Escopo:** Verificações GitHub Actions por área da aplicação, suíte completa de integração, OpenGrep, validação de versão/Compose e build da imagem de produção.
 
@@ -350,10 +350,11 @@ A ordem abaixo segue as etapas sugeridas na especificação. Cada story deve ser
 - **Auditoria do repositório:** consulte [`docs/audits/product-audit.md`](../audits/product-audit.md) e o [par em inglês](../audits/product-audit.md). Escopo: 571 arquivos, excluindo dependências, núcleo AIOX, metadados Git e dados operacionais locais; dez propostas de melhoria e limites dos scanners estão registrados.
 - **E2E OBS:** Ubuntu 24.04; OBS Studio 32.2.2, obs-browser 2.26.9 / CEF 127.0.6533.120. HTTPS retornou TLS 1.3 seguro/200 após confiar na CA local em perfil NSS temporário; sem bypass. Page Permissions=None confirmado. Oito widgets ativos × dez rodadas geraram 80 medições commit→DOM, máximo 905 ms (meta <=2.000 ms). Confiança temporária e widgets de teste foram removidos; OBS foi reinstalado e deixado disponível. Windows/macOS não foram testados. Depois, um reset limpo gerou uma nova CA local; o Chrome bloqueou chamadas até o operador confiar no certificado, após o que o ciclo de widgets funcionou.
 
-### Itens futuros de planejamento publicados
+### Status de stories e rascunhos de planejamento
 
-- **FND-8 / issue #18 — Internacionalização de todo o produto:** baseline bilíngue de planejamento v3 concluído; a reavaliação independente da v3 retornou CONCERNS sem nova nota, e as decisões posteriores do proprietário/correções editoriais estão registradas. A implementação TDD está em andamento; QA final e promoção beta seguem pendentes. Consulte `docs/stories/FND-8/` e `docs/pt-BR/stories/FND-8/`.
+- **FND-8 / issue #18 — Localização de todo o produto:** implementação em andamento na PR #31. Locale persistido, catálogos dinâmicos por módulo, localização de chat/OBS/configuração e entrypoints locais estão sendo integrados. Cobertura completa do painel, execução nativa no Windows, QA independente final e aceite da story ainda estão pendentes. Consulte `docs/stories/FND-8/` e `docs/pt-BR/stories/FND-8/`.
 - **FND-9 / issue #19 — Entrada manual em canais inelegíveis:** issue publicada e rascunho bilíngue do Spec Pipeline em `docs/stories/FND-9/spec/` e `docs/pt-BR/stories/FND-9/spec/`. Manter chat e Pontos do Canal como capacidades separadas; canais elegíveis usam reward criada pelo app, inelegíveis usam adição manual por streamer/mod sem operação financeira. Escopos de token e aceite em canal real seguem como gates.
 - **OPS-3 / issue #17 — Catálogo de comandos e permissões por cargo:** Concluída e mesclada na PR #24 (`fa04ad3`); QA independente PASS (9,2/10). O defeito de badge Twurple encontrado na revisão foi corrigido com TDD. A página Comandos lista sintaxe e políticas por cargo; `!queue comandos` mostra o catálogo global filtrado pelo emissor, `!<fila> comandos` permanece específico da fila e streamer/moderador podem usar `!queue ping` para ver versão e latência Twitch em cache. A chave de fila `queue` é reservada. Evidências TDD e gate QA estão em `docs/pt-BR/stories/OPS-3/story.md` e no par em inglês.
-- **OPS-4 — Licença MIT:** Concluída e mergeada na PR #25, versão base `0.4.1-alpha` (PATCH; alpha mantido). Adiciona a licença MIT padrão e metadados do pacote. Consulte `docs/pt-BR/stories/OPS-4/story.md` e `docs/stories/OPS-4/story.md`.
+- **OPS-4 / issue #29 — Licença MIT:** Concluída e mesclada na PR #25; QA independente PASS 9,3/10. A issue #29 foi publicada para completar o catálogo e encerrada após confirmar o merge. Inclui licença MIT padrão e metadados do pacote. Consulte `docs/pt-BR/stories/OPS-4/story.md` e `docs/stories/OPS-4/story.md`.
+- **OPS-5 / issue #30 — Instalador unificado de ciclo de vida:** rascunho de planejamento criado em 2026-10-06 e publicado como issue aberta. Propõe um entrypoint por família, matriz de testes nativos no GitHub Actions e artefatos por plataforma. O runner é open source/MIT; o serviço hospedado GitHub Actions não tem plano de controle totalmente open source. A implementação não começou. Consulte `docs/stories/OPS-5/` e `docs/pt-BR/stories/OPS-5/`.
 - **Cruzamento oficial Twitch:** [versão em inglês](../stories/TWITCH-CAPABILITY-GAP-ANALYSIS.md) ↔ [versão pt-BR](stories/TWITCH-CAPABILITY-GAP-ANALYSIS.md).

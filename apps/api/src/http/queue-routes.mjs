@@ -133,6 +133,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       product_version: state.productVersion ?? productVersion,
       api_contract_version: '1', revision: state.revision ?? 1,
       generated_at: new Date().toISOString(), account: state.account ?? { label: 'Streamer', source: 'default' },
+      product_locale: state.productLocale ?? { locale: 'pt-BR', revision: 1 },
       connectivity: { database: 'connected', twitch: integrations.status ?? 'not_configured' },
       queues: (await repository.listQueueProjection?.() ?? []).map((queue) => queueDto(queue)),
       pending_operations: await repository.listFinancialOperations?.() ?? [],

@@ -4,6 +4,14 @@
 
 Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.6.0-alpha
+
+- Escolha o idioma do produto no painel. Respostas suportadas do chat, rótulos do OBS e ferramentas locais podem usar catálogos em português brasileiro, inglês ou espanhol.
+
+## v0.5.2-alpha
+
+- O painel Twitch agora identifica claramente canais conectados que não podem usar recompensas de Pontos do Canal.
+
 ## v0.5.1-alpha
 
 - Esclarece as instruções de confiança do certificado local na primeira execução em Windows, Linux e macOS.

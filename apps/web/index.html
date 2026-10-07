@@ -4,29 +4,29 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#111318">
-    <title>Fila Local · Twitch</title>
+    <title data-i18n="panel.document.title">Fila Local · Twitch</title>
     <link rel="stylesheet" href="/styles.css">
     <script type="module" src="/app.js"></script>
   </head>
   <body>
     <header class="topbar">
-      <a class="brand" href="/" aria-label="Fila Local início"><span class="brand-mark">F</span><span>FILA <b>LOCAL</b></span></a>
-      <div class="runtime"><span id="runtime-version">Versão local</span><span class="runtime-dot"></span><span>Dados neste computador</span></div>
+      <a class="brand" href="/" aria-label="Fila Local início" data-i18n-aria-label="panel.brand.home"><span class="brand-mark">F</span><span>FILA <b>LOCAL</b></span></a>
+      <div class="runtime"><span id="runtime-version" data-i18n="panel.runtime.version">Versão local</span><span class="runtime-dot"></span><span data-i18n="panel.runtime.local_data">Dados neste computador</span><form id="product-locale-quick-form" class="locale-quick-form"><label for="product-locale-quick" data-i18n="panel.locale.label">Idioma</label><select id="product-locale-quick" name="locale" disabled aria-label="Idioma do produto" data-i18n-aria-label="panel.locale.label"><option>Carregando idiomas…</option></select><button id="save-product-locale-quick" type="submit" disabled data-i18n="panel.locale.save">Salvar</button><span id="product-locale-quick-notice" class="visually-hidden" role="status"></span></form></div>
     </header>
     <main class="app-shell">
       <aside class="sidebar">
-        <p class="eyebrow">PAINEL DO STREAMER</p>
-        <nav class="panel-navigation" aria-label="Navegação principal">
-          <button type="button" data-page-target="overview">Visão geral</button>
-          <button type="button" data-page-target="queues">Filas e atendimentos</button>
-          <button type="button" data-page-target="new-queue">Nova fila</button>
-          <button type="button" data-page-target="operations">Operações financeiras</button>
-          <button type="button" data-page-target="commands">Comandos do chat</button>
-          <button type="button" data-page-target="widgets">Widgets do OBS</button>
-          <button type="button" data-page-target="settings">Configurações</button>
-          <button type="button" data-page-target="connection">Conexão Twitch</button>
+        <p class="eyebrow" data-i18n="panel.sidebar.title">PAINEL DO STREAMER</p>
+        <nav class="panel-navigation" aria-label="Navegação principal" data-i18n-aria-label="panel.navigation.label">
+          <button type="button" data-page-target="overview" data-i18n="panel.navigation.overview">Visão geral</button>
+          <button type="button" data-page-target="queues" data-i18n="panel.navigation.queues">Filas e atendimentos</button>
+          <button type="button" data-page-target="new-queue" data-i18n="panel.navigation.new_queue">Nova fila</button>
+          <button type="button" data-page-target="operations" data-i18n="panel.navigation.operations">Operações financeiras</button>
+          <button type="button" data-page-target="commands" data-i18n="panel.navigation.commands">Comandos do chat</button>
+          <button type="button" data-page-target="widgets" data-i18n="panel.navigation.widgets">Widgets do OBS</button>
+          <button type="button" data-page-target="settings" data-i18n="panel.navigation.settings">Configurações</button>
+          <button type="button" data-page-target="connection" data-i18n="panel.navigation.connection">Conexão Twitch</button>
         </nav>
-        <p class="sidebar-note">O painel e os dados ficam neste computador.</p>
+        <p class="sidebar-note" data-i18n="panel.sidebar.local_note">O painel e os dados ficam neste computador.</p>
       </aside>
       <div class="workspace">
         <section class="panel-page" data-panel-page="overview">
@@ -34,27 +34,27 @@
             <div><p class="eyebrow">AO VIVO</p><h1>Suas filas,<br><em>no seu ritmo.</em></h1><p class="lead">Acompanhe a live, o estado das integrações e o movimento das suas filas.</p></div>
             <div class="connection-stack">
               <div class="connection-card"><span class="connection-icon">◉</span><div><strong id="channel-name">Twitch ainda não conectada</strong><small id="twitch-status">Conecte seu canal para ativar as recompensas.</small></div><span class="status-pill" id="twitch-pill">DESLIGADA</span></div>
-              <section class="runtime-health" aria-label="Saúde da instalação" role="status" aria-live="polite">
-                <span>Banco de dados <strong id="database-health">Verificando</strong></span>
-                <span>API da Twitch <strong id="twitch-api-health">Verificando</strong><small id="twitch-api-ping">Sem medição</small></span>
+          <section class="runtime-health" aria-label="Saúde da instalação" data-i18n-aria-label="panel.health.label" role="status" aria-live="polite">
+                <span><span data-i18n="panel.health.database">Banco de dados</span> <strong id="database-health">Verificando</strong></span>
+                <span><span data-i18n="panel.health.twitch_api">API da Twitch</span> <strong id="twitch-api-health">Verificando</strong><small id="twitch-api-ping">Sem medição</small></span>
               </section>
             </div>
           </section>
-          <section class="summary-grid" aria-label="Resumo da operação">
-            <article class="summary-card"><span>FILAS</span><strong id="summary-queues">0</strong><small>configuradas</small></article>
-            <article class="summary-card"><span>AGUARDANDO</span><strong id="summary-waiting">0</strong><small>viewers na fila</small></article>
-            <article class="summary-card"><span>EM ATENDIMENTO</span><strong id="summary-active">0</strong><small>chamados ou iniciados</small></article>
+          <section class="summary-grid" aria-label="Resumo da operação" data-i18n-aria-label="panel.summary.label">
+            <article class="summary-card"><span data-i18n="panel.summary.queues">FILAS</span><strong id="summary-queues">0</strong><small data-i18n="panel.summary.configured">configuradas</small></article>
+            <article class="summary-card"><span data-i18n="panel.summary.waiting">AGUARDANDO</span><strong id="summary-waiting">0</strong><small data-i18n="panel.summary.viewers_waiting">viewers na fila</small></article>
+            <article class="summary-card"><span data-i18n="panel.summary.in_service">EM ATENDIMENTO</span><strong id="summary-active">0</strong><small data-i18n="panel.summary.called_or_started">chamados ou iniciados</small></article>
           </section>
-          <section class="panel overview-next"><div><p class="eyebrow">OPERAÇÃO</p><h2>Pronto para a live?</h2><p class="muted">Gerencie as pessoas aguardando e os atendimentos em uma página própria.</p></div><button class="button button-primary" type="button" data-page-target="queues">Abrir filas</button></section>
+          <section class="panel overview-next"><div><p class="eyebrow" data-i18n="panel.overview.eyebrow">OPERAÇÃO</p><h2 data-i18n="panel.overview.ready">Pronto para a live?</h2><p class="muted" data-i18n="panel.overview.description">Gerencie as pessoas aguardando e os atendimentos em uma página própria.</p></div><button class="button button-primary" type="button" data-page-target="queues" data-i18n="panel.overview.open_queues">Abrir filas</button></section>
         </section>
 
         <section class="panel-page" data-panel-page="queues" hidden>
-          <section class="page-heading"><p class="eyebrow">AO VIVO</p><h1>Filas e atendimentos</h1><p class="lead">Acompanhe aguardantes, chamadas e atendimentos em andamento.</p></section>
+          <section class="page-heading"><p class="eyebrow" data-i18n="panel.queues.eyebrow">AO VIVO</p><h1 data-i18n="panel.queues.title">Filas e atendimentos</h1><p class="lead" data-i18n="panel.queues.description">Acompanhe aguardantes, chamadas e atendimentos em andamento.</p></section>
           <section class="panel queues-panel"><div id="queue-list" class="queue-list"><div class="empty-state"><span>◌</span><strong>Preparando suas filas</strong><small>Elas aparecerão aqui conforme você configurar o painel.</small></div></div></section>
         </section>
 
         <section class="panel-page" data-panel-page="new-queue" hidden>
-          <section class="page-heading"><p class="eyebrow">CONFIGURE SUA LIVE</p><h1>Nova fila</h1><p class="lead">Cada fila usa uma Custom Reward própria da Twitch.</p></section>
+          <section class="page-heading"><p class="eyebrow" data-i18n="panel.new_queue.eyebrow">CONFIGURE SUA LIVE</p><h1 data-i18n="panel.new_queue.title">Nova fila</h1><p class="lead" data-i18n="panel.new_queue.description">Cada fila usa uma Custom Reward própria da Twitch.</p></section>
           <article class="panel create-panel">
             <form id="queue-form" class="form-stack two-col">
               <label>Nome da fila<input name="title" required maxlength="45" placeholder="Ex.: Abismo Espiral"></label>
@@ -75,17 +75,17 @@
         </section>
 
         <section class="panel-page" data-panel-page="operations" hidden>
-          <section class="page-heading"><p class="eyebrow">PONTOS E RECUPERAÇÃO</p><h1>Operações financeiras</h1><p class="lead">Acompanhe pedidos de reembolso e consumo até a confirmação da Twitch.</p></section>
+          <section class="page-heading"><p class="eyebrow" data-i18n="panel.operations.eyebrow">PONTOS E RECUPERAÇÃO</p><h1 data-i18n="panel.operations.title">Operações financeiras</h1><p class="lead" data-i18n="panel.operations.description">Acompanhe pedidos de reembolso e consumo até a confirmação da Twitch.</p></section>
           <section class="panel operations-panel"><div id="operation-list" class="operation-list"><p class="muted">Nenhuma operação pendente.</p></div></section>
         </section>
 
         <section class="panel-page" data-panel-page="commands" hidden>
-          <section class="page-heading"><p class="eyebrow">CHAT DA LIVE</p><h1>Comandos disponíveis</h1><p class="lead">Consulte as permissões e escolha quais cargos podem usar cada comando. Vários cargos marcados funcionam como opções independentes.</p></section>
+          <section class="page-heading"><p class="eyebrow" data-i18n="panel.commands.eyebrow">CHAT DA LIVE</p><h1 data-i18n="panel.commands.title">Comandos disponíveis</h1><p class="lead" data-i18n="panel.commands.description">Consulte as permissões e escolha quais cargos podem usar cada comando. Vários cargos marcados funcionam como opções independentes.</p></section>
           <section class="panel"><div class="command-policy-note"><strong>Como as permissões funcionam</strong><p class="muted">O streamer sempre pode gerenciar os comandos. VIP só vale quando a opção de gerenciamento por VIP está ativada. Comandos exclusivos e o teste de conexão não podem ser ampliados.</p></div><form id="command-catalog-form"><div id="command-catalog" class="command-catalog"><p class="muted">Carregando catálogo…</p></div><p id="command-catalog-notice" class="notice" role="status" aria-live="polite"></p><button class="button button-primary" type="submit">Salvar permissões</button></form></section>
         </section>
 
         <section class="panel-page" data-panel-page="widgets" hidden>
-          <section class="page-heading"><p class="eyebrow">FONTES DA LIVE</p><h1>Widgets do OBS</h1><p class="lead">Cada widget mostra um único dado no OBS por uma conexão HTTPS local. OBS e bot precisam estar neste computador.</p></section>
+          <section class="page-heading"><p class="eyebrow" data-i18n="panel.widgets.eyebrow">FONTES DA LIVE</p><h1 data-i18n="panel.widgets.title">Widgets do OBS</h1><p class="lead" data-i18n="panel.widgets.description">Cada widget mostra um único dado no OBS por uma conexão HTTPS local. OBS e bot precisam estar neste computador.</p></section>
           <section class="panel overlay-widgets-panel">
             <div class="panel-heading"><div><p class="eyebrow">SEUS WIDGETS</p><h2>Fontes independentes</h2></div><button id="create-overlay-widget" class="button button-primary" type="button">Criar widget</button></div>
             <p class="muted">O link é exibido uma vez ao criar ou regenerar. Guarde-o nas configurações da fonte Browser do OBS. Defina Page Permissions como None.</p>
@@ -94,12 +94,13 @@
         </section>
 
         <section class="panel-page" data-panel-page="settings" hidden>
-          <section class="page-heading"><p class="eyebrow">PREFERÊNCIAS</p><h1>Configurações</h1><p class="lead">Ajuste os rótulos de conta usados durante os atendimentos.</p></section>
+          <section class="page-heading"><p class="eyebrow" data-i18n="panel.settings.eyebrow">PREFERÊNCIAS</p><h1 data-i18n="panel.settings.title">Configurações</h1><p class="lead" data-i18n="panel.settings.description">Ajuste os rótulos de conta usados durante os atendimentos.</p></section>
+          <section class="panel settings-panel"><div class="panel-heading"><div><p class="eyebrow" data-i18n="panel.locale.eyebrow">IDIOMA DO PRODUTO</p><h2 data-i18n="panel.locale.title">Idioma do painel</h2></div></div><p class="muted" data-i18n="panel.locale.description">O idioma selecionado também será usado nas mensagens próprias do bot. Catálogos comunitários completos aparecem automaticamente.</p><form id="product-locale-form" class="form-stack"><label for="product-locale" data-i18n="panel.locale.available">Idioma disponível<select id="product-locale" name="locale" disabled><option>Carregando idiomas…</option></select></label><p class="notice" id="product-locale-notice" role="status" aria-live="polite"></p><button id="save-product-locale" class="button button-primary" type="submit" disabled data-i18n="panel.locale.save">Salvar idioma</button></form></section>
           <section class="panel settings-panel"><div class="panel-heading"><div><p class="eyebrow">CONTA ATUAL</p><h2 id="account-label">Streamer</h2></div><button id="edit-account" class="button button-secondary" type="button">Alterar conta atual</button></div><p class="muted">O rótulo atual pode ficar associado a uma pessoa chamada. O rótulo padrão é usado quando não há troca automática.</p><div class="settings-row"><span>Conta padrão</span><button id="edit-default-account" class="small-action" type="button">Editar padrão</button></div></section>
         </section>
 
         <section class="panel-page" data-panel-page="connection" hidden>
-          <section class="page-heading"><p class="eyebrow">TWITCH</p><h1>Conexão do canal</h1><p class="lead">O assistente aparece durante a configuração ou quando uma reconexão é necessária.</p></section>
+          <section class="page-heading"><p class="eyebrow" data-i18n="panel.connection.eyebrow">TWITCH</p><h1 data-i18n="panel.connection.title">Conexão do canal</h1><p class="lead" data-i18n="panel.connection.description">O assistente aparece durante a configuração ou quando uma reconexão é necessária.</p></section>
           <article class="panel connection-wizard" id="connection-wizard">
             <div class="panel-heading"><div><p class="eyebrow">PRIMEIROS PASSOS</p><h2>Conectar canal</h2></div><span class="step-number">01</span></div>
             <p class="muted">Crie um aplicativo confidencial no console Twitch. O callback deste painel é:</p>

@@ -1,0 +1,18 @@
+translation.unavailable	Texto do produto indisponível.
+lifecycle.setup.certificate	Certificado HTTPS local
+lifecycle.setup.trust	Confie neste certificado no sistema operacional antes de conectar à Twitch.
+lifecycle.setup.timeout	Painel ainda indisponível. Consulte os logs do serviço bot.
+lifecycle.setup.address	Endereço do painel
+lifecycle.setup.open_browser	Não foi possível abrir o navegador automaticamente.
+lifecycle.update.git_required	O atualizador exige uma cópia Git do projeto e acesso ao GHCR.
+lifecycle.update.main_only	Atualize somente a partir da branch main.
+lifecycle.update.current_branch	Branch atual
+lifecycle.update.dirty	Há alterações locais. Salve ou descarte-as antes de atualizar.
+lifecycle.update.done	Atualização concluída. Os volumes de dados e segredos foram preservados.
+lifecycle.uninstall.ask	Deseja apagar o banco e os segredos locais deste projeto?
+lifecycle.uninstall.warning	Isso apaga filas, histórico, credenciais Twitch, senha do banco e certificados privados.
+lifecycle.uninstall.confirm_prompt	Digite {word} para confirmar a exclusão definitiva:
+lifecycle.uninstall.confirm_word	APAGAR
+lifecycle.uninstall.cancelled	Cancelado; nada foi removido.
+lifecycle.uninstall.removed	Aplicação e dados locais removidos.
+lifecycle.uninstall.preserved	Aplicação removida; banco, segredos e certificado público foram preservados.

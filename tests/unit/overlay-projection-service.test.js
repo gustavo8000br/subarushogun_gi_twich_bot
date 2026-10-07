@@ -19,7 +19,7 @@ describe('OBS widget read-only projection service', () => {
     const token = 's'.repeat(43);
     const projection = await service.readWithCapability(token);
     expect(projectWithActiveCapability).toHaveBeenCalledWith(createHash('sha256').update(token).digest('hex'), expect.any(Function));
-    expect(projection).toEqual({ sourceType: 'queue_name', value: 'Theatre', fallbackText: 'No queue', style: { fontSize: 32 } });
+    expect(projection).toEqual({ sourceType: 'queue_name', value: 'Theatre', fallbackText: 'No queue', style: { fontSize: 32 }, productLocale: 'pt-BR', messages: {} });
     expect(JSON.stringify(projection)).not.toContain(token);
     expect(JSON.stringify(projection)).not.toContain('queue-secret');
     expect(JSON.stringify(projection)).not.toContain('private-hash');
@@ -29,10 +29,30 @@ describe('OBS widget read-only projection service', () => {
     const queueRepository = { getOverlaySourceValue: vi.fn() };
     const overlayRepository = { projectWithActiveCapability: vi.fn(async (_hash, project) => project({ sourceType: 'fixed_text', fixedText: 'Hello', fallbackText: '', style: {} }, {})) };
     const service = createOverlayProjectionService({ overlayRepository, queueRepository });
-    await expect(service.readWithCapability('x'.repeat(43))).resolves.toEqual({ sourceType: 'fixed_text', value: 'Hello', fallbackText: '', style: {} });
+    await expect(service.readWithCapability('x'.repeat(43))).resolves.toEqual({ sourceType: 'fixed_text', value: 'Hello', fallbackText: '', style: {}, productLocale: 'pt-BR', messages: {} });
     expect(queueRepository.getOverlaySourceValue).not.toHaveBeenCalled();
     await expect(service.readWithCapability('')).resolves.toBeNull();
     overlayRepository.projectWithActiveCapability.mockResolvedValue(null);
     await expect(service.readWithCapability('y'.repeat(43))).resolves.toBeNull();
+  });
+
+  it('projects only the selected locale and overlay-owned state copy through the capability', async () => {
+    const queueRepository = {
+      getOverlaySourceValue: vi.fn(async () => 'open'),
+      getProductLocale: vi.fn(async () => ({ locale: 'en', revision: 2 })),
+    };
+    const overlayRepository = { projectWithActiveCapability: vi.fn(async (_hash, project) => project({ sourceType: 'queue_state', queueId: 'queue-1', fallbackText: '', style: {} }, {})) };
+    const service = createOverlayProjectionService({
+      overlayRepository,
+      queueRepository,
+      getOverlayCatalogs: async () => ({
+        'pt-BR': { 'overlay.state.open': 'Aberta', 'overlay.state.closed': 'Fechada' },
+        en: { 'overlay.state.open': 'Open', 'overlay.state.closed': 'Closed' },
+      }),
+    });
+    await expect(service.readWithCapability('z'.repeat(43))).resolves.toMatchObject({
+      productLocale: 'en',
+      messages: { 'overlay.state.open': 'Open', 'overlay.state.closed': 'Closed' },
+    });
   });
 });

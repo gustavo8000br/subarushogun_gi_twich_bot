@@ -15,6 +15,10 @@ function runStartScript({ browserExitCode = 0 } = {}) {
   const browserCapture = join(temporaryRoot, 'browser-url');
   mkdirSync(projectPath);
   mkdirSync(binPath);
+  mkdirSync(join(projectPath, 'apps', 'infra', 'scripts'), { recursive: true });
+  mkdirSync(join(projectPath, 'apps', 'web', 'localization', 'catalogs', 'lifecycle'), { recursive: true });
+  writeFileSync(join(projectPath, 'apps', 'infra', 'scripts', 'host-locale.sh'), readFileSync(new URL('../../apps/infra/scripts/host-locale.sh', import.meta.url), 'utf8'));
+  writeFileSync(join(projectPath, 'apps', 'web', 'localization', 'catalogs', 'lifecycle', 'pt-BR.tsv'), readFileSync(new URL('../../apps/web/localization/catalogs/lifecycle/pt-BR.tsv', import.meta.url), 'utf8'));
   writeFileSync(scriptPath, readFileSync(new URL('iniciar.sh', root), 'utf8'));
   chmodSync(scriptPath, 0o755);
   const shims = {
@@ -56,6 +60,6 @@ describe('POSIX first-run helper', () => {
   it('prints the panel address when the browser launcher cannot open it', () => {
     const { result } = runStartScript({ browserExitCode: 1 });
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain('Painel: https://localhost:3000');
+    expect(result.stdout).toContain('Endereço do painel: https://localhost:3000');
   });
 });

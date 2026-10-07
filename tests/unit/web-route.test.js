@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { registerWebRoutes } from '../../apps/api/src/web-route.mjs';
 
 const webRoot = fileURLToPath(new URL('../../apps/web/', import.meta.url));
+const sharedRoot = fileURLToPath(new URL('../../apps/shared/browser/', import.meta.url));
 const applications = [];
 
 afterEach(async () => {
@@ -11,6 +12,20 @@ afterEach(async () => {
 });
 
 describe('local web entrypoint', () => {
+  it('serves only shared localization ESM from the browser module prefix', async () => {
+    const app = Fastify({ logger: false });
+    applications.push(app);
+    await registerWebRoutes(app, webRoot, sharedRoot);
+
+    const response = await app.inject({ method: 'GET', url: '/shared/browser/translate-catalog.mjs' });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toContain('javascript');
+    expect(response.body).toContain('export function translateCatalog');
+    const privateModule = await app.inject({ method: 'GET', url: '/shared/browser/discover-catalog-bundle.mjs' });
+    expect(privateModule.statusCode).toBe(404);
+    await app.close();
+  });
+
   it('serves overview, queues, new queue, finances, settings, and connection as separate panel pages', async () => {
     const app = Fastify({ logger: false });
     applications.push(app);
@@ -42,6 +57,24 @@ describe('local web entrypoint', () => {
     expect(script.body).toContain('maxRedemptionsPerStream: optionalLimit(values.get');
   });
 
+  it('offers a locale picker populated from discovered catalogs and saves it without restarting', async () => {
+    const app = Fastify({ logger: false });
+    applications.push(app);
+    await registerWebRoutes(app, webRoot);
+    const page = await app.inject({ method: 'GET', url: '/' });
+    const script = await app.inject({ method: 'GET', url: '/app.js' });
+    expect(page.body).toContain('id="product-locale"');
+    expect(page.body).toContain('id="save-product-locale"');
+    expect(page.body).toContain('id="product-locale-notice"');
+    expect(script.body).toContain("request('/api/localization/catalogs')");
+    expect(script.body).toContain("'/api/localization/locale'");
+    expect(script.body).toContain('state.localizationCatalogs?.locales?.includes(locale)');
+    expect(script.body).toContain('const locales = state.localizationCatalogs?.locales ?? []');
+    expect(script.body).toContain('twitchEligibilityMessage(setup, activeProductLocale(), state.localizationCatalogs)');
+    expect(script.body).toContain('window.setInterval(refreshLocalizationCatalogs, 30000)');
+    await app.close();
+  });
+
   it('serves the bundled pt-BR streamer operations panel from apps/web at the root path', async () => {
     const app = Fastify({ logger: false });
     applications.push(app);
@@ -67,7 +100,7 @@ describe('local web entrypoint', () => {
     expect(script.body).toContain('clear-confirm');
     expect(script.body).toContain('/api/account/default');
     expect(script.body).toContain('/resolve-unknown');
-    expect(script.body).toContain('twitchStatusLabel(setup)');
+    expect(script.body).toContain('twitchStatusLabel(setup, activeProductLocale(), state.localizationCatalogs)');
     expect(script.body).not.toContain('setup.status.toUpperCase()');
     expect(script.body).toContain('Twitch não confirmou');
     expect(script.body).toContain('reward-candidates');

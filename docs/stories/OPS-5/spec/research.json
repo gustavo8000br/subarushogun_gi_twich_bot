@@ -1,0 +1,63 @@
+{
+  "storyId": "OPS-5",
+  "researchedAt": "2026-10-06",
+  "researchedBy": "@aiox-master",
+  "status": "planning-draft",
+  "researchFindings": [
+    "GitHub Actions supports native OS matrix jobs and can persist/share generated archives or binaries as workflow artifacts. This fits testing and packaging one checked-in lifecycle entrypoint per OS family.",
+    "The Actions runner application is MIT-licensed/open source and runner-image definitions are public; GitHub-hosted Actions itself remains a hosted service, so the full CI control plane is not open source.",
+    "The workflow should generate distributable artifacts from reviewed source, not mutate or commit installer source automatically. Source changes remain reviewable through the normal PR workflow.",
+    "A GitHub Actions workflow can test the product lifecycle scripts, but cannot safely make Docker Desktop or host dependencies self-updating for users. Host dependency setup still requires platform-specific instructions, user consent, and often elevation/restart.",
+    "Velopack is MIT-licensed and builds installers/update packages for compiled desktop application outputs. The current product is a Docker Compose-operated service, so adopting Velopack would add a desktop launcher/application architecture that this story does not otherwise require.",
+    "GoReleaser supports cross-platform build pipelines and multiple language builders, but adding a Go/Rust desktop bootstrapper solely for a Compose helper is not justified unless shell/PowerShell entrypoints fail acceptance tests.",
+    "GitHub-hosted runner results do not replace manual validation on real supported host operating systems; CI must label those evidence levels separately."
+  ],
+  "recommendations": [
+    "Use GitHub Actions with native Ubuntu, macOS, and Windows runners for contract tests and per-platform packaging.",
+    "Use first-party or SHA-pinned actions, least-privilege workflow permissions, and reviewed dependency updates.",
+    "Upload per-platform artifacts on PR/manual runs for inspection; attach them to a release only in the authorized release workflow.",
+    "Keep host Docker installation and updates outside automatic CI behavior; use official vendor instructions and explicit user consent."
+  ],
+  "sources": [
+    {
+      "title": "GitHub Actions workflow syntax: matrix strategy",
+      "url": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "GitHub Actions workflow artifacts",
+      "url": "https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "GitHub-hosted runner images",
+      "url": "https://github.com/actions/runner-images",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "GitHub Actions Runner MIT source repository",
+      "url": "https://github.com/actions/runner",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "GitHub self-hosted runner documentation",
+      "url": "https://docs.github.com/en/actions/reference/runners/self-hosted-runners",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "Velopack source repository and license",
+      "url": "https://github.com/velopack/velopack",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "Velopack packaging overview",
+      "url": "https://github.com/velopack/velopack.docs/blob/master/docs/packaging/overview.mdx",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "GoReleaser builders",
+      "url": "https://www.goreleaser.com/customization/builds/builders/",
+      "consulted": "2026-10-06"
+    }
+  ]
+}

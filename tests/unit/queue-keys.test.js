@@ -18,7 +18,7 @@ describe('queue slug and alias validation', () => {
     expect(() => normalizeQueueKeys({ slug })).toThrowError(expect.objectContaining({ code: 'INVALID_QUEUE_KEY' }));
   });
 
-  it.each(['add', 'remover', 'sair', 'posicao', 'proximo', 'atender', 'concluir', 'mover', 'abrir', 'fechar', 'limpar', 'confirmar', 'filas', 'conta', 'lista', 'queue'])('rejects reserved key: %s', (slug) => {
+  it.each(['add', 'remover', 'sair', 'posicao', 'proximo', 'atender', 'concluir', 'mover', 'abrir', 'fechar', 'limpar', 'confirmar', 'filas', 'conta', 'lista', 'fila', 'queue', 'cola'])('rejects reserved key: %s', (slug) => {
     expect(() => normalizeQueueKeys({ slug })).toThrowError(expect.objectContaining({ code: 'RESERVED_QUEUE_KEY' }));
   });
 

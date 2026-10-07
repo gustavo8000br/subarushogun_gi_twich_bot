@@ -1,0 +1,72 @@
+translation.unavailable	Texto do produto indisponível.
+panel.document.title	Fila Local · Twitch
+panel.brand.home	Fila Local início
+panel.runtime.version	Versão local
+panel.runtime.local_data	Dados neste computador
+panel.sidebar.title	PAINEL DO STREAMER
+panel.navigation.label	Navegação principal
+panel.navigation.overview	Visão geral
+panel.navigation.queues	Filas e atendimentos
+panel.navigation.new_queue	Nova fila
+panel.navigation.operations	Operações financeiras
+panel.navigation.commands	Comandos do chat
+panel.navigation.widgets	Widgets do OBS
+panel.navigation.settings	Configurações
+panel.navigation.connection	Conexão Twitch
+panel.sidebar.local_note	O painel e os dados ficam neste computador.
+panel.health.label	Saúde da instalação
+panel.health.database	Banco de dados
+panel.health.twitch_api	API da Twitch
+panel.health.database.connected	Conectado
+panel.health.database.unavailable	Indisponível
+panel.health.database.checking	Verificando
+panel.health.twitch.connected	Conectada
+panel.health.twitch.not_configured	Não configurada
+panel.health.twitch.connecting	Conectando
+panel.health.twitch.reconciling	Sincronizando
+panel.health.twitch.degraded	Instável
+panel.health.twitch.reconnect_required	Reconexão necessária
+panel.health.twitch.ineligible	Canal não elegível
+panel.health.twitch.stopped	Desconectada
+panel.health.twitch.unknown	Estado desconhecido
+panel.health.ping_unavailable	Sem medição
+panel.health.overall.operational	Operacional
+panel.health.overall.check	Verificar conexão
+panel.summary.label	Resumo da operação
+panel.summary.queues	FILAS
+panel.summary.configured	configuradas
+panel.summary.waiting	AGUARDANDO
+panel.summary.viewers_waiting	viewers na fila
+panel.summary.in_service	EM ATENDIMENTO
+panel.summary.called_or_started	chamados ou iniciados
+panel.overview.eyebrow	OPERAÇÃO
+panel.overview.ready	Pronto para a live?
+panel.overview.description	Gerencie as pessoas aguardando e os atendimentos em uma página própria.
+panel.overview.open_queues	Abrir filas
+panel.queues.eyebrow	AO VIVO
+panel.queues.title	Filas e atendimentos
+panel.queues.description	Acompanhe aguardantes, chamadas e atendimentos em andamento.
+panel.new_queue.eyebrow	CONFIGURE SUA LIVE
+panel.new_queue.title	Nova fila
+panel.new_queue.description	Cada fila usa uma Custom Reward própria da Twitch.
+panel.operations.eyebrow	PONTOS E RECUPERAÇÃO
+panel.operations.title	Operações financeiras
+panel.operations.description	Acompanhe pedidos de reembolso e consumo até a confirmação da Twitch.
+panel.commands.eyebrow	CHAT DA LIVE
+panel.commands.title	Comandos disponíveis
+panel.commands.description	Consulte as permissões e escolha quais cargos podem usar cada comando. Vários cargos marcados funcionam como opções independentes.
+panel.widgets.eyebrow	FONTES DA LIVE
+panel.widgets.title	Widgets do OBS
+panel.widgets.description	Cada widget mostra um único dado no OBS por uma conexão HTTPS local. OBS e bot precisam estar neste computador.
+panel.settings.eyebrow	PREFERÊNCIAS
+panel.settings.title	Configurações
+panel.settings.description	Ajuste os rótulos de conta usados durante os atendimentos.
+panel.connection.eyebrow	TWITCH
+panel.connection.title	Conexão do canal
+panel.connection.description	O assistente aparece durante a configuração ou quando uma reconexão é necessária.
+panel.locale.label	Idioma
+panel.locale.save	Salvar
+panel.locale.eyebrow	IDIOMA DO PRODUTO
+panel.locale.title	Idioma do painel
+panel.locale.description	O idioma selecionado também será usado nas mensagens próprias do bot. Catálogos comunitários completos aparecem automaticamente.
+panel.locale.available	Idioma disponível

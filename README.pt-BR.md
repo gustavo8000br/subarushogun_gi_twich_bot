@@ -354,6 +354,12 @@ Expectativas para contribuições:
 
 Execute as verificações de qualidade da seção [Desenvolvimento](#desenvolvimento) antes de pedir revisão. Lint, typecheck, testes, validação do Compose e evidências da story devem corresponder à mesma revisão avaliada.
 
+### Catálogos de tradução
+
+As traduções do produto ficam em `apps/web/localization/catalogs/<modulo>/<locale>.tsv`, com um arquivo UTF-8 por módulo e locale. Mantenha completos os catálogos obrigatórios `pt-BR`, `en` e `es`, com as mesmas chaves e placeholders. Para adicionar um locale comunitário, crie um arquivo em cada módulo do produto; ele só ficará disponível quando o conjunto completo passar pela validação.
+
+Execute `npm run validate:localization` para verificar os catálogos do repositório. O bot lê esse diretório por uma montagem somente para leitura do Compose e o verifica novamente enquanto está em execução. Depois de adicionar um locale completo, a página de configurações o encontra na próxima atualização do catálogo (em até aproximadamente 30 segundos); não é preciso reconstruir a imagem nem reiniciar o bot. Edite os arquivos no diretório do projeto, nunca dentro do contêiner. Use somente texto literal; catálogos não contêm código executável nem templates HTML.
+
 ## Commits e versionamento
 
 Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) com um resumo curto e direto:
@@ -402,9 +408,12 @@ Abra `https://localhost:3000` manualmente. Se o navegador indicar certificado n�
 | FND-5 | Comandos, chamadas, timeout, confirmação de limpeza, conta atual e serviços compartilhados ([issue #1](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/1)) | Concluída; QA 9,0/10, operações reais de pontos Twitch não verificadas |
 | FND-6 | Planejamento UX com referências, painel completo, assistente, API protegida e segurança local ([issue #6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | Concluída; QA independente 9,0/10. Escritas de recompensas Twitch reais seguem sem validação |
 | FND-7 | Widgets configuráveis para overlay local OBS ([issue #7](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/7)) | Concluída; QA independente PASS 9,2/10; sincronização Twitch e confiança OBS em Windows/macOS não foram validadas |
-| OPS-2 | Rótulos pt-BR para status Twitch no painel; plano futuro de pt-BR padrão, inglês/espanhol e traduções da comunidade | Implementação e revisão QA em andamento |
+| OPS-1 | Gates CI para API, infra e web | QA PASS 9,3/10; aguarda merge da PR |
+| OPS-2 | Rótulos seguros em português para status Twitch | QA PASS 9,3/10; correções de regressão nesta PR |
+| OPS-4 | Metadados da licença MIT | QA PASS 9,3/10; já mesclada |
+| FND-8 | Planejamento e implementação da localização de todo o produto | Em andamento na PR #31; fundação de catálogos/persistência, localização de chat/OBS e ferramentas do host estão sendo integradas; cobertura completa do painel, validação Windows e QA final seguem pendentes |
 
-O plano futuro de localização do painel usa pt-BR por padrão, inglês e espanhol, com contribuições da comunidade para outros idiomas do painel/frontend. Esta versão permanece somente em pt-BR. O registro das stories é a fonte de detalhes de estado e evidências de teste. Uma funcionalidade não está concluída apenas porque aparece neste roadmap.
+A FND-8 implementa um idioma persistente do produto, com catálogos pt-BR, inglês e espanhol organizados por módulo. Catálogos comunitários completos podem ser descobertos com o app em execução. A story registra superfícies implementadas, evidências de teste e critérios ainda pendentes. Ela só será concluída depois da cobertura do painel e do QA por plataforma.
 
 ## Dados e segurança
 

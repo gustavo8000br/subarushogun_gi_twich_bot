@@ -77,6 +77,21 @@ async function readCommandPolicyState(prisma) {
   return parseCommandPolicyState(record?.value);
 }
 
+const DEFAULT_PRODUCT_LOCALE = Object.freeze({ locale: 'pt-BR', revision: 1 });
+
+function parseProductLocaleState(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || typeof value.locale !== 'string' || !Number.isInteger(value.revision) || value.revision < 1) {
+    return DEFAULT_PRODUCT_LOCALE;
+  }
+  try {
+    if (globalThis.Intl.getCanonicalLocales(value.locale)[0] !== value.locale) return DEFAULT_PRODUCT_LOCALE;
+  } catch {
+    return DEFAULT_PRODUCT_LOCALE;
+  }
+  return { locale: value.locale, revision: value.revision };
+}
+
 function normalizeRedemptionStatus(status) {
   const value = String(status ?? 'unknown').toUpperCase();
   return ['UNFULFILLED', 'FULFILLED', 'CANCELED'].includes(value) ? value : 'UNKNOWN';
@@ -266,13 +281,52 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
     },
 
     async getLocalState() {
-      const [account, credential, queueCount, pendingOperations] = await Promise.all([
+      const [account, credential, queueCount, pendingOperations, productLocale] = await Promise.all([
         prisma.setting.findUnique({ where: { key: 'account_state' } }),
         prisma.oAuthCredential.findFirst({ select: { clientId: true, broadcasterId: true, authStatus: true, scopes: true } }),
         prisma.queue.count({ where: { lifecycleStatus: { not: 'deleted' } } }),
         prisma.outbox.count({ where: { status: { in: ['pending', 'retry', 'processing', 'unknown', 'conflict', 'failed'] } } }),
+        prisma.setting.findUnique({ where: { key: 'product_locale' } }),
       ]);
-      return { account: account?.value ?? { label: 'Streamer', source: 'default' }, twitch: credential ? { clientId: credential.clientId, broadcasterId: credential.broadcasterId, status: credential.authStatus, scopes: credential.scopes } : null, queueCount, pendingOperations };
+      return { account: account?.value ?? { label: 'Streamer', source: 'default' }, productLocale: parseProductLocaleState(productLocale?.value), twitch: credential ? { clientId: credential.clientId, broadcasterId: credential.broadcasterId, status: credential.authStatus, scopes: credential.scopes } : null, queueCount, pendingOperations };
+    },
+
+    async getProductLocale() {
+      const setting = await prisma.setting.findUnique({ where: { key: 'product_locale' } });
+      return parseProductLocaleState(setting?.value);
+    },
+
+    async setProductLocale({ locale, expectedRevision, actorId = null }) {
+      let canonicalLocale;
+      try { canonicalLocale = globalThis.Intl.getCanonicalLocales(locale)[0]; } catch { canonicalLocale = null; }
+      if (typeof locale !== 'string' || canonicalLocale !== locale) {
+        throw repositoryError('INVALID_PRODUCT_LOCALE', 'Product locale must be a canonical BCP 47 identifier');
+      }
+      if (!Number.isInteger(expectedRevision) || expectedRevision < 1) {
+        throw repositoryError('PRODUCT_LOCALE_VERSION_CONFLICT', 'Product locale revision is invalid');
+      }
+      return prisma.$transaction(async (tx) => {
+        await lockScopedOperation(tx, 'setting:product-locale');
+        const currentRecord = await tx.setting.findUnique({ where: { key: 'product_locale' } });
+        const previous = parseProductLocaleState(currentRecord?.value);
+        if (previous.revision !== expectedRevision) {
+          throw repositoryError('PRODUCT_LOCALE_VERSION_CONFLICT', 'Product locale changed since it was read');
+        }
+        if (previous.locale === locale) return previous;
+
+        const next = { locale, revision: previous.revision + 1 };
+        await tx.setting.upsert({
+          where: { key: 'product_locale' },
+          create: { key: 'product_locale', value: next },
+          update: { value: next },
+        });
+        await tx.auditLog.create({ data: {
+          event: 'product.locale_changed', actorId, origin: 'panel',
+          previousState: previous.locale, nextState: next.locale,
+          reason: 'operator_locale_change', safeDetail: { revision: next.revision },
+        } });
+        return next;
+      });
     },
 
     async setCurrentAccount(label, actorId = null) {

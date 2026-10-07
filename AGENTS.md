@@ -1,6 +1,17 @@
-# AGENTS.md - Synkra AIOX (Codex CLI)
+# AGENTS.md - Synkra AIOX (Codex CLI and IDE)
 
-Este arquivo define as instrucoes do projeto para o Codex CLI.
+Este arquivo e a fonte unica das instrucoes do projeto para o Codex CLI e para a extensao Codex IDE no VS Code. As regras valem igualmente para ambos; nao mantenha instrucoes divergentes por ambiente.
+
+Ao retomar uma sessao de desenvolvimento, leia primeiro o handoff ativo em `docs/session-handoff.md` e sua versao `docs/pt-BR/session-handoff.md`, se existirem. Eles preservam worktree/branch, objetivo atual, decisoes e proximo passo; o historico de conversa do CLI nao e presumido como disponivel na IDE, nem vice-versa.
+
+## Mesmo checkout no CLI e na IDE
+
+- Antes de editar, confirme `pwd`, `git rev-parse --show-toplevel` e `git branch --show-current` no terminal que executara o trabalho.
+- Abra no VS Code exatamente o caminho retornado por `git rev-parse --show-toplevel` (por exemplo, `code --reuse-window "$(git rev-parse --show-toplevel)"`). Nao use `code .` a partir de outro terminal/cwd presumido.
+- Se o trabalho estiver em uma worktree, tanto o terminal/CLI quanto o VS Code devem abrir essa worktree e sua branch. Nao edite a worktree principal por engano.
+- Ao trocar worktree ou branch de implementacao, atualize a janela do VS Code para o novo caminho e confira a branch no terminal integrado antes de continuar.
+- CLI e IDE compartilham estas regras, os mesmos arquivos do repositório e os mesmos limites de autorização; a interface de uso nao altera o fluxo Git aprovado (`main` -> branch Conventional Commits -> PR -> `main`).
+- `npm run sync:ide` e `npm run sync:ide:check` mantêm configuracoes geradas do editor sincronizadas; revise o diff e preserve arquivos/configuracoes do usuario. Nao sobrescreva silenciosamente instrucoes locais existentes.
 
 <!-- AIOX-MANAGED-START: core -->
 ## Core Rules
@@ -56,11 +67,13 @@ Este arquivo define as instrucoes do projeto para o Codex CLI.
 <!-- AIOX-MANAGED-END: commands -->
 
 <!-- AIOX-MANAGED-START: shortcuts -->
-## Agent Shortcuts
+## Agent Shortcuts (CLI and IDE)
 
-Preferencia de ativacao no Codex CLI:
+Use as mesmas personas no CLI e na IDE:
 1. Use `/skills` e selecione `aiox-<agent-id>` vindo de `.codex/skills` (ex.: `aiox-architect`)
 2. Se preferir, use os atalhos abaixo (`@architect`, `/architect`, etc.)
+
+No CLI, os atalhos podem ser digitados como slash commands. Na IDE, selecione a skill correspondente ou mencione explicitamente a persona na conversa. Em ambos os casos, consulte a definicao local abaixo e preserve seu escopo de autorizacao.
 
 Interprete os atalhos abaixo carregando o arquivo correspondente em `.aiox-core/development/agents/` (fallback: `.codex/agents/`), renderize o greeting via `generate-greeting.js` e assuma a persona ate `*exit`:
 

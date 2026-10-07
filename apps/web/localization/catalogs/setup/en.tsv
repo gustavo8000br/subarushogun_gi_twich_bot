@@ -1,0 +1,21 @@
+translation.unavailable	Product text unavailable.
+twitch.status.not_configured	Not configured
+twitch.status.connected	Connected
+twitch.status.connecting	Connecting
+twitch.status.reconciling	Syncing
+twitch.status.degraded	Unstable connection
+twitch.status.reconnect_required	Reconnection required
+twitch.status.ineligible	Channel requires Affiliate or Partner status
+twitch.status.eligibility_unknown	Checking eligibility
+twitch.status.stopped	Stopped
+twitch.status.unavailable	Status unavailable
+twitch.eligibility.channel_ineligible	This channel must be Affiliate or Partner to use Channel Points rewards.
+twitch.eligibility.channel_points_unavailable	The Channel Points API is unavailable. Queues remain disabled.
+twitch.eligibility.affiliate	Affiliate
+twitch.eligibility.partner	Partner
+twitch.eligibility.points_available	Channel Points available
+twitch.eligibility.rewards	rewards
+twitch.eligibility.near_limit	near the limit
+twitch.eligibility.connected_pending	Channel connected; checking eligibility and Channel Points availability.
+twitch.eligibility.app_validated	Application validated. Connect the channel to check eligibility.
+twitch.eligibility.connect_channel	Connect your channel to enable rewards.

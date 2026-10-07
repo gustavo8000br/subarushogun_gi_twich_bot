@@ -4,11 +4,20 @@ import { renderGlobalCommandHelp, renderQueueCommandHelp, renderPingResponse } f
 describe('role-aware chat command help and ping copy', () => {
   it('shows all default viewer commands globally without disclosing management or ping commands', () => {
     const help = renderGlobalCommandHelp({ roles: ['viewer'], policies: {}, allowVipManagement: false });
-    expect(help).toContain('!queue comandos');
+    expect(help).toContain('!fila comandos');
     expect(help).toContain('!<fila>');
     expect(help).not.toContain('!queue ping');
     expect(help).not.toContain('!<fila> add');
     expect(help.length).toBeLessThanOrEqual(500);
+  });
+
+  it.each([
+    ['en', '!queue commands', ['!fila comandos', '!cola comandos', '!queue comandos']],
+    ['es', '!cola comandos', ['!fila comandos', '!queue commands', '!cola commands']],
+  ])('renders the global namespace using only the selected locale root: %s', (locale, expected, forbidden) => {
+    const help = renderGlobalCommandHelp({ roles: ['viewer'], locale });
+    expect(help).toContain(expected);
+    for (const syntax of forbidden) expect(help).not.toContain(syntax);
   });
 
   it('does not list protected queue actions for subscribers even if saved policy requests them', () => {

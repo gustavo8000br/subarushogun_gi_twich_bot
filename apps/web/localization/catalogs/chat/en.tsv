@@ -1,0 +1,84 @@
+translation.unavailable	Product text unavailable.
+chat.command.root	queue
+chat.command.global.commands	commands
+chat.command.global.ping	ping
+chat.command.global.queues	queues
+chat.command.global.account	account
+chat.command.global.account_reset	reset
+chat.command.queue.lista	list
+chat.command.queue.comandos	commands
+chat.command.queue.posicao	position
+chat.command.queue.sair	leave
+chat.command.queue.add	add
+chat.command.queue.remover	remove
+chat.command.queue.proximo	next
+chat.command.queue.atender	serve
+chat.command.queue.concluir	complete
+chat.command.queue.mover	move
+chat.command.queue.abrir	open
+chat.command.queue.fechar	close
+chat.command.queue.limpar	clear
+chat.command.queue.confirmar	confirm
+chat.syntax.user	user
+chat.syntax.position	position
+chat.syntax.name	<name>
+chat.syntax.queue	<queue>
+chat.help.streamer	Streamer, view and configure the full command catalog on the Commands page in the local panel.
+chat.help.none	There are no commands available for your role. Ask the streamer.
+chat.help.global_heading	Global
+chat.help.queue_heading	For each queue
+chat.help.panel_suffix	Full catalog in the panel.
+chat.help.queue_none	There are no commands available for your role in this queue.
+chat.help.queue_for	Commands for
+chat.queues.title	Available queues
+chat.queues.empty	There are no queues available right now.
+chat.queues.closed	closed
+chat.account.current	Current account: {label}.
+chat.account.invalid_label	Use an account label of up to 60 characters without line breaks.
+chat.ping.unavailable	latency unavailable
+chat.ping.response	Pong 🏓 Bot active · {version} · Twitch: {latency}
+chat.queue.position	@{user}, you are at position {position}.
+chat.queue.viewer_called	@{user}, you have been called.
+chat.queue.viewer_in_progress	@{user}, your service is in progress.
+chat.queue.state.open	open
+chat.queue.state.closed	closed
+chat.queue.state.pending_open	opening pending
+chat.queue.state.pending_close	closing pending
+chat.queue.state.open_unknown	opening unconfirmed
+chat.queue.state.close_unknown	closing unconfirmed
+chat.queue.state.unavailable	reward unavailable
+chat.queue.not_found	Queue not found.
+chat.queue.waiting	Waiting
+chat.queue.called	Called
+chat.queue.in_progress	In service
+chat.queue.no_one	no one
+chat.queue.more	 and {count} more
+chat.queue.not_active	You are not in this queue.
+chat.queue.exit_pending	You left the queue. A refund was requested and is awaiting confirmation.
+chat.queue.exit_done	You left the queue.
+chat.queue.invalid_count	Use a number from 1 to 10.
+chat.queue.nobody_waiting	No one is waiting.
+chat.queue.called_one	1 person called.
+chat.queue.called_many	{count} people called.
+chat.user.not_found	That Twitch user was not found.
+chat.queue.select_user	Specify a user because more than one person is eligible.
+chat.queue.person_not_active	That person is not active in this queue.
+chat.queue.complete_pending	Service completed. Point consumption is awaiting confirmation.
+chat.queue.service_started	Service started.
+chat.queue.service_completed	Service completed.
+chat.queue.move_failed	Could not move that person.
+chat.queue.move_done	Position updated.
+chat.queue.remove_pending	Person removed. The refund is awaiting confirmation.
+chat.queue.remove_done	Person removed.
+chat.queue.added	@{user} added to the queue.
+chat.queue.duplicate	That person is already active in this queue.
+chat.queue.clear_unavailable	Queue clearing confirmation is unavailable right now.
+chat.queue.empty	The queue is already empty.
+chat.queue.clear_confirm	Confirm within 15 seconds with !{queue} {clear_command} {confirm_command}: {count} people will be removed; {refunds} refunds will be requested.
+chat.queue.clear_done	Queue cleared: {count} people removed; {refunds} refunds requested and awaiting confirmation.
+chat.queue.change_pending	Change requested. The reward is still awaiting Twitch confirmation.
+chat.queue.open_done	Queue opened and reward confirmed.
+chat.queue.close_done	Queue closed and reward paused.
+chat.commands.validation_failed	Could not validate commands right now. Try again shortly.
+chat.command.validation_failed	Could not validate this command. Try again shortly.
+chat.command.failed	Could not complete the command. Check the local panel.

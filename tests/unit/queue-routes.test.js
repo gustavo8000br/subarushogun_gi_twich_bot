@@ -360,6 +360,15 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('includes a stable product locale and revision in the protected state projection', async () => {
+    const h = await createHarness();
+    h.repository.getLocalState = vi.fn(async () => ({ productLocale: { locale: 'de', revision: 4 } }));
+    const response = await h.app.inject({ method: 'GET', url: '/api/state', headers: h.sessionHeaders });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ product_locale: { locale: 'de', revision: 4 } });
+    await h.app.close();
+  });
+
   it('serves terminal queue history only through the protected operator route', async () => {
     const h = await createHarness();
     h.repository.getQueueById.mockResolvedValue({ id: 'queue-id', lifecycleStatus: 'active' });

@@ -1,15 +1,17 @@
 import { createApplicationSetupSubmitHandler } from './application-setup.mjs';
 import { resendCallNotification } from './call-notification-actions.mjs';
-import { twitchEligibilityMessage, twitchStatusLabel } from './setup-messages.mjs';
+import { twitchEligibilityMessage, twitchStatusLabel, twitchStatusState } from './setup-messages.mjs';
 import { formatHealthStatus } from './health-status.mjs';
 import { priorityBenefitLabel } from './priority-labels.mjs';
 import { getInitialPanelPage, selectPanelPage } from './panel-navigation.mjs';
 import { collectCommandPolicies, mergeCommandPolicyState, projectCommandCatalog } from './command-catalog-view.mjs';
 import { buildOverlayWidgetPayload, countOverlayTextCodePoints } from './overlay-widget-form.mjs';
+import { resolveLocaleSelection } from './locale-picker-state.mjs';
+import { applyPanelTranslations } from './dom-localization.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const optionalLimit = (value) => String(value ?? '').trim() ? Number(value) : null;
-const state = { csrfToken: null, queues: [], productVersion: '—', initialPageSelected: false, twitchConnected: null };
+const state = { csrfToken: null, queues: [], productVersion: '—', initialPageSelected: false, twitchConnected: null, productLocale: { locale: 'pt-BR', revision: 1 }, localizationCatalogs: null };
 const commandRoleLabels = { everyone: 'Todos', subscriber: 'Inscritos', vip: 'VIPs', moderator: 'Moderadores' };
 let commandCatalog = null;
 let overlayWidgetsLoaded = false;
@@ -36,6 +38,66 @@ async function request(url, options = {}) {
   const payload = response.status === 204 ? null : await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload?.error || 'Não foi possível concluir a operação.');
   return payload;
+}
+
+function activeProductLocale() {
+  const locale = state.productLocale.locale;
+  return state.localizationCatalogs?.locales?.includes(locale) ? locale : 'pt-BR';
+}
+
+function applyPanelCatalog() {
+  const catalogs = state.localizationCatalogs?.modules?.panel?.catalogs;
+  if (catalogs) applyPanelTranslations(document, activeProductLocale(), catalogs);
+}
+
+function renderProductLocalePicker() {
+  const selects = /** @type {HTMLSelectElement[]} */ ([...document.querySelectorAll('#product-locale, #product-locale-quick')]);
+  const locales = state.localizationCatalogs?.locales ?? [];
+  for (const select of selects) {
+    const save = /** @type {HTMLButtonElement|null} */ (document.querySelector(`#save-${select.id}`));
+    if (!save) continue;
+    const pendingSelection = select.value;
+    select.replaceChildren();
+    for (const locale of locales) {
+      const option = document.createElement('option');
+      option.value = locale;
+      let displayName = locale;
+      try { displayName = new Intl.DisplayNames([locale], { type: 'language' }).of(locale) ?? locale; } catch { /* The validated locale code remains a safe label. */ }
+      option.textContent = `${displayName} (${locale})`;
+      select.append(option);
+    }
+    select.disabled = locales.length === 0;
+    select.value = resolveLocaleSelection(locales, state.productLocale.locale, pendingSelection, document.activeElement === select);
+    save.disabled = select.disabled || select.value === state.productLocale.locale;
+  }
+  $('#product-locale-notice').textContent = !locales.includes(state.productLocale.locale)
+    ? 'O idioma salvo não está completo. Português brasileiro está ativo temporariamente.' : '';
+}
+
+async function refreshLocalizationCatalogs() {
+  try {
+    const catalogs = await request('/api/localization/catalogs');
+    if (Array.isArray(catalogs?.locales) && catalogs.modules && typeof catalogs.modules === 'object') {
+      state.localizationCatalogs = catalogs;
+      renderProductLocalePicker();
+      applyPanelCatalog();
+    }
+  } catch { /* Keep the last valid local catalog snapshot while files are repaired. */ }
+}
+
+async function saveProductLocale(event) {
+  event.preventDefault();
+  const select = /** @type {HTMLSelectElement} */ (event.currentTarget.querySelector('select'));
+  const notice = event.currentTarget.id === 'product-locale-quick-form' ? $('#product-locale-quick-notice') : $('#product-locale-notice');
+  try {
+    state.productLocale = await request('/api/localization/locale', {
+      method: 'PATCH',
+      body: JSON.stringify({ locale: select.value, expectedRevision: state.productLocale.revision }),
+    });
+    notice.textContent = 'Idioma do produto atualizado.';
+    renderProductLocalePicker();
+    await refresh();
+  } catch (error) { notice.textContent = error.message; }
 }
 
 function toast(message) {
@@ -339,24 +401,27 @@ async function refresh() {
       request('/api/state'), request('/api/setup'),
       request('/health').catch(() => ({ status: 'unavailable', dependencies: { database: 'unavailable', twitch_api: 'unknown', twitch_api_ping_ms: null } })),
     ]);
-    const healthStatus = formatHealthStatus(health);
+    const healthStatus = formatHealthStatus(health, activeProductLocale(), state.localizationCatalogs);
     $('#database-health').textContent = healthStatus.database;
     $('#twitch-api-health').textContent = healthStatus.twitch;
     $('#twitch-api-ping').textContent = healthStatus.ping;
     state.productVersion = apiState.product_version; $('#runtime-version').textContent = apiState.product_version;
+    state.productLocale = apiState.product_locale ?? { locale: 'pt-BR', revision: 1 };
+    renderProductLocalePicker();
+    applyPanelCatalog();
     $('#account-label').textContent = apiState.account?.label ?? 'Streamer';
     state.accountDefaultLabel = apiState.account?.defaultLabel ?? 'Streamer';
     $('#edit-default-account').title = `Padrão atual: ${state.accountDefaultLabel}`;
     $('#callback-url').textContent = setup.callbackUrl;
     $('#channel-name').textContent = setup.connected ? `Canal conectado · ${setup.broadcasterId}` : 'Twitch ainda não conectada';
-    $('#twitch-status').textContent = twitchEligibilityMessage(setup);
-    $('#twitch-pill').textContent = twitchStatusLabel(setup); $('#twitch-pill').dataset.state = setup.connected ? 'connected' : setup.status === 'ineligible' ? 'ineligible' : 'inactive';
+    $('#twitch-status').textContent = twitchEligibilityMessage(setup, activeProductLocale(), state.localizationCatalogs);
+    $('#twitch-pill').textContent = twitchStatusLabel(setup, activeProductLocale(), state.localizationCatalogs); $('#twitch-pill').dataset.state = twitchStatusState(setup);
     $('#secret-state').textContent = setup.secretConfigured ? 'Secret configurado. Para substituir, informe um novo Secret e valide antes de salvar.' : 'O Secret fica guardado localmente e nunca será exibido novamente.';
     $('#connection-wizard').hidden = setup.connected === true;
     $('#connection-summary').hidden = setup.connected !== true;
     $('#connected-channel-name').textContent = setup.connected ? `Canal conectado · ${setup.broadcasterId}` : 'Canal desconectado';
     $('#connection-pill').textContent = setup.connected ? 'CONECTADA' : 'RECONEXÃO';
-    $('#connection-status-copy').textContent = twitchEligibilityMessage(setup);
+    $('#connection-status-copy').textContent = twitchEligibilityMessage(setup, activeProductLocale(), state.localizationCatalogs);
     if (setup.clientId) $('#credentials-form [name=clientId]').value = setup.clientId;
     $('#connect-button').disabled = !setup.secretConfigured;
     if (!state.initialPageSelected) {
@@ -401,6 +466,7 @@ async function refresh() {
 
 async function boot() {
   const session = await request('/api/session'); state.csrfToken = session.csrfToken;
+  await refreshLocalizationCatalogs();
   document.addEventListener('click', (event) => {
     const eventTarget = /** @type {Element|null} */ (event.target);
     const target = /** @type {HTMLElement|null} */ (eventTarget?.closest('[data-page-target]') ?? null);
@@ -605,7 +671,10 @@ async function boot() {
     try { await request('/api/account/default', { method: 'POST', body: JSON.stringify({ label: value }) }); await refresh(); }
     catch (error) { toast(error.message); }
   });
-  await refresh(); window.setInterval(refresh, 5000);
+  $('#product-locale-form').addEventListener('submit', saveProductLocale);
+  $('#product-locale-quick-form').addEventListener('submit', saveProductLocale);
+  document.querySelectorAll('#product-locale, #product-locale-quick').forEach((select) => select.addEventListener('change', renderProductLocalePicker));
+  await refresh(); window.setInterval(refresh, 5000); window.setInterval(refreshLocalizationCatalogs, 30000);
 }
 
 boot().catch((error) => toast(error.message));

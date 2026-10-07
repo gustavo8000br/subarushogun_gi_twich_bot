@@ -1,0 +1,21 @@
+translation.unavailable	Texto del producto no disponible.
+twitch.status.not_configured	No configurado
+twitch.status.connected	Conectado
+twitch.status.connecting	Conectando
+twitch.status.reconciling	Sincronizando
+twitch.status.degraded	Conexión inestable
+twitch.status.reconnect_required	Es necesario reconectar
+twitch.status.ineligible	El canal debe ser Afiliado o Partner
+twitch.status.eligibility_unknown	Verificando elegibilidad
+twitch.status.stopped	Detenido
+twitch.status.unavailable	Estado no disponible
+twitch.eligibility.channel_ineligible	Este canal debe ser Afiliado o Partner para usar recompensas de puntos del canal.
+twitch.eligibility.channel_points_unavailable	La API de puntos del canal no está disponible. Las colas siguen desactivadas.
+twitch.eligibility.affiliate	Afiliado
+twitch.eligibility.partner	Partner
+twitch.eligibility.points_available	Puntos del canal disponibles
+twitch.eligibility.rewards	recompensas
+twitch.eligibility.near_limit	cerca del límite
+twitch.eligibility.connected_pending	Canal conectado; comprobando elegibilidad y disponibilidad de puntos.
+twitch.eligibility.app_validated	Aplicación validada. Conecta el canal para comprobar la elegibilidad.
+twitch.eligibility.connect_channel	Conecta tu canal para activar las recompensas.

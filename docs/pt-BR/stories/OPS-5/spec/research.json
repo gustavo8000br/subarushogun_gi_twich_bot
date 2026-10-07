@@ -1,0 +1,63 @@
+{
+  "storyId": "OPS-5",
+  "researchedAt": "2026-10-06",
+  "researchedBy": "@aiox-master",
+  "status": "rascunho-de-planejamento",
+  "researchFindings": [
+    "GitHub Actions oferece jobs nativos em matriz de sistemas operacionais e pode guardar/compartilhar arquivos ou binários gerados como artefatos de workflow. Isso atende aos testes e empacotamento de um entrypoint versionado por família de sistema.",
+    "O aplicativo runner do Actions tem licença MIT/open source e as definições de imagens são públicas; o GitHub Actions hospedado continua sendo um serviço, portanto o plano de controle completo da CI não é open source.",
+    "O workflow deve gerar artefatos distribuíveis a partir das fontes revisadas, sem modificar ou criar commits automáticos da fonte dos instaladores. Mudanças de fonte permanecem revisáveis pelo fluxo normal de PR.",
+    "Um workflow GitHub Actions pode testar os scripts de ciclo de vida do produto, mas não pode manter com segurança o Docker Desktop ou dependências do host atualizados automaticamente para usuários. A configuração de dependências do host continua exigindo instruções específicas, consentimento e frequentemente elevação/reinicialização.",
+    "Velopack tem licença MIT e produz instaladores/pacotes de atualização para saídas de aplicativos desktop compilados. O produto atual é operado por Docker Compose; adotar Velopack exigiria adicionar uma arquitetura de aplicativo/launcher desktop que esta story não exige de outra forma.",
+    "GoReleaser oferece pipelines multiplataforma e builders para várias linguagens, mas adicionar um bootstrapper desktop em Go/Rust só para envolver Compose não se justifica, salvo se os entrypoints shell/PowerShell falharem nos critérios de aceite.",
+    "Resultados de runners hospedados pelo GitHub não substituem validação manual em sistemas operacionais reais suportados; a CI deve distinguir esses níveis de evidência."
+  ],
+  "recommendations": [
+    "Usar GitHub Actions com runners nativos Ubuntu, macOS e Windows para testes contratuais e empacotamento por plataforma.",
+    "Usar Actions oficiais ou fixadas por SHA, permissões mínimas no workflow e atualizações de dependências revisadas.",
+    "Publicar artefatos de cada plataforma em execuções de PR/manual para inspeção; anexá-los a uma release somente no workflow de release autorizado.",
+    "Manter instalação/atualização do Docker do host fora do comportamento automático da CI; usar instruções oficiais e consentimento explícito."
+  ],
+  "sources": [
+    {
+      "title": "Sintaxe de workflows GitHub Actions: matriz",
+      "url": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "Artefatos de workflows GitHub Actions",
+      "url": "https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "Imagens de runners hospedados pelo GitHub",
+      "url": "https://github.com/actions/runner-images",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "Repositório open source MIT do runner GitHub Actions",
+      "url": "https://github.com/actions/runner",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "Documentação de runner auto-hospedado GitHub",
+      "url": "https://docs.github.com/en/actions/reference/runners/self-hosted-runners",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "Repositório e licença do Velopack",
+      "url": "https://github.com/velopack/velopack",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "Visão geral de empacotamento do Velopack",
+      "url": "https://github.com/velopack/velopack.docs/blob/master/docs/packaging/overview.mdx",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "Builders do GoReleaser",
+      "url": "https://www.goreleaser.com/customization/builds/builders/",
+      "consulted": "2026-10-06"
+    }
+  ]
+}

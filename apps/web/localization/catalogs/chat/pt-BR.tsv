@@ -1,0 +1,84 @@
+translation.unavailable	Texto do produto indisponível.
+chat.command.root	fila
+chat.command.global.commands	comandos
+chat.command.global.ping	ping
+chat.command.global.queues	filas
+chat.command.global.account	conta
+chat.command.global.account_reset	reset
+chat.command.queue.lista	lista
+chat.command.queue.comandos	comandos
+chat.command.queue.posicao	posicao
+chat.command.queue.sair	sair
+chat.command.queue.add	add
+chat.command.queue.remover	remover
+chat.command.queue.proximo	proximo
+chat.command.queue.atender	atender
+chat.command.queue.concluir	concluir
+chat.command.queue.mover	mover
+chat.command.queue.abrir	abrir
+chat.command.queue.fechar	fechar
+chat.command.queue.limpar	limpar
+chat.command.queue.confirmar	confirmar
+chat.syntax.user	usuário
+chat.syntax.position	posição
+chat.syntax.name	<nome>
+chat.syntax.queue	<fila>
+chat.help.streamer	Streamer, consulte o catálogo completo e configure os comandos na página “Comandos” do painel local.
+chat.help.none	Não há comandos disponíveis para seu cargo. Consulte o streamer.
+chat.help.global_heading	Gerais
+chat.help.queue_heading	Em cada fila
+chat.help.panel_suffix	Catálogo completo no painel.
+chat.help.queue_none	Não há comandos disponíveis para seu cargo nesta fila.
+chat.help.queue_for	Comandos de
+chat.queues.title	Filas disponíveis
+chat.queues.empty	Não há filas disponíveis no momento.
+chat.queues.closed	fechada
+chat.account.current	Conta atual: {label}.
+chat.account.invalid_label	Use um nome de conta com até 60 caracteres e sem quebras de linha.
+chat.ping.unavailable	latência indisponível
+chat.ping.response	Pong 🏓 Bot ativo · {version} · Twitch: {latency}
+chat.queue.position	@{user}, você está na posição {position}.
+chat.queue.viewer_called	@{user}, você foi chamado.
+chat.queue.viewer_in_progress	@{user}, você está em atendimento.
+chat.queue.state.open	aberta
+chat.queue.state.closed	fechada
+chat.queue.state.pending_open	abertura pendente
+chat.queue.state.pending_close	fechamento pendente
+chat.queue.state.open_unknown	abertura sem confirmação
+chat.queue.state.close_unknown	fechamento sem confirmação
+chat.queue.state.unavailable	recompensa indisponível
+chat.queue.not_found	Essa fila não foi encontrada.
+chat.queue.waiting	Aguardando
+chat.queue.called	Chamados
+chat.queue.in_progress	Em atendimento
+chat.queue.no_one	ninguém
+chat.queue.more	 e mais {count}
+chat.queue.not_active	Você não está nesta fila.
+chat.queue.exit_pending	Você saiu da fila. O reembolso foi solicitado e está pendente de confirmação.
+chat.queue.exit_done	Você saiu da fila.
+chat.queue.invalid_count	Use um número de 1 a 10.
+chat.queue.nobody_waiting	Não há pessoas aguardando.
+chat.queue.called_one	1 pessoa chamada.
+chat.queue.called_many	{count} pessoas chamadas.
+chat.user.not_found	Esse usuário da Twitch não foi encontrado.
+chat.queue.select_user	Informe o usuário porque há mais de uma pessoa possível.
+chat.queue.person_not_active	Essa pessoa não está ativa nesta fila.
+chat.queue.complete_pending	Atendimento concluído. O consumo dos pontos está pendente de confirmação.
+chat.queue.service_started	Atendimento iniciado.
+chat.queue.service_completed	Atendimento concluído.
+chat.queue.move_failed	Não foi possível mover essa pessoa.
+chat.queue.move_done	Posição atualizada.
+chat.queue.remove_pending	Pessoa removida. O reembolso está pendente de confirmação.
+chat.queue.remove_done	Pessoa removida.
+chat.queue.added	@{user} adicionado à fila.
+chat.queue.duplicate	Essa pessoa já está ativa nesta fila.
+chat.queue.clear_unavailable	A confirmação de limpeza não está disponível no momento.
+chat.queue.empty	A fila já está vazia.
+chat.queue.clear_confirm	Confirme em até 15 segundos com !{queue} {clear_command} {confirm_command}: {count} pessoas serão removidas; {refunds} reembolsos serão solicitados.
+chat.queue.clear_done	Fila limpa: {count} pessoas removidas; {refunds} reembolsos solicitados e pendentes de confirmação.
+chat.queue.change_pending	Alteração solicitada. A recompensa ainda aguarda confirmação da Twitch.
+chat.queue.open_done	Fila aberta e recompensa confirmada.
+chat.queue.close_done	Fila fechada e recompensa pausada.
+chat.commands.validation_failed	Não foi possível validar os comandos agora. Tente novamente em instantes.
+chat.command.validation_failed	Não foi possível validar este comando. Tente novamente em instantes.
+chat.command.failed	Não foi possível concluir o comando. Consulte o painel local.
