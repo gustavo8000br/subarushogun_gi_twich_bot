@@ -411,11 +411,11 @@ Open `https://localhost:3000` yourself. If the browser reports an untrusted cert
 | FND-6 | UX planning with references, complete panel, setup wizard, protected API, and local security ([issue #6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | Complete; independent QA 9.0/10. Live Twitch reward writes remain unverified |
 | FND-7 | Configurable local OBS overlay widgets ([issue #7](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/7)) | Complete; independent QA PASS 9.2/10; Twitch synchronization and Windows/macOS OBS trust remain unverified |
 | OPS-1 | API, infra, and web CI gates | QA PASS 9.3/10; awaiting PR merge |
-| OPS-2 | Safe Portuguese Twitch status labels | QA PASS 9.3/10; regression fixes in this PR |
+| OPS-2 | Safe localized Twitch status labels | Complete: initial pt-BR mapping in PR #13; precedence fixes and expanded locale mapping shipped with FND-8 PR #31; issue #21 closed |
 | OPS-4 | MIT License metadata | QA PASS 9.3/10; already merged |
-| FND-8 | Product-wide localization | Implementation complete on open PR #31; locale persistence, live community catalog discovery, localized panel/chat/OBS/lifecycle copy, and plural validation are covered. Independent QA is the remaining story gate; live Twitch writes and native macOS remain unverified |
+| FND-8 | Product-wide localization | Complete and merged in PR #31 (`b6ccd0f`); independent QA PASS 9.2/10. Includes OPS-2 status localization and precedence fixes. Live Twitch writes and native macOS remain unverified |
 
-FND-8 adds a persisted product language with pt-BR, English, and Spanish catalogs organized by module. Complete community catalogs are discovered while the app is running, and the panel, chat, OBS product copy, and lifecycle tools use the selected language. Chat roots are `!fila`, `!queue`, or `!cola` according to the selected locale. The open PR remains subject to independent QA before the story is closed.
+FND-8 adds a persisted product language with pt-BR, English, and Spanish catalogs organized by module. Complete community catalogs are discovered while the app is running, and the panel, chat, OBS product copy, and lifecycle tools use the selected language. Chat roots are `!fila`, `!queue`, or `!cola` according to the selected locale. Independent QA passed 9.2/10. Live Twitch writes and native macOS behavior remain unverified.
 
 ## Data and security
 

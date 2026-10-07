@@ -292,7 +292,7 @@ Como streamer, quero selecionar o idioma do produto durante a instalação e alt
 
 ## Limites do planejamento
 
-A implementação e o QA independente estão concluídos para revisão: PASS 9,2/10. A PR #31 continua aberta e mantém a MINOR alpha existente `0.6.0`; este trabalho não promove o estágio, cria release nem tag. A MINOR beta planejada para a FND-8 continua `v1.1.0-HHHHHHH-beta`; promoção depende do proprietário. Escritas reais na Twitch e comportamento nativo macOS não são declarados como validados.
+A implementação e o QA independente passaram (9,2/10) e foram mesclados na PR #31 (`b6ccd0f`); a issue #18 está fechada. No momento do merge, o produto permaneceu em alpha `0.6.0`; a PR não promoveu o estágio nem criou release/tag. A MINOR beta planejada para a FND-8 continua `v1.1.0-HHHHHHH-beta`; promoção depende do proprietário. A OPS-2/issue #21 está coberta pelos catálogos de status e regressões de precedência entregues e foi encerrada. Escritas reais na Twitch e comportamento nativo macOS não são declarados como validados.
 
 ## Registro de alterações
 

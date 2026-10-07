@@ -411,11 +411,11 @@ Abra `https://localhost:3000` manualmente. Se o navegador indicar certificado n�
 | FND-6 | Planejamento UX com referências, painel completo, assistente, API protegida e segurança local ([issue #6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | Concluída; QA independente 9,0/10. Escritas de recompensas Twitch reais seguem sem validação |
 | FND-7 | Widgets configuráveis para overlay local OBS ([issue #7](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/7)) | Concluída; QA independente PASS 9,2/10; sincronização Twitch e confiança OBS em Windows/macOS não foram validadas |
 | OPS-1 | Gates CI para API, infra e web | QA PASS 9,3/10; aguarda merge da PR |
-| OPS-2 | Rótulos seguros em português para status Twitch | QA PASS 9,3/10; correções de regressão nesta PR |
+| OPS-2 | Rótulos localizados seguros para status Twitch | Concluída: mapeamento pt-BR inicial na PR #13; correções de precedência e mapa ampliado de locales entregues com a FND-8 na PR #31; issue #21 encerrada |
 | OPS-4 | Metadados da licença MIT | QA PASS 9,3/10; já mesclada |
-| FND-8 | Localização de todo o produto | Implementação concluída na PR aberta #31; persistência de locale, descoberta dinâmica de catálogos comunitários, textos localizados do painel/chat/OBS/ciclo de vida e validação de plurais têm cobertura. QA independente é o gate restante da story; escritas reais na Twitch e macOS nativo continuam sem validação |
+| FND-8 | Localização de todo o produto | Concluída e mesclada na PR #31 (`b6ccd0f`); QA independente PASS 9,2/10. Inclui localização e correções de precedência de status da OPS-2. Escritas reais na Twitch e macOS nativo continuam sem validação |
 
-A FND-8 adiciona um idioma persistente ao produto, com catálogos pt-BR, inglês e espanhol organizados por módulo. Catálogos comunitários completos são descobertos enquanto o app está em execução; painel, chat, textos do OBS e ferramentas de ciclo de vida usam o idioma selecionado. As raízes de chat são `!fila`, `!queue` ou `!cola` conforme o locale. A PR continua aberta até passar pelo gate de QA independente.
+A FND-8 adiciona um idioma persistente ao produto, com catálogos pt-BR, inglês e espanhol organizados por módulo. Catálogos comunitários completos são descobertos enquanto o app está em execução; painel, chat, textos do OBS e ferramentas de ciclo de vida usam o idioma selecionado. As raízes de chat são `!fila`, `!queue` ou `!cola` conforme o locale. O QA independente aprovou com 9,2/10. Escritas reais na Twitch e o comportamento nativo no macOS continuam sem validação.
 
 ## Dados e segurança
 

@@ -272,9 +272,9 @@ The order below follows the specification's suggested stages. Each story must be
 
 #### OPS-2 — Localize Twitch setup status in the panel
 
-**Status:** Initial localization merged in PR #13; this worktree contains two additional test-first precedence fixes and independent QA PASS 9.3/10. Issue [#21](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/21) is updated and remains open until these follow-up fixes merge.
+**Status:** Done. The initial safe pt-BR mapping merged in PR #13; the status-precedence fixes and expanded locale mapping merged in PR #31 as part of FND-8. Independent QA PASS 9.3/10. Issue [#21](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/21) is closed as covered by FND-8.
 **Story:** `docs/stories/OPS-2/story.md` and `docs/pt-BR/stories/OPS-2/story.md`.
-**Scope:** Translate internal Twitch integration states into safe pt-BR status-pill copy. Future locale direction is pt-BR default, English and Spanish, with community translation contributions for the remaining panel/frontend strings; full i18n is not part of this fix.
+**Scope:** Prevent raw Twitch status codes from reaching the panel and present safe localized labels. FND-8 implements the wider product locale system and includes OPS-2's known-status and fallback behavior; no separate OPS-2 code remains.
 #### OPS-1 — CI for API, infrastructure, and web
 
 **Status:** Done and merged in PR #12; independent QA PASS 9.3/10 using successful Actions run `37525101710` on `c008f07`. GitHub issue [#20](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/20) is synchronized and closed.
@@ -351,7 +351,7 @@ The order below follows the specification's suggested stages. Each story must be
 
 ### Story status and planning drafts
 
-- **FND-8 / issue #18 — Product-wide localization:** implementation and independent QA complete (PASS 9.2/10) on open PR #31. Locale persistence, dynamic module catalogs, localized panel/chat/OBS/setup/lifecycle copy, native Windows lifecycle CI, plural and unsafe-markup validation are implemented. Twitch live writes and macOS-native behavior remain unverified. See `docs/stories/FND-8/` and `docs/pt-BR/stories/FND-8/`.
+- **FND-8 / issue #18 — Product-wide localization:** Done and merged in PR #31 (`b6ccd0f`); issue #18 closed. Independent QA PASS 9.2/10. Locale persistence, dynamic module catalogs, localized panel/chat/OBS/setup/lifecycle copy, native Windows lifecycle CI, plural and unsafe-markup validation are implemented. It also completes the remaining OPS-2 status-label and precedence coverage; issue #21 is closed. Twitch live writes and macOS-native behavior remain unverified. See `docs/stories/FND-8/` and `docs/pt-BR/stories/FND-8/`.
 - **FND-9 / issue #19 — Manual queue admission for ineligible channels:** published planning issue and bilingual Spec Pipeline draft in `docs/stories/FND-9/spec/` and `docs/pt-BR/stories/FND-9/spec/`. Keep chat and Channel Points as separate capabilities; eligible channels keep app-created reward redemption, ineligible channels use streamer/mod manual admission with no financial operation. Token-scope and live channel acceptance remain gates.
 - **OPS-3 / issue #17 — Command catalog and role permissions:** Done and merged in PR #24 (`fa04ad3`); independent QA PASS (9.2/10). The Twurple badge-object defect found in review was fixed test-first. The Commands panel page lists chat syntax and role policies; `!queue comandos` returns the sender's global role-filtered catalog, `!<queue> comandos` remains queue-specific, and streamer/moderator can use `!queue ping` for cached Twitch latency and runtime version. Queue key `queue` is reserved. TDD evidence and QA gate are in `docs/stories/OPS-3/story.md` and its pt-BR pair.
 - **OPS-4 / issue #29 — MIT license:** Done and merged in PR #25; independent QA PASS 9.3/10. Issue #29 was published to complete the catalog and closed after verifying the merge. Adds standard MIT license and package metadata. See `docs/stories/OPS-4/story.md` and `docs/pt-BR/stories/OPS-4/story.md`.

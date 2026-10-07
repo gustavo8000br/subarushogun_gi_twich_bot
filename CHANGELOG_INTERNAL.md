@@ -2,6 +2,10 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.7.2-alpha
+
+- Reconcile the OPS-2 story and issue with the status localization and precedence behavior delivered by FND-8 PR #31. Documentation and issue tracking only; no runtime behavior changed.
+
 ## v0.7.1-alpha
 
 - Synchronize the OPS-6 story index and issue record after PR #33 merged and issue #32 closed. No runtime behavior changed.

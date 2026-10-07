@@ -10,7 +10,7 @@
 
 ## Status
 
-**Concluída no código — QA independente PASS 9,3/10; corpo da issue #21 atualizado, que permanece aberta até o merge desta implementação via PR.**
+**Status:** Done — o mapeamento inicial pt-BR foi mesclado na PR #13; as correções de precedência segura e o mapa ampliado de locales foram mesclados na PR #31 como parte da FND-8. A issue #21 foi encerrada porque a FND-8 concluiu essa cobertura. QA independente PASS 9,3/10.
 
 ## História
 
@@ -23,7 +23,7 @@
 1. Códigos de status Twitch exibidos no painel são mapeados para rótulos seguros em português para o usuário; `ineligible` informa que é preciso ser Afiliado/Parceiro.
 2. Status desconhecidos usam um fallback genérico em português e nunca são apresentados sem tradução.
 3. A explicação detalhada existente sobre elegibilidade continua visível em português.
-4. O plano FND-8 registra localização para todo o produto: pt-BR padrão selecionado na instalação e editável no painel; inglês e espanhol; catálogos comunitários separados por módulo e idioma; cobertura do painel, comandos/mensagens de chat, textos de produto dos widgets OBS e ferramentas locais de configuração/atualização/desinstalação. A implementação da FND-8 continua em story separada.
+4. A localização ampla do produto pertence à FND-8: pt-BR padrão da instalação e editável no painel, inglês e espanhol, catálogos comunitários por módulo e locale e cobertura do painel, chat, textos de produto do OBS e ferramentas locais de configuração/atualização/desinstalação. A FND-8 concluiu esse escopo maior, incluindo o catálogo de status Twitch e as regressões de precedência cobertas aqui; não resta implementação OPS-2 separada.
 
 ## Evidências TDD
 
@@ -58,4 +58,5 @@ Gate: PASS, 9,3/10 → `docs/qa/gates/OPS-2-twitch-status-pt-br.yml`.
 
 | Data | Versão | Alteração | Agente |
 | --- | --- | --- | --- |
+| 2026-10-07 | 0.7.2 | Registra que os fixes restantes do status OPS-2 foram entregues na PR #31 da FND-8 e que a issue #21 foi encerrada por cobertura | @aiox-master |
 | 2026-10-06 | 0.5.2 | Dois defeitos de precedência de status corrigidos com TDD; QA independente PASS 9,3/10, status InReview → Done | @qa |

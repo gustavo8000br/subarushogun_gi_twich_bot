@@ -2,6 +2,10 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.7.2-alpha
+
+- Alinha a story e a issue da OPS-2 à localização e precedência de status entregues pela PR #31 da FND-8. Alteração apenas documental e de acompanhamento; nenhum comportamento de runtime mudou.
+
 ## v0.7.1-alpha
 
 - Sincroniza o índice da story OPS-6 e o registro da issue após o merge da PR #33 e o fechamento da issue #32. Nenhum comportamento de runtime mudou.
