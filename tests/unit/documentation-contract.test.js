@@ -145,8 +145,10 @@ describe('foundation operator documentation contract', () => {
     for (const term of ['Instalar / Iniciar', 'Atualizar', 'Desinstalar']) expect(portugueseInstallers).toContain(term);
     expect(englishInstallers).toContain('image matching its release identity');
     expect(portugueseInstallers).toContain('imagem GHCR correspondente à identidade da própria release');
-    expect(englishVersions).toContain('Each attached installer embeds the same full release identity');
-    expect(portugueseVersions).toContain('Cada instalador anexado incorpora a mesma identidade completa da release');
+    expect(englishVersions).toContain('Each attached installer embeds the full release identity and the verified GHCR manifest digest');
+    expect(portugueseVersions).toContain('Cada instalador anexado incorpora a identidade completa da release e o digest do manifest GHCR validado');
+    expect(englishVersions).toContain('<version>@sha256:<digest>');
+    expect(portugueseVersions).toContain('<versão>@sha256:<digest>');
     for (const guide of [englishInstallers, portugueseInstallers]) {
       expect(guide.toLowerCase()).toContain('/releases');
       expect(guide.toLowerCase()).toContain('fnd-9');

@@ -2,6 +2,20 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.13.0-alpha
+
+- OPS-10 separa o CI de pull requests do CD da branch main. Ambos chamam o mesmo workflow reutilizável de qualidade; o gate agregado de PR é o único check obrigatório. A permissão de escrita em pacotes existe somente no job publicador da main.
+- Remove uploads de instaladores não consumidos pela CI comum. Os testes nativos de instaladores continuam em Linux/macOS/Windows; o workflow de release continua anexando os artefatos testados.
+- O CD da main serializa a promoção de imagens, constrói tags de imagem por commit/arquitetura e só promove as tags móveis `main-linux-*` e o manifest multiplataforma `main` se a origem validada ainda for o commit mais recente da branch. Tags de registry são aliases mutáveis; digests identificam o conteúdo exato da imagem. Isso impede uma execução antiga em fila de retroceder as tags de arquitetura.
+- Adiciona actionlint `1.7.12` fixado e verificado por SHA-256, além de executar `npm run validate:localization` no gate reutilizável. A exceção do actionlint é restrita ao campo `concurrency.queue: max`, suportado pelo GitHub e ainda ausente do schema fixado do linter.
+- Verifica a assinatura do binário da release OpenGrep `1.30.0` com Cosign e instalador de origem fixada; instala Cosign por uma Action fixada por SHA que confere o checksum do binário baixado. A publicação de release é serializada por tag com `queue: max` para evitar que tentativas concorrentes substituam uma execução pendente.
+- Isola o caminho de instalação do OpenGrep para impedir que um binário preexistente faça o instalador pular a verificação de assinatura. O workflow de release valida a anotação do manifest com SHA completo e plataformas AMD64/ARM64; depois grava o digest OCI exato nas referências Compose dos instaladores Linux, macOS e Windows.
+- Sincroniza a documentação bilíngue de versão com instaladores fixados por digest; downloads de releases existentes não dependem mais de uma tag GHCR mutável após a publicação do artefato.
+- Publica a tag multiplataforma da versão do produto antes de conferir se a origem ainda é atual. Uma origem superada mantém sua referência exata de imagem versionada; somente a origem atual promove as tags móveis de arquitetura e manifest `main`. Tags do registry continuam mutáveis; o digest identifica o conteúdo da imagem.
+- A validação de release consulta agora a execução bem-sucedida de `main-cd.yml` para o commit exato da tag. A documentação bilíngue CI/CD registra gatilhos, permissões, tags de imagem, retries e limites de release.
+- A PR #46 confirmou o nome do check reutilizável como `CI quality gates / Required quality gate`; o ruleset ativo `main-pr-and-ci` agora exige somente esse check. A execução `37690120672` passou nos 11 jobs do commit `edd99ee`, incluindo actionlint e validação de localização; a correção da auditoria precisa de uma nova execução no commit final.
+- Incrementa MINOR para `0.13.0`; mantém `.release-stage` em `alpha`. Esta mudança não cria release nem tag Git.
+
 ## v0.12.0-alpha
 
 - OPS-9 unifica a autorização em torno de um único nível mínimo. Catálogo da API, handler/ajuda do chat e painel usam o resolver canônico; ações de gestão têm piso fixo de moderador e alterações da conta têm piso fixo de streamer. Foram removidos do runtime políticas por listas, modos de compatibilidade e parser de schema antigo.

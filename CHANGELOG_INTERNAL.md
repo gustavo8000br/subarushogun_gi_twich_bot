@@ -2,6 +2,20 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.13.0-alpha
+
+- OPS-10 separates pull request CI from main-branch CD. Both call the same reusable quality workflow; the PR-facing aggregate is the only required CI check. Package write permission exists only in the main publisher job.
+- Removes unused installer uploads from ordinary CI. Native Linux/macOS/Windows smoke tests still run; release workflows continue to upload tested installer assets.
+- Main CD serializes image promotion, builds commit-scoped per-architecture image tags, and promotes `main-linux-*` and multi-platform `main` tags only if its validated source is still the latest commit on `main`. Registry tags are mutable aliases; digests identify exact image content. This prevents an older queued run from moving architecture tags backward.
+- Adds pinned actionlint `1.7.12` with SHA-256 verification and runs `npm run validate:localization` in the reusable quality gate. The actionlint ignore is narrowly scoped to the GitHub-supported `concurrency.queue: max` field not yet recognized by that pinned schema.
+- Verifies the pinned OpenGrep `1.30.0` release binary with Cosign using its pinned source installer; installs Cosign through a SHA-pinned action that verifies the downloaded binary checksum. Release publishing is serialized per tag with `queue: max` to keep concurrent retries from replacing a pending release run.
+- Isolates the OpenGrep installation path so its installer cannot skip signature verification due to a preexisting binary. Release workflow verifies the full-SHA manifest annotation and AMD64/ARM64 platforms, then embeds the exact OCI digest in Linux, macOS, and Windows installer Compose references.
+- Aligns bilingual versioning documentation with digest-pinned release installers; existing release downloads no longer depend on a mutable GHCR tag after the asset is created.
+- Publishes the product-version multi-platform tag before checking whether the source is current. A superseded source therefore retains its exact versioned image reference, while only the current source can promote moving `main` architecture and manifest tags. Registry tags remain mutable; the digest identifies the image content.
+- Release verification now checks the successful `main-cd.yml` run for the exact tagged commit. Bilingual CI/CD documentation records triggers, permissions, image tags, retry behavior, and release boundaries.
+- GitHub PR #46 verified the reusable check name as `CI quality gates / Required quality gate`; active ruleset `main-pr-and-ci` now requires only that check. Run `37690120672` passed all 11 jobs on `edd99ee`, including actionlint and localization validation; the audit follow-up needs a new run on its final commit.
+- Increment MINOR to `0.13.0`; keep `.release-stage` at `alpha`. No release or Git tag is created by this change.
+
 ## v0.12.0-alpha
 
 - OPS-9 consolidates authorization around a single minimum-role rule. The API catalog, chat handler/help, and panel share the canonical access resolver; management actions have a fixed moderator floor, and account mutations have a fixed streamer floor. Removed runtime list policies, compatibility modes, and old-schema parsing.

@@ -33,7 +33,7 @@ npm run lint:web && npm run typecheck:web
 npm test -- --run tests/unit/<test-file>.test.js
 ```
 
-The vanilla web app is checked directly; it does not have a frontend build/bundler step. GitHub Actions [CI](../.github/workflows/ci.yml) runs area-specific lint/typecheck, Vitest with PostgreSQL/Compose integration, Windows lifecycle checks, OpenGrep/version policy, Compose validation, and production image build.
+The vanilla web app is checked directly; it does not have a frontend build/bundler step. GitHub Actions [CI](../.github/workflows/ci.yml) runs on pull requests and calls the shared quality gates. Main image publication and tagged releases are separate workflows; see the [CI/CD guide](CI-CD.md) for triggers, permissions, image tags, and recovery.
 
 ## Project layout
 

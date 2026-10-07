@@ -23,7 +23,8 @@ Status checked against the local story index and GitHub issues on 2026-10-07. Op
 | OPS-6 — Clear runtime status and guided panel states ([#32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32)) | Complete; merged in PR #33; independent QA PASS 100/100 |
 | OPS-7 — Hierarchical command permissions and follower role ([#39](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/39)) | Done; QA 10/10; merged in PR #42 |
 | OPS-8 — Automatic Twitch reconnection ([#41](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/41)) | Complete; merged in PR #43; QA PASS 9.5/10 |
-| OPS-9 — Unified command access rules | Complete locally; AIOX-QA PASS; before FND-9 |
+| OPS-9 — Unified command access rules | Complete; merged in PR #44; AIOX-QA PASS |
+| OPS-10 — Separate PR CI from main image delivery ([#45](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/45)) | QA PASS 9.4/10; PR #46 awaiting merge |
 | DOC-2 — Accurate bilingual product screenshots ([#40](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/40)) | Open; screenshot/GIF work planned after FND-9; visual preflight is recorded |
 | DOC-3 — Full documentation consistency and UX-style audit | Owner-requested next story after OPS-8, FND-9, and DOC-2; not yet planned or published as an issue |
 
@@ -34,4 +35,4 @@ See the detailed acceptance criteria and implementation evidence in the [story i
 These owner-requested ideas are backlog candidates, not scoped stories or issues yet:
 
 - Add carefully selected product screenshots to the English and pt-BR documentation, with an agreed capture/update process.
-- **Current authorized sequence:** OPS-7 → OPS-8 → OPS-9 → FND-9 → DOC-2 → DOC-3 (full documentation audit). OPS-7 merged in PR #42; OPS-8 merged in PR #43 with QA PASS 9.5/10. The owner requested a visual preflight and Roles & Permissions correction before FND-9; DOC-2 records the review and media requirements. Screenshot/GIF work remains after FND-9. The owner conditionally authorized `beta` only after OPS-8, FND-9, and DOC-2 complete; DOC-3 remains the requested final documentation audit. Do not promote the stage before the release condition is met.
+- **Current authorized sequence:** OPS-10 (QA complete; PR #46 awaiting merge) → FND-9 → DOC-2 → DOC-3 (full documentation audit). OPS-7 merged in PR #42; OPS-8 merged in PR #43 with QA PASS 9.5/10; OPS-9 merged in PR #44. The owner requested a visual preflight and Roles & Permissions correction before FND-9; DOC-2 records the review and media requirements. Screenshot/GIF work remains after FND-9. The owner conditionally authorized `beta` only after OPS-8, FND-9, and DOC-2 complete; DOC-3 remains the requested final documentation audit. Do not promote the stage before the release condition is met.
