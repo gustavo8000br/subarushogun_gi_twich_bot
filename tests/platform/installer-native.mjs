@@ -27,7 +27,7 @@ try {
     await writeFile(fakeDocker, [
       '@echo off',
       'echo %*>>"%QUEUEBOT_TEST_DOCKER_LOG%"',
-      'if /I "%~1"=="info" if /I "%~2"=="--format" if "%~3"=="{{.Architecture}}" (echo x86_64&exit /b 0)',
+      'if /I "%~1"=="info" goto architecture',
       'echo %*|findstr /C:"config --images" >nul && (echo ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:main&echo postgres:17-alpine&exit /b 0)',
       'echo %*|findstr /C:"images --quiet" >nul && (echo sha256:queuebot-app&echo sha256:postgres&exit /b 0)',
       'echo %*|findstr /C:"image ls --quiet --no-trunc ghcr.io/gustavo8000br/subarushogun_gi_twich_bot" >nul && (findstr /C:"image rm sha256:queuebot-app" "%QUEUEBOT_TEST_DOCKER_LOG%" >nul || echo sha256:queuebot-app&exit /b 0)',
@@ -37,6 +37,9 @@ try {
       'echo %*|findstr /C:"network ls --quiet --filter label=com.docker.compose.project" >nul && (findstr /C:" down" "%QUEUEBOT_TEST_DOCKER_LOG%" >nul || echo queuebot-network&exit /b 0)',
       'echo %*|findstr /C:"volume ls --quiet --filter label=com.docker.compose.project" >nul && (findstr /C:"down --volumes --remove-orphans" "%QUEUEBOT_TEST_DOCKER_LOG%" >nul || (echo queuebot-postgres-data&echo queuebot-operational-secrets)&exit /b 0)',
       'echo %*|findstr /C:"ps --all --quiet --filter ancestor=sha256:postgres" >nul && (echo other-project-db&exit /b 0)',
+      'exit /b 0',
+      ':architecture',
+      'echo x86_64',
       'exit /b 0',
       '',
     ].join('\r\n'));
@@ -96,7 +99,8 @@ try {
   if (platform === 'windows') {
     const silentUpdate = launch('', '--silent update');
     if (silentUpdate.status !== 0 || !silentUpdate.stdout.includes('Update complete')) {
-      throw new Error(`Windows unattended update failed:\n${silentUpdate.stdout}\n${silentUpdate.stderr}`);
+      const callsOnFailure = await readFile(log, 'utf8');
+      throw new Error(`Windows unattended update failed:\n${silentUpdate.stdout}\n${silentUpdate.stderr}\nDocker calls:\n${callsOnFailure}`);
     }
     const unconfirmedErase = launch('', '--silent uninstall --erase-data');
     if (unconfirmedErase.status !== 2 || !(await readFile(join(installHome, '.env'), 'utf8')).includes('APP_PORT=3100')) {

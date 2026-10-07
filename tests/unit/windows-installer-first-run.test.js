@@ -56,4 +56,11 @@ describe('Windows installer first-run language prompt', () => {
     expect(harness).toContain('QUEUEBOT_TEST_INSTALLER_ARGS');
     expect(harness).toContain('& $env:QUEUEBOT_PREBUILT_INSTALLER @installerArgs');
   });
+
+  it('makes the native Windows Docker fake answer architecture probes and preserves calls on failure', () => {
+    const harness = readFileSync(new URL('../platform/installer-native.mjs', import.meta.url), 'utf8');
+    expect(harness).toContain("'if /I \"%~1\"==\"info\" goto architecture'");
+    expect(harness).toContain("':architecture'");
+    expect(harness).toContain('Docker calls:');
+  });
 });
