@@ -7,6 +7,7 @@
 - Implementa a OPS-5 como um único artefato independente `.bat`, `.command` ou `.sh`, gerado de fontes revisadas em runners nativos do GitHub Actions. O menu reúne instalar/iniciar, atualizar e desinstalar, com idioma/porta, callback HTTPS exato, preservação por padrão, confirmação localizada para apagar dados, orientação sobre dependências do host e Compose embutido no artefato.
 - Atualização preservando dados mantém os volumes de banco/segredos; atualização limpa baixa a imagem nova antes de qualquer remoção destrutiva; a desinstalação diferencia manter dados de apagar somente os dados do produto. Remove os wrappers separados de ciclo de vida e seus testes após a substituição pelo instalador único.
 - Adiciona testes portáveis de comportamento Linux, regressão do idioma inicial Windows e execução direta dos artefatos por plataforma. A execução nativa do GitHub Actions em Windows/macOS e a aceitação física pelo operador são gates separados; não se alega atualização/desinstalação real do Docker host.
+- Corrige o harness nativo Windows após o Actions detectar aspas incorretas no caminho do batch e entrada redirecionada não consumida por `Read-Host`. Prompts em modo de teste agora leem stdin redirecionado; instalações interativas continuam usando `Read-Host`. A suíte local passa 644/644 e a nova execução nativa Windows está pendente.
 - Incrementa o MINOR para `0.8.0`; mantém o estágio `alpha` escolhido pelo proprietário e o marcador de identidade `0000000` pré-commit.
 
 ## v0.7.2-alpha

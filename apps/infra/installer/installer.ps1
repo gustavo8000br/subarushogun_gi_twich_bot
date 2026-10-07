@@ -68,10 +68,15 @@ if (Test-Path -LiteralPath $EnvFile) {
   if ($existing) { $Locale = $existing } else { $Locale = 'pt-BR' }
 }
 function T([string]$Key) { return [string]$Copy[$Locale][$Key] }
+function Read-Answer([string]$Prompt = '') {
+  if ($Prompt) { Write-Host -NoNewline $Prompt }
+  if ($TestMode) { return [Console]::In.ReadLine() }
+  return Read-Host $Prompt
+}
 function Prompt-Language {
   Write-Host (T 'language')
   while ($true) {
-    $answer = Read-Host (T 'languagePrompt')
+    $answer = Read-Answer (T 'languagePrompt')
     switch ($answer) { '1' { $script:Locale='pt-BR'; return } '2' { $script:Locale='en'; return } '3' { $script:Locale='es'; return } }
   }
 }
@@ -81,7 +86,7 @@ function Ensure-Docker {
     & $Docker compose version *> $null
     if ($LASTEXITCODE -eq 0) { & $Docker info *> $null; if ($LASTEXITCODE -eq 0) { return $true } }
   } catch { }
-  $answer = Read-Host (T 'missing')
+  $answer = Read-Answer (T 'missing')
   if (($Locale -eq 'en' -and $answer -match '^(y|yes)$') -or ($Locale -ne 'en' -and $answer -match '^(s|sim|sí|si)$')) { Open-Url 'https://docs.docker.com/desktop/setup/install/windows-install/' }
   Write-Host (T 'manual')
   return $false
@@ -100,7 +105,7 @@ function Write-ComposeFile {
 }
 function Read-Port {
   while ($true) {
-    $value = Read-Host (T 'port')
+    $value = Read-Answer (T 'port')
     if (-not $value) { $value='3000' }
     $number=0
     if (-not [int]::TryParse($value,[ref]$number) -or $number -lt 1 -or $number -gt 65535) { Write-Host (T 'portInvalid'); continue }
@@ -132,7 +137,7 @@ function Setup-Product {
     Write-Host "Current settings: locale=$Locale port=$port"
     $keepPrompt='Manter configurações? [S/n]'
     if ($Locale -eq 'en') { $keepPrompt='Keep settings? [Y/n]' } elseif ($Locale -eq 'es') { $keepPrompt='¿Mantener la configuración? [S/n]' }
-    $keep=Read-Host $keepPrompt
+    $keep=Read-Answer $keepPrompt
     if ($keep -match '^n') { Prompt-Language; $port=Read-Port; Save-Config $port }
   } else {
     if (-not $Locale) { Prompt-Language }
@@ -156,14 +161,14 @@ function Update-Product {
   if ($localeLine) { $script:Locale=$localeLine -replace '^PRODUCT_INITIAL_LOCALE=','' }
   $portLine=Get-Content $EnvFile | Where-Object { $_ -match '^APP_PORT=\d+$' } | Select-Object -First 1
   $port=if ($portLine) { [int]($portLine -replace '^APP_PORT=','') } else { 3000 }
-  Write-Host (T 'update'); $choice=Read-Host (T 'choice')
+  Write-Host (T 'update'); $choice=Read-Answer (T 'choice')
   if (-not $choice -or $choice -eq '1') {
     Write-ComposeFile
     if ((Compose @('pull')) -and (Compose @('up','-d'))) { Write-Host (T 'updated'); [void](Wait-Panel $port) } else { Write-Host (T 'failure') }
     return
   }
   if ($choice -ne '2') { return }
-  Write-Host (T 'confirm'); $answer=Read-Host
+  Write-Host (T 'confirm'); $answer=Read-Answer
   if ($answer -cne [string]$Copy[$Locale].word) { return }
   if (-not (Compose @('pull'))) { Write-Host (T 'failure'); return }
   if (-not (Compose @('down','--volumes','--remove-orphans'))) { Write-Host (T 'failure'); return }
@@ -176,13 +181,13 @@ function Uninstall-Product {
   $localeLine=Get-Content $EnvFile | Where-Object { $_ -match '^PRODUCT_INITIAL_LOCALE=(pt-BR|en|es)$' } | Select-Object -First 1
   if ($localeLine) { $script:Locale=$localeLine -replace '^PRODUCT_INITIAL_LOCALE=','' }
   if (-not (Ensure-Docker)) { return }
-  Write-Host (T 'uninstall'); $choice=Read-Host (T 'choice')
+  Write-Host (T 'uninstall'); $choice=Read-Answer (T 'choice')
   if ($choice -eq '1') {
     if (Compose @('down','--remove-orphans')) { Remove-ImageIfUnused; Remove-Item -LiteralPath $ComposeFile -Force; Write-Host (T 'host') } else { Write-Host (T 'failure') }
     return
   }
   if ($choice -ne '2') { return }
-  Write-Host (T 'confirmUninstall'); $answer=Read-Host
+  Write-Host (T 'confirmUninstall'); $answer=Read-Answer
   if ($answer -cne [string]$Copy[$Locale].word) { return }
   if (-not (Compose @('down','--volumes','--remove-orphans'))) { Write-Host (T 'failure'); return }
   Remove-ImageIfUnused
@@ -192,6 +197,6 @@ function Uninstall-Product {
 
 if (-not (Test-Path $EnvFile)) { Prompt-Language }
 while ($true) {
-  Write-Host ''; Write-Host (T 'menu'); $action=Read-Host (T 'choice')
+  Write-Host ''; Write-Host (T 'menu'); $action=Read-Answer (T 'choice')
   switch ($action) { '1' { Setup-Product } '2' { Update-Product } '3' { Uninstall-Product } '0' { exit 0 } default { exit 0 } }
 }

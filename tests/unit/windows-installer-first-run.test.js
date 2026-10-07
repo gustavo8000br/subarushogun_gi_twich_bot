@@ -11,4 +11,10 @@ describe('Windows installer first-run language prompt', () => {
     expect(installer).toContain("$script:Locale='en'");
     expect(installer).toContain("$script:Locale='es'");
   });
+
+  it('reads redirected stdin in test mode and retains Read-Host for interactive use', () => {
+    expect(installer).toMatch(/function Read-Answer\([\s\S]*?\[Console\]::In\.ReadLine\(\)[\s\S]*?return Read-Host \$Prompt[\s\S]*?\}/);
+    expect(installer.match(/Read-Host/g)).toHaveLength(1);
+    expect(installer).toContain("$answer = Read-Answer (T 'languagePrompt')");
+  });
 });
