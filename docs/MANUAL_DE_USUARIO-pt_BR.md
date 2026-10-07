@@ -1,6 +1,6 @@
 # Manual do usuário
 
-[Read in English](USER_GUIDE-en_US.md)
+[Read in English](USER_GUIDE-en_US.md) · [Guia de instalação](pt-BR/INSTALACAO.md)
 
 Este manual descreve o produto como ele existe na versão atual do projeto. O idioma do produto pode ser alterado em **Configurações**; há catálogos em português brasileiro, inglês e espanhol, além de locales comunitários completos descobertos em tempo de execução. O locale selecionado controla os textos próprios do painel, chat, OBS e ferramentas de ciclo de vida.
 
@@ -20,26 +20,9 @@ O aplicativo foi feito para rodar no computador do streamer. A ordem das filas e
 
 O streamer é identificado pela conta Twitch conectada a esta instalação. O acesso de moderador vem do selo atual no chat da Twitch, não de um nome digitado. Comandos vindos de outro canal são ignorados.
 
-## O que é necessário para começar
+## Antes do primeiro uso
 
-- Um computador de 64 bits com Docker instalado e iniciado. No Windows, use Docker Desktop com a configuração WSL 2. No Linux, use Docker Engine e o comando Compose v2. Há instruções para macOS, mas o funcionamento do projeto nessa plataforma ainda não foi validado.
-- Um navegador atual no mesmo computador.
-- Internet para baixar os arquivos na primeira instalação e para usar os recursos da Twitch.
-- Acesso ao projeto e ao pacote privado de imagens atual. Nesta versão pré-lançamento, talvez seja necessário entrar no GitHub Container Registry pelo Docker; o README do projeto explica essa etapa.
-- Uma conta Twitch e um aplicativo confidencial criado pelo streamer no console de desenvolvedor da Twitch.
-
-Não é preciso instalar ferramentas de desenvolvimento nem preparar um serviço separado para guardar as informações do aplicativo.
-
-### Primeira instalação
-
-1. Instale o Docker para seu sistema, inicie-o e aguarde até que ele indique que está pronto.
-2. Obtenha a pasta do projeto e abra um terminal ou PowerShell dentro dela.
-3. No Linux ou macOS, se o arquivo de início não puder ser executado, use `chmod +x iniciar.sh` uma vez.
-4. Inicie com `./iniciar.sh` no Linux/macOS ou `.\iniciar.bat` no PowerShell. A primeira execução baixa os arquivos necessários e prepara a instalação local.
-5. Confie no certificado local criado na pasta `.local`, seguindo as instruções do [README](../README.pt-BR.md) para seu sistema, e abra `https://localhost:3000`.
-6. Siga **Conexão do canal** no painel para conectar a Twitch. Não coloque credenciais da Twitch no chat nem as envie para outra pessoa.
-
-Estimativa aproximada de hardware para esta versão alpha: cerca de 2 núcleos de CPU disponíveis para o Docker, cerca de 4 GB de memória disponíveis durante a primeira preparação, 8 GB de memória total como objetivo prático e aproximadamente 10 GB livres em disco. São estimativas, não mínimos garantidos; as necessidades podem mudar a cada versão e são atualizadas no README.
+Siga o [guia de instalação](pt-BR/INSTALACAO.md) para ver requisitos do computador, acesso ao GHCR privado, inicialização por sistema operacional e confiança do certificado. Node.js e PostgreSQL não precisam ser instalados no host. Quando o painel abrir em `https://localhost:3000`, continue em **Como conectar a Twitch** abaixo.
 
 ## Como conectar a Twitch
 
@@ -174,13 +157,15 @@ A página do OBS cria widgets locais de Browser Source para um único dado selec
 
 Use `docker compose stop` para pausar o aplicativo sem apagar os dados salvos. Para iniciar de novo, use `docker compose start`. Reiniciar o computador ou aplicativo preserva filas e operações pendentes. Depois da reconexão, o aplicativo verifica a Twitch e retoma o trabalho recuperável. Se não for possível confirmar o estado final dos pontos, a operação continua visível para análise do streamer.
 
-Use o atualizador fornecido (`atualizar.bat` ou `./atualizar.sh`) somente quando a pasta do projeto não tiver alterações locais. Ele atualiza para a versão atual da `main` e preserva os dados. O desinstalador (`desinstalar.bat` ou `./desinstalar.sh`) pergunta se deve manter ou apagar os dados. Apagá-los remove filas, histórico, conexão Twitch e segredos locais. Não use a opção de remoção de volumes do Docker para parar ou atualizar normalmente.
+Para consultar o estado dos serviços e investigar problemas, execute `docker compose ps` e `docker compose logs --tail=100 bot`. `docker compose down` encerra o projeto e preserva os volumes. Não acrescente `--volumes` a menos que queira apagar intencionalmente o banco local e os segredos.
+
+Use o atualizador fornecido (`subarushogun_twich_bot_update.bat` ou `./subarushogun_twich_bot_update.sh`) somente na branch `main` e em uma cópia Git sem alterações locais. Ele atualiza para a versão atual da `main` e preserva os dados. O desinstalador (`subarushogun_twich_bot_uninstall.bat` ou `./subarushogun_twich_bot_uninstall.sh`) pergunta se deve manter ou apagar os dados. Se escolher apagar, digite `APAGAR` para confirmar a remoção permanente de filas, histórico, conexão Twitch e segredos locais. A opção de preservação mantém o banco e os segredos. Não use a remoção de volumes Docker para parar ou atualizar normalmente.
 
 ## Problemas comuns
 
 | O que aparece | O que fazer |
 | --- | --- |
-| O navegador alerta sobre o certificado local | Siga no README a etapa para confiar no certificado do seu sistema, reinicie o navegador e abra novamente `https://localhost:3000`. Não troque por um endereço inseguro. |
+| O navegador alerta sobre o certificado local | Siga o passo de confiança do certificado para seu sistema no [guia de instalação](pt-BR/INSTALACAO.md), reinicie o navegador e abra novamente `https://localhost:3000`. Não troque por um endereço inseguro. |
 | O painel pede reconexão com a Twitch | Abra **Conexão do canal**, reconecte o mesmo canal e autorize os acessos solicitados. O painel e os dados salvos continuam disponíveis durante a reconexão. |
 | O canal aparece como inelegível ou sem Pontos do Canal | Nesta versão, somente Afiliados/Parceiros com Pontos do Canal podem usar filas por recompensa. O modo apenas manual para canal inelegível está planejado, mas ainda não disponível. |
 | Uma recompensa está pendente ou incerta | Abra **Operações financeiras** ou **Conexão do canal**, leia a orientação e use a ação de tentar novamente/sincronizar/recuperar. Não presuma que os pontos mudaram antes da confirmação. |

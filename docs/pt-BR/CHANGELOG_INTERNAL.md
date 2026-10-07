@@ -4,7 +4,7 @@
 
 ## v0.7.2-alpha
 
-- Sincroniza o roadmap dos READMEs bilíngues com o estado atual das stories/issues e alinha a OPS-2 à localização e precedência de status entregues pela PR #31 da FND-8. Alteração apenas documental e de acompanhamento; nenhum comportamento de runtime mudou.
+- Sincroniza o roadmap dos READMEs bilíngues com o estado atual das stories/issues e alinha a OPS-2 à localização e precedência de status entregues pela PR #31 da FND-8. Reorganiza os READMEs da raiz como páginas de entrada concisas e cria guias bilíngues específicos de instalação, desenvolvimento, contribuição e roadmap. Adiciona um padrão de estrutura/tamanho do README coberto por teste. Alteração apenas documental; nenhum comportamento de runtime mudou.
 
 ## v0.7.1-alpha
 

@@ -4,6 +4,10 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.7.2-alpha
+
+- Getting started, daily operation, and project status are now easier to find in focused guides.
+
 ## v0.7.0-alpha
 
 - The panel now keeps the running version and service status visible, and guides streamers to the next setup or queue action.
