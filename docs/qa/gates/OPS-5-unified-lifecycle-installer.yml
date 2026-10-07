@@ -2,14 +2,14 @@ schema: 1
 story: 'OPS-5'
 story_title: 'Unified cross-platform lifecycle installer'
 gate: CONCERNS
-status_reason: 'Windows run 37649015429 exposed missing argument forwarding, corrected with a local test-first fix. Run 37649606223 verified forwarding and installation but found the fake Docker architecture probe was brittle. The fake now routes info explicitly and preserves call logs on failure; the next native run and final QA are still required.'
+status_reason: 'Windows run 37649606223 verified argument forwarding and installation but failed on the fake Docker architecture response. The log confirmed the expected query reached the fake. The fixture now uses a direct response and a native preflight; focused/local Linux checks pass, but a new Windows run and final QA are required.'
 reviewer: 'Quinn (Test Architect)'
-reviewed_revision: 'working-tree on fix/ops5-installer-uninstall-progress; source HEAD a5631f77bfa89b30c5b90b73413ce54d9053c844 plus uncommitted Windows fake correction'
+reviewed_revision: 'working-tree on fix/ops5-installer-uninstall-progress; source HEAD 80c602841fdcebb10ef45efdf4d5f1709de71d70 plus uncommitted Windows fake correction'
 updated: '2026-10-07T16:10:00Z'
 top_issues:
   - id: 'OPS5-WIN-NATIVE'
     severity: high
-    finding: 'Windows run 37649606223 passed argument forwarding and initial install but failed the unattended update because the fake docker.cmd did not reliably answer the architecture probe. The deterministic fake and diagnostic correction are local; native confirmation is pending.'
+    finding: 'Windows run 37649606223 passed argument forwarding and initial install but failed the unattended update because fake docker.cmd returned a nonzero status for the expected architecture probe. The direct response and native preflight are local; native confirmation is pending.'
     suggested_action: 'Run the complete local gates, push the fake correction, rerun native Windows/macOS/Linux CI, and resolve any remaining failures before merge or issue closure.'
 waiver: { active: false }
 quality_score: 88

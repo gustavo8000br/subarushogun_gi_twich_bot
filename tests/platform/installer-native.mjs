@@ -27,7 +27,8 @@ try {
     await writeFile(fakeDocker, [
       '@echo off',
       'echo %*>>"%QUEUEBOT_TEST_DOCKER_LOG%"',
-      'if /I "%~1"=="info" goto architecture',
+      'if /I "%~1"=="info" echo x86_64',
+      'if /I "%~1"=="info" exit /b 0',
       'echo %*|findstr /C:"config --images" >nul && (echo ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:main&echo postgres:17-alpine&exit /b 0)',
       'echo %*|findstr /C:"images --quiet" >nul && (echo sha256:queuebot-app&echo sha256:postgres&exit /b 0)',
       'echo %*|findstr /C:"image ls --quiet --no-trunc ghcr.io/gustavo8000br/subarushogun_gi_twich_bot" >nul && (findstr /C:"image rm sha256:queuebot-app" "%QUEUEBOT_TEST_DOCKER_LOG%" >nul || echo sha256:queuebot-app&exit /b 0)',
@@ -37,9 +38,6 @@ try {
       'echo %*|findstr /C:"network ls --quiet --filter label=com.docker.compose.project" >nul && (findstr /C:" down" "%QUEUEBOT_TEST_DOCKER_LOG%" >nul || echo queuebot-network&exit /b 0)',
       'echo %*|findstr /C:"volume ls --quiet --filter label=com.docker.compose.project" >nul && (findstr /C:"down --volumes --remove-orphans" "%QUEUEBOT_TEST_DOCKER_LOG%" >nul || (echo queuebot-postgres-data&echo queuebot-operational-secrets)&exit /b 0)',
       'echo %*|findstr /C:"ps --all --quiet --filter ancestor=sha256:postgres" >nul && (echo other-project-db&exit /b 0)',
-      'exit /b 0',
-      ':architecture',
-      'echo x86_64',
       'exit /b 0',
       '',
     ].join('\r\n'));
@@ -61,6 +59,14 @@ try {
     QUEUEBOT_TEST_INPUT_FILE: inputFile,
     QUEUEBOT_EXPECTED_IMAGE_TAG: expectedImageTag,
   };
+  if (platform === 'windows') {
+    const architectureProbe = spawnSync('powershell.exe', [
+      '-NoLogo', '-NoProfile', '-Command', '& $env:QUEUEBOT_DOCKER_BIN info --format "{{.Architecture}}"; exit $LASTEXITCODE',
+    ], { encoding: 'utf8', env, timeout: 30_000 });
+    if (architectureProbe.status !== 0 || architectureProbe.stdout.trim() !== 'x86_64') {
+      throw new Error(`Windows fake Docker architecture fixture failed (${architectureProbe.status}):\n${architectureProbe.stdout}\n${architectureProbe.stderr}`);
+    }
+  }
   const launch = (input, installerArgs = '') => {
     if (platform === 'windows') {
       return spawnSync('powershell.exe', [
@@ -90,6 +96,9 @@ try {
   config = await readFile(join(installHome, '.env'), 'utf8');
   if (!config.includes(`IMAGE_TAG=${expectedImageTag}`)) throw new Error(`Update did not select its release image tag:\n${config}`);
   const dockerCalls = await readFile(log, 'utf8');
+  if (platform === 'windows' && !dockerCalls.includes('info --format {{.Architecture}}')) {
+    throw new Error(`Windows installer did not query the expected Docker architecture:\n${dockerCalls}`);
+  }
   if (!/compose .* pull/.test(dockerCalls) || !/compose .* up -d/.test(dockerCalls)) {
     throw new Error(`Installer did not start the product using Compose:\n${dockerCalls}\nInstaller output:\n${result.stdout}\n${result.stderr}\nUpdate output:\n${updateResult.stdout}\n${updateResult.stderr}`);
   }

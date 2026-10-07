@@ -59,8 +59,9 @@ describe('Windows installer first-run language prompt', () => {
 
   it('makes the native Windows Docker fake answer architecture probes and preserves calls on failure', () => {
     const harness = readFileSync(new URL('../platform/installer-native.mjs', import.meta.url), 'utf8');
-    expect(harness).toContain("'if /I \"%~1\"==\"info\" goto architecture'");
-    expect(harness).toContain("':architecture'");
+    expect(harness).toContain("'if /I \"%~1\"==\"info\" echo x86_64'");
+    expect(harness).toContain("'if /I \"%~1\"==\"info\" exit /b 0'");
+    expect(harness).toContain('Windows fake Docker architecture fixture failed');
     expect(harness).toContain('Docker calls:');
   });
 });
