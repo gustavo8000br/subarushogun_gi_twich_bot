@@ -1,0 +1,17 @@
+{
+  "storyId": "OPS-7",
+  "assessedAt": "2026-10-07T00:00:00Z",
+  "assessedBy": "@architect",
+  "dimensions": {
+    "scope": { "score": 5, "reason": "Mudança transversal no registro/resolvedor, adaptador Twitch, escopo OAuth opcional, compatibilidade da política persistida, API protegida, painel, ajuda de chat, testes e documentação bilíngue." },
+    "integration": { "score": 5, "reason": "Evidência do EventSub atual mais consulta Helix de seguidores com token de usuário e ampliação do fluxo Authorization Code." },
+    "infrastructure": { "score": 4, "reason": "Sem novo serviço, mas evolução do JSON de política, tratamento de escopos OAuth e compatibilidade de persistência exigem validação contratual e no banco." },
+    "knowledge": { "score": 5, "reason": "Badges atuais vs relação de seguidor, ciclo de escopos OAuth e autorização desconhecida/obsoleta exigem documentação oficial e conferência do Twurple instalado." },
+    "risk": { "score": 5, "reason": "Erro de autorização pode expor gestão de fila, ampliar acesso ou bloquear usuários válidos; checagem de seguidor depende de API externa." }
+  },
+  "totalScore": 24,
+  "result": "COMPLEX",
+  "pipeline": ["gather", "assess", "research", "spec", "critique_1", "revise", "critique_2", "plan"],
+  "flags": ["Limite de autorização crítico", "Escopo OAuth opcional e compatibilidade de persistência", "QA independente deve marcar implementação 10/10 antes de Done"],
+  "rationale": "A story substitui um modelo de autorização, adiciona verificação externa de vínculo e altera tratamento de capacidade OAuth; precisa preservar o comportamento persistido atual."
+}

@@ -9,8 +9,9 @@ import { clearInterval as clearNodeInterval, setInterval as setNodeInterval } fr
 import { createOAuthStateStore, completeOAuthAuthorization, validateClientCredentials } from './oauth.mjs';
 import { URLSearchParams } from 'node:url';
 import { RefreshingAuthProvider } from '@twurple/auth';
+import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog.mjs';
 
-/** @param {{credentialRepository: any, repository: any, domainService: any, onChatMessage?: (event: object) => unknown, onStatus?: (status: object) => unknown, authRuntimeFactory?: (input: any) => Promise<any>, apiFactory?: (options: any) => any, adapterFactory?: (input: any) => any, eventSubRuntimeFactory?: (input: any) => any, reconcilerFactory?: (input: any) => any, setIntervalImpl?: typeof setInterval, clearIntervalImpl?: typeof clearInterval, redirectUri?: string, fetchImpl?: typeof fetch, oauthStateStore?: any, authProviderFactory?: (config: any) => any}} dependencies */
+/** @param {{credentialRepository: any, repository: any, domainService: any, onChatMessage?: (event: object) => unknown, onStatus?: (status: object) => unknown, authRuntimeFactory?: (input: any) => Promise<any>, apiFactory?: (options: any) => any, adapterFactory?: (input: any) => any, eventSubRuntimeFactory?: (input: any) => any, reconcilerFactory?: (input: any) => any, setIntervalImpl?: typeof setInterval, clearIntervalImpl?: typeof clearInterval, redirectUri?: string, fetchImpl?: typeof fetch, oauthStateStore?: any, authProviderFactory?: (config: any) => any, validateOAuthToken?: (token: string, clientId: string) => Promise<any>}} dependencies */
 export async function createTwitchIntegration({
   credentialRepository, repository, domainService, onChatMessage = () => undefined,
   onStatus = () => undefined,
@@ -24,6 +25,7 @@ export async function createTwitchIntegration({
   fetchImpl = fetch,
   oauthStateStore = createOAuthStateStore(),
   authProviderFactory = (config) => new RefreshingAuthProvider(config),
+  validateOAuthToken = (token, clientId) => getTokenInfo(token, clientId),
 }) {
   let credential = await credentialRepository.getAuthRecord();
   let status = credential ? 'connecting' : 'not_configured';
@@ -49,6 +51,26 @@ export async function createTwitchIntegration({
       if (!credential?.clientId || !sessionId) return null;
       return oauthStateStore.issue({ sessionId, clientId: credential.clientId, redirectUri });
     },
+    async beginFollowerAuthorization({ sessionId, expectedVersion, policies }) {
+      if (!credential?.clientId || !sessionId || !Number.isInteger(expectedVersion) || expectedVersion < 1
+          || !policies || typeof policies !== 'object' || Array.isArray(policies)) {
+        throw Object.assign(new Error('Follower authorization request is invalid'), { code: 'INVALID_FOLLOWER_AUTHORIZATION' });
+      }
+      const entries = Object.entries(policies);
+      if (!entries.length || !entries.some(([, policy]) => policy?.mode === 'minimum_role' && policy.minimumRole === 'follower')
+          || entries.some(([key, policy]) => {
+            const definition = CHAT_COMMANDS.find((command) => command.key === key);
+            return !definition || definition.immutableRoles || !policy || typeof policy !== 'object' || Array.isArray(policy)
+              || policy.mode !== 'minimum_role' || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
+              || Object.keys(policy).some((property) => !['mode', 'minimumRole'].includes(property));
+          })) {
+        throw Object.assign(new Error('Follower authorization request is invalid'), { code: 'INVALID_FOLLOWER_AUTHORIZATION' });
+      }
+      return oauthStateStore.issue({
+        sessionId, clientId: credential.clientId, redirectUri, scopes: ['moderator:read:followers'],
+        context: { kind: 'follower_policy', expectedVersion, policies },
+      });
+    },
     async completeAuthorization(input) {
       credential = await credentialRepository.getAuthRecord();
       if (!credential) throw Object.assign(new Error('Twitch app is not configured'), { code: 'TWITCH_APP_NOT_CONFIGURED' });
@@ -62,9 +84,19 @@ export async function createTwitchIntegration({
           const token = await response.json();
           return { accessToken: token.access_token, refreshToken: token.refresh_token, expiresIn: token.expires_in, obtainmentTimestamp: Date.now() };
         },
-        validateToken: async (token) => getTokenInfo(token, credential.clientId),
+        validateToken: async (token) => validateOAuthToken(token, credential.clientId),
         assertCanBind: ({ clientId, broadcasterId }) => credentialRepository.assertCanBind({ clientId, broadcasterId }),
-        persistTokens: (tokens) => credentialRepository.storeTokens(tokens),
+        persistTokens: (tokens) => credentialRepository.storeTokens({
+          ...tokens,
+          commitAdditional: tokens.authorizationContext?.kind === 'follower_policy'
+            ? (tx) => repository.updateCommandPoliciesInTransaction(tx, {
+              expectedVersion: tokens.authorizationContext.expectedVersion,
+              policies: tokens.authorizationContext.policies,
+              actorId: input.sessionId,
+              origin: 'oauth_follower_consent',
+            })
+            : undefined,
+        }),
       });
       status = 'connecting';
       credential = await credentialRepository.getAuthRecord();
@@ -76,7 +108,7 @@ export async function createTwitchIntegration({
       stopIntegration = () => { authRuntime.stop?.(); status = 'stopped'; };
       if (authRuntime.status === 'connected' && authRuntime.provider) {
         const api = apiFactory({ authProvider: authRuntime.provider });
-        const adapter = adapterFactory({ api, broadcasterId: credential.broadcasterId });
+        const adapter = adapterFactory({ api, broadcasterId: credential.broadcasterId, authProvider: authRuntime.provider });
         channelEligibility = await adapter.getChannelEligibility().catch(() => ({ eligible: false, broadcasterType: 'unknown', reason: 'eligibility_unknown' }));
         twitchApiProbe = () => adapter.ping();
         if (channelEligibility.eligible) {
@@ -152,7 +184,7 @@ export async function createTwitchIntegration({
   }
 
   const api = apiFactory({ authProvider: authRuntime.provider });
-  const twitch = adapterFactory({ api, broadcasterId: credential.broadcasterId });
+  const twitch = adapterFactory({ api, broadcasterId: credential.broadcasterId, authProvider: authRuntime.provider });
   let eligibility;
   try {
       eligibility = await twitch.getChannelEligibility();

@@ -90,6 +90,7 @@ registerQueueRoutes(app, {
     async getSetupState() { return runtime?.integration?.getSetupState?.(); },
     async validateAndSaveApplication(input) { return runtime?.integration?.validateAndSaveApplication?.(input); },
     async beginAuthorization(sessionId) { return runtime?.integration?.beginAuthorization?.(sessionId); },
+    async beginFollowerAuthorization(input) { return runtime?.integration?.beginFollowerAuthorization?.(input); },
     async completeAuthorization(input) { return runtime?.integration?.completeAuthorization?.(input); },
     async reconcileNow() { return runtime?.integration?.reconcileNow?.(); },
   },

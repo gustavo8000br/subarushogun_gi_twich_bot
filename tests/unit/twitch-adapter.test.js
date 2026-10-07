@@ -2,6 +2,51 @@ import { describe, expect, it, vi } from 'vitest';
 import { createTwitchApiAdapter, normalizeRedemptionStatus } from '../../apps/api/src/twitch/helix-adapter.mjs';
 
 describe('Twurple Helix adapter', () => {
+  it('checks follower status by Twitch user id only when the saved broadcaster token has the follower scope', async () => {
+    const getChannelFollowers = vi.fn(async (_broadcasterId, userId) => ({ data: userId === '123456' ? [{ userId }] : [] }));
+    const adapter = createTwitchApiAdapter({
+      api: { channels: { getChannelFollowers } }, broadcasterId: '999999',
+      authProvider: { getCurrentScopesForUser: () => ['moderator:read:followers'] },
+    });
+    await expect(adapter.checkFollower('123456')).resolves.toBe('follower');
+    expect(getChannelFollowers).toHaveBeenCalledWith('999999', '123456');
+    await expect(adapter.checkFollower('789012')).resolves.toBe('not_follower');
+  });
+
+  it('returns unknown for missing scope, malformed user ids, and Twitch errors without caching completed results', async () => {
+    const getChannelFollowers = vi.fn(async () => { throw new Error('network'); });
+    const noScope = createTwitchApiAdapter({ api: { channels: { getChannelFollowers } }, broadcasterId: '999999',
+      authProvider: { getCurrentScopesForUser: () => [] } });
+    await expect(noScope.checkFollower('123456')).resolves.toBe('unknown');
+    await expect(noScope.checkFollower('123456')).resolves.toBe('unknown');
+    expect(getChannelFollowers).not.toHaveBeenCalled();
+    const scoped = createTwitchApiAdapter({ api: { channels: { getChannelFollowers } }, broadcasterId: '999999',
+      authProvider: { getCurrentScopesForUser: () => ['moderator:read:followers'] } });
+    await expect(scoped.checkFollower('not-an-id')).resolves.toBe('unknown');
+    await expect(scoped.checkFollower('123456')).resolves.toBe('unknown');
+    expect(getChannelFollowers).toHaveBeenCalledOnce();
+  });
+
+  it('fails closed when follower data contains an unexpected user id', async () => {
+    const getChannelFollowers = vi.fn(async () => ({ data: [{ userId: '123456' }, { userId: '654321' }] }));
+    const adapter = createTwitchApiAdapter({ api: { channels: { getChannelFollowers } }, broadcasterId: '999999',
+      authProvider: { getCurrentScopesForUser: () => ['moderator:read:followers'] } });
+
+    await expect(adapter.checkFollower('123456')).resolves.toBe('unknown');
+  });
+
+  it('coalesces concurrent follower checks for the same Twitch user', async () => {
+    let resolveFollowers;
+    const getChannelFollowers = vi.fn(() => new Promise((resolve) => { resolveFollowers = resolve; }));
+    const adapter = createTwitchApiAdapter({ api: { channels: { getChannelFollowers } }, broadcasterId: '999999',
+      authProvider: { getCurrentScopesForUser: () => ['moderator:read:followers'] } });
+    const first = adapter.checkFollower('123456');
+    const second = adapter.checkFollower('123456');
+    expect(getChannelFollowers).toHaveBeenCalledOnce();
+    resolveFollowers({ data: [{ userId: '123456' }] });
+    await expect(Promise.all([first, second])).resolves.toEqual(['follower', 'follower']);
+  });
+
   it('normalizes redemption status values from Helix and EventSub shapes', () => {
     expect(['UNFULFILLED', 'unfulfilled', 'FULFILLED', 'fulfilled', 'CANCELED', 'canceled'].map(normalizeRedemptionStatus))
       .toEqual(['UNFULFILLED', 'UNFULFILLED', 'FULFILLED', 'FULFILLED', 'CANCELED', 'CANCELED']);

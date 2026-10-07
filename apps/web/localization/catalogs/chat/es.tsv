@@ -86,3 +86,6 @@ chat.queue.close_done	Cola cerrada y recompensa pausada.
 chat.commands.validation_failed	No se pudieron validar los comandos ahora. Inténtalo de nuevo pronto.
 chat.command.validation_failed	No se pudo validar este comando. Inténtalo de nuevo pronto.
 chat.command.failed	No se pudo completar el comando. Consulta el panel local.
+chat.follower.required	Este comando está disponible para quienes siguen el canal.
+chat.follower.unknown	No pudimos verificar si sigues este canal. Inténtalo de nuevo pronto.
+chat.follower.help_unknown	No pudimos verificar si sigues el canal; puede que falten comandos exclusivos para seguidores.

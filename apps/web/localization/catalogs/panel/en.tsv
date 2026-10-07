@@ -66,7 +66,7 @@ panel.operations.title	Financial operations
 panel.operations.description	Track refund and fulfillment requests until Twitch confirms them.
 panel.commands.eyebrow	LIVE CHAT
 panel.commands.title	Available commands
-panel.commands.description	Review permissions and choose which roles can use each command. Selected roles are independent options.
+panel.commands.description	Set a minimum audience level. Higher roles inherit access; fixed management commands stay locked.
 panel.widgets.eyebrow	STREAM SOURCES
 panel.widgets.title	OBS widgets
 panel.widgets.description	Each widget shows one data point in OBS through a local HTTPS connection. OBS and the bot must run on this computer.
@@ -128,7 +128,7 @@ panel.entry.reason_sub	Subscription
 panel.entry.reason_other	Other verified benefit
 panel.reward.manual_association_hint	The previous Twitch response was ambiguous. Choose the manageable reward associated with this queue. This choice is audited and does not claim financial confirmation from the API.
 panel.commands.policy_title	How permissions work
-panel.commands.policy_help	The streamer can always manage commands. VIP access applies only when VIP management is enabled. Streamer-only commands and the connection test cannot be broadened.
+panel.commands.policy_help	The streamer can always use configurable commands. Higher audience levels inherit access. VIP requires the existing VIP toggle. Follower access needs an extra Twitch permission and is checked live.
 panel.commands.loading	Loading catalog…
 panel.commands.save	Save permissions
 panel.widgets.list_eyebrow	YOUR WIDGETS
@@ -221,13 +221,23 @@ panel.queue.sync.unknown	unknown result · review in the panel
 panel.queue.sync.failed	sync failed · review in the panel
 panel.queue.sync.not_synced	no confirmed sync
 panel.command.role.everyone	Everyone
+panel.command.role.follower	Followers
 panel.command.role.subscriber	Subscribers
 panel.command.role.vip	VIPs
 panel.command.role.moderator	Moderators
 panel.command.role.streamer	streamer
 panel.command.role_join	and
 panel.command.access_fixed	Fixed access:
-panel.command.marked_roles	Any selected role can use this command.
+panel.command.marked_roles	The selected role and higher roles can use this command.
+panel.command.threshold_label	Minimum audience
+panel.command.threshold.select	Choose a minimum audience
+panel.command.threshold.review_option	Review and choose a new minimum…
+panel.command.threshold.review	Choose a new minimum to convert this older policy. It will not change until you save.
+panel.command.threshold.help	The selected audience and higher roles inherit access.
+panel.command.audience.current	Current access: {roles}.
+panel.command.audience.proposed	After saving: {roles}.
+panel.command.follower_scope_required	Follower access needs additional Twitch authorization. Saving will open Twitch consent.
+panel.command.no_changes	No permission changes to save.
 panel.widget.source.account	Current account
 panel.widget.source.queue_name	Queue name
 panel.widget.source.queue_state	Whether a queue is open or closed
@@ -445,3 +455,5 @@ panel.widget.preview.account	Asia 1
 panel.widget.card_details	{queue}{width} × {height} · Widget {id}
 panel.widget.auto	auto
 panel.queue_settings.call_message_default	{user}, it’s your turn!
+panel.command.follower_scope_lost	Follower access is configured, but Twitch follower permission is unavailable. Reauthorize to restore it.
+panel.command.follower_reauthorize	Reauthorize follower access

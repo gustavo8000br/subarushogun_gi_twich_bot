@@ -1,0 +1,17 @@
+{
+  "storyId": "OPS-7",
+  "assessedAt": "2026-10-07T00:00:00Z",
+  "assessedBy": "@architect",
+  "dimensions": {
+    "scope": { "score": 5, "reason": "Cross-cutting policy registry/resolver, Twitch adapter, optional OAuth scope, persisted policy compatibility, protected API, panel, chat help, tests, and bilingual docs." },
+    "integration": { "score": 5, "reason": "Current EventSub evidence plus a new user-scoped Helix follower lookup and expanded Authorization Code flow." },
+    "infrastructure": { "score": 4, "reason": "No new service, but policy JSON schema evolution, OAuth credential scope handling, and real PostgreSQL persistence behavior need migration/contract verification." },
+    "knowledge": { "score": 5, "reason": "Twitch current badges versus follower relationship, OAuth scope behavior, and stale/unknown authorization require official docs and installed Twurple verification." },
+    "risk": { "score": 5, "reason": "Authorization mistakes could expose queue management, expand command access, or block legitimate users; follower checks depend on external API availability." }
+  },
+  "totalScore": 24,
+  "result": "COMPLEX",
+  "pipeline": ["gather", "assess", "research", "spec", "critique_1", "revise", "critique_2", "plan"],
+  "flags": ["Critical authorization boundary", "Optional OAuth scope and persistence compatibility", "Independent QA must report 10/10 implementation score before Done"],
+  "rationale": "This replaces an authorization model, adds an external membership predicate, changes OAuth capability handling, and must preserve existing persisted behavior."
+}

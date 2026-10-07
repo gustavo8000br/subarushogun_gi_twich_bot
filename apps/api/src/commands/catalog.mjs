@@ -17,13 +17,39 @@ export const CHAT_COMMANDS = [
   { key: 'queue:limpar', scope: 'queue', command: 'limpar', syntax: '!<fila> limpar [confirmar]', description: 'Pré-visualizar ou confirmar limpeza.', defaultRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'] },
   { key: 'global:filas', scope: 'global', command: 'filas', syntax: '!fila filas', description: 'Listar filas disponíveis.', defaultRoles: ['everyone'] },
   { key: 'global:conta:read', scope: 'global', command: 'conta', syntax: '!fila conta', description: 'Consultar conta atual.', defaultRoles: ['everyone'] },
-  { key: 'global:conta:set', scope: 'global', command: 'conta', syntax: '!fila conta <nome>', description: 'Definir rótulo da conta atual.', defaultRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'] },
-  { key: 'global:conta:reset', scope: 'global', command: 'conta', syntax: '!fila conta reset', description: 'Restaurar conta padrão.', defaultRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'] },
+  { key: 'global:conta:set', scope: 'global', command: 'conta', syntax: '!fila conta <nome>', description: 'Definir rótulo da conta atual.', defaultRoles: ['streamer'], immutableRoles: ['streamer'] },
+  { key: 'global:conta:reset', scope: 'global', command: 'conta', syntax: '!fila conta reset', description: 'Restaurar conta padrão.', defaultRoles: ['streamer'], immutableRoles: ['streamer'] },
   { key: 'global:queue:comandos', scope: 'global', command: 'queue', syntax: '!queue comandos', description: 'Listar todos os comandos disponíveis para seu cargo.', defaultRoles: ['everyone'] },
   { key: 'global:queue:ping', scope: 'global', command: 'queue', syntax: '!queue ping', description: 'Verificar resposta do bot, versão e latência Twitch.', defaultRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'] },
 ];
 
 export const CONFIGURABLE_COMMAND_ROLES = Object.freeze(['moderator', 'vip', 'subscriber', 'everyone']);
+export const COMMAND_POLICY_MINIMUM_ROLES = Object.freeze(['everyone', 'follower', 'subscriber', 'vip', 'moderator']);
+export const LEGACY_COMMAND_ROLES = CONFIGURABLE_COMMAND_ROLES;
+export const COMMAND_ROLE_RANK = Object.freeze({
+  everyone: 0,
+  viewer: 0,
+  follower: 1,
+  subscriber: 2,
+  vip: 3,
+  moderator: 4,
+  streamer: 5,
+});
+
+/** @param {string[]} roles @param {boolean} allowVipManagement */
+function highestEffectiveRole(roles, allowVipManagement) {
+  return roles
+    .filter((role) => role !== 'vip' || allowVipManagement === true)
+    .reduce((highest, role) => (COMMAND_ROLE_RANK[role] ?? -1) > (COMMAND_ROLE_RANK[highest] ?? -1) ? role : highest, 'everyone');
+}
+
+/** @param {{immutableRoles?:string[]}} definition @param {string[]} roles */
+function resolveImmutableAccess(definition, roles) {
+  const immutableRoles = definition.immutableRoles ?? [];
+  const allowed = roles.some((role) => immutableRoles.includes(role));
+  const reason = allowed ? 'allowed' : immutableRoles.length === 1 && immutableRoles[0] === 'streamer' ? 'streamer_only' : 'role_not_allowed';
+  return { allowed, reason };
+}
 
 /** @param {{scope:string,command:string,args?:string[],rootAction?:string}} input */
 export function getCommandDefinition({ scope, command, args = [], rootAction }) {
@@ -52,22 +78,58 @@ export function getCommandDefinition({ scope, command, args = [], rootAction }) 
 
 /** @param {Record<string,string[]>|undefined|null} policies */
 export function resolveAllowedRoles(definition, policies) {
-  if (!definition) return [];
-  if (definition.immutableRoles) return [...definition.immutableRoles];
-  if (!policies || !Object.hasOwn(policies, definition.key)) return [...definition.defaultRoles];
-  const configured = policies[definition.key];
-  if (!Array.isArray(configured) || configured.some((role) => !CONFIGURABLE_COMMAND_ROLES.includes(role))) return [];
-  return [...new Set(configured)];
+  const policy = resolveCommandPolicy(definition, policies);
+  if (policy.mode === 'fixed' || policy.mode === 'legacy_exact') return [...policy.allowedRoles];
+  if (policy.mode === 'minimum_role') {
+    const minimumRank = COMMAND_ROLE_RANK[policy.minimumRole];
+    return policy.minimumRole === 'everyone'
+      ? ['everyone']
+      : COMMAND_POLICY_MINIMUM_ROLES.filter((role) => COMMAND_ROLE_RANK[role] >= minimumRank);
+  }
+  return [];
+}
+
+/** @param {any} definition @param {Record<string,any>|undefined|null} policies */
+export function resolveCommandPolicy(definition, policies) {
+  if (!definition) return { mode: 'invalid' };
+  if (definition.immutableRoles) return { mode: 'fixed', allowedRoles: [...definition.immutableRoles] };
+  const configured = policies?.[definition.key];
+  if (Array.isArray(configured)) {
+    if (configured.some((role) => !CONFIGURABLE_COMMAND_ROLES.includes(role))) return { mode: 'invalid' };
+    return { mode: 'legacy_exact', allowedRoles: [...new Set(configured)] };
+  }
+  if (!configured) {
+    const minimumRole = definition.defaultRoles.includes('everyone') ? 'everyone' : definition.defaultRoles[0];
+    return COMMAND_POLICY_MINIMUM_ROLES.includes(minimumRole)
+      ? { mode: 'minimum_role', minimumRole }
+      : { mode: 'invalid' };
+  }
+  if (typeof configured !== 'object') return { mode: 'invalid' };
+  if (configured.mode === 'legacy_exact' && Array.isArray(configured.allowedRoles)
+      && !configured.allowedRoles.some((role) => !CONFIGURABLE_COMMAND_ROLES.includes(role))) {
+    return { mode: 'legacy_exact', allowedRoles: [...new Set(configured.allowedRoles)] };
+  }
+  if (configured.mode === 'minimum_role' && COMMAND_POLICY_MINIMUM_ROLES.includes(configured.minimumRole)) {
+    return { mode: 'minimum_role', minimumRole: configured.minimumRole };
+  }
+  return { mode: 'invalid' };
 }
 
 /** @param {{definition: any, allowedRoles?: string[], roles: string[], allowVipManagement?: boolean}} input */
 export function resolveCommandAccess({ definition, allowedRoles, roles, allowVipManagement = false }) {
   if (!definition || !Array.isArray(roles)) return { allowed: false, reason: 'unknown_command' };
-  const permittedRoles = allowedRoles ?? definition.defaultRoles;
   if (definition.immutableRoles) {
-    const allowed = roles.some((role) => definition.immutableRoles.includes(role));
-    return { allowed, reason: allowed ? 'allowed' : definition.immutableRoles.length === 1 && definition.immutableRoles[0] === 'streamer' ? 'streamer_only' : 'role_not_allowed' };
+    return resolveImmutableAccess(definition, roles);
   }
+  if (typeof definition.minimumRole === 'string') {
+    if (!Object.hasOwn(COMMAND_ROLE_RANK, definition.minimumRole) || definition.minimumRole === 'viewer') {
+      return { allowed: false, reason: 'role_not_allowed' };
+    }
+    const highestRole = highestEffectiveRole(roles, allowVipManagement);
+    const allowed = highestRole === 'streamer' || COMMAND_ROLE_RANK[highestRole] >= COMMAND_ROLE_RANK[definition.minimumRole];
+    return { allowed, reason: allowed ? 'allowed' : 'role_not_allowed', effectiveRole: highestRole };
+  }
+  const permittedRoles = allowedRoles ?? definition.defaultRoles;
   if (roles.includes('streamer')) return { allowed: true, reason: 'allowed' };
   const allowed = permittedRoles.includes('everyone') || permittedRoles.some((role) => (
     role !== 'streamer' && roles.includes(role) && (role !== 'vip' || allowVipManagement === true)

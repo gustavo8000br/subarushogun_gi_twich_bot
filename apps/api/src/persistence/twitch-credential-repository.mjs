@@ -58,7 +58,7 @@ export function createTwitchCredentialRepository(prisma) {
       });
     },
 
-    async storeTokens({ clientId, broadcasterId, accessToken, refreshToken, scopes, expiresIn, obtainmentTimestamp = Date.now() }) {
+    async storeTokens({ clientId, broadcasterId, accessToken, refreshToken, scopes, expiresIn, obtainmentTimestamp = Date.now(), commitAdditional }) {
       return prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtextextended('twitch-credentials', 0))) AS credential_lock`;
         const record = await tx.oAuthCredential.findUnique({ where: { clientId } });
@@ -67,10 +67,12 @@ export function createTwitchCredentialRepository(prisma) {
         const tokenExpiresAt = Number.isFinite(expiresIn)
           ? new Date(obtainmentTimestamp + expiresIn * 1000)
           : null;
-        return tx.oAuthCredential.update({
+        const saved = await tx.oAuthCredential.update({
           where: { id: record.id },
           data: { broadcasterId, accessToken, refreshToken, scopes, tokenExpiresAt, authStatus: 'connected' },
         });
+        if (typeof commitAdditional === 'function') await commitAdditional(tx);
+        return saved;
       });
     },
 

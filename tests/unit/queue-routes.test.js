@@ -29,8 +29,8 @@ async function createHarness({ domainService, resolveUser = async () => null, be
     enqueueCallNotification: vi.fn(async () => undefined),
     clearActiveEntries: vi.fn(async ({ snapshot }) => ({ status: 'cleared', count: snapshot.length, refundsRequested: 1 })),
     setDefaultAccountLabel: vi.fn(async (label) => ({ label, defaultLabel: label, source: 'default' })),
-    getCommandPolicyState: vi.fn(async () => ({ version: 1, policies: {} })),
-    updateCommandPolicies: vi.fn(async ({ expectedVersion, policies }) => ({ version: expectedVersion + 1, policies })),
+    getCommandPolicyState: vi.fn(async () => ({ schemaVersion: 1, version: 1, policies: {} })),
+    updateCommandPolicies: vi.fn(async ({ expectedVersion, policies }) => ({ schemaVersion: 2, version: expectedVersion + 1, policies })),
   };
   const integrations = { status: 'not_configured', twitch: null };
   const clearConfirmation = createClearConfirmationService({ repository });
@@ -114,31 +114,84 @@ describe('local queue and setup API', () => {
 
   it('returns a session-protected safe catalog projection with effective command roles', async () => {
     const h = await createHarness();
-    h.repository.getCommandPolicyState.mockResolvedValue({ version: 7, policies: { 'queue:add': ['everyone'], 'global:conta:set': ['everyone'] } });
+    h.repository.getCommandPolicyState.mockResolvedValue({ schemaVersion: 1, version: 7, policies: { 'queue:add': ['everyone'], 'global:conta:set': ['everyone'] } });
     const denied = await h.app.inject({ method: 'GET', url: '/api/command-catalog', headers: { host: 'localhost:3000' } });
     expect(denied.statusCode).toBe(401);
     const response = await h.app.inject({ method: 'GET', url: '/api/command-catalog', headers: h.sessionHeaders });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ version: 7, commands: expect.arrayContaining([
       expect.objectContaining({ key: 'queue:add', allowedRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'], configurable: false }),
-      expect.objectContaining({ key: 'global:conta:set', allowedRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'], configurable: false }),
+      expect.objectContaining({ key: 'global:conta:set', allowedRoles: ['streamer'], immutableRoles: ['streamer'], configurable: false }),
       expect.objectContaining({ key: 'global:queue:ping', allowedRoles: ['streamer', 'moderator'], configurable: false }),
     ]) });
     expect(JSON.stringify(response.json())).not.toContain('clientSecret');
   });
 
+  it('projects follower authorization readiness as a boolean without returning tokens or scopes', async () => {
+    const h = await createHarness();
+    h.integrations.getSetupState = vi.fn(async () => ({
+      scopes: ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'moderator:read:followers'],
+      accessToken: 'sensitive-access-token',
+      refreshToken: 'sensitive-refresh-token',
+    }));
+    const response = await h.app.inject({ method: 'GET', url: '/api/command-catalog', headers: h.headers });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ followerScopeReady: true });
+    expect(JSON.stringify(response.json())).not.toContain('sensitive-');
+    expect(response.json()).not.toHaveProperty('scopes');
+  });
+
+  it('starts session-bound follower consent without saving policies before OAuth callback', async () => {
+    const h = await createHarness();
+    h.integrations.beginFollowerAuthorization = vi.fn(async (input) => ({ url: 'https://id.twitch.tv/oauth2/authorize?state=opaque', input }));
+    const payload = {
+      expectedVersion: 9,
+      policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } },
+    };
+    const response = await h.app.inject({ method: 'POST', url: '/api/command-policies/follower-authorization', headers: h.headers, payload });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ authorizationUrl: 'https://id.twitch.tv/oauth2/authorize?state=opaque' });
+    expect(h.integrations.beginFollowerAuthorization).toHaveBeenCalledWith({
+      sessionId: expect.any(String), expectedVersion: 9, policies: payload.policies,
+    });
+    expect(h.repository.updateCommandPolicies).not.toHaveBeenCalled();
+  });
+
+  it('rejects follower consent requests without a follower threshold', async () => {
+    const h = await createHarness();
+    h.integrations.beginFollowerAuthorization = vi.fn();
+    const response = await h.app.inject({ method: 'POST', url: '/api/command-policies/follower-authorization', headers: h.headers, payload: {
+      expectedVersion: 1, policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'subscriber' } },
+    } });
+    expect(response.statusCode).toBe(400);
+    expect(h.integrations.beginFollowerAuthorization).not.toHaveBeenCalled();
+    expect(h.repository.updateCommandPolicies).not.toHaveBeenCalled();
+  });
+
+  it('sanitizes failures while starting follower consent', async () => {
+    const h = await createHarness();
+    h.integrations.beginFollowerAuthorization = vi.fn(async () => { throw new Error('client secret leaked'); });
+    const response = await h.app.inject({ method: 'POST', url: '/api/command-policies/follower-authorization', headers: h.headers, payload: {
+      expectedVersion: 1, policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } },
+    } });
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ error: 'Não foi possível iniciar a autorização adicional da Twitch.' });
+    expect(response.body).not.toContain('client secret leaked');
+    await h.app.close();
+  });
+
   it('updates only known mutable command policies through CSRF, idempotency and optimistic version checks', async () => {
     const h = await createHarness();
-    const payload = { expectedVersion: 1, policies: { 'queue:lista': ['subscriber', 'moderator'] } };
+    const payload = { expectedVersion: 1, policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'subscriber' } } };
     const denied = await h.app.inject({ method: 'PATCH', url: '/api/command-policies', headers: h.sessionHeaders, payload });
     expect(denied.statusCode).toBe(403);
-    const invalid = await h.app.inject({ method: 'PATCH', url: '/api/command-policies', headers: h.headers, payload: { ...payload, policies: { 'global:conta:set': ['everyone'] } } });
+    const invalid = await h.app.inject({ method: 'PATCH', url: '/api/command-policies', headers: h.headers, payload: { ...payload, policies: { 'global:conta:set': { mode: 'minimum_role', minimumRole: 'everyone' } } } });
     expect(invalid.statusCode).toBe(400);
     expect(h.repository.updateCommandPolicies).not.toHaveBeenCalled();
     const updated = await h.app.inject({ method: 'PATCH', url: '/api/command-policies', headers: h.headers, payload });
     expect(updated.statusCode).toBe(200);
     expect(h.repository.updateCommandPolicies).toHaveBeenCalledWith({ expectedVersion: 1, policies: payload.policies, actorId: expect.any(String), origin: 'panel' });
-    expect(updated.json()).toEqual({ version: 2, policies: payload.policies });
+    expect(updated.json()).toEqual({ schemaVersion: 2, version: 2, policies: payload.policies });
   });
 
   it('rejects mutations that omit a valid idempotency key', async () => {

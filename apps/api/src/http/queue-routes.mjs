@@ -1,6 +1,6 @@
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { createHash } from 'node:crypto';
-import { CHAT_COMMANDS, CONFIGURABLE_COMMAND_ROLES, resolveAllowedRoles } from '../commands/catalog.mjs';
+import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES, resolveAllowedRoles, resolveCommandPolicy } from '../commands/catalog.mjs';
 import { translateCatalog } from '../../../shared/browser/translate-catalog.mjs';
 
 function canonicalValue(value) {
@@ -144,12 +144,17 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     if (typeof repository.getCommandPolicyState !== 'function') return reply.code(503).send({ error: 'O catálogo de comandos não está disponível.' });
     try {
       const state = await repository.getCommandPolicyState();
+      const setupState = await Promise.resolve(integrations.getSetupState?.()).catch(() => null);
+      const followerScopeReady = Array.isArray(setupState?.scopes) && setupState.scopes.includes('moderator:read:followers');
       return {
+        schemaVersion: state.schemaVersion,
         version: state.version,
-        configurableRoles: CONFIGURABLE_COMMAND_ROLES,
+        followerScopeReady,
+        configurableRoles: COMMAND_POLICY_MINIMUM_ROLES,
         commands: CHAT_COMMANDS.map((definition) => ({
           key: definition.key, scope: definition.scope, syntax: definition.syntax,
           description: definition.description, defaultRoles: definition.defaultRoles,
+          policy: resolveCommandPolicy(definition, state.policies),
           allowedRoles: resolveAllowedRoles(definition, state.policies),
           immutableRoles: definition.immutableRoles ?? null,
           configurable: !definition.immutableRoles,
@@ -158,6 +163,40 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     } catch {
       return reply.code(503).send({ error: 'Não foi possível carregar o catálogo de comandos.' });
     }
+  });
+  app.post('/api/command-policies/follower-authorization', async (request, reply) => {
+    const localRequest = /** @type {any} */ (request);
+    const body = localRequest.body && typeof localRequest.body === 'object' && !Array.isArray(localRequest.body) ? localRequest.body : {};
+    const policies = body.policies;
+    if (!Number.isInteger(body.expectedVersion) || body.expectedVersion < 1
+      || !policies || typeof policies !== 'object' || Array.isArray(policies) || !Object.keys(policies).length
+      || Object.keys(body).some((key) => !['expectedVersion', 'policies'].includes(key))) {
+      return reply.code(400).send({ error: 'Atualize o catálogo e informe permissões válidas.' });
+    }
+    let hasFollowerThreshold = false;
+    for (const [key, policy] of Object.entries(policies)) {
+      const definition = CHAT_COMMANDS.find((entry) => entry.key === key);
+      if (!definition || definition.immutableRoles || !policy || typeof policy !== 'object' || Array.isArray(policy)
+        || policy.mode !== 'minimum_role' || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
+        || Object.keys(policy).some((property) => !['mode', 'minimumRole'].includes(property))) {
+        return reply.code(400).send({ error: 'Um ou mais comandos têm níveis inválidos ou não podem ser alterados.' });
+      }
+      if (policy.minimumRole === 'follower') hasFollowerThreshold = true;
+    }
+    if (!hasFollowerThreshold) return reply.code(400).send({ error: 'Selecione ao menos um comando com nível de seguidor.' });
+    if (typeof integrations.beginFollowerAuthorization !== 'function') return reply.code(503).send({ error: 'A autorização Twitch adicional não está disponível.' });
+    let result;
+    try {
+      result = await integrations.beginFollowerAuthorization({
+        sessionId: localRequest.localSession?.id,
+        expectedVersion: body.expectedVersion,
+        policies,
+      });
+    } catch {
+      return reply.code(503).send({ error: 'Não foi possível iniciar a autorização adicional da Twitch.' });
+    }
+    if (!result?.url) return reply.code(503).send({ error: 'Conecte o canal Twitch antes de habilitar acesso de seguidores.' });
+    return { authorizationUrl: result.url };
   });
   app.patch('/api/command-policies', async (request, reply) => {
     const localRequest = /** @type {any} */ (request);
@@ -168,11 +207,11 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       || Object.keys(body).some((key) => !['expectedVersion', 'policies'].includes(key))) {
       return reply.code(400).send({ error: 'Atualize o catálogo e informe permissões válidas.' });
     }
-    for (const [key, roles] of Object.entries(policies)) {
+    for (const [key, policy] of Object.entries(policies)) {
       const definition = CHAT_COMMANDS.find((entry) => entry.key === key);
-      if (!definition || definition.immutableRoles || !Array.isArray(roles)
-        || roles.some((role) => !CONFIGURABLE_COMMAND_ROLES.includes(role))
-        || new Set(roles).size !== roles.length) {
+      if (!definition || definition.immutableRoles || !policy || typeof policy !== 'object' || Array.isArray(policy)
+        || policy.mode !== 'minimum_role' || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
+        || Object.keys(policy).some((property) => !['mode', 'minimumRole'].includes(property))) {
         return reply.code(400).send({ error: 'Um ou mais comandos têm cargos inválidos ou não podem ser alterados.' });
       }
     }

@@ -66,7 +66,7 @@ panel.operations.title	Operaciones financieras
 panel.operations.description	Sigue las solicitudes de reembolso y consumo hasta que Twitch las confirme.
 panel.commands.eyebrow	CHAT EN VIVO
 panel.commands.title	Comandos disponibles
-panel.commands.description	Consulta los permisos y elige qué cargos pueden usar cada comando. Los cargos seleccionados funcionan de manera independiente.
+panel.commands.description	Define un nivel mínimo de audiencia. Los cargos superiores heredan el acceso; los comandos fijos de gestión quedan bloqueados.
 panel.widgets.eyebrow	FUENTES DE LA TRANSMISIÓN
 panel.widgets.title	Widgets de OBS
 panel.widgets.description	Cada widget muestra un dato en OBS mediante una conexión HTTPS local. OBS y el bot deben estar en este equipo.
@@ -128,7 +128,7 @@ panel.entry.reason_sub	Suscripción
 panel.entry.reason_other	Otro beneficio verificado
 panel.reward.manual_association_hint	La respuesta anterior de Twitch quedó ambigua. Elige la recompensa administrable asociada a esta cola. La elección se audita y no confirma operaciones financieras mediante la API.
 panel.commands.policy_title	Cómo funcionan los permisos
-panel.commands.policy_help	El streamer siempre puede administrar los comandos. El acceso VIP solo se aplica cuando la opción de administración VIP está activada. Los comandos exclusivos del streamer y la prueba de conexión no se pueden ampliar.
+panel.commands.policy_help	El streamer siempre puede usar comandos configurables. Los cargos superiores heredan acceso. VIP depende de la opción actual. El acceso de seguidores requiere autorización Twitch adicional y se verifica en cada uso.
 panel.commands.loading	Cargando catálogo…
 panel.commands.save	Guardar permisos
 panel.widgets.list_eyebrow	TUS WIDGETS
@@ -221,13 +221,23 @@ panel.queue.sync.unknown	resultado desconocido · revísalo en el panel
 panel.queue.sync.failed	error de sincronización · revísalo en el panel
 panel.queue.sync.not_synced	sin sincronización confirmada
 panel.command.role.everyone	Todos
+panel.command.role.follower	Seguidores
 panel.command.role.subscriber	Suscriptores
 panel.command.role.vip	VIP
 panel.command.role.moderator	Moderadores
 panel.command.role.streamer	streamer
 panel.command.role_join	y
 panel.command.access_fixed	Acceso fijo:
-panel.command.marked_roles	Cualquier cargo seleccionado puede usar este comando.
+panel.command.marked_roles	El cargo elegido y los cargos superiores pueden usar este comando.
+panel.command.threshold_label	Nivel mínimo de audiencia
+panel.command.threshold.select	Elige un nivel mínimo
+panel.command.threshold.review_option	Revisa y elige un nuevo nivel…
+panel.command.threshold.review	Elige un nivel nuevo para convertir esta política anterior. No cambiará hasta que guardes.
+panel.command.threshold.help	El grupo elegido y los cargos superiores heredan el acceso.
+panel.command.audience.current	Acceso actual: {roles}.
+panel.command.audience.proposed	Después de guardar: {roles}.
+panel.command.follower_scope_required	El acceso de seguidores requiere autorización Twitch adicional. Al guardar, Twitch pedirá consentimiento.
+panel.command.no_changes	No hay cambios de permisos para guardar.
 panel.widget.source.account	Cuenta actual
 panel.widget.source.queue_name	Nombre de una cola
 panel.widget.source.queue_state	Estado abierta/cerrada de una cola
@@ -448,3 +458,5 @@ panel.widget.preview.account	Asia 1
 panel.widget.card_details	{queue}{width} × {height} · Widget {id}
 panel.widget.auto	automático
 panel.queue_settings.call_message_default	{user}, ¡es tu turno!
+panel.command.follower_scope_lost	Hay comandos configurados para seguidores, pero el permiso de Twitch no está disponible. Vuelve a autorizar para restaurarlo.
+panel.command.follower_reauthorize	Volver a autorizar acceso de seguidores

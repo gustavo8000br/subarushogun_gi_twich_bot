@@ -1,0 +1,40 @@
+{
+  "storyId": "OPS-7",
+  "critiquedAt": "2026-10-07",
+  "critiquedBy": "@qa",
+  "specVersion": 2,
+  "pipeline": "spec-pipeline",
+  "rounds": [
+    {
+      "round": 1,
+      "verdict": "NEEDS_REVISION",
+      "scores": { "accuracy": 5, "completeness": 3, "consistency": 5, "feasibility": 4, "alignment": 5, "average": 4.35 },
+      "issues": [
+        { "id": "CRIT-1", "severity": "MEDIUM", "category": "completeness", "check": "comp-4", "description": "A spec descrevia arquitetura e testes, mas não indicava as áreas/arquivos de código esperados, dificultando revisão do escopo e passagem para implementação.", "location": "spec.md#Arquitetura e spec.md#Plano de implementação", "suggestion": "Listar módulos existentes com provável alteração e exigir que a story de implementação substitua a lista de áreas por caminhos exatos antes de codificar.", "autoFixable": true },
+        { "id": "CRIT-2", "severity": "MEDIUM", "category": "completeness", "check": "comp-1", "description": "A política v2 persistida e a autorização OAuth opcional staged ainda não definiam explicitamente limites de rollback/falha.", "location": "spec.md#Política de cargos e spec.md#Verificação de seguidor e escopo OAuth", "suggestion": "Especificar ausência de rewrite no boot, preservação após falha de gravação/consentimento, validação staged de credencial, commit atômico de credencial/política e proibição de downgrade de dados presumido.", "autoFixable": true },
+        { "id": "CRIT-3", "severity": "LOW", "category": "alignment", "check": "align-3", "description": "A primeira versão em inglês ainda não tinha os artefatos de planejamento equivalentes em português.", "location": "docs/pt-BR/stories/OPS-7/spec/", "suggestion": "Criar spec, requisitos, plano, story e crítica equivalentes em português antes de declarar o planejamento concluído.", "autoFixable": true }
+      ],
+      "summary": { "highIssues": 0, "mediumIssues": 2, "lowIssues": 1, "autoFixable": 3 },
+      "nextAction": "Revisar escopo de arquivos e limites de rollback, completar artefatos em português e executar segunda crítica independente."
+    },
+    {
+      "round": 2,
+      "verdict": "APPROVED",
+      "scores": { "accuracy": 5, "completeness": 5, "consistency": 5, "feasibility": 4, "alignment": 5, "average": 4.85 },
+      "checks": {
+        "accuracy": "FR-1..FR-12, NFR-1..NFR-5 e CON-1..CON-6 estão representados; escopo follower aprovado, ordem de cargos, comandos fixos e preservação de políticas antigas são explícitos. Não há alegação de resultado Twitch real sem teste.",
+        "completeness": "Visão geral, limites, requisitos, arquitetura, dependências, áreas de arquivos, rollback, pesquisa Twitch, desenho de testes, riscos, fases e gate de release estão presentes. Os 17 critérios de aceite são ligados aos requisitos funcionais e incrementos de teste planejados.",
+        "consistency": "Artefatos em inglês e pt-BR têm IDs de story, cargos/ordem, escopos, IDs de aceite, fases, sequência e condição de release correspondentes. O allowlist atual da OPS-3 está distinguido da regra desejada streamer-only para alteração de conta.",
+        "feasibility": "APIs Twurple fixadas e Setting JSON PostgreSQL existente bastam; não se planeja serviço/pacote novo. Troca OAuth e rollback de compatibilidade exigem implementação transacional cuidadosa e testes PostgreSQL reais, por isso nota 4 em vez de 5.",
+        "alignment": "Compatível com JavaScript ESM, Fastify/Twurple/Prisma/PostgreSQL e UI vanilla; segue TDD, documentação bilíngue e registro de comandos existente."
+      },
+      "issues": [],
+      "summary": { "highIssues": 0, "mediumIssues": 0, "lowIssues": 0, "autoFixable": 0 },
+      "nextAction": "Contrato de planejamento pronto para passar ao workflow da próxima story. Implementação só pode começar como próximo item autorizado e deve seguir TDD e gates QA independentes especificados."
+    }
+  ],
+  "finalVerdict": "APPROVED",
+  "finalVerdictReason": "A segunda crítica não encontrou itens HIGH/MEDIUM, todas as dimensões são pelo menos 4 e a média é 4,85/5. Esta aprovação vale somente para o planejamento; não é QA da implementação nem a nota 10/10 exigida para implementação.",
+  "implementationQa": { "status": "NOT_RUN", "requiredScore": "10/10", "reason": "Implementação não iniciada." },
+  "liveTwitchValidation": { "status": "NOT_RUN", "reason": "Nenhuma consulta follower Twitch real autorizada ou OAuth do escopo opcional foi executado." }
+}

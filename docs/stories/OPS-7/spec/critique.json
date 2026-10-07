@@ -1,0 +1,40 @@
+{
+  "storyId": "OPS-7",
+  "critiquedAt": "2026-10-07",
+  "critiquedBy": "@qa",
+  "specVersion": 2,
+  "pipeline": "spec-pipeline",
+  "rounds": [
+    {
+      "round": 1,
+      "verdict": "NEEDS_REVISION",
+      "scores": { "accuracy": 5, "completeness": 3, "consistency": 5, "feasibility": 4, "alignment": 5, "average": 4.35 },
+      "issues": [
+        { "id": "CRIT-1", "severity": "MEDIUM", "category": "completeness", "check": "comp-4", "description": "The spec described the architecture and tests but did not give an expected code-area/file map, making scope review and implementation handoff harder.", "location": "spec.md#Architecture and spec.md#Implementation plan", "suggestion": "List the existing modules likely to change and require the implementation story to replace the area list with exact paths before coding.", "autoFixable": true },
+        { "id": "CRIT-2", "severity": "MEDIUM", "category": "completeness", "check": "comp-1", "description": "The persisted v2 policy and staged optional OAuth grant did not yet have an explicit rollback/failure boundary.", "location": "spec.md#Policy data and spec.md#Follower verification and OAuth scope", "suggestion": "Specify no startup rewrite, preservation on failed writes/consent, staged credential validation, atomic policy/credential commit and a no-data-downgrade rollback rule.", "autoFixable": true },
+        { "id": "CRIT-3", "severity": "LOW", "category": "alignment", "check": "align-3", "description": "The first English draft had no corresponding Portuguese planning artifacts yet.", "location": "docs/pt-BR/stories/OPS-7/spec/", "suggestion": "Create equivalent Portuguese spec, requirements, plan, story and critique artifacts before declaring planning complete.", "autoFixable": true }
+      ],
+      "summary": { "highIssues": 0, "mediumIssues": 2, "lowIssues": 1, "autoFixable": 3 },
+      "nextAction": "Revise file scope and rollback boundaries, complete Portuguese artifacts, then run a second independent critique."
+    },
+    {
+      "round": 2,
+      "verdict": "APPROVED",
+      "scores": { "accuracy": 5, "completeness": 5, "consistency": 5, "feasibility": 4, "alignment": 5, "average": 4.85 },
+      "checks": {
+        "accuracy": "All FR-1..FR-12, NFR-1..NFR-5 and CON-1..CON-6 are represented in the spec; the approved follower scope, role order, fixed commands and existing-policy preservation are explicit. No unsupported live Twitch result is claimed.",
+        "completeness": "Overview, boundaries, requirements, architecture, dependencies, expected file areas, rollback boundary, Twitch research, test design, risks, implementation phases and release gate are present. The 17 acceptance criteria are referenced by the functional requirements and planned test increments.",
+        "consistency": "English and pt-BR artifacts have matching story IDs, role IDs/order, scopes, acceptance IDs, phase IDs, sequence and release condition. The current OPS-3 allowlist behavior is explicitly distinguished from the target streamer-only account rule.",
+        "feasibility": "Existing pinned Twurple APIs and the current PostgreSQL JSON Setting are sufficient; no new package/service is planned. OAuth credential handoff and compatibility rollback require careful transactional implementation and real PostgreSQL tests, hence score 4 rather than 5.",
+        "alignment": "Fits JavaScript ESM, existing Fastify/Twurple/Prisma/PostgreSQL and vanilla UI; follows TDD, bilingual documentation and the existing command registry."
+      },
+      "issues": [],
+      "summary": { "highIssues": 0, "mediumIssues": 0, "lowIssues": 0, "autoFixable": 0 },
+      "nextAction": "Planning contract is ready for the next story workflow handoff. Implementation may begin only as the authorized next sequence item and must follow the specified TDD and independent QA gates."
+    }
+  ],
+  "finalVerdict": "APPROVED",
+  "finalVerdictReason": "Second critique has no HIGH/MEDIUM issues, every dimension is at least 4, and the average score is 4.85/5. This approves the planning specification only; it is not implementation QA or the required 10/10 implementation score.",
+  "implementationQa": { "status": "NOT_RUN", "requiredScore": "10/10", "reason": "No implementation has started." },
+  "liveTwitchValidation": { "status": "NOT_RUN", "reason": "No authorized live Twitch follower lookup or optional-scope OAuth was performed." }
+}

@@ -4,6 +4,11 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.10.0-alpha
+
+- Streamers can set a minimum audience for each chat command, so higher groups automatically receive access.
+- Follower-only commands can verify channel follows through Twitch after the streamer enables that option.
+
 ## v0.9.0-alpha
 
 - The installer now shows its progress and confirms resource removal only after checking that product containers, networks, and unused images are gone.

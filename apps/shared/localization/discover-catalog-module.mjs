@@ -26,6 +26,8 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'lifecycle.uninstall.confirm_prompt': Object.freeze(['word']),
   }),
   panel: Object.freeze({
+    'panel.command.audience.current': Object.freeze(['roles']),
+    'panel.command.audience.proposed': Object.freeze(['roles']),
     'panel.queue_settings.call_placeholders': Object.freeze(['user', 'queue', 'position', 'uid', 'account']),
     'panel.queue_settings.call_message_default': Object.freeze(['user']),
     'panel.operation.attempts': Object.freeze(['count']),

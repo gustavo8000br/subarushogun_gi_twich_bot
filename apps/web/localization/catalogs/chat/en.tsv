@@ -84,3 +84,6 @@ chat.queue.close_done	Queue closed and reward paused.
 chat.commands.validation_failed	Could not validate commands right now. Try again shortly.
 chat.command.validation_failed	Could not validate this command. Try again shortly.
 chat.command.failed	Could not complete the command. Check the local panel.
+chat.follower.required	This command is available to channel followers.
+chat.follower.unknown	We could not verify whether you follow this channel. Please try again shortly.
+chat.follower.help_unknown	We could not verify your follower status; follower-only commands may be missing from this list.

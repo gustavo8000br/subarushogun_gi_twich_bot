@@ -45,6 +45,16 @@ describe('command authorization', () => {
       .toMatchObject({ allowed: true, role: 'vip' });
   });
 
+  it('inherits follower access for subscribers and grants followers only when API verification succeeds', () => {
+    const policies = { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } };
+    expect(check(localMessage(), parsed('lista'), { policies }))
+      .toMatchObject({ allowed: false, reason: 'role_not_allowed' });
+    expect(authorizeCommand({ broadcasterId: 'broadcaster-1', message: localMessage(), command: parsed('lista'), policies, isFollower: true }))
+      .toMatchObject({ allowed: true, role: 'follower', roles: ['follower'] });
+    expect(check(localMessage({ badges: [{ setId: 'subscriber' }] }), parsed('lista'), { policies }))
+      .toMatchObject({ allowed: true, role: 'subscriber' });
+  });
+
   it('rejects messages from another channel or a shared-chat source outside this broadcaster', () => {
     expect(check(localMessage({ channelId: 'other-channel' }), parsed('abrir')))
       .toMatchObject({ allowed: false, reason: 'wrong_channel' });
@@ -52,13 +62,13 @@ describe('command authorization', () => {
       .toMatchObject({ allowed: false, reason: 'wrong_channel' });
   });
 
-  it('allows account query to viewers and account changes to streamer and moderators only', () => {
+  it('allows account query to viewers and restricts account changes to the streamer', () => {
     expect(check(localMessage(), { scope: 'global', command: 'conta', args: [] }))
       .toMatchObject({ allowed: true, role: 'viewer' });
     expect(check(localMessage(), { scope: 'global', command: 'conta', args: ['reset'] }))
       .toMatchObject({ allowed: false, role: 'viewer' });
     expect(check(localMessage({ badges: [{ setId: 'moderator' }] }), { scope: 'global', command: 'conta', args: ['reset'] }))
-      .toMatchObject({ allowed: true, role: 'moderator' });
+      .toMatchObject({ allowed: false, role: 'moderator', reason: 'streamer_only' });
     expect(check(localMessage({ userId: 'broadcaster-1' }), { scope: 'global', command: 'conta', args: ['reset'] }))
       .toMatchObject({ allowed: true, role: 'streamer' });
   });

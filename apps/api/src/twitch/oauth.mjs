@@ -38,6 +38,7 @@ export async function validateClientCredentials({ clientId, clientSecret, fetchI
 }
 
 const requiredScopes = ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat'];
+const optionalScopes = ['moderator:read:followers'];
 
 /** @param {{clock?: () => Date, stateFactory?: () => string, ttlMs?: number}} options */
 export function createOAuthStateStore({ clock = () => new Date(), stateFactory = () => randomBytes(32).toString('hex'), ttlMs = 10 * 60 * 1000 } = {}) {
@@ -51,20 +52,24 @@ export function createOAuthStateStore({ clock = () => new Date(), stateFactory =
     if (record.expiresAt <= clock().getTime()) { pending.delete(key); return null; }
     if (record.sessionId !== sessionId) return null;
     pending.delete(key);
-    return { clientId: record.clientId, redirectUri: record.redirectUri };
+    return { clientId: record.clientId, redirectUri: record.redirectUri, scopes: record.scopes, context: record.context };
   }
   return {
-    /** @param {{sessionId: string, clientId: string, redirectUri: string}} input */
-    issue({ sessionId, clientId, redirectUri }) {
+    /** @param {{sessionId: string, clientId: string, redirectUri: string, scopes?:string[], context?:Record<string,any>}} input */
+    issue({ sessionId, clientId, redirectUri, scopes = [], context = null }) {
       if (!sessionId || !clientId || !redirectUri) throw Object.assign(new Error('OAuth session is unavailable'), { code: 'INVALID_OAUTH_SESSION' });
+      if (!Array.isArray(scopes) || scopes.some((scope) => !optionalScopes.includes(scope))) {
+        throw Object.assign(new Error('OAuth scope request is invalid'), { code: 'INVALID_OAUTH_SCOPE_REQUEST' });
+      }
+      const requestedScopes = [...new Set([...requiredScopes, ...scopes])];
       const state = stateFactory();
       const now = clock();
       for (const [key, record] of pending) if (record.expiresAt <= now.getTime()) pending.delete(key);
-      pending.set(hashState(state), { sessionId, clientId, redirectUri, expiresAt: now.getTime() + ttlMs });
+      pending.set(hashState(state), { sessionId, clientId, redirectUri, scopes: requestedScopes, context, expiresAt: now.getTime() + ttlMs });
       const url = new URL('https://id.twitch.tv/oauth2/authorize');
       url.search = new URLSearchParams({
         response_type: 'code', client_id: clientId, redirect_uri: redirectUri,
-        scope: requiredScopes.join(' '), state,
+        scope: requestedScopes.join(' '), state,
       }).toString();
       return { state, url: url.toString() };
     },
@@ -89,7 +94,8 @@ export async function completeOAuthAuthorization({
     const token = await exchangeCode({ ...authorization, code });
     const identity = await validateToken(token.accessToken);
     const scopes = Array.isArray(identity.scopes) ? identity.scopes : [];
-    const missingScopes = requiredScopes.filter((scope) => !scopes.includes(scope));
+    const requestedScopes = authorization.scopes ?? requiredScopes;
+    const missingScopes = requestedScopes.filter((scope) => !scopes.includes(scope));
     if (identity.clientId !== authorization.clientId || !identity.userId || missingScopes.length > 0) {
       throw Object.assign(new Error('Twitch authorization does not match the configured application'), { code: 'TWITCH_AUTHORIZATION_MISMATCH' });
     }
@@ -102,6 +108,7 @@ export async function completeOAuthAuthorization({
       scopes,
       expiresIn: token.expiresIn,
       obtainmentTimestamp: token.obtainmentTimestamp,
+      authorizationContext: authorization.context,
     });
     return { broadcasterId: identity.userId, login: identity.login, displayName: identity.displayName };
   } catch (error) {

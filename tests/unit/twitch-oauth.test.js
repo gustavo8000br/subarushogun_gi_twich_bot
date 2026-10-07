@@ -51,6 +51,37 @@ describe('Twitch OAuth client credential validation', () => {
     expect(store.consume({ state: expiring.state, sessionId: 'session-1' })).toBe(false);
   });
 
+  it('binds optional follower scopes and pending policy context to one-time session state', () => {
+    const store = createOAuthStateStore({ stateFactory: () => 'state-follower' });
+    const context = { kind: 'command_policy', expectedVersion: 8, policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } } };
+    const issued = store.issue({
+      sessionId: 'session-1', clientId: 'client-123', redirectUri: 'https://localhost:3000/callback',
+      scopes: ['moderator:read:followers'], context,
+    });
+    expect(issued.url).toContain('moderator%3Aread%3Afollowers');
+    expect(store.take({ state: issued.state, sessionId: 'session-1' })).toMatchObject({
+      clientId: 'client-123',
+      scopes: ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'moderator:read:followers'],
+      context,
+    });
+  });
+
+  it('does not persist a staged policy when Twitch omits the optional scope', async () => {
+    const stateStore = createOAuthStateStore({ stateFactory: () => 'state-missing-follower-scope' });
+    const { state } = stateStore.issue({
+      sessionId: 'session-1', clientId: 'client-123', redirectUri: 'https://localhost:3000/callback',
+      scopes: ['moderator:read:followers'], context: { kind: 'command_policy' },
+    });
+    const persistTokens = vi.fn();
+    await expect(completeOAuthAuthorization({
+      stateStore, sessionId: 'session-1', state, code: 'code',
+      exchangeCode: async () => ({ accessToken: 'staged-access', refreshToken: 'staged-refresh', expiresIn: 3600 }),
+      validateToken: async () => ({ clientId: 'client-123', userId: 'broadcaster-1', scopes: ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat'] }),
+      persistTokens,
+    })).rejects.toMatchObject({ code: 'TWITCH_AUTHORIZATION_MISMATCH' });
+    expect(persistTokens).not.toHaveBeenCalled();
+  });
+
   it('validates token identity/scopes and persists secrets only after a matching OAuth callback', async () => {
     const stateStore = createOAuthStateStore({ stateFactory: () => 'state-flow' });
     const { state } = stateStore.issue({

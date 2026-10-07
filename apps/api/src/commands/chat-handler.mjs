@@ -1,6 +1,6 @@
 import { authorizeCommand } from './authorization.mjs';
 import { parseChatCommand } from './parser.mjs';
-import { getCommandDefinition } from './catalog.mjs';
+import { getCommandDefinition, resolveCommandPolicy } from './catalog.mjs';
 import { renderGlobalCommandHelp, renderPingResponse, renderQueueCommandHelp } from './help.mjs';
 import { translateCatalog, translatePluralCatalog } from '../../../shared/browser/translate-catalog.mjs';
 
@@ -89,6 +89,9 @@ const CHAT_FALLBACKS = Object.freeze({
   'chat.queue.open_done': 'Fila aberta e recompensa confirmada.',
   'chat.queue.close_done': 'Fila fechada e recompensa pausada.',
   'chat.commands.validation_failed': 'Não foi possível validar os comandos agora. Tente novamente em instantes.',
+  'chat.follower.required': 'Este comando está disponível para seguidores do canal.',
+  'chat.follower.unknown': 'Não foi possível verificar se você segue o canal. Tente novamente em instantes.',
+  'chat.follower.help_unknown': 'Não foi possível verificar se você segue o canal agora; comandos exclusivos para seguidores podem não aparecer.',
   'chat.command.validation_failed': 'Não foi possível validar este comando. Tente novamente em instantes.',
   'chat.command.failed': 'Não foi possível concluir o comando. Consulte o painel local.',
 });
@@ -133,6 +136,23 @@ export function createChatCommandHandler({ repository, domainService = repositor
     return body;
   }
 
+  async function followerNotice(message, text) {
+    if (typeof repository.claimChatCommand === 'function') {
+      try {
+        const claim = await repository.claimChatCommand({ messageId: message.id, channelId: message.channelId, userId: message.userId, role: 'viewer' });
+        if (claim.status !== 'accepted') return;
+      } catch { onError('chat_command_claim_failed'); return; }
+    } else {
+      const now = Date.now();
+      const key = `${message.channelId}:${message.userId}`;
+      const previous = cooldowns.get(key) ?? 0;
+      if (seenMessages.has(message.id) || now - previous < cooldownMs) return;
+      seenMessages.set(message.id, now);
+      cooldowns.set(key, now);
+    }
+    return reply(message, text);
+  }
+
   async function queueAction(message, parsed, authorized, policies, t, tPlural, locale) {
     const queue = await repository.getQueueByKey(parsed.queueKey);
     if (!queue) return reply(message, t('chat.queue.not_found'));
@@ -148,7 +168,8 @@ export function createChatCommandHandler({ repository, domainService = repositor
         return reply(message, `${queue.title}${queueOpenSuffix(queue, t)} · ${t('chat.queue.waiting')}: ${waiting.join(', ') || t('chat.queue.no_one')}${rest ? t('chat.queue.more', { count: rest }) : ''}${called.length ? ` · ${t('chat.queue.called')}: ${called.join(', ')}` : ''}${playing.length ? ` · ${t('chat.queue.in_progress')}: ${playing.join(', ')}` : ''}`);
       }
       case 'comandos': {
-        return reply(message, renderQueueCommandHelp({ queueSlug: queue.slug, roles: authorized.roles, policies, allowVipManagement, locale, translate: t }));
+        const help = renderQueueCommandHelp({ queueSlug: queue.slug, roles: authorized.roles, policies, allowVipManagement, locale, translate: t });
+        return reply(message, authorized.followerVerificationUnknown ? `${help} ${t('chat.follower.help_unknown')}` : help);
       }
       case 'posicao': {
         const entry = await ownEntry();
@@ -286,7 +307,28 @@ export function createChatCommandHandler({ repository, domainService = repositor
         return reply(message, t('chat.commands.validation_failed'));
       }
     }
-    const authorized = authorizeCommand({ broadcasterId, message, command: parsed, allowVipManagement, policies });
+    let authorized = authorizeCommand({ broadcasterId, message, command: parsed, allowVipManagement, policies });
+    const isHelpRequest = (parsed.scope === 'queue' && parsed.command === 'comandos')
+      || (parsed.scope === 'global' && parsed.rootAction === 'commands');
+    const policy = resolveCommandPolicy(definition, policies);
+    const needsFollowerCheck = policy.mode === 'minimum_role' && policy.minimumRole === 'follower';
+    const helpHasFollowerCommands = isHelpRequest && Object.values(policies).some((candidate) => candidate?.mode === 'minimum_role' && candidate.minimumRole === 'follower');
+    const hasHigherRole = authorized.roles.some((role) => ['streamer', 'moderator', 'subscriber'].includes(role)
+      || (role === 'vip' && allowVipManagement));
+    if (!hasHigherRole && (needsFollowerCheck || helpHasFollowerCommands)) {
+      let followerResult = 'unknown';
+      try { followerResult = await twitch.checkFollower?.(message.userId) ?? 'unknown'; } catch { /* Fail closed if Twitch cannot verify the viewer. */ }
+      const followerStatus = ['follower', 'not_follower', 'unknown'].includes(followerResult) ? followerResult : 'unknown';
+      if (followerStatus === 'follower') {
+        authorized = authorizeCommand({ broadcasterId, message, command: parsed, allowVipManagement, policies, isFollower: true });
+      } else if (helpHasFollowerCommands && followerStatus === 'unknown') {
+        authorized.followerVerificationUnknown = true;
+      } else if (needsFollowerCheck && followerStatus === 'unknown') {
+        return followerNotice(message, t('chat.follower.unknown'));
+      } else if (needsFollowerCheck) {
+        return followerNotice(message, t('chat.follower.required'));
+      }
+    }
     if (!authorized.allowed) return;
     const cooldownExempt = parsed.scope === 'global' && parsed.rootAction === 'account_read';
     if (typeof repository.claimChatCommand === 'function') {
@@ -308,7 +350,7 @@ export function createChatCommandHandler({ repository, domainService = repositor
       if (seenMessages.has(message.id)) return;
       seenMessages.set(message.id, now);
       for (const [id, stamp] of seenMessages) if (now - stamp > 60 * 60 * 1000) seenMessages.delete(id);
-      if (authorized.role === 'viewer' && !cooldownExempt) {
+      if (!['moderator', 'streamer'].includes(authorized.role) && !cooldownExempt) {
         const key = `${message.channelId}:${message.userId}`;
         const previous = cooldowns.get(key) ?? 0;
         if (now - previous < cooldownMs) return;
@@ -340,7 +382,8 @@ export function createChatCommandHandler({ repository, domainService = repositor
         return reply(message, renderPingResponse({ productVersion, twitchHealth: getTwitchHealth(), translate: t }));
       }
       if (parsed.command === 'queue' && parsed.rootAction === 'commands') {
-        return reply(message, renderGlobalCommandHelp({ roles: authorized.roles, locale: productLocale, policies, allowVipManagement, translate: t }));
+        const help = renderGlobalCommandHelp({ roles: authorized.roles, locale: productLocale, policies, allowVipManagement, translate: t });
+        return reply(message, authorized.followerVerificationUnknown ? `${help} ${t('chat.follower.help_unknown')}` : help);
       }
     } catch {
       onError('chat_command_failed');
