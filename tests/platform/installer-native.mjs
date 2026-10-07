@@ -39,7 +39,7 @@ try {
     QUEUEBOT_TEST_MODE: '1',
   };
   const result = platform === 'windows'
-    ? spawnSync('cmd.exe', ['/d', '/s', '/c', `"${artifact}"`], { input: '2\r\n1\r\n3100\r\n0\r\n', encoding: 'utf8', env, timeout: 30_000 })
+    ? spawnSync('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', '& $env:QUEUEBOT_PREBUILT_INSTALLER'], { input: '2\r\n1\r\n3100\r\n0\r\n', encoding: 'utf8', env: { ...env, QUEUEBOT_PREBUILT_INSTALLER: artifact }, timeout: 30_000 })
     : spawnSync(artifact, [], { input: '2\n1\n3100\n0\n', encoding: 'utf8', env, timeout: 30_000 });
   if (result.status !== 0) throw new Error(`Native installer failed (${result.status}):\n${result.stdout}\n${result.stderr}`);
   const config = await readFile(join(installHome, '.env'), 'utf8');
