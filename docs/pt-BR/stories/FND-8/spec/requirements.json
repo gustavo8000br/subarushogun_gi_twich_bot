@@ -1,0 +1,477 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "storyId": "FND-8",
+  "gatheredAt": "2026-10-06T21:04:24Z",
+  "source": "existing",
+  "gatheredBy": "@aiox-master (coordenação do Spec Pipeline), revisado por @aiox-pm e @aiox-architect, com decisões do proprietário do produto",
+  "elicitationVersion": "2.0",
+  "sourceReferences": [
+    "Issue GitHub #18",
+    "Decisões do proprietário na conversa em 2026-10-06",
+    "README, catálogo de comandos, contratos de widget OBS, scripts Compose e constituição do projeto"
+  ],
+  "functional": [
+    {
+      "id": "FR-1",
+      "priority": "P0",
+      "description": "Usar um único locale de produto por instalação, selecionado na primeira instalação, persistido, preservado em reinício/atualização e alterável pelo streamer no painel protegido.",
+      "rationale": "Manter as superfícies do produto consistentes e permitir que o operador escolha seu idioma.",
+      "acceptance": [
+        "AC-1",
+        "AC-2"
+      ]
+    },
+    {
+      "id": "FR-2",
+      "priority": "P0",
+      "description": "Oferecer catálogos completos de primeira parte em pt-BR, en e es, com pt-BR como padrão seguro e idioma-fonte.",
+      "rationale": "Esses são os idiomas iniciais escolhidos pelo proprietário do produto.",
+      "acceptance": [
+        "AC-3",
+        "AC-4"
+      ]
+    },
+    {
+      "id": "FR-3",
+      "priority": "P0",
+      "description": "Localizar textos escritos pelo produto na interface, configuração/callback, comandos/ajuda/respostas do chat, rótulos de produto dos widgets OBS e ferramentas locais de ciclo de vida.",
+      "rationale": "O proprietário ampliou explicitamente a FND-8 além da tradução apenas do frontend.",
+      "acceptance": [
+        "AC-5",
+        "AC-6"
+      ]
+    },
+    {
+      "id": "FR-4",
+      "priority": "P0",
+      "description": "Armazenar traduções em arquivos editáveis pela comunidade, separados por módulo e idioma, com template documentado e validação automatizada.",
+      "rationale": "O proprietário escolheu um catálogo por módulo e idioma para que a comunidade contribua em áreas delimitadas.",
+      "acceptance": [
+        "AC-7",
+        "AC-8"
+      ]
+    },
+    {
+      "id": "FR-5",
+      "priority": "P0",
+      "description": "Resolver IDs estáveis de comandos para a raiz global, sintaxe de subcomando, ajuda e respostas no idioma ativo; usar !fila em pt-BR, !queue em inglês e !cola em espanhol, sem aliases legados.",
+      "rationale": "O proprietário aprovou raízes por idioma e rejeitou explicitamente aliases legados.",
+      "acceptance": [
+        "AC-9",
+        "AC-10"
+      ]
+    },
+    {
+      "id": "FR-6",
+      "priority": "P0",
+      "description": "Mapear identificadores públicos estáveis de status/erro da API a textos localizados sem devolver enums internos, erros de provider, segredos ou detalhes técnicos ao navegador/chat.",
+      "rationale": "Preservar a fronteira de segurança existente ao localizar as mensagens visíveis.",
+      "acceptance": [
+        "AC-11",
+        "AC-12"
+      ]
+    },
+    {
+      "id": "FR-7",
+      "priority": "P1",
+      "description": "Aplicar fallback determinístico para pt-BR quando locale for desconhecido ou faltar chave comunitária; exigir catálogos de primeira parte completos antes de publicar.",
+      "rationale": "Nunca mostrar ao streamer/viewer chaves cruas ou identificadores de máquina.",
+      "acceptance": [
+        "AC-13",
+        "AC-14"
+      ]
+    },
+    {
+      "id": "FR-8",
+      "priority": "P1",
+      "description": "Fornecer ferramentas nativas localizadas chamadas subarushogun_twich_bot_setup, subarushogun_twich_bot_update e subarushogun_twich_bot_uninstall, com entrypoints específicos por plataforma, detecção de dependências e comportamento explícito de preservar/apagar dados.",
+      "rationale": "O proprietário pediu nomes internacionais, tratamento de dependências, atualizador e desinstalador.",
+      "acceptance": [
+        "AC-15",
+        "AC-16"
+      ]
+    },
+    {
+      "id": "FR-9",
+      "priority": "P1",
+      "description": "Usar formatação explícita de plurais, datas, horários e números por locale, preservando dados UTC e o limite máximo de mensagens do chat.",
+      "rationale": "Evitar erros de apresentação regional sem alterar contratos persistidos.",
+      "acceptance": [
+        "AC-17"
+      ]
+    },
+    {
+      "id": "FR-10",
+      "priority": "P0",
+      "description": "Preservar conteúdo escrito pelo streamer exatamente como foi inserido ao mudar locale; localizar somente texto próprio do produto. Nunca sobrescrever ou traduzir automaticamente os valores persistidos.",
+      "rationale": "Política aprovada pelo proprietário em 2026-10-06 para prevenir alteração silenciosa do conteúdo.",
+      "acceptance": [
+        "AC-18"
+      ]
+    }
+  ],
+  "nonFunctional": [
+    {
+      "id": "NFR-1",
+      "category": "security",
+      "description": "Strings de catálogo e valores interpolados são sempre renderizados como texto; conteúdo traduzido nunca é executado como HTML, código ou shell.",
+      "metric": "Testes injetam valores tipo HTML/script em UI, chat e widget, sem executar DOM/script."
+    },
+    {
+      "id": "NFR-2",
+      "category": "security",
+      "description": "Texto cru de exceção/provider, credenciais, tokens e enums internos não são expostos por APIs/mensagens localizadas.",
+      "metric": "Testes API/chat/DOM/log verificam ausência de sentinelas de segredo e texto interno de exceção."
+    },
+    {
+      "id": "NFR-3",
+      "category": "reliability",
+      "description": "Locale salvo sobrevive a reinícios do app/PostgreSQL e atualização de imagem; escolha inicial nunca sobrescreve valor existente.",
+      "metric": "Teste de integração PostgreSQL com migrations cobre seed, restart, conflito de default de update e mutação do locale."
+    },
+    {
+      "id": "NFR-4",
+      "category": "usability",
+      "description": "Alterar idioma atualiza texto de produto no painel, chat e OBS sem reiniciar processo da API.",
+      "metric": "Mutação protegida reflete em projeções e tratamento de chat subsequentes sem reinício."
+    },
+    {
+      "id": "NFR-5",
+      "category": "reliability",
+      "description": "Catálogos de primeira parte validam paridade de chaves, placeholders e plurais; locale comunitário incompleto usa fallback pt-BR.",
+      "metric": "Validação CI aponta locale/módulo/chave exatos e fallback runtime nunca retorna chave crua."
+    },
+    {
+      "id": "NFR-6",
+      "category": "usability",
+      "description": "Ferramentas locais identificam Docker/Compose ausentes e apresentam próximo passo suportado e compreensível no idioma selecionado.",
+      "metric": "Contratos por plataforma cobrem dependência presente/ausente, recusa de instalação e decisão de preservar/apagar."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "CON-1",
+      "type": "technical",
+      "description": "Código da aplicação continua JavaScript ESM com JSDoc; frontend segue HTML/CSS/JavaScript vanilla sem TypeScript, framework, transpiler ou bundler."
+    },
+    {
+      "id": "CON-2",
+      "type": "technical",
+      "description": "Runtime continua local-first com Fastify, PostgreSQL/Prisma e Docker Compose; não introduzir serviço hospedado de tradução/localização/sincronização."
+    },
+    {
+      "id": "CON-3",
+      "type": "product",
+      "description": "Uma instalação tem um único locale; o instalador o seleciona inicialmente e o streamer pode alterá-lo no painel."
+    },
+    {
+      "id": "CON-4",
+      "type": "product",
+      "description": "Idiomas iniciais de primeira parte: pt-BR, inglês e espanhol; pt-BR é idioma-fonte e padrão."
+    },
+    {
+      "id": "CON-5",
+      "type": "product",
+      "description": "Arquivos de catálogo são separados por módulo e locale; raízes são !fila, !queue e !cola, sem aliases entre idiomas ou legados."
+    },
+    {
+      "id": "CON-6",
+      "type": "security",
+      "description": "Identificadores técnicos, schema, logs e contrato da API permanecem estáveis; catálogos contêm texto, não templates executáveis ou erros crus do backend."
+    },
+    {
+      "id": "CON-7",
+      "type": "product",
+      "description": "As entradas de instalar/atualizar/desinstalar podem ser consolidadas pela OPS-5 planejada separadamente; os nomes aprovados das ações são setup, update e uninstall."
+    },
+    {
+      "id": "CON-8",
+      "type": "technical",
+      "description": "Scripts do host não presumem Node.js, Python, jq, API em execução ou navegador antes de verificar/instalar Docker/Compose."
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "ASM-1",
+      "description": "Uma instalação tem um locale efetivo de cada vez; locale por viewer/fila/navegador fica fora do escopo.",
+      "risk": "low",
+      "validation_needed": false
+    },
+    {
+      "id": "ASM-2",
+      "description": "A configuração JSON existente em Setting pode persistir product_locale; a projeção local do host é um arquivo recuperável separado.",
+      "risk": "medium",
+      "validation_needed": true
+    },
+    {
+      "id": "ASM-3",
+      "description": "pt-BR é o catálogo-fonte completo; traduções en/es serão mantidas com a feature antes da publicação.",
+      "risk": "medium",
+      "validation_needed": true
+    },
+    {
+      "id": "ASM-4",
+      "description": "Valores escritos pelo streamer são preservados literalmente ao mudar locale; política aprovada pelo proprietário.",
+      "risk": "medium",
+      "validation_needed": true
+    },
+    {
+      "id": "ASM-5",
+      "description": "OPS-5 trata da consolidação dos entrypoints multiplataforma e empacotamento Actions; FND-8 localiza os textos das ferramentas e usa os nomes aprovados setup/update/uninstall.",
+      "risk": "medium",
+      "validation_needed": true
+    }
+  ],
+  "domainModel": [
+    {
+      "entity": "ProductLocale",
+      "description": "Código de locale validado, salvo como configuração não secreta de instalação com revisão/auditoria.",
+      "relationships": [
+        "Uma instalação possui um locale efetivo."
+      ]
+    },
+    {
+      "entity": "TranslationCatalog",
+      "description": "Recurso local versionado TSV UTF-8 por módulo/idioma, com texto literal e placeholders allowlistados; o contrato ainda precisa de testes multiplataforma.",
+      "relationships": [
+        "Um locale possui um catálogo por módulo suportado."
+      ]
+    },
+    {
+      "entity": "CommandDefinition",
+      "description": "ID interno estável e política de autorização mapeados à sintaxe e ajuda por locale.",
+      "relationships": [
+        "Um ID tem apresentação localizada em cada locale de primeira parte."
+      ]
+    },
+    {
+      "entity": "OperatorAuthoredText",
+      "description": "Conteúdo de fila/reward/template/widget escrito pelo streamer é distinto do catálogo e permanece literal ao mudar locale.",
+      "relationships": [
+        "Valores persistidos nunca são traduzidos nem reescritos automaticamente."
+      ]
+    }
+  ],
+  "interactions": [
+    {
+      "id": "INT-1",
+      "trigger": "Primeira instalação local",
+      "flow": [
+        "Exibir seleção de idioma no instalador do host",
+        "Persistir/encaminhar locale inicial validado",
+        "Inicializar Settings somente se não houver locale",
+        "Abrir painel no locale persistido"
+      ],
+      "states": {
+        "loading": "Mostrar progresso localizado",
+        "error": "Mostrar falha localizada de dependência/bootstrap e próxima ação suportada",
+        "empty": "Instalação nova começa no idioma escolhido ou fallback pt-BR"
+      }
+    },
+    {
+      "id": "INT-2",
+      "trigger": "Streamer altera idioma do produto",
+      "flow": [
+        "Abrir configuração protegida no painel",
+        "Escolher pt-BR/en/es ou locale comunitário aprovado",
+        "Validar locale e revisão esperada",
+        "Persistir e auditar",
+        "Atualizar textos de produto em projeções seguintes do painel/chat/OBS"
+      ],
+      "states": {
+        "loading": "Mostrar estado de salvamento localizado",
+        "error": "Manter locale anterior e mostrar erro seguro localizado",
+        "empty": "Não se aplica"
+      }
+    },
+    {
+      "id": "INT-3",
+      "trigger": "Contribuidor adiciona tradução",
+      "flow": [
+        "Copiar template de módulo/locale",
+        "Traduzir apenas chaves e placeholders documentados",
+        "Executar validador local",
+        "Abrir revisão com relatório de completude"
+      ],
+      "states": {
+        "loading": "Validador mostra progresso por módulo/chave",
+        "error": "Identificar locale/chave/placeholders inválidos sem executar catálogo",
+        "empty": "Locale incompleto fica indisponível e runtime usa fallback pt-BR"
+      }
+    }
+  ],
+  "edgeCases": [
+    {
+      "id": "EC-1",
+      "scenario": "Locale salvo está ausente, malformado ou sem suporte na inicialização.",
+      "handling": "Usar pt-BR, persistir valor seguro normalizado quando possível e não expor string bruta fornecida.",
+      "severity": "high"
+    },
+    {
+      "id": "EC-2",
+      "scenario": "Catálogo comunitário está incompleto ou com placeholders/plurais divergentes.",
+      "handling": "Validador local/CI aponta módulo e chave; locale não fica selecionável até aprovação; chave faltante usa fallback pt-BR.",
+      "severity": "high"
+    },
+    {
+      "id": "EC-3",
+      "scenario": "Locale muda enquanto chat ou OBS tem requests em andamento.",
+      "handling": "Cada operação usa um snapshot único de locale; operações seguintes usam valor persistido novo; não misturar idiomas na resposta.",
+      "severity": "medium"
+    },
+    {
+      "id": "EC-4",
+      "scenario": "Conteúdo traduzido/interpolado contém HTML, shell, tokens de comando, controles ou resposta de chat acima do limite.",
+      "handling": "Tratar como texto simples, rejeitar estrutura proibida, limitar argumentos e aplicar limite de chat sem dividir mensagem em spam.",
+      "severity": "high"
+    },
+    {
+      "id": "EC-5",
+      "scenario": "Ferramenta local roda antes da API/banco ou depois que containers foram parados.",
+      "handling": "Ler locale de uma fonte limitada utilizável pelo host e usar fallback pt-BR; nunca exigir credenciais ou imprimir segredo de banco.",
+      "severity": "high"
+    },
+    {
+      "id": "EC-6",
+      "scenario": "Streamer troca idioma com texto personalizado de fila/reward/widget salvo.",
+      "handling": "Preservar o texto armazenado exatamente como inserido; localizar somente rótulos do produto. Sem tradução/reescrita automática.",
+      "severity": "high"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "Locale",
+      "definition": "Identificador de idioma e formatação regional como pt-BR, en ou es; um locale aplica-se à instalação local inteira.",
+      "synonyms": [],
+      "avoid": [
+        "idioma do navegador como fonte da verdade"
+      ]
+    },
+    {
+      "term": "Texto do produto",
+      "definition": "Texto produzido pelo projeto, incluindo rótulos do painel, ajuda/respostas, rótulos de widget gerados e prompts das ferramentas locais.",
+      "synonyms": [
+        "texto da interface"
+      ],
+      "avoid": [
+        "conteúdo escrito pelo operador"
+      ]
+    },
+    {
+      "term": "Conteúdo escrito pelo operador",
+      "definition": "Nomes/descrições de fila/reward, templates e texto fixo de widget escritos pelo streamer; distintos do catálogo e preservados exatamente como inseridos ao mudar locale.",
+      "synonyms": [],
+      "avoid": [
+        "catálogo de tradução"
+      ]
+    },
+    {
+      "term": "ID de comando",
+      "definition": "Identificador interno estável usado em parser/autorização, independente da sintaxe localizada mostrada ao usuário.",
+      "synonyms": [],
+      "avoid": [
+        "chave de permissão traduzida"
+      ]
+    }
+  ],
+  "openQuestions": [
+    {
+      "id": "OQ-1",
+      "question": "Qual processo de validação/teste comprova o contrato escolhido: PostgreSQL como autoridade e projeção local atomicamente atualizada, revisionada, recuperável e legível offline pelas ferramentas do host?",
+      "blocking": true,
+      "assignedTo": "@architect",
+      "status": "arquitetura escolhida na spec v3; testes de crash, falha de escrita, corrupção, stale/offline, recuperação e Compose ainda bloqueiam o gate de implementação"
+    },
+    {
+      "id": "OQ-2",
+      "question": "Quais fluxos suportados de gerenciadores de pacote podem ser oferecidos para instalar Docker/Compose em Windows, Ubuntu/Linux e macOS, e quando voltar para instruções manuais?",
+      "blocking": false,
+      "assignedTo": "@devops",
+      "status": "verificar por plataforma durante implementação; nunca elevar/instalar silenciosamente"
+    },
+    {
+      "id": "OQ-3",
+      "question": "Como validar o contrato escolhido de catálogos TSV UTF-8 sem BOM, placeholders allowlistados e seleção plural entre browser ESM, Node ESM e ferramentas locais sem runtime adicional pré-Docker?",
+      "blocking": true,
+      "assignedTo": "@architect",
+      "status": "contrato arquitetural escolhido na spec v3; parser/encoding/paridade segura requerem testes de contrato antes de fechar o gate"
+    },
+    {
+      "id": "OQ-4",
+      "question": "O conteúdo escrito pelo streamer deve continuar apresentado exatamente como foi escrito após trocar locale, ou algum campo exige locale próprio? Nunca se deve sobrescrever dados persistidos sem consentimento.",
+      "blocking": false,
+      "assignedTo": "Product owner",
+      "status": "resolved by product owner on 2026-10-06: preserve authored text exactly; localize only product-owned copy"
+    },
+    {
+      "id": "OQ-5",
+      "question": "Como resolver slugs/aliases existentes que colidam com as raízes globais fila/queue/cola? Recomendação: detectar e bloquear somente a ativação da raiz em conflito até o streamer renomear explicitamente a chave pelo painel, sem renomeação automática.",
+      "blocking": false,
+      "assignedTo": "Product owner / @aiox-po",
+      "status": "resolved by product owner on 2026-10-06: block only the conflicting root and require explicit panel rename; never rename automatically"
+    },
+    {
+      "id": "OQ-6",
+      "question": "Confirmar se a convenção sugerida `subarushogun_twich_bot_*` deve ser mantida e definir os sufixos genéricos dos entrypoints locais.",
+      "blocking": false,
+      "assignedTo": "Product owner",
+      "status": "resolved by product owner on 2026-10-06: setup, update, uninstall"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-1",
+      "decision": "O locale escolhido na instalação inicializa um único locale persistente e pode depois ser alterado pelo streamer no painel.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-2",
+      "decision": "Traduções comunitárias são separadas em um arquivo por módulo e locale.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-3",
+      "decision": "Raízes globais são !fila (pt-BR), !queue (en), !cola (es); não manter aliases legados ou entre idiomas.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-4",
+      "decision": "FND-8 cobre superfícies do produto descritas na spec, incluindo chat e ferramentas locais, e não apenas frontend.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-5",
+      "decision": "Preservar valores escritos pelo streamer exatamente como foram inseridos e localizar somente o conteúdo do produto; nunca traduzir ou reescrever valores salvos automaticamente.",
+      "owner": "Proprietário do produto",
+      "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-6",
+      "decision": "Usar catálogos TSV UTF-8 literais locais, resolver estreito e Intl nativo; não adicionar i18next sem necessidade demonstrada na integração browser/scripts.",
+      "owner": "Recomendação de @architect",
+      "status": "selecionado por revisão de arquitetura na spec v3; validar por testes de contrato"
+    },
+    {
+      "id": "D-7",
+      "decision": "Os sufixos genéricos das ferramentas locais são setup, update e uninstall sob subarushogun_twich_bot_*; extensões/entrypoints podem variar por plataforma.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-8",
+      "decision": "Preservar nomes, descrições, templates e textos fixos de widget escritos pelo streamer exatamente como foram inseridos ao mudar o locale; localizar somente textos próprios do produto. Nunca traduzir ou reescrever valores armazenados automaticamente.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-9",
+      "decision": "Quando slug/alias existente de fila colidir com uma raiz global reservada, preservar as chaves armazenadas, bloquear somente a raiz conflitante e exigir renomeação explícita pelo operador no painel. Nunca renomear automaticamente.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    }
+  ]
+}

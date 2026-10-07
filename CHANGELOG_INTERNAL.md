@@ -2,6 +2,10 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.5.2-alpha
+
+- Complete and publish the bilingual FND-8 v3 planning baseline: research, requirements, architecture, complexity, QA review record, acceptance matrix, and TDD implementation sequence. Planning is complete; implementation and final independent QA remain in progress.
+
 ## v0.5.1-alpha
 
 - Normalize the macOS first-run sequence number across the bilingual READMEs. Explicitly pass `.Path` from PowerShell `Resolve-Path` to `Import-Certificate`, and add a contract test for the platform instructions. Red reproduced the stale pt-BR step number; Green passed the focused contract suite (6/6). The Windows and macOS commands remain documented as untested on their native hosts.

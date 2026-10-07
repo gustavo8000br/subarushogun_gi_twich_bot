@@ -1,0 +1,108 @@
+{
+  "storyId": "FND-8",
+  "plannedAt": "2026-10-06T21:09:30Z",
+  "plannedBy": "@aiox-master após revisões de PM/arquitetura e crítica QA independente",
+  "specVersion": 3,
+  "complexity": "COMPLEX",
+  "planningStatus": "PLANNING_BASELINE_COMPLETE_IMPLEMENTATION_IN_PROGRESS",
+  "implementationStarted": true,
+  "phases": [
+    {
+      "id": "P0",
+      "name": "TDD locale/catalog contracts",
+      "goal": "Executar Red→Green→Refactor para fundações independentes de locale/catálogo: projeção com PostgreSQL autoritativo, parser TSV UTF-8 multiplataforma, mensagens localizadas seguras e validação de catálogos.",
+      "status": "in_progress",
+      "gate": "Cada comportamento começa com teste contratual/de regressão falhando. As decisões aprovadas sobre texto autoral, colisões de raiz e nomes das ferramentas não bloqueiam mais as fundações independentes; os comportamentos dependentes ainda exigem cobertura TDD própria.",
+      "likelyFiles": [
+        "docs/stories/FND-8/spec/spec.md",
+        "docs/stories/FND-8/spec/plan.json",
+        "docs/stories/FND-8/story.md"
+      ]
+    },
+    {
+      "id": "P1",
+      "name": "Fundação de catálogos e locale",
+      "goal": "Introduzir catálogos compartilhados modulares pt-BR/en/es, helper de tradução estreito, validador de locale e formatação Intl nativa explícita com incrementos test-first.",
+      "status": "in_progress",
+      "verification": [
+        "matriz unitária/contratual de catálogos",
+        "validador de paridade de chaves/placeholders/plurais",
+        "testes de markup inseguro e fallback de locale desconhecido"
+      ]
+    },
+    {
+      "id": "P2",
+      "name": "Idioma persistido e superfícies de configuração/painel",
+      "goal": "Inicializar somente instalação nova, preservar idioma salvo em reinício/atualização e permitir mudança auditada/protegida pelo painel sem reiniciar processo.",
+      "status": "in_progress",
+      "verification": [
+        "testes de migration/integração com PostgreSQL real",
+        "testes de sessão/CSRF/allowlist API",
+        "testes de renderização e persistência no navegador"
+      ]
+    },
+    {
+      "id": "P3",
+      "name": "Raízes, comandos e respostas do chat",
+      "goal": "Usar somente a raiz ativa !fila, !queue ou !cola; localizar respostas/ajuda; detectar colisão de slug/alias legado e bloquear ativação da raiz em conflito sem renomear automaticamente até concluir resolução de upgrade aprovada pelo proprietário.",
+      "status": "not_started",
+      "verification": [
+        "matriz TDD de parser/autorização",
+        "todas as raízes/aliases proibidos/chaves de fila reservadas",
+        "limite 500 caracteres e testes de vazamento de segredo/erro"
+      ]
+    },
+    {
+      "id": "P4",
+      "name": "OBS e textos de widget do produto",
+      "goal": "Localizar rótulos e textos de fallback dos widgets OBS pertencentes ao produto; preservar texto autoral do streamer.",
+      "status": "not_started",
+      "verification": [
+        "testes de renderer e projeção",
+        "troca de locale com projeção OBS ativa",
+        "ausência de vazamento UID/segredos"
+      ]
+    },
+    {
+      "id": "P5",
+      "name": "Ferramentas locais de instalação/atualização/remoção",
+      "goal": "Localizar textos das ferramentas de ciclo de vida e nomes aprovados das ações setup/update/uninstall. Coordenar consolidação do instalador e empacotamento por plataforma com a story de planejamento OPS-5; não duplicar sua arquitetura.",
+      "status": "not_started",
+      "verification": [
+        "testes de contrato shell Linux, batch/PowerShell Windows e shell macOS quando suportado",
+        "detecção de dependência e sem elevação silenciosa",
+        "ponte offline e confirmação digitada de exclusão"
+      ]
+    },
+    {
+      "id": "P6",
+      "name": "Fluxo comunitário e gates de qualidade",
+      "goal": "Publicar templates por módulo/idioma e guia de contribuição, automatizar validação, completar docs/changelogs bilíngues, executar gates e aceite de plataforma e obter QA independente.",
+      "status": "not_started",
+      "verification": [
+        "matriz de validação de catálogos comunitários",
+        "gates completos do repositório",
+        "aceite manual nativo das ferramentas",
+        "revisão de paridade EN/pt-BR"
+      ]
+    }
+  ],
+  "workflowNotes": [
+    "Todo incremento de comportamento segue Red/Green/Refactor; planejamento/documentação não inventam testes que não foram executados.",
+    "Usar migrations PostgreSQL reais para afirmar comportamento de persistência/transação; não substituir por mocks Prisma.",
+    "Ferramentas de tradução são locais; não se presume serviço hospedado nem tradução gerada automaticamente.",
+    "Atualizar documentação bilíngue e changelogs concisos para usuário/técnico no mesmo PR de release."
+  ],
+  "versioning": {
+    "planningChange": "PATCH somente documental, estágio alpha mantido",
+    "ownerIntentForFND8Implementation": "v1.1.0-HHHHHHH-beta",
+    "promotionAuthorized": false,
+    "releaseOrTagAuthorized": false
+  },
+  "nextSteps": [
+    "Continuar a implementação com Red→Green→Refactor para cada comportamento e registrar as evidências exatas no histórico bilíngue da story.",
+    "Adicionar testes para a preservação aprovada de textos autorais e para colisões de raízes reservadas antes de implementar esses comportamentos dependentes.",
+    "Manter localização das ferramentas na FND-8 e coordenar consolidação/artefatos CI com OPS-5.",
+    "Solicitar acompanhamento independente de QA quando os gates de implementação e a aceitação por plataforma estiverem prontos."
+  ]
+}

@@ -2,6 +2,10 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.5.2-alpha
+
+- Conclui e publica o baseline bilíngue de planejamento v3 da FND-8: pesquisa, requisitos, arquitetura, complexidade, registro da revisão QA, matriz de aceite e sequência de implementação TDD. O planejamento está concluído; a implementação e o QA independente final seguem em andamento.
+
 ## v0.5.1-alpha
 
 - Corrige a numeração da primeira execução no macOS para ficar igual nos READMEs bilíngues. Passa explicitamente `.Path` de `Resolve-Path` no PowerShell para `Import-Certificate` e adiciona um teste de contrato das instruções por plataforma. O Red reproduziu o número de etapa pt-BR desatualizado; o Green passou a suíte de contrato focada (6/6). Os comandos de Windows e macOS continuam marcados como não testados nos sistemas nativos.

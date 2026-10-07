@@ -1,0 +1,127 @@
+{
+  "storyId": "FND-8",
+  "critiquedAt": "2026-10-06",
+  "critiquedBy": "Quinn (revisão QA independente do Spec Pipeline AIOX)",
+  "specVersion": 3,
+  "verdict": "CONCERNS",
+  "verdictReason": "A reavaliação independente da spec v3 confirma que os contratos técnicos antes ausentes agora estão definidos; ainda há três pontos editoriais/de sequenciamento. É seguro iniciar incrementos TDD isolados; comportamentos dependentes de decisões do proprietário permanecem adiados. Nenhuma nova nota foi atribuída.",
+  "averageScore": null,
+  "dimensions": {
+    "accuracy": null,
+    "completeness": null,
+    "consistency": null,
+    "feasibility": null,
+    "alignment": null
+  },
+  "issues": [
+    {
+      "severity": "MEDIUM",
+      "category": "consistency",
+      "description": "A referência de FR-3 à seção do contrato TSV está incorreta/inconsistente; o catálogo corresponde ao item 3 da arquitetura, não a uma subseção 3.2/3.3.",
+      "location": "spec.md#2-FR-3",
+      "mitigation": "Referenciar diretamente o item da arquitetura, sem número de subseção inexistente."
+    },
+    {
+      "severity": "LOW",
+      "category": "consistency",
+      "description": "FR-8 descreve a família de nomes das ferramentas como requisito já definido enquanto OQ-6 e story a mantêm pendente.",
+      "location": "requirements.json#FR-8,OQ-6",
+      "mitigation": "Manter a convenção como sugestão pendente de decisão do proprietário."
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "consistency",
+      "description": "O plano exigia que testes de contrato passassem antes de iniciar implementação, invertendo o ciclo TDD obrigatório.",
+      "location": "plan.json#P0",
+      "mitigation": "Executar primeiro um teste contratual falhando, depois implementação e refatoração; decisões do proprietário bloqueiam somente comportamentos dependentes."
+    }
+  ],
+  "blockingIssues": [
+    "Decisões do proprietário OQ-4/OQ-5/OQ-6 bloqueiam somente comportamentos afetados.",
+    "QA editorial/planejamento da spec v3 deve ser encerrado antes do aceite total da story; incrementos técnicos test-first independentes podem iniciar."
+  ],
+  "securityNote": "Nenhuma implementação ou segurança em runtime foi certificada. Interpolação de catálogo, mapeamento de erro API, scripts locais e resolução de colisão exigem testes TDD/segurança durante implementação.",
+  "nextAction": "Continuar implementação test-first e solicitar reavaliação QA independente após verificações atuais de consistência da spec.",
+  "limitations": [
+    "A nota 8,1/10 pertence apenas à avaliação anterior da spec v1; esta reavaliação v3 não atribuiu nota.",
+    "Nenhum comportamento runtime da FND-8 foi validado ainda; a revisão apenas autoriza começar incrementos TDD isolados.",
+    "Decisões de produto OQ-4/OQ-5/OQ-6 seguem pendentes e seus comportamentos dependentes não podem ser implementados."
+  ],
+  "reviewHistory": [
+    {
+      "critiquedAt": "2026-10-06T21:09:30Z",
+      "critiquedBy": "Quinn (revisão QA independente do Spec Pipeline AIOX)",
+      "specVersion": 2,
+      "verdict": "CONCERNS",
+      "verdictReason": "A revisora independente atribuiu 8,1/10 ao rascunho e identificou contratos críticos ainda não resolvidos. Os cinco achados estão registrados como bloqueios ou decisões explícitas; a implementação não foi aprovada.",
+      "averageScore": 8.1,
+      "issues": [
+        {
+          "severity": "HIGH",
+          "category": "feasibility",
+          "description": "As ferramentas locais precisam de contrato concreto para origem/consistência do locale no bootstrap, autoridade do banco, atualização atômica do painel, uso offline, falha de escrita e recuperação.",
+          "location": "spec.md#3.5,#7; requirements.json#OQ-1; plan.json#P0",
+          "mitigation": "Manter a implementação das ferramentas bloqueada até especificar e testar contrato nos estados de falha do host/runtime."
+        },
+        {
+          "severity": "HIGH",
+          "category": "feasibility",
+          "description": "Serialização, encoding, escaping, placeholders e plurais dos catálogos seguem sem resolução entre browser ESM, Node ESM e scripts locais; JSON não deve ser tratado como aprovado.",
+          "location": "spec.md#2-FR-3,#3.2; requirements.json#OQ-3",
+          "mitigation": "Escolher formato compartilhado sem nova dependência de runtime no host antes do Docker, depois validar paridade e interpolação segura."
+        },
+        {
+          "severity": "MEDIUM",
+          "category": "consistency",
+          "description": "Preservação de texto escrito pelo streamer aparecia como aprovada em alguns pontos e recomendada em outros.",
+          "location": "spec.md#2,#5; requirements.json#FR-10,D-5,OQ-4",
+          "mitigation": "Todos os artefatos revisados agora marcam preservação como recomendação e exigem decisão do proprietário antes da implementação."
+        },
+        {
+          "severity": "MEDIUM",
+          "category": "completeness",
+          "description": "Não havia comportamento de upgrade seguro para slugs/aliases existentes em conflito com fila/queue/cola.",
+          "location": "spec.md#2-FR-4,#5,#7; requirements.json#OQ-5",
+          "mitigation": "Registrar detectar/bloquear somente raiz conflitante, sem renomeação automática, como proposta pendente de confirmação e exigir teste de upgrade."
+        },
+        {
+          "severity": "LOW",
+          "category": "alignment",
+          "description": "A família sugerida subarushogun_twich_bot_* era descrita como aprovada, embora os nomes exatos fossem apenas proposta.",
+          "location": "spec.md#2-FR-8,#3.5; requirements.json#OQ-6",
+          "mitigation": "Marcar família e sufixos como pendentes de confirmação do proprietário."
+        }
+      ],
+      "blockingIssues": [
+        "Ponte de locale do host e contrato de autoridade/recuperação",
+        "Formato de catálogo entre runtimes e contrato de escaping/plurais",
+        "Decisão do proprietário sobre apresentação de texto personalizado",
+        "Decisão do proprietário sobre colisões existentes com raízes reservadas",
+        "Reavaliação QA independente curta da versão revisada 2"
+      ]
+    }
+  ],
+  "resolvedFindings": [
+    "Contrato arquitetural da projeção PostgreSQL→host agora definido; testes runtime continuam pendentes.",
+    "Formato TSV compartilhado, regras de encoding/placeholder/plural e runtimes-alvo definidos; testes runtime continuam pendentes.",
+    "Política de texto de streamer consistente como recomendação não aprovada.",
+    "Colisão de raiz sem renomeação automática está descrita como proposta pendente de decisão.",
+    "Convenção de ferramentas descrita como proposta pendente.",
+    "Paridade de pesquisa, story e plano EN/pt-BR corrigida."
+  ],
+  "postReviewUpdates": {
+    "recordedAt": "2026-10-06",
+    "note": "Este campo registra alterações posteriores à crítica v3; não altera o parecer QA histórico nem declara nova nota.",
+    "ownerDecisionsResolved": [
+      "OQ-4 authored-text preservation",
+      "OQ-5 reserved-root collision handling",
+      "OQ-6 setup/update/uninstall names"
+    ],
+    "editorialFindingsStatus": "Os três achados editoriais foram corrigidos nos artefatos bilíngues; a reavaliação independente ainda está pendente.",
+    "runtimeEvidenceAdded": [
+      "setup localized status/messages: focused 39/39 tests",
+      "eligible channel setup summary: included in focused 39/39 tests",
+      "TSV parser contract: focused 9/9 tests"
+    ]
+  }
+}

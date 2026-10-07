@@ -1,0 +1,127 @@
+{
+  "storyId": "FND-8",
+  "critiquedAt": "2026-10-06",
+  "critiquedBy": "Quinn (independent AIOX QA Spec Pipeline review)",
+  "specVersion": 3,
+  "verdict": "CONCERNS",
+  "verdictReason": "The independent spec v3 re-review confirms the previously missing technical contracts are now defined; three editorial/sequencing issues remain. It is safe to start isolated TDD increments; behavior dependent on owner decisions remains deferred. No new score was assigned.",
+  "averageScore": null,
+  "dimensions": {
+    "accuracy": null,
+    "completeness": null,
+    "consistency": null,
+    "feasibility": null,
+    "alignment": null
+  },
+  "issues": [
+    {
+      "severity": "MEDIUM",
+      "category": "consistency",
+      "description": "FR-3 points to an incorrect/inconsistent section for the TSV contract; the catalog is architecture item 3, not a numbered subsection 3.2/3.3.",
+      "location": "spec.md#2-FR-3",
+      "mitigation": "Refer to the architecture item directly rather than a nonexistent subsection number."
+    },
+    {
+      "severity": "LOW",
+      "category": "consistency",
+      "description": "FR-8 describes the lifecycle naming family as already defined while OQ-6 and the story leave it pending.",
+      "location": "requirements.json#FR-8,OQ-6",
+      "mitigation": "Keep the naming convention as a suggestion pending owner decision."
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "consistency",
+      "description": "The plan required contract tests to pass before implementation, reversing the required TDD cycle.",
+      "location": "plan.json#P0",
+      "mitigation": "Run a failing contract test first, then implementation and refactor; owner decisions gate only dependent behavior."
+    }
+  ],
+  "blockingIssues": [
+    "Owner decisions OQ-4/OQ-5/OQ-6 block only their dependent behavior.",
+    "Editorial/planning QA for spec v3 must close before full story acceptance; independent test-first technical increments may begin."
+  ],
+  "securityNote": "No implementation or runtime security behavior is certified. Catalog interpolation, API error mapping, host scripts and collision upgrade handling require TDD/security tests during implementation.",
+  "nextAction": "Continue test-first implementation and request independent QA follow-up after current spec/editorial consistency checks.",
+  "limitations": [
+    "The 8.1/10 score belongs only to the earlier spec v1 review; this v3 re-review assigns no score.",
+    "No FND-8 runtime behavior has been validated; this review only permits starting isolated TDD increments.",
+    "Product decisions OQ-4/OQ-5/OQ-6 remain pending and dependent behavior must not be implemented."
+  ],
+  "reviewHistory": [
+    {
+      "critiquedAt": "2026-10-06T21:09:30Z",
+      "critiquedBy": "Quinn (independent AIOX QA Spec Pipeline review)",
+      "specVersion": 2,
+      "verdict": "CONCERNS",
+      "verdictReason": "The independent reviewer scored the draft 8.1/10 and identified unresolved implementation-critical contracts. The five findings are recorded as blockers or explicit decisions; implementation is not approved.",
+      "averageScore": 8.1,
+      "issues": [
+        {
+          "severity": "HIGH",
+          "category": "feasibility",
+          "description": "Host tools need a concrete locale source/consistency contract for bootstrap, database authority, atomic panel updates, offline use, failed writes and recovery.",
+          "location": "spec.md#3.5,#7; requirements.json#OQ-1; plan.json#P0",
+          "mitigation": "Keep lifecycle-tool implementation blocked until a contract is specified and tested across host/runtime failure states."
+        },
+        {
+          "severity": "HIGH",
+          "category": "feasibility",
+          "description": "Catalog serialization, encoding, escaping, placeholders and plural forms are unresolved across browser ESM, Node ESM and host scripts; JSON must not be treated as approved.",
+          "location": "spec.md#2-FR-3,#3.2; requirements.json#OQ-3",
+          "mitigation": "Choose a shared format that does not add pre-Docker host runtime dependencies, then validate parity and safe interpolation."
+        },
+        {
+          "severity": "MEDIUM",
+          "category": "consistency",
+          "description": "Streamer-authored text preservation was described as approved in some places and recommended in others.",
+          "location": "spec.md#2,#5; requirements.json#FR-10,D-5,OQ-4",
+          "mitigation": "Revised all artifacts to call preservation a recommendation and require owner decision before implementation."
+        },
+        {
+          "severity": "MEDIUM",
+          "category": "completeness",
+          "description": "No safe upgrade behavior was specified for existing queue slugs/aliases colliding with fila/queue/cola.",
+          "location": "spec.md#2-FR-4,#5,#7; requirements.json#OQ-5",
+          "mitigation": "Record detect-and-block-conflicting-root without automatic rename as a proposal pending owner confirmation; require an upgrade test."
+        },
+        {
+          "severity": "LOW",
+          "category": "alignment",
+          "description": "The suggested lifecycle family subarushogun_twich_bot_* was described as approved, although exact naming was only proposed.",
+          "location": "spec.md#2-FR-8,#3.5; requirements.json#OQ-6",
+          "mitigation": "Mark family and suffixes as pending owner confirmation."
+        }
+      ],
+      "blockingIssues": [
+        "Host locale bridge and authority/recovery contract",
+        "Cross-runtime catalog format and escaping/plural contract",
+        "Owner decision on custom-text presentation",
+        "Owner decision on existing reserved-root collisions",
+        "Short independent QA re-review of revised version 2"
+      ]
+    }
+  ],
+  "resolvedFindings": [
+    "PostgreSQL-to-host projection architecture contract is now defined; runtime tests remain pending.",
+    "Shared TSV format, encoding/placeholder/plural rules, and target runtimes are defined; runtime tests remain pending.",
+    "Streamer-authored-text policy is consistently marked as a recommendation, not approval.",
+    "No-automatic-rename root collision handling is marked as a proposal pending owner decision.",
+    "Lifecycle tool naming is marked as a proposal pending owner decision.",
+    "EN/pt-BR research, story, and plan parity has been corrected."
+  ],
+  "postReviewUpdates": {
+    "recordedAt": "2026-10-06",
+    "note": "This field records changes after the v3 critique; it does not change the historical QA verdict or claim a new score.",
+    "ownerDecisionsResolved": [
+      "OQ-4 authored-text preservation",
+      "OQ-5 reserved-root collision handling",
+      "OQ-6 setup/update/uninstall names"
+    ],
+    "editorialFindingsStatus": "The three editorial findings were corrected in the bilingual artifacts; independent follow-up is still pending.",
+    "runtimeEvidenceAdded": [
+      "setup localized status/messages: focused 39/39 tests",
+      "eligible channel setup summary: included in focused 39/39 tests",
+      "TSV parser contract: focused 9/9 tests"
+    ]
+  }
+}
