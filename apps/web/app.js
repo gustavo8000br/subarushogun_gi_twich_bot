@@ -2,7 +2,7 @@ import { createApplicationSetupSubmitHandler } from './application-setup.mjs';
 import { resendCallNotification } from './call-notification-actions.mjs';
 import { twitchEligibilityMessage, twitchStatusLabel, twitchStatusState } from './setup-messages.mjs';
 import { formatHealthStatus } from './health-status.mjs';
-import { getInitialPanelPage, selectPanelPage } from './panel-navigation.mjs';
+import { getInitialPanelPage, getOverviewNextAction, getQueueEmptyAction, selectPanelPage } from './panel-navigation.mjs';
 import { collectCommandPolicies, mergeCommandPolicyState, projectCommandCatalog } from './command-catalog-view.mjs';
 import { buildOverlayWidgetPayload, countOverlayTextCodePoints } from './overlay-widget-form.mjs';
 import { resolveLocaleSelection } from './locale-picker-state.mjs';
@@ -12,7 +12,7 @@ import { translateCatalog, translatePluralCatalog } from '../shared/browser/tran
 
 const $ = (selector) => document.querySelector(selector);
 const optionalLimit = (value) => String(value ?? '').trim() ? Number(value) : null;
-const state = { csrfToken: null, queues: [], productVersion: '—', initialPageSelected: false, twitchConnected: null, productLocale: { locale: 'pt-BR', revision: 1 }, localizationCatalogs: null };
+const state = { csrfToken: null, queues: [], setup: null, health: null, productVersion: '—', initialPageSelected: false, twitchConnected: null, productLocale: { locale: 'pt-BR', revision: 1 }, localizationCatalogs: null };
 const commandRoleKeys = { everyone: 'panel.command.role.everyone', subscriber: 'panel.command.role.subscriber', vip: 'panel.command.role.vip', moderator: 'panel.command.role.moderator' };
 const panelPlaceholders = Object.freeze({
   'panel.operation.attempts': ['count'], 'panel.reconciliation.complete': ['count'], 'panel.reconciliation.issues': ['count'],
@@ -96,7 +96,7 @@ function queueSyncLabel(status) {
 }
 
 function renderProductLocalePicker() {
-  const selects = /** @type {HTMLSelectElement[]} */ ([...document.querySelectorAll('#product-locale, #product-locale-quick')]);
+  const selects = /** @type {HTMLSelectElement[]} */ ([...document.querySelectorAll('#product-locale')]);
   const locales = state.localizationCatalogs?.locales ?? [];
   for (const select of selects) {
     const save = /** @type {HTMLButtonElement|null} */ (document.querySelector(`#save-${select.id}`));
@@ -133,7 +133,7 @@ async function refreshLocalizationCatalogs() {
 async function saveProductLocale(event) {
   event.preventDefault();
   const select = /** @type {HTMLSelectElement} */ (event.currentTarget.querySelector('select'));
-  const notice = event.currentTarget.id === 'product-locale-quick-form' ? $('#product-locale-quick-notice') : $('#product-locale-notice');
+  const notice = $('#product-locale-notice');
   try {
     state.productLocale = await request('/api/localization/locale', {
       method: 'PATCH',
@@ -191,7 +191,12 @@ function renderEntryGroup(title, entries, queue, group) {
 function renderQueues(queues) {
   const container = $('#queue-list'); container.replaceChildren();
   if (!queues.length) {
-    const empty = document.createElement('div'); empty.className = 'empty-state'; empty.append(text('span', '◌'), text('strong', panelText('panel.queue.empty.title')), text('small', panelText('panel.queue.empty.hint')));
+    const next = getQueueEmptyAction(state.setup);
+    const empty = document.createElement('div'); empty.className = 'empty-state';
+    empty.append(text('span', '◌'), text('strong', panelText('panel.queue.empty.title')), text('small', panelText('panel.queue.empty.hint')));
+    const nextAction = text('button', panelText(next.key), 'button button-secondary');
+    nextAction.type = 'button'; nextAction.dataset.pageTarget = next.page;
+    empty.append(nextAction);
     container.append(empty); return;
   }
   for (const queue of queues) {
@@ -244,6 +249,32 @@ function renderQueues(queues) {
     history.append(historyContent); card.append(history);
     container.append(card);
   }
+}
+
+function renderRuntimeIndicators() {
+  $('#runtime-version').textContent = state.productVersion;
+  if (!state.health) return;
+  const healthStatus = formatHealthStatus(state.health, activeProductLocale(), state.localizationCatalogs);
+  $('#database-health').textContent = healthStatus.database;
+  $('#twitch-api-health').textContent = healthStatus.twitch;
+  $('#twitch-api-ping').textContent = healthStatus.ping;
+}
+
+function renderOverviewNextAction() {
+  const next = getOverviewNextAction(state.setup, state.queues.length);
+  const copy = {
+    'panel.overview.connect_channel': ['panel.overview.connect_title', 'panel.overview.connect_description'],
+    'panel.overview.create_first_queue': ['panel.overview.create_title', 'panel.overview.create_description'],
+    'panel.overview.open_queues': ['panel.overview.queues_title', 'panel.overview.queues_description'],
+    'panel.overview.check_channel': ['panel.overview.check_title', 'panel.overview.check_description'],
+  };
+  const [titleKey, descriptionKey] = copy[next.key];
+  $('#overview-next-title').textContent = panelText(titleKey);
+  $('#overview-next-description').textContent = panelText(descriptionKey);
+  const button = /** @type {HTMLButtonElement} */ ($('#overview-next-action'));
+  button.textContent = panelText(next.key);
+  button.dataset.pageTarget = next.page;
+  button.disabled = false;
 }
 
 function renderCommandCatalog(catalog) {
@@ -453,14 +484,12 @@ async function refresh() {
       request('/api/state'), request('/api/setup'),
       request('/health').catch(() => ({ status: 'unavailable', dependencies: { database: 'unavailable', twitch_api: 'unknown', twitch_api_ping_ms: null } })),
     ]);
-    const healthStatus = formatHealthStatus(health, activeProductLocale(), state.localizationCatalogs);
-    $('#database-health').textContent = healthStatus.database;
-    $('#twitch-api-health').textContent = healthStatus.twitch;
-    $('#twitch-api-ping').textContent = healthStatus.ping;
-    state.productVersion = apiState.product_version; $('#runtime-version').textContent = apiState.product_version;
+    state.health = health;
+    state.productVersion = apiState.product_version;
     state.productLocale = apiState.product_locale ?? { locale: 'pt-BR', revision: 1 };
     renderProductLocalePicker();
     applyPanelCatalog();
+    renderRuntimeIndicators();
     $('#account-label').textContent = apiState.account?.label ?? panelText('panel.settings.account_fallback');
     state.accountDefaultLabel = apiState.account?.defaultLabel ?? panelText('panel.settings.account_fallback');
     $('#edit-default-account').title = `${panelText('panel.settings.current_default')}: ${state.accountDefaultLabel}`;
@@ -471,6 +500,7 @@ async function refresh() {
     $('#twitch-status').textContent = twitchEligibilityMessage(setup, activeProductLocale(), state.localizationCatalogs);
     $('#twitch-pill').textContent = twitchStatusLabel(setup, activeProductLocale(), state.localizationCatalogs); $('#twitch-pill').dataset.state = twitchStatusState(setup);
     $('#secret-state').textContent = panelText(setup.secretConfigured ? 'panel.credentials.secret_configured' : 'panel.credentials.secret_empty');
+    state.setup = setup;
     $('#connection-wizard').hidden = setup.connected === true;
     $('#connection-summary').hidden = setup.connected !== true;
     $('#connected-channel-name').textContent = setup.connected
@@ -480,6 +510,7 @@ async function refresh() {
     $('#connection-status-copy').textContent = twitchEligibilityMessage(setup, activeProductLocale(), state.localizationCatalogs);
     if (setup.clientId) $('#credentials-form [name=clientId]').value = setup.clientId;
     $('#connect-button').disabled = !setup.secretConfigured;
+    $('#connect-prerequisite').hidden = setup.secretConfigured === true;
     if (!state.initialPageSelected) {
       showPanelPage(getInitialPanelPage(setup));
       state.initialPageSelected = true;
@@ -487,13 +518,17 @@ async function refresh() {
       showPanelPage('connection');
     }
     state.twitchConnected = setup.connected === true;
-    state.queues = await request('/api/queues'); renderQueues(state.queues);
+    state.queues = await request('/api/queues'); renderQueues(state.queues); renderOverviewNextAction();
     $('#summary-queues').textContent = String(state.queues.length);
     $('#summary-waiting').textContent = String(state.queues.reduce((total, queue) => total + (queue.entries ?? []).filter((entry) => entry.status === 'waiting').length, 0));
     $('#summary-active').textContent = String(state.queues.reduce((total, queue) => total + (queue.entries ?? []).filter((entry) => ['called', 'in_progress'].includes(entry.status)).length, 0));
     const operations = await request('/api/operations');
     const operationList = $('#operation-list'); operationList.replaceChildren();
-    if (!operations.length) operationList.append(text('p', panelText('panel.operations.empty'), 'muted'));
+    if (!operations.length) {
+      const empty = document.createElement('div'); empty.className = 'operation-empty';
+      empty.append(text('p', panelText('panel.operations.empty'), 'muted'), text('p', panelText('panel.operations.empty_hint'), 'hint'));
+      operationList.append(empty);
+    }
     for (const operation of operations) {
       const row = document.createElement('div'); row.className = 'operation-row'; row.dataset.status = operation.status;
       const typeKey = {
@@ -733,8 +768,7 @@ async function boot() {
     catch (error) { toast(panelError(error)); }
   });
   $('#product-locale-form').addEventListener('submit', saveProductLocale);
-  $('#product-locale-quick-form').addEventListener('submit', saveProductLocale);
-  document.querySelectorAll('#product-locale, #product-locale-quick').forEach((select) => select.addEventListener('change', renderProductLocalePicker));
+  document.querySelectorAll('#product-locale').forEach((select) => select.addEventListener('change', renderProductLocalePicker));
   await refresh(); window.setInterval(refresh, 5000); window.setInterval(refreshLocalizationCatalogs, 30000);
 }
 

@@ -4,6 +4,53 @@ import { describe, expect, it } from 'vitest';
 import { discoverCatalogModule } from '../../apps/shared/localization/discover-catalog-module.mjs';
 
 describe('panel catalog contract', () => {
+  it('keeps API-driven runtime values out of static localization targets', async () => {
+    const html = await readFile(fileURLToPath(new URL('../../apps/web/index.html', import.meta.url)), 'utf8');
+    for (const id of ['runtime-version', 'database-health', 'twitch-api-health']) {
+      const element = html.match(new RegExp(`<[^>]*\\bid="${id}"[^>]*>`))?.[0];
+      expect(element, `Expected #${id} to exist in the static panel`).toBeTruthy();
+      expect(element, `#${id} is populated by an API response and must not be reset by data-i18n`).not.toMatch(/\\bdata-i18n=/);
+    }
+  });
+
+  it('keeps one locale editor in Settings and removes the duplicate header picker', async () => {
+    const html = await readFile(fileURLToPath(new URL('../../apps/web/index.html', import.meta.url)), 'utf8');
+    expect(html).toContain('id="product-locale-form"');
+    expect(html).toContain('id="product-locale"');
+    expect(html).not.toContain('id="product-locale-quick-form"');
+    expect(html).not.toContain('id="product-locale-quick"');
+  });
+
+  it('places credential setup before the disabled Twitch connection action', async () => {
+    const html = await readFile(fileURLToPath(new URL('../../apps/web/index.html', import.meta.url)), 'utf8');
+    expect(html.indexOf('class="panel credentials-panel"')).toBeGreaterThanOrEqual(0);
+    expect(html.indexOf('id="credentials-form"')).toBeLessThan(html.indexOf('id="connection-wizard"'));
+    expect(html).toContain('panel.connection.credentials_required');
+  });
+
+  it('offers contextual queue and financial empty-state guidance in every panel locale', async () => {
+    const catalogRoot = fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url));
+    const catalogs = await discoverCatalogModule(catalogRoot, 'panel');
+    for (const locale of ['pt-BR', 'en', 'es']) {
+      expect(catalogs.catalogs[locale]['panel.queue.empty.hint']).not.toMatch(/form above|formul[aá]rio acima|formulario de arriba/i);
+      expect(catalogs.catalogs[locale]).toHaveProperty('panel.operations.empty_hint');
+      expect(catalogs.catalogs[locale]).toHaveProperty('panel.operations.empty');
+    }
+    const app = await readFile(fileURLToPath(new URL('../../apps/web/app.js', import.meta.url)), 'utf8');
+    expect(app).toContain("panelText('panel.operations.empty_hint')");
+    expect(app).toContain('getQueueEmptyAction');
+  });
+
+  it('stacks command policy content at narrow mobile widths', async () => {
+    const css = await readFile(fileURLToPath(new URL('../../apps/web/styles.css', import.meta.url)), 'utf8');
+    expect(css).toContain('@media(max-width:680px){.command-policy-card{grid-template-columns:minmax(0,1fr)}}');
+  });
+
+  it('keeps a visible keyboard focus ring on panel navigation controls', async () => {
+    const css = await readFile(fileURLToPath(new URL('../../apps/web/styles.css', import.meta.url)), 'utf8');
+    expect(css).toContain('.panel-navigation button:focus-visible{background:#1b1d25;color:#eee;outline:2px solid #b69aff;outline-offset:2px}');
+  });
+
   it('uses native plural selection for counted operation and reconciliation messages', async () => {
     const app = await readFile(fileURLToPath(new URL('../../apps/web/app.js', import.meta.url)), 'utf8');
     expect(app).toContain('translatePluralCatalog');
@@ -163,9 +210,19 @@ describe('panel catalog contract', () => {
       'panel.entry.dialog_eyebrow', 'panel.entry.dialog_title', 'panel.entry.twitch_login', 'panel.entry.uid_optional',
       'panel.entry.benefit', 'panel.reward.dialog_eyebrow', 'panel.reward.dialog_title',
       'panel.reward.compatible_rewards', 'panel.reward.link_selected', 'panel.settings.account_fallback',
-      'panel.health.database.checking', 'panel.health.ping_unavailable',
       'panel.operations.empty', 'panel.connection.starting_pill',
     ]) expect(html).toContain(`data-i18n="${key}"`);
+    for (const id of ['runtime-version', 'database-health', 'twitch-api-health', 'twitch-api-ping', 'overview-next-title', 'overview-next-description', 'overview-next-action']) {
+      const element = html.match(new RegExp(`<[^>]*\\bid="${id}"[^>]*>`))?.[0];
+      expect(element, `Expected #${id} to be populated from runtime state or a catalog`).toBeTruthy();
+      expect(element, `#${id} must not be overwritten by static localization`).not.toMatch(/\\bdata-i18n=/);
+    }
+    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url)), 'panel');
+    for (const locale of ['pt-BR', 'en', 'es']) {
+      for (const key of ['panel.health.database.checking', 'panel.health.ping_unavailable', 'panel.overview.connect_title', 'panel.overview.create_title', 'panel.overview.queues_title', 'panel.overview.check_title', 'panel.operations.empty_hint']) {
+        expect(catalogs.catalogs[locale]).toHaveProperty(key);
+      }
+    }
     for (const key of ['panel.form.queue_name_placeholder', 'panel.entry.login_placeholder', 'panel.entry.uid_placeholder']) {
       expect(html).toContain(`data-i18n-placeholder="${key}"`);
     }

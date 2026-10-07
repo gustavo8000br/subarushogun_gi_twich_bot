@@ -4,6 +4,12 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.7.0-alpha
+
+- The panel now keeps the running version and service status visible, and guides streamers to the next setup or queue action.
+- Empty queue and financial-operation pages explain what belongs there and how to continue.
+- Panel navigation remains clear on narrow screens and keyboard focus is visibly marked.
+
 ## v0.6.0-alpha
 
 - The Twitch sign-in confirmation and recovery page now follows the selected product language.

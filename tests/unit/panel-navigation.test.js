@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { getInitialPanelPage, selectPanelPage } from '../../apps/web/panel-navigation.mjs';
+import * as panelNavigation from '../../apps/web/panel-navigation.mjs';
+const { getInitialPanelPage, selectPanelPage } = panelNavigation;
 
 function element(dataset = {}) {
   return {
@@ -12,6 +13,21 @@ function element(dataset = {}) {
 }
 
 describe('local panel navigation', () => {
+  it('selects a first-run action that matches channel eligibility and queue count', () => {
+    expect(panelNavigation.getOverviewNextAction).toBeTypeOf('function');
+    expect(panelNavigation.getOverviewNextAction({ connected: false }, 0)).toEqual({ page: 'connection', key: 'panel.overview.connect_channel' });
+    expect(panelNavigation.getOverviewNextAction({ connected: true, eligibility: { eligible: true } }, 0)).toEqual({ page: 'new-queue', key: 'panel.overview.create_first_queue' });
+    expect(panelNavigation.getOverviewNextAction({ connected: true, eligibility: { eligible: false } }, 0)).toEqual({ page: 'connection', key: 'panel.overview.check_channel' });
+    expect(panelNavigation.getOverviewNextAction({ connected: true, eligibility: { eligible: true } }, 2)).toEqual({ page: 'queues', key: 'panel.overview.open_queues' });
+  });
+
+  it('chooses a safe next action from the queue empty state', () => {
+    expect(panelNavigation.getQueueEmptyAction).toBeTypeOf('function');
+    expect(panelNavigation.getQueueEmptyAction({ connected: false })).toEqual({ page: 'connection', key: 'panel.queue.empty.connect' });
+    expect(panelNavigation.getQueueEmptyAction({ connected: true, eligibility: { eligible: true } })).toEqual({ page: 'new-queue', key: 'panel.queue.empty.create' });
+    expect(panelNavigation.getQueueEmptyAction({ connected: true, eligibility: { eligible: false } })).toEqual({ page: 'connection', key: 'panel.queue.empty.check_channel' });
+  });
+
   it('shows the connection flow until the Twitch channel is connected', () => {
     expect(getInitialPanelPage({ connected: false, status: 'not_configured' })).toBe('connection');
     expect(getInitialPanelPage({ connected: false, status: 'reconnect_required' })).toBe('connection');

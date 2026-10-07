@@ -1,0 +1,34 @@
+schema: 1
+story: 'OPS-6'
+story_title: 'Clear runtime status and guided panel states'
+gate: PASS
+status_reason: 'The two review findings were reproduced by regression tests and fixed test-first. All 10 acceptance criteria are covered; the final suite and project gates pass, and the rebuilt panel passes responsive and keyboard-focus checks in all supported locales.'
+reviewer: 'Quinn (Test Architect)'
+reviewed_revision: 'working-tree-sha256:884d6ba5b20faeff08430feaede5d8e3b94b9636cfc0249b3700c8b245c6f70c'
+updated: '2026-10-07T03:33:39Z'
+top_issues: []
+waiver: { active: false }
+quality_score: 100
+expires: '2026-10-21T03:33:39Z'
+evidence:
+  tests_reviewed: 646
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    ac_gaps: []
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Panel changes use text nodes for dynamic values; OpenGrep reported 0 findings. Only local health/status data was read; no secrets were exposed and no Twitch write operation was performed.'
+  performance:
+    status: PASS
+    notes: 'Changes add only local text rendering and small pure routing decisions; no extra network request or polling was introduced.'
+  reliability:
+    status: PASS
+    notes: 'The existing database and credentials volumes were preserved while rebuilding and restarting only the bot container; the final bot and database are healthy.'
+  maintainability:
+    status: PASS
+    notes: 'State-dependent navigation decisions are isolated in a pure module; regression tests cover the responsive command layout and focus ring. Bilingual docs and catalogs are synchronized.'
+recommendations:
+  immediate: []
+  future: []

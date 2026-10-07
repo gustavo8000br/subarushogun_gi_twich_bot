@@ -39,10 +39,22 @@ panel.summary.waiting	EN ESPERA
 panel.summary.viewers_waiting	usuarios en la cola
 panel.summary.in_service	EN ATENCIÓN
 panel.summary.called_or_started	llamados o en atención
-panel.overview.eyebrow	EN VIVO
-panel.overview.ready	¿Listo para la transmisión?
-panel.overview.description	Gestiona las personas en espera y las atenciones activas en su propia página.
+panel.overview.eyebrow	RESUMEN
+panel.overview.next_eyebrow	SIGUIENTE PASO
+panel.overview.ready	Siguiente paso
+panel.overview.description	El panel sugerirá una acción según la conexión y las colas.
 panel.overview.open_queues	Abrir colas
+panel.overview.connect_title	Conecta tu canal
+panel.overview.connect_description	Conecta Twitch para terminar la configuración.
+panel.overview.connect_channel	Conectar canal
+panel.overview.create_title	Crea tu primera cola
+panel.overview.create_description	Tu canal está conectado y puede usar recompensas de Puntos del Canal.
+panel.overview.create_first_queue	Crear cola
+panel.overview.queues_title	Gestiona tus colas
+panel.overview.queues_description	Consulta la espera, las llamadas y las atenciones activas.
+panel.overview.check_title	Revisa la conexión de tu canal
+panel.overview.check_description	Este canal no puede usar recompensas de Puntos del Canal. Consulta los detalles de conexión.
+panel.overview.check_channel	Ver conexión
 panel.queues.eyebrow	EN VIVO
 panel.queues.title	Colas y atención
 panel.queues.description	Consulta las personas en espera, llamadas y en atención.
@@ -134,6 +146,7 @@ panel.connection.connect_channel	Conectar canal
 panel.connection.confidential_app_help	Crea una aplicación confidencial en la consola de Twitch. La URL de callback de este panel es:
 panel.connection.open_console	Abrir consola de desarrollador ↗
 panel.connection.connect	Conectar con Twitch
+panel.connection.credentials_required	Valida y guarda las credenciales de la aplicación antes de conectar el canal.
 panel.connection.authorized_eyebrow	CANAL AUTORIZADO
 panel.connection.connected_fallback	Canal conectado
 panel.connection.connected	Twitch está conectada a este panel local.
@@ -167,7 +180,10 @@ panel.queue.group.waiting	En espera
 panel.queue.group.called	Llamados
 panel.queue.group.in_service	En atención
 panel.queue.empty.title	No hay colas creadas
-panel.queue.empty.hint	Usa el formulario de arriba para crear tu primera cola.
+panel.queue.empty.hint	Las personas en espera y las atenciones aparecerán aquí cuando crees una cola.
+panel.queue.empty.connect	Conectar canal
+panel.queue.empty.create	Crear primera cola
+panel.queue.empty.check_channel	Revisar conexión del canal
 panel.queue.empty_group	Nadie por ahora
 panel.queue.status.open	ABIERTA
 panel.queue.status.closed	CERRADA
@@ -314,6 +330,7 @@ panel.commands.unavailable	El catálogo de comandos todavía no está disponible
 panel.command.roles_for	Cargos que pueden usar
 panel.settings.current_default	Predeterminado actual
 panel.operations.empty	No hay operaciones pendientes.
+panel.operations.empty_hint	Las solicitudes de reembolso y consumo aparecen aquí hasta que Twitch las confirme o indique un conflicto. Los resultados desconocidos quedan disponibles para revisar.
 panel.operation.type.refund	REEMBOLSO
 panel.operation.type.fulfillment	CONSUMO
 panel.operation.type.reward_update	ACTUALIZACIÓN DE RECOMPENSA

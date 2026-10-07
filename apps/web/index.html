@@ -11,7 +11,7 @@
   <body>
     <header class="topbar">
       <a class="brand" href="/" aria-label="Fila Local início" data-i18n-aria-label="panel.brand.home"><span class="brand-mark">F</span><span>FILA <b>LOCAL</b></span></a>
-      <div class="runtime"><span id="runtime-version" data-i18n="panel.runtime.version">Versão local</span><span class="runtime-dot"></span><span data-i18n="panel.runtime.local_data">Dados neste computador</span><form id="product-locale-quick-form" class="locale-quick-form"><label for="product-locale-quick" data-i18n="panel.locale.label">Idioma</label><select id="product-locale-quick" name="locale" disabled aria-label="Idioma do produto" data-i18n-aria-label="panel.locale.label"><option data-i18n="panel.locale.loading">Carregando idiomas…</option></select><button id="save-product-locale-quick" type="submit" disabled data-i18n="panel.locale.save">Salvar</button><span id="product-locale-quick-notice" class="visually-hidden" role="status"></span></form></div>
+      <div class="runtime"><span id="runtime-version">—</span><span class="runtime-dot"></span><span data-i18n="panel.runtime.local_data">Dados neste computador</span></div>
     </header>
     <main class="app-shell">
       <aside class="sidebar">
@@ -31,12 +31,12 @@
       <div class="workspace">
         <section class="panel-page" data-panel-page="overview">
           <section class="welcome">
-            <div><p class="eyebrow" data-i18n="panel.overview.eyebrow">AO VIVO</p><h1 data-i18n="panel.overview.headline">Suas filas,<br><em data-i18n="panel.overview.headline_emphasis">no seu ritmo.</em></h1><p class="lead" data-i18n="panel.overview.lead">Acompanhe a live, o estado das integrações e o movimento das suas filas.</p></div>
+            <div><p class="eyebrow" data-i18n="panel.overview.eyebrow">VISÃO GERAL</p><h1 data-i18n="panel.overview.headline">Suas filas,<br><em data-i18n="panel.overview.headline_emphasis">no seu ritmo.</em></h1><p class="lead" data-i18n="panel.overview.lead">Acompanhe a live, o estado das integrações e o movimento das suas filas.</p></div>
             <div class="connection-stack">
               <div class="connection-card"><span class="connection-icon">◉</span><div><strong id="channel-name" data-i18n="panel.connection.starting">Twitch ainda não conectada</strong><small id="twitch-status" data-i18n="panel.connection.starting_hint">Conecte seu canal para ativar as recompensas.</small></div><span class="status-pill" id="twitch-pill" data-i18n="panel.connection.starting_state">DESLIGADA</span></div>
           <section class="runtime-health" aria-label="Saúde da instalação" data-i18n-aria-label="panel.health.label" role="status" aria-live="polite">
-                <span><span data-i18n="panel.health.database">Banco de dados</span> <strong id="database-health" data-i18n="panel.health.database.checking">Verificando</strong></span>
-                <span><span data-i18n="panel.health.twitch_api">API da Twitch</span> <strong id="twitch-api-health" data-i18n="panel.health.twitch.connecting">Verificando</strong><small id="twitch-api-ping" data-i18n="panel.health.ping_unavailable">Sem medição</small></span>
+                <span><span data-i18n="panel.health.database">Banco de dados</span> <strong id="database-health">—</strong></span>
+                <span><span data-i18n="panel.health.twitch_api">API da Twitch</span> <strong id="twitch-api-health">—</strong><small id="twitch-api-ping">—</small></span>
               </section>
             </div>
           </section>
@@ -45,7 +45,7 @@
             <article class="summary-card"><span data-i18n="panel.summary.waiting">AGUARDANDO</span><strong id="summary-waiting">0</strong><small data-i18n="panel.summary.viewers_waiting">viewers na fila</small></article>
             <article class="summary-card"><span data-i18n="panel.summary.in_service">EM ATENDIMENTO</span><strong id="summary-active">0</strong><small data-i18n="panel.summary.called_or_started">chamados ou iniciados</small></article>
           </section>
-          <section class="panel overview-next"><div><p class="eyebrow" data-i18n="panel.overview.eyebrow">OPERAÇÃO</p><h2 data-i18n="panel.overview.ready">Pronto para a live?</h2><p class="muted" data-i18n="panel.overview.description">Gerencie as pessoas aguardando e os atendimentos em uma página própria.</p></div><button class="button button-primary" type="button" data-page-target="queues" data-i18n="panel.overview.open_queues">Abrir filas</button></section>
+           <section class="panel overview-next"><div><p class="eyebrow" data-i18n="panel.overview.next_eyebrow">PRÓXIMO PASSO</p><h2 id="overview-next-title" aria-live="polite"></h2><p class="muted" id="overview-next-description"></p></div><button class="button button-primary" id="overview-next-action" type="button" data-page-target="connection" disabled></button></section>
         </section>
 
         <section class="panel-page" data-panel-page="queues" hidden>
@@ -101,21 +101,6 @@
 
         <section class="panel-page" data-panel-page="connection" hidden>
           <section class="page-heading"><p class="eyebrow" data-i18n="panel.connection.eyebrow">TWITCH</p><h1 data-i18n="panel.connection.title">Conexão do canal</h1><p class="lead" data-i18n="panel.connection.description">O assistente aparece durante a configuração ou quando uma reconexão é necessária.</p></section>
-          <article class="panel connection-wizard" id="connection-wizard">
-            <div class="panel-heading"><div><p class="eyebrow" data-i18n="panel.connection.setup_eyebrow">PRIMEIROS PASSOS</p><h2 data-i18n="panel.connection.connect_channel">Conectar canal</h2></div><span class="step-number">01</span></div>
-            <p class="muted" data-i18n="panel.connection.confidential_app_help">Crie um aplicativo confidencial no console Twitch. O callback deste painel é:</p>
-            <code class="callback" id="callback-url">https://localhost:3000/callback</code>
-            <a class="text-link" href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer" data-i18n="panel.connection.open_console">Abrir console de desenvolvedor ↗</a>
-            <button class="button button-secondary full" id="connect-button" disabled data-i18n="panel.connection.connect">Conectar com a Twitch</button>
-            <p class="notice" id="setup-notice" role="status"></p>
-          </article>
-          <article class="panel connection-summary" id="connection-summary" hidden>
-            <div class="panel-heading"><div><p class="eyebrow" data-i18n="panel.connection.authorized_eyebrow">CANAL AUTORIZADO</p><h2 id="connected-channel-name" data-i18n="panel.connection.connected_fallback">Canal conectado</h2></div><span class="status-pill" id="connection-pill" data-i18n="panel.connection.starting_pill">VERIFICANDO</span></div>
-            <p class="muted" id="connection-status-copy" data-i18n="panel.connection.connected">A Twitch está conectada a este painel local.</p>
-            <button class="button button-secondary" id="reconnect-button" type="button" data-i18n="panel.connection.reconnect">Reconectar com a Twitch</button>
-            <button class="button button-secondary" id="reconcile-now" type="button" data-i18n="panel.connection.reconcile">Sincronizar agora</button>
-            <p class="notice" id="reconciliation-notice" role="status" aria-live="polite"></p>
-          </article>
           <article class="panel credentials-panel"><div class="panel-heading"><div><p class="eyebrow" data-i18n="panel.credentials.eyebrow">APLICATIVO CONFIDENCIAL</p><h2 data-i18n="panel.credentials.title">Credenciais Twitch</h2></div></div>
             <form id="credentials-form" class="form-stack">
               <label data-i18n="panel.credentials.client_id">Client ID<input name="clientId" autocomplete="off" required maxlength="128" placeholder="Seu Client ID" data-i18n-placeholder="panel.credentials.client_id_placeholder"></label>
@@ -124,6 +109,22 @@
               <p class="notice" id="credentials-notice" role="status"></p>
               <button class="button button-primary" type="submit" data-i18n="panel.credentials.validate_save">Validar e salvar aplicativo</button>
             </form>
+          </article>
+          <article class="panel connection-wizard" id="connection-wizard">
+            <div class="panel-heading"><div><p class="eyebrow" data-i18n="panel.connection.setup_eyebrow">PRIMEIROS PASSOS</p><h2 data-i18n="panel.connection.connect_channel">Conectar canal</h2></div><span class="step-number">01</span></div>
+            <p class="muted" data-i18n="panel.connection.confidential_app_help">Crie um aplicativo confidencial no console Twitch. O callback deste painel é:</p>
+            <code class="callback" id="callback-url">https://localhost:3000/callback</code>
+            <a class="text-link" href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer" data-i18n="panel.connection.open_console">Abrir console de desenvolvedor ↗</a>
+            <button class="button button-secondary full" id="connect-button" disabled data-i18n="panel.connection.connect">Conectar com a Twitch</button>
+            <p class="hint" id="connect-prerequisite" data-i18n="panel.connection.credentials_required">Valide e salve as credenciais do aplicativo antes de conectar o canal.</p>
+            <p class="notice" id="setup-notice" role="status"></p>
+          </article>
+          <article class="panel connection-summary" id="connection-summary" hidden>
+            <div class="panel-heading"><div><p class="eyebrow" data-i18n="panel.connection.authorized_eyebrow">CANAL AUTORIZADO</p><h2 id="connected-channel-name" data-i18n="panel.connection.connected_fallback">Canal conectado</h2></div><span class="status-pill" id="connection-pill" data-i18n="panel.connection.starting_pill">VERIFICANDO</span></div>
+            <p class="muted" id="connection-status-copy" data-i18n="panel.connection.connected">A Twitch está conectada a este painel local.</p>
+            <button class="button button-secondary" id="reconnect-button" type="button" data-i18n="panel.connection.reconnect">Reconectar com a Twitch</button>
+            <button class="button button-secondary" id="reconcile-now" type="button" data-i18n="panel.connection.reconcile">Sincronizar agora</button>
+            <p class="notice" id="reconciliation-notice" role="status" aria-live="polite"></p>
           </article>
         </section>
 
