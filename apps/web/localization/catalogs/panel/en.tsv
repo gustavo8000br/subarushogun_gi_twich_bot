@@ -130,6 +130,10 @@ panel.entry.reason_other	Other verified benefit
 panel.reward.manual_association_hint	The previous Twitch response was ambiguous. Choose the manageable reward associated with this queue. This choice is audited and does not claim financial confirmation from the API.
 panel.commands.policy_title	How permissions work
 panel.commands.policy_help	The streamer can always use configurable commands. Higher audience levels inherit access. VIP requires the existing VIP toggle. Follower access needs an extra Twitch permission and is checked live.
+panel.commands.group.configurable	Audience access
+panel.commands.group.moderator	Streamer and moderator only
+panel.commands.group.streamer	Streamer only
+panel.commands.group.fixed	Fixed access
 panel.commands.loading	Loading catalog…
 panel.commands.save	Save permissions
 panel.widgets.list_eyebrow	YOUR WIDGETS
@@ -232,11 +236,9 @@ panel.command.access_fixed	Fixed access:
 panel.command.marked_roles	The selected role and higher roles can use this command.
 panel.command.threshold_label	Minimum audience
 panel.command.threshold.select	Choose a minimum audience
-panel.command.threshold.review_option	Review and choose a new minimum…
-panel.command.threshold.review	Choose a new minimum to convert this older policy. It will not change until you save.
 panel.command.threshold.help	The selected audience and higher roles inherit access.
-panel.command.audience.current	Current access: {roles}.
 panel.command.audience.proposed	After saving: {roles}.
+panel.command.audience.everyone_includes	Everyone (including {roles})
 panel.command.follower_scope_required	Follower access needs additional Twitch authorization. Saving will open Twitch consent.
 panel.command.no_changes	No permission changes to save.
 panel.widget.source.account	Current account

@@ -4,6 +4,12 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.12.0-alpha
+
+- Command access now follows one clear hierarchy: followers, subscribers, VIPs, and moderators inherit access from the selected minimum role. Queue management stays moderator-only, and account changes stay streamer-only.
+- The command list and chat help now use the same access rules. Existing permission choices are reset once during upgrade; queues, accounts, credentials, and other saved data remain in place.
+- The Commands page groups configurable commands and fixed moderator/streamer commands, shows the full audience included by each threshold, and improves spacing around the save action.
+
 ## v0.11.0-alpha
 
 - The bot now retries temporary Twitch connection problems automatically and keeps the local panel available. You only need to reconnect when Twitch authorization has actually expired or changed.

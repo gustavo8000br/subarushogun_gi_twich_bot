@@ -1058,13 +1058,13 @@ describe('PostgreSQL queue repository', () => {
         authorizationContext: { kind: 'follower_policy', expectedVersion: currentPolicy.version },
         commitAdditional: (tx) => repository.updateCommandPoliciesInTransaction(tx, {
           expectedVersion: currentPolicy.version,
-          policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } },
+          policies: { 'queue:lista': { minimumRole: 'follower' } },
           actorId: 'oauth-atomic-session', origin: 'oauth_follower_consent',
         }),
       })).resolves.toBeTruthy();
       await expect(repository.getCommandPolicyState()).resolves.toMatchObject({
         version: currentPolicy.version + 1,
-        policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } },
+        policies: { 'queue:lista': { minimumRole: 'follower' } },
       });
       await expect(prisma.oAuthCredential.findUnique({ where: { clientId } }))
         .resolves.toMatchObject({ accessToken: 'staged-success', refreshToken: 'staged-success-refresh', scopes: ['user:read:chat', 'moderator:read:followers'] });
@@ -1074,7 +1074,7 @@ describe('PostgreSQL queue repository', () => {
         scopes: ['user:read:chat'], expiresIn: 3600, obtainmentTimestamp: Date.now(),
         commitAdditional: (tx) => repository.updateCommandPoliciesInTransaction(tx, {
           expectedVersion: currentPolicy.version,
-          policies: { 'queue:posicao': { mode: 'minimum_role', minimumRole: 'subscriber' } },
+          policies: { 'queue:posicao': { minimumRole: 'subscriber' } },
           actorId: 'oauth-stale-session', origin: 'oauth_follower_consent',
         }),
       })).rejects.toMatchObject({ code: 'COMMAND_POLICY_VERSION_CONFLICT' });

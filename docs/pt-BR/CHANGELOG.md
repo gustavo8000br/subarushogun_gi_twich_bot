@@ -4,6 +4,12 @@
 
 Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.12.0-alpha
+
+- O acesso aos comandos agora segue uma hierarquia clara: seguidores, inscritos, VIPs e moderadores herdam o acesso do nível mínimo escolhido. A gestão das filas continua restrita a moderadores, e alterações de conta ficam exclusivas do streamer.
+- A lista de comandos e a ajuda no chat agora usam as mesmas regras. As escolhas antigas de permissões são redefinidas uma vez durante a atualização; filas, contas, credenciais e os demais dados salvos permanecem.
+- A página Comandos agrupa comandos configuráveis e comandos fixos para moderadores/streamer, mostra todos os cargos incluídos em cada nível e melhora o espaçamento do botão de salvar.
+
 ## v0.11.0-alpha
 
 - O bot agora tenta recuperar automaticamente falhas temporárias de conexão com a Twitch e mantém o painel local disponível. A reconexão manual só é necessária quando a autorização Twitch realmente expira ou muda.

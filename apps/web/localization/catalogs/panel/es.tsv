@@ -130,6 +130,10 @@ panel.entry.reason_other	Otro beneficio verificado
 panel.reward.manual_association_hint	La respuesta anterior de Twitch quedó ambigua. Elige la recompensa administrable asociada a esta cola. La elección se audita y no confirma operaciones financieras mediante la API.
 panel.commands.policy_title	Cómo funcionan los permisos
 panel.commands.policy_help	El streamer siempre puede usar comandos configurables. Los cargos superiores heredan acceso. VIP depende de la opción actual. El acceso de seguidores requiere autorización Twitch adicional y se verifica en cada uso.
+panel.commands.group.configurable	Acceso de la audiencia
+panel.commands.group.moderator	Solo streamer y moderadores
+panel.commands.group.streamer	Solo streamer
+panel.commands.group.fixed	Acceso fijo
 panel.commands.loading	Cargando catálogo…
 panel.commands.save	Guardar permisos
 panel.widgets.list_eyebrow	TUS WIDGETS
@@ -232,11 +236,9 @@ panel.command.access_fixed	Acceso fijo:
 panel.command.marked_roles	El cargo elegido y los cargos superiores pueden usar este comando.
 panel.command.threshold_label	Nivel mínimo de audiencia
 panel.command.threshold.select	Elige un nivel mínimo
-panel.command.threshold.review_option	Revisa y elige un nuevo nivel…
-panel.command.threshold.review	Elige un nivel nuevo para convertir esta política anterior. No cambiará hasta que guardes.
 panel.command.threshold.help	El grupo elegido y los cargos superiores heredan el acceso.
-panel.command.audience.current	Acceso actual: {roles}.
 panel.command.audience.proposed	Después de guardar: {roles}.
+panel.command.audience.everyone_includes	Todos (incluye {roles})
 panel.command.follower_scope_required	El acceso de seguidores requiere autorización Twitch adicional. Al guardar, Twitch pedirá consentimiento.
 panel.command.no_changes	No hay cambios de permisos para guardar.
 panel.widget.source.account	Cuenta actual

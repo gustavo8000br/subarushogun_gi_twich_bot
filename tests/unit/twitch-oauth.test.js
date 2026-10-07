@@ -53,7 +53,7 @@ describe('Twitch OAuth client credential validation', () => {
 
   it('binds optional follower scopes and pending policy context to one-time session state', () => {
     const store = createOAuthStateStore({ stateFactory: () => 'state-follower' });
-    const context = { kind: 'command_policy', expectedVersion: 8, policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } } };
+    const context = { kind: 'command_policy', expectedVersion: 8, policies: { 'queue:lista': { minimumRole: 'follower' } } };
     const issued = store.issue({
       sessionId: 'session-1', clientId: 'client-123', redirectUri: 'https://localhost:3000/callback',
       scopes: ['moderator:read:followers'], context,

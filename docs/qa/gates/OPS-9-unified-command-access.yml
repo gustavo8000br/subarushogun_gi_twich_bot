@@ -1,0 +1,9 @@
+schema: 1
+story: OPS-9
+gate: PASS
+status_reason: 'All nine acceptance criteria are covered by the shared role resolver, schema v3 persistence, the isolated PostgreSQL migration, and the bilingual panel contract. Full unit/integration and static quality gates pass; no high-severity finding remains.'
+reviewer: Quinn
+reviewed_revision: 'story-sha256:4a81dc75ce1b79b3f6181f4e0b6eb9643ab7131022ee6d7744c8cdc933818b23'
+updated: '2026-10-07T20:45:48Z'
+top_issues: []
+waiver: { active: false }

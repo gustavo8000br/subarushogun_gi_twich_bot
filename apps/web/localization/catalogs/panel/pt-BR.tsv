@@ -130,6 +130,10 @@ panel.entry.reason_other	Outro benefício conferido
 panel.reward.manual_association_hint	A resposta anterior da Twitch ficou ambígua. Escolha a recompensa gerenciável que corresponde a esta fila. Essa escolha será auditada e não afirma confirmação financeira pela API.
 panel.commands.policy_title	Como as permissões funcionam
 panel.commands.policy_help	O streamer sempre pode usar comandos configuráveis. Cargos superiores herdam acesso. VIP depende do toggle atual. Acesso de seguidor exige uma permissão Twitch adicional e é verificado ao vivo.
+panel.commands.group.configurable	Acesso da audiência
+panel.commands.group.moderator	Somente streamer e moderadores
+panel.commands.group.streamer	Somente streamer
+panel.commands.group.fixed	Acesso fixo
 panel.commands.loading	Carregando catálogo…
 panel.commands.save	Salvar permissões
 panel.widgets.list_eyebrow	SEUS WIDGETS
@@ -232,11 +236,9 @@ panel.command.access_fixed	Acesso fixo:
 panel.command.marked_roles	O cargo escolhido e os cargos superiores podem usar este comando.
 panel.command.threshold_label	Nível mínimo da audiência
 panel.command.threshold.select	Escolha o nível mínimo
-panel.command.threshold.review_option	Revise e escolha um novo nível…
-panel.command.threshold.review	Escolha um novo nível para converter esta política antiga. Nada muda até salvar.
 panel.command.threshold.help	O grupo escolhido e os cargos superiores herdam acesso.
-panel.command.audience.current	Acesso atual: {roles}.
 panel.command.audience.proposed	Depois de salvar: {roles}.
+panel.command.audience.everyone_includes	Todos (inclui {roles})
 panel.command.follower_scope_required	Acesso de seguidor exige autorização Twitch adicional. Ao salvar, a Twitch pedirá consentimento.
 panel.command.no_changes	Não há alterações de permissão para salvar.
 panel.widget.source.account	Conta atual

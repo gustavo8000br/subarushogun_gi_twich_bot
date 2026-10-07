@@ -22,8 +22,9 @@ Estado conferido com o índice local de stories e as issues do GitHub em 2026-10
 | OPS-5 — Instalador de ciclo de vida multiplataforma ([#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30)) | Concluída; mesclada na PR #37; QA AIOX independente PASS 100/100. Ciclo real Compose no Linux passou; aceitação física em Windows/macOS continua sem validação |
 | OPS-6 — Status de runtime claro e orientações no painel ([#32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32)) | Concluída; mesclada na PR #33; QA independente PASS 100/100 |
 | OPS-7 — Permissões hierárquicas e cargo follower ([#39](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/39)) | Done; QA 10/10; mesclada na PR #42 |
-| OPS-8 — Reconexão automática com Twitch ([#41](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/41)) | Planejamento aprovado (crítica Spec Pipeline 10/10); implementação em andamento na `feat/ops-8-twitch-auto-reconnect` |
-| DOC-2 — Capturas bilíngues corretas do produto ([#40](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/40)) | Aberta; planejada depois da FND-9 |
+| OPS-8 — Reconexão automática com Twitch ([#41](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/41)) | Concluída; mesclada na PR #43; QA PASS 9,5/10 |
+| OPS-9 — Regras unificadas de acesso a comandos | Concluída localmente; AIOX-QA PASS; antes da FND-9 |
+| DOC-2 — Capturas bilíngues corretas do produto ([#40](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/40)) | Aberta; capturas/GIF planejados depois da FND-9; revisão visual registrada |
 | DOC-3 — Auditoria completa de consistência documental e padrão UX | Próxima story solicitada pelo proprietário após OPS-8, FND-9 e DOC-2; ainda não planejada nem publicada como issue |
 
 Consulte critérios de aceite e evidências detalhadas no [índice de stories](stories.md) e na [versão em inglês](../stories.md).
@@ -33,4 +34,4 @@ Consulte critérios de aceite e evidências detalhadas no [índice de stories](s
 Estas ideias solicitadas pelo proprietário são candidatas ao backlog; ainda não são stories ou issues refinadas:
 
 - Incluir capturas de tela selecionadas na documentação em inglês e pt-BR, com processo definido para capturar e atualizar as imagens.
-- **Sequência atual autorizada:** OPS-7 → OPS-8 → FND-9 → DOC-2 → DOC-3 (auditoria documental completa). OPS-7 foi mesclada na PR #42; Spec Pipeline da OPS-8 aprovada com 10/10 e implementação em andamento. O proprietário autorizou condicionalmente `beta` somente depois da conclusão da OPS-8, FND-9 e DOC-2; DOC-3 é o item final solicitado para esta sessão. Não promover o stage antes de cumprir a condição de release.
+- **Sequência atual autorizada:** OPS-7 → OPS-8 → OPS-9 → FND-9 → DOC-2 → DOC-3 (auditoria documental completa). OPS-7 foi mesclada na PR #42; OPS-8 foi mesclada na PR #43 com QA PASS 9,5/10. O proprietário pediu uma pré-revisão visual e o ajuste de Cargos e permissões antes da FND-9; a DOC-2 registra a revisão e os requisitos de mídia. As capturas/GIF continuam depois da FND-9. O proprietário autorizou condicionalmente `beta` somente depois da conclusão de OPS-8, FND-9 e DOC-2; DOC-3 continua como auditoria documental final solicitada. Não promover o stage antes de cumprir a condição de release.

@@ -3,7 +3,7 @@ import { resendCallNotification } from './call-notification-actions.mjs';
 import { twitchEligibilityMessage, twitchStatusLabel, twitchStatusState } from './setup-messages.mjs';
 import { formatHealthStatus } from './health-status.mjs';
 import { getInitialPanelPage, getOverviewNextAction, getQueueEmptyAction, selectPanelPage } from './panel-navigation.mjs';
-import { collectCommandPolicies, followerAuthorizationRequest, mergeCommandPolicyState, projectCommandCatalog } from './command-catalog-view.mjs';
+import { collectCommandPolicies, followerAuthorizationRequest, groupCommandPolicies, mergeCommandPolicyState, projectCommandCatalog, projectMinimumRoleAudience } from './command-catalog-view.mjs';
 import { buildOverlayWidgetPayload, countOverlayTextCodePoints } from './overlay-widget-form.mjs';
 import { resolveLocaleSelection } from './locale-picker-state.mjs';
 import { applyPanelTranslations } from './dom-localization.mjs';
@@ -13,13 +13,13 @@ import { translateCatalog, translatePluralCatalog } from '../shared/browser/tran
 const $ = (selector) => document.querySelector(selector);
 const optionalLimit = (value) => String(value ?? '').trim() ? Number(value) : null;
 const state = { csrfToken: null, queues: [], setup: null, health: null, productVersion: '—', initialPageSelected: false, twitchConnected: null, productLocale: { locale: 'pt-BR', revision: 1 }, localizationCatalogs: null };
-const commandRoleKeys = { everyone: 'panel.command.role.everyone', follower: 'panel.command.role.follower', subscriber: 'panel.command.role.subscriber', vip: 'panel.command.role.vip', moderator: 'panel.command.role.moderator' };
+const commandRoleKeys = { everyone: 'panel.command.role.everyone', follower: 'panel.command.role.follower', subscriber: 'panel.command.role.subscriber', vip: 'panel.command.role.vip', moderator: 'panel.command.role.moderator', streamer: 'panel.command.role.streamer' };
 const panelPlaceholders = Object.freeze({
   'panel.operation.attempts': ['count'], 'panel.reconciliation.complete': ['count'], 'panel.reconciliation.issues': ['count'],
   'panel.queue.confirm.delete': ['title', 'count'], 'panel.queue.clear.confirm': ['title', 'count', 'refunds'],
   'panel.queue.clear.changed': ['count'], 'panel.queue.clear.done': ['count', 'refunds'],
   'panel.widget.card_details': ['queue', 'width', 'height', 'id'],
-  'panel.command.audience.current': ['roles'], 'panel.command.audience.proposed': ['roles'],
+  'panel.command.audience.proposed': ['roles'], 'panel.command.audience.everyone_includes': ['roles'],
 });
 let commandCatalog = null;
 let overlayWidgetsLoaded = false;
@@ -79,14 +79,11 @@ function commandRoleLabel(role) {
 }
 
 function audienceText(roles) {
-  return roles.map((role) => commandRoleLabel(role)).join(` ${panelText('panel.command.role_join')} `);
-}
-
-function inheritedCommandRoles(minimumRole) {
-  const rank = { everyone: 0, follower: 1, subscriber: 2, vip: 3, moderator: 4, streamer: 5 };
-  if (!Object.hasOwn(rank, minimumRole)) return [];
-  if (minimumRole === 'everyone') return ['everyone', 'follower', 'subscriber', 'vip', 'moderator', 'streamer'];
-  return Object.keys(rank).filter((role) => rank[role] >= rank[minimumRole]);
+  const displayed = roles.includes('everyone')
+    ? projectMinimumRoleAudience('everyone').filter((role) => role !== 'everyone')
+    : roles;
+  const labels = displayed.map((role) => commandRoleLabel(role)).join(` ${panelText('panel.command.role_join')} `);
+  return roles.includes('everyone') ? panelText('panel.command.audience.everyone_includes', { roles: labels }) : labels;
 }
 
 function priorityReasonLabel(reason) {
@@ -293,56 +290,65 @@ function renderCommandCatalog(catalog) {
   const container = $('#command-catalog'); container.replaceChildren();
   if (!catalog?.commands?.length) { container.append(text('p', panelText('panel.commands.unavailable'), 'muted')); return; }
   commandCatalog = catalog;
-  for (const command of projectCommandCatalog(catalog)) {
-    const card = document.createElement('article'); card.className = 'command-policy-card';
-    const description = document.createElement('div');
-    const commandKey = command.key.replaceAll(':', '_');
-    const syntax = panelText(`panel.command.syntax.${commandKey}`);
-    description.append(text('h2', panelText(`panel.command.description.${commandKey}`)));
-    description.append(text('code', syntax, 'command-policy-syntax'));
-    const controls = document.createElement('div'); controls.className = 'command-policy-roles';
-    controls.setAttribute('aria-label', `${panelText('panel.command.roles_for')} ${syntax}`);
-    const status = document.createElement('p'); status.className = 'muted';
-    if (command.locked) {
-      status.textContent = `${panelText('panel.command.access_fixed')} ${audienceText(command.immutableRoles ?? command.roles)}.`;
-      controls.append(status);
-    } else {
-      const label = document.createElement('label'); label.append(document.createTextNode(`${panelText('panel.command.threshold_label')} `));
-      const select = document.createElement('select');
-      select.dataset.policySelect = 'true'; select.dataset.dirty = 'false';
-      select.setAttribute('aria-label', `${panelText('panel.command.threshold_label')} ${syntax}`);
-      const initialValue = command.legacyReviewRequired ? '' : command.minimumRole;
-      const placeholder = document.createElement('option'); placeholder.value = '';
-      placeholder.textContent = command.legacyReviewRequired ? panelText('panel.command.threshold.review_option') : panelText('panel.command.threshold.select');
-      if (!command.legacyReviewRequired) placeholder.disabled = true;
-      placeholder.selected = initialValue === ''; select.append(placeholder);
-      for (const role of command.minimumRoles) {
-        const option = document.createElement('option'); option.value = role; option.textContent = commandRoleLabel(role);
-        option.selected = role === initialValue; select.append(option);
-      }
-      label.append(select); controls.append(label);
-      const updateSummary = () => {
-        status.replaceChildren();
-        if (command.legacyReviewRequired) {
-          status.append(document.createTextNode(panelText('panel.command.audience.current', { roles: audienceText(command.currentLegacyRoles) })));
-          status.append(document.createElement('br'));
-          if (!select.value) status.append(document.createTextNode(panelText('panel.command.threshold.review')));
+  for (const group of groupCommandPolicies(projectCommandCatalog(catalog))) {
+    const section = document.createElement('section'); section.className = 'command-policy-group';
+    const heading = document.createElement('h2'); heading.className = 'command-policy-group-heading';
+    heading.id = `command-group-${group.key}`;
+    const groupLabelKeys = {
+      configurable: 'panel.commands.group.configurable',
+      moderator: 'panel.commands.group.moderator',
+      streamer: 'panel.commands.group.streamer',
+      fixed: 'panel.commands.group.fixed',
+    };
+    heading.textContent = panelText(groupLabelKeys[group.key] ?? groupLabelKeys.fixed);
+    section.setAttribute('aria-labelledby', heading.id); section.append(heading);
+    const cards = document.createElement('div'); cards.className = 'command-policy-grid';
+    for (const command of group.commands) {
+      const card = document.createElement('article'); card.className = 'command-policy-card';
+      const description = document.createElement('div'); description.className = 'command-policy-description';
+      const commandKey = command.key.replaceAll(':', '_');
+      const syntax = panelText(`panel.command.syntax.${commandKey}`);
+      description.append(text('h3', panelText(`panel.command.description.${commandKey}`)));
+      description.append(text('code', syntax, 'command-policy-syntax'));
+      const controls = document.createElement('div'); controls.className = 'command-policy-roles';
+      controls.setAttribute('aria-label', `${panelText('panel.command.roles_for')} ${syntax}`);
+      const status = document.createElement('p'); status.className = 'muted';
+      if (command.locked) {
+        status.textContent = `${panelText('panel.command.access_fixed')} ${audienceText(command.inheritedRoles)}.`;
+        controls.append(status);
+      } else {
+        const label = document.createElement('label'); label.append(document.createTextNode(`${panelText('panel.command.threshold_label')} `));
+        const select = document.createElement('select');
+        select.dataset.policySelect = 'true'; select.dataset.dirty = 'false';
+        select.setAttribute('aria-label', `${panelText('panel.command.threshold_label')} ${syntax}`);
+        const initialValue = command.minimumRole;
+        const placeholder = document.createElement('option'); placeholder.value = '';
+        placeholder.textContent = panelText('panel.command.threshold.select');
+        placeholder.disabled = true;
+        placeholder.selected = initialValue === ''; select.append(placeholder);
+        for (const role of command.minimumRoles) {
+          const option = document.createElement('option'); option.value = role; option.textContent = commandRoleLabel(role);
+          option.selected = role === initialValue; select.append(option);
         }
-        if (select.value) {
-          if (command.legacyReviewRequired) status.append(document.createElement('br'));
-          status.append(document.createTextNode(panelText('panel.command.audience.proposed', { roles: audienceText(inheritedCommandRoles(select.value)) })));
-          if (select.value === 'follower' && !catalog.followerScopeReady) {
-            status.append(document.createElement('br'));
-            status.append(document.createTextNode(panelText('panel.command.follower_scope_required')));
+        label.append(select); controls.append(label);
+        const updateSummary = () => {
+          status.replaceChildren();
+          if (select.value) {
+            status.append(document.createTextNode(panelText('panel.command.audience.proposed', { roles: audienceText(projectMinimumRoleAudience(select.value)) })));
+            if (select.value === 'follower' && !catalog.followerScopeReady) {
+              status.append(document.createElement('br'));
+              status.append(document.createTextNode(panelText('panel.command.follower_scope_required')));
+            }
+          } else {
+            status.textContent = panelText('panel.command.threshold.help');
           }
-        } else if (!command.legacyReviewRequired) {
-          status.textContent = panelText('panel.command.threshold.help');
-        }
-      };
-      select.addEventListener('change', () => { select.dataset.dirty = 'true'; updateSummary(); });
-      updateSummary(); controls.append(status);
+        };
+        select.addEventListener('change', () => { select.dataset.dirty = 'true'; updateSummary(); });
+        updateSummary(); controls.append(status);
+      }
+      description.append(controls); card.append(description); card.dataset.commandKey = command.key; cards.append(card);
     }
-    description.append(controls); card.append(description); card.dataset.commandKey = command.key; container.append(card);
+    section.append(cards); container.append(section);
   }
   const notice = $('#command-catalog-notice');
   notice.replaceChildren();

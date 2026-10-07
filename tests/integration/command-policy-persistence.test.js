@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createQueueRepository } from '../../apps/api/src/persistence/queue-repository.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -43,140 +43,48 @@ describe('command policy PostgreSQL persistence', () => {
     repository = createQueueRepository(prisma);
   }, 120_000);
 
+  beforeEach(async () => {
+    await prisma.setting.deleteMany({ where: { key: 'chat_command_policies' } });
+    await prisma.auditLog.deleteMany({ where: { event: 'command.policies_updated' } });
+  });
+
   afterAll(async () => {
     await prisma?.$disconnect();
     if (containerStarted) spawnSync('docker', ['stop', containerName], { cwd: root, encoding: 'utf8', timeout: 30_000 });
   });
 
-  it('loads defaults, persists policy and audit atomically, then reloads after repository reconstruction', async () => {
-    await expect(repository.getCommandPolicyState()).resolves.toEqual({ schemaVersion: 1, version: 1, policies: {} });
+  it('persists a schema v3 threshold and audit atomically across repository reconstruction', async () => {
+    await expect(repository.getCommandPolicyState()).resolves.toEqual({ schemaVersion: 3, version: 1, policies: {} });
     const actorId = `local-session-${randomUUID()}`;
-    await expect(repository.updateCommandPolicies({ expectedVersion: 1, policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'subscriber' } }, actorId }))
-      .resolves.toMatchObject({ schemaVersion: 2, version: 2, policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'subscriber' } } });
-
-    const freshRepository = createQueueRepository(prisma);
-    await expect(freshRepository.getCommandPolicyState()).resolves.toEqual({ schemaVersion: 2, version: 2, policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'subscriber' } } });
-    const audit = await prisma.auditLog.findFirst({ where: { event: 'command.policies_updated', actorId } });
-    expect(audit).toMatchObject({ origin: 'panel', reason: 'command_role_policy_changed', safeDetail: { commandIds: ['queue:lista'], version: 2 } });
+    await expect(repository.updateCommandPolicies({ expectedVersion: 1, policies: { 'queue:lista': { minimumRole: 'subscriber' } }, actorId }))
+      .resolves.toEqual({ schemaVersion: 3, version: 2, policies: { 'queue:lista': { minimumRole: 'subscriber' } } });
+    await expect(createQueueRepository(prisma).getCommandPolicyState()).resolves.toEqual({ schemaVersion: 3, version: 2, policies: { 'queue:lista': { minimumRole: 'subscriber' } } });
+    await expect(prisma.auditLog.findFirst({ where: { event: 'command.policies_updated', actorId } }))
+      .resolves.toMatchObject({ origin: 'panel', reason: 'command_role_policy_changed', safeDetail: { commandIds: ['queue:lista'], version: 2 } });
   });
 
-  it('rejects attempts to configure protected actions at the persistence boundary', async () => {
-    await expect(repository.updateCommandPolicies({ expectedVersion: 2, policies: { 'queue:add': { mode: 'minimum_role', minimumRole: 'everyone' } }, actorId: 'operator' }))
+  it('rejects edits to fixed floors and malformed policy properties', async () => {
+    await expect(repository.updateCommandPolicies({ expectedVersion: 1, policies: { 'queue:add': { minimumRole: 'everyone' } }, actorId: 'operator' }))
       .rejects.toMatchObject({ code: 'INVALID_COMMAND_POLICY' });
-    await expect(repository.updateCommandPolicies({ expectedVersion: 2, policies: { 'global:conta:set': { mode: 'minimum_role', minimumRole: 'everyone' } }, actorId: 'operator' }))
+    await expect(repository.updateCommandPolicies({ expectedVersion: 1, policies: { 'queue:lista': { minimumRole: 'subscriber', extra: true } }, actorId: 'operator' }))
       .rejects.toMatchObject({ code: 'INVALID_COMMAND_POLICY' });
-    await expect(repository.getCommandPolicyState()).resolves.toMatchObject({ schemaVersion: 2, version: 2, policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'subscriber' } } });
+    await expect(repository.getCommandPolicyState()).resolves.toEqual({ schemaVersion: 3, version: 1, policies: {} });
   });
 
-  it('serializes concurrent updates and rejects the stale policy version', async () => {
-    const expectedVersion = 2;
+  it('serializes concurrent edits and rejects the stale revision', async () => {
     const attempts = await Promise.allSettled([
-      repository.updateCommandPolicies({ expectedVersion, policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'moderator' } }, actorId: 'operator-a' }),
-      repository.updateCommandPolicies({ expectedVersion, policies: { 'queue:posicao': { mode: 'minimum_role', minimumRole: 'subscriber' } }, actorId: 'operator-b' }),
+      repository.updateCommandPolicies({ expectedVersion: 1, policies: { 'queue:lista': { minimumRole: 'moderator' } }, actorId: 'operator-a' }),
+      repository.updateCommandPolicies({ expectedVersion: 1, policies: { 'queue:posicao': { minimumRole: 'subscriber' } }, actorId: 'operator-b' }),
     ]);
     expect(attempts.filter(({ status }) => status === 'fulfilled')).toHaveLength(1);
     expect(attempts.filter(({ status, reason }) => status === 'rejected' && reason?.code === 'COMMAND_POLICY_VERSION_CONFLICT')).toHaveLength(1);
   });
 
-  it('commits an OAuth-staged follower policy in the caller transaction and rolls it back with that transaction', async () => {
-    const current = await repository.getCommandPolicyState();
-    const beforeAudit = await prisma.auditLog.count({ where: { event: 'command.policies_updated' } });
-    await expect(prisma.$transaction(async (tx) => {
-      await repository.updateCommandPoliciesInTransaction(tx, {
-        expectedVersion: current.version,
-        policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } },
-        actorId: 'oauth-session-actor', origin: 'oauth_follower_consent',
-      });
-      throw new Error('force_transaction_rollback');
-    })).rejects.toThrow('force_transaction_rollback');
-    await expect(repository.getCommandPolicyState()).resolves.toEqual(current);
-    await expect(prisma.auditLog.count({ where: { event: 'command.policies_updated' } })).resolves.toBe(beforeAudit);
-
+  it('commits OAuth-staged follower thresholds in the caller transaction', async () => {
     await expect(prisma.$transaction((tx) => repository.updateCommandPoliciesInTransaction(tx, {
-      expectedVersion: current.version,
-      policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } },
-      actorId: 'oauth-session-actor', origin: 'oauth_follower_consent',
-    }))).resolves.toMatchObject({ version: current.version + 1 });
-    await expect(repository.getCommandPolicyState()).resolves.toMatchObject({ policies: {
-      'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' },
-    } });
+      expectedVersion: 1, policies: { 'queue:lista': { minimumRole: 'follower' } }, actorId: 'oauth-session-actor', origin: 'oauth_follower_consent',
+    }))).resolves.toEqual({ schemaVersion: 3, version: 2, policies: { 'queue:lista': { minimumRole: 'follower' } } });
     await expect(prisma.auditLog.findFirst({ where: { actorId: 'oauth-session-actor' } }))
       .resolves.toMatchObject({ origin: 'oauth_follower_consent' });
-  });
-
-  it('identifies legacy schema and does not rewrite saved v1 policy while reading it', async () => {
-    const legacy = { version: 17, policies: { 'queue:lista': ['subscriber', 'moderator'] } };
-    await prisma.setting.upsert({
-      where: { key: 'chat_command_policies' },
-      create: { key: 'chat_command_policies', value: legacy },
-      update: { value: legacy },
-    });
-
-    await expect(repository.getCommandPolicyState()).resolves.toEqual({
-      schemaVersion: 1,
-      version: 17,
-      policies: legacy.policies,
-    });
-    await expect(prisma.setting.findUnique({ where: { key: 'chat_command_policies' } }))
-      .resolves.toMatchObject({ value: legacy });
-  });
-
-  it('reads v2 schema and concurrency revision as separate fields', async () => {
-    const stored = {
-      schemaVersion: 2,
-      revision: 18,
-      policies: {
-        'queue:lista': { mode: 'minimum_role', minimumRole: 'subscriber' },
-        'queue:posicao': { mode: 'legacy_exact', allowedRoles: ['subscriber', 'moderator'] },
-      },
-    };
-    await prisma.setting.upsert({
-      where: { key: 'chat_command_policies' },
-      create: { key: 'chat_command_policies', value: stored },
-      update: { value: stored },
-    });
-
-    await expect(repository.getCommandPolicyState()).resolves.toEqual({
-      schemaVersion: 2,
-      version: 18,
-      policies: stored.policies,
-    });
-  });
-
-  it('converts only an explicitly saved command and retains other v1 lists as legacy-exact', async () => {
-    const legacy = {
-      version: 23,
-      policies: {
-        'queue:lista': ['subscriber', 'moderator'],
-        'queue:posicao': ['everyone'],
-      },
-    };
-    await prisma.setting.upsert({
-      where: { key: 'chat_command_policies' },
-      create: { key: 'chat_command_policies', value: legacy },
-      update: { value: legacy },
-    });
-
-    await expect(repository.updateCommandPolicies({
-      expectedVersion: 23,
-      policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'subscriber' } },
-      actorId: 'operator-convert',
-    })).resolves.toEqual({
-      schemaVersion: 2,
-      version: 24,
-      policies: {
-        'queue:lista': { mode: 'minimum_role', minimumRole: 'subscriber' },
-        'queue:posicao': { mode: 'legacy_exact', allowedRoles: ['everyone'] },
-      },
-    });
-    await expect(prisma.setting.findUnique({ where: { key: 'chat_command_policies' } }))
-      .resolves.toMatchObject({ value: {
-        schemaVersion: 2,
-        revision: 24,
-        policies: {
-          'queue:lista': { mode: 'minimum_role', minimumRole: 'subscriber' },
-          'queue:posicao': { mode: 'legacy_exact', allowedRoles: ['everyone'] },
-        },
-      } });
   });
 });

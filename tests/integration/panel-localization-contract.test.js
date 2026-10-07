@@ -46,6 +46,26 @@ describe('panel catalog contract', () => {
     expect(css).toContain('@media(max-width:680px){.command-policy-card{grid-template-columns:minmax(0,1fr)}}');
   });
 
+  it('groups command policies by access boundary and keeps the catalog responsive in every panel locale', async () => {
+    const app = await readFile(fileURLToPath(new URL('../../apps/web/app.js', import.meta.url)), 'utf8');
+    const css = await readFile(fileURLToPath(new URL('../../apps/web/styles.css', import.meta.url)), 'utf8');
+    expect(app).toContain('groupCommandPolicies');
+    expect(app).toContain('panel.commands.group.configurable');
+    expect(app).toContain('panel.commands.group.moderator');
+    expect(app).toContain('panel.commands.group.streamer');
+    expect(app).toContain("roles.includes('everyone')");
+    expect(css).toContain('.command-policy-group');
+    expect(css).toContain('.command-policy-grid');
+    expect(css).toContain('#command-catalog-form>[type="submit"]{margin-top:24px}');
+    expect(css).toContain('@media(max-width:900px){.command-policy-grid{grid-template-columns:minmax(0,1fr)}}');
+    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url)), 'panel');
+    for (const locale of ['pt-BR', 'en', 'es']) {
+      for (const key of ['panel.commands.group.configurable', 'panel.commands.group.moderator', 'panel.commands.group.streamer', 'panel.command.audience.everyone_includes']) {
+        expect(catalogs.catalogs[locale]).toHaveProperty(key);
+      }
+    }
+  });
+
   it('keeps a visible keyboard focus ring on panel navigation controls', async () => {
     const css = await readFile(fileURLToPath(new URL('../../apps/web/styles.css', import.meta.url)), 'utf8');
     expect(css).toContain('.panel-navigation button:focus-visible{background:#1b1d25;color:#eee;outline:2px solid #b69aff;outline-offset:2px}');

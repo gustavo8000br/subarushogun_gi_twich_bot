@@ -1,9 +1,9 @@
-import { CHAT_COMMANDS, resolveAllowedRoles, resolveCommandAccess } from './catalog.mjs';
+import { CHAT_COMMANDS, resolveCommandAccess } from './catalog.mjs';
 
 function isAllowed(entry, roles, policies, allowVipManagement) {
   return resolveCommandAccess({
     definition: entry,
-    allowedRoles: resolveAllowedRoles(entry, policies),
+    policies,
     roles,
     allowVipManagement,
   }).allowed;
