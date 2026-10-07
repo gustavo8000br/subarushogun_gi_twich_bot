@@ -12,7 +12,7 @@ Every shipping PR receives its selected version before merge. Record user-facing
 
 ## Current release plan
 
-The current product base version is `0.12.0`, `.release-stage` is `alpha`, and the unmaterialized checkout identity is `v0.12.0-0000000-alpha`. OPS-8 and OPS-9 are complete; FND-9 and DOC-2 remain before the first canonical public beta. The owner authorized beta promotion only after FND-9 is complete and the recorded OPS-8/DOC-2 release gates are satisfied. The planned first public release identity is `v1.0.0-HHHHHHH-beta`; do not promote the stage, change to `1.0.0`, create a tag, or publish a release before those gates are satisfied.
+The current product base version is `0.13.0`, `.release-stage` is `alpha`, and the unmaterialized checkout identity is `v0.13.0-0000000-alpha`. OPS-8 and OPS-9 are complete; OPS-10 is in progress; FND-9 and DOC-2 remain before the first canonical public beta. The owner authorized beta promotion only after FND-9 is complete and the recorded OPS-8/DOC-2 release gates are satisfied. The planned first public release identity is `v1.0.0-HHHHHHH-beta`; do not promote the stage, change to `1.0.0`, create a tag, or publish a release before those gates are satisfied.
 
 ## GitHub release contents
 

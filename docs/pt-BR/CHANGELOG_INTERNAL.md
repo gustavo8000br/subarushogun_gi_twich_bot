@@ -2,6 +2,14 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.13.0-alpha
+
+- OPS-10 separa o CI de pull requests do CD da branch main. Ambos chamam o mesmo workflow reutilizável de qualidade; o gate agregado de PR é o único check obrigatório. A permissão de escrita em pacotes existe somente no job publicador da main.
+- Remove uploads de instaladores não consumidos pela CI comum. Os testes nativos de instaladores continuam em Linux/macOS/Windows; o workflow de release continua anexando os artefatos testados.
+- O CD da main serializa a promoção de imagens, constrói imagens imutáveis por commit/arquitetura e só promove as tags móveis `main-linux-*` e o manifest multiplataforma `main` se a origem validada ainda for o commit mais recente da branch. Isso impede uma execução antiga em fila de retroceder as tags de arquitetura.
+- A validação de release consulta agora a execução bem-sucedida de `main-cd.yml` para o commit exato da tag. A documentação bilíngue CI/CD registra gatilhos, permissões, tags de imagem, retries e limites de release.
+- Incrementa MINOR para `0.13.0`; mantém `.release-stage` em `alpha`. Esta mudança não cria release nem tag Git.
+
 ## v0.12.0-alpha
 
 - OPS-9 unifica a autorização em torno de um único nível mínimo. Catálogo da API, handler/ajuda do chat e painel usam o resolver canônico; ações de gestão têm piso fixo de moderador e alterações da conta têm piso fixo de streamer. Foram removidos do runtime políticas por listas, modos de compatibilidade e parser de schema antigo.

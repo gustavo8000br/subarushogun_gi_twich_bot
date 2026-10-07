@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 const projectRoot = fileURLToPath(new URL('../../', import.meta.url));
 const validateCli = join(projectRoot, 'apps/infra/scripts/validate-version.mjs');
 const materializeCli = join(projectRoot, 'apps/infra/scripts/materialize-version.mjs');
-const workflowPath = join(projectRoot, '.github/workflows/ci.yml');
+const workflowPath = join(projectRoot, '.github/workflows/quality-gates.yml');
 const composePath = join(projectRoot, 'compose.yaml');
 const dockerfilePath = join(projectRoot, 'Dockerfile');
 const temporaryRoots = [];

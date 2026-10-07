@@ -103,7 +103,7 @@ jobs:
             echo "Only commits already present on main can be released." >&2
             exit 1
           fi
-          ci_run="$(gh run list --workflow ci.yml --commit "$SOURCE_SHA" --limit 1 --json status,conclusion)"
+          ci_run="$(gh run list --workflow main-cd.yml --commit "$SOURCE_SHA" --limit 1 --json status,conclusion)"
           ci_status="$(jq -r '.[0].status // ""' <<< "$ci_run")"
           ci_conclusion="$(jq -r '.[0].conclusion // ""' <<< "$ci_run")"
           if [[ "$ci_status" != "completed" || "$ci_conclusion" != "success" ]]; then

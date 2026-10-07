@@ -4,6 +4,10 @@
 
 Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.13.0-alpha
+
+- As imagens publicadas da main agora vêm somente de alterações aprovadas pelos mesmos gates de qualidade, mantendo as atualizações alinhadas ao código validado.
+
 ## v0.12.0-alpha
 
 - O acesso aos comandos agora segue uma hierarquia clara: seguidores, inscritos, VIPs e moderadores herdam o acesso do nível mínimo escolhido. A gestão das filas continua restrita a moderadores, e alterações de conta ficam exclusivas do streamer.

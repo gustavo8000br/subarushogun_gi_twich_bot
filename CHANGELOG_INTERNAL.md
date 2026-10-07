@@ -2,6 +2,14 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.13.0-alpha
+
+- OPS-10 separates pull request CI from main-branch CD. Both call the same reusable quality workflow; the PR-facing aggregate is the only required CI check. Package write permission exists only in the main publisher job.
+- Removes unused installer uploads from ordinary CI. Native Linux/macOS/Windows smoke tests still run; release workflows continue to upload tested installer assets.
+- Main CD serializes image promotion, builds immutable per-commit/per-architecture images, and promotes `main-linux-*` and multi-platform `main` tags only if its validated source is still the latest commit on `main`. This prevents an older queued run from moving architecture tags backward.
+- Release verification now checks the successful `main-cd.yml` run for the exact tagged commit. Bilingual CI/CD documentation records triggers, permissions, image tags, retry behavior, and release boundaries.
+- Increment MINOR to `0.13.0`; keep `.release-stage` at `alpha`. No release or Git tag is created by this change.
+
 ## v0.12.0-alpha
 
 - OPS-9 consolidates authorization around a single minimum-role rule. The API catalog, chat handler/help, and panel share the canonical access resolver; management actions have a fixed moderator floor, and account mutations have a fixed streamer floor. Removed runtime list policies, compatibility modes, and old-schema parsing.
