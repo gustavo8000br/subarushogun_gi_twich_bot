@@ -10,8 +10,17 @@ A pull request that is ready to merge and ship in the `main` image gets a versio
 
 Every shipping PR receives its selected version before merge. Record user-facing and technical notes directly under matching version headings in both English and pt-BR changelogs; do not use an `Unreleased` section. Changelog headings use the SemVer base and stage (for example `v0.2.0-alpha`). The full runtime identity includes the exact seven-character SHA of the source commit (for example `v0.2.0-abcdef0-alpha`); CI materializes it in the artifact after the commit exists, so the changelog commit never has to contain its own SHA.
 
-FND-7 shipped as `0.5.0-alpha` (MINOR) after independent QA PASS 9.2/10. Documentation and small-fix follow-ups are `0.5.1-alpha` and `0.5.2-alpha` (PATCH). FND-8 implementation is now in progress as `0.6.0-alpha` (MINOR); the checkout marker is `v0.6.0-0000000-alpha` until CI materializes an artifact from its exact source commit. `.release-stage` remains `alpha`. The owner-authorized `v1.0.0-HHHHHHH-beta` promotion condition has been met. Release preparation remains blocked because the AIOX `release-management` task names `docs/guides/release-procedure.md` as its required canonical SOP, but that file is absent. No beta release or tag has been created. The intended first FND-8 beta MINOR remains `v1.1.0-HHHHHHH-beta`; no stage promotion is made by this implementation PR.
-OPS-6 is prepared as the next product MINOR, `v0.7.0-alpha`, with `.release-stage` unchanged at `alpha`. Its checkout marker is `v0.7.0-0000000-alpha` until CI materializes an artifact from the exact source commit. This version update is not a stage promotion, release, or tag.
+## Current release plan
+
+The current product base version is `0.8.0`, `.release-stage` is `alpha`, and the unmaterialized checkout identity is `v0.8.0-0000000-alpha`. FND-9 is the remaining implementation gate before the first canonical public beta. The owner has authorized promotion to beta only after FND-9 is complete and its QA gate is met. The planned first public release identity is `v1.0.0-HHHHHHH-beta`; do not promote the stage, change to `1.0.0`, create a tag, or publish a release before that condition is satisfied.
+
+## GitHub release contents
+
+The release tag and title use the full materialized identity, for example `v1.0.0-a1b2c3d-beta`. Attach exactly one installer file per supported desktop OS: `.bat` for Windows, `.command` for macOS, and `.sh` for Linux. Build release notes from the matching version section in both `CHANGELOG.md` and `docs/pt-BR/CHANGELOG.md`; the release body presents the user-facing changes in English and pt-BR. Do not use `CHANGELOG_INTERNAL.md` as public release notes. Tags and releases are created exclusively by `@devops` after the owner-approved release gate.
+
+Each attached installer embeds the same full release identity as its GHCR `IMAGE_TAG`. Its normal update action pulls that selected release image before updating and only records the new tag after the pull succeeds. `main` remains the Compose/CI default; previously published installers do not silently drift to a later image.
+
+Pushing a correctly formed version tag runs `.github/workflows/release.yml`. The workflow checks that the tag's SemVer, stage, and seven-character SHA match the tagged source, builds and launches one installer on each native runner, and only then publishes the GitHub Release with both public changelog sections. A missing translated section or any failed platform build prevents publication. Ordinary branch and documentation pushes never publish a release.
 
 ## Runtime identity and artifacts
 
@@ -21,4 +30,4 @@ For each CI image, materialize the first seven hexadecimal characters of the exa
 
 GHCR image tags follow one platform convention: `main` and a full version such as `v0.2.0-abcdef0-alpha` identify multi-platform manifests; `main-linux-amd64`, `main-linux-arm64`, and their versioned equivalents identify single-platform images. Compose defaults to `IMAGE_TAG=main`. Image tags do not determine `product_version`; runtime identity remains embedded in the image.
 
-GitHub Releases and tags remain exclusively managed by `@devops`. Publishing a versioned CI image does not create a GitHub Release or Git tag. Stage promotion requires explicit human approval. The product version, API contract version, and state revision have separate purposes.
+Publishing a versioned CI image does not create a GitHub Release or Git tag. Stage promotion requires explicit human approval. The product version, API contract version, and state revision have separate purposes.

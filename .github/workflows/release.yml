@@ -1,0 +1,150 @@
+name: Publish GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-installers:
+    name: Build ${{ matrix.platform }} installer
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            runner: ubuntu-24.04
+            extension: sh
+          - platform: macos
+            runner: macos-15
+            extension: command
+          - platform: windows
+            runner: windows-latest
+            extension: bat
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.sha }}
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+          cache: npm
+      - name: Install locked packager dependencies
+        run: npm ci
+      - name: Package one installer for this operating system
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node apps/infra/scripts/package-installer.mjs --platform ${{ matrix.platform }} --output "${{ runner.temp }}/queuebot-installer" --image-tag "$RELEASE_TAG"
+      - name: Launch installer with isolated fake Docker
+        env:
+          QUEUEBOT_PREBUILT_INSTALLER: ${{ runner.temp }}/queuebot-installer/subarushogun_twich_bot_setup.${{ matrix.extension }}
+          QUEUEBOT_EXPECTED_IMAGE_TAG: ${{ github.ref_name }}
+        run: node tests/platform/installer-native.mjs
+      - name: Upload tested installer
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: release-installer-${{ matrix.platform }}
+          path: ${{ runner.temp }}/queuebot-installer/subarushogun_twich_bot_setup.${{ matrix.extension }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  publish-release:
+    name: Publish versioned release
+    needs: build-installers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+      - name: Verify tag matches the source commit and release configuration
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          base_version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).version")"
+          stage="$(tr -d '\r\n' < .release-stage)"
+          short_sha="${SOURCE_SHA:0:7}"
+          expected="v${base_version}-${short_sha}-${stage}"
+          if [[ ! "$short_sha" =~ ^[0-9a-f]{7}$ || "$RELEASE_TAG" != "$expected" ]]; then
+            echo "Release tag does not match package version, source commit, and release stage." >&2
+            exit 1
+          fi
+          if [[ "$(git rev-parse "${RELEASE_TAG}^{commit}")" != "$SOURCE_SHA" ]]; then
+            echo "Release tag does not point to the checked-out source commit." >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$SOURCE_SHA" origin/main; then
+            echo "Only commits already present on main can be released." >&2
+            exit 1
+          fi
+          ci_run="$(gh run list --workflow ci.yml --commit "$SOURCE_SHA" --limit 1 --json status,conclusion)"
+          ci_status="$(jq -r '.[0].status // ""' <<< "$ci_run")"
+          ci_conclusion="$(jq -r '.[0].conclusion // ""' <<< "$ci_run")"
+          if [[ "$ci_status" != "completed" || "$ci_conclusion" != "success" ]]; then
+            echo "The latest CI run for this source commit must complete successfully before release." >&2
+            exit 1
+          fi
+      - name: Download tested platform installers
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: release-installer-*
+          path: release-assets
+          merge-multiple: true
+      - name: Check exactly one installer for each supported desktop OS
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_assets=(
+            release-assets/subarushogun_twich_bot_setup.bat
+            release-assets/subarushogun_twich_bot_setup.command
+            release-assets/subarushogun_twich_bot_setup.sh
+          )
+          for asset in "${expected_assets[@]}"; do
+            test -f "$asset"
+          done
+          asset_count="$(find release-assets -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d '[:space:]')"
+          if [[ "$asset_count" != "3" ]]; then
+            echo "Expected exactly three installer assets, one per supported desktop OS." >&2
+            exit 1
+          fi
+      - name: Create bilingual release notes from public changelogs
+        run: node apps/infra/scripts/create-release-notes.mjs --version "$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
+      - name: Publish release with the three installers
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          stage="${RELEASE_TAG##*-}"
+          release_args=("$RELEASE_TAG" release-assets/* --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md" --verify-tag)
+          if [[ "$stage" != "stable" ]]; then
+            release_args+=(--prerelease)
+          fi
+          gh release create "${release_args[@]}"

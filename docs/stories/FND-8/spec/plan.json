@@ -66,7 +66,7 @@
     {
       "id": "P5",
       "name": "Host install/update/uninstall tools",
-      "goal": "Localize lifecycle tool copy and the approved setup/update/uninstall action names. Coordinate installer consolidation and platform packaging with planning story OPS-5; do not duplicate its installer architecture.",
+      "goal": "Localize messages in the unified installer per OS, including install/start, update, and uninstall actions; OPS-5 owns the completed cross-platform packaging.",
       "status": "not_started",
       "verification": [
         "Linux shell, Windows batch/PowerShell, and macOS shell contract tests where supported",
@@ -100,9 +100,8 @@
     "releaseOrTagAuthorized": false
   },
   "nextSteps": [
-    "Continue the implementation with Red→Green→Refactor per behavior and record exact evidence in the bilingual story log.",
-    "Add tests for approved authored-text preservation and reserved-root collision behavior before implementing those dependent behaviors.",
-    "Keep lifecycle tool localization within FND-8 and coordinate consolidation/CI artifact design with OPS-5.",
-    "Obtain independent QA follow-up after implementation gates and platform acceptance are ready."
+    "Continue remaining localization work and keep operator documentation aligned with the OPS-5 unified installer.",
+    "Use Red→Green→Refactor and record exact evidence in the bilingual story log.",
+    "Run independent QA and platform validations where applicable."
   ]
 }

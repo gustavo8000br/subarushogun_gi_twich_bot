@@ -1,46 +1,56 @@
-# OPS-5 specification — lifecycle setup entrypoints and CI artifacts
+# OPS-5 specification — single-file lifecycle installer
 
 [Português brasileiro](../../../pt-BR/stories/OPS-5/spec/spec.md)
 
-**Status:** planning draft. This is a proposal for refinement, not implementation authorization.
+**Status:** implementation reference; Linux direct launch and local quality gates passed. Native Linux/macOS/Windows jobs and installer artifact uploads passed on the latest revision in run 37637847991. Independent AIOX-QA is pending; physical operator acceptance is not claimed.
 
 ## Goal
 
-Provide one understandable lifecycle entrypoint per supported OS family for first setup, update, and uninstall. Use a GitHub Actions workflow with native OS runners to test and package the platform deliverables from reviewed repository sources. The runner application is open source; GitHub-hosted Actions is a hosted service.
+Deliver one directly openable installer file per supported operating system. Opening that file presents one menu for install/start, update, and uninstall. The user never needs separate lifecycle downloads, a companion script, or a repository checkout. Development sources and tests may remain modular; the single-file constraint applies to each user-downloadable platform artifact.
 
-## Product behavior
+## User flow
 
-- Windows gets one PowerShell entrypoint; supported Linux/macOS targets share a POSIX shell entrypoint when their tested requirements match.
-- The entrypoint presents `setup/start`, `update`, and `uninstall` menu/argument actions.
-- It detects Docker CLI, daemon availability, Compose v2, supported OS, and architecture before changing the product.
-- It explains missing prerequisites and offers only explicitly consented, supported installation steps. It never silently elevates, enables host virtualization, accepts vendor terms, or executes unchecked downloads.
-- Update preserves product volumes and reports the image/version source.
-- Uninstall keeps the existing preserve-data/delete-data choice, requires typed confirmation for deletion, removes only product resources, and never removes Docker as a shared dependency.
-- The entrypoint is idempotent and supports paths containing spaces.
+### Install / Start
 
-## CI behavior
+1. Detect OS/architecture, current product state, Docker CLI/daemon, and Docker Compose v2 before changing anything.
+2. If Docker/Compose is missing, offer a supported official installation path after explaining privilege, system changes, restarts, and vendor terms. The user may decline and receive official manual instructions. Never elevate, enable WSL/virtualization, accept terms, or run downloaded code silently.
+3. On first install, ask for product language (pt-BR default; English and Spanish available) and host port (3000 default). Validate the port, check whether it is occupied, and ask for a different value rather than switching automatically.
+4. Show and save the selected settings and exact HTTPS panel/OAuth callback URLs. The chosen locale can later be changed in the panel. Changing the port requires updating the callback registered in Twitch.
+5. Start the current supported product image/configuration, wait for Compose health, then open the panel or show a clear recovery instruction. Reopening the installer for an existing setup presents its current status and offers start/reconfigure without duplicating resources.
 
-- A GitHub Actions matrix runs shell contract tests on native Linux/macOS runners and PowerShell contract tests on Windows.
-- CI covers quoting, path spaces, cancellation, missing dependencies, failure/recovery paths, elevation boundaries, Compose health, and uninstall volume policy.
-- The workflow packages one artifact per OS family from checked-in, reviewed source files and uploads them for inspection. Generated artifacts never get committed back to the source branch.
-- Workflow permissions are minimal; third-party actions are pinned to full commit SHAs and updates are reviewed through PRs.
-- Release attachment is a separate authorized step. PR CI does not publish releases or tags.
-- CI runner checks are labeled separately from manual acceptance on native user machines.
-- The runner application is MIT-licensed/open source; GitHub-hosted Actions remains a hosted service and the full control plane is not open source. Self-hosting is an optional operations cost, not the default recommendation.
+### Update
 
-## Security and operations
+Show the installed product version/source and offer:
 
-- Never uninstall or mutate a shared Docker installation.
-- Do not print credentials, OAuth material, database secrets, or connection strings.
-- Verify signatures/checksums for downloaded installers when the vendor publishes them; fail closed if a verification contract exists but fails.
-- A failed dependency install does not delete product data and leaves explicit recovery instructions.
-- Do not promise automatic Docker host updates; this workflow packages the product lifecycle entrypoints only.
+- **Keep data and update** (default): retain database, Twitch authorization, secrets, generated local CA, language, and port; fetch the selected supported product image and apply migrations. Failure leaves current data intact and reports a recovery step.
+- **Erase product data and install cleanly**: summarize that queues, history, Twitch authorization, secrets, and local CA will be erased. Require a typed confirmation in the selected installer language. Then remove only this product's containers/volumes/files and app images not used by another container, and rerun first-install prompts. Cancellation or failed confirmation does not remove data.
 
-## Open decisions
+### Uninstall
 
-1. Exact supported Windows, macOS, Linux distributions, and CPU architectures.
-2. Whether the Windows deliverable remains `.ps1` or requires a signed executable wrapper.
-3. Which prerequisite steps can be automated on each supported OS, versus official manual guidance.
-4. Whether distributable CI artifacts are needed on every PR or only on pushes/manual dispatch.
+Offer two explicit choices:
 
-See [`research.json`](research.json) for the official-source research and alternatives.
+- **Keep data**: stop/remove only this product's containers, unused product images, and installer-managed application files. Preserve its PostgreSQL/secrets volumes, saved settings, and generated local CA for a later reinstall.
+- **Erase all product data**: list affected data and require a typed localized confirmation. Remove only this product's containers/unused app images/files/volumes/secrets and generated CA. Leave the downloaded installer file under user control.
+
+Both paths leave Docker Engine/Desktop, WSL/virtualization features, package managers, and other host dependencies installed. Explain that the user must remove those manually through the vendors' official uninstallation instructions if desired. Never remove or modify unrelated Docker projects, volumes, images, or host dependencies.
+
+## Platform artifact and CI
+
+- There is exactly one downloadable installer file per supported OS target (Windows, macOS, Linux). The artifact must launch the menu through the platform's normal open/run path without a second launcher or script. Select file formats only after native-runner and direct-launch testing; a `.ps1` that opens in an editor does not meet the requirement by itself.
+- Sources may share libraries and tests in the repository. CI builds/packages each standalone artifact from reviewed sources; it does not commit generated files back to the branch.
+- Native GitHub Actions runners execute the actual installer contracts for each supported OS and upload exactly one installer artifact per target. CI artifacts are not releases. Release attachment and tags require the existing owner-approved release workflow.
+- Pin third-party Actions to full commit SHAs and grant minimal permissions. The runner application is MIT/open source; GitHub-hosted Actions remains a hosted service.
+
+## Safety and recovery
+
+- Every action is idempotent and reports detected/installed state before mutation.
+- A missing dependency, declined prompt, failed download, unavailable network, failed migration, unhealthy Compose service, or interruption leaves existing product data intact and gives a concrete next step.
+- No automatic host-port changes, silent privilege escalation, silent system-feature changes, implicit vendor-license acceptance, unchecked script execution, or blind `down --volumes` against a project name not proven to belong to this application.
+- Do not log credentials, OAuth codes/tokens, database secrets, or connection strings.
+- Product uninstallation never uninstalls Docker or other shared host dependencies.
+
+## Acceptance evidence
+
+Tests cover direct launch/menu choice, locale and port prompts, callback display, path spaces, cancellation, installed/missing dependencies, consent/elevation/restart boundaries, failures and recovery, update preservation, clean-update deletion, uninstall retention/deletion scope, localized typed confirmation, unrelated-resource protection, and explicit manual-dependency-removal guidance. Native user-host acceptance is recorded separately from CI runner results.
+
+Resolved platform formats, Docker dependency behavior, typed confirmation words, and cleanup scope are recorded in the [story](../story.md). Native Actions results, full repository gates, independent QA, and physical user-host acceptance remain separate validation steps.

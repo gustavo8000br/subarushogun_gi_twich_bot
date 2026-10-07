@@ -8,12 +8,8 @@ services:
       args:
         PRODUCT_VERSION: ${PRODUCT_VERSION:-}
     user: "0:0"
-    working_dir: /workspace
+    working_dir: /app
     volumes:
-      - ./package.json:/workspace/package.json:ro
-      - ./apps/infra/src/bootstrap-secret.mjs:/workspace/apps/infra/src/bootstrap-secret.mjs:ro
-      - ./apps/infra/scripts/bootstrap.mjs:/workspace/apps/infra/scripts/bootstrap.mjs:ro
-      - ./apps/infra/src/bootstrap-secret.mjs:/workspace/apps/infra/src/bootstrap-secret.mjs:ro
       - operational_secrets:/var/lib/aiox/secrets
       - ${LOCAL_CERT_DIRECTORY:-./.local}:/var/lib/aiox/export
     command: ["node", "apps/infra/scripts/bootstrap.mjs"]
@@ -70,6 +66,7 @@ services:
       APP_PORT: ${APP_PORT:-3000}
       PUBLIC_BASE_URL: https://localhost:${APP_PORT:-3000}
       CALLBACK_URL: https://localhost:${APP_PORT:-3000}/callback
+      PRODUCT_INITIAL_LOCALE: ${PRODUCT_INITIAL_LOCALE:-pt-BR}
       TLS_CERT_FILE: /run/secrets/localhost.crt
       TLS_KEY_FILE: /run/secrets/localhost.key
       PRODUCT_LOCALE_PROJECTION_FILE: /app/.local/product-locale.state
@@ -78,7 +75,6 @@ services:
     volumes:
       - operational_secrets:/run/secrets:ro
       - ${LOCAL_CERT_DIRECTORY:-./.local}:/app/.local
-      - ./apps/web/localization/catalogs:/app/apps/web/localization/catalogs:ro
     depends_on:
       db:
         condition: service_healthy

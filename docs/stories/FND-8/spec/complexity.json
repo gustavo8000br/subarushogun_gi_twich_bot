@@ -28,11 +28,11 @@
     }
   },
   "flags": [
-    "The independent spec v3 re-review returned CONCERNS without a new score; the three editorial findings were corrected, and implementation QA remains pending.",
+    "The FND-8 implementation QA passed 9.2/10; the earlier spec re-review concerns are historical planning evidence.",
     "The PostgreSQL/host locale projection architecture is selected; crash, write failure, corruption, stale/offline behavior, and recovery still require tests.",
     "The UTF-8 TSV contract is selected; parser, encoding, safe placeholders/plurals, and cross-platform parity still require tests.",
     "Global roots fila, queue, and cola are reserved; existing collisions block only the conflicting root until an explicit rename, per owner decision.",
-    "Streamer-authored text preservation and tool names (setup/update/uninstall) were approved by the owner; dependent behaviors still require tests.",
+    "OPS-5 supersedes separate lifecycle filenames with one unified installer per OS; install/update/uninstall are menu actions.",
     "TDD and real PostgreSQL migrations are required for locale persistence and migration behavior.",
     "FND-8 is intended to be the first beta MINOR v1.1.0, but stage promotion/release remains unauthorized."
   ]

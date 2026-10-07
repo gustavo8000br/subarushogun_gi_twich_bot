@@ -2,7 +2,7 @@
 
 [English](../../../stories/FND-8/story.md)
 
-**Status:** Ready for Review. Persistência de locale, catálogos comunitários dinâmicos, textos localizados do painel/chat/OBS/configuração/ciclo de vida, CI nativo Windows, validação estrita de plurais/marcação insegura e regressões estão implementados na PR aberta #31. QA independente AIOX-QA aprovou com 9,2/10. Ciclo de vida Windows passou no cenário nativo `windows-latest`; escritas reais na Twitch e comportamento nativo macOS seguem sem validação.
+**Status:** Done e mesclada na PR #31 (`b6ccd0f`); issue #18 fechada. Persistência de locale, catálogos comunitários dinâmicos, textos localizados do painel/chat/OBS/configuração/ciclo de vida, CI nativo Windows, validação estrita de plurais/marcação insegura e regressões estão implementados. QA independente AIOX-QA aprovou com 9,2/10. Ciclo de vida Windows passou no cenário nativo `windows-latest`; escritas reais na Twitch e comportamento nativo macOS seguem sem validação. A entrega também concluiu os rótulos de status Twitch e comportamento de precedência acompanhados pela OPS-2/issue #21.
 **Complexidade:** COMPLEX (22/25).
 **Issue GitHub:** [#18](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/18)
 
@@ -17,7 +17,7 @@ Como streamer, quero selecionar o idioma do produto durante a instalação e alt
 - Os recursos da comunidade são separados em um arquivo de catálogo por módulo do produto e idioma. Novos locales canônicos completos são descobertos pelos arquivos, sem cadastro em uma lista JavaScript.
 - As raízes globais dos comandos são `!fila` (`pt-BR`), `!queue` (`en`) e `!cola` (`es`). Não manter alias legado. Reservar as três raízes contra slugs de fila em todos os idiomas.
 - IDs internos estáveis de comandos, campos do contrato da API, identificadores de banco e logs técnicos continuam neutros quanto a idioma/em inglês.
-- As ferramentas locais usam os nomes genéricos aprovados `subarushogun_twich_bot_setup`, `subarushogun_twich_bot_update` e `subarushogun_twich_bot_uninstall`; entrypoints específicos podem variar por plataforma.
+- A OPS-5 agora entrega um instalador unificado por sistema operacional. O menu localizado oferece Instalar / Iniciar, Atualizar e Desinstalar; essas ações não são arquivos nem downloads separados.
 - Colisões existentes de chaves de fila com `fila`, `queue` ou `cola` bloqueiam somente a raiz conflitante até renomeação explícita no painel; renomeação automática é proibida.
 - Superfícies-alvo: painel e assistente/callback; sintaxe, ajuda e respostas dos comandos de chat; editor de widget OBS e rótulos/fallbacks gerados pelo produto; ferramentas de iniciar/instalar, atualizar e desinstalar.
 - A implementação continua local-first e em JavaScript ESM vanilla, sem serviço de tradução em runtime, framework de frontend, TypeScript ou bundler.
@@ -27,7 +27,7 @@ Como streamer, quero selecionar o idioma do produto durante a instalação e alt
 ## Políticas aprovadas pelo proprietário
 
 - Textos escritos pelo streamer permanecem exatamente como inseridos ao mudar locale; localizar somente texto próprio do produto.
-- A convenção genérica das ferramentas é `subarushogun_twich_bot_setup`, `subarushogun_twich_bot_update` e `subarushogun_twich_bot_uninstall`; entrypoints variam por plataforma.
+- **Supersedido pela OPS-5 (2026-10-07):** as ações de ciclo de vida continuam localizadas, mas são oferecidas em um único arquivo de instalador unificado por sistema operacional, não em arquivos separados de setup/update/uninstall.
 - Colisões existentes de slug/alias com `fila`, `queue` ou `cola` bloqueiam somente a raiz conflitante até renomeação explícita no painel; nunca renomear automaticamente.
 
 

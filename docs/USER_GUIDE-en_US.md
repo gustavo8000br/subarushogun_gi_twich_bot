@@ -22,7 +22,7 @@ The streamer is identified by the Twitch account connected to this installation.
 
 ## Before first use
 
-Follow the [installation guide](INSTALLATION.md) for exact host requirements, private GHCR access, platform-specific startup, and certificate trust. Node.js and PostgreSQL do not need to be installed on the host. Once the panel opens at `https://localhost:3000`, continue with **Connecting Twitch** below.
+Follow the [installation guide](INSTALLATION.md) for exact host requirements, current GHCR package access, platform-specific startup, and certificate trust. The source repository is public, but the image package has separate permissions and currently requires an authorized account plus `read:packages`; Node.js and PostgreSQL do not need to be installed on the host. Once the panel opens at `https://localhost:3000`, continue with **Connecting Twitch** below.
 
 ## Connecting Twitch
 
@@ -155,11 +155,11 @@ The OBS page creates local Browser Source widgets for one selected value or fixe
 
 ## Stopping or restarting the bot
 
-Close the app with `docker compose stop`; this pauses the app without deleting its saved information. Start it again with `docker compose start`. Restarting the computer or app preserves queues and pending operations. After reconnecting, the app checks Twitch and resumes recoverable work. Anything whose final points state cannot be confirmed remains visible for operator review.
+Stop the product from Docker Desktop or the Docker Engine controls on your computer; this pauses the app without deleting its saved information. To start it again, open the single installer and choose **Install / Start**. Restarting the computer or app preserves queues and pending operations. After reconnecting, the app checks Twitch and resumes recoverable work. Anything whose final points state cannot be confirmed remains visible for operator review.
 
-For service status and troubleshooting, run `docker compose ps` and `docker compose logs --tail=100 bot`. `docker compose down` stops the project and preserves its volumes. Do not add `--volumes` unless you intentionally want to erase the local database and secrets.
+For service status, use Docker Desktop or Docker Engine tools to inspect the product containers. To troubleshoot, inspect the bot logs in the installer-managed Compose project. Stopping or restarting containers preserves product volumes; never remove volumes when merely stopping or updating.
 
-Use the provided updater (`subarushogun_twich_bot_update.bat` or `./subarushogun_twich_bot_update.sh`) only from the `main` branch in a clean Git checkout. It updates the current `main` version and preserves saved information. The uninstaller (`subarushogun_twich_bot_uninstall.bat` or `./subarushogun_twich_bot_uninstall.sh`) asks whether to keep or delete saved information. If deletion is selected, type `APAGAR` to confirm permanent removal of queues, history, Twitch connection details, and local secrets. Choosing preservation keeps the database and secrets. Do not use Docker's volume-removal option as a normal stop or update.
+For installation, update, or removal, use the same unified installer file for your operating system: `subarushogun_twich_bot_setup.bat` on Windows, `subarushogun_twich_bot_setup.command` on macOS, or `subarushogun_twich_bot_setup.sh` on Linux. Download the file from the [GitHub Releases page](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases) when the first public product release is available; its notes will summarize the matching version's `CHANGELOG.md` section. The first canonical beta is planned after FND-9. On Linux, use the downloaded file directly as shown in the [installer guide](INSTALLERS.md). Choose **Update** or **Uninstall** from its menu. A normal update preserves queues, history, Twitch authorization, secrets, language, and port. Uninstall asks whether to keep or erase product data; erasure requires the localized typed confirmation shown by the installer. Docker, virtualization, and other shared host dependencies remain installed and must be removed manually through their vendors if desired. Do not remove Docker volumes when stopping or updating the product.
 
 ## Common problems
 
@@ -174,7 +174,6 @@ Use the provided updater (`subarushogun_twich_bot_update.bat` or `./subarushogun
 | A viewer cannot join | There is no viewer self-join command. They must redeem the queue reward or be added by the streamer/moderator. |
 | Queue is closed | New reward redemptions are paused. The streamer/moderator can use `!<queue> abrir`; existing people can still be served. |
 | A call did not start an absence timer | The bot starts it only after chat confirms the call message. Check the call in the panel and retry the notification if offered. |
-| Startup or update reports that the project folder has local changes | Save those changes separately before using the updater; it intentionally refuses to replace a modified project folder. |
 
 ## Privacy and safety
 
@@ -197,10 +196,10 @@ There is no viewer self-enrollment command, game-account verification, payment c
 - The project includes automated tests and local integration evidence. A complete eligible-channel live session that creates/opens a reward, receives a viewer redemption, and confirms real cancellation/fulfillment has not been verified.
 - An authorized read-only Twitch health check was recorded, but it does not verify reward writes, chat delivery, or real points changes.
 - Invalid-UID redemptions are recorded for cancellation without creating a queue entry. The current chat handler was not found to send the specific explanatory message described in the original product requirements.
-- Windows first-run testing reported a repeated input-redirection warning in the helper. A proposed automated check exists, but a later manual Windows run has not confirmed the warning is gone.
+- A prior Windows run reported an input-redirection warning from the now-removed startup helper. The replacement single-file installer is tested on native Windows CI; an operator run on a Windows computer is still needed to confirm the full Docker Desktop flow.
 - macOS setup and OBS certificate trust have not been tested by this project.
 - The product locale selects the global chat root: `!fila` (pt-BR), `!queue` (English), or `!cola` (Spanish). Queue slugs and aliases remain the streamer-defined identifiers.
-- The current uninstaller choices and updater were described from the checked-in scripts; this guide task did not run them.
+- Installer tests use an isolated fake Docker executable. They do not claim that a real data-preserving update or uninstall was performed on an operator's computer.
 
 ## How this guide was verified
 

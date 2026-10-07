@@ -32,7 +32,7 @@ const port = Number(process.env.APP_PORT ?? 3000);
 const catalogRoot = fileURLToPath(new URL('../../web/localization/catalogs/', import.meta.url));
 process.env.DATABASE_URL = databaseUrl;
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
-const repository = createQueueRepository(prisma);
+const repository = createQueueRepository(prisma, { defaultProductLocale: process.env.PRODUCT_INITIAL_LOCALE ?? 'pt-BR' });
 const localeProjectionPath = process.env.PRODUCT_LOCALE_PROJECTION_FILE ?? '/app/.local/product-locale.state';
 try { await writeProductLocaleProjection(localeProjectionPath, await repository.getProductLocale()); }
 catch { process.stderr.write('Product locale host projection could not be synchronized; the database remains authoritative.\n'); }

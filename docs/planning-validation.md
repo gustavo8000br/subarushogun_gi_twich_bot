@@ -2,6 +2,8 @@
 
 [Português brasileiro](pt-BR/planning-validation.md)
 
+> **Historical planning record:** this document records the initial Greenfield review before FND-1 implementation. Its repository, version, and workflow status statements are historical; use the [current roadmap](ROADMAP.md), stories, and versioning guide for present status. User-facing installer downloads now use versioned GitHub Releases; the tag-triggered release workflow and its current status are described in the versioning guide.
+
 ## Scope reviewed
 
 The full-stack product brief, PRD, frontend specification, integrated architecture, service architecture, and frontend architecture were reviewed against the FND-0 requirements/spec/research artifacts and the supplied AIOX `po-master-checklist.md`.

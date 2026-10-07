@@ -2,7 +2,7 @@
 
 [Read in English](../CONTRIBUTING.md) · [Voltar ao README](../../README.pt-BR.md)
 
-O repositório está privado atualmente. Contribuições exigem acesso e devem seguir a story ativa e sua issue GitHub.
+O repositório-fonte é público. Qualquer pessoa pode ler o código e propor uma alteração; os mantenedores revisam pull requests conforme a story ativa, sua issue GitHub e as regras de contribuição abaixo.
 
 ## Antes de mudar comportamento
 

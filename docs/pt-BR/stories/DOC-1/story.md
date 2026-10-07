@@ -2,7 +2,7 @@
 
 [English](../../../stories/DOC-1/story.md)
 
-**Status:** Ready for Review na PR #35. Testes de contrato do README/documentação passaram 22/22; os 653 testes e gates locais do repositório passaram.
+**Status:** Concluída — mesclada na PR #35 (`dd21c8f`). Os testes de contrato do README/documentação passaram 22/22; os 653 testes e gates locais do repositório passaram.
 **Capacidade:** Documentação e início de uso do projeto
 **Issue GitHub:** Nenhuma; solicitação direta do proprietário do projeto.
 

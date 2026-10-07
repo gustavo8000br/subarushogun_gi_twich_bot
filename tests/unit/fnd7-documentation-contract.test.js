@@ -49,16 +49,16 @@ describe('FND-7 operator documentation', () => {
   });
 
   it('uses absolute certificate paths in platform trust instructions and marks untested hosts', () => {
-    expect(englishInstall).toContain('sudo install -dm644 "$pwd/.local/localhost-ca.crt"');
-    expect(englishInstall).toContain("import-certificate -filepath (resolve-path '.\\.local\\localhost-ca.crt').path -certstorelocation cert:\\currentuser\\root");
+    expect(englishInstall).toContain('sudo install -dm644 "$home/.local/share/subarushogun-gi-twitch-bot/.local/localhost-ca.crt"');
+    expect(englishInstall).toContain("import-certificate -filepath (join-path $env:localappdata 'subarushogun\\subarushogun-gi-twitch-bot\\.local\\localhost-ca.crt') -certstorelocation cert:\\currentuser\\root");
     expect(englishInstall).toContain('security add-trusted-cert -r trustroot');
-    expect(englishInstall).toContain('(resolve-path');
-    expect(englishInstall).toContain('macos host behavior has not been validated');
-    expect(portugueseInstall).toContain('sudo install -dm644 "$pwd/.local/localhost-ca.crt"');
-    expect(portugueseInstall).toContain("import-certificate -filepath (resolve-path '.\\.local\\localhost-ca.crt').path -certstorelocation cert:\\currentuser\\root");
+    expect(englishInstall).toContain('install -dm644');
+    expect(englishInstall).toContain('a physical mac operator run is still separate acceptance');
+    expect(portugueseInstall).toContain('sudo install -dm644 "$home/.local/share/subarushogun-gi-twitch-bot/.local/localhost-ca.crt"');
+    expect(portugueseInstall).toContain("import-certificate -filepath (join-path $env:localappdata 'subarushogun\\subarushogun-gi-twitch-bot\\.local\\localhost-ca.crt') -certstorelocation cert:\\currentuser\\root");
     expect(portugueseInstall).toContain('security add-trusted-cert -r trustroot');
-    expect(portugueseInstall).toContain('(resolve-path');
-    expect(portugueseInstall).toContain('o funcionamento no host macos ainda não foi validado');
+    expect(portugueseInstall).toContain('install -dm644');
+    expect(portugueseInstall).toContain('a aceitação em um mac físico é uma etapa separada');
   });
 
   it('keeps the macOS first-run step sequence aligned between both READMEs', () => {

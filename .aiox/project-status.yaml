@@ -1,19 +1,19 @@
 status:
-  branch: feat/fnd-6-streamer-panel-security
+  branch: feat/ops5-single-file-installer
   modifiedFiles:
     - .aiox/project-status.yaml
+    - .github/workflows/ci.yml
     - CHANGELOG.md
     - CHANGELOG_INTERNAL.md
     - README.md
-    - README.pt-BR.md
-  modifiedFilesTotalCount: 57
+  modifiedFilesTotalCount: 51
   recentCommits:
-    - 'feat(fnd-5): complete chat queue lifecycle and account ownership (#16)'
-    - 'docs(version): record first materialized alpha image (#15)'
+    - 'fix(installer): handle missing terminal input'
+    - 'fix(installer): render language prompt before locale selection'
   currentEpic: null
   currentStory: null
-  lastUpdate: '2026-10-06T05:20:48.563Z'
+  lastUpdate: '2026-10-07T14:02:10.931Z'
   isGitRepo: true
-timestamp: 1791264048564
+timestamp: 1791381730933
 ttl: 60
-gitFingerprint: 1791251869144.0989:1791251811758.3938
+gitFingerprint: 1791349166634.3765:1791350572131.3586
