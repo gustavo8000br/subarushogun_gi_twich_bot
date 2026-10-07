@@ -72,3 +72,8 @@ panel.locale.description	El idioma seleccionado también se usa en los mensajes 
 panel.locale.available	Idioma disponible
 panel.error.generic	No se pudo completar la acción. Inténtalo de nuevo.
 panel.error.locale_conflict	El idioma cambió en otra solicitud. Actualiza la página.
+panel.form.queue_name	Nombre de la cola
+panel.form.create_queue	Crear cola
+panel.widget.appearance	Apariencia
+panel.widget.save	Guardar widget
+panel.entry.add	Añadir a la cola

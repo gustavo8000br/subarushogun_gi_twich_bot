@@ -4,6 +4,17 @@ import { describe, expect, it } from 'vitest';
 import { discoverCatalogModule } from '../../apps/shared/localization/discover-catalog-module.mjs';
 
 describe('panel catalog contract', () => {
+  it('marks queue, widget, and manual-entry action copy for localization', async () => {
+    const html = await readFile(fileURLToPath(new URL('../../apps/web/index.html', import.meta.url)), 'utf8');
+    for (const key of [
+      'panel.form.queue_name',
+      'panel.form.create_queue',
+      'panel.widget.appearance',
+      'panel.widget.save',
+      'panel.entry.add',
+    ]) expect(html).toContain(`data-i18n="${key}"`);
+  });
+
   it('covers every static text and accessible-label key in the panel for each first-party locale', async () => {
     const htmlPath = fileURLToPath(new URL('../../apps/web/index.html', import.meta.url));
     const catalogRoot = fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url));

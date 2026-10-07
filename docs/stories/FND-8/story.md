@@ -210,6 +210,13 @@ As a streamer, I want to select the product language during installation and cha
 - **Green/Refactor:** `npm exec vitest run tests/unit/web-application-setup.test.js tests/unit/panel-error-presentation.test.js` passed 4/4 after injecting the catalog-backed error presenter and using it across panel catches. `npm run lint` and `npm run typecheck` passed.
 - **Scope:** backend text no longer reaches panel notices/toasts through the app's request helper or Twitch-application form. Localized validation copy across every dynamic panel action remains part of the broader panel work.
 
+### Increment 21 — Localize key queue and widget form controls
+
+- **Behavior:** mark queue creation, widget appearance/save, and manual-entry action copy as catalog-owned strings so locale selection also updates these controls.
+- **Red:** `npm exec vitest run tests/integration/panel-localization-contract.test.js -t 'marks queue'` failed because the five required panel keys were not present in the static HTML.
+- **Green/Refactor:** `npm exec -- vitest run tests/integration/panel-localization-contract.test.js` passed 2/2 after adding the keys to all first-party catalogs and applying them to the controls. The catalog validator, lint, and typecheck passed.
+- **Scope:** only these queue/widget/manual-entry labels are covered here; remaining panel forms and dynamic labels remain pending.
+
 ## Open planning and implementation gates
 
 - Independent QA reviewed spec v1 as CONCERNS, 8.1/10. Spec v3 re-review returned CONCERNS without assigning a new score; corrected editorial findings should be included in the next independent review.

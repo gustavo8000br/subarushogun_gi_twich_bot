@@ -9,7 +9,7 @@
 - Impede que mensagens de erro do backend/provedor cheguem a avisos e toasts do painel; mapeia conflito de revisão de idioma para texto do catálogo e usa mensagem genérica localizada nos demais casos. Testes de regressão cobrem uma resposta de provedor com conteúdo semelhante a segredo.
 - Adiciona entrypoints genéricos `subarushogun_twich_bot_{setup,update,uninstall}`. Ferramentas POSIX usam o locale salvo; entrypoints `.bat` delegam ao executor PowerShell. Há testes de contrato, mas o executor não foi rodado nativamente porque PowerShell/Windows não está disponível neste ambiente.
 - Atualiza documentação bilíngue de contribuição/operação e valida contratos de catálogo, API/persistência/projeção de locale, ciclo de vida shell, wrappers e Compose.
-- Gates em 2026-10-06: `npm run lint`, `npm run typecheck`, `npm test` (86 arquivos / 615 testes), `npm run validate:port-denylist` (1.024 arquivos, zero achados), `npm run validate:version`, `npm run review:static` (zero achados / 70 arquivos JS da aplicação), `npm run validate:localization` (5 módulos; en/es/pt-BR), `git diff --check` e `docker compose config --quiet` passaram. Localização integral do painel, validação runtime do PowerShell e QA independente final seguem pendentes.
+- Gates em 2026-10-06: `npm run lint`, `npm run typecheck`, `npm test` (86 arquivos / 616 testes), `npm run validate:port-denylist` (1.024 arquivos, zero achados), `npm run validate:version`, `npm run review:static` (zero achados / 70 arquivos JS da aplicação), `npm run validate:localization` (5 módulos; en/es/pt-BR), `git diff --check` e `docker compose config --quiet` passaram. Localização integral do painel, validação runtime do PowerShell e QA independente final seguem pendentes.
 
 ## v0.5.2-alpha
 

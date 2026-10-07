@@ -72,3 +72,8 @@ panel.locale.description	The selected language is also used for bot messages. Co
 panel.locale.available	Available language
 panel.error.generic	Could not complete the action. Try again.
 panel.error.locale_conflict	The language changed in another request. Refresh the page.
+panel.form.queue_name	Queue name
+panel.form.create_queue	Create queue
+panel.widget.appearance	Appearance
+panel.widget.save	Save widget
+panel.entry.add	Add to queue

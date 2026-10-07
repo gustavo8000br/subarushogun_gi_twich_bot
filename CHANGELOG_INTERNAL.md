@@ -9,7 +9,7 @@
 - Prevent backend/provider error strings from reaching panel notices and toasts; map the locale revision conflict to catalog-owned copy and use localized generic copy otherwise. Regression tests cover a provider message containing a secret-like value.
 - Add generic `subarushogun_twich_bot_{setup,update,uninstall}` entrypoints. POSIX tools use the saved locale; Windows `.bat` entrypoints delegate to the PowerShell lifecycle runner. The runner has contract coverage but was not executed natively because PowerShell/Windows is unavailable in this environment.
 - Update bilingual contributor and operations docs and validate catalog, locale API/persistence/projection, shell lifecycle, wrapper, and Compose contracts.
-- Quality gates on 2026-10-06: `npm run lint`, `npm run typecheck`, `npm test` (86 files / 615 tests), `npm run validate:port-denylist` (1,024 files, 0 findings), `npm run validate:version`, `npm run review:static` (0 findings / 70 application JS files), `npm run validate:localization` (5 modules; en/es/pt-BR), `git diff --check`, and `docker compose config --quiet` passed. Whole-panel localization, PowerShell runtime validation, and final independent QA remain open.
+- Quality gates on 2026-10-06: `npm run lint`, `npm run typecheck`, `npm test` (86 files / 616 tests), `npm run validate:port-denylist` (1,024 files, 0 findings), `npm run validate:version`, `npm run review:static` (0 findings / 70 application JS files), `npm run validate:localization` (5 modules; en/es/pt-BR), `git diff --check`, and `docker compose config --quiet` passed. Whole-panel localization, PowerShell runtime validation, and final independent QA remain open.
 
 ## v0.5.2-alpha
 

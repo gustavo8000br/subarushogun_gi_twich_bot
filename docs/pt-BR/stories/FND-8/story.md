@@ -210,6 +210,13 @@ Como streamer, quero selecionar o idioma do produto durante a instalação e alt
 - **Green/Refactor:** `npm exec vitest run tests/unit/web-application-setup.test.js tests/unit/panel-error-presentation.test.js` passou 4/4 depois de injetar o apresentador de erros baseado no catálogo e usá-lo nos catches do painel. `npm run lint` e `npm run typecheck` passaram.
 - **Escopo:** mensagens do backend não chegam aos avisos/toasts pelo helper de requisição do app ou pelo formulário do aplicativo Twitch. A localização de textos de validação em todas as ações dinâmicas do painel continua no trabalho maior da interface.
 
+### Incremento 21 — Localizar controles principais de fila e widget
+
+- **Comportamento:** marcar textos de criação de fila, aparência/salvamento do widget e ação de entrada manual como strings do catálogo, para que a seleção do idioma atualize também esses controles.
+- **Red:** `npm exec vitest run tests/integration/panel-localization-contract.test.js -t 'marks queue'` falhou porque as cinco chaves exigidas do painel não existiam no HTML estático.
+- **Green/Refactor:** `npm exec -- vitest run tests/integration/panel-localization-contract.test.js` passou 2/2 após adicionar as chaves aos catálogos primários e aplicá-las aos controles. Validador de catálogos, lint e typecheck passaram.
+- **Escopo:** somente estes rótulos de fila/widget/entrada manual estão cobertos; formulários e rótulos dinâmicos restantes do painel continuam pendentes.
+
 ## Gates de implementação pendentes
 
 - QA independente avaliou a spec v1 como CONCERNS, 8,1/10. A reavaliação da spec v3 retornou CONCERNS sem atribuir nova nota; os achados editoriais corrigidos devem entrar na próxima revisão independente.

@@ -72,3 +72,8 @@ panel.locale.description	O idioma selecionado também será usado nas mensagens 
 panel.locale.available	Idioma disponível
 panel.error.generic	Não foi possível concluir. Tente novamente.
 panel.error.locale_conflict	O idioma mudou em outra solicitação. Atualize a página.
+panel.form.queue_name	Nome da fila
+panel.form.create_queue	Criar fila
+panel.widget.appearance	Aparência
+panel.widget.save	Salvar widget
+panel.entry.add	Adicionar à fila
