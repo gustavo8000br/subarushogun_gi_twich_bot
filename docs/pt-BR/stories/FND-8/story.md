@@ -221,8 +221,9 @@ Como streamer, quero selecionar o idioma do produto durante a instalação e alt
 
 - **Comportamento:** toda PR executa no runner `windows-latest` o cenário PowerShell de localização e pré-condição do atualizador, em um caminho temporário com espaços; um checkout fora de `main` deve mostrar o texto do catálogo inglês e não pode chamar o Docker.
 - **Red:** `npm exec -- vitest run tests/integration/windows-lifecycle-contract.test.js` falhou porque o workflow não tinha runner Windows nem cenário nativo do ciclo de vida.
-- **Green:** o contrato passou 1/1 após adicionar o job `windows-lifecycle` e um fixture PowerShell que isola os comandos Git e Docker. Lint, typecheck, suíte completa (87 arquivos / 617 testes), validação dos catálogos, versão/portas, Compose e `git diff --check` passaram. A execução nativa aguarda o resultado do GitHub Actions; este host Linux não possui `pwsh`.
-- **Refatoração:** não houve mudança no comportamento do produto; o cenário Windows fica isolado em caminho temporário e comprova que a rejeição da branch ocorre antes do acesso ao Docker.
+- **Red:** a primeira execução nativa no GitHub Actions mostrou a mensagem de sucesso do cenário, mas o processo terminou com código 1 porque o PowerShell herdou `$LASTEXITCODE` do processo updater filho cuja falha era intencional.
+- **Green:** foi adicionado um encerramento explícito de sucesso depois da limpeza do fixture; o contrato Linux continua 1/1 e a nova execução nativa Windows está pendente. Lint, typecheck, suíte completa (87 arquivos / 617 testes), validação dos catálogos, versão/portas, Compose e `git diff --check` passaram. Este host Linux não possui `pwsh`.
+- **Refatoração:** o fixture temporário isolado continua comprovando a rejeição da branch antes do Docker e agora retorna seu resultado sem herdar o código do processo filho.
 - **Escopo:** execução nativa Windows agora faz parte do gate da PR. Localização completa do painel/API e QA independente final continuam pendentes.
 
 ## Gates de implementação pendentes

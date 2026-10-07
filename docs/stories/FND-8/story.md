@@ -221,8 +221,9 @@ As a streamer, I want to select the product language during installation and cha
 
 - **Behavior:** every PR runs the PowerShell updater localization/precondition scenario on `windows-latest`, using a disposable project path containing spaces; a non-main checkout must report the selected English catalog copy and must not invoke Docker.
 - **Red:** `npm exec -- vitest run tests/integration/windows-lifecycle-contract.test.js` failed because the CI workflow had no Windows runner or native lifecycle scenario.
-- **Green:** the contract passed 1/1 after adding the `windows-lifecycle` job and a PowerShell fixture that isolates Git and Docker commands. Local lint, typecheck, full tests (87 files / 617 tests), catalog validation, version/port checks, Compose validation, and `git diff --check` passed. Native execution awaits the GitHub Actions result; this Linux host has no `pwsh` executable.
-- **Refactor:** no product behavior changed; the Windows scenario is isolated under a temporary path and proves branch rejection happens before Docker access.
+- **Red:** the first native GitHub Actions run printed the scenario's success message but the process still exited with code 1 because PowerShell inherited `$LASTEXITCODE` from the deliberately failing nested updater process.
+- **Green:** an explicit success exit was added after the fixture cleanup; the Linux contract remains 1/1 and native Windows rerun is pending. Local lint, typecheck, full tests (87 files / 617 tests), catalog validation, version/port checks, Compose validation, and `git diff --check` passed. This Linux host has no `pwsh` executable.
+- **Refactor:** the isolated temporary fixture still proves branch rejection before Docker access, and now reports its own result independently of the child process result.
 - **Scope:** native Windows CI is now part of the PR quality gate. Full panel/API localization and final independent QA remain pending.
 
 ## Open planning and implementation gates

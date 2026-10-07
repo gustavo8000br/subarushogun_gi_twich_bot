@@ -57,3 +57,5 @@ exit /b 0
 } finally {
   Remove-Item -LiteralPath $TempRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
+
+exit 0
