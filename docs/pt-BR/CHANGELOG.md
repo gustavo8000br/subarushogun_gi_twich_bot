@@ -4,6 +4,11 @@
 
 Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.10.0-alpha
+
+- Streamers podem definir um nível mínimo de audiência para cada comando; os grupos superiores recebem acesso automaticamente.
+- Comandos exclusivos para seguidores podem verificar quem segue o canal pela Twitch após o streamer ativar essa opção.
+
 ## v0.9.0-alpha
 
 - O instalador agora exibe o progresso e só confirma a remoção após verificar que os containers, as redes e as imagens sem uso do produto desapareceram.

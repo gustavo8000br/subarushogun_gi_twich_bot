@@ -2,6 +2,11 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.10.0-alpha
+
+- Conclui OPS-7 / issue #39: adiciona níveis hierárquicos para comandos, preserva políticas legadas exatas, aplica limites fixos de acesso, verifica seguidores pela API Helix atual com consentimento OAuth opcional vinculado à sessão e inclui feedback localizado no painel/chat e recuperação do escopo. QA passou com 10/10. Gates locais completos passaram em 2026-10-07: 87 arquivos de teste / 704 testes, lint, typecheck, OpenGrep (0 achados), validadores de localização/versão, configuração Compose e verificação do diff. Não foi executada consulta de seguidores nem OAuth Twitch ao vivo. Os logs TDD preservam a cronologia inicial do helper e a remediação test-first posterior no PostgreSQL.
+- Atualiza a versão base do produto para `0.10.0`; mantém `.release-stage` em `alpha` e usa o marcador pré-commit em `VERSION`.
+
 ## v0.9.0-alpha
 
 - Gates corretivos finais da OPS-5 passaram: a execução Actions 37651571138 está verde nos fluxos nativos Linux/macOS/Windows, testes/PostgreSQL/Compose, lint/typecheck, OpenGrep/política de versão e build da imagem de produção. QA AIOX independente registrou PASS 100/100 para 17/17 critérios. Suíte local: 86 arquivos / 677 testes. Não alegamos testes físicos de ciclo de vida em Windows/macOS nem operações de escrita na Twitch.

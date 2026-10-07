@@ -51,21 +51,21 @@ describe('canonical chat command catalog and access policy', () => {
 
     for (const key of ['global:conta:set', 'global:conta:reset']) {
       const definition = CHAT_COMMANDS.find((entry) => entry.key === key);
-      expect(definition.immutableRoles, key).toEqual(['streamer', 'moderator']);
-      expect(resolveAllowedRoles(definition, policies), key).toEqual(['streamer', 'moderator']);
-      expect(resolveCommandAccess({ definition, roles: ['moderator'] }).allowed, key).toBe(true);
+      expect(definition.immutableRoles, key).toEqual(['streamer']);
+      expect(resolveAllowedRoles(definition, policies), key).toEqual(['streamer']);
+      expect(resolveCommandAccess({ definition, roles: ['moderator'] }), key).toMatchObject({ allowed: false, reason: 'streamer_only' });
       expect(resolveCommandAccess({ definition, roles: ['vip'], allowVipManagement: true }).allowed, key).toBe(false);
       expect(resolveCommandAccess({ definition, roles: ['streamer'] }).allowed, key).toBe(true);
     }
   });
 
-  it('does not allow policy edits to broaden account mutations beyond streamer and moderator', () => {
+  it('does not allow policy edits to broaden account mutations beyond the streamer', () => {
     const setName = getCommandDefinition({ scope: 'global', command: 'conta', args: ['nome'] });
     const reset = getCommandDefinition({ scope: 'global', command: 'conta', args: ['reset'] });
-    expect(setName.immutableRoles).toEqual(['streamer', 'moderator']);
-    expect(reset.immutableRoles).toEqual(['streamer', 'moderator']);
-    expect(resolveAllowedRoles(setName, ['everyone'])).toEqual(['streamer', 'moderator']);
-    expect(resolveAllowedRoles(reset, ['vip'])).toEqual(['streamer', 'moderator']);
+    expect(setName.immutableRoles).toEqual(['streamer']);
+    expect(reset.immutableRoles).toEqual(['streamer']);
+    expect(resolveAllowedRoles(setName, ['everyone'])).toEqual(['streamer']);
+    expect(resolveAllowedRoles(reset, ['vip'])).toEqual(['streamer']);
   });
 
   it('grants streamer identity access to mutable commands regardless of configurable roles', () => {

@@ -1,6 +1,6 @@
 import { getCommandDefinition, resolveAllowedRoles, resolveCommandAccess } from './catalog.mjs';
 
-/** @typedef {{allowed: boolean, role: string|null, roles: string[], actorId: string|null, reason: string}} AuthorizationDecision */
+/** @typedef {{allowed: boolean, role: string|null, roles: string[], actorId: string|null, reason: string, followerVerificationUnknown?: boolean}} AuthorizationDecision */
 
 function hasBadge(message, badgeName) {
   const { badges } = message;
@@ -19,9 +19,9 @@ function decision(allowed, role, actorId, reason, roles = []) {
   return { allowed, role, roles, actorId, reason };
 }
 
-/** @param {{broadcasterId: unknown, message: Record<string, any>, command: {scope:string,command:string,args:string[]}, policies?:Record<string,string[]>, allowVipManagement?: boolean}} input @returns {AuthorizationDecision} */
+/** @param {{broadcasterId: unknown, message: Record<string, any>, command: {scope:string,command:string,args:string[]}, policies?:Record<string,any>, allowVipManagement?: boolean, isFollower?: boolean}} input @returns {AuthorizationDecision} */
 export function authorizeCommand(input) {
-  const { broadcasterId, message, command, allowVipManagement = false } = input;
+  const { broadcasterId, message, command, allowVipManagement = false, isFollower = false } = input;
   if (typeof broadcasterId !== 'string' || !message || typeof message !== 'object'
       || typeof message.userId !== 'string' || typeof message.channelId !== 'string'
       || !command || typeof command.command !== 'string' || !Array.isArray(command.args)) {
@@ -38,6 +38,7 @@ export function authorizeCommand(input) {
   if (hasBadge(message, 'moderator')) roles.push('moderator');
   if (allowVipManagement === true && hasBadge(message, 'vip')) roles.push('vip');
   if (hasBadge(message, 'subscriber')) roles.push('subscriber');
+  if (isFollower === true) roles.push('follower');
   if (!isStreamer && !roles.length) roles.push('viewer');
   const role = roles[0] ?? 'viewer';
   const definition = getCommandDefinition(command);

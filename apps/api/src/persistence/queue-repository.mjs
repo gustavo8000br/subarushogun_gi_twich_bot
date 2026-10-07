@@ -1,6 +1,6 @@
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { validateUidInput } from '../domain/uid.mjs';
-import { CHAT_COMMANDS, CONFIGURABLE_COMMAND_ROLES } from '../commands/catalog.mjs';
+import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES, CONFIGURABLE_COMMAND_ROLES } from '../commands/catalog.mjs';
 
 /** @typedef {Record<string, any>} PrismaClientLike */
 
@@ -50,26 +50,79 @@ function isSafeReason(reason) {
 }
 
 function parseCommandPolicyState(value) {
-  if (!value) return { version: 1, policies: {} };
-  if (!value || typeof value !== 'object' || Array.isArray(value) || !Number.isInteger(value.version) || value.version < 1
+  if (!value) return { schemaVersion: 1, version: 1, policies: {} };
+  if (!value || typeof value !== 'object' || Array.isArray(value)
       || !value.policies || typeof value.policies !== 'object' || Array.isArray(value.policies)) {
     throw repositoryError('INVALID_COMMAND_POLICY_STATE', 'Stored command policy state is invalid');
   }
-  return { version: value.version, policies: value.policies };
+  const legacy = value.schemaVersion === undefined;
+  const schemaVersion = legacy ? 1 : value.schemaVersion;
+  const version = legacy ? value.version : value.revision;
+  if (![1, 2].includes(schemaVersion) || !Number.isInteger(version) || version < 1) {
+    throw repositoryError('INVALID_COMMAND_POLICY_STATE', 'Stored command policy state is invalid');
+  }
+  for (const [key, policy] of Object.entries(value.policies)) {
+    const definition = CHAT_COMMANDS.find((entry) => entry.key === key);
+    if (!definition) throw repositoryError('INVALID_COMMAND_POLICY_STATE', 'Stored command policy state is invalid');
+    if (schemaVersion === 1) {
+      if (!Array.isArray(policy) || policy.some((role) => !CONFIGURABLE_COMMAND_ROLES.includes(role))
+          || new Set(policy).size !== policy.length) {
+        throw repositoryError('INVALID_COMMAND_POLICY_STATE', 'Stored command policy state is invalid');
+      }
+    } else if (!policy || typeof policy !== 'object' || Array.isArray(policy) || definition.immutableRoles
+        || (policy.mode === 'minimum_role' && !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole))
+        || (policy.mode === 'legacy_exact' && (!Array.isArray(policy.allowedRoles)
+          || policy.allowedRoles.some((role) => !CONFIGURABLE_COMMAND_ROLES.includes(role))
+          || new Set(policy.allowedRoles).size !== policy.allowedRoles.length))
+        || !['minimum_role', 'legacy_exact'].includes(policy.mode)
+        || (policy.mode === 'minimum_role' && Object.keys(policy).some((property) => !['mode', 'minimumRole'].includes(property)))
+        || (policy.mode === 'legacy_exact' && Object.keys(policy).some((property) => !['mode', 'allowedRoles'].includes(property)))) {
+      throw repositoryError('INVALID_COMMAND_POLICY_STATE', 'Stored command policy state is invalid');
+    }
+  }
+  return { schemaVersion, version, policies: value.policies };
 }
 
 function validateCommandPolicyChanges(policies) {
   if (!policies || typeof policies !== 'object' || Array.isArray(policies) || !Object.keys(policies).length) {
     throw repositoryError('INVALID_COMMAND_POLICY', 'Command policy update is invalid');
   }
-  for (const [key, roles] of Object.entries(policies)) {
+  for (const [key, policy] of Object.entries(policies)) {
     const definition = CHAT_COMMANDS.find((entry) => entry.key === key);
-    if (!definition || definition.immutableRoles || !Array.isArray(roles)
-        || roles.some((role) => !CONFIGURABLE_COMMAND_ROLES.includes(role))
-        || new Set(roles).size !== roles.length) {
+    if (!definition || definition.immutableRoles || !policy || typeof policy !== 'object' || Array.isArray(policy)
+        || policy.mode !== 'minimum_role' || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
+        || Object.keys(policy).some((property) => !['mode', 'minimumRole'].includes(property))) {
       throw repositoryError('INVALID_COMMAND_POLICY', 'Command policy update is invalid');
     }
   }
+}
+
+async function updateCommandPoliciesInTransaction(tx, { expectedVersion, policies, actorId = null, origin = 'panel' }) {
+  if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+    throw repositoryError('INVALID_COMMAND_POLICY', 'Command policy update is invalid');
+  }
+  validateCommandPolicyChanges(policies);
+  await lockScopedOperation(tx, 'setting:chat-command-policies');
+  const record = await tx.setting.findUnique({ where: { key: 'chat_command_policies' } });
+  const current = parseCommandPolicyState(record?.value);
+  if (current.version !== expectedVersion) {
+    throw repositoryError('COMMAND_POLICY_VERSION_CONFLICT', 'Command policy version changed');
+  }
+  const legacyPolicies = current.schemaVersion === 1
+    ? Object.fromEntries(Object.entries(current.policies).map(([key, allowedRoles]) => [key, { mode: 'legacy_exact', allowedRoles: [...allowedRoles] }]))
+    : current.policies;
+  const next = { schemaVersion: 2, version: current.version + 1, policies: { ...legacyPolicies, ...policies } };
+  const stored = { schemaVersion: 2, revision: next.version, policies: next.policies };
+  await tx.setting.upsert({
+    where: { key: 'chat_command_policies' },
+    create: { key: 'chat_command_policies', value: stored },
+    update: { value: stored },
+  });
+  await tx.auditLog.create({ data: {
+    event: 'command.policies_updated', actorId, origin, reason: 'command_role_policy_changed',
+    safeDetail: { commandIds: Object.keys(policies).sort(), changedPolicies: policies, version: next.version },
+  } });
+  return next;
 }
 
 async function readCommandPolicyState(prisma) {
@@ -150,25 +203,11 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         throw repositoryError('INVALID_COMMAND_POLICY', 'Command policy update is invalid');
       }
       validateCommandPolicyChanges(policies);
-      return prisma.$transaction(async (tx) => {
-        await lockScopedOperation(tx, 'setting:chat-command-policies');
-        const record = await tx.setting.findUnique({ where: { key: 'chat_command_policies' } });
-        const current = parseCommandPolicyState(record?.value);
-        if (current.version !== expectedVersion) {
-          throw repositoryError('COMMAND_POLICY_VERSION_CONFLICT', 'Command policy version changed');
-        }
-        const next = { version: current.version + 1, policies: { ...current.policies, ...policies } };
-        await tx.setting.upsert({
-          where: { key: 'chat_command_policies' },
-          create: { key: 'chat_command_policies', value: next },
-          update: { value: next },
-        });
-        await tx.auditLog.create({ data: {
-          event: 'command.policies_updated', actorId, origin, reason: 'command_role_policy_changed',
-          safeDetail: { commandIds: Object.keys(policies).sort(), changedPolicies: policies, version: next.version },
-        } });
-        return next;
-      });
+      return prisma.$transaction((tx) => updateCommandPoliciesInTransaction(tx, { expectedVersion, policies, actorId, origin }));
+    },
+
+    async updateCommandPoliciesInTransaction(tx, input) {
+      return updateCommandPoliciesInTransaction(tx, input);
     },
 
     async beginPanelOperation({ operationKey, fingerprint }) {
@@ -263,7 +302,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
     async claimChatCommand({ messageId, channelId, userId, role, cooldownExempt = false, now = clock(), cooldownMs = 5_000 }) {
       if (typeof messageId !== 'string' || !messageId || typeof channelId !== 'string' || !channelId
-          || typeof userId !== 'string' || !userId || !['viewer', 'vip', 'moderator', 'streamer'].includes(role)
+          || typeof userId !== 'string' || !userId || !['viewer', 'follower', 'subscriber', 'vip', 'moderator', 'streamer'].includes(role)
           || !(now instanceof Date) || !Number.isFinite(now.getTime()) || !Number.isInteger(cooldownMs) || cooldownMs < 0) {
         throw repositoryError('INVALID_CHAT_OPERATION', 'Chat operation identity or timing is invalid');
       }
@@ -273,7 +312,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         const previousMessage = await tx.processedOperation.findUnique({ where: { operationKey: messageKey } });
         if (previousMessage) return { status: 'duplicate' };
 
-        if (role === 'viewer' && !cooldownExempt) {
+        if (!['moderator', 'streamer'].includes(role) && !cooldownExempt) {
           const cooldownKey = `chat-viewer-cooldown:${channelId}:${userId}`;
           await lockScopedOperation(tx, cooldownKey);
           const cooldownRecord = await tx.processedOperation.findUnique({ where: { operationKey: cooldownKey } });

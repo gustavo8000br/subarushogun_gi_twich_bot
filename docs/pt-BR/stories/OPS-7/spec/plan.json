@@ -1,0 +1,34 @@
+{
+  "storyId": "OPS-7",
+  "createdAt": "2026-10-07T00:00:00Z",
+  "createdBy": "@architect",
+  "status": "done",
+  "complexity": "COMPLEX",
+  "phases": [
+    { "id": "P1", "name": "Domínio da política de cargos", "tasks": [
+      { "id": "T1.1", "behavior": "Hierarquia de nível mínimo, sobreposição, toggle VIP e regras imutáveis", "redFirst": ["tabela-verdade completa", "streamer somente por identidade", "comandos fixos não podem ser ampliados", "moderador não define/reset conta"], "greenScope": ["resolvedor puro de política", "definições do catálogo canônico"], "verification": "Vitest focado" },
+      { "id": "T1.2", "behavior": "Parser de política versionada e preservação legacy-exact", "redFirst": ["arrays antigos preservam decisões sem escrita no boot", "política malformada falha fechado", "configuração mista v1/v2 roundtrip"], "greenScope": ["parser/normalizador de política", "contrato do repositório"], "verification": "Vitest e migrations em PostgreSQL isolado" }
+    ]},
+    { "id": "P2", "name": "Evidência Twitch confiável de cargo", "tasks": [
+      { "id": "T2.1", "behavior": "Normalização de badges do evento atual", "redFirst": ["mapa de objetos subscriber/mod/VIP", "arrays normalizados", "badges de origem nunca autorizam", "Shared Chat estrangeiro rejeitado antes da consulta"], "greenScope": ["fronteira atual do adapter EventSub", "extração pura de claims"], "verification": "Testes de runtime EventSub e autorização" },
+      { "id": "T2.2", "behavior": "Verificação tri-state de follower", "redFirst": ["seguidor e não seguidor válidos", "escopo ausente significa desconhecido", "data vazio sem escopo não significa falso", "429/timeout/401/5xx falham fechado", "resultado não persistido"], "greenScope": ["método adapter Twurple", "coalescência apenas em voo"], "verification": "Fakes de fronteira Twitch e testes de efeitos da autorização" }
+    ]},
+    { "id": "P3", "name": "Consentimento OAuth opcional para follower", "tasks": [
+      { "id": "T3.1", "behavior": "Solicitar escopo follower somente quando selecionado", "redFirst": ["escopos base inalterados por padrão", "conjunto mínimo de OAuth", "propósito ligado à sessão/state", "negação ou escopo incompleto mantém credencial e política anteriores"], "greenScope": ["state OAuth com propósito", "validação de escopo e troca de credencial"], "verification": "Testes unitários e de rota OAuth com fakes de validação" }
+    ]},
+    { "id": "P4", "name": "API e painel de política persistida", "tasks": [
+      { "id": "T4.1", "behavior": "Migração de política e auditoria transacional", "redFirst": ["preservar legacy/reload em PostgreSQL real", "converter só um comando", "conflito de revisão", "auditoria sem dados de membership"], "greenScope": ["migração do Setting JSON", "mutação protegida de política"], "verification": "Integração PostgreSQL descartável e rotas protegidas" },
+      { "id": "T4.2", "behavior": "Editor de nível e prévia da audiência efetiva", "redFirst": ["linhas fixas bloqueadas", "audiências legacy/proposta mostradas", "rótulos localizados", "HTML inseguro renderizado como texto", "estado de escopo ausente"], "greenScope": ["DTO seguro", "projeção/formulários vanilla"], "verification": "Testes DOM/rota e revisão do navegador" }
+    ]},
+    { "id": "P5", "name": "Ajuda do chat e limite de efeitos", "tasks": [
+      { "id": "T5.1", "behavior": "Ajuda filtrada por cargo e verificação de follower", "redFirst": ["listar somente comandos permitidos", "follower desconhecido oculta comandos protegidos", "raiz/rótulos localizados", "limite de 500 caracteres"], "greenScope": ["integração da ajuda ao chat"], "verification": "Testes de help/handler" },
+      { "id": "T5.2", "behavior": "Cooldown e ausência de efeitos não autorizados", "redFirst": ["cooldown de viewer follower/inscrito/VIP", "negação sem efeitos em fila/conta/outbox", "sem resposta de sucesso no chat para status desconhecido"], "greenScope": ["ordem de autorização/cooldown do handler"], "verification": "Testes de handler com spies e fake do adapter follower" }
+    ]},
+    { "id": "P6", "name": "Documentação e gates", "tasks": [
+      { "id": "T6.1", "behavior": "Story bilíngue, integrações e sequência de release", "redFirst": ["contrato de paridade documental", "rastreamento do escopo da issue", "sem beta antes das quatro stories"], "greenScope": ["atualizar versões inglês/pt-BR da story, integrações, README/changelog quando aplicável"], "verification": "Paridade documental e gates do repositório" }
+    ]}
+  ],
+  "qualityGates": ["evidência Red→Green→Refactor por incremento", "PostgreSQL real isolado e migrations", "npm run lint", "npm run typecheck", "npm test", "npm run review:static", "npm run validate:version", "docker compose config --quiet", "paridade documental", "QA independente nota 10/10"],
+  "sequence": ["OPS-7", "OPS-8", "FND-9", "DOC-2"],
+  "release": { "stage": "alpha até concluir as quatro stories", "afterSequence": "promoção beta autorizada pelo proprietário e fluxo v1.0.0-HHHHHHH conduzido por @devops", "materializeOrPromoteNow": false }
+}

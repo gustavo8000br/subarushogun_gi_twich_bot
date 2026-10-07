@@ -21,6 +21,9 @@ Status checked against the local story index and GitHub issues on 2026-10-07. Op
 | OPS-4 — MIT license ([#29](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/29)) | Complete; merged in PR #25 |
 | OPS-5 — Cross-platform lifecycle installer ([#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30)) | Reopened / InProgress: visible scoped uninstall, postcondition checks, and unattended CLI underway; real Linux Compose fire test passed; Windows native test and fresh QA pending |
 | OPS-6 — Clear runtime status and guided panel states ([#32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32)) | Complete; merged in PR #33; independent QA PASS 100/100 |
+| OPS-7 — Hierarchical command permissions and follower role ([#39](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/39)) | Done; QA 10/10; ready for DevOps PR. OPS-8 is next |
+| OPS-8 — Automatic Twitch reconnection ([#41](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/41)) | Open; planned after OPS-7 |
+| DOC-2 — Accurate bilingual product screenshots ([#40](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/40)) | Open; planned after FND-9 |
 
 See the detailed acceptance criteria and implementation evidence in the [story index](stories.md) and its [pt-BR version](pt-BR/stories.md).
 
@@ -30,4 +33,4 @@ These owner-requested ideas are backlog candidates, not scoped stories or issues
 
 - Recover Twitch API/EventSub connectivity automatically after temporary network loss, sleep, shutdown, or restart when persisted OAuth credentials remain valid; do not request a new login for a transient outage.
 - Add carefully selected product screenshots to the English and pt-BR documentation, with an agreed capture/update process.
-- **Critical command-permission refactor (deferred until OPS-5 is complete):** include the missing Subscriber audience alongside Moderators, VIPs, Subscribers, Inscritos, and Todos; evaluate inherited group permissions so streamers can grant commands to subscribers and higher tiers; keep streamer/mod-only management commands restricted. Begin Planning Workflow with `$aiox-architect` only after OPS-5 closes; require QA to close all gaps before implementation.
+- **Current authorized sequence:** OPS-7 → OPS-8 → FND-9 → DOC-2. OPS-7 is Done after QA 10/10; OPS-8 is now authorized to begin. The owner conditionally authorized `beta` only after all four stories complete. Do not promote the stage before then.

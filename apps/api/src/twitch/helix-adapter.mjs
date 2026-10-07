@@ -35,9 +35,28 @@ function rewardProjection(reward) {
   };
 }
 
-/** @param {{api: Record<string, any>, broadcasterId: string}} dependencies */
-export function createTwitchApiAdapter({ api, broadcasterId }) {
+/** @param {{api: Record<string, any>, broadcasterId: string, authProvider?: {getCurrentScopesForUser?: (userId: string) => string[]}}} dependencies */
+export function createTwitchApiAdapter({ api, broadcasterId, authProvider }) {
+  const followerChecks = new Map();
+  async function checkFollower(userId) {
+    if (typeof userId !== 'string' || !/^\d{1,32}$/.test(userId)
+        || typeof broadcasterId !== 'string' || !/^\d{1,32}$/.test(broadcasterId)) return 'unknown';
+    if (followerChecks.has(userId)) return followerChecks.get(userId);
+    const check = (async () => {
+      try {
+        const scopes = authProvider?.getCurrentScopesForUser?.(broadcasterId);
+        if (!Array.isArray(scopes) || !scopes.includes('moderator:read:followers')) return 'unknown';
+        if (typeof api.channels?.getChannelFollowers !== 'function') return 'unknown';
+        const result = await api.channels.getChannelFollowers(broadcasterId, userId);
+        if (!Array.isArray(result?.data) || result.data.some((follower) => typeof follower?.userId !== 'string' || follower.userId !== userId)) return 'unknown';
+        return result.data.length > 0 ? 'follower' : 'not_follower';
+      } catch { return 'unknown'; }
+    })();
+    followerChecks.set(userId, check);
+    try { return await check; } finally { if (followerChecks.get(userId) === check) followerChecks.delete(userId); }
+  }
   return {
+    checkFollower,
     async ping() {
       const user = await api.users.getUserById(broadcasterId);
       if (!user) throw new Error('Twitch API health probe did not find the configured broadcaster');

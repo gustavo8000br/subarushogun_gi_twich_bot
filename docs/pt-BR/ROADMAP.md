@@ -21,6 +21,9 @@ Estado conferido com o índice local de stories e as issues do GitHub em 2026-10
 | OPS-4 — Licença MIT ([#29](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/29)) | Concluída; mesclada na PR #25 |
 | OPS-5 — Instalador de ciclo de vida multiplataforma ([#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30)) | Reaberta / InProgress: progresso visível, remoção delimitada e verificação em andamento; teste real Linux Compose passou; teste nativo Windows e novo QA pendentes |
 | OPS-6 — Status de runtime claro e orientações no painel ([#32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32)) | Concluída; mesclada na PR #33; QA independente PASS 100/100 |
+| OPS-7 — Permissões hierárquicas e cargo follower ([#39](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/39)) | Done; QA 10/10; pronto para PR do DevOps. OPS-8 é a próxima |
+| OPS-8 — Reconexão automática com Twitch ([#41](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/41)) | Aberta; planejada depois da OPS-7 |
+| DOC-2 — Capturas bilíngues corretas do produto ([#40](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/40)) | Aberta; planejada depois da FND-9 |
 
 Consulte critérios de aceite e evidências detalhadas no [índice de stories](stories.md) e na [versão em inglês](../stories.md).
 
@@ -30,4 +33,4 @@ Estas ideias solicitadas pelo proprietário são candidatas ao backlog; ainda n�
 
 - Recuperar automaticamente a conexão com Twitch API/EventSub após perda temporária de rede, suspensão, desligamento ou reinício quando as credenciais OAuth persistidas continuarem válidas; não pedir novo login por uma falha transitória.
 - Incluir capturas de tela selecionadas na documentação em inglês e pt-BR, com processo definido para capturar e atualizar as imagens.
-- **Refatoração crítica das permissões de comandos (adiada até a OPS-5 concluir):** incluir o cargo Subscriber que falta, junto a Moderadores, VIPs, Subscribers, Inscritos e Todos; avaliar herança de permissões entre grupos para permitir que o streamer conceda acesso a inscritos e níveis superiores; manter comandos exclusivos de streamer/moderador restritos. Iniciar Planning Workflow com `$aiox-architect` somente depois que a OPS-5 fechar; exigir que QA feche todas as lacunas antes da implementação.
+- **Sequência atual autorizada:** OPS-7 → OPS-8 → FND-9 → DOC-2. OPS-7 está Done após QA 10/10; OPS-8 está autorizada para iniciar. O proprietário autorizou condicionalmente `beta` somente depois das quatro stories concluídas. Não promover o stage antes disso.

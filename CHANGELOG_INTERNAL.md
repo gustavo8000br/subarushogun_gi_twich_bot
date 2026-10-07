@@ -2,6 +2,11 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.10.0-alpha
+
+- Complete OPS-7 / issue #39: add hierarchical command thresholds, preserve legacy exact policies, enforce fixed access boundaries, verify followers through the current Helix API with optional session-bound OAuth consent, and add localized panel/chat feedback and scope recovery. QA passed 10/10. Full local gates passed on 2026-10-07: 87 test files / 704 tests, lint, typecheck, OpenGrep (0 findings), localization/version validators, Compose config, and diff check. No live Twitch follower lookup/OAuth was performed. TDD logs retain the initial helper chronology and subsequent PostgreSQL test-first remediation.
+- Bump product base version to `0.10.0`; keep `.release-stage` at `alpha` and use the pre-commit marker in `VERSION`.
+
 ## v0.9.0-alpha
 
 - Final OPS-5 corrective gates passed: Actions run 37651571138 is green across Linux/macOS/Windows native installer flows, tests/PostgreSQL/Compose, lint/typecheck, OpenGrep/version policy, and production image build. Independent AIOX-QA recorded PASS 100/100 for 17/17 acceptance criteria. Local suite: 86 files / 677 tests. Physical Windows/macOS host lifecycle testing and Twitch write operations remain unclaimed.

@@ -28,6 +28,50 @@ function setup() {
 }
 
 describe('Twitch chat command handler', () => {
+  it('verifies follower status only when needed and permits a confirmed follower without side effects on uncertainty', async () => {
+    const h = setup();
+    h.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } }));
+    h.twitch.checkFollower = vi.fn(async () => 'follower');
+    await h.handler({ id: 'follower-list', text: '!abismo lista', userId: '123456', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
+    expect(h.twitch.checkFollower).toHaveBeenCalledWith('123456');
+    expect(h.repository.listQueueChatEntries).toHaveBeenCalledOnce();
+
+    const unknown = setup();
+    unknown.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } }));
+    unknown.twitch.checkFollower = vi.fn(async () => 'unknown');
+    await unknown.handler({ id: 'follower-list-unknown', text: '!abismo lista', userId: '654321', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
+    expect(unknown.repository.listQueueChatEntries).not.toHaveBeenCalled();
+    expect(unknown.repository.getQueueByKey).not.toHaveBeenCalled();
+    expect(unknown.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringMatching(/não foi possível verificar|não foi poss[ií]vel verificar/i));
+  });
+
+  it('does not query Twitch for subscriber inheritance and marks follower-dependent help as unverifiable when needed', async () => {
+    const subscriber = setup();
+    subscriber.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } }));
+    subscriber.twitch.checkFollower = vi.fn();
+    await subscriber.handler({ id: 'subscriber-list', text: '!abismo lista', userId: 'sub-1', userLogin: 'sub', displayName: 'Sub', channelId: 'broadcaster-1', badges: [{ setId: 'subscriber' }] });
+    expect(subscriber.twitch.checkFollower).not.toHaveBeenCalled();
+    expect(subscriber.repository.listQueueChatEntries).toHaveBeenCalledOnce();
+
+    const help = setup();
+    help.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } }));
+    help.twitch.checkFollower = vi.fn(async () => 'unknown');
+    await help.handler({ id: 'follower-help-unknown', text: '!fila comandos', userId: 'help-1', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
+    expect(help.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringMatching(/não foi possível verificar|não foi poss[ií]vel verificar/i));
+    expect(help.twitch.sendChatMessage).not.toHaveBeenCalledWith(expect.stringContaining('!<fila> lista'));
+  });
+
+  it('includes follower-threshold commands in help only after a positive current Twitch check', async () => {
+    const h = setup();
+    h.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } }));
+    h.twitch.checkFollower = vi.fn(async () => 'follower');
+    await h.handler({ id: 'follower-help-positive', text: '!fila comandos', userId: '888888', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
+    expect(h.twitch.checkFollower).toHaveBeenCalledWith('888888');
+    expect(h.twitch.sendChatMessage).toHaveBeenCalledOnce();
+    expect(h.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringContaining('!<fila> lista'));
+    expect(h.twitch.sendChatMessage).not.toHaveBeenCalledWith(expect.stringContaining('Não foi possível verificar'));
+  });
+
   it('routes namespaced queue discovery to the public queue projection', async () => {
     const h = setup();
     await h.handler({ id: 'global-queues', text: '!fila filas', userId: 'viewer-1', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
@@ -36,15 +80,15 @@ describe('Twitch chat command handler', () => {
     expect(h.repository.getQueueByKey).not.toHaveBeenCalled();
   });
 
-  it('routes account read, reset, and set by stable localized action IDs and role policy', async () => {
+  it('routes account read and restricts account changes to the streamer', async () => {
     const h = setup();
     await h.handler({ id: 'account-read', text: '!fila conta', userId: 'viewer-1', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
     await h.handler({ id: 'account-set-denied', text: '!fila conta Unauthorized', userId: 'viewer-2', userLogin: 'viewer2', displayName: 'Viewer 2', channelId: 'broadcaster-1', badges: [] });
-    await h.handler({ id: 'account-set', text: '!fila conta Novo Rótulo', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
-    await h.handler({ id: 'account-reset', text: '!fila conta reset', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+    await h.handler({ id: 'account-set', text: '!fila conta Novo Rótulo', userId: 'broadcaster-1', userLogin: 'streamer', displayName: 'Streamer', channelId: 'broadcaster-1', badges: [] });
+    await h.handler({ id: 'account-reset', text: '!fila conta reset', userId: 'broadcaster-1', userLogin: 'streamer', displayName: 'Streamer', channelId: 'broadcaster-1', badges: [] });
     expect(h.settings.getAccount).toHaveBeenCalledOnce();
-    expect(h.settings.setAccount).toHaveBeenCalledWith('Novo Rótulo', 'mod-1');
-    expect(h.settings.resetAccount).toHaveBeenCalledWith('mod-1');
+    expect(h.settings.setAccount).toHaveBeenCalledWith('Novo Rótulo', 'broadcaster-1');
+    expect(h.settings.resetAccount).toHaveBeenCalledWith('broadcaster-1');
     expect(h.twitch.sendChatMessage).toHaveBeenCalledTimes(3);
   });
 

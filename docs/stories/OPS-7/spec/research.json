@@ -1,0 +1,37 @@
+{
+  "storyId": "OPS-7",
+  "researchedAt": "2026-10-07",
+  "researchedBy": "@analyst",
+  "packageVersions": {
+    "@twurple/api": "8.2.0",
+    "@twurple/auth": "8.2.0",
+    "@twurple/eventsub-ws": "8.2.0"
+  },
+  "findings": [
+    { "id": "RF-1", "source": "https://dev.twitch.tv/docs/chat/send-receive-messages/", "summary": "EventSub chat messages contain badges and Twitch says to inspect badges on each message rather than store them, because badges can change at any time.", "impact": "Resolve moderator/VIP/subscriber only from the current message; do not cache these roles across messages." },
+    { "id": "RF-2", "source": "https://dev.twitch.tv/docs/eventsub/eventsub-reference/", "summary": "Channel Chat Message includes target-channel badges and separate optional source_badges for Shared Chat; badge set IDs are values such as subscriber and metadata is not a role hierarchy.", "impact": "Trust target-channel `badges` only; never grant role from `source_badges`. Product ordering is application policy, not a Twitch hierarchy." },
+    { "id": "RF-3", "source": "https://dev.twitch.tv/docs/api/reference", "summary": "GET /helix/channels/followers supports broadcaster_id and optional user_id. It requires a user access token with moderator:read:followers and the token user must be the broadcaster or a moderator. An empty data array can mean not-following, missing scope, or missing authorization.", "impact": "Use configured broadcaster ID and current event user ID; verify token identity and scope before interpreting an empty array; unknown/error fails closed." },
+    { "id": "RF-4", "source": "https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/", "summary": "channel.follow v2 notifies when a new follow occurs and requires moderator:read:followers; it is not a current follower-membership snapshot and does not report unfollows.", "impact": "Do not use EventSub follow notifications as authorization state or persist a follower cache." },
+    { "id": "RF-5", "source": "https://dev.twitch.tv/docs/authentication/validate-tokens/", "summary": "Twitch validation returns client_id, user_id and scopes; third-party apps with OAuth sessions must validate at startup and hourly.", "impact": "Check the broadcaster/client identity and granted follower scope; preserve existing hourly token validation. API/token failures are distinct from a confirmed non-follower." },
+    { "id": "RF-6", "source": "https://dev.twitch.tv/docs/authentication/scopes/", "summary": "Twitch requires apps to request only scopes needed for app functionality and documents scopes as user-authorized capabilities.", "impact": "Request moderator:read:followers only after the streamer enables a follower threshold; do not add it to every installation unconditionally." },
+    { "id": "RF-7", "source": "https://dev.twitch.tv/docs/api/guide", "summary": "Twitch applies token-bucket limits; user-token API rate limits are per client ID and user per minute and responses expose rate-limit headers. 429 responses should use Ratelimit-Reset to determine when the bucket resets.", "impact": "Call Helix only for parsed commands/help that need follower proof; do not retry aggressively; rate-limit or API failure must not authorize the action." },
+    { "id": "RF-8", "source": "https://twurple.js.org/reference/api/classes/HelixChannelApi.html", "summary": "Twurple API 8.2.0 documents getChannelFollowers(broadcaster, user, pagination), which can check one user, and uses the broadcaster token by default.", "impact": "Use the existing API client/adapter; no new SDK or raw HTTP integration is needed." },
+    { "id": "RF-9", "source": "https://twurple.js.org/reference/auth/classes/RefreshingAuthProvider.html", "summary": "Twurple RefreshingAuthProvider 8.2.0 exposes getCurrentScopesForUser and scope-aware getAccessTokenForUser; refresh callbacks provide updated scopes.", "impact": "Check currently available scopes before follower lookup and continue persisting every refresh atomically." },
+    { "id": "RF-10", "source": "Installed declaration `node_modules/@twurple/eventsub-base/lib/events/EventSubChannelChatMessageEvent.d.ts` and implementation `.../EventSubChannelChatMessageEvent.js`", "summary": "Twurple 8.2.0 exposes `badges` as Record<string,string> and `sourceBadges` separately; badge keys are set IDs.", "impact": "Use the installed current SDK shape; keep regression tests for object-map and normalized array shapes." }
+  ],
+  "codebaseEvidence": [
+    "apps/api/src/commands/catalog.mjs stores explicit defaultRoles/immutableRoles and resolves OR allowlists.",
+    "apps/api/src/commands/authorization.mjs reads current broadcaster identity and badges; Twurple EventSub object maps are supported.",
+    "apps/api/src/twitch/eventsub-runtime.mjs forwards only target source channel and current badges; foreign Shared Chat events are rejected.",
+    "apps/api/src/twitch/oauth.mjs and apps/api/src/twitch/auth-runtime.mjs hard-code the current three required scopes.",
+    "apps/api/src/twitch/integration.mjs creates a single-channel broadcaster OAuth/API runtime and uses the existing Twitch adapter.",
+    "apps/api/src/persistence/queue-repository.mjs stores command policy as a versioned JSON Setting with explicit role arrays.",
+    "apps/api/src/http/queue-routes.mjs and apps/web expose protected catalog and policy editing; localization roots are provided by FND-8 catalogs."
+  ],
+  "unverifiedClaims": [
+    "The product hierarchy (everyone < follower < subscriber < VIP < moderator < streamer) is an owner-approved application policy, not a Twitch-defined ranking.",
+    "No live Twitch follower lookup or scope authorization was performed during planning; SDK documentation and installed declarations only were verified."
+  ],
+  "newDependencies": [],
+  "dateAndVersionNote": "Official Twitch and Twurple documentation was consulted on 2026-10-07. The repository currently pins all three Twurple packages to 8.2.0. Recheck docs and declarations before implementation if the lockfile changes."
+}

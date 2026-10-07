@@ -1,0 +1,34 @@
+{
+  "storyId": "OPS-7",
+  "createdAt": "2026-10-07T00:00:00Z",
+  "createdBy": "@architect",
+  "status": "done",
+  "complexity": "COMPLEX",
+  "phases": [
+    { "id": "P1", "name": "Role policy domain", "tasks": [
+      { "id": "T1.1", "behavior": "Minimum-role hierarchy, overlap, VIP toggle, and immutable command rules", "redFirst": ["complete role truth table", "streamer identity only", "fixed commands cannot be broadened", "current conta set/reset moderator denial"], "greenScope": ["pure policy resolver", "canonical catalog definitions"], "verification": "focused Vitest" },
+      { "id": "T1.2", "behavior": "Versioned policy parsing and legacy exact preservation", "redFirst": ["legacy arrays preserve decisions without startup writes", "malformed policy fails closed", "mixed v1/v2 settings roundtrip"], "greenScope": ["policy parser/normalizer", "repository contract"], "verification": "Vitest plus isolated PostgreSQL migrations" }
+    ]},
+    { "id": "P2", "name": "Trusted Twitch role evidence", "tasks": [
+      { "id": "T2.1", "behavior": "Current-event badge normalization", "redFirst": ["subscriber/mod/VIP object map", "normalized arrays", "source badges never grant", "foreign shared chat rejected before lookup"], "greenScope": ["existing EventSub adapter boundary", "pure claim extraction"], "verification": "EventSub runtime and authorization tests" },
+      { "id": "T2.2", "behavior": "Follower tri-state verification", "redFirst": ["valid follower and non-follower", "missing scope is unknown", "empty data without scope not treated as false", "429/timeout/401/5xx fail closed", "no persistent role result"], "greenScope": ["Twurple adapter method", "in-flight coalescing only"], "verification": "Twitch adapter fakes plus authorization side-effect tests" }
+    ]},
+    { "id": "P3", "name": "Optional follower OAuth consent", "tasks": [
+      { "id": "T3.1", "behavior": "Ask for follower scope only when selected", "redFirst": ["base scopes unchanged by default", "minimum OAuth scope set", "state/session-bound purpose", "denied or incomplete scope keeps prior credential and policy"], "greenScope": ["scoped OAuth state", "scope validation and credential handoff"], "verification": "OAuth unit and route tests with token-validation fakes" }
+    ]},
+    { "id": "P4", "name": "Persisted policy API and panel", "tasks": [
+      { "id": "T4.1", "behavior": "Policy migration and transactional audit", "redFirst": ["real Postgres legacy preservation/reload", "one-command conversion", "revision conflict", "audit excludes membership data"], "greenScope": ["repository JSON migration", "protected policy mutation"], "verification": "Disposable PostgreSQL integration tests and protected route tests" },
+      { "id": "T4.2", "behavior": "Threshold editor and effective audience preview", "redFirst": ["fixed rows locked", "legacy and proposed audiences shown", "inherited group labels localized", "unsafe HTML rendered as text", "missing scope state"], "greenScope": ["safe API DTO", "vanilla panel projection/forms"], "verification": "DOM/route tests and browser review" }
+    ]},
+    { "id": "P5", "name": "Chat help and side-effect boundary", "tasks": [
+      { "id": "T5.1", "behavior": "Role-filtered help with follower verification", "redFirst": ["show only currently permitted commands", "unknown follower omits protected commands", "localized root and role labels", "500 character cap"], "greenScope": ["chat help integration"], "verification": "help/handler tests" },
+      { "id": "T5.2", "behavior": "Cooldown and no unauthorized side effects", "redFirst": ["follower/subscriber/VIP viewer cooldown", "no queue/account/outbox/Twitch effects after denial", "no chat success on unknown status"], "greenScope": ["handler authorization order/cooldown"], "verification": "handler tests with effect spies and follower adapter fake" }
+    ]},
+    { "id": "P6", "name": "Documentation and quality gate", "tasks": [
+      { "id": "T6.1", "behavior": "Bilingual story, integrations and release sequence documentation", "redFirst": ["documentation parity contract", "issue scope traceability", "no beta before all four stories"], "greenScope": ["English and pt-BR story/integration/readme/changelog updates as applicable"], "verification": "documentation parity plus all repository gates" }
+    ]}
+  ],
+  "qualityGates": ["Red→Green→Refactor evidence per increment", "real isolated PostgreSQL and migrations", "npm run lint", "npm run typecheck", "npm test", "npm run review:static", "npm run validate:version", "docker compose config --quiet", "documentation parity", "independent QA score 10/10"],
+  "sequence": ["OPS-7", "OPS-8", "FND-9", "DOC-2"],
+  "release": { "stage": "alpha until all four stories are complete", "afterSequence": "owner-authorized beta promotion and v1.0.0-HHHHHHH release flow handled by @devops", "materializeOrPromoteNow": false }
+}

@@ -535,6 +535,14 @@ describe('PostgreSQL queue repository', () => {
     })).toEqual({ status: 'accepted' });
   });
 
+  it('applies the viewer cooldown to follower, subscriber, and VIP roles as well as viewers', async () => {
+    const now = new Date('2026-04-21T12:00:00.000Z');
+    await expect(repository.claimChatCommand({ messageId: 'hierarchy-cooldown-1', channelId: 'cooldown-channel', userId: 'hierarchy-user', role: 'viewer', now }))
+      .resolves.toMatchObject({ status: 'accepted' });
+    await expect(repository.claimChatCommand({ messageId: 'hierarchy-cooldown-2', channelId: 'cooldown-channel', userId: 'hierarchy-user', role: 'subscriber', now: new Date(now.getTime() + 1000) }))
+      .resolves.toMatchObject({ status: 'cooldown' });
+  });
+
   it('persists a remote reward pause intent when opening a managed queue', async () => {
     const queue = await repository.createQueue({ slug: `open-${randomUUID().slice(0, 8)}`, title: 'Open queue', cost: 1 });
     await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, remoteSyncStatus: 'synced' } });
@@ -1030,6 +1038,63 @@ describe('PostgreSQL queue repository', () => {
     expect(await prisma.oAuthCredential.findUnique({ where: { clientId: 'client-private' } })).toMatchObject({
       clientSecret: 'secret-1', accessToken: 'access-1', refreshToken: 'refresh-1', broadcasterId: 'channel-1',
     });
+  });
+
+  it('commits staged OAuth policy work atomically with the replacement token', async () => {
+    let priorCredential = await credentialRepository.getAuthRecord();
+    const createdCredentialForTest = !priorCredential;
+    const clientId = priorCredential?.clientId ?? 'atomic-oauth-client';
+    if (!priorCredential) {
+      await credentialRepository.saveValidatedApplication({ clientId, clientSecret: 'atomic-secret' });
+      priorCredential = await credentialRepository.getAuthRecord();
+    }
+    const broadcasterId = priorCredential.broadcasterId ?? '123456';
+    const priorPolicies = await prisma.setting.findUnique({ where: { key: 'chat_command_policies' } });
+    const currentPolicy = await repository.getCommandPolicyState();
+    try {
+      await expect(credentialRepository.storeTokens({
+        clientId, broadcasterId, accessToken: 'staged-success', refreshToken: 'staged-success-refresh',
+        scopes: ['user:read:chat', 'moderator:read:followers'], expiresIn: 3600, obtainmentTimestamp: Date.now(),
+        authorizationContext: { kind: 'follower_policy', expectedVersion: currentPolicy.version },
+        commitAdditional: (tx) => repository.updateCommandPoliciesInTransaction(tx, {
+          expectedVersion: currentPolicy.version,
+          policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } },
+          actorId: 'oauth-atomic-session', origin: 'oauth_follower_consent',
+        }),
+      })).resolves.toBeTruthy();
+      await expect(repository.getCommandPolicyState()).resolves.toMatchObject({
+        version: currentPolicy.version + 1,
+        policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } },
+      });
+      await expect(prisma.oAuthCredential.findUnique({ where: { clientId } }))
+        .resolves.toMatchObject({ accessToken: 'staged-success', refreshToken: 'staged-success-refresh', scopes: ['user:read:chat', 'moderator:read:followers'] });
+
+      await expect(credentialRepository.storeTokens({
+        clientId, broadcasterId, accessToken: 'staged-stale', refreshToken: 'staged-stale-refresh',
+        scopes: ['user:read:chat'], expiresIn: 3600, obtainmentTimestamp: Date.now(),
+        commitAdditional: (tx) => repository.updateCommandPoliciesInTransaction(tx, {
+          expectedVersion: currentPolicy.version,
+          policies: { 'queue:posicao': { mode: 'minimum_role', minimumRole: 'subscriber' } },
+          actorId: 'oauth-stale-session', origin: 'oauth_follower_consent',
+        }),
+      })).rejects.toMatchObject({ code: 'COMMAND_POLICY_VERSION_CONFLICT' });
+      await expect(prisma.oAuthCredential.findUnique({ where: { clientId } }))
+        .resolves.toMatchObject({ accessToken: 'staged-success', refreshToken: 'staged-success-refresh' });
+      await expect(repository.getCommandPolicyState()).resolves.toMatchObject({ version: currentPolicy.version + 1 });
+    } finally {
+      if (priorPolicies) await prisma.setting.upsert({ where: { key: priorPolicies.key }, create: priorPolicies, update: { value: priorPolicies.value } });
+      else await prisma.setting.deleteMany({ where: { key: 'chat_command_policies' } });
+      if (createdCredentialForTest) await prisma.oAuthCredential.delete({ where: { clientId } });
+      else if (priorCredential.accessToken && priorCredential.refreshToken) await credentialRepository.storeTokens({
+        clientId, broadcasterId, accessToken: priorCredential.accessToken, refreshToken: priorCredential.refreshToken,
+        scopes: priorCredential.scopes, expiresIn: priorCredential.tokenExpiresAt ? Math.max(0, (priorCredential.tokenExpiresAt.getTime() - Date.now()) / 1000) : undefined,
+        obtainmentTimestamp: Date.now(),
+      });
+      else await prisma.oAuthCredential.update({ where: { clientId }, data: {
+        broadcasterId: priorCredential.broadcasterId, accessToken: null, refreshToken: null,
+        scopes: priorCredential.scopes, tokenExpiresAt: priorCredential.tokenExpiresAt, authStatus: priorCredential.authStatus,
+      } });
+    }
   });
 
   it('allows same-app secret rotation but locks app/channel switching when product data exists', async () => {

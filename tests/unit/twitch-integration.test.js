@@ -31,6 +31,54 @@ function harness({ credential = { clientId: 'client-1', broadcasterId: 'channel-
 }
 
 describe('Twitch integration lifecycle', () => {
+  it('starts a session-bound follower authorization without saving staged policy before callback', async () => {
+    const oauthStateStore = { issue: vi.fn(() => ({ state: 'opaque-state', url: 'https://id.twitch.tv/oauth2/authorize?state=opaque-state' })) };
+    const credentialRepository = {
+      getAuthRecord: vi.fn(async () => ({ clientId: 'client-1', clientSecret: 'secret', broadcasterId: 'channel-1' })),
+      getPublicStatus: vi.fn(async () => ({})),
+    };
+    const integration = await createTwitchIntegration({ credentialRepository, oauthStateStore, redirectUri: 'https://localhost:3000/callback' });
+    await expect(integration.beginFollowerAuthorization({ sessionId: 'session-1', expectedVersion: 4,
+      policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } } }))
+      .resolves.toEqual({ state: 'opaque-state', url: 'https://id.twitch.tv/oauth2/authorize?state=opaque-state' });
+    expect(oauthStateStore.issue).toHaveBeenCalledWith(expect.objectContaining({
+      sessionId: 'session-1', clientId: 'client-1', redirectUri: 'https://localhost:3000/callback',
+      scopes: ['moderator:read:followers'], context: expect.objectContaining({ kind: 'follower_policy', expectedVersion: 4 }),
+    }));
+    expect(credentialRepository.storeTokens).toBeUndefined();
+    integration.stop();
+  });
+
+  it('commits the staged follower policy with OAuth tokens only after validated callback', async () => {
+    const credentialRepository = {
+      getAuthRecord: vi.fn(async () => ({ clientId: 'client-1', clientSecret: 'secret', broadcasterId: null })),
+      getPublicStatus: vi.fn(async () => ({})),
+      assertCanBind: vi.fn(async () => undefined),
+      storeTokens: vi.fn(async (tokens) => { await tokens.commitAdditional({ tx: 'same-transaction' }); }),
+    };
+    const repository = { updateCommandPoliciesInTransaction: vi.fn(async () => undefined) };
+    const oauthStateStore = {
+      take: vi.fn(() => ({ clientId: 'client-1', redirectUri: 'https://localhost:3000/callback',
+        scopes: ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'moderator:read:followers'],
+        context: { kind: 'follower_policy', expectedVersion: 4, policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } } } })),
+    };
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ access_token: 'access', refresh_token: 'refresh', expires_in: 3600 }) }));
+    const integration = await createTwitchIntegration({ credentialRepository, repository, oauthStateStore, fetchImpl,
+      validateOAuthToken: async () => ({ clientId: 'client-1', userId: 'channel-1', login: 'channel', displayName: 'Channel',
+        scopes: ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'moderator:read:followers'] }) });
+    await expect(integration.completeAuthorization({ sessionId: 'session-1', state: 'state', code: 'code' }))
+      .resolves.toMatchObject({ broadcasterId: 'channel-1', displayName: 'Channel' });
+    expect(credentialRepository.storeTokens).toHaveBeenCalledWith(expect.objectContaining({
+      clientId: 'client-1', broadcasterId: 'channel-1', accessToken: 'access', refreshToken: 'refresh',
+      authorizationContext: expect.objectContaining({ kind: 'follower_policy' }),
+      commitAdditional: expect.any(Function),
+    }));
+    expect(repository.updateCommandPoliciesInTransaction).toHaveBeenCalledWith({ tx: 'same-transaction' }, expect.objectContaining({
+      expectedVersion: 4, actorId: 'session-1', origin: 'oauth_follower_consent',
+    }));
+    integration.stop();
+  });
+
   it('stays available but unconfigured without credentials', async () => {
     const h = harness({ credential: null });
     const integration = await h.integrationPromise;
