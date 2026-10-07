@@ -15,7 +15,7 @@ This guide explains how pull request checks, main image publication, and tagged 
 
 Pull requests never run the GHCR publisher. The active `main-pr-and-ci` ruleset requires the stable reusable workflow check; it does not require a main-only publishing job. GitHub names reusable workflow checks as `<caller job> / <reusable job>`, so the configured required context is verified from an actual PR run.
 
-The shared workflow ends in an aggregate job that requires every validation job to finish successfully. Failed, canceled, or skipped constituent jobs fail the aggregate. The workflow linter is pinned to actionlint `1.7.12`; ShellCheck integration is disabled because this gate validates GitHub Actions workflows. Its narrow `queue` schema warning suppression is needed because GitHub's supported `concurrency.queue: max` syntax is not yet recognized by that linter release. Installer smoke files are temporary and are not uploaded from normal CI; only the release workflow uploads the tested `.bat`, `.command`, and `.sh` installers.
+The shared workflow ends in an aggregate job that requires every validation job to finish successfully. Failed, canceled, or skipped constituent jobs fail the aggregate. The workflow linter is pinned to actionlint `1.7.12`; ShellCheck integration is disabled because this gate validates GitHub Actions workflows. Its narrow `queue` schema warning suppression is needed because GitHub's supported `concurrency.queue: max` syntax is not yet recognized by that linter release. OpenGrep `1.30.0` is installed from its pinned source commit into an isolated empty `HOME`; its release binary signature is verified with Cosign `2.5.0`, and the pinned Cosign installer verifies its downloaded binary checksum. Installer smoke files are temporary and are not uploaded from normal CI; only the release workflow uploads the tested `.bat`, `.command`, and `.sh` installers.
 
 ## Image tags and publication safety
 
@@ -25,13 +25,13 @@ The shared workflow ends in an aggregate job that requires every validation job 
 | --- | --- |
 | `main` | Moving AMD64/ARM64 manifest for the latest validated main commit |
 | `main-linux-amd64`, `main-linux-arm64` | Moving single-architecture tags for that validated source |
-| `<full-commit-sha>-linux-amd64`, `<full-commit-sha>-linux-arm64` | Immutable source images used to promote tags safely |
+| `<full-commit-sha>-linux-amd64`, `<full-commit-sha>-linux-arm64` | Commit-scoped source image tags used to promote moving tags safely; registry tags are mutable aliases |
 | `vMAJOR.MINOR.PATCH-SHA7-STAGE` | Versioned AMD64/ARM64 manifest, materialized from the exact source commit |
 | `vMAJOR.MINOR.PATCH-SHA7-STAGE-linux-amd64`, `...-linux-arm64` | Versioned single-architecture images |
 
-The publisher queues main runs without canceling an active publish. It builds immutable per-commit architecture images first and publishes the versioned multi-platform manifest for that exact commit. It then checks whether the source is still the current `main` commit and only then promotes moving architecture tags and the multi-platform `main` manifest. A superseded run keeps its exact versioned image available for a later tagged release, but cannot move shared `main` tags backward. Re-running a failed publication for the same source is safe; the immutable tags identify that exact source.
+The publisher queues main runs without canceling an active publish. It builds per-commit architecture images first and publishes the versioned multi-platform manifest for that exact commit. The full-SHA tags scope those registry aliases to a source commit; a registry tag can still be moved, so it is not a content-integrity guarantee. Use the image digest when an exact content identity is required. The workflow then checks whether the source is still the current `main` commit and only then promotes moving architecture tags and the multi-platform `main` manifest. A superseded run keeps its versioned image reference available for a later tagged release, but cannot move shared `main` tags backward. Re-running a failed publication for the same source is safe as a source association; the registry digest identifies the exact content. Release jobs are also serialized per tag without cancellation, with up to 100 pending runs; once full, GitHub cancels additional queued runs instead of replacing an existing pending run.
 
-The image build uses GitHub Actions cache scopes separated by architecture. `main` images are continuously published from validated merges; a GitHub Release and its installer downloads are created only by a version tag after release validation. Publishing a `main` image does not create a release or promote `.release-stage`.
+The image build uses GitHub Actions cache scopes separated by architecture. `main` images are continuously published from validated merges; a GitHub Release and its installer downloads are created only by a version tag after release validation. The release workflow checks that the image index carries the exact tagged source commit and embeds `<version-tag>@sha256:<manifest-digest>` in each installer. Later movement of a GHCR tag therefore does not change the image used by an already published installer. Publishing a `main` image does not create a release or promote `.release-stage`.
 
 ## Failure, retry, and rollback
 
@@ -49,6 +49,8 @@ Consulted 2026-10-07:
 - [Ruleset troubleshooting](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/troubleshooting-rules) — required context naming for reusable workflows.
 - [Status checks](https://docs.github.com/en/pull-requests/reference/status-checks) — skipped job status behavior.
 - [Secure use of GitHub Actions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions) — pinned actions and permissions guidance.
+- [OpenGrep installation](https://github.com/opengrep/opengrep/blob/acf67b45c97c4b63626536605c77064ef536806d/INSTALL.md) and [signed release binaries](https://github.com/opengrep/opengrep/releases/tag/v1.30.0) — pinned version and Cosign signature verification.
+- [Cosign installer v3.9.0](https://github.com/sigstore/cosign-installer/tree/v3.9.0) — checksum-verifying installation of the pinned Cosign CLI.
 - [actionlint releases](https://github.com/rhysd/actionlint/releases) and [usage](https://github.com/rhysd/actionlint/blob/main/docs/usage.md) — pinned workflow linter and supported invocation.
 
 See also [development setup](DEVELOPMENT.md), [versioning and releases](VERSIONING.md), and the [project roadmap](ROADMAP.md).

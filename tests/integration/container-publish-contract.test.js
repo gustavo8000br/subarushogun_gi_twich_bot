@@ -57,4 +57,14 @@ describe('GHCR multi-platform publish contract', () => {
     expect(movingTags.run).toContain(`--tag "${image}:main"`);
     expect(movingTags.run).not.toContain(`--tag "${image}:$PRODUCT_VERSION"`);
   });
+
+  it('binds the versioned manifest to the full source SHA before it can be resolved by a release', () => {
+    const steps = parsedWorkflow.jobs['publish-image'].steps;
+    const manifest = steps.find((step) => step.name === 'Publish and verify versioned multi-platform manifest');
+
+    expect(manifest.run).toContain('--annotation "index:org.opencontainers.image.revision=$GITHUB_SHA"');
+    expect(manifest.run).toContain('.annotations["org.opencontainers.image.revision"]');
+    expect(manifest.run).toContain('== $sha');
+    expect(manifest.run).toContain('--arg sha "$GITHUB_SHA"');
+  });
 });

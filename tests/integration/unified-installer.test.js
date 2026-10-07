@@ -87,6 +87,27 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
+  it.each([
+    ['linux', 'subarushogun_twich_bot_setup.sh'],
+    ['macos', 'subarushogun_twich_bot_setup.command'],
+    ['windows', 'subarushogun_twich_bot_setup.bat'],
+  ])('embeds a digest-pinned image reference in the %s release installer', async (platform, expectedName) => {
+    const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-digest-'));
+    const imageRef = `v1.0.0-a1b2c3d-beta@sha256:${'a'.repeat(64)}`;
+    try {
+      const result = await packageFor(platform, output, imageRef);
+      expect(result.status, result.stderr).toBe(0);
+      const artifact = await readFile(join(output, expectedName), 'utf8');
+      const executableSource = platform === 'windows'
+        ? Buffer.from(artifact.match(/:payload\r?\n([\s\S]*?)\r?\n:endpayload/)?.[1]?.replace(/\s/g, '') ?? '', 'base64').toString('utf16le')
+        : artifact;
+
+      expect(executableSource).toContain(imageRef);
+    } finally {
+      await rm(output, { recursive: true, force: true });
+    }
+  });
+
   it('updates a preserved installation to the release image and retains its old tag if the pull fails', async () => {
     const mainOutput = await mkdtemp(join(tmpdir(), 'queuebot-installer-main-update-'));
     const releaseOutput = await mkdtemp(join(tmpdir(), 'queuebot-installer-release-update-'));

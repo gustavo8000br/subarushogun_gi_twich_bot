@@ -66,12 +66,16 @@ jobs:
       - name: Publish and verify versioned multi-platform manifest
         run: |
           docker buildx imagetools create \
+            --annotation "index:org.opencontainers.image.revision=$GITHUB_SHA" \
             --tag "ghcr.io/$GITHUB_REPOSITORY:$PRODUCT_VERSION" \
             "ghcr.io/$GITHUB_REPOSITORY:$GITHUB_SHA-linux-amd64" \
             "ghcr.io/$GITHUB_REPOSITORY:$GITHUB_SHA-linux-arm64"
-          manifest="$(docker buildx imagetools inspect "ghcr.io/$GITHUB_REPOSITORY:$PRODUCT_VERSION")"
-          grep -q 'Platform:.*linux/amd64' <<< "$manifest"
-          grep -q 'Platform:.*linux/arm64' <<< "$manifest"
+          manifest="$(docker buildx imagetools inspect --raw "ghcr.io/$GITHUB_REPOSITORY:$PRODUCT_VERSION")"
+          jq -e --arg sha "$GITHUB_SHA" '
+            .annotations["org.opencontainers.image.revision"] == $sha and
+            any(.manifests[]; .platform.os == "linux" and .platform.architecture == "amd64") and
+            any(.manifests[]; .platform.os == "linux" and .platform.architecture == "arm64")
+          ' <<< "$manifest" >/dev/null
       - name: Avoid moving the main manifest backward
         id: source-current
         env:

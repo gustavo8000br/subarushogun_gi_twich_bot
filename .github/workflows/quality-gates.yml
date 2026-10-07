@@ -117,10 +117,20 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Install pinned Cosign with checksum verification
+        uses: sigstore/cosign-installer@fb28c2b6339dcd94da6e4cbcbc5e888961f6f8c3 # v3.9.0
+        with:
+          cosign-release: 'v2.5.0'
       - name: Install pinned OpenGrep
+        env:
+          HOME: ${{ runner.temp }}/opengrep-home
         run: |
-          curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/v1.30.0/install.sh | bash -s -- -v v1.30.0
-          echo "$HOME/.opengrep/cli/v1.30.0" >> "$GITHUB_PATH"
+          set -euo pipefail
+          mkdir -p "$HOME"
+          test ! -e "$HOME/.opengrep/cli/v1.30.0/opengrep"
+          curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/acf67b45c97c4b63626536605c77064ef536806d/install.sh -o "$RUNNER_TEMP/opengrep-install.sh"
+          bash "$RUNNER_TEMP/opengrep-install.sh" -v v1.30.0 --verify-signatures
+          echo "$RUNNER_TEMP/opengrep-home/.opengrep/cli/v1.30.0" >> "$GITHUB_PATH"
       - name: Install pinned actionlint with checksum verification
         run: |
           archive="$RUNNER_TEMP/actionlint_1.7.12_linux_amd64.tar.gz"

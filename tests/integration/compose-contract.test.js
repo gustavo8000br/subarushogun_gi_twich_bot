@@ -125,6 +125,21 @@ describe('local Compose runtime contract', () => {
     }
   });
 
+  it('accepts a release image reference pinned to a multi-platform OCI digest', () => {
+    const digestPinnedTag = `v1.0.0-a1b2c3d-beta@sha256:${'a'.repeat(64)}`;
+    const result = spawnSync('docker', ['compose', '-f', composePath, 'config', '--format', 'json'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, IMAGE_TAG: digestPinnedTag },
+    });
+    expect(result.status, result.stderr).toBe(0);
+    const config = JSON.parse(result.stdout);
+    for (const serviceName of ['bootstrap', 'migrate', 'bot']) {
+      expect(config.services[serviceName].image)
+        .toBe(`ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:${digestPinnedTag}`);
+    }
+  });
+
   it('serves the callback over HTTPS with TLS material created by bootstrap', () => {
     const result = getComposeConfig();
     expect(result.status, result.stderr).toBe(0);

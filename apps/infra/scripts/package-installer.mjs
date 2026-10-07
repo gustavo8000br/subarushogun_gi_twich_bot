@@ -9,13 +9,13 @@ for (let index = 2; index < process.argv.length; index += 2) options.set(process
 const platform = options.get('--platform');
 const output = resolve(options.get('--output') ?? 'artifacts/installer');
 const imageTag = options.get('--image-tag') ?? 'main';
-const validImageTag = /^(main|v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-[0-9a-f]{7}-(?:alpha|beta|rc|stable))$/;
+const validImageTag = /^(main|v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-[0-9a-f]{7}-(?:alpha|beta|rc|stable))(?:@sha256:[0-9a-f]{64})?$/;
 if (!['linux', 'macos', 'windows'].includes(platform)) {
-  process.stderr.write('Usage: node apps/infra/scripts/package-installer.mjs --platform <linux|macos|windows> --output <directory> [--image-tag <main|materialized-version>]\n');
+  process.stderr.write('Usage: node apps/infra/scripts/package-installer.mjs --platform <linux|macos|windows> --output <directory> [--image-tag <main|materialized-version[@sha256:digest]>]\n');
   process.exit(2);
 }
 if (!validImageTag.test(imageTag)) {
-  process.stderr.write('Invalid image tag; use main or a materialized version identity.\n');
+  process.stderr.write('Invalid image reference; use main or a materialized version identity, optionally pinned by its SHA-256 digest.\n');
   process.exit(2);
 }
 

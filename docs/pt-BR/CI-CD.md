@@ -15,7 +15,7 @@ Este guia explica como se relacionam as verificações das pull requests, a publ
 
 Pull requests nunca executam o publicador GHCR. O ruleset ativo `main-pr-and-ci` exige o check estável do workflow reutilizável; não exige o job de publicação exclusivo da main. O GitHub nomeia checks reutilizáveis como `<job chamador> / <job reutilizável>`, então o contexto obrigatório é conferido numa execução real de PR.
 
-O workflow compartilhado termina com um job agregado que exige sucesso em todas as validações. Falha, cancelamento ou job constituinte ignorado fazem o agregado falhar. O linter de workflows está fixado em actionlint `1.7.12`; a integração ShellCheck fica desativada porque este gate valida os workflows do GitHub Actions. A supressão estreita para o aviso de schema `queue` é necessária porque essa versão do linter ainda não reconhece a sintaxe `concurrency.queue: max` suportada pelo GitHub. Os arquivos de smoke test dos instaladores são temporários e não são enviados como artefatos na CI comum; somente o workflow de release envia os instaladores testados `.bat`, `.command` e `.sh`.
+O workflow compartilhado termina com um job agregado que exige sucesso em todas as validações. Falha, cancelamento ou job constituinte ignorado fazem o agregado falhar. O linter de workflows está fixado em actionlint `1.7.12`; a integração ShellCheck fica desativada porque este gate valida os workflows do GitHub Actions. A supressão estreita para o aviso de schema `queue` é necessária porque essa versão do linter ainda não reconhece a sintaxe `concurrency.queue: max` suportada pelo GitHub. O OpenGrep `1.30.0` é instalado a partir de um commit de origem fixado em um `HOME` isolado e vazio; a assinatura do binário da release é verificada com Cosign `2.5.0`, e o instalador fixado do Cosign confere o checksum do binário baixado. Os arquivos de smoke test dos instaladores são temporários e não são enviados como artefatos na CI comum; somente o workflow de release envia os instaladores testados `.bat`, `.command` e `.sh`.
 
 ## Tags e segurança da publicação
 
@@ -25,13 +25,13 @@ O padrão de `compose.yaml` é `IMAGE_TAG=main`.
 | --- | --- |
 | `main` | Manifest móvel AMD64/ARM64 do commit mais recente validado da main |
 | `main-linux-amd64`, `main-linux-arm64` | Tags móveis de arquitetura única dessa origem validada |
-| `<sha-completo-do-commit>-linux-amd64`, `<sha-completo-do-commit>-linux-arm64` | Imagens imutáveis usadas para promover tags com segurança |
+| `<sha-completo-do-commit>-linux-amd64`, `<sha-completo-do-commit>-linux-arm64` | Tags de imagem vinculadas ao commit para promover tags móveis com segurança; tags do registry são aliases mutáveis |
 | `vMAJOR.MINOR.PATCH-SHA7-STAGE` | Manifest AMD64/ARM64 versionado, materializado a partir do commit exato |
 | `vMAJOR.MINOR.PATCH-SHA7-STAGE-linux-amd64`, `...-linux-arm64` | Imagens versionadas de arquitetura única |
 
-O publicador enfileira execuções da main sem cancelar uma publicação ativa. Primeiro constrói imagens imutáveis por arquitetura/commit e publica o manifest versionado daquela origem exata. Depois confere se a origem ainda é o commit atual da `main` e só então promove as tags móveis por arquitetura e o manifest multiplataforma `main`. Uma execução superada mantém a imagem versionada exata disponível para uma release com tag futura, mas não retrocede as tags compartilhadas `main`. Reexecutar uma publicação falha para a mesma origem é seguro; as tags imutáveis identificam exatamente aquela origem.
+O publicador enfileira execuções da main sem cancelar uma publicação ativa. Primeiro constrói imagens por arquitetura e commit e publica o manifest versionado daquela origem exata. O nome completo do SHA associa essas tags do registry a um commit; uma tag ainda pode ser movida, portanto não garante a integridade do conteúdo. Use o digest da imagem quando precisar identificar o conteúdo exato. Depois, o workflow confere se a origem ainda é o commit atual da `main` e só então promove as tags móveis por arquitetura e o manifest multiplataforma `main`. Uma execução superada mantém sua referência de imagem versionada disponível para uma release futura, mas não retrocede as tags compartilhadas `main`. Reexecutar uma publicação falha para a mesma origem é seguro como associação de código-fonte; o digest do registry identifica o conteúdo exato. Jobs de release também são serializados por tag, sem cancelamento, com até 100 execuções pendentes; quando a fila enche, o GitHub cancela novas execuções enfileiradas em vez de substituir uma pendência existente.
 
-O build usa caches do GitHub Actions separados por arquitetura. As imagens `main` são publicadas continuamente a partir de merges validados; uma GitHub Release e seus instaladores só são criados por uma tag de versão após a validação de release. Publicar uma imagem `main` não cria release nem promove `.release-stage`.
+O build usa caches do GitHub Actions separados por arquitetura. As imagens `main` são publicadas continuamente a partir de merges validados; uma GitHub Release e seus instaladores só são criados por uma tag de versão após a validação de release. O workflow de release confere se o índice da imagem contém o commit exato da tag e grava em cada instalador `<tag-da-versão>@sha256:<digest-do-manifest>`. Se a tag GHCR mudar depois, o instalador já publicado continua usando o digest original. Publicar uma imagem `main` não cria release nem promove `.release-stage`.
 
 ## Falhas, nova tentativa e retorno
 
@@ -49,6 +49,8 @@ Consulta realizada em 2026-10-07:
 - [Diagnóstico de rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/troubleshooting-rules) — nome de contexto obrigatório em workflows reutilizáveis.
 - [Status checks](https://docs.github.com/en/pull-requests/reference/status-checks) — comportamento de status de jobs ignorados.
 - [Uso seguro do GitHub Actions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions) — Actions fixadas e orientação de permissões.
+- [Instalação do OpenGrep](https://github.com/opengrep/opengrep/blob/acf67b45c97c4b63626536605c77064ef536806d/INSTALL.md) e [binários de release assinados](https://github.com/opengrep/opengrep/releases/tag/v1.30.0) — versão fixada e verificação de assinatura Cosign.
+- [Instalador Cosign v3.9.0](https://github.com/sigstore/cosign-installer/tree/v3.9.0) — instalação do CLI Cosign fixado com verificação de checksum.
 - [Releases do actionlint](https://github.com/rhysd/actionlint/releases) e [uso](https://github.com/rhysd/actionlint/blob/main/docs/usage.md) — linter de workflow fixado e forma de execução.
 
 Consulte também [configuração de desenvolvimento](DESENVOLVIMENTO.md), [versionamento e releases](VERSIONING.md) e o [roadmap](ROADMAP.md).
