@@ -2,6 +2,10 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.7.1-alpha
+
+- Sincroniza o índice da story OPS-6 e o registro da issue após o merge da PR #33 e o fechamento da issue #32. Nenhum comportamento de runtime mudou.
+
 ## v0.7.0-alpha
 
 - Implementa OPS-6: preserva valores de versão/saúde vindos da API após mudanças de idioma; adiciona próximas ações conforme configuração, elegibilidade e filas; corrige estados vazios de fila/operações financeiras; explica o pré-requisito de credenciais junto à conexão Twitch; mantém um único editor de idioma em Configurações; e melhora a legibilidade operacional, o layout estreito e a indicação visual de foco por teclado. Nenhum contrato de API ou comportamento de escrita na Twitch mudou.
