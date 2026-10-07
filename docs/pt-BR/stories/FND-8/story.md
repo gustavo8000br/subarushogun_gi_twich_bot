@@ -203,6 +203,13 @@ Como streamer, quero selecionar o idioma do produto durante a instalação e alt
 - **Green/Refactor:** o mesmo teste passou 2/2 após conectar a consulta compartilhada do host; testes combinados de ciclo de vida/inicialização/manutenção passaram 10/10, e `sh -n` passou nos scripts POSIX e helper. Entrypoints Windows agora usam um executor PowerShell, mas PowerShell não está instalado neste ambiente Linux e ainda não observamos execução nativa no Windows.
 - **Escopo:** localização POSIX foi validada por comportamento. O executor Windows tem apenas cobertura estática; não deve ser considerado validado em runtime.
 
+### Incremento 20 — Mapear falhas do painel para mensagens seguras localizadas
+
+- **Comportamento:** o painel mapeia códigos estáveis conhecidos da API para mensagens do catálogo e usa texto genérico localizado para falhas desconhecidas/de rede; nunca renderiza mensagens do backend, inclusive detalhes de Twitch/provedor.
+- **Red:** `npm exec vitest run tests/unit/web-application-setup.test.js -t 'renders a localized safe error'` falhou na asserção porque o formulário de credenciais exibiu literalmente `provider body contains token=secret`.
+- **Green/Refactor:** `npm exec vitest run tests/unit/web-application-setup.test.js tests/unit/panel-error-presentation.test.js` passou 4/4 depois de injetar o apresentador de erros baseado no catálogo e usá-lo nos catches do painel. `npm run lint` e `npm run typecheck` passaram.
+- **Escopo:** mensagens do backend não chegam aos avisos/toasts pelo helper de requisição do app ou pelo formulário do aplicativo Twitch. A localização de textos de validação em todas as ações dinâmicas do painel continua no trabalho maior da interface.
+
 ## Gates de implementação pendentes
 
 - QA independente avaliou a spec v1 como CONCERNS, 8,1/10. A reavaliação da spec v3 retornou CONCERNS sem atribuir nova nota; os achados editoriais corrigidos devem entrar na próxima revisão independente.
@@ -218,7 +225,7 @@ Como streamer, quero selecionar o idioma do produto durante a instalação e alt
 - [x] Disponibilizar validador CLI de catálogos com saída segura e resultado de falha não zero.
 - [x] Conectar catálogos descobertos ao seletor de idioma e ao texto de configuração Twitch; persistir locale no PostgreSQL e expô-lo pela projeção de estado protegida.
 - [x] Criar projeção host offline atômica; adicionar suporte de locale ao chat, OBS e ferramentas de ciclo de vida; testar políticas aprovadas de colisão/texto autoral nas partes implementadas.
-- [ ] Localizar todas as telas e mensagens dinâmicas restantes do painel; mapear códigos estáveis de erro da API para catálogos, sem exibir mensagens do backend; comprovar equivalência do browser e execução PowerShell nativa.
+- [ ] Localizar todas as telas e mensagens dinâmicas restantes do painel; ampliar a apresentação localizada de erros por código além do conflito de locale atualmente mapeado; comprovar equivalência do browser e execução PowerShell nativa.
 - [ ] Finalizar docs de contribuição bilíngues, gates, aceite nativo por plataforma e QA independente.
 
 ## Arquivos alterados neste recorte

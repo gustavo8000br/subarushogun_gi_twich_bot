@@ -203,6 +203,13 @@ As a streamer, I want to select the product language during installation and cha
 - **Green/Refactor:** the same test passed 2/2 after connecting the shared host lookup; combined lifecycle/start/maintenance tests passed 10/10, and `sh -n` passed for the POSIX tools and helper. The Windows entrypoints now route through a PowerShell lifecycle executor, but PowerShell is not installed in this Linux environment and native Windows execution has not been observed.
 - **Scope:** POSIX lifecycle localization is behavior-tested. The Windows executor has static contract coverage only; do not treat it as runtime-validated.
 
+### Increment 20 — Map panel failures to localized safe copy
+
+- **Behavior:** the panel maps known stable API error codes to catalog messages and uses localized generic copy for unknown/network failures; it never renders a backend-provided message, including Twitch/provider details.
+- **Red:** `npm exec vitest run tests/unit/web-application-setup.test.js -t 'renders a localized safe error'` failed on the assertion because the credentials form displayed `provider body contains token=secret` verbatim.
+- **Green/Refactor:** `npm exec vitest run tests/unit/web-application-setup.test.js tests/unit/panel-error-presentation.test.js` passed 4/4 after injecting the catalog-backed error presenter and using it across panel catches. `npm run lint` and `npm run typecheck` passed.
+- **Scope:** backend text no longer reaches panel notices/toasts through the app's request helper or Twitch-application form. Localized validation copy across every dynamic panel action remains part of the broader panel work.
+
 ## Open planning and implementation gates
 
 - Independent QA reviewed spec v1 as CONCERNS, 8.1/10. Spec v3 re-review returned CONCERNS without assigning a new score; corrected editorial findings should be included in the next independent review.
@@ -218,7 +225,7 @@ As a streamer, I want to select the product language during installation and cha
 - [x] Provide a CLI catalog validator with safe output and a nonzero failure result.
 - [x] Connect discovered catalogs to the settings picker and Twitch setup copy; persist locale changes in PostgreSQL and expose them through the protected state projection.
 - [x] Create the atomic offline host locale projection; add runtime locale support to chat, OBS, and lifecycle tools; test approved key-collision/authored-text policies where implemented.
-- [ ] Localize all remaining panel views and dynamic UI messages; map stable API error codes to catalog text rather than surfacing backend messages; prove browser and PowerShell parity with native execution.
+- [ ] Localize all remaining panel views and dynamic UI messages; extend code-specific API error presentation beyond the currently mapped locale conflict; prove browser and PowerShell parity with native execution.
 - [ ] Finish bilingual contributor docs, quality gates, native platform acceptance, and independent QA.
 
 ## Files changed in current implementation slice

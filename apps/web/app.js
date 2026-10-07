@@ -8,6 +8,7 @@ import { collectCommandPolicies, mergeCommandPolicyState, projectCommandCatalog 
 import { buildOverlayWidgetPayload, countOverlayTextCodePoints } from './overlay-widget-form.mjs';
 import { resolveLocaleSelection } from './locale-picker-state.mjs';
 import { applyPanelTranslations } from './dom-localization.mjs';
+import { presentPanelError } from './panel-error-presentation.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const optionalLimit = (value) => String(value ?? '').trim() ? Number(value) : null;
@@ -36,8 +37,12 @@ async function request(url, options = {}) {
   const headers = { ...(options.body ? { 'content-type': 'application/json' } : {}), ...(mutating ? { 'x-csrf-token': state.csrfToken, 'idempotency-key': idempotencyKey ?? globalThis.crypto.randomUUID() } : {}), ...options.headers };
   const response = await fetch(url, { credentials: 'same-origin', ...fetchOptions, headers });
   const payload = response.status === 204 ? null : await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload?.error || 'Não foi possível concluir a operação.');
+  if (!response.ok) throw Object.assign(new Error(''), { code: payload?.code });
   return payload;
+}
+
+function panelError(error) {
+  return presentPanelError(error, activeProductLocale(), state.localizationCatalogs?.modules?.panel?.catalogs);
 }
 
 function activeProductLocale() {
@@ -97,7 +102,7 @@ async function saveProductLocale(event) {
     notice.textContent = 'Idioma do produto atualizado.';
     renderProductLocalePicker();
     await refresh();
-  } catch (error) { notice.textContent = error.message; }
+  } catch (error) { notice.textContent = panelError(error); }
 }
 
 function toast(message) {
@@ -194,7 +199,7 @@ function renderQueues(queues) {
           historyContent.append(text('p', `${entry.displayName || `@${entry.userLogin}`} · ${status} · ${date}`, 'history-entry'));
         }
         history.dataset.loaded = 'true';
-      } catch (error) { historyContent.replaceChildren(text('p', error.message, 'muted')); }
+      } catch (error) { historyContent.replaceChildren(text('p', panelError(error), 'muted')); }
     });
     history.append(historyContent); card.append(history);
     container.append(card);
@@ -230,7 +235,7 @@ async function loadCommandCatalog() {
     commandCatalog = await request('/api/command-catalog');
     renderCommandCatalog(commandCatalog);
     $('#command-catalog-notice').textContent = '';
-  } catch (error) { $('#command-catalog').replaceChildren(text('p', error.message, 'muted')); }
+  } catch (error) { $('#command-catalog').replaceChildren(text('p', panelError(error), 'muted')); }
 }
 
 async function saveCommandPolicies(event) {
@@ -242,7 +247,7 @@ async function saveCommandPolicies(event) {
     commandCatalog = mergeCommandPolicyState(commandCatalog, result);
     renderCommandCatalog(commandCatalog);
     $('#command-catalog-notice').textContent = 'Permissões dos comandos atualizadas.';
-  } catch (error) { $('#command-catalog-notice').textContent = error.message; }
+  } catch (error) { $('#command-catalog-notice').textContent = panelError(error); }
 }
 
 function updateOverlayPreview() {
@@ -326,23 +331,23 @@ function renderOverlayWidgets(widgets) {
       actions.append(overlayAction('Regenerar link', async () => {
         if (!window.confirm('O link atual deixará de funcionar. Gerar um novo link agora?')) return;
         try { const result = await request(`/api/overlay-widgets/${widget.id}/regenerate`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) }); showOneTimeOverlayLink(result.capabilityUrl); await loadOverlayWidgets(); }
-        catch (error) { toast(error.message); }
+        catch (error) { toast(panelError(error)); }
       }));
       actions.append(overlayAction('Revogar', async () => {
         if (!window.confirm('A fonte do OBS deixará de receber dados. Revogar este link?')) return;
         try { await request(`/api/overlay-widgets/${widget.id}/revoke`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) }); await loadOverlayWidgets(); }
-        catch (error) { toast(error.message); }
+        catch (error) { toast(panelError(error)); }
       }, true));
     } else if (!widget.deleted) {
       actions.append(overlayAction('Gerar link', async () => {
         try { const result = await request(`/api/overlay-widgets/${widget.id}/regenerate`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) }); showOneTimeOverlayLink(result.capabilityUrl); await loadOverlayWidgets(); }
-        catch (error) { toast(error.message); }
+        catch (error) { toast(panelError(error)); }
       }));
     }
     actions.append(overlayAction('Excluir', async () => {
       if (!window.confirm('Excluir este widget? A URL atual será invalidada e não poderá ser recuperada.')) return;
       try { await request(`/api/overlay-widgets/${widget.id}`, { method: 'DELETE', body: JSON.stringify({ expectedVersion: widget.version }) }); await loadOverlayWidgets(); }
-      catch (error) { toast(error.message); }
+      catch (error) { toast(panelError(error)); }
     }, true));
     card.append(heading, details, preview, actions); container.append(card);
   }
@@ -350,7 +355,7 @@ function renderOverlayWidgets(widgets) {
 
 async function loadOverlayWidgets() {
   try { const widgets = await request('/api/overlay-widgets'); renderOverlayWidgets(widgets); overlayWidgetsLoaded = true; }
-  catch (error) { $('#overlay-widget-list').replaceChildren(text('p', error.message, 'muted')); }
+  catch (error) { $('#overlay-widget-list').replaceChildren(text('p', panelError(error), 'muted')); }
 }
 
 function openOverlayEditor(widget = null) {
@@ -377,7 +382,7 @@ async function saveOverlayWidget(event) {
   const form = /** @type {HTMLFormElement} */ (event.currentTarget);
   let payload;
   try { payload = buildOverlayWidgetPayload(new FormData(form)); }
-  catch (error) { $('#overlay-editor-notice').textContent = error.message; return; }
+  catch (error) { $('#overlay-editor-notice').textContent = panelError(error); return; }
   const id = String(new FormData(form).get('id') ?? '');
   try {
     const result = id
@@ -386,7 +391,7 @@ async function saveOverlayWidget(event) {
     $('#overlay-editor-dialog').close();
     if (result.capabilityUrl) showOneTimeOverlayLink(result.capabilityUrl);
     await loadOverlayWidgets();
-  } catch (error) { $('#overlay-editor-notice').textContent = error.message; }
+  } catch (error) { $('#overlay-editor-notice').textContent = panelError(error); }
 }
 
 async function copyOverlayLink() {
@@ -449,19 +454,19 @@ async function refresh() {
           const accepted = window.confirm('O estado dos pontos não pôde ser confirmado pela Twitch. Registrar que você revisou e encerrou o acompanhamento automático? Isso não confirma reembolso nem consumo e não haverá novas tentativas automáticas.');
           if (!accepted) return;
           try { await request(`/api/operations/${operation.id}/resolve-unknown`, { method: 'POST', body: '{}' }); await refresh(); }
-          catch (error) { toast(error.message); }
+          catch (error) { toast(panelError(error)); }
         });
         row.append(button);
       }
       if (['unknown', 'conflict', 'failed'].includes(operation.status)) {
         const button = text('button', 'Reconciliar / tentar novamente'); button.type = 'button';
-        button.addEventListener('click', async () => { try { await request(`/api/operations/${operation.id}/retry`, { method: 'POST', body: '{}' }); await refresh(); } catch (error) { toast(error.message); } });
+        button.addEventListener('click', async () => { try { await request(`/api/operations/${operation.id}/retry`, { method: 'POST', body: '{}' }); await refresh(); } catch (error) { toast(panelError(error)); } });
         row.append(button);
       }
       operationList.append(row);
     }
     $('#last-refresh').textContent = `Atualizado ${new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' }).format(new Date())}`;
-  } catch (error) { toast(error.message); }
+  } catch (error) { toast(panelError(error)); }
 }
 
 async function boot() {
@@ -493,11 +498,11 @@ async function boot() {
   $('#copy-overlay-link').addEventListener('click', copyOverlayLink);
   $('#overlay-link-dialog').addEventListener('close', () => { $('#overlay-link-value').value = ''; $('#overlay-link-notice').textContent = ''; });
   $('#credentials-form').addEventListener('submit', createApplicationSetupSubmitHandler({
-    request, notice: $('#credentials-notice'), refresh,
+    request, notice: $('#credentials-notice'), refresh, presentError: panelError,
   }));
   const connectWithTwitch = async () => {
     try { const result = await request('/api/setup/connect', { method: 'POST', body: '{}' }); window.location.assign(result.authorizationUrl); }
-    catch (error) { $('#setup-notice').textContent = error.message; }
+    catch (error) { $('#setup-notice').textContent = panelError(error); }
   };
   $('#connect-button').addEventListener('click', connectWithTwitch);
   $('#reconnect-button').addEventListener('click', connectWithTwitch);
@@ -512,7 +517,7 @@ async function boot() {
         : `Sincronização concluída com pendências: ${result.issues?.length ?? 0}. Revise os avisos e operações.`;
       await refresh();
     } catch (error) {
-      $('#reconciliation-notice').textContent = error.message;
+      $('#reconciliation-notice').textContent = panelError(error);
     } finally { button.disabled = false; }
   });
   $('#queue-form').addEventListener('submit', async (event) => {
@@ -520,7 +525,7 @@ async function boot() {
     const aliases = String(values.get('aliases') || '').split(',').map((value) => value.trim()).filter(Boolean);
     const body = { title: values.get('title'), slug: values.get('slug'), aliases, cost: Number(values.get('cost')), rewardPrompt: values.get('rewardPrompt'), uidMode: values.get('uidMode'), callTimeoutMin: Number(values.get('callTimeoutMin')), maxRedemptionsPerStream: optionalLimit(values.get('maxRedemptionsPerStream')), maxRedemptionsPerUserPerStream: optionalLimit(values.get('maxRedemptionsPerUserPerStream')), globalCooldownSeconds: optionalLimit(values.get('globalCooldownSeconds')) };
     try { await request('/api/queues', { method: 'POST', body: JSON.stringify(body) }); $('#queue-notice').textContent = 'Fila salva. A criação da recompensa Twitch está pendente; acompanhe o estado abaixo.'; event.currentTarget.reset(); await refresh(); }
-    catch (error) { $('#queue-notice').textContent = error.message; }
+    catch (error) { $('#queue-notice').textContent = panelError(error); }
   });
   $('#queue-settings-form').addEventListener('submit', async (event) => {
     event.preventDefault(); const form = event.currentTarget; const values = new FormData(form);
@@ -530,7 +535,7 @@ async function boot() {
     try {
       await request(`/api/queues/${values.get('queueId')}/settings`, { method: 'PATCH', body: JSON.stringify(body) });
       $('#queue-settings-dialog').close(); await refresh(); toast('Configurações da fila salvas.');
-    } catch (error) { $('#queue-settings-notice').textContent = error.message; }
+    } catch (error) { $('#queue-settings-notice').textContent = panelError(error); }
   });
   $('#reward-settings-form').addEventListener('submit', async (event) => {
     event.preventDefault(); const values = new FormData(event.currentTarget);
@@ -544,7 +549,7 @@ async function boot() {
     try {
       await request(`/api/queues/${values.get('queueId')}/reward-settings`, { method: 'PATCH', body: JSON.stringify(body) });
       $('#reward-settings-dialog').close(); await refresh(); toast('Alteração solicitada. A fila mostrará “pending_update” até a confirmação da Twitch.');
-    } catch (error) { $('#reward-settings-notice').textContent = error.message; }
+    } catch (error) { $('#reward-settings-notice').textContent = panelError(error); }
   });
   $('#queue-list').addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]'); if (!button) return;
@@ -643,33 +648,33 @@ async function boot() {
       else if (actionName === 'open-queue' || actionName === 'close-queue') await request(`/api/queues/${queueId}/open-state`, { method: 'POST', body: JSON.stringify({ isOpen: actionName === 'open-queue' }) });
       else await request(`/api/entries/${entryId}/transitions`, { method: 'POST', body: JSON.stringify({ to: actionName, reason: actionName === 'in_progress' ? 'service_started' : actionName === 'completed' ? 'service_completed' : 'operator_removed' }) });
       await refresh();
-    } catch (error) { toast(error.message); }
+    } catch (error) { toast(panelError(error)); }
   });
   $('#entry-form').addEventListener('submit', async (event) => {
     event.preventDefault(); const values = new FormData(event.currentTarget);
     const priority = values.get('priority') === 'on';
     try { await request(`/api/queues/${values.get('queueId')}/manual-entries`, { method: 'POST', body: JSON.stringify({ login: values.get('login'), uid: values.get('uid') || undefined, priority, ...(priority ? { priorityReason: values.get('priorityReason') } : {}) }) }); $('#entry-dialog').close(); event.currentTarget.reset(); await refresh(); }
-    catch (error) { $('#entry-notice').textContent = error.message; }
+    catch (error) { $('#entry-notice').textContent = panelError(error); }
   });
   $('#reward-form').addEventListener('submit', async (event) => {
     event.preventDefault(); const form = event.currentTarget; const values = new FormData(form);
     try {
       await request(`/api/queues/${values.get('queueId')}/resolve-reward`, { method: 'POST', body: JSON.stringify({ rewardId: values.get('rewardId') }) });
       $('#reward-dialog').close(); await refresh();
-    } catch (error) { $('#reward-notice').textContent = error.message; }
+    } catch (error) { $('#reward-notice').textContent = panelError(error); }
   });
   $('#edit-account').addEventListener('click', async () => {
     const current = $('#account-label').textContent; const value = window.prompt('Nome da conta atual na live (até 60 caracteres):', current);
     if (value === null) return;
     try { await request('/api/account', { method: 'POST', body: JSON.stringify({ label: value }) }); await refresh(); }
-    catch (error) { toast(error.message); }
+    catch (error) { toast(panelError(error)); }
   });
   $('#edit-default-account').addEventListener('click', async () => {
     const fallback = state.accountDefaultLabel ?? 'Streamer';
     const value = window.prompt('Nome padrão da conta (até 60 caracteres):', fallback);
     if (value === null) return;
     try { await request('/api/account/default', { method: 'POST', body: JSON.stringify({ label: value }) }); await refresh(); }
-    catch (error) { toast(error.message); }
+    catch (error) { toast(panelError(error)); }
   });
   $('#product-locale-form').addEventListener('submit', saveProductLocale);
   $('#product-locale-quick-form').addEventListener('submit', saveProductLocale);
@@ -677,4 +682,4 @@ async function boot() {
   await refresh(); window.setInterval(refresh, 5000); window.setInterval(refreshLocalizationCatalogs, 30000);
 }
 
-boot().catch((error) => toast(error.message));
+boot().catch((error) => toast(panelError(error)));

@@ -70,3 +70,5 @@ panel.locale.eyebrow	PRODUCT LANGUAGE
 panel.locale.title	Panel language
 panel.locale.description	The selected language is also used for bot messages. Complete community catalogs appear automatically.
 panel.locale.available	Available language
+panel.error.generic	Could not complete the action. Try again.
+panel.error.locale_conflict	The language changed in another request. Refresh the page.

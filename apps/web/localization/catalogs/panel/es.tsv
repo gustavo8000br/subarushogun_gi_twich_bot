@@ -70,3 +70,5 @@ panel.locale.eyebrow	IDIOMA DEL PRODUCTO
 panel.locale.title	Idioma del panel
 panel.locale.description	El idioma seleccionado también se usa en los mensajes del bot. Los catálogos comunitarios completos aparecen automáticamente.
 panel.locale.available	Idioma disponible
+panel.error.generic	No se pudo completar la acción. Inténtalo de nuevo.
+panel.error.locale_conflict	El idioma cambió en otra solicitud. Actualiza la página.
