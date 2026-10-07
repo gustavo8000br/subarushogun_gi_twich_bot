@@ -2,6 +2,11 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.7.0-alpha
+
+- Implement OPS-6 panel clarity: keep API-backed version/health values intact across locale changes; add setup-, eligibility-, and queue-aware next actions; correct queue/financial empty states; explain credential prerequisites beside Twitch connection; retain a single locale editor in Settings; and improve operational text sizing, narrow-screen layout, and keyboard focus visibility. No API or Twitch write behavior changed.
+- TDD evidence: `npm test -- --run tests/unit/panel-navigation.test.js tests/integration/panel-localization-contract.test.js` first produced 5 expected Red failures (2 missing navigation helpers and 3 panel contracts). After implementation and updating stale markup-only assertions for catalog-rendered dynamic text, focused panel/health suites passed 27/27 and the full suite initially passed 644/644 across 87 files. Independent QA found a 320 px Commands-page overflow (80/100, FAIL); a regression test reproduced it before a one-column mobile override passed Green. Keyboard review then found the panel-navigation focus ring was disabled by a more specific rule; a regression test failed Red before the focus-style correction passed Green. The rebuilt active Compose bot reports `v0.7.0-0000000-alpha`. Chrome verified all eight pages at 320/768/1280 px in pt-BR, English, and Spanish (72/72 fit), and confirmed a visible computed focus outline. Final `npm test` passed 646/646 across 87 files; lint, typecheck, web lint/typecheck, localization, OpenGrep (0 findings), version, Compose config, and diff checks passed. Independent QA re-review returned PASS 100/100. Existing DB/secrets volumes were preserved; no Twitch writes were performed.
+
 ## v0.6.0-alpha
 
 - Complete FND-8 localization gates on PR #31: catalog validation rejects HTML markup and control characters while allowing documented command metavariables; contributor guides are now bilingual. Full suite passed 638/638, lint/typecheck/catalog/version/port/Compose/static-analysis checks passed, Docker bot image built, and independent AIOX-QA returned PASS 9.2/10. Live Twitch writes and native macOS remain unverified.

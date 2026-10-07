@@ -39,10 +39,22 @@ panel.summary.waiting	AGUARDANDO
 panel.summary.viewers_waiting	viewers na fila
 panel.summary.in_service	EM ATENDIMENTO
 panel.summary.called_or_started	chamados ou iniciados
-panel.overview.eyebrow	OPERAÇÃO
-panel.overview.ready	Pronto para a live?
-panel.overview.description	Gerencie as pessoas aguardando e os atendimentos em uma página própria.
+panel.overview.eyebrow	VISÃO GERAL
+panel.overview.next_eyebrow	PRÓXIMO PASSO
+panel.overview.ready	Próximo passo
+panel.overview.description	O painel vai indicar a próxima ação conforme a conexão e as filas.
 panel.overview.open_queues	Abrir filas
+panel.overview.connect_title	Conecte seu canal
+panel.overview.connect_description	Conecte a Twitch para concluir a configuração.
+panel.overview.connect_channel	Conectar canal
+panel.overview.create_title	Crie sua primeira fila
+panel.overview.create_description	Seu canal está conectado e pode usar recompensas de Pontos do Canal.
+panel.overview.create_first_queue	Criar fila
+panel.overview.queues_title	Gerencie suas filas
+panel.overview.queues_description	Acompanhe a espera, as chamadas e os atendimentos.
+panel.overview.check_title	Revise a conexão do canal
+panel.overview.check_description	Este canal não pode usar recompensas de Pontos do Canal. Consulte os detalhes da conexão.
+panel.overview.check_channel	Ver conexão
 panel.queues.eyebrow	AO VIVO
 panel.queues.title	Filas e atendimentos
 panel.queues.description	Acompanhe aguardantes, chamadas e atendimentos em andamento.
@@ -134,6 +146,7 @@ panel.connection.connect_channel	Conectar canal
 panel.connection.confidential_app_help	Crie um aplicativo confidencial no console Twitch. O callback deste painel é:
 panel.connection.open_console	Abrir console de desenvolvedor ↗
 panel.connection.connect	Conectar com a Twitch
+panel.connection.credentials_required	Valide e salve as credenciais do aplicativo antes de conectar o canal.
 panel.connection.authorized_eyebrow	CANAL AUTORIZADO
 panel.connection.connected_fallback	Canal conectado
 panel.connection.connected	A Twitch está conectada a este painel local.
@@ -167,7 +180,10 @@ panel.queue.group.waiting	Aguardando
 panel.queue.group.called	Chamados
 panel.queue.group.in_service	Em atendimento
 panel.queue.empty.title	Nenhuma fila criada
-panel.queue.empty.hint	Use o formulário acima para criar sua primeira fila.
+panel.queue.empty.hint	Quando uma fila for criada, as pessoas aguardando e os atendimentos aparecerão aqui.
+panel.queue.empty.connect	Conectar canal
+panel.queue.empty.create	Criar primeira fila
+panel.queue.empty.check_channel	Ver conexão do canal
 panel.queue.empty_group	Ninguém no momento
 panel.queue.status.open	ABERTA
 panel.queue.status.closed	FECHADA
@@ -314,6 +330,7 @@ panel.commands.unavailable	O catálogo de comandos ainda não está disponível.
 panel.command.roles_for	Cargos que podem usar
 panel.settings.current_default	Padrão atual
 panel.operations.empty	Nenhuma operação pendente.
+panel.operations.empty_hint	Pedidos de reembolso e consumo aparecem aqui até a Twitch confirmar ou indicar um conflito. Um resultado desconhecido continua disponível para revisão.
 panel.operation.type.refund	REEMBOLSO
 panel.operation.type.fulfillment	CONSUMO
 panel.operation.type.reward_update	ATUALIZAÇÃO DE RECOMPENSA

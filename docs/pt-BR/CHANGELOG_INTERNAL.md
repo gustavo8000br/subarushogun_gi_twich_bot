@@ -2,6 +2,11 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.7.0-alpha
+
+- Implementa OPS-6: preserva valores de versão/saúde vindos da API após mudanças de idioma; adiciona próximas ações conforme configuração, elegibilidade e filas; corrige estados vazios de fila/operações financeiras; explica o pré-requisito de credenciais junto à conexão Twitch; mantém um único editor de idioma em Configurações; e melhora a legibilidade operacional, o layout estreito e a indicação visual de foco por teclado. Nenhum contrato de API ou comportamento de escrita na Twitch mudou.
+- Evidência TDD: `npm test -- --run tests/unit/panel-navigation.test.js tests/integration/panel-localization-contract.test.js` apresentou primeiro 5 falhas Red esperadas (2 helpers de navegação ausentes e 3 contratos de painel). Após a implementação e a atualização de asserções antigas que esperavam o texto dinâmico diretamente no HTML, testes focados de painel/saúde passaram 27/27 e a suíte inicial passou 644/644 em 87 arquivos. O QA independente encontrou overflow em 320 px na página Comandos (80/100, FAIL); um teste o reproduziu antes do override mobile de uma coluna passar Green. A revisão por teclado encontrou que uma regra mais específica desativava o contorno de foco; um teste falhou Red antes da correção do estilo passar Green. O bot Compose reconstruído informa `v0.7.0-0000000-alpha`. O Chrome verificou as oito páginas em 320/768/1280 px em pt-BR, inglês e espanhol (72/72 sem overflow) e confirmou contorno de foco visível computado. `npm test` final passou 646/646 em 87 arquivos; lint, typecheck, lint/typecheck web, localização, OpenGrep (0 achados), versão, Compose e diff passaram. O QA independente final aprovou com PASS 100/100. Os volumes existentes de banco/segredos foram preservados; nenhuma escrita na Twitch foi feita.
+
 ## v0.6.0-alpha
 
 - Conclui os gates de localização da FND-8 na PR #31: a validação de catálogos rejeita marcação HTML e caracteres de controle, preservando metavariáveis de comando documentadas; os guias de contribuição agora são bilíngues. Suíte completa passou 638/638, lint/typecheck/validações de locale/versão/portas/Compose/análise estática passaram, a imagem Docker do bot foi buildada e o QA independente AIOX-QA aprovou com PASS 9,2/10. Escritas reais na Twitch e macOS nativo seguem sem validação.

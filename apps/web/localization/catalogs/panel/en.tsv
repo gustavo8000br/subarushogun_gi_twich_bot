@@ -39,10 +39,22 @@ panel.summary.waiting	WAITING
 panel.summary.viewers_waiting	viewers in queue
 panel.summary.in_service	IN SERVICE
 panel.summary.called_or_started	called or started
-panel.overview.eyebrow	LIVE
-panel.overview.ready	Ready for your stream?
-panel.overview.description	Manage people waiting and active service on their own page.
+panel.overview.eyebrow	OVERVIEW
+panel.overview.next_eyebrow	NEXT STEP
+panel.overview.ready	Next step
+panel.overview.description	The panel will suggest an action based on your connection and queues.
 panel.overview.open_queues	Open queues
+panel.overview.connect_title	Connect your channel
+panel.overview.connect_description	Connect Twitch to finish setup.
+panel.overview.connect_channel	Connect channel
+panel.overview.create_title	Create your first queue
+panel.overview.create_description	Your channel is connected and can use Channel Points rewards.
+panel.overview.create_first_queue	Create queue
+panel.overview.queues_title	Manage your queues
+panel.overview.queues_description	Follow the wait list, calls, and active services.
+panel.overview.check_title	Review your channel connection
+panel.overview.check_description	This channel cannot use Channel Points rewards. Review the connection details.
+panel.overview.check_channel	View connection
 panel.queues.eyebrow	LIVE
 panel.queues.title	Queues and service
 panel.queues.description	Track people waiting, called, and currently in service.
@@ -134,6 +146,7 @@ panel.connection.connect_channel	Connect channel
 panel.connection.confidential_app_help	Create a confidential app in the Twitch console. This panel callback URL is:
 panel.connection.open_console	Open developer console ↗
 panel.connection.connect	Connect to Twitch
+panel.connection.credentials_required	Validate and save your app credentials before connecting the channel.
 panel.connection.authorized_eyebrow	AUTHORIZED CHANNEL
 panel.connection.connected_fallback	Channel connected
 panel.connection.connected	Twitch is connected to this local panel.
@@ -167,7 +180,10 @@ panel.queue.group.waiting	Waiting
 panel.queue.group.called	Called
 panel.queue.group.in_service	In service
 panel.queue.empty.title	No queues created
-panel.queue.empty.hint	Use the form above to create your first queue.
+panel.queue.empty.hint	People waiting and active services will appear here after you create a queue.
+panel.queue.empty.connect	Connect channel
+panel.queue.empty.create	Create first queue
+panel.queue.empty.check_channel	Review channel connection
 panel.queue.empty_group	No one right now
 panel.queue.status.open	OPEN
 panel.queue.status.closed	CLOSED
@@ -314,6 +330,7 @@ panel.commands.unavailable	The command catalog is not available yet.
 panel.command.roles_for	Roles allowed to use
 panel.settings.current_default	Current default
 panel.operations.empty	No pending operations.
+panel.operations.empty_hint	Refund and fulfillment requests appear here until Twitch confirms them or reports a conflict. Unknown results remain available for review.
 panel.operation.type.refund	REFUND
 panel.operation.type.fulfillment	FULFILLMENT
 panel.operation.type.reward_update	REWARD UPDATE

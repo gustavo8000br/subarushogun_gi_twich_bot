@@ -4,6 +4,12 @@
 
 Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.7.0-alpha
+
+- O painel mantém visíveis a versão em execução e o estado dos serviços, e orienta o streamer sobre a próxima ação de configuração ou fila.
+- As páginas sem filas ou operações financeiras explicam o que será exibido e como continuar.
+- A navegação do painel funciona em telas estreitas e destaca visivelmente o foco do teclado.
+
 ## v0.6.0-alpha
 
 - A tela de confirmação e recuperação do login Twitch agora segue o idioma selecionado para o produto.
