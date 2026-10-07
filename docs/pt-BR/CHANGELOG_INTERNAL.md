@@ -2,6 +2,11 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.13.1-alpha
+
+- Atualiza os índices bilíngues de stories e os roadmaps para marcar a OPS-10 concluída após o merge da PR #46 e avançar a sequência para FND-9.
+- Incrementa a versão base do produto para `0.13.1` nesta PR somente documental; mantém `.release-stage` `alpha` e o marcador pré-commit `0000000`. Nenhuma release ou tag Git é criada.
+
 ## v0.13.0-alpha
 
 - OPS-10 separa o CI de pull requests do CD da branch main. Ambos chamam o mesmo workflow reutilizável de qualidade; o gate agregado de PR é o único check obrigatório. A permissão de escrita em pacotes existe somente no job publicador da main.

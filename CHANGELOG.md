@@ -4,6 +4,10 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.13.1-alpha
+
+- Project and release notes now reflect the current version and next steps.
+
 ## v0.13.0-alpha
 
 - Published main images now come only from changes that pass the shared project quality checks, helping keep normal updates consistent with the validated source.
