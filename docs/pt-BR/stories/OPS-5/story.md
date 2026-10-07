@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-5/story.md)
 
-**Status:** InReview — implementação, gates locais e execução nativa Linux passaram. A última execução Actions passou em macOS/Linux, mas o Windows falhou antes de o harness observar `compose up -d`; a causa ainda não foi estabelecida. O matcher do Docker falso e os diagnósticos de falha foram aprimorados, e é necessário repetir o Windows antes da revisão AIOX-QA. Não se alega aceitação física em Windows/macOS.
+**Status:** Done — implementação, gates locais, execução direta Linux, Actions nativo Windows/macOS/Linux e QA independente AIOX-QA PASS concluídos. A execução 37637847991 enviou um artefato de instalador por sistema. Não se alega teste físico em Windows/macOS; a PR #36 aguarda merge.
 **Origem do planejamento:** solicitação do proprietário em 2026-10-06.
 **Issue GitHub:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30), implementação entregue na PR #36; a issue permanece aberta até o merge.
 
@@ -90,8 +90,8 @@ A instalação de dependências não pode ser garantida como silenciosa ou total
 - [x] Guias do usuário apontam para GitHub Releases; artefatos Actions são documentados como arquivos temporários de engenharia/QA.
 - [ ] Criar tag/release somente depois do gate aprovado pelo proprietário; FND-9 ainda não foi concluída e não existe release pública do produto.
 - **Instruções antigas de artefato extraído — Red / Green histórico, substituído:** o operador executou `sh ./subarushogun_twich_bot_setup.sh` na raiz do repositório e recebeu `cannot open ... No such file`; naquele momento, o arquivo empacotado existia somente no arquivo CI baixado. O contrato documental resultante foi corrigido com a explicação da pasta de extração. A distribuição atual prevista usa arquivos independentes anexados às GitHub Releases, então a pessoa abre o `.sh` baixado diretamente do local onde foi salvo; a instrução anterior sobre arquivo CI não é atual.
-- [ ] Reexecutar Actions nativo Windows, macOS e Linux com as verificações de arquitetura recentes e confirmar um artefato por sistema; a revisão anterior passou e enviou artefatos na [execução 37634641892](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37634641892). O workflow de release repete as verificações antes de anexar instaladores.
-- [ ] Revisão independente AIOX-QA alcança o limite de aceite do projeto (em andamento).
+- [x] Actions nativo Windows, macOS e Linux testou as últimas verificações de arquitetura e enviou um artefato por sistema na [execução 37637847991](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37637847991); o workflow de release repete as verificações antes de anexar os instaladores.
+- [x] A revisão independente AIOX-QA passou nos 14 critérios de aceite com nota 100/100; consulte `docs/qa/gates/OPS-5-unified-lifecycle-installer.yml` e as avaliações bilíngues.
 - [x] Não se alega aceitação física em Windows/macOS; execução real do ciclo Docker no host e instalação de dependências permanecem como validação posterior do operador e não são pré-requisito do critério de CI em runners nativos.
 - [ ] Antes do teste Twitch planejado com streamer após a FND-9, tornar público o pacote GHCR e verificar um pull anônimo; o repositório-fonte é público, mas o pacote de imagem ainda estava privado em 2026-10-07.
 
@@ -186,6 +186,13 @@ A instalação de dependências não pode ser garantida como silenciosa ou total
 - `tests/unit/start-script.test.js`
 - `tests/unit/windows-installer-first-run.test.js`
 
+- `docs/qa/gates/OPS-5-unified-lifecycle-installer.yml`
+- `docs/qa/assessments/OPS-5-risk-20261007.md`
+- `docs/qa/assessments/OPS-5-nfr-20261007.md`
+- `docs/pt-BR/qa/gates/OPS-5-unified-lifecycle-installer.yml`
+- `docs/pt-BR/qa/assessments/OPS-5-risk-20261007.md`
+- `docs/pt-BR/qa/assessments/OPS-5-nfr-20261007.md`
+
 ## Decisões de implementação resolvidas
 
 - Formatos: `.bat`, `.command`, `.sh`; sem launcher auxiliar.
@@ -213,4 +220,59 @@ Substituir Docker Compose, remover Docker ao desinstalar o produto, provisionar 
 | 2026-10-07 | Instaladores de release agora fixam a imagem na tag versionada correspondente e só salvam a nova tag após pull bem-sucedido; regressão cobre falha sem alterar a configuração. QEMU atualizado para pin compatível com Node 24. Naquele ponto, os gates locais passaram com 660 testes e o artefato Linux nativo passou; essa evidência foi superada pela suíte posterior de 667 testes e pela execução Actions 37634641892 em Windows/macOS/Linux. A inspeção Docker encontrou somente a instalação ativa e preservou os containers one-shot e volumes | @aiox-dev + @qa |
 | 2026-10-07 | Evidência de aceite atualizada: os três jobs nativos de instalador no Actions passaram (execução 37634641892); aceitação física do operador não é alegada; QA independente iniciado | @aiox-dev |
 | 2026-10-07 | Adicionadas regressões de arquitetura e recuperação: arquiteturas Docker incompatíveis param antes do Compose, aliases suportados prosseguem, o prompt inicial de idioma é legível e falhas de migration/inicialização ou de saúde após atualização preservam configurações/dados. Os novos casos Red falharam porque a arquitetura não era verificada e o prompt exibia chaves internas; Green adiciona a verificação da arquitetura do daemon e fallback pt-BR no prompt. A suíte local completa passa com 667 testes; CI nativo atualizado e QA independente ainda pendentes | @aiox-dev |
-| 2026-10-07 | Actions nativo 37637259314 passou em Linux/macOS, mas o Windows falhou porque o log do harness não continha `compose up -d`; a saída da falha ainda não revelou a causa. O Docker falso `.cmd` agora compara os argumentos individualmente e a asserção inclui a saída capturada do instalador. Linux/macOS e gates locais passaram; é necessária uma nova execução Windows antes do QA | @aiox-dev |
+| 2026-10-07 | Actions nativo 37637259314 passou em Linux/macOS, mas o Windows falhou porque o log do harness não continha `compose up -d`; a saída da falha ainda não revelou a causa. O Docker falso `.cmd` passou a comparar os argumentos individualmente e a asserção inclui a saída capturada do instalador. A execução 37637847991 passou em todos os jobs nativos Windows/macOS/Linux e enviou os três artefatos | @aiox-dev |
+| 2026-10-07 | Revisão independente AIOX-QA passou nos 14/14 critérios de aceite, com nota 100/100; não restam riscos bloqueantes. Testes físicos em Windows/macOS não são alegados | @qa |
+
+## Resultados de QA
+
+### Data da revisão: 2026-10-07
+
+### Revisado por: Quinn (Test Architect)
+
+### Revisão do código: `11e1e3f836a521256c5c450e5c21cb081b82bb68`
+
+### Avaliação da qualidade do código
+
+O instalador continua sendo um artefato diretamente abrível por sistema operacional, enquanto a implementação permanece testável em fontes revisados separados. Ações destrutivas são explícitas e localizadas, a atualização normal preserva dados, arquiteturas Docker incompatíveis param antes do Compose e as falhas indicam como recuperar. Os 14 critérios de aceite têm evidência de implementação ou workflow.
+
+### Refatoração realizada
+
+Não foi necessária refatoração do código de produto durante o QA. A falha anterior do harness nativo Windows foi corrigida para comparar argumentos individuais no Docker falso e preservar stdout/stderr no diagnóstico. A nova execução nativa passou.
+
+### Verificação de conformidade
+
+- Padrões de código: ✓ Limites atuais de JS/ESM e shell/PowerShell preservados.
+- Estrutura do projeto: ✓ Fontes, empacotador, testes, documentação e evidência QA seguem a organização do repositório.
+- Estratégia de testes: ✓ Vitest, CI com PostgreSQL/Compose e execução nativa dos artefatos passaram.
+- Todos os critérios atendidos: ✓ Rastreabilidade 1–14 em `docs/qa/gates/OPS-5-unified-lifecycle-installer.yml`.
+
+### Checklist de melhorias
+
+- [x] Verificados 86 arquivos / 667 testes na implementação atual.
+- [x] Lint, typecheck, OpenGrep (0 achados), validadores de localização/versão/portas, configuração Compose e execução direta Linux passaram.
+- [x] Execução nativa Windows/macOS/Linux e envio dos artefatos passaram na [execução Actions 37637847991](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37637847991).
+- [ ] Registrar teste físico de instalação/atualização Windows quando o proprietário retomar o teste no notebook; o CI usou Docker falso.
+
+### Revisão de segurança
+
+Credenciais não são embutidas nos instaladores nem expostas pelos diagnósticos. A limpeza destrutiva requer confirmação localizada exata e usa o projeto Compose fixo do produto. O OpenGrep não encontrou achados. Nenhuma release ou tag foi criada.
+
+### Considerações de desempenho
+
+O polling de saúde do instalador tem limite de 60 tentativas. As verificações de arquitetura e Compose adicionam somente trabalho limitado na inicialização; nenhum processo persistente ou tarefa em segundo plano foi introduzido.
+
+### Arquivos modificados durante a revisão
+
+Somente relatórios QA e avaliações bilíngues; nenhum código de aplicação foi alterado durante esta revisão.
+
+### Status do gate
+
+Gate: PASS → `docs/qa/gates/OPS-5-unified-lifecycle-installer.yml`
+
+Perfil de risco: `docs/qa/assessments/OPS-5-risk-20261007.md`
+
+Avaliação NFR: `docs/qa/assessments/OPS-5-nfr-20261007.md`
+
+### Transição de status
+
+PASS: InReview → Done. A issue GitHub #30 permanece aberta até o merge da PR #36 e deverá ser sincronizada então por @devops.

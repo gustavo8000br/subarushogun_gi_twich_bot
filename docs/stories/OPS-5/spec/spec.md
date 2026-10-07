@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../../pt-BR/stories/OPS-5/spec/spec.md)
 
-**Status:** implementation reference; Linux direct launch and local quality gates passed. Native Linux/macOS/Windows jobs passed on the previous revision; rerun them for the latest architecture checks before final QA. Physical operator acceptance is not claimed.
+**Status:** implementation reference; Linux direct launch and local quality gates passed. Native Linux/macOS/Windows jobs and installer artifact uploads passed on the latest revision in run 37637847991. Independent AIOX-QA is pending; physical operator acceptance is not claimed.
 
 ## Goal
 

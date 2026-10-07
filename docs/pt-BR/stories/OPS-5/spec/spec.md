@@ -2,7 +2,7 @@
 
 [English](../../../../stories/OPS-5/spec/spec.md)
 
-**Status:** referência de implementação; execução direta Linux e gates locais passaram. Os jobs nativos Linux/macOS/Windows passaram na revisão anterior; devem ser reexecutados para as verificações recentes de arquitetura antes do QA final. Aceitação física do operador não é alegada.
+**Status:** referência de implementação; execução direta Linux e gates locais passaram. Os jobs nativos Linux/macOS/Windows e o envio dos artefatos passaram na revisão mais recente, execução 37637847991. QA independente AIOX-QA pendente; aceitação física do operador não é alegada.
 
 ## Objetivo
 

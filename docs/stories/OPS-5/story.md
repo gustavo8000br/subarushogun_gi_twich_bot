@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-5/story.md)
 
-**Status:** InReview — implementation, local quality gates, and Linux native launch passed. The latest Actions run passed macOS/Linux but Windows failed before the harness observed `compose up -d`; the cause is not yet established. The fake Docker argument matcher and failure diagnostics have been improved, and a fresh Windows rerun is required before independent AIOX-QA review. No physical Windows/macOS operator acceptance is claimed.
+**Status:** Done — implementation, local quality gates, Linux direct launch, native Windows/macOS/Linux Actions, and independent AIOX-QA PASS are complete. Actions run 37637847991 uploaded one installer artifact per OS. No physical Windows/macOS operator acceptance is claimed; PR #36 is awaiting merge.
 **Planning source:** product owner request on 2026-10-06.
 **GitHub issue:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30) (implementation delivered in PR #36; issue remains open until merge).
 
@@ -85,11 +85,11 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 - [x] Linux native artifact direct-launch check passes from a path containing spaces; the generated `.sh` selected locale/port, displayed the callback, invoked Compose, and exits cleanly when first-run input is unavailable.
 - [x] Public source-repository access and GHCR image-package access are documented separately in English and pt-BR; anonymous GHCR access was checked and denied while the package remains private.
 - **Earlier extracted-artifact instructions — historical Red / Green, superseded:** the operator ran `sh ./subarushogun_twich_bot_setup.sh` from the repository root and received `cannot open ... No such file`; at that time the packaged file existed only in a downloaded CI archive. The resulting documentation contract was fixed by explaining the extraction directory. The current delivery plan uses standalone files attached to GitHub Releases, so users open the downloaded `.sh` directly from its saved location; the earlier CI archive instruction is not current guidance.
-- [ ] Re-run native Windows, macOS, and Linux Actions against the latest architecture checks and confirm one artifact per OS; the previous revision passed and uploaded artifacts in [Actions run 37634641892](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37634641892). The release workflow repeats those native checks before attaching installers.
+- [x] Native Windows, macOS, and Linux Actions tested the latest architecture checks and uploaded one artifact per OS in [run 37637847991](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37637847991); the release workflow repeats those native checks before attaching installers.
 - [x] Tag release workflow validates runtime identity and creates release notes from the matching English and pt-BR changelog sections.
 - [x] User guides use GitHub Releases; Actions artifacts are documented as temporary engineering/QA files.
 - [ ] Create any tag/release only after the owner-approved gate; FND-9 is incomplete and no public product release exists.
-- [ ] Independent AIOX-QA score meets the project's acceptance threshold (review in progress).
+- [x] Independent AIOX-QA passed the 14 acceptance criteria with a 100/100 quality score; see `docs/qa/gates/OPS-5-unified-lifecycle-installer.yml` and bilingual assessments.
 - [x] Physical Windows/macOS acceptance is not claimed; actual host Docker lifecycle and dependency-install runs remain operator follow-up and are not a prerequisite for the native-runner CI criterion.
 - [ ] Before the planned post-FND-9 Twitch streamer acceptance, make the GHCR package public and verify an anonymous pull; the source repository is public, but the image package was still private on 2026-10-07.
 
@@ -184,6 +184,13 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 - `tests/unit/start-script.test.js`
 - `tests/unit/windows-installer-first-run.test.js`
 
+- `docs/qa/gates/OPS-5-unified-lifecycle-installer.yml`
+- `docs/qa/assessments/OPS-5-risk-20261007.md`
+- `docs/qa/assessments/OPS-5-nfr-20261007.md`
+- `docs/pt-BR/qa/gates/OPS-5-unified-lifecycle-installer.yml`
+- `docs/pt-BR/qa/assessments/OPS-5-risk-20261007.md`
+- `docs/pt-BR/qa/assessments/OPS-5-nfr-20261007.md`
+
 ## Resolved implementation choices
 
 - File formats: `.bat`, `.command`, `.sh`; no companion launcher.
@@ -211,4 +218,59 @@ Replacing Docker Compose, removing Docker as part of product uninstall, silently
 | 2026-10-07 | Release installers now pin the matching versioned image and save the new tag only after a successful pull; regression covers failure without config mutation. QEMU updated to a verified Node 24-compatible pin. At that point, local gates passed with 660 tests and native Linux passed; this evidence was superseded by the later 667-test run and Windows/macOS/Linux Actions run 37634641892. Docker inspection found only the active install; one-shot containers and volumes were preserved | @aiox-dev + @qa |
 | 2026-10-07 | Updated acceptance evidence: all three native Actions installer jobs passed (run 37634641892); physical operator acceptance remains unclaimed; independent QA started | @aiox-dev |
 | 2026-10-07 | Added architecture and recovery regressions: unsupported Docker daemon architectures stop before Compose, supported architecture aliases proceed, the first language prompt is readable, and migration/startup or post-update health failures preserve settings/data. The new Red cases failed because architecture was not checked and the initial copy showed internal keys; Green adds daemon architecture checks and a pt-BR prompt fallback. Local full-suite result is 667 tests; fresh native CI and independent QA remain pending | @aiox-dev |
-| 2026-10-07 | Native Actions run 37637259314 passed Linux/macOS but Windows failed because the harness log lacked `compose up -d`; its failure output did not yet reveal the cause. Updated the `.cmd` fake to match arguments individually and included captured installer output in the assertion. Linux/macOS reruns and local gates pass; a new Windows result is required before QA | @aiox-dev |
+| 2026-10-07 | Native Actions run 37637259314 passed Linux/macOS but Windows failed because the harness log lacked `compose up -d`; its failure output did not yet reveal the cause. Updated the `.cmd` fake to match arguments individually and included captured installer output in the assertion. Run 37637847991 then passed all native Windows/macOS/Linux jobs and uploaded the three installer artifacts | @aiox-dev |
+| 2026-10-07 | Independent AIOX-QA review passed 14/14 acceptance criteria with score 100/100; no blocking risks remain. Physical Windows/macOS host tests remain unclaimed | @qa |
+
+## QA Results
+
+### Review Date: 2026-10-07
+
+### Reviewed By: Quinn (Test Architect)
+
+### Reviewed Revision: `11e1e3f836a521256c5c450e5c21cb081b82bb68`
+
+### Code Quality Assessment
+
+The installer remains one directly openable artifact per operating system while its implementation stays testable from reviewed source files. Destructive choices are explicit and localized, normal updates preserve data, unsupported Docker architectures stop before Compose, and failures provide a recovery path. All 14 acceptance criteria have traceable implementation or workflow evidence.
+
+### Refactoring Performed
+
+No product-source refactor was needed during QA. The prior native Windows harness failure was corrected by making the fake Docker matcher parse arguments individually and preserving stdout/stderr in failure output. The corrected native run passed.
+
+### Compliance Check
+
+- Coding Standards: ✓ Existing JS/ESM and shell/PowerShell boundaries preserved.
+- Project Structure: ✓ Installer sources, package tooling, tests, docs, and QA evidence follow repository organization.
+- Testing Strategy: ✓ Vitest, PostgreSQL/Compose CI, and native OS artifact launches passed.
+- All ACs Met: ✓ Trace 1–14; see `docs/qa/gates/OPS-5-unified-lifecycle-installer.yml`.
+
+### Improvements Checklist
+
+- [x] Verified 86 files / 667 tests on the current implementation.
+- [x] Verified lint, typecheck, OpenGrep (0 findings), localization/version/port validators, Compose config, and Linux direct launch.
+- [x] Verified native Windows/macOS/Linux launch and artifact upload in [Actions run 37637847991](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37637847991).
+- [ ] Record physical Windows installation/update smoke test when the owner resumes notebook testing; CI used fake Docker.
+
+### Security Review
+
+No secrets are embedded in generated installer artifacts or emitted by installer diagnostics. Destructive cleanup requires exact localized confirmation and uses the fixed product Compose project. OpenGrep reported zero findings. No release or tag was created.
+
+### Performance Considerations
+
+Installer health polling is bounded to 60 attempts. Architecture and Compose checks add bounded startup work; no long-running process or background task was introduced.
+
+### Files Modified During Review
+
+QA reports and bilingual assessments only; no application source was changed during this review.
+
+### Gate Status
+
+Gate: PASS → `docs/qa/gates/OPS-5-unified-lifecycle-installer.yml`
+
+Risk profile: `docs/qa/assessments/OPS-5-risk-20261007.md`
+
+NFR assessment: `docs/qa/assessments/OPS-5-nfr-20261007.md`
+
+### Lifecycle Transition
+
+PASS: InReview → Done. GitHub issue #30 remains open until PR #36 is merged and then must be synchronized by @devops.
