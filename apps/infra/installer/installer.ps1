@@ -193,8 +193,10 @@ function Ensure-Docker {
   try {
     & $Docker compose version *> $null
     if ($LASTEXITCODE -eq 0) {
-      $architecture = (& $Docker info --format '{{.Architecture}}' 2>$null | Select-Object -First 1)
-      if ($LASTEXITCODE -ne 0) { Write-Host (T 'architectureUnavailable'); return $false }
+      $architectureOutput = @(& $Docker info --format '{{.Architecture}}' 2>$null)
+      $architectureExitCode = $LASTEXITCODE
+      if ($architectureExitCode -ne 0) { Write-Host (T 'architectureUnavailable'); return $false }
+      $architecture = $architectureOutput | Select-Object -First 1
       $architecture = ([string]$architecture).Trim().ToLowerInvariant()
       if ($architecture -in @('amd64','x86_64','arm64','aarch64')) { return $true }
       Write-Host ([string]::Format((T 'architectureUnsupported'), $architecture))

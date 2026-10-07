@@ -21,6 +21,12 @@ describe('Windows installer first-run language prompt', () => {
     expect(installer).toContain('Docker architecture "{0}" is not supported');
   });
 
+  it('captures the Docker architecture command exit code before selecting its output', () => {
+    expect(installer).toContain("$architectureOutput = @(& $Docker info --format '{{.Architecture}}' 2>$null)");
+    expect(installer).toContain('$architectureExitCode = $LASTEXITCODE');
+    expect(installer).toContain('if ($architectureExitCode -ne 0)');
+  });
+
   it('reads a deterministic input file in native test mode and shows one prompt interactively', () => {
     expect(installer).toContain('$env:QUEUEBOT_TEST_INPUT_FILE');
     expect(installer).toContain('[IO.File]::ReadAllLines($env:QUEUEBOT_TEST_INPUT_FILE)');
