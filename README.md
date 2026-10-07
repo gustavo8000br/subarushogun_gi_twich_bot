@@ -403,17 +403,21 @@ Open `https://localhost:3000` yourself. If the browser reports an untrusted cert
 
 | Story | Scope | Status |
 | --- | --- | --- |
-| FND-1 | Bilingual foundation docs and Compose startup/shutdown verification | In progress |
+| FND-1 | Bilingual foundation docs and Compose startup/shutdown verification ([issue #3](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/3)) | In progress; native Windows startup-helper rerun remains open |
 | FND-2 | Queue domain, UID rules, parser, authorization, and PostgreSQL ordering | Complete |
 | FND-3 | Durable financial outbox, retries, confirmation, and recovery | Complete; live Twitch point operations remain unverified |
 | FND-4 | Twitch credentials, OAuth, rewards, EventSub, and reconciliation | Complete; authorized live Twitch acceptance remains for operator validation |
 | FND-5 | Chat commands, calls, timeouts, cleanup confirmation, current account, and shared application services ([issue #1](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/1)) | Complete; QA 9.0/10, live Twitch point operations unverified |
 | FND-6 | UX planning with references, complete panel, setup wizard, protected API, and local security ([issue #6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | Complete; independent QA 9.0/10. Live Twitch reward writes remain unverified |
 | FND-7 | Configurable local OBS overlay widgets ([issue #7](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/7)) | Complete; independent QA PASS 9.2/10; Twitch synchronization and Windows/macOS OBS trust remain unverified |
-| OPS-1 | API, infra, and web CI gates | QA PASS 9.3/10; awaiting PR merge |
+| OPS-1 | API, infra, and web CI gates ([issue #20](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/20)) | Complete and merged in PR #12; issue closed |
 | OPS-2 | Safe localized Twitch status labels | Complete: initial pt-BR mapping in PR #13; precedence fixes and expanded locale mapping shipped with FND-8 PR #31; issue #21 closed |
-| OPS-4 | MIT License metadata | QA PASS 9.3/10; already merged |
-| FND-8 | Product-wide localization | Complete and merged in PR #31 (`b6ccd0f`); independent QA PASS 9.2/10. Includes OPS-2 status localization and precedence fixes. Live Twitch writes and native macOS remain unverified |
+| OPS-3 | Command catalog and role permissions ([issue #17](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/17)) | Complete and merged in PR #24; issue closed |
+| OPS-4 | MIT License metadata ([issue #29](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/29)) | Complete and merged in PR #25; issue closed |
+| OPS-5 | Unified cross-platform lifecycle installer ([issue #30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30)) | Open planning issue; implementation not started |
+| OPS-6 | Clear runtime status and guided panel states ([issue #32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32)) | Complete and merged in PR #33; independent QA PASS 100/100; issue closed |
+| FND-8 | Product-wide localization ([issue #18](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/18)) | Complete and merged in PR #31 (`b6ccd0f`); independent QA PASS 9.2/10. Includes OPS-2 status localization and precedence fixes. Live Twitch writes and native macOS remain unverified |
+| FND-9 | Manual queues for channels ineligible for Channel Points ([issue #19](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/19)) | Open; planning published, implementation not started |
 
 FND-8 adds a persisted product language with pt-BR, English, and Spanish catalogs organized by module. Complete community catalogs are discovered while the app is running, and the panel, chat, OBS product copy, and lifecycle tools use the selected language. Chat roots are `!fila`, `!queue`, or `!cola` according to the selected locale. Independent QA passed 9.2/10. Live Twitch writes and native macOS behavior remain unverified.
 

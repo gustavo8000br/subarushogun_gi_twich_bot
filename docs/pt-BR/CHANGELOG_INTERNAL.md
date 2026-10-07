@@ -4,7 +4,7 @@
 
 ## v0.7.2-alpha
 
-- Alinha a story e a issue da OPS-2 à localização e precedência de status entregues pela PR #31 da FND-8. Alteração apenas documental e de acompanhamento; nenhum comportamento de runtime mudou.
+- Sincroniza o roadmap dos READMEs bilíngues com o estado atual das stories/issues e alinha a OPS-2 à localização e precedência de status entregues pela PR #31 da FND-8. Alteração apenas documental e de acompanhamento; nenhum comportamento de runtime mudou.
 
 ## v0.7.1-alpha
 

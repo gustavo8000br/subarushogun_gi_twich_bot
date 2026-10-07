@@ -4,7 +4,7 @@
 
 ## v0.7.2-alpha
 
-- Reconcile the OPS-2 story and issue with the status localization and precedence behavior delivered by FND-8 PR #31. Documentation and issue tracking only; no runtime behavior changed.
+- Reconcile the bilingual README roadmap with current stories/issues and align OPS-2 with the status localization and precedence behavior delivered by FND-8 PR #31. Documentation and issue tracking only; no runtime behavior changed.
 
 ## v0.7.1-alpha
 
