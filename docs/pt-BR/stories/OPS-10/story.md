@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-10/story.md)
 
-**Status:** InReview
+**Status:** Done
 **Executor:** `$aiox-devops` para workflows/ruleset; `$aiox-dev` para testes de contrato e implementação.
 **Gate de qualidade:** revisão arquitetural do `$aiox-architect` e validação independente do `$aiox-qa`.
 
@@ -108,8 +108,10 @@ para que PRs não exibam publicação de imagem como check ignorado e somente co
 ## Registro de alterações
 
 - 2026-10-07 — Aplicados os achados da auditoria independente de CI/CD: verificação de assinatura do OpenGrep, fila de retries/permissões de release e semântica correta de tags/digests GHCR. Instaladores agora fixam o digest validado da imagem.
+| 2026-10-07 | 0.13.0 | Gate de QA PASS (9,4/10) — Status: InReview → Done; os 14 critérios de aceite foram verificados. | @qa |
 - `docs/stories.md`, `docs/pt-BR/stories.md`
 - `docs/stories/OPS-10/story.md`, `docs/pt-BR/stories/OPS-10/story.md`
+- `docs/qa/gates/OPS-10-ci-cd-workflow-delivery.yml`
 
 ## Resultados do QA
 
@@ -117,18 +119,16 @@ para que PRs não exibam publicação de imagem como check ignorado e somente co
 
 ### Revisado por: Quinn (`$aiox-qa`)
 
-**Gate: CONCERNS — 8,7/10.** O comportamento dos workflows e os gates externos do GitHub passaram no commit revisado. A própria story ainda contém notas técnicas obsoletas e uma tarefa de verificação do GitHub marcada como pendente; portanto, a documentação bilíngue ainda não registra com precisão o estado entregue.
+**Gate: PASS — 9,4/10 → `docs/qa/gates/OPS-10-ci-cd-workflow-delivery.yml`.** A revisão atual da PR passou nos gates hospedados e o ruleset ativo exige o check agregado observado. A divergência documental encontrada na story anterior foi corrigida nos dois idiomas.
 
-**Revisão:** `edd99ee940578019c9f777ce0b22b66b1f88cf4a` (PR #46; o HEAD da PR corresponde ao commit).
+**Revisão:** `3e49fc0e8159f4377a8c143b35129b111ef89a9d` (PR #46; o HEAD corresponde).
 
-**Evidências independentes do GitHub:** a execução de Actions `37690120672` da PR foi concluída com sucesso: os 11 jobs passaram, incluindo smoke tests de instalador Linux/macOS/Windows, integração Vitest/PostgreSQL/Compose, configuração Compose e build da imagem de produção, lint de workflows/OpenGrep/validadores de versão e localização, e o agregado `CI quality gates / Required quality gate`. A inspeção somente leitura do ruleset ativo `main-pr-and-ci` (ID `24656777`) confirma que seu único contexto obrigatório é exatamente `CI quality gates / Required quality gate`.
+**Evidências do GitHub:** a execução de Actions `37691970595` passou nos 11 jobs: 88 arquivos de teste / 734 testes, lint e typecheck de API/infra/web, lint/typecheck compartilhados, smoke tests de instalador Linux/macOS/Windows, lint de workflows e validadores OpenGrep/versão/localização, configuração Compose e build da imagem de produção, além do agregado `CI quality gates / Required quality gate`. A leitura somente de consulta confirma que o ruleset ativo `main-pr-and-ci` (ID `24656777`) exige apenas `CI quality gates / Required quality gate`, correspondente ao nome observado.
 
-**Revisão da implementação:** o CI de PR apenas chama o workflow reutilizável de qualidade; não tem permissão `packages: write` nem job de publicação de imagem. O CD da main chama os mesmos gates, limita `packages: write` ao publicador, serializa a publicação sem cancelamento, publica imagens imutáveis com SHA e arquitetura, imagens com identidade exata do produto e manifest multi-plataforma, e só avança as tags móveis `main` depois de confirmar que a origem ainda é atual. O workflow de release verifica a execução bem-sucedida de `main-cd.yml` para o SHA exato. Os testes de contrato cobrem essas propriedades. Os gates locais informados pelo implementador são 88 arquivos / 727 testes, lint, typecheck, OpenGrep (0 achados), actionlint, validadores de versão/localização, configuração do Compose e diff-check; esta revisora não repetiu a suíte nem comandos Docker.
+**Verificações locais independentes:** passaram `npm run lint`, `npm run typecheck`, `npm run review:static` (0 achados), `npm run validate:version` (`v0.13.0-0000000-alpha`), `npm run validate:localization` (5 módulos; en/es/pt-BR) e `git diff --check`. Não repeti `npm test`, Compose ou Docker nesta revisão porque a suíte completa e o build da imagem passaram no runner isolado do GitHub, e esta tarefa de QA proíbe tocar nos volumes Docker locais.
 
-**Achado:**
+**Revisão dos critérios:** AC 1–14 são cobertos pelas definições de workflow, testes de contrato de workflow/instalador/Compose, documentação bilíngue e execução bem-sucedida da PR. Os testes verificam permissões mínimas de pacote/release, comportamento do check agregado, fila/limites de releases, instalação do OpenGrep com assinatura verificada, anotações de SHA/plataformas da origem e referência dos instaladores fixada por digest. O ruleset ativo foi consultado no GitHub. A publicação real no GHCR e uma release com tag não foram executadas nesta PR; suas condições e contratos foram validados, e a publicação do produto continua pertencendo aos workflows autorizados de main/release.
 
-1. **Médio — DOC-OPS10-01, as notas da story contradizem a implementação atual.** Em `Notas técnicas`, as linhas 54–57 desta story EN ainda afirmam que `ci.yml` executa em push na main, que seu publicador condicional é um check ignorado obrigatório em PR, e que o ruleset precisa ser alterado após observar o check. Hoje `ci.yml` só trata PR/execução manual, o ruleset ativo exige o agregado verificado e a publicação da main está em `main-cd.yml`. A story pt-BR contém a mesma descrição técnica obsoleta; seus Resultados do QA também ainda registravam o FAIL anterior. O critério de aceite 9 exige que story e tradução descrevam o mesmo workflow atual. Atualize essas notas e a tarefa desmarcada em ambos os idiomas antes de marcar a story como Done.
+**Gate:** PASS → `docs/qa/gates/OPS-10-ci-cd-workflow-delivery.yml`
 
-**Revisão dos critérios:** AC 1–8 são sustentados pelos workflows, testes de contrato e execução bem-sucedida da PR. AC 10 é sustentado pelo agregado Actions bem-sucedido e pela leitura do ruleset ativo. AC 9 ainda não foi totalmente atendido até atualizar as notas/tarefa da story e sincronizar o registro QA em português. Integração Twitch real não faz parte do escopo desta OPS.
-
-**Ciclo de vida:** o status da story permanece `InProgress`; o gate de ciclo de vida do QA exige `InReview` antes de transicionar, e a story não tem uma seção `Change Log`. Conforme as regras do gate, esta revisão atualiza somente Resultados do QA e não altera os campos de ciclo de vida. Nenhum comando Docker ou alteração de volume foi realizado.
+**Ciclo de vida:** status alterado de `InReview` para `Done`; a entrada do QA no Registro de alterações documenta a transição. Nenhum comando Docker ou alteração de volume foi realizado.

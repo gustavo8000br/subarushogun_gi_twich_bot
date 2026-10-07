@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-10/story.md)
 
-**Status:** InReview
+**Status:** Done
 **Executor:** `$aiox-devops` for workflow/ruleset operations; `$aiox-dev` for contract tests and implementation.
 **Quality gate:** `$aiox-architect` architecture review and independent `$aiox-qa` validation.
 
@@ -108,8 +108,10 @@ so that pull requests never present image publishing as a skipped check and only
 ## Change Log
 
 - 2026-10-07 — Applied independent CI/CD audit findings: signed OpenGrep binary verification, release retry queueing and permission contracts, and correct GHCR tag/digest semantics. Release installers now pin the verified image digest.
+| 2026-10-07 | 0.13.0 | QA Gate PASS (9.4/10) — Status: InReview → Done; all 14 acceptance criteria verified. | @qa |
 - `docs/stories.md`, `docs/pt-BR/stories.md`
 - `docs/stories/OPS-10/story.md`, `docs/pt-BR/stories/OPS-10/story.md`
+- `docs/qa/gates/OPS-10-ci-cd-workflow-delivery.yml`
 
 ## QA Results
 
@@ -117,18 +119,16 @@ so that pull requests never present image publishing as a skipped check and only
 
 ### Reviewed By: Quinn (`$aiox-qa`)
 
-**Gate: CONCERNS — 8.7/10.** The workflow behavior and external GitHub gates now pass on the reviewed commit. The story itself still contains obsolete technical notes and a stale unchecked GitHub verification task, so its bilingual documentation is not yet a reliable record of the delivered state.
+**Gate: PASS — 9.4/10 → `docs/qa/gates/OPS-10-ci-cd-workflow-delivery.yml`.** The current PR revision passed hosted quality gates and the active ruleset requires the observed aggregate check. The earlier story documentation mismatch is corrected in both languages.
 
-**Reviewed revision:** `edd99ee940578019c9f777ce0b22b66b1f88cf4a` (PR #46, head matches).
+**Reviewed revision:** `3e49fc0e8159f4377a8c143b35129b111ef89a9d` (PR #46; HEAD matches).
 
-**Independent GitHub evidence:** PR Actions run `37690120672` completed successfully: all 11 jobs passed, including Linux/macOS/Windows installer smoke, Vitest/PostgreSQL/Compose integration, Compose configuration and production image build, workflow lint/OpenGrep/version/localization checks, and the aggregate `CI quality gates / Required quality gate`. Read-only inspection of active ruleset `main-pr-and-ci` (ID `24656777`) confirms its sole required context is exactly `CI quality gates / Required quality gate`.
+**GitHub evidence:** Actions run `37691970595` passed all 11 jobs: 88 test files / 734 tests, API/infra/web lint and typecheck, shared lint/typecheck, Linux/macOS/Windows installer smoke, workflow lint/OpenGrep/version/localization validation, Compose config and production image build, and the aggregate `CI quality gates / Required quality gate`. Read-only inspection confirms active ruleset `main-pr-and-ci` (ID `24656777`) requires only `CI quality gates / Required quality gate`, matching the observed check name.
 
-**Implementation review:** PR CI only calls the reusable quality workflow and has no package-write permission or image-publish job. Main CD calls the same gates, scopes `packages: write` to the publisher, serializes publishing without cancellation, publishes immutable SHA and exact product-version architecture images plus a multi-platform version manifest, and only advances moving `main` tags after verifying the source is still current. Release workflow checks the successful `main-cd.yml` run for the exact source SHA. Contract tests cover these properties. The developer-reported local gates are 88 files / 727 tests, lint, typecheck, OpenGrep (0 findings), actionlint, version/localization validation, Compose config, and diff-check; this reviewer did not rerun the suite or Docker commands.
+**Independent local checks:** `npm run lint`, `npm run typecheck`, `npm run review:static` (0 findings), `npm run validate:version` (`v0.13.0-0000000-alpha`), `npm run validate:localization` (5 modules; en/es/pt-BR), and `git diff --check` passed. I did not rerun `npm test`, Compose, or Docker in this review because the complete suite and image build passed on the isolated GitHub runner, and this QA task prohibits touching local Docker volumes.
 
-**Finding:**
+**Acceptance review:** AC 1–14 are covered by the workflow definitions, workflow/installer/Compose contract tests, bilingual documentation and the successful PR run. The tests assert least-privilege package/release permissions, required aggregate behavior, release queueing and limits, signature-verified OpenGrep installation, source-SHA/platform annotations, and digest-pinned installer references. The active ruleset was read back from GitHub. Actual GHCR publication and a tagged release were not executed on this PR; their conditions and contracts are validated, while those product-delivery events remain for their authorized main/release workflows.
 
-1. **Medium — DOC-OPS10-01, story notes contradict the current implementation.** In this EN story, `Technical Notes` lines 54–57 still claim `ci.yml` runs on main push, that its conditional publisher is a required skipped PR check, and that the ruleset must be updated only after observing the check. Current `ci.yml` is PR/manual only, the active ruleset now requires the verified aggregate, and main publishing lives in `main-cd.yml`. The pt-BR story carries the same stale technical description; its QA Results also still contains the previous FAIL verdict. Acceptance criterion 9 requires the story and its translation to describe the same current workflow. Refresh those notes and the stale task checklist in both languages before marking the story Done.
+**Gate:** PASS → `docs/qa/gates/OPS-10-ci-cd-workflow-delivery.yml`
 
-**Criteria review:** AC 1–8 are supported by the workflow source, contract tests, and successful PR run. AC 10 is supported by the successful aggregate run and live ruleset readback. AC 9 is not fully met until the stale story notes/checklist and Portuguese QA record are synchronized. No live Twitch integration is in scope for this OPS story.
-
-**Lifecycle:** Story status remains `InProgress`; the QA lifecycle gate requires `InReview` before a QA transition, and the story has no `Change Log` section. Per gate rules, this review updates QA Results only and does not change lifecycle fields. No Docker commands or volume changes were made.
+**Lifecycle:** Status changed from `InReview` to `Done`; the QA Change Log entry records the transition. No Docker commands or volume changes were made.

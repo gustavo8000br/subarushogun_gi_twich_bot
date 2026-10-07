@@ -1,0 +1,81 @@
+schema: 1
+story: OPS-10
+gate: PASS
+score: 9.4/10
+status_reason: >-
+  All 14 acceptance criteria are covered by workflow definitions, contract tests, bilingual
+  documentation, and successful final PR Actions. The verified aggregate is the sole required
+  ruleset context; no high-severity findings remain.
+reviewer: Quinn
+reviewed_revision: '3e49fc0e8159f4377a8c143b35129b111ef89a9d'
+updated: '2026-10-07T21:51:49Z'
+acceptance_criteria:
+  - id: AC1
+    result: PASS
+    evidence: PR CI has pull_request/workflow_dispatch triggers, no GHCR publish job and no package-write permission.
+  - id: AC2
+    result: PASS
+    evidence: Both callers use the shared quality-gates workflow; aggregate explicitly fails for any non-success dependency.
+  - id: AC3
+    result: PASS
+    evidence: Native installer smoke matrix covers Linux, macOS and Windows; reusable CI uploads no installer artifacts.
+  - id: AC4
+    result: PASS
+    evidence: Main CD waits for quality gates, scopes package write to publishing, and defines AMD64/ARM64 tags, manifests and GHA caches.
+  - id: AC5
+    result: PASS
+    evidence: Main publishing uses queue:max without cancellation, immutable source references, and promotes moving tags only for current main.
+  - id: AC6
+    result: PASS
+    evidence: PR run 37691970595 reports the aggregate; active ruleset 24656777 requires only that exact context.
+  - id: AC7
+    result: PASS
+    evidence: Release workflow queries successful main-cd.yml run for the exact tagged source commit and checks ancestry on main.
+  - id: AC8
+    result: PASS
+    evidence: Contract tests and story TDD evidence record Red before implementation for workflow mismatch and later regressions.
+  - id: AC9
+    result: PASS
+    evidence: EN and pt-BR CI/CD docs, story, changelogs, roadmap and indexes are aligned; prior stale story note was corrected.
+  - id: AC10
+    result: PASS
+    evidence: Final PR run 37691970595 passed all 11 checks including tests, platform smoke, static, Compose and image build; active ruleset was read back.
+  - id: AC11
+    result: PASS
+    evidence: Quality workflow pins Cosign action and release and invokes OpenGrep signature verification from a pinned source revision.
+  - id: AC12
+    result: PASS
+    evidence: Release workflow queues same-tag runs without cancellation and contract tests assert dependencies and least-privilege permissions.
+  - id: AC13
+    result: PASS
+    evidence: Bilingual CI/CD docs distinguish mutable tags from immutable content digests and state GitHub queue limits.
+  - id: AC14
+    result: PASS
+    evidence: Release resolver validates source-SHA annotation and both Linux platforms before exposing the digest-pinned image reference to installer jobs.
+quality_gates:
+  - command: 'GitHub Actions run 37691970595 on 3e49fc0e8159f4377a8c143b35129b111ef89a9d'
+    result: PASS
+    details: '11 jobs; Vitest 88 files / 734 tests; native installer smoke on Linux/macOS/Windows; Compose config and production build.'
+  - command: 'Active ruleset 24656777 readback'
+    result: PASS
+    details: 'Sole required context: CI quality gates / Required quality gate.'
+  - command: npm run lint
+    result: PASS
+  - command: npm run typecheck
+    result: PASS
+  - command: npm run review:static
+    result: PASS
+    details: 'OpenGrep: 0 findings.'
+  - command: npm run validate:version
+    result: PASS
+    details: 'v0.13.0-0000000-alpha.'
+  - command: npm run validate:localization
+    result: PASS
+    details: '5 modules; en/es/pt-BR.'
+  - command: git diff --check
+    result: PASS
+  - command: Local Docker volumes
+    result: NOT_TOUCHED
+    details: 'Full tests and image build ran on hosted CI; no local Docker or volume command was run in this QA review.'
+top_issues: []
+waiver: { active: false }
