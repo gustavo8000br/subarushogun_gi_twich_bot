@@ -217,6 +217,14 @@ Como streamer, quero selecionar o idioma do produto durante a instalação e alt
 - **Green/Refactor:** `npm exec -- vitest run tests/integration/panel-localization-contract.test.js` passou 2/2 após adicionar as chaves aos catálogos primários e aplicá-las aos controles. Validador de catálogos, lint e typecheck passaram.
 - **Escopo:** somente estes rótulos de fila/widget/entrada manual estão cobertos; formulários e rótulos dinâmicos restantes do painel continuam pendentes.
 
+### Incremento 22 — Adicionar validação nativa Windows ao CI
+
+- **Comportamento:** toda PR executa no runner `windows-latest` o cenário PowerShell de localização e pré-condição do atualizador, em um caminho temporário com espaços; um checkout fora de `main` deve mostrar o texto do catálogo inglês e não pode chamar o Docker.
+- **Red:** `npm exec -- vitest run tests/integration/windows-lifecycle-contract.test.js` falhou porque o workflow não tinha runner Windows nem cenário nativo do ciclo de vida.
+- **Green:** o contrato passou 1/1 após adicionar o job `windows-lifecycle` e um fixture PowerShell que isola os comandos Git e Docker. Lint, typecheck, suíte completa (87 arquivos / 617 testes), validação dos catálogos, versão/portas, Compose e `git diff --check` passaram. A execução nativa aguarda o resultado do GitHub Actions; este host Linux não possui `pwsh`.
+- **Refatoração:** não houve mudança no comportamento do produto; o cenário Windows fica isolado em caminho temporário e comprova que a rejeição da branch ocorre antes do acesso ao Docker.
+- **Escopo:** execução nativa Windows agora faz parte do gate da PR. Localização completa do painel/API e QA independente final continuam pendentes.
+
 ## Gates de implementação pendentes
 
 - QA independente avaliou a spec v1 como CONCERNS, 8,1/10. A reavaliação da spec v3 retornou CONCERNS sem atribuir nova nota; os achados editoriais corrigidos devem entrar na próxima revisão independente.

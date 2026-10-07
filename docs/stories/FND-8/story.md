@@ -217,6 +217,14 @@ As a streamer, I want to select the product language during installation and cha
 - **Green/Refactor:** `npm exec -- vitest run tests/integration/panel-localization-contract.test.js` passed 2/2 after adding the keys to all first-party catalogs and applying them to the controls. The catalog validator, lint, and typecheck passed.
 - **Scope:** only these queue/widget/manual-entry labels are covered here; remaining panel forms and dynamic labels remain pending.
 
+### Increment 22 — Add native Windows lifecycle validation to CI
+
+- **Behavior:** every PR runs the PowerShell updater localization/precondition scenario on `windows-latest`, using a disposable project path containing spaces; a non-main checkout must report the selected English catalog copy and must not invoke Docker.
+- **Red:** `npm exec -- vitest run tests/integration/windows-lifecycle-contract.test.js` failed because the CI workflow had no Windows runner or native lifecycle scenario.
+- **Green:** the contract passed 1/1 after adding the `windows-lifecycle` job and a PowerShell fixture that isolates Git and Docker commands. Local lint, typecheck, full tests (87 files / 617 tests), catalog validation, version/port checks, Compose validation, and `git diff --check` passed. Native execution awaits the GitHub Actions result; this Linux host has no `pwsh` executable.
+- **Refactor:** no product behavior changed; the Windows scenario is isolated under a temporary path and proves branch rejection happens before Docker access.
+- **Scope:** native Windows CI is now part of the PR quality gate. Full panel/API localization and final independent QA remain pending.
+
 ## Open planning and implementation gates
 
 - Independent QA reviewed spec v1 as CONCERNS, 8.1/10. Spec v3 re-review returned CONCERNS without assigning a new score; corrected editorial findings should be included in the next independent review.

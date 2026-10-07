@@ -10,6 +10,7 @@
 - Adiciona entrypoints genéricos `subarushogun_twich_bot_{setup,update,uninstall}`. Ferramentas POSIX usam o locale salvo; entrypoints `.bat` delegam ao executor PowerShell. Há testes de contrato, mas o executor não foi rodado nativamente porque PowerShell/Windows não está disponível neste ambiente.
 - Atualiza documentação bilíngue de contribuição/operação e valida contratos de catálogo, API/persistência/projeção de locale, ciclo de vida shell, wrappers e Compose.
 - Gates em 2026-10-06: `npm run lint`, `npm run typecheck`, `npm test` (86 arquivos / 616 testes), `npm run validate:port-denylist` (1.024 arquivos, zero achados), `npm run validate:version`, `npm run review:static` (zero achados / 70 arquivos JS da aplicação), `npm run validate:localization` (5 módulos; en/es/pt-BR), `git diff --check` e `docker compose config --quiet` passaram. Localização integral do painel, validação runtime do PowerShell e QA independente final seguem pendentes.
+- Adiciona à PR um gate em `windows-latest` para o atualizador PowerShell, em caminho isolado com espaços e comandos Git/Docker falsos. O teste verifica o texto do catálogo inglês e prova que branch diferente de `main` é rejeitada antes de chamar Docker. As verificações Linux passaram com 87 arquivos / 617 testes; a execução PowerShell nativa aguarda o GitHub Actions. Localização completa do painel e QA independente final continuam pendentes.
 
 ## v0.5.2-alpha
 
