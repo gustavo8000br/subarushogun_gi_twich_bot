@@ -2,6 +2,10 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.7.1-alpha
+
+- Synchronize the OPS-6 story index and issue record after PR #33 merged and issue #32 closed. No runtime behavior changed.
+
 ## v0.7.0-alpha
 
 - Implement OPS-6 panel clarity: keep API-backed version/health values intact across locale changes; add setup-, eligibility-, and queue-aware next actions; correct queue/financial empty states; explain credential prerequisites beside Twitch connection; retain a single locale editor in Settings; and improve operational text sizing, narrow-screen layout, and keyboard focus visibility. No API or Twitch write behavior changed.

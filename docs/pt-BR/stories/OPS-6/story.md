@@ -8,7 +8,7 @@
 **Executor:** @dev
 **Gate de qualidade:** @qa
 **Pesquisa:** [`ux-research.md`](ux-research.md) e [equivalente em inglês](../../../stories/OPS-6/ux-research.md).
-**Issue GitHub:** [#32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32) (aberta).
+**Issue GitHub:** [#32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32) (fechada após o merge da [PR #33](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/pull/33), commit `487f822`).
 
 ## História
 

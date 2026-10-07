@@ -8,7 +8,7 @@
 **Executor:** @dev
 **Quality gate:** @qa
 **Research:** [`ux-research.md`](ux-research.md) and [pt-BR equivalent](../../pt-BR/stories/OPS-6/ux-research.md).
-**GitHub issue:** [#32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32) (open).
+**GitHub issue:** [#32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32) (closed after merge of [PR #33](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/pull/33), commit `487f822`).
 
 ## Story
 
