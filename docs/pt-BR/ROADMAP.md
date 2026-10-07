@@ -19,7 +19,7 @@ Estado conferido com o índice local de stories e as issues do GitHub em 2026-10
 | OPS-2 — Status Twitch localizado com segurança ([#21](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/21)) | Concluída; mapa inicial na PR #13 e precedência/localização na PR #31 da FND-8 |
 | OPS-3 — Catálogo de comandos e permissões por cargo ([#17](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/17)) | Concluída; mesclada na PR #24 |
 | OPS-4 — Licença MIT ([#29](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/29)) | Concluída; mesclada na PR #25 |
-| OPS-5 — Instalador de ciclo de vida multiplataforma ([#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30)) | Implementada na worktree atual; gates finais, Actions nativo Windows/macOS e QA independente pendentes |
+| OPS-5 — Instalador de ciclo de vida multiplataforma ([#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30)) | InReview na PR #36; Actions nativo Windows/macOS/Linux passaram, QA independente pendente |
 | OPS-6 — Status de runtime claro e orientações no painel ([#32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32)) | Concluída; mesclada na PR #33; QA independente PASS 100/100 |
 
 Consulte critérios de aceite e evidências detalhadas no [índice de stories](stories.md) e na [versão em inglês](../stories.md).

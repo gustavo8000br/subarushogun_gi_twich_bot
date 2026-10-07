@@ -48,6 +48,12 @@ msg() {
     en:input_unavailable) printf '%s\n' 'Input is unavailable. Run the installer from an interactive terminal.' >&2 ;;
     es:input_unavailable) printf '%s\n' 'No se pudo leer la respuesta. Ejecuta el instalador desde un terminal interactivo.' >&2 ;;
     *:input_unavailable) printf '%s\n' 'Não foi possível ler a resposta. Execute o instalador em um terminal interativo.' >&2 ;;
+    pt-BR:architecture_unavailable) printf '%s\n' 'Não foi possível detectar a arquitetura do Docker. Este produto requer amd64/x86_64 ou arm64/aarch64.' ;;
+    en:architecture_unavailable) printf '%s\n' 'Could not detect the Docker architecture. This product requires amd64/x86_64 or arm64/aarch64.' ;;
+    es:architecture_unavailable) printf '%s\n' 'No se pudo detectar la arquitectura de Docker. Este producto requiere amd64/x86_64 o arm64/aarch64.' ;;
+    pt-BR:architecture_unsupported) printf 'A arquitetura Docker "%s" não é compatível. Este produto requer amd64/x86_64 ou arm64/aarch64.\n' "$2" ;;
+    en:architecture_unsupported) printf 'Docker architecture "%s" is not supported. This product requires amd64/x86_64 or arm64/aarch64.\n' "$2" ;;
+    es:architecture_unsupported) printf 'La arquitectura Docker "%s" no es compatible. Este producto requiere amd64/x86_64 o arm64/aarch64.\n' "$2" ;;
     pt-BR:port) printf 'Porta local do painel [3000]: ' ;;
     en:port) printf 'Local panel port [3000]: ' ;;
     es:port) printf 'Puerto local del panel [3000]: ' ;;
@@ -95,6 +101,7 @@ msg() {
 }
 
 choose_language() {
+  [ -n "$LOCALE" ] || LOCALE=pt-BR
   msg language
   while :; do
     msg language_prompt
@@ -112,7 +119,14 @@ open_url() {
 }
 
 ensure_docker() {
-  if command -v "$DOCKER_BIN" >/dev/null 2>&1 && "$DOCKER_BIN" compose version >/dev/null 2>&1 && "$DOCKER_BIN" info >/dev/null 2>&1; then return 0; fi
+  if command -v "$DOCKER_BIN" >/dev/null 2>&1 && "$DOCKER_BIN" compose version >/dev/null 2>&1; then
+    if ! architecture=$("$DOCKER_BIN" info --format '{{.Architecture}}' 2>/dev/null); then msg architecture_unavailable; return 1; fi
+    architecture=$(printf '%s' "$architecture" | tr '[:upper:]' '[:lower:]')
+    case "$architecture" in
+      amd64|x86_64|arm64|aarch64) return 0 ;;
+      *) msg architecture_unsupported "$architecture"; return 1 ;;
+    esac
+  fi
   msg docker_missing
   IFS= read -r answer || answer=''
   case "$LOCALE:$answer" in

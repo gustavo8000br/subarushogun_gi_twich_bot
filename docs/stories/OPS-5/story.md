@@ -2,9 +2,9 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-5/story.md)
 
-**Status:** Implementation complete; local quality gates and Linux native-launch checks pass. Native Windows/macOS Actions results and independent AIOX-QA review remain pending before closure. No physical Windows/macOS operator acceptance is claimed.
+**Status:** InReview — implementation, local quality gates, and Linux native launch passed. Windows/macOS/Linux Actions passed on the previous revision; a fresh native run is required for the latest architecture checks. Independent AIOX-QA review follows that run. No physical Windows/macOS operator acceptance is claimed.
 **Planning source:** product owner request on 2026-10-06.
-**GitHub issue:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30) (open for planning).
+**GitHub issue:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30) (implementation delivered in PR #36; issue remains open until merge).
 
 [Spec Pipeline research](spec/research.json) · [Specification](spec/spec.md)
 
@@ -64,15 +64,15 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 - **Linux installer behavior:** `npm test -- --run tests/integration/unified-installer.test.js` covers packaging, path-safe launch, locale/port/callback, preserved updates, localized confirmation, failed clean-update download, keep/erase uninstall, and missing-Docker guidance. `node tests/platform/installer-native.mjs` directly launched the generated Linux artifact from a path containing spaces with an isolated fake Docker executable.
 - **Documentation (superseded download instructions):** the earlier guide pointed users to temporary GitHub Actions artifacts. Those instructions were replaced with GitHub Releases as the end-user path; CI artifacts remain for engineering/QA only. The bilingual guide gives the three exact asset names, opening steps, menu/data behavior, and source-file locations. The Linux CA command uses `$HOME` and `install -Dm644`.
 - **Compose bootstrap regression:** the first full-suite run exposed that the packaged runtime executes bootstrap from `/workspace`, while the production image stores it under `/app`. The real Compose integration failed to find `apps/infra/scripts/bootstrap.mjs`; changing the service working directory to `/app` fixed it. `npm test -- --run tests/integration/compose-runtime.test.js` then passed 3/3, and the final `npm test` passed 643/643.
-- **Native Windows launcher harness — Red / Green pending:** Actions run `37574642283`, job `112640688705`, failed because the quoted `.bat` path was treated as an unrecognized command before the artifact ran. The harness added quotes as an argv item to `cmd.exe`, which escaped them literally. It now invokes the `.bat` via PowerShell's call operator and passes its path through `QUEUEBOT_PREBUILT_INSTALLER`, preserving paths with spaces. Linux focused tests pass 9/9; Windows Green must be confirmed by the next native Actions run.
-- **Windows first-run locale fallback — Red / Green, native rerun pending:** native run `37575104559`, job `112642122850`, failed before reading operator input with `Cannot index into a null array` in `T` because the initial locale is intentionally empty. A regression in `npm test -- --run tests/unit/windows-installer-first-run.test.js` failed Red because `T` indexed `$Copy['']`. Green — use pt-BR only as the temporary copy locale until the user's explicit language choice; keep the product locale unset until selected. The separate `Read-Answer` test-mode helper automates direct native artifact input. Focused installer tests passed 11/11; final `npm test` passed 645/645 and all local quality gates passed. Native Windows rerun is pending.
-- **Cross-platform prompt handling — Red / Green, native Windows rerun pending:** Windows run `37575367627`, job `112642948904`, timed out while the test harness piped prompt input into the directly launched `.bat`. The harness now supplies a deterministic input fixture file to the embedded PowerShell process; the production prompt prints once before `Read-Host`. Red — a new Linux no-input integration check exhausted `spawnSync`'s output buffer (`ENOBUFS`) because EOF caused the language selector to loop. Green — Linux now exits with localized terminal guidance; focused integration and Windows prompt suites pass 12/12, and `node tests/platform/installer-native.mjs` passes on Linux. Linux docs now show `sh ./subarushogun_twich_bot_setup.sh`, independent of executable permissions. The operator's exact Linux symptom is still needed to confirm whether it matches this reproduced case. Full local gates then passed: 85 files / 646 tests, lint, typecheck, OpenGrep (0 findings), localization, version, port denylist, Compose config, and diff check. Native Windows/macOS reruns remain pending.
-- **Windows follow-up run:** Actions run `37576026566`, job `112645005291`, no longer timed out, but exited without creating the expected `.env`. The harness previously threw only the filesystem error and discarded installer output; it now includes stdout/stderr in this failure path. Diagnosis and the next native Windows run are pending; no Windows pass is claimed.
+- **Native Windows launcher harness — Red / Green pending:** Actions run `37574642283`, job `112640688705`, failed because the quoted `.bat` path was treated as an unrecognized command before the artifact ran. The harness added quotes as an argv item to `cmd.exe`, which escaped them literally. It now invokes the `.bat` via PowerShell's call operator and passes its path through `QUEUEBOT_PREBUILT_INSTALLER`, preserving paths with spaces. Linux focused tests pass 9/9; Windows Green must be confirmed by the next native Actions run. Historical status superseded by the successful native Windows/macOS/Linux run 37634641892 recorded below.
+- **Windows first-run locale fallback — Red / Green, native rerun pending:** native run `37575104559`, job `112642122850`, failed before reading operator input with `Cannot index into a null array` in `T` because the initial locale is intentionally empty. A regression in `npm test -- --run tests/unit/windows-installer-first-run.test.js` failed Red because `T` indexed `$Copy['']`. Green — use pt-BR only as the temporary copy locale until the user's explicit language choice; keep the product locale unset until selected. The separate `Read-Answer` test-mode helper automates direct native artifact input. Focused installer tests passed 11/11; final `npm test` passed 645/645 and all local quality gates passed. Native Windows rerun is pending. Historical status superseded by the successful native Windows/macOS/Linux run 37634641892 recorded below.
+- **Cross-platform prompt handling — Red / Green, native Windows rerun pending:** Windows run `37575367627`, job `112642948904`, timed out while the test harness piped prompt input into the directly launched `.bat`. The harness now supplies a deterministic input fixture file to the embedded PowerShell process; the production prompt prints once before `Read-Host`. Red — a new Linux no-input integration check exhausted `spawnSync`'s output buffer (`ENOBUFS`) because EOF caused the language selector to loop. Green — Linux now exits with localized terminal guidance; focused integration and Windows prompt suites pass 12/12, and `node tests/platform/installer-native.mjs` passes on Linux. Linux docs now show `sh ./subarushogun_twich_bot_setup.sh`, independent of executable permissions. The operator's exact Linux symptom is still needed to confirm whether it matches this reproduced case. Full local gates then passed: 85 files / 646 tests, lint, typecheck, OpenGrep (0 findings), localization, version, port denylist, Compose config, and diff check. Native Windows/macOS reruns remain pending. Historical status superseded by the successful native Windows/macOS/Linux run 37634641892 recorded below.
+- **Windows follow-up run:** Actions run `37576026566`, job `112645005291`, no longer timed out, but exited without creating the expected `.env`. The harness previously threw only the filesystem error and discarded installer output; it now includes stdout/stderr in this failure path. Diagnosis and the next native Windows run are pending; no Windows pass is claimed. Historical status superseded by the successful native Windows/macOS/Linux run 37634641892 recorded below.
 - **Installation estimate correction — Red / Green:** `npm test -- --run tests/unit/documentation-contract.test.js -t 'separates end-user runtime estimates'` first failed because both guides described CPU, disk, and build-cache needs for a first local image build, although the end-user installer pulls a prebuilt GHCR image. Green — both guides now distinguish runtime estimates from development builds, document supported amd64/arm64 images, and clarify Linux shell invocation. The focused documentation contract passes 1/1. Docker's current macOS requirements were checked against its official installation page on 2026-10-07.
 - **Public repository and separate GHCR access — Red / Green (2026-10-07):** a new public-access documentation contract first failed because the root README still claimed the repository was private. Verified GitHub's repository API reports `visibility=public`; an unauthenticated GHCR pull of `main` returned HTTP 403. Green — synchronized both READMEs, contribution/installation/installer/user guides, integration references, and changelogs: public source and temporary Actions artifacts need no repository invitation (artifact download still requires GitHub sign-in), while the image package currently needs authorized `read:packages` access. `npm test -- --run tests/unit/documentation-contract.test.js -t 'public repository without assuming the GHCR package is public'` passes 1/1. Installer scripts were not changed because the installer already pulls the configured image and does not depend on source-repository visibility.
 - **Versioned GitHub Releases — Red / Green (2026-10-07):** first added focused tests for materialized version-to-changelog mapping, malformed identities, missing translations, and the tag-release workflow. Red showed that no release-notes generator or release workflow existed. Green — `create-release-notes.mjs` requires both public changelog sections; `.github/workflows/release.yml` validates the exact tag/source identity, builds and tests one native installer per OS, then publishes bilingual notes only for a pushed version tag. `npm test -- --run tests/unit/release-notes.test.js tests/unit/ci-workflow-contract.test.js` passed 9/9. No tag, release, stage promotion, or GHCR visibility change was made.
-- **Release-pinned installer images and current gates — Red / Green (2026-10-07):** regression tests showed release installers defaulted to the moving `main` image tag; the update test also verified that failed pulls must preserve the prior `.env` tag. Green — the packager accepts only `main` or a validated materialized version, release artifacts embed their exact tag, and normal updates persist that tag only after a successful pull. The native Linux artifact harness verifies install/update target tag. The QEMU action was pinned to the verified Node 24-compatible v4.4.0 SHA. Final local checks: `npm test` passed 86 files / 660 tests; lint, typecheck, OpenGrep (0 findings), version/localization/port validators, Compose config, YAML parsing, and `git diff --check` passed; the Linux direct-launch harness passed. Windows/macOS native Actions and independent AIOX-QA remain pending. Docker inspection found only the active Compose project; its exited `bootstrap`/`migrate` one-shot containers and both product volumes were preserved.
-- **Windows first-run locale — Red / Green, native rerun pending (2026-10-07):** Actions run `37633610369`, job `112833952970`, reproduced that the first-run language answer was not retained: the locale prompt repeated, consumed subsequent menu/port input, and no `.env` was written. The improved harness preserved the actual stdout/stderr. A regression in `tests/unit/windows-installer-first-run.test.js` first failed because several helpers read unscoped `$Locale` while prompt handlers wrote `$script:Locale`. Green — initialize, read, and update `$script:Locale` consistently. The focused test passes 3/3 locally; the next native Windows run must confirm the fix.
+- **Release-pinned installer images and current gates — Red / Green (2026-10-07):** regression tests showed release installers defaulted to the moving `main` image tag; the update test also verified that failed pulls must preserve the prior `.env` tag. Green — the packager accepts only `main` or a validated materialized version, release artifacts embed their exact tag, and normal updates persist that tag only after a successful pull. The native Linux artifact harness verifies install/update target tag. The QEMU action was pinned to the verified Node 24-compatible v4.4.0 SHA. Final local checks: `npm test` passed 86 files / 660 tests; lint, typecheck, OpenGrep (0 findings), version/localization/port validators, Compose config, YAML parsing, and `git diff --check` passed; the Linux direct-launch harness passed. Windows/macOS native Actions and independent AIOX-QA remain pending. Docker inspection found only the active Compose project; its exited `bootstrap`/`migrate` one-shot containers and both product volumes were preserved. Historical status superseded by the successful native Windows/macOS/Linux run 37634641892 recorded below.
+- **Windows first-run locale — Red / Green, native pass (2026-10-07):** Actions run `37633610369`, job `112833952970`, reproduced that the first-run language answer was not retained: the locale prompt repeated, consumed subsequent menu/port input, and no `.env` was written. The improved harness preserved the actual stdout/stderr. A regression in `tests/unit/windows-installer-first-run.test.js` failed first because functions read `$Locale` without scope while prompts wrote `$script:Locale`. Green — initialize, read, and update `$script:Locale` consistently. The focused test passed 3/3 locally; Actions run `37634641892`, job `112837515704`, then passed the native Windows installer test. Native Linux and macOS installer jobs also passed and uploaded their artifacts in the same run. The run completed successfully; GHCR publication was skipped as expected for a pull request.
 
 ### Acceptance status
 
@@ -80,17 +80,108 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 - [x] Install/start, update, uninstall, language, port, callback display, path spaces, localized destructive confirmation, keep-data behavior, and missing Docker guidance have implementation tests.
 - [x] Failed clean-update image pull is proven to preserve saved settings and product data.
 - [x] Old lifecycle wrappers and tests are deleted; user-facing guides point to the single installer.
-- [x] Full repository quality gates and OpenGrep pass on the current tree: `npm test` (86 files / 660 tests), lint, typecheck, OpenGrep (0 findings), localization, port denylist, version, Compose config, workflow YAML parsing, and diff check. The last production dependency audit recorded earlier in this story found 0 vulnerabilities.
+- [x] Full repository quality gates and OpenGrep pass on the current tree: `npm test` (86 files / 667 tests), lint, typecheck, OpenGrep (0 findings), localization, port denylist, version, Compose config, workflow YAML parsing, and diff check. The last production dependency audit recorded earlier in this story found 0 vulnerabilities.
 - [x] Linux native artifact direct-launch check passes from a path containing spaces; the generated `.sh` selected locale/port, displayed the callback, invoked Compose, and exits cleanly when first-run input is unavailable.
 - [x] Public source-repository access and GHCR image-package access are documented separately in English and pt-BR; anonymous GHCR access was checked and denied while the package remains private.
 - **Earlier extracted-artifact instructions — historical Red / Green, superseded:** the operator ran `sh ./subarushogun_twich_bot_setup.sh` from the repository root and received `cannot open ... No such file`; at that time the packaged file existed only in a downloaded CI archive. The resulting documentation contract was fixed by explaining the extraction directory. The current delivery plan uses standalone files attached to GitHub Releases, so users open the downloaded `.sh` directly from its saved location; the earlier CI archive instruction is not current guidance.
-- [ ] Native Windows, macOS, and Linux Actions jobs pass on the current branch; the release workflow repeats those native checks before attaching installers.
+- [ ] Re-run native Windows, macOS, and Linux Actions against the latest architecture checks and confirm one artifact per OS; the previous revision passed and uploaded artifacts in [Actions run 37634641892](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37634641892). The release workflow repeats those native checks before attaching installers.
 - [x] Tag release workflow validates runtime identity and creates release notes from the matching English and pt-BR changelog sections.
 - [x] User guides use GitHub Releases; Actions artifacts are documented as temporary engineering/QA files.
 - [ ] Create any tag/release only after the owner-approved gate; FND-9 is incomplete and no public product release exists.
-- [ ] Independent AIOX-QA score meets the project's acceptance threshold.
-- [ ] Physical operator acceptance remains separate; real Docker update/uninstall and host dependency installation have not been run in this session.
+- [ ] Independent AIOX-QA score meets the project's acceptance threshold (review in progress).
+- [x] Physical Windows/macOS acceptance is not claimed; actual host Docker lifecycle and dependency-install runs remain operator follow-up and are not a prerequisite for the native-runner CI criterion.
 - [ ] Before the planned post-FND-9 Twitch streamer acceptance, make the GHCR package public and verify an anonymous pull; the source repository is public, but the image package was still private on 2026-10-07.
+
+## File List
+
+- `.aiox/project-status.yaml`
+- `.github/workflows/ci.yml`
+- `.github/workflows/release.yml`
+- `CHANGELOG.md`
+- `CHANGELOG_INTERNAL.md`
+- `README.md`
+- `README.pt-BR.md`
+- `VERSION`
+- `apps/api/src/persistence/queue-repository.mjs`
+- `apps/api/src/server.mjs`
+- `apps/infra/installer/installer.ps1`
+- `apps/infra/installer/installer.sh`
+- `apps/infra/scripts/create-release-notes.mjs`
+- `apps/infra/scripts/host-lifecycle.ps1`
+- `apps/infra/scripts/host-locale.sh`
+- `apps/infra/scripts/package-installer.mjs`
+- `atualizar.bat`
+- `atualizar.sh`
+- `compose.yaml`
+- `desinstalar.bat`
+- `desinstalar.sh`
+- `docs/CONTRIBUTING.md`
+- `docs/INSTALLATION.md`
+- `docs/INSTALLERS.md`
+- `docs/MANUAL_DE_USUARIO-pt_BR.md`
+- `docs/ROADMAP.md`
+- `docs/USER_GUIDE-en_US.md`
+- `docs/VERSIONING.md`
+- `docs/integrations.md`
+- `docs/planning-validation.md`
+- `docs/pt-BR/CHANGELOG.md`
+- `docs/pt-BR/CHANGELOG_INTERNAL.md`
+- `docs/pt-BR/CONTRIBUICAO.md`
+- `docs/pt-BR/INSTALACAO.md`
+- `docs/pt-BR/INSTALADORES.md`
+- `docs/pt-BR/ROADMAP.md`
+- `docs/pt-BR/VERSIONING.md`
+- `docs/pt-BR/integrations.md`
+- `docs/pt-BR/planning-validation.md`
+- `docs/pt-BR/stories.md`
+- `docs/pt-BR/stories/DOC-1/story.md`
+- `docs/pt-BR/stories/FND-8/spec/complexity.json`
+- `docs/pt-BR/stories/FND-8/spec/critique.json`
+- `docs/pt-BR/stories/FND-8/spec/plan.json`
+- `docs/pt-BR/stories/FND-8/spec/requirements.json`
+- `docs/pt-BR/stories/FND-8/spec/spec.md`
+- `docs/pt-BR/stories/FND-8/story.md`
+- `docs/pt-BR/stories/OPS-5/spec/research.json`
+- `docs/pt-BR/stories/OPS-5/spec/spec.md`
+- `docs/pt-BR/stories/OPS-5/story.md`
+- `docs/qa/gates/FND-4-twitch-integration.yml`
+- `docs/stories.md`
+- `docs/stories/DOC-1/story.md`
+- `docs/stories/FND-8/spec/complexity.json`
+- `docs/stories/FND-8/spec/critique.json`
+- `docs/stories/FND-8/spec/plan.json`
+- `docs/stories/FND-8/spec/requirements.json`
+- `docs/stories/FND-8/spec/spec.md`
+- `docs/stories/FND-8/story.md`
+- `docs/stories/OPS-5/spec/research.json`
+- `docs/stories/OPS-5/spec/spec.md`
+- `docs/stories/OPS-5/story.md`
+- `iniciar.bat`
+- `iniciar.sh`
+- `package-lock.json`
+- `package.json`
+- `subarushogun_twich_bot_setup.bat`
+- `subarushogun_twich_bot_setup.sh`
+- `subarushogun_twich_bot_uninstall.bat`
+- `subarushogun_twich_bot_uninstall.sh`
+- `subarushogun_twich_bot_update.bat`
+- `subarushogun_twich_bot_update.sh`
+- `tests/integration/compose-contract.test.js`
+- `tests/integration/unified-installer.test.js`
+- `tests/integration/windows-lifecycle-contract.test.js`
+- `tests/platform/installer-native.mjs`
+- `tests/platform/windows-lifecycle-localization.ps1`
+- `tests/unit/ci-workflow-contract.test.js`
+- `tests/unit/documentation-contract.test.js`
+- `tests/unit/fnd7-documentation-contract.test.js`
+- `tests/unit/host-lifecycle-localization.test.js`
+- `tests/unit/host-locale-copy.test.js`
+- `tests/unit/installer-locale-default.test.js`
+- `tests/unit/lifecycle-wrapper.test.js`
+- `tests/unit/maintenance-scripts.test.js`
+- `tests/unit/release-notes.test.js`
+- `tests/unit/start-script.test.js`
+- `tests/unit/windows-installer-first-run.test.js`
 
 ## Resolved implementation choices
 
@@ -116,4 +207,6 @@ Replacing Docker Compose, removing Docker as part of product uninstall, silently
 | 2026-10-07 | Native Windows Actions exposed two launcher-test harness defects; fixed batch path invocation and redirected prompt input in test mode. The local suite now passes 644/644; rerun of Windows Actions is pending | @aiox-dev + @qa |
 | 2026-10-07 | Native Windows rerun found that initial language copy indexed an empty locale before prompting; added a Red regression and pt-BR temporary copy fallback. Focused tests pass 11/11; full and native reruns pending | @aiox-dev + @qa |
 | 2026-10-07 | After the first-run locale fallback, full local gates passed: 645 tests, lint/typecheck, OpenGrep, all validators, Compose, diff check, and dependency audit. New native Windows Actions run remains pending | @aiox-dev + @qa |
-| 2026-10-07 | Release installers now pin the matching versioned image and save the new tag only after a successful pull; regression covers failure without config mutation. QEMU updated to a verified Node 24-compatible pin. Current local gates passed: 660 tests, lint/typecheck, OpenGrep, validators, and Compose; native Linux artifact passed. Windows/macOS Actions and independent QA remain pending. Docker inspection found only the active install; one-shot containers and volumes were preserved | @aiox-dev + @qa |
+| 2026-10-07 | Release installers now pin the matching versioned image and save the new tag only after a successful pull; regression covers failure without config mutation. QEMU updated to a verified Node 24-compatible pin. At that point, local gates passed with 660 tests and native Linux passed; this evidence was superseded by the later 667-test run and Windows/macOS/Linux Actions run 37634641892. Docker inspection found only the active install; one-shot containers and volumes were preserved | @aiox-dev + @qa |
+| 2026-10-07 | Updated acceptance evidence: all three native Actions installer jobs passed (run 37634641892); physical operator acceptance remains unclaimed; independent QA started | @aiox-dev |
+| 2026-10-07 | Added architecture and recovery regressions: unsupported Docker daemon architectures stop before Compose, supported architecture aliases proceed, the first language prompt is readable, and migration/startup or post-update health failures preserve settings/data. The new Red cases failed because architecture was not checked and the initial copy showed internal keys; Green adds daemon architecture checks and a pt-BR prompt fallback. Local full-suite result is 667 tests; fresh native CI and independent QA remain pending | @aiox-dev |

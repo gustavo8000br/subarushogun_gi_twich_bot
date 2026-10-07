@@ -27,6 +27,8 @@ $Copy = @{
     updated='Atualização concluída. Banco, segredos e configurações foram preservados.'
     failure='A operação não terminou. Os dados existentes foram preservados. Consulte: docker compose logs -f bot'
     health='O painel ainda não respondeu. Verifique os logs do bot e tente novamente.'
+    architectureUnavailable='Não foi possível detectar a arquitetura do Docker. Este produto requer amd64/x86_64 ou arm64/aarch64.'
+    architectureUnsupported='A arquitetura Docker "{0}" não é compatível. Este produto requer amd64/x86_64 ou arm64/aarch64.'
   }
   en = @{
     menu='1) Install / Start   2) Update   3) Uninstall   0) Exit'; choice='Choose an option: '
@@ -45,6 +47,8 @@ $Copy = @{
     updated='Update complete. Database, secrets, and settings were preserved.'
     failure='The operation did not finish. Existing data was preserved. Check: docker compose logs -f bot'
     health='The panel did not respond yet. Check bot logs and try again.'
+    architectureUnavailable='Could not detect the Docker architecture. This product requires amd64/x86_64 or arm64/aarch64.'
+    architectureUnsupported='Docker architecture "{0}" is not supported. This product requires amd64/x86_64 or arm64/aarch64.'
   }
   es = @{
     menu='1) Instalar / Iniciar   2) Actualizar   3) Desinstalar   0) Salir'; choice='Elige una opción: '
@@ -63,6 +67,8 @@ $Copy = @{
     updated='Actualización completada. Se conservaron la base de datos, los secretos y la configuración.'
     failure='La operación no terminó. Se conservaron los datos existentes. Consulta: docker compose logs -f bot'
     health='El panel todavía no respondió. Revisa los registros del bot e inténtalo de nuevo.'
+    architectureUnavailable='No se pudo detectar la arquitectura de Docker. Este producto requiere amd64/x86_64 o arm64/aarch64.'
+    architectureUnsupported='La arquitectura Docker "{0}" no es compatible. Este producto requiere amd64/x86_64 o arm64/aarch64.'
   }
 }
 
@@ -103,7 +109,14 @@ function Open-Url([string]$Url) { if (-not $TestMode) { Start-Process $Url } }
 function Ensure-Docker {
   try {
     & $Docker compose version *> $null
-    if ($LASTEXITCODE -eq 0) { & $Docker info *> $null; if ($LASTEXITCODE -eq 0) { return $true } }
+    if ($LASTEXITCODE -eq 0) {
+      $architecture = (& $Docker info --format '{{.Architecture}}' 2>$null | Select-Object -First 1)
+      if ($LASTEXITCODE -ne 0) { Write-Host (T 'architectureUnavailable'); return $false }
+      $architecture = ([string]$architecture).Trim().ToLowerInvariant()
+      if ($architecture -in @('amd64','x86_64','arm64','aarch64')) { return $true }
+      Write-Host ([string]::Format((T 'architectureUnsupported'), $architecture))
+      return $false
+    }
   } catch { }
   $answer = Read-Answer (T 'missing')
   if (($script:Locale -eq 'en' -and $answer -match '^(y|yes)$') -or ($script:Locale -ne 'en' -and $answer -match '^(s|sim|sí|si)$')) { Open-Url 'https://docs.docker.com/desktop/setup/install/windows-install/' }

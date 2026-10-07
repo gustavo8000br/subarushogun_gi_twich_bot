@@ -6,7 +6,7 @@ Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes t�
 
 ## v0.8.0-alpha
 
-- Um instalador por sistema reúne instalação, atualização e remoção de dados, mantém o idioma escolhido na primeira execução do Windows e acompanha a versão da release escolhida.
+- Um instalador por sistema reúne instalação, atualização e remoção de dados, mantém o idioma escolhido na primeira execução do Windows, verifica a arquitetura do Docker e acompanha a versão da release escolhida.
 - Atualizações preservam filas e configurações por padrão; apagar esses dados exige confirmação explícita.
 - No Linux, o instalador agora explica como executá-lo quando é aberto sem terminal interativo.
 - O guia de instalação agora diferencia o uso normal da imagem pronta dos requisitos de compilação para desenvolvimento.

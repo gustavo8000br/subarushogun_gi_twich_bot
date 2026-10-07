@@ -28,6 +28,9 @@ describe('single-file lifecycle installer', () => {
 
       expect(result.error).toBeUndefined();
       expect(result.status).toBe(1);
+      expect(result.stdout).toContain('Idioma do produto');
+      expect(result.stdout).toContain('Escolha o idioma (1-3)');
+      expect(result.stdout).not.toContain('\nlanguage\nlanguage_prompt');
       expect(`${result.stdout}\n${result.stderr}`).toContain('terminal interativo');
     } finally {
       await rm(output, { recursive: true, force: true });
@@ -98,6 +101,7 @@ describe('single-file lifecycle installer', () => {
       await writeFile(dockerPath, [
         '#!/bin/sh',
         'printf "IMAGE_TAG=%s %s\\n" "${IMAGE_TAG:-<from-env-file>}" "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"',
+        'case "$*" in "info --format {{.Architecture}}") printf "%s\\n" "${QUEUEBOT_TEST_DOCKER_ARCH:-x86_64}" ;; esac',
         'case "$*" in *pull*) if [ "${IMAGE_TAG:-}" = "${QUEUEBOT_FAIL_IMAGE_TAG:-__never__}" ]; then exit 1; fi ;; esac',
         'exit 0',
         '',
@@ -134,6 +138,99 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
+  it('reports a Compose migration/startup failure without deleting product volumes', async () => {
+    const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-migration-failure-'));
+    const home = await mkdtemp(join(tmpdir(), 'queuebot-home-migration-failure-'));
+    const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-migration-failure-'));
+    const logPath = join(bin, 'docker.log');
+    const dockerPath = join(bin, 'docker');
+    try {
+      const packageResult = await packageFor('linux', output);
+      expect(packageResult.status, packageResult.stderr).toBe(0);
+      await writeFile(dockerPath, [
+        '#!/bin/sh',
+        'printf "%s\n" "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"',
+        'case "$*" in',
+        '  "info --format {{.Architecture}}") printf "%s\n" "x86_64" ;;',
+        '  *" up -d"*) printf "%s\n" "migration service exited with status 1" >&2; exit 17 ;;',
+        'esac',
+        'exit 0',
+        '',
+      ].join('\n'));
+      await chmod(dockerPath, 0o755);
+      const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
+      const env = {
+        ...process.env,
+        HOME: home,
+        QUEUEBOT_INSTALL_HOME: join(home, 'product'),
+        QUEUEBOT_DOCKER_BIN: dockerPath,
+        QUEUEBOT_TEST_DOCKER_LOG: logPath,
+        QUEUEBOT_TEST_MODE: '1',
+      };
+      const result = spawnSync('sh', [artifactPath], { input: '2\n1\n3100\n0\n', encoding: 'utf8', env });
+      const dockerCalls = await readFile(logPath, 'utf8');
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1);
+      expect(`${result.stdout}\n${result.stderr}`).toContain('migration service exited with status 1');
+      expect(dockerCalls).toContain(' up -d');
+      expect(dockerCalls).not.toContain('down --volumes');
+      expect(await readFile(join(home, 'product', '.env'), 'utf8')).toContain('APP_PORT=3100');
+    } finally {
+      await Promise.all([output, home, bin].map((path) => rm(path, { recursive: true, force: true })));
+    }
+  });
+
+  it('reports an unhealthy panel after update and preserves saved settings and volumes', async () => {
+    const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-health-failure-'));
+    const home = await mkdtemp(join(tmpdir(), 'queuebot-home-health-failure-'));
+    const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-health-failure-'));
+    const logPath = join(bin, 'docker.log');
+    const dockerPath = join(bin, 'docker');
+    const curlPath = join(bin, 'curl');
+    const sleepPath = join(bin, 'sleep');
+    try {
+      const packageResult = await packageFor('linux', output);
+      expect(packageResult.status, packageResult.stderr).toBe(0);
+      await writeFile(dockerPath, [
+        '#!/bin/sh',
+        'printf "%s\n" "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"',
+        'case "$*" in "info --format {{.Architecture}}") printf "%s\n" "x86_64" ;; esac',
+        'exit 0',
+        '',
+      ].join('\n'));
+      await writeFile(curlPath, '#!/bin/sh\nexit 22\n');
+      await writeFile(sleepPath, '#!/bin/sh\nexit 0\n');
+      await Promise.all([dockerPath, curlPath, sleepPath].map((path) => chmod(path, 0o755)));
+      const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
+      const installHome = join(home, 'product');
+      const env = {
+        ...process.env,
+        HOME: home,
+        PATH: `${bin}:${process.env.PATH}`,
+        QUEUEBOT_INSTALL_HOME: installHome,
+        QUEUEBOT_DOCKER_BIN: dockerPath,
+        QUEUEBOT_TEST_DOCKER_LOG: logPath,
+        QUEUEBOT_TEST_MODE: '1',
+      };
+      const install = spawnSync('sh', [artifactPath], { input: '2\n1\n3100\n0\n', encoding: 'utf8', env });
+      expect(install.status, `${install.stdout}\n${install.stderr}`).toBe(0);
+      const savedConfig = await readFile(join(installHome, '.env'), 'utf8');
+      const update = spawnSync('sh', [artifactPath], {
+        input: '2\n1\n0\n',
+        encoding: 'utf8',
+        timeout: 10_000,
+        env: { ...env, QUEUEBOT_TEST_MODE: '0' },
+      });
+      const dockerCalls = await readFile(logPath, 'utf8');
+      expect(update.status, `${update.stdout}\n${update.stderr}`).toBe(1);
+      expect(update.stdout).toContain('The panel did not respond yet');
+      expect(dockerCalls).toContain(' logs --tail 80 bot');
+      expect(dockerCalls).not.toContain('down --volumes');
+      expect(await readFile(join(installHome, '.env'), 'utf8')).toBe(savedConfig);
+    } finally {
+      await Promise.all([output, home, bin].map((path) => rm(path, { recursive: true, force: true })));
+    }
+  });
+
   it.each([
     ['linux', 'subarushogun_twich_bot_setup.sh'],
     ['macos', 'subarushogun_twich_bot_setup.command'],
@@ -155,6 +252,89 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
+  it('checks the Docker daemon architecture and refuses unsupported platforms before pulling the image', async () => {
+    const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-architecture-'));
+    const home = await mkdtemp(join(tmpdir(), 'queuebot-home-architecture-'));
+    const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-architecture-'));
+    const logPath = join(bin, 'docker.log');
+    const dockerPath = join(bin, 'docker');
+    try {
+      const packageResult = await packageFor('linux', output);
+      expect(packageResult.status, packageResult.stderr).toBe(0);
+      await writeFile(dockerPath, [
+        '#!/bin/sh',
+        'printf "%s\\n" "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"',
+        'case "$*" in',
+        '  "info --format {{.Architecture}}") printf "%s\\n" "$QUEUEBOT_TEST_DOCKER_ARCH" ;;',
+        '  "compose version") printf "%s\\n" "Docker Compose version v2" ;;',
+        'esac',
+        'exit 0',
+        '',
+      ].join('\n'));
+      await chmod(dockerPath, 0o755);
+      const result = spawnSync('sh', [join(output, 'subarushogun_twich_bot_setup.sh')], {
+        input: '2\n1\n',
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          HOME: home,
+          QUEUEBOT_INSTALL_HOME: join(home, 'product'),
+          QUEUEBOT_DOCKER_BIN: dockerPath,
+          QUEUEBOT_TEST_DOCKER_LOG: logPath,
+          QUEUEBOT_TEST_DOCKER_ARCH: 'riscv64',
+          QUEUEBOT_TEST_MODE: '1',
+        },
+      });
+      const dockerCalls = await readFile(logPath, 'utf8');
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1);
+      expect(dockerCalls).toContain('info --format {{.Architecture}}');
+      expect(dockerCalls).not.toContain('compose --project-name subarushogun-gi-twitch-queue-bot');
+      expect(result.stdout).toContain('Idioma do produto');
+      expect(result.stdout).toContain('Docker architecture "riscv64" is not supported');
+    } finally {
+      await Promise.all([output, home, bin].map((path) => rm(path, { recursive: true, force: true })));
+    }
+  });
+
+  it.each(['amd64', 'arm64', 'aarch64'])('allows a supported Docker daemon architecture (%s)', async (architecture) => {
+    const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-supported-architecture-'));
+    const home = await mkdtemp(join(tmpdir(), 'queuebot-home-supported-architecture-'));
+    const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-supported-architecture-'));
+    const logPath = join(bin, 'docker.log');
+    const dockerPath = join(bin, 'docker');
+    try {
+      const packageResult = await packageFor('linux', output);
+      expect(packageResult.status, packageResult.stderr).toBe(0);
+      await writeFile(dockerPath, [
+        '#!/bin/sh',
+        'printf "%s\n" "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"',
+        'case "$*" in "info --format {{.Architecture}}") printf "%s\n" "$QUEUEBOT_TEST_DOCKER_ARCH" ;; esac',
+        'exit 0',
+        '',
+      ].join('\n'));
+      await chmod(dockerPath, 0o755);
+      const result = spawnSync('sh', [join(output, 'subarushogun_twich_bot_setup.sh')], {
+        input: '2\n1\n3100\n0\n',
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          HOME: home,
+          QUEUEBOT_INSTALL_HOME: join(home, 'product'),
+          QUEUEBOT_DOCKER_BIN: dockerPath,
+          QUEUEBOT_TEST_DOCKER_LOG: logPath,
+          QUEUEBOT_TEST_DOCKER_ARCH: architecture,
+          QUEUEBOT_TEST_MODE: '1',
+        },
+      });
+      const dockerCalls = await readFile(logPath, 'utf8');
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+      expect(dockerCalls).toContain('info --format {{.Architecture}}');
+      expect(dockerCalls).toContain('compose --project-name subarushogun-gi-twitch-queue-bot');
+    } finally {
+      await Promise.all([output, home, bin].map((path) => rm(path, { recursive: true, force: true })));
+    }
+  });
+
   it('installs from the Linux artifact using its chosen language and port and preserves volumes on update', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-linux-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-'));
@@ -164,7 +344,7 @@ describe('single-file lifecycle installer', () => {
     try {
       const packageResult = await packageFor('linux', output);
       expect(packageResult.status, packageResult.stderr).toBe(0);
-      await writeFile(dockerPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\nexit 0\n`);
+      await writeFile(dockerPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\ncase "$*" in "info --format {{.Architecture}}") printf '%s\\n' "${'${QUEUEBOT_TEST_DOCKER_ARCH:-x86_64}'}" ;; esac\nexit 0\n`);
       await chmod(dockerPath, 0o755);
       const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
       const env = {
@@ -207,7 +387,7 @@ describe('single-file lifecycle installer', () => {
     try {
       const packageResult = await packageFor('linux', output);
       expect(packageResult.status, packageResult.stderr).toBe(0);
-      await writeFile(dockerPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\nexit 0\n`);
+      await writeFile(dockerPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\ncase "$*" in "info --format {{.Architecture}}") printf '%s\\n' "${'${QUEUEBOT_TEST_DOCKER_ARCH:-x86_64}'}" ;; esac\nexit 0\n`);
       await chmod(dockerPath, 0o755);
       const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
       const env = {
@@ -259,7 +439,7 @@ describe('single-file lifecycle installer', () => {
     try {
       const packageResult = await packageFor('linux', output);
       expect(packageResult.status, packageResult.stderr).toBe(0);
-      await writeFile(dockerPath, '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\ncase "$*" in *pull*) [ "${QUEUEBOT_TEST_FAIL_PULL:-0}" = 1 ] && exit 17 ;; esac\nexit 0\n');
+      await writeFile(dockerPath, '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\ncase "$*" in "info --format {{.Architecture}}") printf \'%s\\n\' "${QUEUEBOT_TEST_DOCKER_ARCH:-x86_64}" ;; *pull*) [ "${QUEUEBOT_TEST_FAIL_PULL:-0}" = 1 ] && exit 17 ;; esac\nexit 0\n');
       await chmod(dockerPath, 0o755);
       const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
       const env = {
@@ -303,7 +483,7 @@ describe('single-file lifecycle installer', () => {
     try {
       const packageResult = await packageFor('linux', output);
       expect(packageResult.status, packageResult.stderr).toBe(0);
-      await writeFile(dockerPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\nexit 0\n`);
+      await writeFile(dockerPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\ncase "$*" in "info --format {{.Architecture}}") printf '%s\\n' "${'${QUEUEBOT_TEST_DOCKER_ARCH:-x86_64}'}" ;; esac\nexit 0\n`);
       await chmod(dockerPath, 0o755);
       const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
       const installHome = join(home, 'product');

@@ -24,9 +24,9 @@ try {
   await (await import('node:fs/promises')).mkdir(bin, { recursive: true });
   const fakeDocker = join(bin, platform === 'windows' ? 'docker.cmd' : 'docker');
   if (platform === 'windows') {
-    await writeFile(fakeDocker, '@echo off\r\necho %*>>"%QUEUEBOT_TEST_DOCKER_LOG%"\r\nexit /b 0\r\n');
+    await writeFile(fakeDocker, '@echo off\r\necho %*>>"%QUEUEBOT_TEST_DOCKER_LOG%"\r\nif "%*"=="info --format {{.Architecture}}" echo x86_64\r\nexit /b 0\r\n');
   } else {
-    await writeFile(fakeDocker, '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\nexit 0\n');
+    await writeFile(fakeDocker, '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\ncase "$*" in "info --format {{.Architecture}}") printf \'%s\\n\' "${QUEUEBOT_TEST_DOCKER_ARCH:-x86_64}" ;; esac\nexit 0\n');
     await chmod(fakeDocker, 0o755);
   }
   const artifact = process.env.QUEUEBOT_PREBUILT_INSTALLER ?? join(output, artifactName);

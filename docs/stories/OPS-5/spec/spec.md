@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../../pt-BR/stories/OPS-5/spec/spec.md)
 
-**Status:** implementation reference; OPS-5 is implemented in the current worktree pending final CI/QA gates.
+**Status:** implementation reference; Linux direct launch and local quality gates passed. Native Linux/macOS/Windows jobs passed on the previous revision; rerun them for the latest architecture checks before final QA. Physical operator acceptance is not claimed.
 
 ## Goal
 

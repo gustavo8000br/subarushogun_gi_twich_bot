@@ -12,6 +12,15 @@ describe('Windows installer first-run language prompt', () => {
     expect(installer).toContain("$script:Locale='es'");
   });
 
+  it('checks supported Docker daemon architectures before product operations', () => {
+    expect(installer).toContain("info --format '{{.Architecture}}'");
+    expect(installer).toContain('amd64');
+    expect(installer).toContain('x86_64');
+    expect(installer).toContain('arm64');
+    expect(installer).toContain('aarch64');
+    expect(installer).toContain('Docker architecture "{0}" is not supported');
+  });
+
   it('reads a deterministic input file in native test mode and shows one prompt interactively', () => {
     expect(installer).toContain('$env:QUEUEBOT_TEST_INPUT_FILE');
     expect(installer).toContain('[IO.File]::ReadAllLines($env:QUEUEBOT_TEST_INPUT_FILE)');
