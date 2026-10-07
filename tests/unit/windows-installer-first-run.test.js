@@ -17,4 +17,8 @@ describe('Windows installer first-run language prompt', () => {
     expect(installer.match(/Read-Host/g)).toHaveLength(1);
     expect(installer).toContain("$answer = Read-Answer (T 'languagePrompt')");
   });
+
+  it('uses Portuguese copy until a fresh install chooses its product locale', () => {
+    expect(installer).toMatch(/function T\(\[string\]\$Key\)\s*\{\s*\$copyLocale\s*=\s*if\s*\(\$Locale\)\s*\{\s*\$Locale\s*\}\s*else\s*\{\s*'pt-BR'\s*\}\s*;?\s*return \[string\]\$Copy\[\$copyLocale\]\[\$Key\]\s*\}/);
+  });
 });

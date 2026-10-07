@@ -67,7 +67,10 @@ if (Test-Path -LiteralPath $EnvFile) {
   $existing = (Get-Content -LiteralPath $EnvFile | Where-Object { $_ -match '^PRODUCT_INITIAL_LOCALE=(pt-BR|en|es)$' } | Select-Object -First 1) -replace '^PRODUCT_INITIAL_LOCALE=', ''
   if ($existing) { $Locale = $existing } else { $Locale = 'pt-BR' }
 }
-function T([string]$Key) { return [string]$Copy[$Locale][$Key] }
+function T([string]$Key) {
+  $copyLocale = if ($Locale) { $Locale } else { 'pt-BR' }
+  return [string]$Copy[$copyLocale][$Key]
+}
 function Read-Answer([string]$Prompt = '') {
   if ($Prompt) { Write-Host -NoNewline $Prompt }
   if ($TestMode) { return [Console]::In.ReadLine() }
