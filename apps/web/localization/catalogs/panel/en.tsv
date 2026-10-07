@@ -25,6 +25,7 @@ panel.health.twitch.not_configured	Not configured
 panel.health.twitch.connecting	Connecting
 panel.health.twitch.reconciling	Reconciling
 panel.health.twitch.degraded	Unstable
+panel.health.twitch.retrying	Reconnecting
 panel.health.twitch.reconnect_required	Reconnect required
 panel.health.twitch.ineligible	Channel ineligible
 panel.health.twitch.stopped	Disconnected

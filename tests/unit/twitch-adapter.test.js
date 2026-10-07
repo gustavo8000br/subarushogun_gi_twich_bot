@@ -180,4 +180,24 @@ describe('Twurple Helix adapter', () => {
       reason: 'channel_points_unavailable',
     });
   });
+
+  it('distinguishes revoked Channel Points authorization from a transient service outage', async () => {
+    const adapter = createTwitchApiAdapter({ api: {
+      users: { getUserById: vi.fn(async () => ({ broadcasterType: 'affiliate' })) },
+      channelPoints: { getCustomRewards: vi.fn(async () => { throw Object.assign(new Error('private response'), { statusCode: 403 }); }) },
+    }, broadcasterId: 'channel-1' });
+    await expect(adapter.getChannelEligibility()).resolves.toMatchObject({
+      eligible: false, channelPointsAvailable: false, reason: 'authorization_required',
+    });
+  });
+
+  it('classifies an invalid access token separately so the integration can refresh it', async () => {
+    const adapter = createTwitchApiAdapter({ api: {
+      users: { getUserById: vi.fn(async () => ({ broadcasterType: 'affiliate' })) },
+      channelPoints: { getCustomRewards: vi.fn(async () => { throw Object.assign(new Error('private response'), { statusCode: 401 }); }) },
+    }, broadcasterId: 'channel-1' });
+    await expect(adapter.getChannelEligibility()).resolves.toMatchObject({
+      eligible: false, channelPointsAvailable: false, reason: 'access_token_invalid',
+    });
+  });
 });

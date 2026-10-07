@@ -25,6 +25,7 @@ panel.health.twitch.not_configured	Não configurada
 panel.health.twitch.connecting	Conectando
 panel.health.twitch.reconciling	Sincronizando
 panel.health.twitch.degraded	Instável
+panel.health.twitch.retrying	Reconectando
 panel.health.twitch.reconnect_required	Reconexão necessária
 panel.health.twitch.ineligible	Canal não elegível
 panel.health.twitch.stopped	Desconectada

@@ -1,0 +1,89 @@
+schema: 1
+story: OPS-8
+gate: PASS
+score: 9.5/10
+status_reason: >-
+  All 12 acceptance criteria have implementation and test evidence. Full automated
+  quality gates and active plus isolated Compose acceptance passed. Live Twitch
+  outage behavior and Twitch write operations were not exercised; the host-wide
+  certificate store still trusts an older local CA, although both instances pass
+  HTTPS when checked with their exported CA certificates.
+reviewer: Quinn
+reviewed_revision: >-
+  working-tree-diff-sha256:1e68815e8b49a9e26f3253693bc44a36b27bd8fa56c7063dd2f893b70bf97db3;
+  ops8-artifacts-sha256:a7ded08ad4d7c034f6869920a97256b7b77e36f8528c69d7b8da0f80490bb79e
+updated: '2026-10-07T19:44:26Z'
+acceptance_criteria:
+  - id: AC1
+    result: PASS
+    evidence: Local readiness is decoupled from Twitch validation; integration startup tests cover transient API conditions.
+  - id: AC2
+    result: PASS
+    evidence: Auth/integration tests cover network, 429, server errors, exponential backoff, jitter and the post-jitter 300-second cap.
+  - id: AC3
+    result: PASS
+    evidence: Auth runtime tests cover invalid access token refresh, persistence, and identity/scope revalidation.
+  - id: AC4
+    result: PASS
+    evidence: Tests distinguish definitive token rejection, identity/scope mismatch, and transient failures; unauthorized work is stopped.
+  - id: AC5
+    result: PASS
+    evidence: Integration tests cover eligibility/API recovery, single adapter/listener restoration, and reconciliation gating.
+  - id: AC6
+    result: PASS
+    evidence: EventSub runtime and integration tests distinguish initial socket exhaustion, established reconnect, and fresh-ready reconciliation.
+  - id: AC7
+    result: PASS
+    evidence: Single-flight auth persistence/reconciliation and existing redemption deduplication/terminal-state tests pass.
+  - id: AC8
+    result: PASS
+    evidence: Full suite includes real isolated PostgreSQL outbox persistence and lease-recovery integration tests.
+  - id: AC9
+    result: PASS
+    evidence: Health/setup status tests and en/es/pt-BR localization validation cover retrying versus reconnect-required states without raw errors.
+  - id: AC10
+    result: PASS
+    evidence: Shutdown tests verify scheduled retry cancellation and prevent late listener initialization.
+  - id: AC11
+    result: PASS
+    evidence: Controlled-clock Twitch/EventSub tests plus isolated PostgreSQL migration and Compose first-run/restart acceptance.
+  - id: AC12
+    result: PASS
+    evidence: English/pt-BR story, TDD, integrations, changelogs and central story indexes synchronized; all local quality gates passed.
+quality_gates:
+  - command: npm test
+    result: PASS
+    details: 87 files, 728 tests
+  - command: npm run lint
+    result: PASS
+  - command: npm run typecheck
+    result: PASS
+  - command: npm run review:static
+    result: PASS
+    details: OpenGrep found 0 issues across 72 JavaScript files
+  - command: npm run validate:version
+    result: PASS
+    details: v0.11.0-0000000-alpha; no stage promotion
+  - command: npm run validate:localization
+    result: PASS
+    details: 5 modules, en/es/pt-BR
+  - command: docker compose config --quiet
+    result: PASS
+  - command: git diff --check
+    result: PASS
+  - command: Active and isolated Compose HTTPS checks and restart persistence
+    result: PASS
+    details: Active volume/OAuth preserved; isolated fresh instance migrated and retained test marker across bot restart.
+top_issues:
+  - severity: low
+    description: >-
+      No live Twitch outage or write operation was exercised. The active authorized
+      account's existing read-only health probe reported ineligible and latency;
+      integration failure modes were tested with controlled fakes.
+  - severity: low
+    description: >-
+      The host trust store contains an older local CA. Current active and isolated
+      HTTPS endpoints validate when each installation's exported CA certificate is
+      supplied; system-wide browser trust requires a later operator action.
+waiver:
+  active: false

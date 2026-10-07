@@ -26,6 +26,12 @@ describe('streamer panel health status projection', () => {
     });
   });
 
+  it('shows automatic reconnection as a retrying state', () => {
+    expect(formatHealthStatus({ status: 'ok', dependencies: {
+      database: 'connected', twitch_api: 'retrying', twitch_api_ping_ms: null,
+    } })).toEqual({ database: 'Conectado', twitch: 'Reconectando', ping: 'Sem medição', overall: 'Verificar conexão' });
+  });
+
   it('localizes dependency states and fallback copy using the selected product catalog', () => {
     const catalogs = {
       en: {

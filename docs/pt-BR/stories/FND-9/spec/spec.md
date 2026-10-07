@@ -36,6 +36,7 @@ Para cada fila em um canal elegível, o bot cria uma Custom Reward dedicada da T
 | FR-3 | Entradas manuais têm origem `manual`, sem `redemption_id`, sem tarefa financeira na outbox e com auditoria segura. | P0 |
 | FR-4 | Explicar o modo manual/inelegível em pt-BR e informar conectividade do chat separada da disponibilidade de Pontos do Canal. | P1 |
 | FR-5 | Em cada fila elegível, criar e gerenciar uma Custom Reward dedicada da Twitch por este app; preservar recompensas preexistentes. | P1 |
+| FR-6 | Manter o comando global localizado `ping` disponível para streamer/moderador quando Pontos do Canal estiverem indisponíveis. | P0 |
 
 ## 3. Arquitetura proposta
 
@@ -44,10 +45,15 @@ Para cada fila em um canal elegível, o bot cria uma Custom Reward dedicada da T
 3. Reutilizar `!<fila> add <usuário> [UID]`. Autorização streamer/mod vem da identidade atual confiável do broadcaster e badges da mensagem; nunca do corpo ou papel digitado. `add` pelo chat sempre cria entrada manual na faixa normal.
 4. Continuar usando repositório/serviço de filas e integridade PostgreSQL existentes. Não criar subsistema financeiro ou de filas para este modo.
 5. Exibir estados separados, como chat `connected` e Pontos `unavailable_ineligible`. `/health` e o painel não devem indicar indisponibilidade total Twitch se o chat estiver funcional; nenhuma entidade da API ou erro Twitch bruto é exposto.
-6. Em canais elegíveis, criar uma Custom Reward dedicada da Twitch para cada fila por meio deste app. Somente o ID dessa recompensa pode ser aberto, pausado, reconciliado, concluído/cancelado ou excluído. Recompensas genéricas já existentes no canal (por exemplo, “beber água”) não são fonte de fila nem ficam sob controle do app.
-7. Manter vínculo um para um entre fila e recompensa por ID Twitch imutável; nunca adotar recompensa preexistente pelo título ou semelhança.
+6. Manter o comando global localizado `ping` existente disponível para streamer/moderador em canais elegíveis e inelegíveis. No canal inelegível, ele continua retornando a resposta Pong existente, versão do produto e latência Twitch em cache; não deve depender de elegibilidade de recompensa nem disparar consulta Helix adicional por mensagem no chat.
+7. Em canais elegíveis, criar uma Custom Reward dedicada da Twitch para cada fila por meio deste app. Somente o ID dessa recompensa pode ser aberto, pausado, reconciliado, concluído/cancelado ou excluído. Recompensas genéricas já existentes no canal (por exemplo, “beber água”) não são fonte de fila nem ficam sob controle do app.
+8. Manter vínculo um para um entre fila e recompensa por ID Twitch imutável; nunca adotar recompensa preexistente pelo título ou semelhança.
 
 Esta é uma direção de implementação recomendada, não detalhe técnico aprovado. Comportamento de escopos de token e sequência real de assinatura Twurple precisam ser validados antes de alterar código.
+
+### Evidência do operador (2026-10-07)
+
+O operador relata que o canal conectado, mas inelegível, não responde a `!fila ping`. Isso corresponde à saída antecipada atual da integração antes de iniciar EventSub. A FND-9 deve manter o comportamento global de ping localizado, restrito a streamer/moderador, junto com o chat mesmo quando recompensas de pontos estão indisponíveis; preservar a resposta Pong, versão do produto e latência em cache, sem adicionar consulta Helix por mensagem. Ainda não alegamos resposta bem-sucedida de chat real.
 
 ### Esclarecimento da API oficial (2026-10-06)
 
@@ -72,10 +78,11 @@ A Twitch documenta `channel.chat.message` com `user:read:chat`; EventSub de resg
 6. Canal com recompensa preexistente “beber água” conecta. O bot não a altera; a criação de fila elegível cria outra Custom Reward pausada pelo bot e associa à fila somente o novo ID.
 7. Canal elegível mantém entrada por resgate, outbox, reconciliação e recompensas existentes.
 8. Perda/revogação do chat aparece separada da inelegibilidade de pontos; reiniciar o bot preserva a entrada manual.
+9. Streamer/moderador envia o comando global de ping localizado em canal inelegível e recebe a resposta Pong existente, versão do produto e latência Twitch em cache; viewer não recebe resposta de ping, e nenhuma API de reward ou consulta Helix por mensagem é acionada.
 
 ## 6. Plano TDD
 
-- Red/Green unitário: integração inicia EventSub de chat para canal inelegível e nunca inicia assinaturas de resgate/reconciliação; autorização permanece somente streamer/mod; projeções de saúde/painel separam estados.
+- Red/Green unitário: integração inicia EventSub de chat para canal inelegível sem iniciar assinatura/reconciliação de resgates; `ping` autorizado de streamer/mod continua disponível e retorna a resposta/version/latência em cache; viewer não recebe resposta de ping; não se adiciona probe por mensagem. Autorização continua exclusiva de streamer/mod; projeções de saúde/painel separam os estados.
 - Integração PostgreSQL: migrations reais validam origem manual, relações de IDs, unicidade, auditoria e ausência de intenção financeira; mock Prisma não prova esses contratos.
 - Fakes de worker/adaptador: provar ausência de chamadas de criar/alterar/apagar/reconciliar recompensa para canal inelegível e ausência de chamada financeira Twitch para entrada manual.
 - Regressões de segurança: ator/badge/corpo forjado, origem Shared Chat, ID de comando duplicado, login/UID inválido e display malicioso não geram efeitos indevidos nem exposição.

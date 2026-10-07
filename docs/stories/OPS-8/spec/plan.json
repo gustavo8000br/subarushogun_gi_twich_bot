@@ -1,0 +1,50 @@
+{
+  "storyId": "OPS-8",
+  "plannedAt": "2026-10-07",
+  "planner": "@architect",
+  "status": "ready_for_development",
+  "phases": [
+    {
+      "id": "P1",
+      "name": "Auth outcome classification and saved-token recovery",
+      "testsFirst": ["transient validation errors do not mark credentials reconnect-required", "expired/invalid access token refreshes with saved refresh token before consent is requested", "invalid refresh token or valid identity/scope mismatch requires reconnection", "refresh persistence failure blocks activation without leaking token/error"],
+      "likelyFiles": ["apps/api/src/twitch/auth-runtime.mjs", "tests/unit/twitch-auth-runtime.test.js"],
+      "exit": "Typed auth outcomes preserve saved credentials on transient failure and only confirmed authorization failure requests reconnect."
+    },
+    {
+      "id": "P2",
+      "name": "Non-blocking Twitch integration supervisor",
+      "testsFirst": ["local runtime/server startup completes while Twitch is offline", "startup validation/eligibility transient failure schedules a bounded jittered retry", "duplicate triggers coalesce and initialization never overlaps", "successful recovery installs one listener/adapter and publishes connected only after reconciliation", "shutdown cancels retry and prevents late runtime installation"],
+      "likelyFiles": ["apps/api/src/twitch/integration.mjs", "apps/api/src/runtime.mjs", "tests/unit/twitch-integration.test.js", "tests/unit/runtime-composition.test.js"],
+      "exit": "One timer-driven supervisor restores saved integration state without blocking local API startup or opening parallel Twitch clients."
+    },
+    {
+      "id": "P3",
+      "name": "EventSub initial failure and true disconnect recovery",
+      "testsFirst": ["initial EventSub connection exhaustion is observable and supervised", "actual disconnect followed by ready triggers one reconciliation", "Twitch session_reconnect uses SDK handoff without opening another listener or false gap reconciliation", "duplicate events overlapping reconciliation remain idempotent"],
+      "likelyFiles": ["apps/api/src/twitch/eventsub-runtime.mjs", "apps/api/src/twitch/integration.mjs", "tests/unit/eventsub-runtime.test.js", "tests/unit/twitch-integration.test.js"],
+      "exit": "Twurple retains protocol ownership; application state and retries recover correctly after startup exhaustion or true drop."
+    },
+    {
+      "id": "P4",
+      "name": "Status projection, local persistence, and documentation",
+      "testsFirst": ["health/setup distinguish retrying from reconnect-required", "health and setup never expose raw error/token detail", "real PostgreSQL outbox intent remains unchanged while Twitch offline and resumes after integration recovery", "bilingual documentation/localization contracts cover all new status and recovery behavior"],
+      "likelyFiles": ["apps/api/src/health-route.mjs", "apps/api/src/http/queue-routes.mjs", "apps/web/setup-messages.mjs", "apps/web/localization/catalogs/setup/*.tsv", "tests/unit/health-route.test.js", "tests/unit/setup-messages.test.js", "tests/integration/*", "docs/integrations.md", "docs/stories/OPS-8/", "CHANGELOG*.md"],
+      "exit": "Recovery state is safe and localized; durable PostgreSQL intent survives restart/recovery; English and pt-BR records match."
+    }
+  ],
+  "retryPolicy": {
+    "initialDelaySeconds": 5,
+    "maximumDelaySeconds": 300,
+    "strategy": "exponential backoff with bounded jitter",
+    "notes": "Use the repository clock/timer injection patterns. A healthy connection resets the attempt count. No retry timer may survive stop()."
+  },
+  "testCommands": [
+    "npm test -- --run tests/unit/twitch-auth-runtime.test.js tests/unit/twitch-integration.test.js tests/unit/eventsub-runtime.test.js",
+    "npm test -- --run tests/integration/twitch-recovery.test.js",
+    "npm run lint",
+    "npm run typecheck",
+    "npm test"
+  ],
+  "constraints": ["No database migration expected", "No new dependency", "No new OAuth scopes", "No live Twitch claim without authorized validation", "Do not change .release-stage"]
+}

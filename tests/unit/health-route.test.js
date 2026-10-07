@@ -56,6 +56,17 @@ describe('local health response contract', () => {
     await app.close();
   });
 
+  it('exposes automatic Twitch retries as a distinct health state', async () => {
+    const app = Fastify();
+    healthModule.registerHealthRoute(app, {
+      pool: { query: vi.fn().mockResolvedValue({ rows: [] }) }, productVersion: 'v0.10.0-0000000-alpha',
+      getTwitchStatus: () => 'retrying', probeTwitchApi: vi.fn(),
+    });
+    const response = await app.inject({ method: 'GET', url: '/health' });
+    expect(response.json().dependencies).toEqual({ database: 'connected', twitch_api: 'retrying', twitch_api_ping_ms: null });
+    await app.close();
+  });
+
   it('keeps channel ineligibility distinct while measuring a reachable Twitch API', async () => {
     const app = Fastify();
     const probeTwitchApi = vi.fn(async () => true);

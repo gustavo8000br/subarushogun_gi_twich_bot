@@ -1,0 +1,83 @@
+{
+  "storyId": "OPS-8",
+  "researchedAt": "2026-10-07",
+  "researcher": "@analyst with @architect technical review",
+  "targets": [
+    {
+      "target": "Twitch OAuth token validation and refresh",
+      "type": "external_api",
+      "verified": true,
+      "sources": [
+        "https://dev.twitch.tv/docs/authentication/validate-tokens/",
+        "https://dev.twitch.tv/docs/authentication/refresh-tokens/",
+        "https://dev.twitch.tv/docs/authentication/"
+      ],
+      "findings": [
+        "Third-party OAuth clients must validate at startup and hourly thereafter.",
+        "A token is definitively invalid when validation returns HTTP 401; revoked/expired access tokens also produce 401 on API calls. An Authorization Code refresh token can obtain a replacement user access token without new consent until that refresh authorization itself is invalid.",
+        "Network failures and service failures do not prove token revocation. Invalid refresh token is a confirmed consent problem; transient transport/5xx/429 refresh failures must remain recoverable.",
+        "Authorization Code user refresh can return a rotated refresh token, which must be saved safely with the access token."
+      ],
+      "implications": [
+        "Do not mark reconnect_required from a generic thrown exception; classify typed HTTP 401 separately from transport, timeout, 429, and server failures. A 401 access-token validation should try the saved refresh token before deciding whether user consent is required.",
+        "Continue the hourly validation obligation even when an earlier attempt was transiently unavailable, using bounded retry scheduling.",
+        "Only persist new refresh credentials after receiving a successful refresh response; retain last valid durable credentials on transient failures."
+      ]
+    },
+    {
+      "target": "Twurple auth and EventSub WebSocket",
+      "type": "library",
+      "version": "@twurple/auth, @twurple/api, @twurple/eventsub-ws 8.2.0",
+      "verified": true,
+      "sources": [
+        "https://twurple.js.org/reference/auth/classes/RefreshingAuthProvider.html",
+        "https://twurple.js.org/reference/eventsub-ws/classes/EventSubWsListener.html",
+        "apps/api/src/twitch/auth-runtime.mjs",
+        "apps/api/src/twitch/eventsub-runtime.mjs",
+        "node_modules/@twurple/eventsub-ws/lib/EventSubWsSocket.js",
+        "node_modules/@d-fischer/connection/lib/PersistentConnection.js"
+      ],
+      "findings": [
+        "RefreshingAuthProvider exposes refresh and refresh-failure callbacks; 8.2.0 getTokenInfo maps HTTP 401 to InvalidTokenError but propagates other HTTP/transport errors.",
+        "The installed EventSubWsSocket uses the supplied reconnect_url for Twitch session_reconnect and keeps subscriptions on the replacement session.",
+        "The installed PersistentConnection starts with three retry attempts for an explicit initial connection; after an established connection drops, it selects persistent retry with capped Fibonacci delays. The application currently does not supervise a fresh startup after initial exhaustion.",
+        "Twurple emits disconnect and ready callbacks on a new socket session; application reconciliation currently relies on observing a disconnect before the next ready callback."
+      ],
+      "implications": [
+        "Preserve Twurple's built-in session migration instead of adding a competing WebSocket connection loop.",
+        "Add application-level recoverable initialization supervision for validation/eligibility failures and handle initial socket retry exhaustion if the installed API does not continue it.",
+        "Use the disconnect/ready lifecycle or a narrow supervisor callback to reconcile after a genuine dropped session; do not treat Twitch's seamless session_reconnect as a dropped-event gap."
+      ]
+    },
+    {
+      "target": "Existing integration, durable workers, health, and OAuth state",
+      "type": "codebase",
+      "verified": true,
+      "sources": [
+        "docs/stories/FND-4/story.md",
+        "docs/stories/FND-5/story.md",
+        "apps/api/src/twitch/integration.mjs",
+        "apps/api/src/runtime.mjs",
+        "apps/api/src/health-route.mjs",
+        "apps/api/src/outbox/loop.mjs",
+        "apps/api/src/outbox/financial-worker.mjs",
+        "apps/api/src/outbox/chat-worker.mjs",
+        "apps/api/src/outbox/reward-worker.mjs"
+      ],
+      "findings": [
+        "FND-4 already covers OAuth, token persistence, hourly validation, initial reconciliation, and recovery after EventSub reconnect callbacks. It does not cover transient startup retry classification or automatic reconstruction after validation/eligibility initialization failure.",
+        "FND-5 already provides durable outbox records and retry behavior; runtime workers report idle if no Twitch adapter exists. Those records are not deleted by Twitch integration shutdown.",
+        "The health contract already has connecting, reconciling, degraded, and reconnect_required states; the panel has status localization and a manual reconnect action.",
+        "At startup, createRefreshingAuthRuntime currently marks reconnect_required for every thrown validation error; eligibility lookup failure stops the auth runtime and leaves eligibility_unknown with no retry supervisor."
+      ],
+      "implications": [
+        "OPS-8 extends the FND-4 integration lifecycle and tests rather than reimplementing token/reconciliation/outbox mechanics.",
+        "Keep the current local status projections and provide an explicit retrying/recovering state if the existing states cannot distinguish transient recovery adequately.",
+        "Workers may keep durable pending rows while no adapter is available, but ensure they are restarted/resumed when the integration is restored."
+      ]
+    }
+  ],
+  "decision": "Implement a single cancellable integration supervisor around saved credential startup and post-failure recovery. Keep OAuth state and existing durable data unchanged. Treat definitive authentication/scope failure as reconnect_required and transient errors as degraded/retrying. Use Twurple 8.2.0's native WebSocket migration/reconnection and reconcile when a genuinely new session follows disconnection.",
+  "openQuestions": [],
+  "liveVerification": "Not performed. No live Twitch credentials or requests were used for this planning research."
+}

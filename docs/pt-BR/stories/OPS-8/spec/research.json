@@ -1,0 +1,83 @@
+{
+  "storyId": "OPS-8",
+  "researchedAt": "2026-10-07",
+  "researcher": "@analyst com revisão técnica de @architect",
+  "targets": [
+    {
+      "target": "Validação e renovação de token OAuth da Twitch",
+      "type": "external_api",
+      "verified": true,
+      "sources": [
+        "https://dev.twitch.tv/docs/authentication/validate-tokens/",
+        "https://dev.twitch.tv/docs/authentication/refresh-tokens/",
+        "https://dev.twitch.tv/docs/authentication/"
+      ],
+      "findings": [
+        "Clientes OAuth de terceiros precisam validar no início e depois a cada hora.",
+        "Token está definitivamente inválido quando a validação retorna HTTP 401; tokens revogados/expirados também recebem 401 em chamadas de API.",
+        "Falhas de rede e serviço não comprovam revogação. Refresh token inválido é problema de consentimento confirmado; falhas transitórias de transporte/5xx/429 no refresh continuam recuperáveis.",
+        "Renovação de usuário por Authorization Code pode retornar refresh token rotacionado, que precisa ser salvo com segurança junto ao access token."
+      ],
+      "implications": [
+        "Não marcar reconexão necessária por exceção genérica; distinguir HTTP 401 tipado de transporte, timeout, 429 e erro de servidor.",
+        "Manter a obrigação de validação horária mesmo após falha transitória anterior, com retries limitados.",
+        "Só persistir novas credenciais de refresh após resposta bem-sucedida; preservar credenciais duráveis válidas em falhas transitórias."
+      ]
+    },
+    {
+      "target": "Twurple auth e EventSub WebSocket",
+      "type": "library",
+      "version": "@twurple/auth, @twurple/api, @twurple/eventsub-ws 8.2.0",
+      "verified": true,
+      "sources": [
+        "https://twurple.js.org/reference/auth/classes/RefreshingAuthProvider.html",
+        "https://twurple.js.org/reference/eventsub-ws/classes/EventSubWsListener.html",
+        "apps/api/src/twitch/auth-runtime.mjs",
+        "apps/api/src/twitch/eventsub-runtime.mjs",
+        "node_modules/@twurple/eventsub-ws/lib/EventSubWsSocket.js",
+        "node_modules/@d-fischer/connection/lib/PersistentConnection.js"
+      ],
+      "findings": [
+        "RefreshingAuthProvider expõe callbacks de refresh e falha de refresh; getTokenInfo 8.2.0 converte HTTP 401 para InvalidTokenError e propaga outros erros HTTP/transporte.",
+        "EventSubWsSocket instalado usa reconnect_url recebido em session_reconnect e mantém subscriptions ao migrar para a sessão substituta.",
+        "PersistentConnection instalado faz três tentativas iniciais em conexão explícita; depois que uma conexão já estabelecida cai, seleciona retry persistente com atraso Fibonacci limitado. A aplicação não supervisiona quando a exaustão inicial ocorre antes de haver sessão.",
+        "Twurple emite callbacks disconnect e ready ao criar uma nova sessão; a reconciliação da aplicação atualmente depende de observar uma desconexão antes do próximo ready."
+      ],
+      "implications": [
+        "Preservar migração nativa do Twurple em session_reconnect em vez de criar loop concorrente de WebSocket.",
+        "Adicionar supervisão de inicialização recuperável para falhas de validação/elegibilidade e tratar exaustão de retries iniciais do socket se a API instalada não continuar tentando.",
+        "Usar ciclo disconnect/ready ou callback de supervisor restrito para reconciliar após queda real de sessão; não tratar session_reconnect contínuo como lacuna de eventos perdidos."
+      ]
+    },
+    {
+      "target": "Integração existente, workers duráveis, saúde e estado OAuth",
+      "type": "codebase",
+      "verified": true,
+      "sources": [
+        "docs/stories/FND-4/story.md",
+        "docs/stories/FND-5/story.md",
+        "apps/api/src/twitch/integration.mjs",
+        "apps/api/src/runtime.mjs",
+        "apps/api/src/health-route.mjs",
+        "apps/api/src/outbox/loop.mjs",
+        "apps/api/src/outbox/financial-worker.mjs",
+        "apps/api/src/outbox/chat-worker.mjs",
+        "apps/api/src/outbox/reward-worker.mjs"
+      ],
+      "findings": [
+        "FND-4 já cobre OAuth, persistência de tokens, validação horária, reconciliação inicial e recuperação após callbacks de reconexão EventSub. Não cobre classificação/retry de falha transitória no início nem reconstrução automática depois de falha de validação/elegibilidade.",
+        "FND-5 já oferece registros de outbox duráveis e retries; workers retornam idle se não há adaptador Twitch. Esses registros não são apagados ao encerrar a integração Twitch.",
+        "Contrato de saúde já possui estados connecting, reconciling, degraded e reconnect_required; o painel localiza status e tem ação manual de reconexão.",
+        "No início, createRefreshingAuthRuntime atualmente marca reconnect_required para toda exceção de validação; falha na consulta de elegibilidade encerra runtime de auth e mantém eligibility_unknown sem retry supervisor."
+      ],
+      "implications": [
+        "OPS-8 estende ciclo de vida e testes da integração FND-4, sem reimplementar tokens/reconciliação/outbox.",
+        "Manter projeções locais existentes e incluir indicador de recovery/retrying somente se os estados atuais não distinguirem bem a tentativa transitória.",
+        "Workers podem manter tarefas pendentes quando o adaptador não estiver disponível, mas o processamento precisa retomar após restauração da integração."
+      ]
+    }
+  ],
+  "decision": "Implementar um supervisor único e cancelável ao redor da inicialização das credenciais salvas e recuperação após falha. Preservar estado OAuth e dados duráveis existentes. Tratar falha definitiva de autenticação/escopo como reconexão necessária e falha transitória como degradada/tentando. Usar reconexão/migração WebSocket nativa do Twurple 8.2.0 e reconciliar quando uma nova sessão realmente suceder uma desconexão.",
+  "openQuestions": [],
+  "liveVerification": "Não executada. Nenhuma credencial ou chamada Twitch ao vivo foi usada nesta pesquisa de planejamento."
+}

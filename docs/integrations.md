@@ -46,6 +46,10 @@ The reward requests must use `should_redemptions_skip_request_queue=false`, and 
 
 This product uses EventSub WebSocket and Helix Send Chat Message with the streamer's account. It does not use IRC or a second bot account. Shared Chat may propagate user-token messages; the product must not promise otherwise.
 
+### OPS-8 automatic connection recovery
+
+The local API and panel start independently from Twitch network availability. Saved Authorization Code credentials remain in the local database; startup validation distinguishes temporary transport/server failures from a rejected refresh token or identity/scope mismatch. A valid saved refresh token is tried when Twitch rejects the access token, and rotated tokens are persisted before the integration resumes. Temporary auth, eligibility, or initial EventSub socket failures retry with exponential backoff, jitter, a 5-second initial delay, and a 300-second cap. The UI and `/health` expose `retrying` separately from `reconnect_required`; no raw error or token is projected. Once an EventSub socket has been established, Twurple owns persistent reconnect behavior; a genuine ready-after-drop triggers the existing reconciliation. Twitch's seamless `session_reconnect` does not create a competing socket. Durable outbox rows remain in PostgreSQL while the adapter is unavailable and resume through the existing workers. These behaviors are covered with controlled tests; the new recovery path has not yet been tested against an authorized live outage.
+
 ## Additional Twitch findings from the 2026-10-06 story audit
 
 | Capability | Official contract | Product consequence |
@@ -94,6 +98,7 @@ The Twitch OAuth docs currently show `http://localhost:3000` in their examples (
 - [Twitch: Register an application](https://dev.twitch.tv/docs/authentication/register-app/) — confidential app registration, verified email, 2FA, and callback URL.
 - [Twitch: Getting tokens with OAuth](https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/) — Client Credentials and Authorization Code grants.
 - [Twitch: Validating requests](https://dev.twitch.tv/docs/authentication/validate-tokens/) — token validation, startup/hourly validation, and revoked token behavior.
+- [Twitch: Refreshing tokens](https://dev.twitch.tv/docs/authentication/refresh-tokens/) — Authorization Code refresh behavior and rotated refresh tokens.
 - [Twitch Helix API reference](https://dev.twitch.tv/docs/api/reference/) — users, channel point rewards/redemptions, and Send Chat Message operations. The current reference sets a maximum of 50 custom rewards per channel, including disabled rewards; creation requires `channel:manage:redemptions`.
 - [Twitch Helix Get Users](https://dev.twitch.tv/docs/api/reference/#get-users) — broadcaster lookup used for the health latency probe; accepts a user access token without an additional scope when an ID is supplied.
 - [Twitch Helix Get Channel Followers](https://dev.twitch.tv/docs/api/reference/#get-channel-followers) — specific viewer checks require `moderator:read:followers` and a broadcaster-owned or moderator user token; the query is keyed by Twitch `user_id`.
@@ -101,6 +106,7 @@ The Twitch OAuth docs currently show `http://localhost:3000` in their examples (
 - [Twurple HelixChannelApi](https://twurple.js.org/reference/api/classes/HelixChannelApi.html) — installed `getChannelFollowers(broadcaster, user)` adapter contract.
 - [Twitch: EventSub subscription types](https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/) — scopes and payload contracts for redemption and chat events.
 - [Twitch: Handling WebSocket events](https://dev.twitch.tv/docs/eventsub/handling-websocket-events/) — welcome, subscribe, reconnect, and recovery behavior.
+- [Twitch: EventSub WebSocket reference](https://dev.twitch.tv/docs/eventsub/websocket-reference/) — `session_reconnect` handoff behavior.
 - [Twitch: Send and receive chat messages](https://dev.twitch.tv/docs/chat/send-receive-messages/) — supported chat transport and message limits.
 - [Twurple `RefreshingAuthProvider`](https://twurple.js.org/reference/auth/classes/RefreshingAuthProvider.html) — refresh token callbacks and failure handling.
 - [Twurple `EventSubWsListener`](https://twurple.js.org/reference/eventsub-ws/classes/EventSubWsListener.html) — WebSocket listener methods.

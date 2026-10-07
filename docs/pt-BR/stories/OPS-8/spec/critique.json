@@ -1,0 +1,32 @@
+{
+  "storyId": "OPS-8",
+  "reviewedAt": "2026-10-07",
+  "reviewer": "@qa (Quinn) com revisão de @architect",
+  "passes": [
+    {
+      "pass": 1,
+      "verdict": "NEEDS_REVISION",
+      "findings": [
+        { "severity": "HIGH", "finding": "Um 401 ao validar access token expirado não deve exigir novo consentimento OAuth imediatamente se o refresh token Authorization Code salvo ainda puder recuperá-lo.", "resolution": "Especificação revisada: tentar refresh do token salvo suportado pelo Twurple; exigir consentimento somente após falha definitiva de autorização do refresh ou incompatibilidade irrecuperável de identidade/escopo." },
+        { "severity": "HIGH", "finding": "O servidor espera createApplicationRuntime antes de app.listen, e a inicialização Twitch aguarda validação remota. Assim o painel local pode ficar indisponível se a Twitch estiver fora do ar no início do processo.", "resolution": "Especificação revisada para exigir supervisão Twitch não bloqueante após criar runtime local; inicialização Twitch com credenciais salvas roda em segundo plano enquanto API/banco locais permanecem disponíveis." },
+        { "severity": "MEDIUM", "finding": "session_reconnect do Twurple é uma migração contínua de subscriptions e não deve ser tratada como intervalo de eventos perdidos nem iniciar outro socket paralelo.", "resolution": "Especificação distingue migração nativa de sessão da queda real do socket; reconciliar somente após desconexão real e novo ready." },
+        { "severity": "MEDIUM", "finding": "As tentativas de conexão EventSub iniciais têm limite finito na dependência Twurple instalada; após falhar no início, a integração poderia ficar travada.", "resolution": "Especificação exige verificar e supervisionar a exaustão inicial sem substituir a migração nativa de sessão do Twurple." }
+      ]
+    },
+    {
+      "pass": 2,
+      "verdict": "APPROVED",
+      "score": 10,
+      "findings": [
+        "Todos os requisitos têm ao menos um aceite e teste automatizado proposto.",
+        "A sobreposição FND-4/FND-5 está delimitada: OPS-8 amplia supervisão de início/falha e status, reutilizando persistência OAuth, outbox e reconciliação.",
+        "A classificação OAuth preserva o caminho de refresh e evita tratar falha transitória como revogação.",
+        "Disponibilidade no startup, cancelamento do ciclo de vida, recovery duplicado, concorrência de eventos e preservação da intenção financeira estão cobertos explicitamente.",
+        "O comportamento exato do Twurple 8.2.0 instalado e limites oficiais Twitch OAuth/EventSub estão documentados com fontes."
+      ]
+    }
+  ],
+  "score": 10,
+  "verdict": "APPROVED",
+  "implementationGate": "Planejamento concluído; implementação pode começar em incrementos test-first. Promoção de stage continua proibida até OPS-8, FND-9 e DOC-2 estarem concluídas."
+}

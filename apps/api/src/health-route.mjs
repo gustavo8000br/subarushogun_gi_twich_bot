@@ -36,7 +36,7 @@ export function registerHealthRoute(app, {
     try {
       await pool.query('SELECT 1');
       const twitchHealth = await readTwitchHealth();
-      const validStates = ['not_configured', 'connected', 'connecting', 'reconciling', 'degraded', 'reconnect_required', 'ineligible', 'stopped', 'unknown'];
+      const validStates = ['not_configured', 'connected', 'connecting', 'reconciling', 'degraded', 'retrying', 'reconnect_required', 'ineligible', 'stopped', 'unknown'];
       const twitchApi = validStates.includes(twitchHealth.status) ? twitchHealth.status : 'unknown';
       return {
         status: 'ok',

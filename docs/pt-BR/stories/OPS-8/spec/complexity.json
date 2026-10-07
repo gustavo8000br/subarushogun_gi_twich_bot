@@ -1,0 +1,16 @@
+{
+  "storyId": "OPS-8",
+  "assessedAt": "2026-10-07",
+  "assessedBy": "@architect",
+  "dimensions": {
+    "scope": { "score": 4, "evidence": "Mudanças transversais no runtime de autenticação Twitch, ciclo de vida da integração, projeção de saúde/configuração, controle dos workers, testes e documentação bilíngue." },
+    "integration": { "score": 4, "evidence": "Validação/renovação OAuth Twitch, inicialização Helix, EventSub WebSocket, workers outbox duráveis e ciclo de vida do processo interagem." },
+    "infrastructure": { "score": 2, "evidence": "Não se espera novo serviço ou schema; as alterações usam o ciclo atual do processo/Compose." },
+    "knowledge": { "score": 4, "evidence": "Exige semântica verificada de falhas OAuth Twitch e comportamento exato de reconexão do Twurple 8.2.0 instalado." },
+    "risk": { "score": 5, "evidence": "Classificar autenticação incorretamente pode bloquear streamer válido ou manter uso de escopos revogados; estado financeiro deve permanecer seguro." }
+  },
+  "totalScore": 19,
+  "result": "COMPLEX",
+  "rationale": "A story afeta o ciclo crítico de integração Twitch e requer classificação de erros, recuperação no início/reinício, coordenação entre EventSub/outbox e testes em limites de falha. Usar o Spec Pipeline completo, duas críticas e plano de implementação sequenciado.",
+  "pipeline": ["gather", "assess", "research", "spec", "critique_1", "revise", "critique_2", "plan"]
+}

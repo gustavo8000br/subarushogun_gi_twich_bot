@@ -33,6 +33,12 @@
       "priority": "P1",
       "description": "Para cada fila elegível, criar e gerenciar uma Custom Reward dedicada da Twitch por este app; não adotar nem alterar recompensas preexistentes.",
       "acceptance": "A recompensa é criada pela API Twitch, vinculada pelo ID imutável, e somente esse ID é usado para resgates e operações do ciclo de vida da fila."
+    },
+    {
+      "id": "FR-6",
+      "priority": "P0",
+      "description": "Manter o comando global de ping localizado existente disponível para streamer/moderador quando Pontos do Canal estiverem indisponíveis.",
+      "acceptance": "Em canal inelegível, o comando localizado de ping autorizado retorna o Pong existente, versão do produto e latência Twitch em cache; viewers não recebem resposta de ping e não há consulta Helix por mensagem nem chamada à API de rewards."
     }
   ],
   "nonFunctionalRequirements": [
