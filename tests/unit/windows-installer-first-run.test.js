@@ -46,4 +46,8 @@ describe('Windows installer first-run language prompt', () => {
     const packager = readFileSync(new URL('../../apps/infra/scripts/package-installer.mjs', import.meta.url), 'utf8');
     expect(packager).toContain('set "QUEUEBOT_INSTALLER_ARGS=%*"');
   });
+
+  it('does not place PowerShell smart quotes inside single-quoted localized strings', () => {
+    expect(installer).not.toMatch(/=\s*'[^'\r\n]*[‘’]/u);
+  });
 });

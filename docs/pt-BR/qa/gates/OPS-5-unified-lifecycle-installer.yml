@@ -2,21 +2,21 @@ schema: 1
 story: 'OPS-5'
 story_title: 'Instalador unificado multiplataforma'
 gate: CONCERNS
-status_reason: 'A implementação corretiva local e seus gates passaram. A execução PowerShell nativa Windows e o job Windows atualizado do Actions ainda são necessários antes de marcar a OPS-5 como Done.'
+status_reason: 'A implementação corretiva local e seus gates passaram. A primeira execução Windows atual do Actions falhou antes do lançamento por erro de análise PowerShell causado por aspas tipográficas em strings com aspas simples. A regressão e a correção estão prontas localmente; a repetição nativa corrigida ainda é necessária antes de marcar OPS-5 como Done.'
 reviewer: 'Quinn (Test Architect)'
 reviewed_revision: 'árvore de trabalho em fix/ops5-installer-uninstall-progress; HEAD de origem 11e1e3f836a521256c5c450e5c21cb081b82bb68'
 updated: '2026-10-07T15:56:39Z'
 top_issues:
   - id: 'OPS5-WIN-NATIVE'
     severity: high
-    finding: 'O instalador corretivo PowerShell e o harness atualizado do artefato nativo Windows ainda não foram executados nesta revisão.'
-    suggested_action: 'Executar o job Windows nativo na branch corretiva e resolver falhas antes do merge ou de fechar a issue #30.'
+    finding: 'A execução Windows 37648518488 falhou durante a análise PowerShell antes do lançamento; correção e regressão aguardam repetição nativa.'
+    suggested_action: 'Enviar a correção da aspa tipográfica, repetir o job Windows nativo e resolver falhas restantes antes do merge ou de fechar a issue #30.'
 waiver: { active: false }
 quality_score: 88
 expires: '2026-10-21T15:00:00Z'
 evidence:
-  tests_reviewed: 673
-  focused_installer_tests: 29
+  tests_reviewed: 674
+  focused_installer_tests: 30
   risks_identified: 1
   trace:
     ac_covered: [2, 3, 5, 7, 8, 11, 12, 13, 14]
@@ -31,7 +31,7 @@ nfr_validation:
     notes: 'As verificações do instalador são delimitadas; inventário de imagens usa consultas locais do Docker e a espera de saúde continua limitada.'
   reliability:
     status: CONCERNS
-    notes: 'Testes e runtime Linux passaram. O PowerShell corretivo e o ciclo nativo Windows ainda não foram verificados nesta revisão.'
+    notes: 'Testes e runtime Linux passaram. O erro de análise PowerShell foi corrigido localmente; a repetição Windows nativa precisa validar a correção.'
   maintainability:
     status: PASS
     notes: 'Código do instalador, testes, guias, evidências da story e changelogs estão sincronizados em inglês e pt-BR.'
