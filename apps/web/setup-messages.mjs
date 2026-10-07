@@ -65,6 +65,7 @@ const statusLabels = Object.freeze({
   connecting: 'Conectando',
   reconciling: 'Sincronizando',
   degraded: 'Conexão instável',
+  retrying: 'Reconectando',
   reconnect_required: 'Reconexão necessária',
   ineligible: 'Afiliado ou Parceiro necessário',
   eligibility_unknown: 'Verificando elegibilidade',
@@ -75,12 +76,14 @@ const localizedStatusLabels = Object.freeze({
   en: Object.freeze({
     not_configured: 'Not configured', connected: 'Connected', connecting: 'Connecting',
     reconciling: 'Syncing', degraded: 'Unstable connection', reconnect_required: 'Reconnection required',
+    retrying: 'Reconnecting',
     ineligible: 'Channel requires Affiliate or Partner status', eligibility_unknown: 'Checking eligibility',
     stopped: 'Stopped', unavailable: 'Status unavailable',
   }),
   es: Object.freeze({
     not_configured: 'No configurado', connected: 'Conectado', connecting: 'Conectando',
     reconciling: 'Sincronizando', degraded: 'Conexión inestable', reconnect_required: 'Es necesario reconectar',
+    retrying: 'Reconectando',
     ineligible: 'El canal debe ser Afiliado o Partner', eligibility_unknown: 'Verificando elegibilidad',
     stopped: 'Detenido', unavailable: 'Estado no disponible',
   }),

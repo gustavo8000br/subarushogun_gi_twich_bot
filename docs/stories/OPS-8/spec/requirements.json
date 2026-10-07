@@ -1,0 +1,53 @@
+{
+  "storyId": "OPS-8",
+  "gatheredAt": "2026-10-07",
+  "source": "existing",
+  "sourceReference": "GitHub issue #41 and owner-approved sequence OPS-7 → OPS-8 → FND-9 → DOC-2",
+  "gatheredBy": "@pm",
+  "elicitationVersion": "2.0",
+  "summary": "Recover saved Twitch integration capabilities automatically after transient network loss or application restart, and request user action only for confirmed authorization problems.",
+  "functional": [
+    { "id": "FR-1", "priority": "P0", "description": "Classify token validation and refresh outcomes so a 401 for the saved access token first attempts the saved refresh token; require reconnection only when refresh is definitively unusable or identity/required scopes cannot be restored, while network, timeout, rate-limit, and Twitch service failures remain recoverable." },
+    { "id": "FR-2", "priority": "P0", "description": "Retry Twitch initialization steps that fail transiently, including token validation and eligibility/API checks, with bounded exponential backoff and jitter, without asking for credentials again." },
+    { "id": "FR-3", "priority": "P0", "description": "Resume Twitch integration after process restart or restored network using saved credentials, and expose a retrying/recovering status while the local API, panel, and PostgreSQL remain available." },
+    { "id": "FR-4", "priority": "P0", "description": "Restore EventSub observation after a real socket interruption and run the existing idempotent reconciliation before declaring recovery complete; preserve Twitch's session_reconnect protocol and SDK behavior." },
+    { "id": "FR-5", "priority": "P0", "description": "Keep financial, reward, chat, and call operations durable while Twitch is unavailable; workers must not claim network failure as completion, discard intent, or retry aggressively." },
+    { "id": "FR-6", "priority": "P1", "description": "Expose distinct not-configured, connecting/retrying, connected/reconciling, degraded, and reconnect-required states through existing health/setup projections without secrets or raw error text." },
+    { "id": "FR-7", "priority": "P0", "description": "Stop recovery timers and prevent new connection attempts during graceful shutdown; avoid overlapping initialization/reconciliation attempts." },
+    { "id": "FR-8", "priority": "P1", "description": "Allow deterministic verification of retry timing, restart recovery, transient/permanent error classification, EventSub recovery, and pending worker preservation using controlled clocks and fakes." }
+  ],
+  "nonFunctional": [
+    { "id": "NFR-1", "priority": "P0", "description": "Backoff is bounded, jittered, cancelable, and shared by one active recovery loop; no aggressive retry loop is allowed." },
+    { "id": "NFR-2", "priority": "P0", "description": "No credential, access/refresh token, OAuth code/state, raw Twitch response, or sensitive exception is exposed in logs, health, panel, chat, or error responses." },
+    { "id": "NFR-3", "priority": "P0", "description": "Recovery does not alter persisted queue order, redemption intent, outbox identity, or financial expected state." },
+    { "id": "NFR-4", "priority": "P1", "description": "The local panel and database remain available while Twitch connectivity is unavailable." }
+  ],
+  "constraints": [
+    { "id": "CON-1", "description": "Use the existing Fastify/ESM/Prisma/PostgreSQL application, @twurple/* 8.2.0, current credential repository, current EventSub runtime, and existing reconciliation/service paths; do not add a queue broker or remote backend." },
+    { "id": "CON-2", "description": "Do not change OAuth scopes or ask for new consent to recover a transient network condition." },
+    { "id": "CON-3", "description": "Keep durable Twitch operation semantics: local outbox intent survives and Twitch remains authoritative for remote point status." },
+    { "id": "CON-4", "description": "Use the existing /health and panel status projections; no new dashboard page is required." },
+    { "id": "CON-5", "description": "Live Twitch tests are not performed without an explicitly authorized operator validation; mocks cannot be represented as live proof." }
+  ],
+  "acceptance": [
+    { "id": "AC-1", "given": "saved valid credentials and the Twitch validate endpoint is temporarily unreachable", "when": "the application starts", "then": "the state is retrying/degraded, credentials remain saved, the local panel remains available, and recovery retries within bounded backoff rather than setting reconnect_required." },
+    { "id": "AC-2", "given": "the saved access token returns 401 but its refresh token is still valid", "when": "the integration validates at startup", "then": "it refreshes and validates the replacement token without asking for OAuth; only a definitively unusable refresh token, identity mismatch, or missing required scopes enters reconnect_required." },
+    { "id": "AC-3", "given": "startup validation succeeds but eligibility or another initialization API call fails transiently", "when": "the API/network becomes available", "then": "initialization resumes automatically without a process restart or OAuth flow." },
+    { "id": "AC-4", "given": "the process restarts while valid Twitch credentials are saved", "when": "Twitch is initially offline and later reachable", "then": "the integration reconnects automatically and resumes EventSub/reconciliation without manual reconnection." },
+    { "id": "AC-5", "given": "EventSub was connected and its WebSocket is interrupted", "when": "the SDK establishes a fresh session after a real disconnect", "then": "the integration marks recovery in progress, reconciles before returning to connected, and does not duplicate redemptions or operations." },
+    { "id": "AC-6", "given": "a terminal/auth revocation or required scope loss is confirmed", "when": "recovery handles it", "then": "automatic retry stops or is appropriately gated, state is reconnect_required, and saved data/outbox remain intact." },
+    { "id": "AC-7", "given": "the Twitch network is unavailable while financial/reward/chat operations are pending", "when": "workers run and the process restarts", "then": "intent remains durable and pending/unknown as appropriate; no operation is falsely confirmed or discarded." },
+    { "id": "AC-8", "given": "SIGTERM/SIGINT occurs during backoff or recovery", "when": "shutdown completes", "then": "future retries are canceled, no initialization overlaps shutdown, and existing graceful resource closure succeeds." },
+    { "id": "AC-9", "given": "recovery status is projected through /health and the setup panel", "when": "the user reads it", "then": "transient retrying is distinguishable from confirmed reconnection required, and no secret/raw error is exposed." }
+  ],
+  "assumptions": [
+    "The existing OAuth credential record contains the saved confidential-app secret and refresh token required for unattended recovery; an expired access token alone does not imply the saved authorization needs user consent.",
+    "Twurple 8.2.0 automatically follows Twitch session_reconnect and has its own persistent connection behavior after a socket has connected; the application still needs to manage startup retry, observable state, and fresh-disconnect reconciliation safely.",
+    "A persistent/transient distinction can be made from typed SDK/HTTP error status/cause, not from error-message text. Unknown failures default to recoverable/degraded until definitive auth evidence exists."
+  ],
+  "openQuestions": [],
+  "traceability": {
+    "ownerIssue": "https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/41",
+    "overlapReview": ["docs/stories/FND-4/story.md", "docs/stories/FND-5/story.md", "docs/integrations.md", "apps/api/src/twitch/auth-runtime.mjs", "apps/api/src/twitch/integration.mjs", "apps/api/src/twitch/eventsub-runtime.mjs"]
+  }
+}

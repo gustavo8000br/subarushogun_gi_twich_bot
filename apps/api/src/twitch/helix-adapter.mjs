@@ -92,7 +92,14 @@ export function createTwitchApiAdapter({ api, broadcasterId, authProvider }) {
       let rewards;
       try {
         rewards = await api.channelPoints.getCustomRewards(broadcasterId, false);
-      } catch {
+      } catch (error) {
+        const status = error?.statusCode ?? error?.status;
+        if (status === 401) {
+          return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'access_token_invalid' };
+        }
+        if (status === 403) {
+          return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'authorization_required' };
+        }
         return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'channel_points_unavailable' };
       }
       const rewardCount = rewards.length;

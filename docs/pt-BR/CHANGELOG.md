@@ -4,6 +4,10 @@
 
 Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.11.0-alpha
+
+- O bot agora tenta recuperar automaticamente falhas temporárias de conexão com a Twitch e mantém o painel local disponível. A reconexão manual só é necessária quando a autorização Twitch realmente expira ou muda.
+
 ## v0.10.0-alpha
 
 - Streamers podem definir um nível mínimo de audiência para cada comando; os grupos superiores recebem acesso automaticamente.

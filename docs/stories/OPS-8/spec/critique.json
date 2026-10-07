@@ -1,0 +1,32 @@
+{
+  "storyId": "OPS-8",
+  "reviewedAt": "2026-10-07",
+  "reviewer": "@qa (Quinn) with @architect revision",
+  "passes": [
+    {
+      "pass": 1,
+      "verdict": "NEEDS_REVISION",
+      "findings": [
+        { "severity": "HIGH", "finding": "A 401 from validating an expired access token must not immediately require a new OAuth consent if the saved Authorization Code refresh token can still recover it.", "resolution": "Spec revised: attempt Twurple's documented saved-token refresh; require consent only on definitive refresh authorization failure or unrecoverable identity/scope mismatch." },
+        { "severity": "HIGH", "finding": "The server awaits createApplicationRuntime before app.listen, and Twitch initialization currently waits for remote validation. This can keep the local panel unavailable when Twitch is down at process startup.", "resolution": "Spec revised to require non-blocking Twitch supervision after local runtime creation; saved Twitch initialization is background work while local API/DB remain available." },
+        { "severity": "MEDIUM", "finding": "Existing Twurple session_reconnect is a seamless subscription migration and must not be treated as a dropped-event interval or trigger a parallel socket.", "resolution": "Spec now distinguishes native session migration from actual socket loss; reconcile only after actual disconnect and fresh ready." },
+        { "severity": "MEDIUM", "finding": "Initial EventSub connection retries have a finite retry limit in the installed Twurple dependency; an integration can otherwise remain stuck after startup failure.", "resolution": "Spec requires verifying and supervising initial exhaustion without replacing Twurple's own session migration." }
+      ]
+    },
+    {
+      "pass": 2,
+      "verdict": "APPROVED",
+      "score": 10,
+      "findings": [
+        "All requirements have at least one acceptance and proposed automated test.",
+        "FND-4/FND-5 overlap is bounded: OPS-8 extends startup/failure supervision and status, reusing OAuth persistence, outbox and reconciliation.",
+        "OAuth error classification preserves the refresh-token recovery path and avoids treating transient errors as revocation.",
+        "Startup availability, lifecycle cancellation, duplicate recovery, event overlap and financial intent preservation are explicitly covered.",
+        "The exact installed Twurple 8.2.0 reconnect behavior and official Twitch OAuth/EventSub constraints are documented with sources."
+      ]
+    }
+  ],
+  "score": 10,
+  "verdict": "APPROVED",
+  "implementationGate": "Planning complete; implementation may begin with test-first increments. Stage promotion remains prohibited until OPS-8, FND-9, and DOC-2 are complete."
+}

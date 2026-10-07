@@ -1,0 +1,50 @@
+{
+  "storyId": "OPS-8",
+  "plannedAt": "2026-10-07",
+  "planner": "@architect",
+  "status": "ready_for_development",
+  "phases": [
+    {
+      "id": "P1",
+      "name": "Classificação de autenticação e recuperação com token salvo",
+      "testsFirst": ["falhas transitórias de validação não marcam credenciais para reconexão", "access token expirado/inválido é renovado com refresh salvo antes de pedir consentimento", "refresh token inválido ou identidade/escopo válido incompatível exige reconexão", "falha ao persistir refresh impede ativação sem expor token/erro"],
+      "likelyFiles": ["apps/api/src/twitch/auth-runtime.mjs", "tests/unit/twitch-auth-runtime.test.js"],
+      "exit": "Resultados de auth tipados preservam credenciais em falha transitória e somente autorização comprovadamente inválida pede reconexão."
+    },
+    {
+      "id": "P2",
+      "name": "Supervisor Twitch não bloqueante",
+      "testsFirst": ["startup local de runtime/servidor conclui enquanto Twitch está offline", "falha transitória de validação/elegibilidade no startup agenda retry limitado com jitter", "gatilhos duplicados são agrupados e inicializações não concorrem", "recovery bem-sucedido instala um listener/adaptador e publica connected só após reconciliação", "shutdown cancela retries e impede instalar runtime atrasado"],
+      "likelyFiles": ["apps/api/src/twitch/integration.mjs", "apps/api/src/runtime.mjs", "tests/unit/twitch-integration.test.js", "tests/unit/runtime-composition.test.js"],
+      "exit": "Um supervisor único baseado em timer restaura a integração salva sem bloquear startup da API local ou abrir clientes Twitch em paralelo."
+    },
+    {
+      "id": "P3",
+      "name": "Falha inicial EventSub e recovery após desconexão real",
+      "testsFirst": ["exaustão de conexão EventSub inicial fica observável e é supervisionada", "desconexão real seguida de ready chama uma reconciliação", "session_reconnect Twitch usa handoff do SDK sem outro listener nem falsa reconciliação de lacuna", "eventos duplicados concorrendo com reconciliação continuam idempotentes"],
+      "likelyFiles": ["apps/api/src/twitch/eventsub-runtime.mjs", "apps/api/src/twitch/integration.mjs", "tests/unit/eventsub-runtime.test.js", "tests/unit/twitch-integration.test.js"],
+      "exit": "Twurple mantém responsabilidade do protocolo; estado e retries da aplicação recuperam após exaustão inicial ou queda real."
+    },
+    {
+      "id": "P4",
+      "name": "Projeção de status, persistência local e documentação",
+      "testsFirst": ["health/setup distinguem retrying de reconnect_required", "health e setup não expõem erro/token bruto", "intenção outbox PostgreSQL real não muda enquanto Twitch está offline e retoma após recovery", "contratos bilíngues de documentação/localização cobrem novos estados e recovery"],
+      "likelyFiles": ["apps/api/src/health-route.mjs", "apps/api/src/http/queue-routes.mjs", "apps/web/setup-messages.mjs", "apps/web/localization/catalogs/setup/*.tsv", "tests/unit/health-route.test.js", "tests/unit/setup-messages.test.js", "tests/integration/*", "docs/integrations.md", "docs/stories/OPS-8/", "CHANGELOG*.md"],
+      "exit": "Estado de recovery é seguro e localizado; intenção PostgreSQL durável sobrevive reinício/recuperação; registros em inglês e pt-BR equivalem."
+    }
+  ],
+  "retryPolicy": {
+    "initialDelaySeconds": 5,
+    "maximumDelaySeconds": 300,
+    "strategy": "backoff exponencial com jitter limitado",
+    "notes": "Usar injeção de relógio/timers existente no repositório. Conexão saudável reinicia contador. Nenhum timer pode sobreviver a stop()."
+  },
+  "testCommands": [
+    "npm test -- --run tests/unit/twitch-auth-runtime.test.js tests/unit/twitch-integration.test.js tests/unit/eventsub-runtime.test.js",
+    "npm test -- --run tests/integration/twitch-recovery.test.js",
+    "npm run lint",
+    "npm run typecheck",
+    "npm test"
+  ],
+  "constraints": ["Não se espera migration", "Sem nova dependência", "Sem novos escopos OAuth", "Sem alegar validação Twitch ao vivo sem autorização", "Não alterar .release-stage"]
+}

@@ -36,6 +36,7 @@ For each queue on an eligible channel, the bot creates a dedicated Twitch Custom
 | FR-3 | Manual entries have source `manual`, no `redemption_id`, no financial outbox task, and safe audit history. | P0 |
 | FR-4 | Explain manual-only/ineligible state in pt-BR while reporting chat status separately from Channel Points availability. | P1 |
 | FR-5 | For each eligible queue, create and manage a dedicated Twitch Custom Reward through this app; leave pre-existing rewards untouched. | P1 |
+| FR-6 | Keep the existing localized global `ping` command available to streamer/moderator while Channel Points are unavailable. | P0 |
 
 ## 3. Proposed architecture
 
@@ -44,10 +45,15 @@ For each queue on an eligible channel, the bot creates a dedicated Twitch Custom
 3. Reuse the current `!<queue> add <user> [UID]` command. Streamer/mod authorization comes from the current trusted broadcaster identity and message badges, never body fields or typed role claims. Chat `add` always creates a standard-lane manual entry.
 4. Continue to use the existing queue repository/service and PostgreSQL integrity constraints. Do not create a new queue or financial subsystem for this mode.
 5. Show separate status fields such as chat `connected` and points `unavailable_ineligible`. The existing `/health` summary and panel must not report Twitch wholly unavailable when chat is operating; no API entity or raw Twitch error is exposed.
-6. On eligible channels, create one dedicated Twitch Custom Reward per queue through this app. Only that reward ID may be opened, paused, reconciled, fulfilled/canceled, or deleted. Generic custom rewards already in the channel (for example, “drink water”) are not queue inputs and remain outside this app's control.
-7. Keep one-to-one queue/reward association by immutable Twitch reward ID; never adopt a pre-existing reward by title or similarity.
+6. Keep the existing localized global `ping` command available to streamer/moderator in both eligible and ineligible channels. For the ineligible channel, it still returns the existing Pong response, product version, and cached Twitch latency; it must not require reward eligibility or trigger an extra Helix request per chat message.
+7. On eligible channels, create one dedicated Twitch Custom Reward per queue through this app. Only that reward ID may be opened, paused, reconciled, fulfilled/canceled, or deleted. Generic custom rewards already in the channel (for example, “drink water”) are not queue inputs and remain outside this app's control.
+8. Keep one-to-one queue/reward association by immutable Twitch reward ID; never adopt a pre-existing reward by title or similarity.
 
 These are a recommended implementation direction, not approved technical details. Token-scope behavior and Twurple's actual subscription sequence must be validated before code changes.
+
+### Operator validation input (2026-10-07)
+
+The operator reports that the connected but ineligible channel does not answer `!fila ping`. This matches the current integration's early exit before EventSub starts. FND-9 must keep the existing localized streamer/moderator-only global ping behavior alive with chat even when points rewards are unavailable; retain its Pong, product version, and cached-latency response, without adding a per-message Helix probe. No successful live chat response is claimed yet.
 
 ### Official API clarification (2026-10-06)
 
@@ -72,10 +78,11 @@ Twitch documents `channel.chat.message` with `user:read:chat`; redemption EventS
 6. A channel with a pre-existing “drink water” reward connects. The bot leaves it unchanged; eligible queue creation creates a separate paused Custom Reward through the bot and associates only that new reward ID with the queue.
 7. An eligible channel retains current redemption admission, outbox, reconciliation, and reward behavior.
 8. Twitch chat loss/revocation is shown separately from Channel Points ineligibility; restarting the bot preserves the manual queue entry.
+9. A streamer/moderator sends the localized global ping command in an ineligible channel and receives the existing Pong, product version, and cached Twitch latency response; a viewer receives no ping response, and no reward API or per-message Helix probe is triggered.
 
 ## 6. TDD plan
 
-- Unit Red/Green: integration starts EventSub chat on ineligible channels but never starts redemption subscriptions/reconciliation; authorization remains streamer/mod only; health/panel projection separates statuses.
+- Unit Red/Green: integration starts EventSub chat on ineligible channels but never starts redemption subscriptions/reconciliation; authorized streamer/mod `ping` remains available and returns the cached status/version response; viewers receive no ping response; no per-message probe is added. Authorization remains streamer/mod only; health/panel projection separates statuses.
 - PostgreSQL integration: real migrations verify manual admission source, ID relations, uniqueness, audit and absence of financial intent; no Prisma mock may prove these contracts.
 - Worker/adaptor fakes: assert no reward create/update/delete/reconciliation call for an ineligible channel, and no financial Twitch call for manual entries.
 - Security regression tests: forged actor/badge/body, Shared Chat origin, duplicate command ID, invalid login/UID and malicious display strings produce no unintended side effects or disclosure.

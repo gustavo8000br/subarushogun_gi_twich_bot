@@ -4,6 +4,10 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.11.0-alpha
+
+- The bot now retries temporary Twitch connection problems automatically and keeps the local panel available. You only need to reconnect when Twitch authorization has actually expired or changed.
+
 ## v0.10.0-alpha
 
 - Streamers can set a minimum audience for each chat command, so higher groups automatically receive access.

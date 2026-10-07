@@ -1,11 +1,11 @@
 import { EventSubWsListener } from '@twurple/eventsub-ws';
 import { normalizeRedemptionStatus } from './helix-adapter.mjs';
 
-/** @param {{apiClient: any, broadcasterId: string, listenerFactory?: (apiClient: any) => any, onRedemptionAdd: (event: object) => unknown, onRedemptionUpdate: (event: object) => unknown, onChatMessage: (event: object) => unknown, onReady?: () => unknown, onReconnected?: () => unknown, onRevoked?: (type: string, status: string) => unknown, onError?: (code: string) => unknown}} input */
+/** @param {{apiClient: any, broadcasterId: string, listenerFactory?: (apiClient: any) => any, onRedemptionAdd: (event: object) => unknown, onRedemptionUpdate: (event: object) => unknown, onChatMessage: (event: object) => unknown, onReady?: () => unknown, onReconnected?: () => unknown, onDisconnect?: (details: {established: boolean}) => unknown, onRevoked?: (type: string, status: string) => unknown, onError?: (code: string) => unknown}} input */
 export function createEventSubRuntime({
   apiClient, broadcasterId, listenerFactory = (client) => new EventSubWsListener({ apiClient: client }),
   onRedemptionAdd, onRedemptionUpdate, onChatMessage, onReady = () => undefined, onReconnected = () => undefined,
-  onRevoked = () => undefined, onError = () => undefined,
+  onRevoked = () => undefined, onDisconnect = () => undefined, onError = () => undefined,
 }) {
   const listener = listenerFactory(apiClient);
   let disconnected = false;
@@ -62,7 +62,10 @@ export function createEventSubRuntime({
     });
   });
   listener.onUserSocketDisconnect((userId) => {
-    if (userId === broadcasterId) disconnected = true;
+    if (userId !== broadcasterId || stopped) return;
+    const established = didConnect;
+    disconnected = established;
+    dispatch(onDisconnect, { established });
   });
   listener.onUserSocketReady((userId) => {
     if (userId !== broadcasterId || stopped) return;

@@ -33,6 +33,12 @@
       "priority": "P1",
       "description": "For each eligible queue, create and manage a dedicated Twitch Custom Reward through this app; do not adopt or alter pre-existing rewards.",
       "acceptance": "The reward is created through Twitch API, linked by its immutable reward ID, and only that ID is used for queue redemptions and lifecycle operations."
+    },
+    {
+      "id": "FR-6",
+      "priority": "P0",
+      "description": "Keep the existing localized global ping command available to streamer/moderator when Channel Points are unavailable.",
+      "acceptance": "In an ineligible channel, the authorized localized ping command returns the existing Pong, product version, and cached Twitch latency; viewers get no ping reply and no per-message Helix probe or reward API call occurs."
     }
   ],
   "nonFunctionalRequirements": [

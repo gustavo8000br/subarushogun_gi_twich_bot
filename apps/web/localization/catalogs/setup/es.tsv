@@ -22,6 +22,7 @@ twitch.eligibility.rewards	recompensas
 twitch.status.connected	Conectado
 twitch.status.connecting	Conectando
 twitch.status.degraded	Conexión inestable
+twitch.status.retrying	Reconectando
 twitch.status.eligibility_unknown	Verificando elegibilidad
 twitch.status.ineligible	El canal debe ser Afiliado o Partner
 twitch.status.not_configured	No configurado

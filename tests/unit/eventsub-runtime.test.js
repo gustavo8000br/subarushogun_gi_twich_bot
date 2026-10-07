@@ -114,4 +114,18 @@ describe('EventSub WebSocket runtime', () => {
     listener.handlers.ready('channel-1', 'socket-1');
     expect(onReady).toHaveBeenCalledOnce();
   });
+
+  it('reports initial socket exhaustion separately from a previously connected socket drop', () => {
+    const listener = listenerFake();
+    const onDisconnect = vi.fn();
+    createEventSubRuntime({
+      apiClient: {}, broadcasterId: 'channel-1', listenerFactory: () => listener,
+      onRedemptionAdd() {}, onRedemptionUpdate() {}, onChatMessage() {}, onDisconnect,
+    });
+    listener.handlers.disconnect('channel-1', new Error('temporary failure'));
+    expect(onDisconnect).toHaveBeenCalledWith({ established: false });
+    listener.handlers.ready('channel-1', 'socket-1');
+    listener.handlers.disconnect('channel-1', new Error('temporary failure'));
+    expect(onDisconnect).toHaveBeenLastCalledWith({ established: true });
+  });
 });

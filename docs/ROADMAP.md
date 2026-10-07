@@ -19,11 +19,12 @@ Status checked against the local story index and GitHub issues on 2026-10-07. Op
 | OPS-2 — Safe localized Twitch status ([#21](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/21)) | Complete; initial mapping in PR #13, precedence/localization in FND-8 PR #31 |
 | OPS-3 — Command catalog and role permissions ([#17](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/17)) | Complete; merged in PR #24 |
 | OPS-4 — MIT license ([#29](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/29)) | Complete; merged in PR #25 |
-| OPS-5 — Cross-platform lifecycle installer ([#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30)) | Reopened / InProgress: visible scoped uninstall, postcondition checks, and unattended CLI underway; real Linux Compose fire test passed; Windows native test and fresh QA pending |
+| OPS-5 — Cross-platform lifecycle installer ([#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30)) | Complete; merged in PR #37; independent AIOX-QA PASS 100/100. Linux real Compose lifecycle passed; physical Windows/macOS acceptance remains unverified |
 | OPS-6 — Clear runtime status and guided panel states ([#32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32)) | Complete; merged in PR #33; independent QA PASS 100/100 |
-| OPS-7 — Hierarchical command permissions and follower role ([#39](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/39)) | Done; QA 10/10; ready for DevOps PR. OPS-8 is next |
-| OPS-8 — Automatic Twitch reconnection ([#41](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/41)) | Open; planned after OPS-7 |
+| OPS-7 — Hierarchical command permissions and follower role ([#39](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/39)) | Done; QA 10/10; merged in PR #42 |
+| OPS-8 — Automatic Twitch reconnection ([#41](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/41)) | Planning approved (Spec Pipeline critique 10/10); implementation in progress on `feat/ops-8-twitch-auto-reconnect` |
 | DOC-2 — Accurate bilingual product screenshots ([#40](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/40)) | Open; planned after FND-9 |
+| DOC-3 — Full documentation consistency and UX-style audit | Owner-requested next story after OPS-8, FND-9, and DOC-2; not yet planned or published as an issue |
 
 See the detailed acceptance criteria and implementation evidence in the [story index](stories.md) and its [pt-BR version](pt-BR/stories.md).
 
@@ -31,6 +32,5 @@ See the detailed acceptance criteria and implementation evidence in the [story i
 
 These owner-requested ideas are backlog candidates, not scoped stories or issues yet:
 
-- Recover Twitch API/EventSub connectivity automatically after temporary network loss, sleep, shutdown, or restart when persisted OAuth credentials remain valid; do not request a new login for a transient outage.
 - Add carefully selected product screenshots to the English and pt-BR documentation, with an agreed capture/update process.
-- **Current authorized sequence:** OPS-7 → OPS-8 → FND-9 → DOC-2. OPS-7 is Done after QA 10/10; OPS-8 is now authorized to begin. The owner conditionally authorized `beta` only after all four stories complete. Do not promote the stage before then.
+- **Current authorized sequence:** OPS-7 → OPS-8 → FND-9 → DOC-2 → DOC-3 (full documentation audit). OPS-7 merged in PR #42; OPS-8 Spec Pipeline is approved at 10/10 and implementation is in progress. The owner conditionally authorized `beta` only after OPS-8, FND-9, and DOC-2 complete; DOC-3 is the owner's requested final work item for this session. Do not promote the stage before the release condition is met.
