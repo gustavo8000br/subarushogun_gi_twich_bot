@@ -2,7 +2,7 @@
 
 [English](../../../../stories/OPS-5/spec/spec.md)
 
-**Status:** referência de implementação; execução direta Linux e gates locais passaram. Os jobs nativos Linux/macOS/Windows e o envio dos artefatos passaram na revisão mais recente, execução 37637847991. QA independente AIOX-QA pendente; aceitação física do operador não é alegada.
+**Status:** referência da implementação corretiva; OPS-5 reaberta após feedback sobre progresso/remoção na desinstalação. A evidência anterior de runners Linux/Windows/macOS e o QA PASS da PR #36 são somente a linha de base histórica. Este incremento adiciona remoção delimitada, progresso e verificação posterior; execução nativa Windows e QA independente estão pendentes.
 
 ## Objetivo
 
@@ -44,6 +44,8 @@ Ambos os caminhos deixam instalados Docker Engine/Desktop, recursos WSL/virtuali
 ## Segurança e recuperação
 
 - Cada ação é idempotente e informa estado detectado/instalado antes de modificar o ambiente.
+- A desinstalação inventaria containers, redes e volumes com labels do projeto, além das imagens descritas pela configuração Compose do produto. Mostra progresso localizado, remove somente recursos Compose deste projeto e apaga uma imagem apenas se nenhum container a utiliza. A opção manter dados confirma que o conjunto de volumes permaneceu; apagar confirma que ficou vazio. Limpeza incompleta nunca informa sucesso e deixa diagnóstico acionável.
+- Se o instalador não encontrar arquivos locais nem recursos Docker do produto, informa que nada foi encontrado/removido. O terminal só é limpo em execução interativa; a saída redirecionada do CI conserva os logs.
 - Dependência ausente, prompt recusado, falha de download, rede indisponível, migration com erro, serviço Compose não saudável ou interrupção preservam dados existentes e mostram o próximo passo concreto.
 - Sem troca automática de porta, elevação silenciosa, alteração silenciosa de recurso do sistema, aceite implícito de licença, execução de script sem verificação ou `down --volumes` cego sobre projeto que não foi comprovado como pertencente ao app.
 - Não registrar credenciais, códigos/tokens OAuth, segredos do banco ou strings de conexão.
@@ -51,6 +53,6 @@ Ambos os caminhos deixam instalados Docker Engine/Desktop, recursos WSL/virtuali
 
 ## Evidências de aceite
 
-Os testes cobrem abertura direta/escolha de menu, prompts de idioma e porta, exibição de callback, caminhos com espaços, cancelamento, dependências presentes/ausentes, consentimento/elevação/reinicialização, falhas e recuperação, preservação em atualização, exclusão em atualização limpa, escopo de retenção/exclusão na desinstalação, confirmação localizada digitada, proteção de recursos não relacionados e orientação para remoção manual de dependências. Aceite em computador de usuário é registrado separadamente dos resultados de runner CI.
+Os testes cobrem abertura direta/escolha de menu, prompts de idioma e porta, exibição de callback, caminhos com espaços, cancelamento, dependências presentes/ausentes, consentimento/elevação/reinicialização, falhas e recuperação, preservação em atualização, exclusão em atualização limpa, progresso/verificação posterior da desinstalação, escopo de volumes em manter/apagar, confirmação localizada digitada, imagem compartilhada com containers não relacionados, ausência de instalação, proteção de recursos não relacionados e orientação para remoção manual de dependências. Aceite em computador de usuário é registrado separadamente dos resultados de runner CI.
 
 Os formatos por sistema, comportamento da dependência Docker, confirmações digitadas e escopo de limpeza estão resolvidos na [story](../story.md). Resultados nativos do Actions, gates completos do repositório, QA independente e aceitação física no host do usuário permanecem validações separadas.

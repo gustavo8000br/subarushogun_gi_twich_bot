@@ -51,6 +51,7 @@ if (platform === 'windows') {
     encoded,
     ':endpayload',
     ':run',
+    'set "QUEUEBOT_INSTALLER_ARGS=%*"',
     `powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$raw=[IO.File]::ReadAllText('%~f0');$encoded=[regex]::Match($raw,'(?s):payload\\r?\\n(.*?)\\r?\\n:endpayload').Groups[1].Value -replace '\\s','';$code=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encoded));& ([ScriptBlock]::Create($code));exit $LASTEXITCODE"`,
     'exit /b %errorlevel%',
     '',

@@ -59,8 +59,32 @@ Se o Windows bloquear o arquivo, confirme que ele veio da página GitHub Release
 | **Instalar / Iniciar** | Cria ou inicia o app local. Instalações existentes podem manter ou alterar idioma e porta. |
 | **Atualizar → Manter dados** | Atualiza o app preservando volumes de banco/segredos e configurações. |
 | **Atualizar → Apagar dados e instalar do zero** | Exige confirmação digitada e então remove os dados deste produto antes de iniciar uma instalação limpa. |
-| **Desinstalar → Manter dados** | Remove contêineres e arquivos Compose do produto, mas preserva volumes, configurações e certificado local. |
-| **Desinstalar → Apagar todos os dados do produto** | Exige confirmação digitada e então remove contêineres, volumes, configurações, segredos e certificado local do produto. |
+| **Desinstalar → Manter dados** | Remove containers/redes deste projeto, imagens exclusivas sem uso e o Compose embutido; preserva volumes, configurações e certificado local. Imagens ainda usadas em outro lugar permanecem. |
+| **Desinstalar → Apagar todos os dados do produto** | Exige confirmação digitada e então remove containers/redes, imagens exclusivas sem uso, volumes, configurações, segredos e certificado local deste projeto. |
+
+## Comandos sem interação
+
+O instalador aceita ações pela linha de comando para scripts e ambientes gerenciados. “Silencioso” significa **sem perguntas interativas**; ele ainda exibe progresso localizado, falhas e a URL do painel, e não abre o navegador. Uma instalação sem interação usa pt-BR e porta `3000` por padrão, salvo se `--locale` e `--port` forem informados. Atualizações preservam dados por padrão. A desinstalação também preserva dados por padrão. Apagar dados exige sempre `--erase-data` e `--confirm-erase`; não existe uma opção genérica `--yes` que ignore essa proteção.
+
+```sh
+# Linux
+sh ./subarushogun_twich_bot_setup.sh --silent install --locale pt-BR --port 3000
+sh ./subarushogun_twich_bot_setup.sh --silent update
+sh ./subarushogun_twich_bot_setup.sh --silent uninstall --keep-data
+sh ./subarushogun_twich_bot_setup.sh --silent uninstall --erase-data --confirm-erase
+
+# macOS
+./subarushogun_twich_bot_setup.command --silent install --locale en --port 3000
+./subarushogun_twich_bot_setup.command --silent update
+
+# Windows PowerShell ou Prompt de Comando
+.\subarushogun_twich_bot_setup.bat --silent install --locale en --port 3000
+.\subarushogun_twich_bot_setup.bat --silent update
+```
+
+Para uma atualização limpa, use `--silent update --erase-data --confirm-erase`. As duas flags de confirmação precisam ser explícitas; opções inválidas ou contraditórias encerram antes de alterar recursos Docker. `--help` lista a sintaxe aceita.
+
+A desinstalação remove containers e redes deste projeto Compose e imagens do produto que nenhum container restante utiliza. Uma imagem compartilhada por outro container é preservada. **Manter dados** verifica que os volumes do projeto continuam presentes; **Apagar todos os dados** remove somente os volumes do projeto após confirmação e verifica a remoção. Se não conseguir validar a limpeza, o instalador informa desinstalação incompleta em vez de declarar sucesso. A mensagem de que não encontrou uma instalação gerenciada significa que nada foi removido.
 
 O instalador não remove Docker, WSL, virtualização, pacotes do sistema nem outras dependências compartilhadas do host. Se desejar, remova-as manualmente pelas instruções dos fornecedores. Não use `docker compose down -v` como comando normal para parar ou atualizar: ele apaga dados salvos.
 

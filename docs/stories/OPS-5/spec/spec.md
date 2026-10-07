@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../../pt-BR/stories/OPS-5/spec/spec.md)
 
-**Status:** implementation reference; Linux direct launch and local quality gates passed. Native Linux/macOS/Windows jobs and installer artifact uploads passed on the latest revision in run 37637847991. Independent AIOX-QA is pending; physical operator acceptance is not claimed.
+**Status:** corrective implementation reference; OPS-5 reopened after uninstall progress/removal feedback. Previous Linux/Windows/macOS runner evidence and AIOX-QA PASS for PR #36 are historical baseline only. This increment adds scoped cleanup, progress and postcondition checks; native Windows execution and independent QA are pending.
 
 ## Goal
 
@@ -44,6 +44,8 @@ Both paths leave Docker Engine/Desktop, WSL/virtualization features, package man
 ## Safety and recovery
 
 - Every action is idempotent and reports detected/installed state before mutation.
+- Uninstall inventories project-labeled containers, networks, and volumes plus images described by this product's Compose configuration. It shows localized progress, removes only this project's Compose resources, and removes an image only when no container uses it. Keep-data verification confirms the volume set remains; erase verification confirms it is empty. Incomplete cleanup never reports success and leaves actionable diagnostics.
+- An installer run with no local files or product-owned Docker resources reports that nothing was found/removed. A terminal is cleared only for interactive operation; redirected CI output retains its logs.
 - A missing dependency, declined prompt, failed download, unavailable network, failed migration, unhealthy Compose service, or interruption leaves existing product data intact and gives a concrete next step.
 - No automatic host-port changes, silent privilege escalation, silent system-feature changes, implicit vendor-license acceptance, unchecked script execution, or blind `down --volumes` against a project name not proven to belong to this application.
 - Do not log credentials, OAuth codes/tokens, database secrets, or connection strings.
@@ -51,6 +53,6 @@ Both paths leave Docker Engine/Desktop, WSL/virtualization features, package man
 
 ## Acceptance evidence
 
-Tests cover direct launch/menu choice, locale and port prompts, callback display, path spaces, cancellation, installed/missing dependencies, consent/elevation/restart boundaries, failures and recovery, update preservation, clean-update deletion, uninstall retention/deletion scope, localized typed confirmation, unrelated-resource protection, and explicit manual-dependency-removal guidance. Native user-host acceptance is recorded separately from CI runner results.
+Tests cover direct launch/menu choice, locale and port prompts, callback display, path spaces, cancellation, installed/missing dependencies, consent/elevation/restart boundaries, failures and recovery, update preservation, clean-update deletion, uninstall progress and postcondition verification, keep/erase volume scope, localized typed confirmation, images shared by unrelated containers, no-install reporting, unrelated-resource protection, and explicit manual-dependency-removal guidance. Native user-host acceptance is recorded separately from CI runner results.
 
 Resolved platform formats, Docker dependency behavior, typed confirmation words, and cleanup scope are recorded in the [story](../story.md). Native Actions results, full repository gates, independent QA, and physical user-host acceptance remain separate validation steps.

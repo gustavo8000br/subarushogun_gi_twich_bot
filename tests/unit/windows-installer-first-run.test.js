@@ -21,6 +21,12 @@ describe('Windows installer first-run language prompt', () => {
     expect(installer).toContain('Docker architecture "{0}" is not supported');
   });
 
+  it('captures the Docker architecture command exit code before selecting its output', () => {
+    expect(installer).toContain("$architectureOutput = @(& $Docker info --format '{{.Architecture}}' 2>$null)");
+    expect(installer).toContain('$architectureExitCode = $LASTEXITCODE');
+    expect(installer).toContain('if ($architectureExitCode -ne 0)');
+  });
+
   it('reads a deterministic input file in native test mode and shows one prompt interactively', () => {
     expect(installer).toContain('$env:QUEUEBOT_TEST_INPUT_FILE');
     expect(installer).toContain('[IO.File]::ReadAllLines($env:QUEUEBOT_TEST_INPUT_FILE)');
@@ -35,5 +41,34 @@ describe('Windows installer first-run language prompt', () => {
     expect(installer).toMatch(/function T\(\[string\]\$Key\)\s*\{\s*\$copyLocale\s*=\s*if\s*\(\$script:Locale\)\s*\{\s*\$script:Locale\s*\}\s*else\s*\{\s*'pt-BR'\s*\}\s*;?\s*return \[string\]\$Copy\[\$copyLocale\]\[\$Key\]\s*\}/);
     expect(installer).toMatch(/if \(-not \$script:Locale -and -not \(Prompt-Language\)\)/);
     expect(installer).not.toMatch(/(?<!script:)\$Locale\b/);
+  });
+
+  it('parses unattended lifecycle options without evaluating argument text', () => {
+    expect(installer).toContain('function Parse-CommandLine');
+    expect(installer).toContain("$env:QUEUEBOT_INSTALLER_ARGS -split '\\s+'");
+    expect(installer).toContain("'--silent','--non-interactive'");
+    expect(installer).toContain('--erase-data --confirm-erase');
+    expect(installer).not.toMatch(/Invoke-Expression|iex\s/);
+    const packager = readFileSync(new URL('../../apps/infra/scripts/package-installer.mjs', import.meta.url), 'utf8');
+    expect(packager).toContain('set "QUEUEBOT_INSTALLER_ARGS=%*"');
+  });
+
+  it('does not place PowerShell smart quotes inside single-quoted localized strings', () => {
+    expect(installer).not.toMatch(/=\s*'[^'\r\n]*[‘’]/u);
+  });
+
+  it('passes unattended actions as arguments to the packaged Windows batch file', () => {
+    const harness = readFileSync(new URL('../platform/installer-native.mjs', import.meta.url), 'utf8');
+    expect(harness).toContain('QUEUEBOT_TEST_INSTALLER_ARGS');
+    expect(harness).toContain('& $env:QUEUEBOT_PREBUILT_INSTALLER @installerArgs; exit $LASTEXITCODE');
+    expect(harness).toContain("'-Command', '& $env:QUEUEBOT_PREBUILT_INSTALLER; exit $LASTEXITCODE'");
+  });
+
+  it('makes the native Windows Docker fake answer architecture probes and preserves calls on failure', () => {
+    const harness = readFileSync(new URL('../platform/installer-native.mjs', import.meta.url), 'utf8');
+    expect(harness).toContain("'if /I \"%~1\"==\"info\" echo x86_64'");
+    expect(harness).toContain("'if /I \"%~1\"==\"info\" exit /b 0'");
+    expect(harness).toContain('Windows fake Docker architecture fixture failed');
+    expect(harness).toContain('Docker calls:');
   });
 });

@@ -19,7 +19,7 @@ Estado conferido com o índice local de stories e as issues do GitHub em 2026-10
 | OPS-2 — Status Twitch localizado com segurança ([#21](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/21)) | Concluída; mapa inicial na PR #13 e precedência/localização na PR #31 da FND-8 |
 | OPS-3 — Catálogo de comandos e permissões por cargo ([#17](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/17)) | Concluída; mesclada na PR #24 |
 | OPS-4 — Licença MIT ([#29](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/29)) | Concluída; mesclada na PR #25 |
-| OPS-5 — Instalador de ciclo de vida multiplataforma ([#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30)) | Done na PR #36; AIOX-QA PASS 100/100; artefatos nativos passaram na execução 37637847991; sincronização da issue após merge |
+| OPS-5 — Instalador de ciclo de vida multiplataforma ([#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30)) | Reaberta / InProgress: progresso visível, remoção delimitada e verificação em andamento; teste real Linux Compose passou; teste nativo Windows e novo QA pendentes |
 | OPS-6 — Status de runtime claro e orientações no painel ([#32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32)) | Concluída; mesclada na PR #33; QA independente PASS 100/100 |
 
 Consulte critérios de aceite e evidências detalhadas no [índice de stories](stories.md) e na [versão em inglês](../stories.md).
@@ -30,3 +30,4 @@ Estas ideias solicitadas pelo proprietário são candidatas ao backlog; ainda n�
 
 - Recuperar automaticamente a conexão com Twitch API/EventSub após perda temporária de rede, suspensão, desligamento ou reinício quando as credenciais OAuth persistidas continuarem válidas; não pedir novo login por uma falha transitória.
 - Incluir capturas de tela selecionadas na documentação em inglês e pt-BR, com processo definido para capturar e atualizar as imagens.
+- **Refatoração crítica das permissões de comandos (adiada até a OPS-5 concluir):** incluir o cargo Subscriber que falta, junto a Moderadores, VIPs, Subscribers, Inscritos e Todos; avaliar herança de permissões entre grupos para permitir que o streamer conceda acesso a inscritos e níveis superiores; manter comandos exclusivos de streamer/moderador restritos. Iniciar Planning Workflow com `$aiox-architect` somente depois que a OPS-5 fechar; exigir que QA feche todas as lacunas antes da implementação.

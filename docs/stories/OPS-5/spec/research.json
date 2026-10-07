@@ -1,6 +1,6 @@
 {
   "storyId": "OPS-5",
-  "researchedAt": "2026-10-06",
+  "researchedAt": "2026-10-07",
   "researchedBy": "@aiox-master",
   "status": "planning-draft",
   "researchFindings": [
@@ -10,13 +10,19 @@
     "A GitHub Actions workflow can test the product lifecycle scripts, but cannot safely make Docker Desktop or host dependencies self-updating for users. Host dependency setup still requires platform-specific instructions, user consent, and often elevation/restart.",
     "Velopack is MIT-licensed and builds installers/update packages for compiled desktop application outputs. The current product is a Docker Compose-operated service, so adopting Velopack would add a desktop launcher/application architecture that this story does not otherwise require.",
     "GoReleaser supports cross-platform build pipelines and multiple language builders, but adding a Go/Rust desktop bootstrapper solely for a Compose helper is not justified unless shell/PowerShell entrypoints fail acceptance tests.",
-    "GitHub-hosted runner results do not replace manual validation on real supported host operating systems; CI must label those evidence levels separately."
+    "GitHub-hosted runner results do not replace manual validation on real supported host operating systems; CI must label those evidence levels separately.",
+    "Docker Compose down is the appropriate project-scoped lifecycle operation: it removes the selected Compose project's containers and default networks, and removes declared named/anonymous volumes only when explicitly requested. External networks/volumes are not removed. The installer must therefore verify labels and use the fixed project configuration rather than broad Docker prune commands.",
+    "Docker Compose config --images and compose images --quiet provide complementary image inventories: resolved service image references and images associated with created containers. The installer additionally checks all containers before removing an image, because common base/service images may be shared by unrelated workloads.",
+    "Real project patterns reviewed: Coolify's installer reports staged progress and preserves a log tail on failure; its uninstall guide scopes cleanup to named product resources and warns against global volume prune. CasaOS's uninstaller also reports progress, but its optional Docker removal and global image-prune behavior are deliberately excluded from this product's scope.",
+    "Docker Desktop's platform-specific uninstall documentation treats uninstalling Docker itself as a separate host-level operation that can remove all local Docker data. The product installer must remove only its own Compose project and must leave Docker Engine/Desktop, WSL/virtualization, package managers, and unrelated Docker resources installed."
   ],
   "recommendations": [
     "Use GitHub Actions with native Ubuntu, macOS, and Windows runners to test and package exactly one standalone, directly openable installer file per supported OS target.",
     "Use first-party or SHA-pinned actions, least-privilege workflow permissions, and reviewed dependency updates.",
     "Upload per-platform artifacts on PR/manual runs for inspection; attach them to a release only in the authorized release workflow.",
-    "Keep host Docker installation and updates outside automatic CI behavior; use official vendor instructions and explicit user consent."
+    "Keep host Docker installation and updates outside automatic CI behavior; use official vendor instructions and explicit user consent.",
+    "Show localized install/update/uninstall progress on all platforms, clear only an interactive terminal, report 'nothing removed' when no managed install/resources exist, and verify containers, networks, images, and the chosen volume policy before saying uninstall completed.",
+    "Use Compose project labels plus the embedded project configuration for scoped cleanup. Remove only product images not referenced by any remaining container; never use docker system/image/volume prune as an uninstall shortcut. Preserve the keep-data volume set and confirm the erase-data set is empty."
   ],
   "sources": [
     {
@@ -58,6 +64,46 @@
       "title": "GoReleaser builders",
       "url": "https://www.goreleaser.com/customization/builds/builders/",
       "consulted": "2026-10-06"
+    },
+    {
+      "title": "Docker Compose down reference",
+      "url": "https://docs.docker.com/reference/cli/docker/compose/down/",
+      "consulted": "2026-10-07"
+    },
+    {
+      "title": "Docker Compose config reference",
+      "url": "https://docs.docker.com/reference/cli/docker/compose/config/",
+      "consulted": "2026-10-07"
+    },
+    {
+      "title": "Docker Compose images reference",
+      "url": "https://docs.docker.com/reference/cli/docker/compose/images/",
+      "consulted": "2026-10-07"
+    },
+    {
+      "title": "Docker Compose pull reference",
+      "url": "https://docs.docker.com/reference/cli/docker/compose/pull/",
+      "consulted": "2026-10-07"
+    },
+    {
+      "title": "Coolify installation script",
+      "url": "https://github.com/coollabsio/coolify/blob/main/scripts/install.sh",
+      "consulted": "2026-10-07"
+    },
+    {
+      "title": "Coolify uninstallation guide",
+      "url": "https://coolify.io/docs/core/instance-management/uninstallation",
+      "consulted": "2026-10-07"
+    },
+    {
+      "title": "CasaOS uninstaller",
+      "url": "https://github.com/IceWhaleTech/get/blob/main/casaos-uninstall.sh",
+      "consulted": "2026-10-07"
+    },
+    {
+      "title": "Docker Desktop uninstall documentation",
+      "url": "https://docs.docker.com/desktop/uninstall/",
+      "consulted": "2026-10-07"
     }
   ]
 }

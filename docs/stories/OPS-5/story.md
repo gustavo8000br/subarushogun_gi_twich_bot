@@ -2,9 +2,9 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-5/story.md)
 
-**Status:** Done — implementation, local quality gates, Linux direct launch, native Windows/macOS/Linux Actions, and independent AIOX-QA PASS are complete. Actions run 37637847991 uploaded one installer artifact per OS. No physical Windows/macOS operator acceptance is claimed; PR #36 is awaiting merge.
+**Status:** Done — corrective implementation, all local/native CI gates, and independent QA are complete. Prior PR #36 QA and native Actions remain historical baseline evidence only. No physical host uninstall is claimed.
 **Planning source:** product owner request on 2026-10-06.
-**GitHub issue:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30) (implementation delivered in PR #36; issue remains open until merge).
+**GitHub issue:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30), reopened on 2026-10-07 for the corrective increment after PR #36.
 
 [Spec Pipeline research](spec/research.json) · [Specification](spec/spec.md)
 
@@ -42,7 +42,7 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 1. The downloadable package contains exactly one directly openable installer artifact per supported target OS (Windows, macOS, Linux); opening it presents one menu for install/start, update, and uninstall without a companion script, project clone, or separately fetched lifecycle script.
 2. First install detects OS/architecture, Docker CLI/daemon, and Compose v2; it asks for language and port, explains defaults, validates the port, and shows the matching HTTPS panel/callback URLs before continuing.
 3. When a host dependency is missing, the user can approve a supported official install path or decline and receive current vendor instructions. Privilege elevation, restart, WSL/virtualization changes, and third-party terms are explained before the relevant action.
-4. Install/update/uninstall are idempotent and report detected/current state. A failure or cancellation leaves existing product data intact and provides a recovery action.
+4. Install/update/uninstall are idempotent and report detected/current state plus visible operation progress. Uninstall inventories this Compose project, reports container/network/image/volume cleanup, verifies postconditions, and identifies remaining resources on failure. A failure or cancellation leaves retained product data intact and provides a recovery action.
 5. Normal update preserves PostgreSQL/secrets volumes and current product configuration. Clean update displays data-removal consequences and requires a typed, localized confirmation before deleting product-owned data; it then runs first-install setup again.
 6. Uninstall offers keep-data or erase-all. Keep-data removes product containers, managed program files, and app images not used by other containers, but preserves database/secrets volumes and local CA. Erase-all requires typed, localized confirmation and removes only this product's resources/data; the downloaded installer file remains under user control.
 7. Both uninstall outcomes explicitly state that Docker and other host dependencies remain installed and must be removed manually through their vendors if desired. No installer action removes or updates shared host dependencies during product uninstall.
@@ -53,6 +53,9 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 12. Release notes contain the matching user-facing changelog sections in English and pt-BR, and the workflow fails if either section is absent. Internal changelogs are not published.
 13. Third-party Actions are pinned to full SHAs and reviewed by PR. Tag/release creation remains exclusively an `@devops` action after owner-approved gates. Native user-host acceptance is only claimed after an actual Windows/macOS/Linux operator run.
 14. English/pt-BR story, installation/operation guidance, version policy, and changelog entries remain equivalent.
+15. Uninstall removes this product's Compose containers/networks and unused product images, retains named volumes for the keep-data choice, and removes product-owned volumes only after the localized erase confirmation. It verifies that unused product images are absent, retains images used by another container, and never runs a global prune.
+16. Linux/macOS and Windows installers show localized progress for install, update, and uninstall; clear the terminal only when interactive; distinguish “no installation found” from successful removal; and verify the selected volume policy before reporting completion.
+17. Each platform supports unattended `install`, `update`, and `uninstall` actions. Install accepts optional locale/port; update and uninstall preserve data by default; erasing requires both `--erase-data` and `--confirm-erase`. Invalid/contradictory flags exit before Docker mutation. Unattended mode retains visible progress/errors and does not launch a browser.
 
 ## Implementation and validation record
 
@@ -60,6 +63,18 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 - **Operator guidance:** Docker is detected, and the installer asks before opening official vendor installation instructions. It does not silently elevate or change WSL/virtualization. Install/update/uninstall steps are in the bilingual installer guide. Existing separate lifecycle wrappers and their tests were removed after the replacement artifact and contracts existed.
 - **Data paths:** normal update retains database/secrets volumes and user settings. Clean update pulls the image before deleting any data, requires `APAGAR` / `DELETE` / `ELIMINAR`, then asks language/port again. Uninstall keeps data by default option or erases only product-owned data after the same localized confirmation. Shared Docker/host dependencies and the downloaded installer remain untouched.
 - **Red → Green — destructive update recovery:** `npm test -- --run tests/integration/unified-installer.test.js -t 'cannot download its image'` first failed because an image-pull failure occurred after the saved `.env` had changed from port 3100 to 3200 and locale `en` to `pt-BR`. Green — move `compose pull` before `compose down --volumes`, then start with the already-pulled image. The focused command passed and the saved configuration/local CA remained intact on pull failure.
+- **Red → Green — visible and verified uninstall:** `npm test -- --run tests/integration/unified-installer.test.js -t 'shows uninstall progress|no managed installation'` first failed because uninstall had no operation-specific progress, resource inventory/postcondition checks, shared-image protection evidence, or accurate “nothing removed” result. Green — inventory project-labeled Docker resources, list product Compose images, remove only images unused by any container, verify containers/networks and the selected volume policy, and report no-install separately. The focused command passed 2/2 after the implementation. A follow-up expanded the same integration to exercise keep-volumes, reinstall, then erase-volumes; the final focused command passed 3 selected tests, with 18 skipped.
+- **Cross-platform uninstall/progress implementation:** the POSIX installer now uses Compose plain progress and localized steps for setup/update/removal. PowerShell now mirrors project resource inventory, unused-image cleanup, keep/erase volume verification, no-install reporting, and progress labels. The harness adds native Windows keep-data and erase-data postcondition checks. PowerShell is not installed in the current Ubuntu environment; its executable path remains pending the Windows Actions runner, so this increment is not yet QA-complete.
+- **Red → Green — unattended lifecycle CLI:** `npm test -- --run tests/integration/unified-installer.test.js -t 'supports unattended install'` first failed because `--silent install --locale en --port 3111` still prompted for a language and exited without creating the configuration. Green — parse and validate explicit operations/options, apply safe defaults, skip prompts/browser launch, retain progress, and require explicit paired erase flags. The final affected command `npm test -- --run tests/integration/unified-installer.test.js tests/unit/windows-installer-first-run.test.js` passed 27/27; native Linux artifact launch passed through `node tests/platform/installer-native.mjs`.
+- **Red → Green — image inventory and uninstall postconditions:** `npm test -- --run tests/integration/unified-installer.test.js -t 'cannot inventory the product images'` reproduced a false success when Docker image inspection failed; Green makes inventory failure stop removal with an error. The unused-image postcondition test failed Red with exit 0 when image verification was temporarily disabled, then passed after verifying image absence or a remaining external container reference. Native Windows CI then failed before launch because PowerShell parsed a smart quote as a string delimiter. A new static regression failed Red on that character and passed after replacing the two strings; updated native Windows rerun remains pending. Focused suites passed 29/29 before that added regression; the Windows prompt suite now passes 6/6.
+- **Native Windows unattended-argument harness — Red / Green, rerun pending:** Actions run [37649015429](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37649015429) passed PowerShell parsing and initial install, then failed the unattended update because the harness launched the `.bat` with an empty argument list. A regression in `npm test -- --run tests/unit/windows-installer-first-run.test.js` failed Red because the native harness had no explicit argument-forwarding path. Green — pass the test arguments through a dedicated environment fixture and splat them to the batch file through PowerShell's call operator. The focused Windows contract suite passes 7/7 and the Linux native artifact harness passes; a fresh Windows Actions run is still required.
+- **Native Windows Docker fake architecture probe — Red / Green, rerun pending:** run [37649606223](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37649606223) confirmed argument forwarding and completed install/other CI jobs, but unattended update failed because the fake `docker.cmd` returned a failing status for the architecture query. The preserved log confirmed the exact `info --format {{.Architecture}}` invocation. A static test failed Red because there was no explicit fake response/preflight or call-log diagnostic. Green — respond with direct `if`/`echo`/`exit` lines, execute a native preflight of the fake before installer launch, include Docker call logs on failure, and assert that the installer performs the expected probe. The focused Windows contract suite passes 8/8 and the Linux native harness passes; a new native matrix is pending.
+- **PowerShell architecture probe exit handling — Red / Green, rerun pending:** run [37650741917](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37650741917) showed the fake's direct native preflight passed and the installer logged the correct query, yet the installer treated the probe as failed. A focused regression failed Red because the code piped native output through `Select-Object` before reading `$LASTEXITCODE`. Green — capture the output array and `$LASTEXITCODE` immediately, then select the first output line. The focused Windows contract suite passes 9/9 and Linux native artifact launch passes; full gates and the updated native matrix remain pending.
+- **Windows harness exit-code propagation — Red / Green, rerun pending:** run [37651180098](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37651180098) passed architecture detection and unattended update, then the unconfirmed erase check showed the PowerShell harness returned the wrong process status despite the expected error text. A static regression failed Red because the argumented and empty-input wrapper commands did not exit with the `.bat` result. Green — append `exit $LASTEXITCODE` to both PowerShell launcher commands. The focused Windows contract suite passes 9/9 and the Linux native harness passes; a new native matrix remains required.
+- **Documentation contract regression:** the full suite found the user guide no longer stated plainly that uninstall asks whether to preserve or erase data. Matching English and pt-BR text was restored; `npm test -- --run tests/unit/documentation-contract.test.js -t 'single-file lifecycle menu'` passed 1/1.
+- **Red → Green — image inventory and uninstall postconditions:** `npm test -- --run tests/integration/unified-installer.test.js -t 'cannot inventory the product images'` reproduced a false success when Docker image inspection failed; Green makes inventory failure stop removal with an error. The unused-image postcondition test failed Red with exit 0 when image verification was temporarily disabled, then passed after verifying image absence or a remaining external container reference. Native Windows CI then failed before launch because PowerShell parsed a smart quote as a string delimiter. A new static regression failed Red on that character and passed after replacing the two strings; updated native Windows rerun remains pending. Focused suites passed 29/29 before that added regression; the Windows prompt suite now passes 6/6.
+- **Documentation contract regression:** the full suite found the user guide no longer stated plainly that uninstall asks whether to preserve or erase data. Matching English and pt-BR text was restored; `npm test -- --run tests/unit/documentation-contract.test.js -t 'single-file lifecycle menu'` passed 1/1.
+- **Runtime fire test — Linux real Docker:** operator ran `docker compose down -v` before the test; output confirmed removal of `postgres_data` and `operational_secrets`. The installer then ran with `printf '1\nS\n0\n' | sh /tmp/queuebot-installer-smoke/subarushogun_twich_bot_setup.sh`, detected the preserved local `.env` (pt-BR/3000), pulled GHCR `main`, recreated both volumes, completed PostgreSQL/migrations/bot startup and health polling. A subsequent `sh /tmp/queuebot-installer-smoke/subarushogun_twich_bot_setup.sh --silent update` completed without prompts and preserved database/secrets/settings. Final `curl --insecure --silent --show-error --fail https://localhost:3000/health` returned `status=ok`, database `connected`, Twitch `not_configured`, product version `v0.8.0-112a182-alpha`. No Twitch authorization/write operation occurred. The product installation remains running with newly recreated volumes; do not remove them in this story.
 - **Red → Green — Windows first-run locale:** `npm test -- --run tests/unit/windows-installer-first-run.test.js` first failed because the PowerShell source initialized `$Locale` to `pt-BR`, bypassing the language prompt on a fresh install. Green — leave locale empty when there is no saved config and prompt before the menu; invalid saved locale falls back to pt-BR. The static contract and actual direct-launch behavior are checked locally/CI respectively.
 - **Linux installer behavior:** `npm test -- --run tests/integration/unified-installer.test.js` covers packaging, path-safe launch, locale/port/callback, preserved updates, localized confirmation, failed clean-update download, keep/erase uninstall, and missing-Docker guidance. `node tests/platform/installer-native.mjs` directly launched the generated Linux artifact from a path containing spaces with an isolated fake Docker executable.
 - **Documentation (superseded download instructions):** the earlier guide pointed users to temporary GitHub Actions artifacts. Those instructions were replaced with GitHub Releases as the end-user path; CI artifacts remain for engineering/QA only. The bilingual guide gives the three exact asset names, opening steps, menu/data behavior, and source-file locations. The Linux CA command uses `$HOME` and `install -Dm644`.
@@ -81,15 +96,16 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 - [x] Docker daemon architecture tests allow `amd64`/`x86_64` and `arm64`/`aarch64`, reject unsupported values before Compose, and verify a readable first-run language prompt. Controlled CLI-boundary failure tests verify that startup/migration errors and an unhealthy post-update panel preserve the saved configuration and never request volume deletion.
 - [x] Failed clean-update image pull is proven to preserve saved settings and product data.
 - [x] Old lifecycle wrappers and tests are deleted; user-facing guides point to the single installer.
-- [x] Full repository quality gates and OpenGrep pass on the current tree: `npm test` (86 files / 667 tests), lint, typecheck, OpenGrep (0 findings), localization, port denylist, version, Compose config, workflow YAML parsing, and diff check. The last production dependency audit recorded earlier in this story found 0 vulnerabilities.
+- [x] Full repository quality gates and OpenGrep pass on the current tree: `npm test` (86 files / 677 tests), lint, typecheck, OpenGrep (0 findings), localization, port denylist, version, Compose config, workflow YAML parsing, and diff check. The last production dependency audit recorded earlier in this story found 0 vulnerabilities.
 - [x] Linux native artifact direct-launch check passes from a path containing spaces; the generated `.sh` selected locale/port, displayed the callback, invoked Compose, and exits cleanly when first-run input is unavailable.
 - [x] Public source-repository access and GHCR image-package access are documented separately in English and pt-BR; anonymous GHCR access was checked and denied while the package remains private.
 - **Earlier extracted-artifact instructions — historical Red / Green, superseded:** the operator ran `sh ./subarushogun_twich_bot_setup.sh` from the repository root and received `cannot open ... No such file`; at that time the packaged file existed only in a downloaded CI archive. The resulting documentation contract was fixed by explaining the extraction directory. The current delivery plan uses standalone files attached to GitHub Releases, so users open the downloaded `.sh` directly from its saved location; the earlier CI archive instruction is not current guidance.
-- [x] Native Windows, macOS, and Linux Actions tested the latest architecture checks and uploaded one artifact per OS in [run 37637847991](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37637847991); the release workflow repeats those native checks before attaching installers.
+- [x] Historical native Windows, macOS, and Linux Actions passed in [run 37637847991](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37637847991).
+- [x] Corrective installer passed native Windows/macOS/Linux Actions in [run 37651571138](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37651571138).
 - [x] Tag release workflow validates runtime identity and creates release notes from the matching English and pt-BR changelog sections.
 - [x] User guides use GitHub Releases; Actions artifacts are documented as temporary engineering/QA files.
 - [ ] Create any tag/release only after the owner-approved gate; FND-9 is incomplete and no public product release exists.
-- [x] Independent AIOX-QA passed the 14 acceptance criteria with a 100/100 quality score; see `docs/qa/gates/OPS-5-unified-lifecycle-installer.yml` and bilingual assessments.
+- [x] Historical AIOX-QA applies only to the pre-reopen baseline. Corrective AIOX-QA passed 17/17 criteria at 100/100; see the final review and gate below.
 - [x] Physical Windows/macOS acceptance is not claimed; actual host Docker lifecycle and dependency-install runs remain operator follow-up and are not a prerequisite for the native-runner CI criterion.
 - [ ] Before the planned post-FND-9 Twitch streamer acceptance, make the GHCR package public and verify an anonymous pull; the source repository is public, but the image package was still private on 2026-10-07.
 
@@ -185,6 +201,7 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 - `tests/unit/windows-installer-first-run.test.js`
 
 - `docs/qa/gates/OPS-5-unified-lifecycle-installer.yml`
+- `docs/pt-BR/qa/gates/OPS-5-unified-lifecycle-installer.yml`
 - `docs/qa/assessments/OPS-5-risk-20261007.md`
 - `docs/qa/assessments/OPS-5-nfr-20261007.md`
 - `docs/pt-BR/qa/gates/OPS-5-unified-lifecycle-installer.yml`
@@ -220,10 +237,43 @@ Replacing Docker Compose, removing Docker as part of product uninstall, silently
 | 2026-10-07 | Added architecture and recovery regressions: unsupported Docker daemon architectures stop before Compose, supported architecture aliases proceed, the first language prompt is readable, and migration/startup or post-update health failures preserve settings/data. The new Red cases failed because architecture was not checked and the initial copy showed internal keys; Green adds daemon architecture checks and a pt-BR prompt fallback. Local full-suite result is 667 tests; fresh native CI and independent QA remain pending | @aiox-dev |
 | 2026-10-07 | Native Actions run 37637259314 passed Linux/macOS but Windows failed because the harness log lacked `compose up -d`; its failure output did not yet reveal the cause. Updated the `.cmd` fake to match arguments individually and included captured installer output in the assertion. Run 37637847991 then passed all native Windows/macOS/Linux jobs and uploaded the three installer artifacts | @aiox-dev |
 | 2026-10-07 | Independent AIOX-QA review passed 14/14 acceptance criteria with score 100/100; no blocking risks remain. Physical Windows/macOS host tests remain unclaimed | @qa |
+| 2026-10-07 | Reopened after operator feedback; added progress, scoped Docker cleanup, volume-policy postconditions, and no-install reporting acceptance criteria. Previous Done/QA evidence is retained as historical baseline only; corrective increment is InProgress | @aiox-master + @aiox-devops |
+| 2026-10-07 | Added unattended cross-platform CLI contract, safe explicit erase flags, and bilingual operator commands; real Linux Compose install/update fire test passed. Native Windows PowerShell execution and new QA remain pending | @aiox-dev + @aiox-master |
+| 2026-10-07 | Native Windows/macOS/Linux matrix passed in Actions run 37651571138; local gates pass with 677 tests. Status transitioned Ready for Review → InReview for independent corrective QA | @aiox-dev |
+| 2026-10-07 | QA Gate PASS (0.9.0) — Status: InReview → Done; all 17 acceptance criteria verified against 677 tests and native Windows/macOS/Linux CI | @qa |
 
 ## QA Results
 
-### Review Date: 2026-10-07
+### Corrective increment review — 2026-10-07
+
+### Reviewed By: Quinn (Test Architect)
+
+### Code Quality Assessment
+
+The corrective POSIX and PowerShell installers now report lifecycle progress, scope Docker cleanup to this Compose project, inventory product images, avoid removing images referenced by any container, and verify container/network/volume/image postconditions before reporting success. Unattended actions have explicit safe defaults and require paired erase flags. The user guide and installer documentation describe the same behavior in English and pt-BR.
+
+### Validation Evidence
+
+- `npm test`: 86 files, 677 tests passed after the PowerShell architecture-probe correction.
+- `npm run lint`, `npm run typecheck`, `npm run review:static`: passed; OpenGrep reported 0 findings.
+- `npm run validate:version`, `npm run validate:localization`, `npm run validate:port-denylist`, `docker compose config --quiet`, `sh -n apps/infra/installer/installer.sh`, `node --check tests/platform/installer-native.mjs`, `node tests/platform/installer-native.mjs`, and `git diff --check`: passed.
+- Focused installer tests: 29/29 passed; documentation contract regression: 1/1 passed.
+- Linux Compose runtime remains healthy; `bot` and `db` are healthy and the `postgres_data`/`operational_secrets` volumes are preserved.
+- Native Windows Actions run 37648518488 initially failed before launch on a PowerShell parse error caused by smart quotes in single-quoted strings; commit `b92a4cc` fixes it. Run 37649015429 then passed parsing and installation but exposed an argument-forwarding defect in the native harness during unattended update. The harness now forwards explicit test arguments, and a new native matrix run is pending.
+
+### Interim Gate Status — superseded by final corrective review below
+
+Historical interim result: CONCERNS — score 88/100 (8.8/10), recorded before the last Windows harness fix and final native Actions run. It is superseded by the final corrective review below, which covers the updated revision and reports PASS 100/100.
+
+### Security Review
+
+OpenGrep reported 0 findings. Image cleanup checks container references before removal; no global prune or host dependency removal is used. The database and secrets volumes in the active installation were not removed.
+
+### Interim Lifecycle Decision — superseded
+
+Independent QA evaluated the corrective revision after the final CI run. No physical Windows/macOS host run or Twitch write operation is claimed.
+
+### Historical baseline review — Review Date: 2026-10-07
 
 ### Reviewed By: Quinn (Test Architect)
 
@@ -273,4 +323,58 @@ NFR assessment: `docs/qa/assessments/OPS-5-nfr-20261007.md`
 
 ### Lifecycle Transition
 
-PASS: InReview → Done. GitHub issue #30 remains open until PR #36 is merged and then must be synchronized by @devops.
+Historical baseline only: PASS InReview → Done for PR #36. OPS-5 was reopened on 2026-10-07; this prior review did not cover the corrective increment. The final corrective review below records PASS InReview → Done for PR #37; @devops synchronizes issue #30 after merge.
+
+### Final corrective review — Review Date: 2026-10-07
+
+### Reviewed By: Quinn (Test Architect)
+
+### Reviewed Revision: `07f2dbdb7e9bfb2f916dab3ad1b1169dd3637d55`
+
+### Code Quality Assessment
+
+The corrective installer work is maintainable across POSIX and PowerShell entrypoints, keeps Docker cleanup scoped to the product Compose project, validates removal postconditions, preserves shared images and user data by default, and makes destructive actions explicit. The Windows native run exercised the packaged `.bat` directly and verified unattended update, refusal of unconfirmed erase, keep-data uninstall, restart, confirmed erase, and exit-code behavior.
+
+### Refactoring Performed
+
+No QA-owned code refactor was needed. All test-harness and PowerShell probe corrections were made test-first by development and have Red/Green evidence in the implementation records.
+
+### Compliance Check
+
+- Coding Standards: ✓ JavaScript ESM, shell/PowerShell boundaries, scoped Docker operations, and English technical identifiers are preserved.
+- Project Structure: ✓ Installer, packaging, tests, documentation, and QA files follow the established project layout.
+- Testing Strategy: ✓ Vitest contracts, real PostgreSQL/Compose integration, direct native artifact launches, and test-first regressions were used at the appropriate boundaries.
+- All ACs Met: ✓ 17/17. CI run [37651571138](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37651571138) passed Windows, macOS, Linux, lint/typecheck, OpenGrep, tests, and production image build.
+
+### Improvements Checklist
+
+- [x] Verify all 17 acceptance criteria against implementation tests, release workflow contracts, bilingual docs, and native artifact CI.
+- [x] Verify full local suite: 86 files / 677 tests; lint, typecheck, OpenGrep (0 findings), version/localization/port validators, Compose config, Linux direct launch, shell/Node syntax, and diff check pass.
+- [x] Verify the final Windows/macOS/Linux native artifact matrix and uploads in Actions run 37651571138.
+- [ ] Record physical Windows/macOS host lifecycle smoke tests when the owner performs them; current native runner uses isolated fake Docker.
+
+### Security Review
+
+OpenGrep found 0 issues. Uninstall inventories project-labeled resources, checks image use by any container, verifies selected volume policy, and never runs global prune or removes host dependencies. No secrets or raw user data are added to artifacts or logs.
+
+### Performance Considerations
+
+Installer checks are bounded local Docker queries and bounded health polling. No resident process, background service, or dependency was added.
+
+### Files Modified During Review
+
+Only the QA gate, QA results, and lifecycle/status records were updated; product source was not changed during QA.
+
+### Gate Status
+
+Gate: PASS (100/100) → `docs/qa/gates/OPS-5-unified-lifecycle-installer.yml`
+
+Risk profile: existing baseline `docs/qa/assessments/OPS-5-risk-20261007.md`; no new blocking risk identified in this corrective review.
+
+NFR assessment: corrective security, performance, reliability, and maintainability checks PASS in the gate file.
+
+Physical Windows/macOS host acceptance and Twitch write operations were not performed and are not claimed.
+
+### Lifecycle Transition
+
+PASS: InReview → Done (0.9.0). @devops can now synchronize issue #30 and merge PR #37 after the QA gate is committed.

@@ -4,6 +4,11 @@
 
 Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.9.0-alpha
+
+- O instalador agora exibe o progresso e só confirma a remoção após verificar que os containers, as redes e as imagens sem uso do produto desapareceram.
+- Comandos sem interação são opcionais para instalar, atualizar e desinstalar. Atualizações e remoções preservam dados salvos, a menos que haja uma confirmação explícita de exclusão.
+
 ## v0.8.0-alpha
 
 - Um instalador por sistema reúne instalação, atualização e remoção de dados, mantém o idioma escolhido na primeira execução do Windows, verifica a arquitetura do Docker e acompanha a versão da release escolhida.
