@@ -246,7 +246,7 @@ describe('Twitch integration lifecycle', () => {
     };
     const integration = await createTwitchIntegration({ credentialRepository, oauthStateStore, redirectUri: 'https://localhost:3000/callback' });
     await expect(integration.beginFollowerAuthorization({ sessionId: 'session-1', expectedVersion: 4,
-      policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } } }))
+      policies: { 'queue:lista': { minimumRole: 'follower' } } }))
       .resolves.toEqual({ state: 'opaque-state', url: 'https://id.twitch.tv/oauth2/authorize?state=opaque-state' });
     expect(oauthStateStore.issue).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: 'session-1', clientId: 'client-1', redirectUri: 'https://localhost:3000/callback',
@@ -267,7 +267,7 @@ describe('Twitch integration lifecycle', () => {
     const oauthStateStore = {
       take: vi.fn(() => ({ clientId: 'client-1', redirectUri: 'https://localhost:3000/callback',
         scopes: ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'moderator:read:followers'],
-        context: { kind: 'follower_policy', expectedVersion: 4, policies: { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } } } })),
+        context: { kind: 'follower_policy', expectedVersion: 4, policies: { 'queue:lista': { minimumRole: 'follower' } } } })),
     };
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ access_token: 'access', refresh_token: 'refresh', expires_in: 3600 }) }));
     const integration = await createTwitchIntegration({ credentialRepository, repository, oauthStateStore, fetchImpl,

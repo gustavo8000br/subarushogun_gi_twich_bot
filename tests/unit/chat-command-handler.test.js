@@ -30,14 +30,14 @@ function setup() {
 describe('Twitch chat command handler', () => {
   it('verifies follower status only when needed and permits a confirmed follower without side effects on uncertainty', async () => {
     const h = setup();
-    h.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } }));
+    h.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { minimumRole: 'follower' } }));
     h.twitch.checkFollower = vi.fn(async () => 'follower');
     await h.handler({ id: 'follower-list', text: '!abismo lista', userId: '123456', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
     expect(h.twitch.checkFollower).toHaveBeenCalledWith('123456');
     expect(h.repository.listQueueChatEntries).toHaveBeenCalledOnce();
 
     const unknown = setup();
-    unknown.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } }));
+    unknown.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { minimumRole: 'follower' } }));
     unknown.twitch.checkFollower = vi.fn(async () => 'unknown');
     await unknown.handler({ id: 'follower-list-unknown', text: '!abismo lista', userId: '654321', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
     expect(unknown.repository.listQueueChatEntries).not.toHaveBeenCalled();
@@ -47,14 +47,14 @@ describe('Twitch chat command handler', () => {
 
   it('does not query Twitch for subscriber inheritance and marks follower-dependent help as unverifiable when needed', async () => {
     const subscriber = setup();
-    subscriber.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } }));
+    subscriber.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { minimumRole: 'follower' } }));
     subscriber.twitch.checkFollower = vi.fn();
     await subscriber.handler({ id: 'subscriber-list', text: '!abismo lista', userId: 'sub-1', userLogin: 'sub', displayName: 'Sub', channelId: 'broadcaster-1', badges: [{ setId: 'subscriber' }] });
     expect(subscriber.twitch.checkFollower).not.toHaveBeenCalled();
     expect(subscriber.repository.listQueueChatEntries).toHaveBeenCalledOnce();
 
     const help = setup();
-    help.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } }));
+    help.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { minimumRole: 'follower' } }));
     help.twitch.checkFollower = vi.fn(async () => 'unknown');
     await help.handler({ id: 'follower-help-unknown', text: '!fila comandos', userId: 'help-1', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
     expect(help.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringMatching(/não foi possível verificar|não foi poss[ií]vel verificar/i));
@@ -63,7 +63,7 @@ describe('Twitch chat command handler', () => {
 
   it('includes follower-threshold commands in help only after a positive current Twitch check', async () => {
     const h = setup();
-    h.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } }));
+    h.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { minimumRole: 'follower' } }));
     h.twitch.checkFollower = vi.fn(async () => 'follower');
     await h.handler({ id: 'follower-help-positive', text: '!fila comandos', userId: '888888', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
     expect(h.twitch.checkFollower).toHaveBeenCalledWith('888888');

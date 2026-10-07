@@ -81,3 +81,20 @@ button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #b6
 .operation-empty p{margin:0}
 @media(max-width:430px){.runtime{max-width:62%;gap:6px;font-size:9px}.runtime span:last-child{display:none}.overview-next .button{width:100%}}
 @media(max-width:680px){.command-policy-card{grid-template-columns:minmax(0,1fr)}}
+
+/* Command permissions use a compact, scannable grid while preserving readable mobile flow. */
+.command-catalog{gap:24px}
+.command-policy-group{display:grid;gap:10px;min-width:0}
+.command-policy-group-heading{margin:0;color:#d9d2e8;font:600 13px var(--mono);letter-spacing:.04em}
+.command-policy-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.command-policy-card{display:block;min-width:0;padding:15px;background:#15171d}
+.command-policy-description{display:grid;gap:8px;min-width:0}
+.command-policy-card h3{margin:0;color:#e7e2ef;font:600 13px system-ui,sans-serif;line-height:1.4}
+.command-policy-syntax{width:fit-content;max-width:100%;overflow-wrap:anywhere;padding:4px 7px;border:1px solid #37333f;border-radius:5px;background:#1b1922}
+.command-policy-roles{display:grid;gap:7px;margin-top:3px}
+.command-policy-roles label{display:grid;gap:5px;padding:0;border:0;color:#c5c7ce;font-size:11px}
+.command-policy-roles select{min-width:0}
+.command-policy-card p{margin:0}
+#command-catalog-form>[type="submit"]{margin-top:24px}
+#command-catalog-notice{margin-bottom:4px}
+@media(max-width:900px){.command-policy-grid{grid-template-columns:minmax(0,1fr)}}

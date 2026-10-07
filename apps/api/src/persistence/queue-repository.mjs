@@ -1,6 +1,6 @@
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { validateUidInput } from '../domain/uid.mjs';
-import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES, CONFIGURABLE_COMMAND_ROLES } from '../commands/catalog.mjs';
+import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog.mjs';
 
 /** @typedef {Record<string, any>} PrismaClientLike */
 
@@ -50,33 +50,22 @@ function isSafeReason(reason) {
 }
 
 function parseCommandPolicyState(value) {
-  if (!value) return { schemaVersion: 1, version: 1, policies: {} };
+  if (!value) return { schemaVersion: 3, version: 1, policies: {} };
   if (!value || typeof value !== 'object' || Array.isArray(value)
       || !value.policies || typeof value.policies !== 'object' || Array.isArray(value.policies)) {
     throw repositoryError('INVALID_COMMAND_POLICY_STATE', 'Stored command policy state is invalid');
   }
-  const legacy = value.schemaVersion === undefined;
-  const schemaVersion = legacy ? 1 : value.schemaVersion;
-  const version = legacy ? value.version : value.revision;
-  if (![1, 2].includes(schemaVersion) || !Number.isInteger(version) || version < 1) {
+  const schemaVersion = value.schemaVersion;
+  const version = value.revision;
+  if (schemaVersion !== 3 || !Number.isInteger(version) || version < 1) {
     throw repositoryError('INVALID_COMMAND_POLICY_STATE', 'Stored command policy state is invalid');
   }
   for (const [key, policy] of Object.entries(value.policies)) {
     const definition = CHAT_COMMANDS.find((entry) => entry.key === key);
     if (!definition) throw repositoryError('INVALID_COMMAND_POLICY_STATE', 'Stored command policy state is invalid');
-    if (schemaVersion === 1) {
-      if (!Array.isArray(policy) || policy.some((role) => !CONFIGURABLE_COMMAND_ROLES.includes(role))
-          || new Set(policy).size !== policy.length) {
-        throw repositoryError('INVALID_COMMAND_POLICY_STATE', 'Stored command policy state is invalid');
-      }
-    } else if (!policy || typeof policy !== 'object' || Array.isArray(policy) || definition.immutableRoles
-        || (policy.mode === 'minimum_role' && !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole))
-        || (policy.mode === 'legacy_exact' && (!Array.isArray(policy.allowedRoles)
-          || policy.allowedRoles.some((role) => !CONFIGURABLE_COMMAND_ROLES.includes(role))
-          || new Set(policy.allowedRoles).size !== policy.allowedRoles.length))
-        || !['minimum_role', 'legacy_exact'].includes(policy.mode)
-        || (policy.mode === 'minimum_role' && Object.keys(policy).some((property) => !['mode', 'minimumRole'].includes(property)))
-        || (policy.mode === 'legacy_exact' && Object.keys(policy).some((property) => !['mode', 'allowedRoles'].includes(property)))) {
+    if (!policy || typeof policy !== 'object' || Array.isArray(policy) || definition.access.kind !== 'configurable'
+        || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
+        || Object.keys(policy).some((property) => property !== 'minimumRole')) {
       throw repositoryError('INVALID_COMMAND_POLICY_STATE', 'Stored command policy state is invalid');
     }
   }
@@ -89,9 +78,9 @@ function validateCommandPolicyChanges(policies) {
   }
   for (const [key, policy] of Object.entries(policies)) {
     const definition = CHAT_COMMANDS.find((entry) => entry.key === key);
-    if (!definition || definition.immutableRoles || !policy || typeof policy !== 'object' || Array.isArray(policy)
-        || policy.mode !== 'minimum_role' || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
-        || Object.keys(policy).some((property) => !['mode', 'minimumRole'].includes(property))) {
+    if (!definition || definition.access.kind !== 'configurable' || !policy || typeof policy !== 'object' || Array.isArray(policy)
+        || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
+        || Object.keys(policy).some((property) => property !== 'minimumRole')) {
       throw repositoryError('INVALID_COMMAND_POLICY', 'Command policy update is invalid');
     }
   }
@@ -108,11 +97,8 @@ async function updateCommandPoliciesInTransaction(tx, { expectedVersion, policie
   if (current.version !== expectedVersion) {
     throw repositoryError('COMMAND_POLICY_VERSION_CONFLICT', 'Command policy version changed');
   }
-  const legacyPolicies = current.schemaVersion === 1
-    ? Object.fromEntries(Object.entries(current.policies).map(([key, allowedRoles]) => [key, { mode: 'legacy_exact', allowedRoles: [...allowedRoles] }]))
-    : current.policies;
-  const next = { schemaVersion: 2, version: current.version + 1, policies: { ...legacyPolicies, ...policies } };
-  const stored = { schemaVersion: 2, revision: next.version, policies: next.policies };
+  const next = { schemaVersion: 3, version: current.version + 1, policies: { ...current.policies, ...policies } };
+  const stored = { schemaVersion: 3, revision: next.version, policies: next.policies };
   await tx.setting.upsert({
     where: { key: 'chat_command_policies' },
     create: { key: 'chat_command_policies', value: stored },

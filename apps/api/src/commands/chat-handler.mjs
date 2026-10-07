@@ -301,7 +301,7 @@ export function createChatCommandHandler({ repository, domainService = repositor
     const tPlural = (key, count) => translatePluralCatalog(catalogsWithFallback, productLocale, key, count, { placeholders: CHAT_PLACEHOLDERS });
     const definition = getCommandDefinition(parsed);
     let policies = {};
-    if (definition && !definition.immutableRoles) {
+    if (definition?.access.kind === 'configurable') {
       try { policies = await repository.getCommandPolicies?.() ?? {}; } catch {
         onError('command_policy_read_failed');
         return reply(message, t('chat.commands.validation_failed'));
@@ -311,8 +311,8 @@ export function createChatCommandHandler({ repository, domainService = repositor
     const isHelpRequest = (parsed.scope === 'queue' && parsed.command === 'comandos')
       || (parsed.scope === 'global' && parsed.rootAction === 'commands');
     const policy = resolveCommandPolicy(definition, policies);
-    const needsFollowerCheck = policy.mode === 'minimum_role' && policy.minimumRole === 'follower';
-    const helpHasFollowerCommands = isHelpRequest && Object.values(policies).some((candidate) => candidate?.mode === 'minimum_role' && candidate.minimumRole === 'follower');
+    const needsFollowerCheck = policy.minimumRole === 'follower';
+    const helpHasFollowerCommands = isHelpRequest && Object.values(policies).some((candidate) => candidate?.minimumRole === 'follower');
     const hasHigherRole = authorized.roles.some((role) => ['streamer', 'moderator', 'subscriber'].includes(role)
       || (role === 'vip' && allowVipManagement));
     if (!hasHigherRole && (needsFollowerCheck || helpHasFollowerCommands)) {

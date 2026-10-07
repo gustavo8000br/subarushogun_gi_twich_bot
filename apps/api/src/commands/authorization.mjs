@@ -1,4 +1,4 @@
-import { getCommandDefinition, resolveAllowedRoles, resolveCommandAccess } from './catalog.mjs';
+import { getCommandDefinition, resolveCommandAccess } from './catalog.mjs';
 
 /** @typedef {{allowed: boolean, role: string|null, roles: string[], actorId: string|null, reason: string, followerVerificationUnknown?: boolean}} AuthorizationDecision */
 
@@ -43,8 +43,7 @@ export function authorizeCommand(input) {
   const role = roles[0] ?? 'viewer';
   const definition = getCommandDefinition(command);
   if (!definition) return decision(false, role, message.userId, 'unknown_command', roles);
-  const allowedRoles = resolveAllowedRoles(definition, input.policies);
-  const access = resolveCommandAccess({ definition, allowedRoles, roles, allowVipManagement });
+  const access = resolveCommandAccess({ definition, policies: input.policies, roles, allowVipManagement });
 
   if (command.scope === 'queue' && ['posicao', 'sair'].includes(command.command) && command.args.length > 0) {
     return decision(false, role, message.userId, 'viewer_identity_required', roles);

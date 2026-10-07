@@ -46,7 +46,7 @@ describe('command authorization', () => {
   });
 
   it('inherits follower access for subscribers and grants followers only when API verification succeeds', () => {
-    const policies = { 'queue:lista': { mode: 'minimum_role', minimumRole: 'follower' } };
+    const policies = { 'queue:lista': { minimumRole: 'follower' } };
     expect(check(localMessage(), parsed('lista'), { policies }))
       .toMatchObject({ allowed: false, reason: 'role_not_allowed' });
     expect(authorizeCommand({ broadcasterId: 'broadcaster-1', message: localMessage(), command: parsed('lista'), policies, isFollower: true }))

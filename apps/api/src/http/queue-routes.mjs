@@ -1,6 +1,6 @@
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { createHash } from 'node:crypto';
-import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES, resolveAllowedRoles, resolveCommandPolicy } from '../commands/catalog.mjs';
+import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES, resolveCommandPolicy } from '../commands/catalog.mjs';
 import { translateCatalog } from '../../../shared/browser/translate-catalog.mjs';
 
 function canonicalValue(value) {
@@ -153,11 +153,10 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
         configurableRoles: COMMAND_POLICY_MINIMUM_ROLES,
         commands: CHAT_COMMANDS.map((definition) => ({
           key: definition.key, scope: definition.scope, syntax: definition.syntax,
-          description: definition.description, defaultRoles: definition.defaultRoles,
+          description: definition.description,
           policy: resolveCommandPolicy(definition, state.policies),
-          allowedRoles: resolveAllowedRoles(definition, state.policies),
-          immutableRoles: definition.immutableRoles ?? null,
-          configurable: !definition.immutableRoles,
+          access: definition.access,
+          configurable: definition.access.kind === 'configurable',
         })),
       };
     } catch {
@@ -176,9 +175,9 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     let hasFollowerThreshold = false;
     for (const [key, policy] of Object.entries(policies)) {
       const definition = CHAT_COMMANDS.find((entry) => entry.key === key);
-      if (!definition || definition.immutableRoles || !policy || typeof policy !== 'object' || Array.isArray(policy)
-        || policy.mode !== 'minimum_role' || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
-        || Object.keys(policy).some((property) => !['mode', 'minimumRole'].includes(property))) {
+      if (!definition || definition.access.kind !== 'configurable' || !policy || typeof policy !== 'object' || Array.isArray(policy)
+        || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
+        || Object.keys(policy).some((property) => property !== 'minimumRole')) {
         return reply.code(400).send({ error: 'Um ou mais comandos têm níveis inválidos ou não podem ser alterados.' });
       }
       if (policy.minimumRole === 'follower') hasFollowerThreshold = true;
@@ -209,9 +208,9 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     }
     for (const [key, policy] of Object.entries(policies)) {
       const definition = CHAT_COMMANDS.find((entry) => entry.key === key);
-      if (!definition || definition.immutableRoles || !policy || typeof policy !== 'object' || Array.isArray(policy)
-        || policy.mode !== 'minimum_role' || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
-        || Object.keys(policy).some((property) => !['mode', 'minimumRole'].includes(property))) {
+      if (!definition || definition.access.kind !== 'configurable' || !policy || typeof policy !== 'object' || Array.isArray(policy)
+        || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
+        || Object.keys(policy).some((property) => property !== 'minimumRole')) {
         return reply.code(400).send({ error: 'Um ou mais comandos têm cargos inválidos ou não podem ser alterados.' });
       }
     }

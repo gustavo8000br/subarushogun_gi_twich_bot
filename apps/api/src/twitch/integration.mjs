@@ -222,12 +222,12 @@ export async function createTwitchIntegration({
         throw Object.assign(new Error('Follower authorization request is invalid'), { code: 'INVALID_FOLLOWER_AUTHORIZATION' });
       }
       const entries = Object.entries(policies);
-      if (!entries.length || !entries.some(([, policy]) => policy?.mode === 'minimum_role' && policy.minimumRole === 'follower')
+      if (!entries.length || !entries.some(([, policy]) => policy?.minimumRole === 'follower')
         || entries.some(([key, policy]) => {
           const definition = CHAT_COMMANDS.find((command) => command.key === key);
-          return !definition || definition.immutableRoles || !policy || typeof policy !== 'object' || Array.isArray(policy)
-            || policy.mode !== 'minimum_role' || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
-            || Object.keys(policy).some((property) => !['mode', 'minimumRole'].includes(property));
+          return !definition || definition.access.kind !== 'configurable' || !policy || typeof policy !== 'object' || Array.isArray(policy)
+            || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
+            || Object.keys(policy).some((property) => property !== 'minimumRole');
         })) throw Object.assign(new Error('Follower authorization request is invalid'), { code: 'INVALID_FOLLOWER_AUTHORIZATION' });
       return oauthStateStore.issue({ sessionId, clientId: credential.clientId, redirectUri, scopes: ['moderator:read:followers'], context: { kind: 'follower_policy', expectedVersion, policies } });
     },
