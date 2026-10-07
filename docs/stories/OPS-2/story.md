@@ -10,7 +10,7 @@
 
 ## Status
 
-**Done in source — independent QA PASS 9.3/10; issue #21 body synchronized and remains open until this implementation is merged by PR.**
+**Done — the initial pt-BR status mapping merged in PR #13; the safe status-precedence fixes and expanded locale map merged in PR #31 as part of FND-8. Issue #21 is closed as covered by the completed FND-8 work. Independent QA PASS 9.3/10.**
 
 ## Story
 
@@ -23,7 +23,7 @@
 1. Twitch setup status codes shown in the visible panel are mapped to safe, user-facing Portuguese labels; `ineligible` says that Affiliate/Partner eligibility is required.
 2. Unknown status values use a generic Portuguese fallback and are never shown raw.
 3. The existing detailed eligibility explanation remains visible in Portuguese.
-4. The FND-8 plan records product-wide localization: pt-BR default from installation, editable in the panel; English and Spanish; community catalogs divided by module and locale; coverage for panel, chat commands/messages, OBS widget product copy and local setup/update/uninstall tools. FND-8 implementation remains a separate story.
+4. Product-wide localization belongs to FND-8: pt-BR default from installation and editable in the panel, English and Spanish, community catalogs by module and locale, and coverage for panel, chat, OBS product copy, and local setup/update/uninstall tools. FND-8 delivered this wider scope, including the Twitch status catalog and the precedence regressions covered here; no separate OPS-2 implementation remains.
 
 ## TDD Evidence
 
@@ -58,4 +58,5 @@ Gate: PASS, 9.3/10 → `docs/qa/gates/OPS-2-twitch-status-pt-br.yml` and `docs/p
 
 | Date | Version | Change | Agent |
 | --- | --- | --- | --- |
+| 2026-10-07 | 0.7.2 | Record that the remaining OPS-2 status fixes shipped with FND-8 PR #31 and issue #21 is closed as covered | @aiox-master |
 | 2026-10-06 | 0.5.2 | Two stale-status precedence defects fixed test-first; independent QA PASS 9.3/10, status InReview → Done | @qa |

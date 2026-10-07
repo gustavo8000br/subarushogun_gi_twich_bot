@@ -2,6 +2,10 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.7.2-alpha
+
+- Reconcile the bilingual README roadmap with current stories/issues and align OPS-2 with the status localization and precedence behavior delivered by FND-8 PR #31. Restructure the root READMEs as concise landing pages with focused bilingual installation, development, contribution, and roadmap guides. Add a tested README structure/length standard. Documentation only; no runtime behavior changed.
+
 ## v0.7.1-alpha
 
 - Synchronize the OPS-6 story index and issue record after PR #33 merged and issue #32 closed. No runtime behavior changed.

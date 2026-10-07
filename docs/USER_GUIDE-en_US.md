@@ -1,6 +1,6 @@
 # User guide
 
-[Leia em português brasileiro](MANUAL_DE_USUARIO-pt_BR.md)
+[Leia em português brasileiro](MANUAL_DE_USUARIO-pt_BR.md) · [Installation guide](INSTALLATION.md)
 
 This guide describes the product as it exists in the current project version. The product locale can be changed in **Settings**; available catalogs cover Brazilian Portuguese, English, and Spanish, plus complete community locales discovered at runtime. The selected locale controls product-owned panel, chat, OBS, and lifecycle copy.
 
@@ -20,26 +20,9 @@ The application is intended to run on the streamer's own computer. Queue order a
 
 The streamer is identified by the Twitch account connected to this installation. Moderator access comes from Twitch's current chat badge, not from a typed name. Commands from another channel are ignored.
 
-## What you need to get started
+## Before first use
 
-- A 64-bit computer with Docker installed and running. On Windows, use Docker Desktop with its WSL 2 setup. On Linux, use Docker Engine and the Compose v2 command. macOS instructions are provided, but this project's macOS behavior has not been validated.
-- A current browser on the same computer.
-- An internet connection for the first image download and for Twitch features.
-- Access to the project and its current private image package. During this pre-release, Docker may need to sign in to GitHub Container Registry; the project README explains the access step.
-- A Twitch account and a confidential app created by the streamer in the Twitch Developer Console.
-
-You do not need to install development tools or prepare a separate service to store the app's information.
-
-### First installation
-
-1. Install Docker for your system, start it, and wait until Docker says it is ready.
-2. Obtain the project folder and open a terminal or PowerShell window in that folder.
-3. On Linux or macOS, if the start file cannot be run, use `chmod +x iniciar.sh` once.
-4. Start the app with `./iniciar.sh` on Linux/macOS or `.\iniciar.bat` in PowerShell. The first start downloads the required files and prepares the local installation.
-5. Trust the local certificate created in the `.local` folder, following the operating-system steps in [README](../README.md), then open `https://localhost:3000`.
-6. Follow **Conexão do canal** in the panel to connect Twitch. Do not enter Twitch credentials into chat or send them to anyone.
-
-Approximate hardware guidance for this alpha: about 2 CPU cores available to Docker, about 4 GB memory available to Docker during first setup, 8 GB total system memory as a practical target, and about 10 GB free disk space. These are estimates, not guaranteed minimums; needs can change with each version and are updated in the README.
+Follow the [installation guide](INSTALLATION.md) for exact host requirements, private GHCR access, platform-specific startup, and certificate trust. Node.js and PostgreSQL do not need to be installed on the host. Once the panel opens at `https://localhost:3000`, continue with **Connecting Twitch** below.
 
 ## Connecting Twitch
 
@@ -174,13 +157,15 @@ The OBS page creates local Browser Source widgets for one selected value or fixe
 
 Close the app with `docker compose stop`; this pauses the app without deleting its saved information. Start it again with `docker compose start`. Restarting the computer or app preserves queues and pending operations. After reconnecting, the app checks Twitch and resumes recoverable work. Anything whose final points state cannot be confirmed remains visible for operator review.
 
-Use the provided updater (`atualizar.bat` or `./atualizar.sh`) only with a clean project folder. It updates the current `main` version and preserves saved information. The uninstaller (`desinstalar.bat` or `./desinstalar.sh`) asks whether to keep or delete saved information. Deleting it removes queues, history, Twitch connection details, and local secrets. Do not use Docker's volume-removal option as a normal stop or update.
+For service status and troubleshooting, run `docker compose ps` and `docker compose logs --tail=100 bot`. `docker compose down` stops the project and preserves its volumes. Do not add `--volumes` unless you intentionally want to erase the local database and secrets.
+
+Use the provided updater (`subarushogun_twich_bot_update.bat` or `./subarushogun_twich_bot_update.sh`) only from the `main` branch in a clean Git checkout. It updates the current `main` version and preserves saved information. The uninstaller (`subarushogun_twich_bot_uninstall.bat` or `./subarushogun_twich_bot_uninstall.sh`) asks whether to keep or delete saved information. If deletion is selected, type `APAGAR` to confirm permanent removal of queues, history, Twitch connection details, and local secrets. Choosing preservation keeps the database and secrets. Do not use Docker's volume-removal option as a normal stop or update.
 
 ## Common problems
 
 | What you see | What to do |
 | --- | --- |
-| The browser warns about the local certificate | Follow the certificate trust step for your system in the README, then restart the browser and reopen `https://localhost:3000`. Do not switch to an insecure address. |
+| The browser warns about the local certificate | Follow the certificate trust step for your system in the [installation guide](INSTALLATION.md), then restart the browser and reopen `https://localhost:3000`. Do not switch to an insecure address. |
 | Panel says Twitch needs reconnection | Open **Conexão do canal**, reconnect the same channel, and approve the requested access. The panel and saved work remain available while reconnecting. |
 | Channel is ineligible or points rewards are unavailable | Only Twitch Affiliates/Partners with Channel Points can use reward-backed queues in this version. Manual-only ineligible-channel support is planned, not yet available. |
 | A reward is pending or an operation is uncertain | Open **Operações financeiras** or **Conexão do canal**, review the message, and use its retry/sync/recovery action. Do not assume points changed until confirmed. |

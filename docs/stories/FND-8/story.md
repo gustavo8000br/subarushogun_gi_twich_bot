@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../pt-BR/stories/FND-8/story.md)
 
-**Status:** Ready for Review. Product locale persistence, dynamic community catalogs, localized panel/chat/OBS/setup/lifecycle copy, native Windows lifecycle CI, strict plural/unsafe-markup validation, and regression coverage are implemented on open PR #31. Independent AIOX-QA passed 9.2/10. Windows lifecycle behavior passed the native `windows-latest` CI scenario; streamer/Twitch live writes and macOS host behavior remain unverified.
+**Status:** Done and merged in PR #31 (`b6ccd0f`); issue #18 is closed. Product locale persistence, dynamic community catalogs, localized panel/chat/OBS/setup/lifecycle copy, native Windows lifecycle CI, strict plural/unsafe-markup validation, and regression coverage are implemented. Independent AIOX-QA passed 9.2/10. Windows lifecycle behavior passed the native `windows-latest` CI scenario; streamer/Twitch live writes and macOS host behavior remain unverified. This delivery also completes the Twitch status-label and precedence behavior tracked by OPS-2/issue #21.
 **Complexity:** COMPLEX (22/25).
 **GitHub issue:** [#18](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/18)
 
@@ -296,7 +296,7 @@ As a streamer, I want to select the product language during installation and cha
 
 ## Planning boundary
 
-Implementation and independent QA are complete for review: PASS 9.2/10. PR #31 remains open and retains alpha MINOR `0.6.0`; this work does not promote the stage, create a release, or create a tag. The planned FND-8 beta MINOR remains `v1.1.0-HHHHHHH-beta`; stage promotion is owner-controlled. Live Twitch writes and macOS-native behavior are not claimed as validated.
+Implementation and independent QA passed (9.2/10) and were merged in PR #31 (`b6ccd0f`); issue #18 is closed. At that merge the product remained on alpha `0.6.0`; no stage promotion, release, or tag was created by the PR. The planned FND-8 beta MINOR remains `v1.1.0-HHHHHHH-beta`; stage promotion is owner-controlled. OPS-2/issue #21 is covered by the shipped status catalogs and precedence regressions and is closed. Live Twitch writes and macOS-native behavior are not claimed as validated.
 
 ## Change Log
 

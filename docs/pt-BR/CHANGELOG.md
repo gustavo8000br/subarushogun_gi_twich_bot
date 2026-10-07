@@ -4,6 +4,10 @@
 
 Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.7.2-alpha
+
+- As orientações de início, operação diária e estado do projeto agora estão mais fáceis de encontrar em guias específicos.
+
 ## v0.7.0-alpha
 
 - O painel mantém visíveis a versão em execução e o estado dos serviços, e orienta o streamer sobre a próxima ação de configuração ou fila.

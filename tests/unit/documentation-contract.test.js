@@ -60,25 +60,40 @@ describe('foundation operator documentation contract', () => {
   });
 
   it('provides linked English and Brazilian Portuguese setup and operations guides', async () => {
-    const [english, portuguese] = await Promise.all([read('README.md'), read('README.pt-BR.md')]);
+    const [english, portuguese, englishGuide, portugueseGuide, englishUse, portugueseUse] = await Promise.all([
+      read('README.md'), read('README.pt-BR.md'),
+      read('docs/INSTALLATION.md'), read('docs/pt-BR/INSTALACAO.md'),
+      read('docs/USER_GUIDE-en_US.md'), read('docs/MANUAL_DE_USUARIO-pt_BR.md'),
+    ]);
     expect(english).toContain('[Português brasileiro](README.pt-BR.md)');
     expect(portuguese).toContain('[English](README.md)');
-    for (const term of ['Docker Compose', 'localhost:3000', 'logs', 'volume']) {
-      expect(english.toLowerCase()).toContain(term.toLowerCase());
-      expect(portuguese.toLowerCase()).toContain(term.toLowerCase());
+    expect(english).toContain('docs/INSTALLATION.md');
+    expect(portuguese).toContain('docs/pt-BR/INSTALACAO.md');
+    expect(englishUse).toContain('[Leia em português brasileiro](MANUAL_DE_USUARIO-pt_BR.md)');
+    expect(portugueseUse).toContain('[Read in English](USER_GUIDE-en_US.md)');
+    for (const [document, terms] of [
+      [englishGuide, ['Docker Compose', 'localhost:3000', 'volume']],
+      [portugueseGuide, ['Docker Compose', 'localhost:3000', 'volume']],
+      [englishUse, ['stop', 'update']],
+      [portugueseUse, ['stop', 'atualizador']],
+    ]) {
+      for (const term of terms) expect(document.toLowerCase()).toContain(term.toLowerCase());
     }
-    for (const reference of ['Streamer.bot', 'PhantomBot', 'twitch-voxer']) {
-      expect(english).toContain(reference);
-      expect(portuguese).toContain(reference);
+    const [englishResearch, portugueseResearch] = await Promise.all([
+      read('docs/stories/FND-6/ux-research.md'), read('docs/pt-BR/stories/FND-6/ux-research.md'),
+    ]);
+    for (const reference of ['Streamer.bot', 'StreamElements', 'Twitch Channel Points']) {
+      expect(englishResearch).toContain(reference);
+      expect(portugueseResearch).toContain(reference);
     }
   });
 
   it('documents version-scoped approximate hardware requirements and complete Windows HTTPS first run in both languages', async () => {
-    const [english, portuguese] = await Promise.all([read('README.md'), read('README.pt-BR.md')]);
-    for (const term of ['Approximate', 'CPU', 'RAM', 'GB', 'vary by release', 'Windows', 'WSL', 'wsl --version', 'Import-Certificate', 'https://localhost:3000/callback']) {
+    const [english, portuguese] = await Promise.all([read('docs/INSTALLATION.md'), read('docs/pt-BR/INSTALACAO.md')]);
+    for (const term of ['Approximate', 'CPU', 'memory', 'GB', 'change between versions', 'Windows', 'WSL', 'wsl --version', 'Import-Certificate', 'https://localhost:3000/callback']) {
       expect(english.toLowerCase()).toContain(term.toLowerCase());
     }
-    for (const term of ['aproximad', 'CPU', 'RAM', 'GB', 'variar por versão', 'Windows', 'WSL', 'wsl --version', 'Import-Certificate', 'https://localhost:3000/callback']) {
+    for (const term of ['aproximad', 'CPU', 'memória', 'GB', 'mudar entre versões', 'Windows', 'WSL', 'wsl --version', 'Import-Certificate', 'https://localhost:3000/callback']) {
       expect(portuguese.toLowerCase()).toContain(term.toLowerCase());
     }
     expect(english).toContain('docs.docker.com/desktop/setup/install/windows-install/');
@@ -90,22 +105,22 @@ describe('foundation operator documentation contract', () => {
   });
 
   it('documents Linux and macOS executable permissions before first start in both languages', async () => {
-    const [english, portuguese] = await Promise.all([read('README.md'), read('README.pt-BR.md')]);
+    const [english, portuguese] = await Promise.all([read('docs/INSTALLATION.md'), read('docs/pt-BR/INSTALACAO.md')]);
     for (const document of [english, portuguese]) {
-      expect(document).toContain('chmod +x iniciar.sh');
-      expect(document).toMatch(/macOS first run|Primeira execução no macOS/);
-      expect(document).toContain('./iniciar.sh');
+      expect(document).toContain('chmod +x subarushogun_twich_bot_setup.sh');
+      expect(document).toMatch(/### macOS/);
+      expect(document).toContain('./subarushogun_twich_bot_setup.sh');
       expect(document).toContain('Docker Desktop');
       expect(document).toContain('security add-trusted-cert');
     }
   });
 
   it('documents safe updater and interactive uninstall behavior in both languages', async () => {
-    const [english, portuguese] = await Promise.all([read('README.md'), read('README.pt-BR.md')]);
-    for (const term of ['atualizar.bat', 'atualizar.sh', 'on the `main` branch', 'clean Git checkout', 'desinstalar.bat', 'desinstalar.sh', 'type `APAGAR`', 'by default', 'docker compose down --volumes']) {
+    const [english, portuguese] = await Promise.all([read('docs/USER_GUIDE-en_US.md'), read('docs/MANUAL_DE_USUARIO-pt_BR.md')]);
+    for (const term of ['subarushogun_twich_bot_update.bat', 'subarushogun_twich_bot_update.sh', '`main` branch', 'clean Git checkout', 'subarushogun_twich_bot_uninstall.bat', 'subarushogun_twich_bot_uninstall.sh', 'asks whether to keep or delete', 'docker compose down']) {
       expect(english.toLowerCase()).toContain(term.toLowerCase());
     }
-    for (const term of ['atualizar.bat', 'atualizar.sh', 'branch `main`', 'cópia Git limpa', 'desinstalar.bat', 'desinstalar.sh', 'digite `APAGAR`', 'preservando por padrão', 'docker compose down --volumes']) {
+    for (const term of ['subarushogun_twich_bot_update.bat', 'subarushogun_twich_bot_update.sh', 'main', 'alterações locais', 'subarushogun_twich_bot_uninstall.bat', 'subarushogun_twich_bot_uninstall.sh', 'pergunta se deve manter ou apagar', 'docker compose down']) {
       expect(portuguese.toLowerCase()).toContain(term.toLowerCase());
     }
   });
