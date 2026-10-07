@@ -41,12 +41,13 @@ If Windows blocks the file, verify it came from the repository's CI artifact, th
 ## Linux
 
 1. Install Docker Engine and the Docker Compose v2 plugin. If Docker is missing, the installer can open [Docker's official Engine installation instructions](https://docs.docker.com/engine/install/) after you agree.
-2. In a terminal, change to the folder containing the extracted artifact. If the download removed the executable permission, run:
+2. In a terminal, change to the folder containing the extracted artifact and run it through the system shell. This works even if the download removed the executable permission:
 
    ```sh
-   chmod +x subarushogun_twich_bot_installer.sh
-   ./subarushogun_twich_bot_installer.sh
+   sh ./subarushogun_twich_bot_installer.sh
    ```
+
+   For later double-click launches in a file manager, enable **Allow executing file as program** in the file properties, or run `chmod +x subarushogun_twich_bot_installer.sh` once and then `./subarushogun_twich_bot_installer.sh`. A graphical launcher without an interactive terminal now receives a clear exit message instead of a repeated prompt.
 
 3. Choose **Install / Start**, **Update**, or **Uninstall**. The menu asks for language/port on first install and prints the exact HTTPS callback URL.
 4. Normal update preserves data. Clean update or data-erasing uninstall requires the exact localized confirmation. Docker Engine and other shared host packages remain installed.

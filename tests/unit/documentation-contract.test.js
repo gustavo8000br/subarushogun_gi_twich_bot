@@ -107,6 +107,7 @@ describe('foundation operator documentation contract', () => {
   it('documents Linux and macOS executable permissions before first start in both languages', async () => {
     const [english, portuguese] = await Promise.all([read('docs/INSTALLATION.md'), read('docs/pt-BR/INSTALACAO.md')]);
     for (const document of [english, portuguese]) {
+      expect(document).toContain('sh ./subarushogun_twich_bot_installer.sh');
       expect(document).toContain('chmod +x subarushogun_twich_bot_installer.sh');
       expect(document).toMatch(/### macOS/);
       expect(document).toContain('./subarushogun_twich_bot_installer.sh');

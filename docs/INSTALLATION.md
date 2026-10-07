@@ -61,7 +61,7 @@ If Docker/Compose is unavailable, the installer asks before opening the official
 
 1. Install Docker Engine and the Compose plugin. Ubuntu 24.04 LTS is the Linux environment validated by this project; see Docker's [supported Linux installation procedures](https://docs.docker.com/engine/install/).
 2. While GHCR is private, run `docker login ghcr.io --username YOUR_GITHUB_USERNAME` and enter a GitHub token with `read:packages`. Never store the token with the installer or in `.env`.
-3. Download and open `subarushogun_twich_bot_installer.sh`. If the executable bit was not preserved by your download tool, run `chmod +x subarushogun_twich_bot_installer.sh` once, then `./subarushogun_twich_bot_installer.sh`.
+3. From a terminal in the extracted artifact folder, run `sh ./subarushogun_twich_bot_installer.sh`; this works even if the download removed the executable bit. For later double-click launches, enable **Allow executing file as program** in file properties or run `chmod +x subarushogun_twich_bot_installer.sh` once and then `./subarushogun_twich_bot_installer.sh`. A graphical launcher without an interactive terminal receives a clear exit message.
 4. Trust the local CA generated under `$HOME/.local/share/subarushogun-gi-twitch-bot/.local/localhost-ca.crt`:
 
    ```sh

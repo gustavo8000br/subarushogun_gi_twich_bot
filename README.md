@@ -15,7 +15,7 @@ A local-first **Twitch chat bot with a streamer control panel** for Genshin Impa
 ## Quick start
 
 1. Install Docker Engine/Desktop with Compose v2. If it is missing, the installer offers current official instructions; host installation and any required privileges stay under your control.
-2. Download the **single installer artifact** for your system from the latest successful [CI run](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml): `.bat` for Windows, `.command` for macOS, or `.sh` for Linux. Open it and choose **Install / Start**. It asks for language and port (defaults: pt-BR and 3000).
+2. Download the **single installer artifact** for your system from the latest successful [CI run](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml): `.bat` for Windows, `.command` for macOS, or `.sh` for Linux. Launch it and choose **Install / Start**. On Linux, run `sh ./subarushogun_twich_bot_installer.sh` from a terminal. It asks for language and port (defaults: pt-BR and 3000).
 3. Trust this installation's local certificate as described in the [installation guide](docs/INSTALLATION.md), then open the panel address shown by the installer.
 4. Connect your Twitch app in **Conexão do canal**. The [user guide](docs/USER_GUIDE-en_US.md) covers queue setup, chat commands, OBS widgets, recovery, updates, and uninstall.
 

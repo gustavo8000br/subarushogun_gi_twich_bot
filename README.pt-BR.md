@@ -15,7 +15,7 @@ Um **chatbot da Twitch com painel local para o streamer** organizar filas de Gen
 ## Início rápido
 
 1. Instale Docker Engine/Desktop com Compose v2. Se estiver ausente, o instalador oferece as instruções oficiais atuais; instalação do host e privilégios necessários continuam sob seu controle.
-2. Baixe o **único artefato de instalador** do seu sistema na última execução bem-sucedida da [CI](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml): `.bat` para Windows, `.command` para macOS ou `.sh` para Linux. Abra o arquivo e escolha **Instalar / Iniciar**. Ele pergunta idioma e porta (padrões: pt-BR e 3000).
+2. Baixe o **único artefato de instalador** do seu sistema na última execução bem-sucedida da [CI](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml): `.bat` para Windows, `.command` para macOS ou `.sh` para Linux. Abra-o e escolha **Instalar / Iniciar**. No Linux, execute `sh ./subarushogun_twich_bot_installer.sh` pelo terminal. Ele pergunta idioma e porta (padrões: pt-BR e 3000).
 3. Confie no certificado local desta instalação conforme o [guia de instalação](docs/pt-BR/INSTALACAO.md) e abra o endereço exibido pelo instalador.
 4. Conecte seu aplicativo Twitch em **Conexão do canal**. O [manual do usuário](docs/MANUAL_DE_USUARIO-pt_BR.md) explica filas, comandos, widgets OBS, recuperação, atualização e desinstalação.
 

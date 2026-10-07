@@ -8,6 +8,7 @@ Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes t�
 
 - Um instalador por sistema agora reúne instalação, atualização e remoção de dados.
 - Atualizações preservam filas e configurações por padrão; apagar esses dados exige confirmação explícita.
+- No Linux, o instalador agora explica como executá-lo quando é aberto sem terminal interativo.
 
 ## v0.7.2-alpha
 

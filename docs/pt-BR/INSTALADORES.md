@@ -41,12 +41,13 @@ Se o Windows bloquear o arquivo, confirme que ele veio do artefato de CI deste r
 ## Linux
 
 1. Instale Docker Engine e o plugin Docker Compose v2. Se o Docker estiver ausente, o instalador pode abrir as [instruções oficiais de instalação do Docker Engine](https://docs.docker.com/engine/install/) depois que você autorizar.
-2. No terminal, acesse a pasta com o artefato extraído. Se o download removeu a permissão de execução, execute:
+2. No terminal, acesse a pasta com o artefato extraído e execute pelo shell do sistema. Isso funciona mesmo se o download remover a permissão de execução:
 
    ```sh
-   chmod +x subarushogun_twich_bot_installer.sh
-   ./subarushogun_twich_bot_installer.sh
+   sh ./subarushogun_twich_bot_installer.sh
    ```
+
+   Para abrir depois com duplo clique no gerenciador de arquivos, habilite **Permitir executar arquivo como programa** nas propriedades do arquivo, ou execute `chmod +x subarushogun_twich_bot_installer.sh` uma vez e depois `./subarushogun_twich_bot_installer.sh`. Se um lançador gráfico iniciar o arquivo sem terminal interativo, ele agora encerra com uma instrução clara em vez de repetir o prompt.
 
 3. Escolha **Instalar / Iniciar**, **Atualizar** ou **Desinstalar**. Na primeira execução, o menu pergunta idioma/porta e mostra o callback HTTPS exato.
 4. A atualização normal preserva os dados. Atualização limpa ou desinstalação com exclusão exige a confirmação localizada exata. Docker Engine e outros pacotes compartilhados do host continuam instalados.

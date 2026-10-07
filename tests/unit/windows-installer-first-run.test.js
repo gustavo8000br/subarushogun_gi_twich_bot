@@ -6,15 +6,19 @@ const installer = readFileSync(new URL('../../apps/infra/installer/installer.ps1
 describe('Windows installer first-run language prompt', () => {
   it('keeps the locale unset until a clean install asks the operator to choose it', () => {
     expect(installer).toMatch(/\$Locale\s*=\s*''/);
-    expect(installer).toMatch(/if\s*\(-not\s*\(Test-Path\s+\$EnvFile\)\)\s*\{\s*Prompt-Language\s*\}/);
+    expect(installer).toMatch(/if\s*\(-not\s*\(Test-Path\s+\$EnvFile\)\s+-and\s+-not\s+\(Prompt-Language\)\)\s*\{\s*exit 1\s*\}/);
     expect(installer).toContain("$script:Locale='pt-BR'");
     expect(installer).toContain("$script:Locale='en'");
     expect(installer).toContain("$script:Locale='es'");
   });
 
-  it('reads redirected stdin in test mode and retains Read-Host for interactive use', () => {
-    expect(installer).toMatch(/function Read-Answer\([\s\S]*?\[Console\]::In\.ReadLine\(\)[\s\S]*?return Read-Host \$Prompt[\s\S]*?\}/);
+  it('reads a deterministic input file in native test mode and shows one prompt interactively', () => {
+    expect(installer).toContain('$env:QUEUEBOT_TEST_INPUT_FILE');
+    expect(installer).toContain('[IO.File]::ReadAllLines($env:QUEUEBOT_TEST_INPUT_FILE)');
+    expect(installer).toMatch(/function Read-Answer\([\s\S]*?QUEUEBOT_TEST_INPUT_FILE[\s\S]*?return Read-Host\s*\n[\s\S]*?\}/);
     expect(installer.match(/Read-Host/g)).toHaveLength(1);
+    expect(installer).toMatch(/return Read-Host\s*\n/);
+    expect(installer).not.toMatch(/return Read-Host \$Prompt/);
     expect(installer).toContain("$answer = Read-Answer (T 'languagePrompt')");
   });
 

@@ -16,6 +16,22 @@ async function packageFor(platform, output) {
 }
 
 describe('single-file lifecycle installer', () => {
+  it('exits with a clear message instead of looping when Linux starts without an interactive input stream', async () => {
+    const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-no-stdin-'));
+    try {
+      const packageResult = await packageFor('linux', output);
+      expect(packageResult.status, packageResult.stderr).toBe(0);
+      const artifactPath = join(output, 'subarushogun_twich_bot_installer.sh');
+      const result = spawnSync('sh', [artifactPath], { input: '', encoding: 'utf8', timeout: 1500, maxBuffer: 1024 });
+
+      expect(result.error).toBeUndefined();
+      expect(result.status).toBe(1);
+      expect(`${result.stdout}\n${result.stderr}`).toContain('terminal interativo');
+    } finally {
+      await rm(output, { recursive: true, force: true });
+    }
+  });
+
   it.each([
     ['linux', 'subarushogun_twich_bot_installer.sh'],
     ['macos', 'subarushogun_twich_bot_installer.command'],

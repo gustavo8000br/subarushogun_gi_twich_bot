@@ -12,6 +12,7 @@ $Copy = @{
   'pt-BR' = @{
     menu='1) Instalar / Iniciar   2) Atualizar   3) Desinstalar   0) Sair'; choice='Escolha uma opção: '
     language='Idioma do produto: 1) Português brasileiro  2) English  3) Español'; languagePrompt='Escolha o idioma (1-3): '
+    inputUnavailable='Não foi possível ler a resposta. Execute o instalador em um terminal interativo.'
     port='Porta local do painel [3000]: '; portInvalid='Informe uma porta entre 1 e 65535.'
     portBusy='Essa porta parece ocupada. Escolha outra; o instalador não troca a porta sozinho.'
     callback='A URL de callback da Twitch será https://localhost:{0}/callback'
@@ -29,6 +30,7 @@ $Copy = @{
   en = @{
     menu='1) Install / Start   2) Update   3) Uninstall   0) Exit'; choice='Choose an option: '
     language='Product language: 1) Português brasileiro  2) English  3) Español'; languagePrompt='Choose a language (1-3): '
+    inputUnavailable='Input is unavailable. Run the installer from an interactive terminal.'
     port='Local panel port [3000]: '; portInvalid='Enter a port from 1 to 65535.'
     portBusy='That port appears busy. Choose another; the installer never changes it silently.'
     callback='The Twitch callback URL will be https://localhost:{0}/callback'
@@ -46,6 +48,7 @@ $Copy = @{
   es = @{
     menu='1) Instalar / Iniciar   2) Actualizar   3) Desinstalar   0) Salir'; choice='Elige una opción: '
     language='Idioma del producto: 1) Português brasileño  2) English  3) Español'; languagePrompt='Elige un idioma (1-3): '
+    inputUnavailable='No se pudo leer la respuesta. Ejecuta el instalador desde un terminal interactivo.'
     port='Puerto local del panel [3000]: '; portInvalid='Indica un puerto entre 1 y 65535.'
     portBusy='Ese puerto parece ocupado. Elige otro; el instalador no lo cambia sin avisar.'
     callback='La URL de callback de Twitch será https://localhost:{0}/callback'
@@ -63,6 +66,11 @@ $Copy = @{
 }
 
 $Locale = ''
+$script:TestInputLines = @()
+$script:TestInputIndex = 0
+if ($TestMode -and $env:QUEUEBOT_TEST_INPUT_FILE -and (Test-Path -LiteralPath $env:QUEUEBOT_TEST_INPUT_FILE)) {
+  $script:TestInputLines = [IO.File]::ReadAllLines($env:QUEUEBOT_TEST_INPUT_FILE)
+}
 if (Test-Path -LiteralPath $EnvFile) {
   $existing = (Get-Content -LiteralPath $EnvFile | Where-Object { $_ -match '^PRODUCT_INITIAL_LOCALE=(pt-BR|en|es)$' } | Select-Object -First 1) -replace '^PRODUCT_INITIAL_LOCALE=', ''
   if ($existing) { $Locale = $existing } else { $Locale = 'pt-BR' }
@@ -73,14 +81,21 @@ function T([string]$Key) {
 }
 function Read-Answer([string]$Prompt = '') {
   if ($Prompt) { Write-Host -NoNewline $Prompt }
+  if ($TestMode -and $env:QUEUEBOT_TEST_INPUT_FILE) {
+    if ($script:TestInputIndex -ge $script:TestInputLines.Count) { return $null }
+    $answer = $script:TestInputLines[$script:TestInputIndex]
+    $script:TestInputIndex++
+    return $answer
+  }
   if ($TestMode) { return [Console]::In.ReadLine() }
-  return Read-Host $Prompt
+  return Read-Host
 }
 function Prompt-Language {
   Write-Host (T 'language')
   while ($true) {
     $answer = Read-Answer (T 'languagePrompt')
-    switch ($answer) { '1' { $script:Locale='pt-BR'; return } '2' { $script:Locale='en'; return } '3' { $script:Locale='es'; return } }
+    if ($null -eq $answer) { Write-Host (T 'inputUnavailable'); return $false }
+    switch ($answer) { '1' { $script:Locale='pt-BR'; return $true } '2' { $script:Locale='en'; return $true } '3' { $script:Locale='es'; return $true } }
   }
 }
 function Open-Url([string]$Url) { if (-not $TestMode) { Start-Process $Url } }
@@ -143,7 +158,7 @@ function Setup-Product {
     $keep=Read-Answer $keepPrompt
     if ($keep -match '^n') { Prompt-Language; $port=Read-Port; Save-Config $port }
   } else {
-    if (-not $Locale) { Prompt-Language }
+  if (-not $Locale -and -not (Prompt-Language)) { return }
     $port=Read-Port
     Save-Config $port
   }
@@ -198,7 +213,7 @@ function Uninstall-Product {
   Write-Host (T 'host')
 }
 
-if (-not (Test-Path $EnvFile)) { Prompt-Language }
+if (-not (Test-Path $EnvFile) -and -not (Prompt-Language)) { exit 1 }
 while ($true) {
   Write-Host ''; Write-Host (T 'menu'); $action=Read-Answer (T 'choice')
   switch ($action) { '1' { Setup-Product } '2' { Update-Product } '3' { Uninstall-Product } '0' { exit 0 } default { exit 0 } }

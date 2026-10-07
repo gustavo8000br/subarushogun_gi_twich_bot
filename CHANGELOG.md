@@ -8,6 +8,7 @@ This file highlights changes that matter to streamers and viewers. Technical and
 
 - A single installer for each operating system now handles setup, updates, and removal of saved data.
 - Updates preserve saved queues and settings by default; erasing them requires a clear confirmation.
+- Linux now explains how to launch the installer if it opens without an interactive terminal.
 
 ## v0.7.2-alpha
 

@@ -43,6 +43,10 @@ msg() {
     pt-BR:language_prompt) printf 'Escolha o idioma (1-3): ' ;;
     en:language_prompt) printf 'Choose a language (1-3): ' ;;
     es:language_prompt) printf 'Elige un idioma (1-3): ' ;;
+    pt-BR:input_unavailable) printf '%s\n' 'Não foi possível ler a resposta. Execute o instalador em um terminal interativo.' >&2 ;;
+    en:input_unavailable) printf '%s\n' 'Input is unavailable. Run the installer from an interactive terminal.' >&2 ;;
+    es:input_unavailable) printf '%s\n' 'No se pudo leer la respuesta. Ejecuta el instalador desde un terminal interactivo.' >&2 ;;
+    *:input_unavailable) printf '%s\n' 'Não foi possível ler a resposta. Execute o instalador em um terminal interativo.' >&2 ;;
     pt-BR:port) printf 'Porta local do painel [3000]: ' ;;
     en:port) printf 'Local panel port [3000]: ' ;;
     es:port) printf 'Puerto local del panel [3000]: ' ;;
@@ -92,7 +96,8 @@ msg() {
 choose_language() {
   msg language
   while :; do
-    msg language_prompt; IFS= read -r answer || answer=''
+    msg language_prompt
+    if ! IFS= read -r answer; then msg input_unavailable; return 1; fi
     case "$answer" in 1) LOCALE=pt-BR; return ;; 2) LOCALE=en; return ;; 3) LOCALE=es; return ;; *) printf '%s\n' '1 / 2 / 3' ;; esac
   done
 }
@@ -259,7 +264,7 @@ do_uninstall() {
   esac
 }
 
-if [ -z "$LOCALE" ]; then choose_language; fi
+if [ -z "$LOCALE" ]; then choose_language || exit 1; fi
 while :; do
   printf '\n'; msg menu; msg choice; IFS= read -r ACTION || ACTION=0
   case "$ACTION" in
