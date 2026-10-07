@@ -60,8 +60,11 @@ try {
   };
   const launch = (input, installerArgs = '') => {
     if (platform === 'windows') {
-      return spawnSync('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', '& $env:QUEUEBOT_PREBUILT_INSTALLER'], {
-        encoding: 'utf8', env: { ...env, QUEUEBOT_PREBUILT_INSTALLER: artifact, QUEUEBOT_INSTALLER_ARGS: installerArgs }, timeout: 30_000,
+      return spawnSync('powershell.exe', [
+        '-NoLogo', '-NoProfile', '-Command',
+        '$installerArgs = @($env:QUEUEBOT_TEST_INSTALLER_ARGS -split "\\s+" | Where-Object { $_ }); & $env:QUEUEBOT_PREBUILT_INSTALLER @installerArgs',
+      ], {
+        encoding: 'utf8', env: { ...env, QUEUEBOT_PREBUILT_INSTALLER: artifact, QUEUEBOT_TEST_INSTALLER_ARGS: installerArgs }, timeout: 30_000,
       });
     }
     return spawnSync(artifact, installerArgs ? installerArgs.split(/\s+/) : [], { input, encoding: 'utf8', env, timeout: 30_000 });

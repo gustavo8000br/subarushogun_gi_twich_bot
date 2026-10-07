@@ -248,12 +248,13 @@ Os instaladores POSIX e PowerShell agora exibem progresso, limitam a limpeza Doc
 
 ### Evidências de validação
 
-- `npm test`: 86 arquivos, 674 testes passaram.
+- `npm test`: 86 arquivos, 675 testes passaram.
 - `npm run lint`, `npm run typecheck`, `npm run review:static`: passaram; OpenGrep reportou 0 achados.
 - `npm run validate:version`, `npm run validate:localization`, `npm run validate:port-denylist`, `docker compose config --quiet`, `sh -n apps/infra/installer/installer.sh`, `node tests/platform/installer-native.mjs` e `git diff --check`: passaram.
 - Testes focados do instalador: 29/29 passaram; contrato documental: 1/1 passou.
 - Runtime Compose Linux permanece saudável; `bot` e `db` estão saudáveis e os volumes `postgres_data`/`operational_secrets` foram preservados.
-- A execução Windows do Actions 37648518488 falhou antes do lançamento por erro de análise PowerShell causado por aspas tipográficas em strings delimitadas por aspas simples. Uma regressão Red/Green estática agora evita recorrência; a repetição Windows corrigida está pendente.
+- A execução Windows do Actions 37648518488 falhou inicialmente antes do lançamento por erro de análise PowerShell causado por aspas tipográficas; o commit `b92a4cc` corrigiu o problema. A execução 37649015429 passou pela análise e instalação, mas revelou uma falha no repasse de argumentos pelo harness durante a atualização sem interação. O harness agora encaminha argumentos explícitos de teste, e uma nova matriz nativa está pendente.
+- A execução Windows 37649015429 passou pela análise PowerShell e pela instalação inicial, mas falhou na atualização sem interação porque o harness iniciou o `.bat` sem argumentos. Um teste em `npm test -- --run tests/unit/windows-installer-first-run.test.js` falhou primeiro em Red porque não havia um caminho explícito para encaminhar argumentos. Green — passar os argumentos de teste por uma variável-fixture dedicada e encaminhá-los ao batch pelo call operator do PowerShell. O contrato focado Windows passou 7/7 e o harness nativo Linux passou; ainda é necessária uma nova execução do Actions Windows.
 
 ### Decisão do gate
 

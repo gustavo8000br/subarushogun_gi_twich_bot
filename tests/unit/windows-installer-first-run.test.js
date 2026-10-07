@@ -50,4 +50,10 @@ describe('Windows installer first-run language prompt', () => {
   it('does not place PowerShell smart quotes inside single-quoted localized strings', () => {
     expect(installer).not.toMatch(/=\s*'[^'\r\n]*[‘’]/u);
   });
+
+  it('passes unattended actions as arguments to the packaged Windows batch file', () => {
+    const harness = readFileSync(new URL('../platform/installer-native.mjs', import.meta.url), 'utf8');
+    expect(harness).toContain('QUEUEBOT_TEST_INSTALLER_ARGS');
+    expect(harness).toContain('& $env:QUEUEBOT_PREBUILT_INSTALLER @installerArgs');
+  });
 });

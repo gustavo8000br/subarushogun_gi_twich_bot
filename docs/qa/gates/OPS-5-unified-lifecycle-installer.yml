@@ -2,21 +2,21 @@ schema: 1
 story: 'OPS-5'
 story_title: 'Unified cross-platform lifecycle installer'
 gate: CONCERNS
-status_reason: 'The corrective local implementation and gates pass. The first current Windows Actions run failed before launch on a PowerShell parser error from smart apostrophes in single-quoted strings. A regression and source fix are committed locally; the corrected native rerun is still required before OPS-5 can be marked Done.'
+status_reason: 'The corrective local implementation and gates pass. Windows run 37648518488 found a PowerShell parser issue, fixed in a commit. Run 37649015429 then passed parsing and install but exposed an unattended-argument forwarding defect in the native harness, not yet verified natively after its test-first correction. OPS-5 remains open until the updated Windows run and final QA pass.'
 reviewer: 'Quinn (Test Architect)'
-reviewed_revision: 'working-tree on fix/ops5-installer-uninstall-progress; source HEAD 11e1e3f836a521256c5c450e5c21cb081b82bb68'
+reviewed_revision: 'working-tree on fix/ops5-installer-uninstall-progress; source HEAD b92a4cc10887bdb94c2ff51afe620e0a1b71c72f plus uncommitted Windows harness correction'
 updated: '2026-10-07T15:56:39Z'
 top_issues:
   - id: 'OPS5-WIN-NATIVE'
     severity: high
-    finding: 'Corrective Windows Actions run 37648518488 failed during PowerShell parsing before installer launch; the source fix and regression are awaiting a native rerun.'
-    suggested_action: 'Push the smart-quote fix, rerun the native Windows job, and resolve any remaining failures before merging or closing issue #30.'
+    finding: 'Windows run 37649015429 failed the unattended update because the native test harness did not forward arguments to the packaged batch file. The harness correction and Red/Green regression are local; native confirmation is pending.'
+    suggested_action: 'Run the complete local gates, push the test-harness correction, rerun native Windows/macOS/Linux CI, and resolve any remaining failures before merge or issue closure.'
 waiver: { active: false }
 quality_score: 88
 expires: '2026-10-21T15:00:00Z'
 evidence:
-  tests_reviewed: 674
-  focused_installer_tests: 30
+  tests_reviewed: 675
+  focused_installer_tests: 31
   risks_identified: 1
   trace:
     ac_covered: [2, 3, 5, 7, 8, 11, 12, 13, 14]
@@ -31,13 +31,13 @@ nfr_validation:
     notes: 'Installer checks remain bounded; image inventories are local Docker queries and health polling remains bounded.'
   reliability:
     status: CONCERNS
-    notes: 'Linux tests and runtime checks pass. The PowerShell parser issue is fixed locally; the native Windows rerun must verify the correction.'
+    notes: 'Linux tests and runtime checks pass. PowerShell parsing and initial install passed in run 37649015429; native confirmation of the new argument-forwarding harness correction is still required.'
   maintainability:
     status: PASS
     notes: 'Installer source, tests, operator guides, story evidence, and changelogs are synchronized in English and pt-BR.'
 recommendations:
   immediate:
-    - action: 'Run the updated Windows native Actions job, then refresh this gate with its exact run URL and results.'
+    - action: 'Run the updated native installer matrix, then refresh this gate with its exact run URL and results.'
       refs: ['docs/stories/OPS-5/story.md', 'tests/platform/installer-native.mjs']
   future:
     - action: 'Record the owner’s physical Windows/macOS host smoke test when available; native CI uses fake Docker.'
