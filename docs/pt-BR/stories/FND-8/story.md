@@ -2,7 +2,7 @@
 
 [English](../../../stories/FND-8/story.md)
 
-**Status:** Fundação de locale/catálogos, persistência PostgreSQL, raízes/respostas de chat, textos gerados pelo OBS e localização dos scripts POSIX estão implementados. O executor Windows PowerShell tem somente cobertura estática. Localização restante do painel/API, validação nativa Windows e QA independente final mantêm a story em andamento. Reavaliação QA da spec v3: CONCERNS, sem nova nota.
+**Status:** Ready for Review. Persistência de locale, catálogos comunitários dinâmicos, textos localizados do painel/chat/OBS/configuração/ciclo de vida, CI nativo Windows, validação estrita de plurais/marcação insegura e regressões estão implementados na PR aberta #31. QA independente AIOX-QA aprovou com 9,2/10. Ciclo de vida Windows passou no cenário nativo `windows-latest`; escritas reais na Twitch e comportamento nativo macOS seguem sem validação.
 **Complexidade:** COMPLEX (22/25).
 **Issue GitHub:** [#18](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/18)
 
@@ -222,7 +222,7 @@ Como streamer, quero selecionar o idioma do produto durante a instalação e alt
 - **Comportamento:** toda PR executa no runner `windows-latest` o cenário PowerShell de localização e pré-condição do atualizador, em um caminho temporário com espaços; um checkout fora de `main` deve mostrar o texto do catálogo inglês e não pode chamar o Docker.
 - **Red:** `npm exec -- vitest run tests/integration/windows-lifecycle-contract.test.js` falhou porque o workflow não tinha runner Windows nem cenário nativo do ciclo de vida.
 - **Red:** a primeira execução nativa no GitHub Actions mostrou a mensagem de sucesso do cenário, mas o processo terminou com código 1 porque o PowerShell herdou `$LASTEXITCODE` do processo updater filho cuja falha era intencional.
-- **Green:** foi adicionado um encerramento explícito de sucesso depois da limpeza do fixture; o contrato Linux continua 1/1 e a nova execução nativa Windows está pendente. Lint, typecheck, suíte completa (87 arquivos / 617 testes), validação dos catálogos, versão/portas, Compose e `git diff --check` passaram. Este host Linux não possui `pwsh`.
+- **Green:** foi adicionado um encerramento explícito de sucesso depois da limpeza do fixture; o contrato Linux passou 1/1 e a execução `37557519427` do GitHub Actions passou no job Windows nativo em `windows-latest`. O runner confirmou a mensagem inglesa em um caminho com espaços e que o Docker não foi chamado. Lint, typecheck, suíte completa (87 arquivos / 617 testes), validação dos catálogos, versão/portas, Compose e `git diff --check` também passaram.
 - **Refatoração:** o fixture temporário isolado continua comprovando a rejeição da branch antes do Docker e agora retorna seu resultado sem herdar o código do processo filho.
 - **Escopo:** execução nativa Windows agora faz parte do gate da PR. Localização completa do painel/API e QA independente final continuam pendentes.
 
@@ -241,22 +241,62 @@ Como streamer, quero selecionar o idioma do produto durante a instalação e alt
 - [x] Disponibilizar validador CLI de catálogos com saída segura e resultado de falha não zero.
 - [x] Conectar catálogos descobertos ao seletor de idioma e ao texto de configuração Twitch; persistir locale no PostgreSQL e expô-lo pela projeção de estado protegida.
 - [x] Criar projeção host offline atômica; adicionar suporte de locale ao chat, OBS e ferramentas de ciclo de vida; testar políticas aprovadas de colisão/texto autoral nas partes implementadas.
-- [ ] Localizar todas as telas e mensagens dinâmicas restantes do painel; ampliar a apresentação localizada de erros por código além do conflito de locale atualmente mapeado; comprovar equivalência do browser e execução PowerShell nativa.
-- [ ] Finalizar docs de contribuição bilíngues, gates, aceite nativo por plataforma e QA independente.
+- [x] Localizar telas e mensagens dinâmicas do painel por catálogos; erros de API/provider desconhecidos mostram texto genérico localizado e detalhes persistidos de operações não são expostos pela projeção do painel.
+- [x] Adicionar CI nativo Windows para ciclo de vida e contratos de catálogo para o navegador; manter explícitos os limites de plataforma e serviço real.
+- [x] Manter instruções de contribuição, README e guias bilíngues sincronizados com descoberta de catálogos, raízes localizadas de comandos, categorias plurais e política de texto autoral.
+- [x] Revisão independente AIOX-QA aprovada com 9,2/10; implementação pronta para revisão da PR. Merge e fechamento da issue são etapas separadas.
+
+
+
+### Incremento 23 — Localizar o painel completo e apresentar erros seguros
+
+- **Comportamento:** formulários, estados dinâmicos de fila/entrada/operação/widget, confirmações, feedback de configuração e erros usam textos de catálogo no locale selecionado; textos escritos pelo streamer permanecem iguais. Mensagens do backend/provider e detalhes de erro financeiro persistidos não são exibidos nem expostos pela projeção do painel.
+- **Red:** o contrato de localização do painel falhou por texto HTML visível sem marcação; o teste de apresentação de erro reproduziu cópia não localizada para código público desconhecido. A regressão da rota de operações também reproduziu detalhe bruto de erro persistido na projeção.
+- **Green:** `npm exec -- vitest run tests/integration/panel-localization-contract.test.js tests/unit/panel-error-presentation.test.js tests/unit/queue-routes.test.js` passou após adicionar textos do painel por catálogo, fallback genérico localizado e remoção dos detalhes de erro da projeção de operações. A integração focada de localização também valida as chaves de todos os idiomas obrigatórios.
+- **Refatoração:** tradução DOM atualiza nós de texto sem substituir controles dentro de formulários, preservando checkboxes/inputs em labels; metadados dos comandos usam IDs estáveis de catálogo em vez de prosa recebida da API.
+- **Escopo:** validado com testes de DOM/catálogo e projeção da API; não representa teste de usabilidade com streamer ao vivo.
+
+### Incremento 25 — Localizar a página de retorno OAuth
+
+- **Comportamento:** páginas de sucesso e recuperação do callback seguem o locale salvo; nome de canal e texto de catálogo são escapados antes da inserção no HTML; contador de 30 segundos e limpeza segura da URL do callback são preservados.
+- **Red:** npm exec -- vitest run tests/unit/queue-routes.test.js -t 'OAuth callback with the selected product locale' falhou porque a página retornou <html lang="pt-BR"> e texto em português mesmo com locale inglês salvo.
+- **Green:** o mesmo comando focado passou 2/2 testes de callback após injetar o catálogo de configuração validado e renderizar o texto traduzido como texto escapado.
+- **Refatoração:** o callback usa o tradutor seguro compartilhado e um fallback pt-BR limitado quando os catálogos não carregam; a allowlist de placeholders do callback pertence à validação do módulo.
+- **Escopo:** os testes de sucesso e recuperação permanecem na suíte de rotas; nenhuma credencial Twitch ou autorização real foi usada.
+
+### Incremento 24 — Selecionar formas plurais por idioma
+
+- **Comportamento:** mensagens com contagem no chat e no painel selecionam categorias CLDR pela API nativa `Intl.PluralRules` e formatam números com `Intl.NumberFormat`; cada catálogo fornece todas as categorias exigidas pelo locale, incluindo `many` para pt-BR e espanhol nos dados ICU do Node utilizado.
+- **Red:** `npm exec -- vitest run tests/unit/chat-command-handler.test.js -t 'active locale plural form'` retornou o fallback pt-BR (`2 pessoas chamadas.`) em vez da frase inglesa esperada. `npm exec -- vitest run tests/integration/panel-localization-contract.test.js -t 'native plural selection'` falhou porque o painel não selecionava plurais.
+- **Green:** após conectar tradução plural no chat e no painel e adicionar grupos por locale, `npm exec -- vitest run tests/unit/chat-command-handler.test.js tests/unit/localization-translation.test.js tests/unit/localization-parity.test.js tests/integration/localization-catalog-route.test.js tests/integration/panel-localization-contract.test.js` passou 61/61; `npm run validate:localization` passou para os cinco módulos e idiomas obrigatórios.
+- **Refatoração:** completude de categorias plurais e contratos compartilhados de placeholders são validados em um único lugar; chaves escalares terminadas em `.other` continuam distintas de grupos plurais.
+- **Escopo:** seleção, formatação, completude dos catálogos e chamadas do produto são cobertas; textos do streamer não são pluralizados nem reescritos.
+
+### Incremento 26 — Documentar contribuição comunitária de traduções
+
+- **Comportamento:** fornecer guias recíprocos em inglês e pt-BR com `pt-BR` como locale-fonte, caminhos TSV por módulo/locale, modelo com tabulação literal, regras de placeholders e plurais por locale, fluxo de revisão e comandos de validação/teste; rejeitar tags HTML e caracteres de controle nos valores, aceitando apenas metavariáveis de comando conhecidas como `<fila>` e `<user>`; ligar os dois READMEs aos guias correspondentes.
+- **Red:** a revisão independente do AIOX-QA encontrou no critério de aceite 3 a ausência do locale-fonte, modelo de contribuição, exemplo plural, fluxo de revisão e instruções completas para colaboradores. Um teste separado do validador falhou porque `<script>`, `<iframe>` e caracteres de controle eram aceitos nos catálogos.
+- **Green:** foram criados `docs/TRANSLATION_GUIDE.md` e `docs/pt-BR/TRANSLATION_GUIDE.md`, os READMEs ganharam links e foi adicionado um bloqueio de valores inseguros com allowlist explícita de metavariáveis documentadas. Os testes focados de validador/descoberta/CLI passaram 18/18; validação passou para cinco módulos e três locales obrigatórios.
+- **Refatoração:** o validador rejeita elementos HTML reservados/marcação e controles, preservando tokens conhecidos da sintaxe de comandos como `<fila>`, `<user>` e `<position>`.
+- **Escopo:** instruções de contribuição e validação segura de catálogos cobertas; descoberta em runtime continua lendo catálogos montados válidos sem registro de locales.
+
+**Gates finais de implementação (2026-10-06):** `npm test` passou em 87 arquivos / 638 testes; `npm run lint`, `npm run typecheck`, `npm run validate:localization`, testes focados de validador/descoberta/CLI (18/18), `npm run validate:version`, `npm run validate:port-denylist`, `npm run review:static` (70 arquivos JavaScript, 0 achados), `docker compose config --quiet` e `git diff --check` passaram. QA final independente ainda é gate obrigatório da story.
+
+**QA independente AIOX-QA (2026-10-06): PASS — 9,2/10.** O QA verificou independentemente a rejeição de `<script>`, `<script>alert(1)`, `<iframe>` e `<b>bold</b>`, a aceitação de metavariáveis de comando `<fila>` e `<user>`, e a correção do status da story pt-BR. Testes focados de catálogo/validação/descoberta/CLI passaram 27/27; validação de locales, typecheck, lint e diff check passaram. A suíte completa de 638 testes passou localmente na mesma snapshot de implementação; o QA não repetiu a suíte inteira. Autorização/escritas Twitch reais, revisão manual em navegador e comportamento nativo macOS continuam sem validação.
 
 ## Arquivos alterados neste recorte
 
 - Runtime: montagem de catálogos no Compose; `apps/api/src/http/localization-routes.mjs`, `apps/api/src/http/queue-routes.mjs`, `apps/api/src/persistence/queue-repository.mjs`, `apps/api/src/server.mjs`, `apps/api/src/web-route.mjs`; catálogos de configuração e seletor em `apps/web/`; módulos de localização compartilhados para browser/servidor.
 - Testes: parser/descoberta/CLI/API de catálogos, persistência e concorrência PostgreSQL reais, projeção protegida e rotas, módulos/seletor web e mensagens de configuração.
-- Evidências/spec/docs: esta story e seu par em inglês, artefatos Spec Pipeline da FND-8, planejamento OPS-5, índices bilíngues de stories e changelogs internos.
+- Evidências/spec/docs: esta story e seu par em inglês, guias bilíngues de contribuição de tradução, artefatos Spec Pipeline da FND-8, planejamento OPS-5, índices bilíngues de stories, READMEs/guias de usuário e changelogs.
 
 ## Limites do planejamento
 
-A implementação continua em andamento: persistência de locale, descoberta de catálogos, textos principais de chat/OBS e localização POSIX estão implementados; cobertura completa do painel/API, validação nativa Windows e QA independente final seguem pendentes. Esta PR atualiza a MINOR alpha para `0.6.0`, mas não promove o estágio, cria release nem tag. A primeira MINOR beta pretendida da FND-8 continua `v1.1.0-HHHHHHH-beta`; promoção é decisão do proprietário.
+A implementação e o QA independente estão concluídos para revisão: PASS 9,2/10. A PR #31 continua aberta e mantém a MINOR alpha existente `0.6.0`; este trabalho não promove o estágio, cria release nem tag. A MINOR beta planejada para a FND-8 continua `v1.1.0-HHHHHHH-beta`; promoção depende do proprietário. Escritas reais na Twitch e comportamento nativo macOS não são declarados como validados.
 
 ## Registro de alterações
 
 | Data | Versão | Alteração | Agente |
 | --- | --- | --- | --- |
-| 2026-10-06 | 0.6.0 | Implementa fundação do locale e localização suportada de chat/OBS/host; cobertura do painel e QA por plataforma continuam pendentes | @aiox-master |
+| 2026-10-06 | 0.6.0 | Conclui a implementação e cobertura de testes do locale de todo o produto; aguarda aprovação de QA independente | @aiox-master |
 | 2026-10-06 | 0.5.2 | Spec v3 registra contratos técnicos e decisões aprovadas; implementação TDD P0 iniciou; gates restantes e QA final pendentes | @aiox-master |

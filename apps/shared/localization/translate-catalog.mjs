@@ -1,1 +1,1 @@
-export { translateCatalog } from '../browser/translate-catalog.mjs';
+export { translateCatalog, translatePluralCatalog } from '../browser/translate-catalog.mjs';

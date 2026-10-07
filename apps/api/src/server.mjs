@@ -83,6 +83,7 @@ registerQueueRoutes(app, {
   repository,
   domainService: domainServiceProxy,
   clearConfirmation,
+  getSetupCatalogs: async () => (await discoverCatalogModule(catalogRoot, 'setup')).catalogs,
   productVersion,
   integrations: {
     get status() { return runtime?.integration?.status ?? 'not_configured'; },

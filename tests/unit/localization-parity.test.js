@@ -57,6 +57,28 @@ describe('validateCatalogSet', () => {
     })).toThrow('Placeholder allowlist mismatch for key queue.called');
   });
 
+  it('rejects markup and control characters in translated values', () => {
+    for (const unsafe of ['<script>alert(1)</script> {user}', '<script> {user}', '<iframe> {user}', '<b>bold</b> {user}']) {
+      const catalogs = validCatalogs();
+      catalogs.en['queue.called'] = unsafe;
+      expect(() => validateCatalogSet(catalogs, {
+        placeholders: { 'queue.called': ['user'] },
+      })).toThrow('Unsafe catalog value for key queue.called');
+    }
+    for (const placeholder of ['<fila>', '<user>']) {
+      const catalogs = validCatalogs();
+      catalogs.en['queue.called'] = `Join ${placeholder} {user}`;
+      expect(() => validateCatalogSet(catalogs, {
+        placeholders: { 'queue.called': ['user'] },
+      })).not.toThrow();
+    }
+    const controls = validCatalogs();
+    controls.en['queue.called'] = 'line\u0001break {user}';
+    expect(() => validateCatalogSet(controls, {
+      placeholders: { 'queue.called': ['user'] },
+    })).toThrow('Unsafe catalog value for key queue.called');
+  });
+
   it('rejects malformed placeholder braces', () => {
     const catalogs = validCatalogs();
     catalogs.es['queue.called'] = '¡Hola, {user!';
@@ -80,5 +102,33 @@ describe('validateCatalogSet', () => {
 
   it('rejects invalid locale identifiers', () => {
     expect(() => validateCatalogSet({ ...validCatalogs(), pt_br: {} })).toThrow('Invalid locale identifier');
+  });
+
+  it('requires the Intl plural categories for every declared plural message', () => {
+    const catalogs = validCatalogs();
+    for (const locale of Object.keys(catalogs)) {
+      catalogs[locale]['queue.count.one'] = '{count} person';
+      catalogs[locale]['queue.count.other'] = '{count} people';
+      if (locale !== 'en') catalogs[locale]['queue.count.many'] = '{count} people';
+    }
+    delete catalogs.en['queue.count.other'];
+    expect(() => validateCatalogSet(catalogs, {
+      placeholders: { 'queue.called': ['user'], 'queue.count': ['count'] },
+    })).toThrow('Plural forms differ for locale en');
+  });
+
+  it('accepts a community locale with its own complete Intl plural-category set', () => {
+    const catalogs = validCatalogs();
+    for (const locale of Object.keys(catalogs)) {
+      catalogs[locale]['queue.count.one'] = '{count} person';
+      catalogs[locale]['queue.count.other'] = '{count} people';
+      if (locale !== 'en') catalogs[locale]['queue.count.many'] = '{count} people';
+    }
+    catalogs.ar = {
+      ...catalogs.en,
+      'queue.count.zero': '{count} أشخاص', 'queue.count.two': '{count} شخصان',
+      'queue.count.few': '{count} أشخاص', 'queue.count.many': '{count} شخصًا',
+    };
+    expect(validateCatalogSet(catalogs, { placeholders: { 'queue.called': ['user'], 'queue.count': ['count'] } })).toBe(true);
   });
 });

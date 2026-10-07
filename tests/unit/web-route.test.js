@@ -102,7 +102,7 @@ describe('local web entrypoint', () => {
     expect(script.body).toContain('/resolve-unknown');
     expect(script.body).toContain('twitchStatusLabel(setup, activeProductLocale(), state.localizationCatalogs)');
     expect(script.body).not.toContain('setup.status.toUpperCase()');
-    expect(script.body).toContain('Twitch não confirmou');
+    expect(script.body).toContain('const statusKey = `panel.operation.status.${operation.status}`');
     expect(script.body).toContain('reward-candidates');
     expect(script.body).toContain('resolve-reward');
     const page = await app.inject({ method: 'GET', url: '/' });
@@ -113,12 +113,11 @@ describe('local web entrypoint', () => {
     expect(script.body).toContain("from './health-status.mjs'");
     expect(script.body).toContain("request('/health')");
     expect(script.body).toContain('/api/queues/${queue.id}/history');
-    expect(script.body).toContain('Histórico recente');
-    expect(script.body).toContain("action('Mover ↑', 'move-up'");
+    expect(script.body).toContain("panelText('panel.queue.history.title')");
+    expect(script.body).toContain("action(panelText('panel.entry.action.move_up'), 'move-up'");
     expect(script.body).toContain('/move`');
-    expect(script.body).toContain("from './priority-labels.mjs'");
-    expect(script.body).toContain('Prioritária · conferida pelo operador');
-    expect(script.body).toContain("action(entry.priorityClass === 'priority' ? 'Remover prioridade' : 'Marcar prioritária'");
+    expect(script.body).toContain("panelText('panel.entry.priority_badge')");
+    expect(script.body).toContain("panelText(entry.priorityClass === 'priority' ? 'panel.entry.action.remove_priority' : 'panel.entry.action.mark_priority')");
     expect(page.body).toContain('Prioridade conferida por mim');
     expect(page.body).toContain('O bot não verifica pagamento/inscrição nem guarda comprovantes.');
     expect(script.body).toContain("from './application-setup.mjs'");
@@ -128,9 +127,6 @@ describe('local web entrypoint', () => {
     const healthModule = await app.inject({ method: 'GET', url: '/health-status.mjs' });
     expect(healthModule.statusCode).toBe(200);
     expect(healthModule.body).toContain('function formatHealthStatus');
-    const priorityLabels = await app.inject({ method: 'GET', url: '/priority-labels.mjs' });
-    expect(priorityLabels.statusCode).toBe(200);
-    expect(priorityLabels.body).toContain('function priorityBenefitLabel');
   });
 
   it('serves the called-entry resend action in the panel script', async () => {
@@ -138,10 +134,10 @@ describe('local web entrypoint', () => {
     await registerWebRoutes(app, webRoot);
     const script = await app.inject({ method: 'GET', url: '/app.js' });
     expect(script.statusCode).toBe(200);
-    expect(script.body).toContain("action('Reenviar chamada', 'resend-call'");
+    expect(script.body).toContain("action(panelText('panel.entry.action.resend'), 'resend-call'");
     expect(script.body).toContain("actionName === 'resend-call'");
-    expect(script.body).toContain("action('Desarquivar', 'unarchive-queue'");
-    expect(script.body).toContain("action('Arquivar', 'archive-queue'");
+    expect(script.body).toContain("action(panelText('panel.queue.action.unarchive'), 'unarchive-queue'");
+    expect(script.body).toContain("action(panelText('panel.queue.action.archive'), 'archive-queue'");
     await app.close();
   });
 
@@ -162,9 +158,9 @@ describe('local web entrypoint', () => {
     expect(page.body).toContain('id="reconcile-now"');
     expect(script.body).toContain("request('/api/reconciliation'");
     expect(script.body).toContain("'idempotency-key': idempotencyKey ?? globalThis.crypto.randomUUID()");
-    expect(script.body).toContain("action('Configurar', 'edit-settings'");
+    expect(script.body).toContain("action(panelText('panel.queue.action.configure'), 'edit-settings'");
     expect(script.body).toContain('/settings`');
-    expect(script.body).toContain("action('Editar recompensa', 'edit-reward-settings'");
+    expect(script.body).toContain("action(panelText('panel.queue.action.edit_reward'), 'edit-reward-settings'");
     expect(script.body).toContain('/reward-settings`');
     await app.close();
   });
@@ -173,10 +169,10 @@ describe('local web entrypoint', () => {
     const app = Fastify();
     await registerWebRoutes(app, webRoot);
     const script = await app.inject({ method: 'GET', url: '/app.js' });
-    expect(script.body).toContain("action('Excluir fila', 'delete-queue'");
+    expect(script.body).toContain("action(panelText('panel.queue.action.delete'), 'delete-queue'");
     expect(script.body).toContain('body: JSON.stringify({ confirm: true })');
-    expect(script.body).toContain('A recompensa só será excluída depois da confirmação de todos os cancelamentos');
-    expect(script.body).toContain('Exclusão pendente: aguardando confirmação');
+    expect(script.body).toContain("panelText('panel.queue.confirm.delete'");
+    expect(script.body).toContain("panel.queue.delete.pending");
     await app.close();
   });
 });

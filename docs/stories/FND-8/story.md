@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../pt-BR/stories/FND-8/story.md)
 
-**Status:** Locale/catalog foundations, PostgreSQL persistence, chat roots/replies, OBS-generated copy, and POSIX lifecycle localization are implemented. The Windows PowerShell runner has static contract coverage only. Remaining panel/API localization, native Windows validation, and independent final QA keep this story in progress. Spec v3 QA re-review: CONCERNS, no new score.
+**Status:** Ready for Review. Product locale persistence, dynamic community catalogs, localized panel/chat/OBS/setup/lifecycle copy, native Windows lifecycle CI, strict plural/unsafe-markup validation, and regression coverage are implemented on open PR #31. Independent AIOX-QA passed 9.2/10. Windows lifecycle behavior passed the native `windows-latest` CI scenario; streamer/Twitch live writes and macOS host behavior remain unverified.
 **Complexity:** COMPLEX (22/25).
 **GitHub issue:** [#18](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/18)
 
@@ -21,8 +21,8 @@ As a streamer, I want to select the product language during installation and cha
 - Existing queue-key collisions with `fila`, `queue`, or `cola` block only the conflicting root until explicit panel rename; automatic rename is forbidden.
 - Target product surfaces: panel and setup/callback; chat command syntax/help/replies; OBS widget editor and product-generated labels/fallbacks; start/install, update, and uninstall tools.
 - The implementation stays local-first, vanilla JavaScript ESM, with no runtime translation service, frontend framework, TypeScript, or bundler.
-- PostgreSQL is the selected locale authority; `.local/product-locale.state` is a revisioned, atomic host-readable projection with last-valid offline fallback. This architecture still needs contract tests.
-- Shared catalogs use UTF-8 no-BOM TSV with literal text and allowlisted placeholders. A shared ESM byte decoder now rejects BOM/malformed UTF-8 under Node tests; browser ESM and POSIX/PowerShell host parity still need contract tests.
+- PostgreSQL is the selected locale authority; `.local/product-locale.state` is a revisioned, atomic host-readable projection with last-valid offline fallback. PostgreSQL, projection, permissions, and restart behavior have dedicated contracts.
+- Shared catalogs use UTF-8 no-BOM TSV with literal text and allowlisted placeholders. Byte decoding rejects BOM/malformed UTF-8; validation enforces locale-specific `Intl.PluralRules` categories and placeholder parity. Browser and host scripts consume catalog-owned values without executable templates.
 
 ## Owner-approved policies
 
@@ -222,7 +222,7 @@ As a streamer, I want to select the product language during installation and cha
 - **Behavior:** every PR runs the PowerShell updater localization/precondition scenario on `windows-latest`, using a disposable project path containing spaces; a non-main checkout must report the selected English catalog copy and must not invoke Docker.
 - **Red:** `npm exec -- vitest run tests/integration/windows-lifecycle-contract.test.js` failed because the CI workflow had no Windows runner or native lifecycle scenario.
 - **Red:** the first native GitHub Actions run printed the scenario's success message but the process still exited with code 1 because PowerShell inherited `$LASTEXITCODE` from the deliberately failing nested updater process.
-- **Green:** an explicit success exit was added after the fixture cleanup; the Linux contract remains 1/1 and native Windows rerun is pending. Local lint, typecheck, full tests (87 files / 617 tests), catalog validation, version/port checks, Compose validation, and `git diff --check` passed. This Linux host has no `pwsh` executable.
+- **Green:** an explicit success exit was added after fixture cleanup; the Linux contract passed 1/1 and GitHub Actions run `37557519427` passed the native Windows job on `windows-latest`. The run verified the English catalog copy in a path with spaces and that Docker was not invoked. Linux lint, typecheck, full tests (87 files / 617 tests), catalog validation, version/port checks, Compose validation, and `git diff --check` also passed.
 - **Refactor:** the isolated temporary fixture still proves branch rejection before Docker access, and now reports its own result independently of the child process result.
 - **Scope:** native Windows CI is now part of the PR quality gate. Full panel/API localization and final independent QA remain pending.
 
@@ -241,14 +241,54 @@ As a streamer, I want to select the product language during installation and cha
 - [x] Provide a CLI catalog validator with safe output and a nonzero failure result.
 - [x] Connect discovered catalogs to the settings picker and Twitch setup copy; persist locale changes in PostgreSQL and expose them through the protected state projection.
 - [x] Create the atomic offline host locale projection; add runtime locale support to chat, OBS, and lifecycle tools; test approved key-collision/authored-text policies where implemented.
-- [ ] Localize all remaining panel views and dynamic UI messages; extend code-specific API error presentation beyond the currently mapped locale conflict; prove browser and PowerShell parity with native execution.
-- [ ] Finish bilingual contributor docs, quality gates, native platform acceptance, and independent QA.
+- [x] Localize panel views and dynamic UI messages with catalog-owned strings; unknown API/provider errors render localized safe generic copy and persisted operation details are excluded from the panel API.
+- [x] Add native Windows lifecycle CI and browser-facing catalog contract checks; preserve unresolved platform/live-service limits explicitly.
+- [x] Keep contributor docs, README and user guides bilingual and synchronized with catalog discovery, locale-specific command roots, plural categories, and authored-text policy.
+- [x] Independent AIOX-QA review passed 9.2/10; implementation is ready for PR review. Merge and issue closure remain separate steps.
+
+
+
+### Increment 23 — Localize the complete panel and safe error presentation
+
+- **Behavior:** panel forms, dynamic queue/entry/operation/widget states, confirmations, setup feedback, and errors render catalog-owned text in the selected product locale; persisted streamer-authored text remains unchanged. Backend/provider messages and stored outbox error details are not rendered or exposed through the panel projection.
+- **Red:** the panel localization contract failed on unmarked visible HTML and the error presentation regression failed because an unsupported public code fell through to nonlocalized copy. The operations route regression also reproduced a raw persisted error detail in its projection.
+- **Green:** `npm exec -- vitest run tests/integration/panel-localization-contract.test.js tests/unit/panel-error-presentation.test.js tests/unit/queue-routes.test.js` passed after adding catalog-backed panel copy, localized generic fallback, and removing operation error details from the UI projection. Focused localization integration also validates all required locale catalog keys.
+- **Refactor:** DOM translation now updates text nodes without replacing nested form controls, preserving checkbox/input behavior inside labels; command metadata uses stable catalog IDs rather than API-provided prose.
+- **Scope:** verified by DOM/catalog and API projection tests; this is not a claim of live streamer usability testing.
+
+### Increment 25 — Localize the OAuth callback page
+
+- **Behavior:** the success and recovery callback pages follow the saved product locale; the channel display name and catalog text are escaped before HTML insertion; the 30-second return countdown and safe callback URL cleanup remain intact.
+- **Red:** npm exec -- vitest run tests/unit/queue-routes.test.js -t 'OAuth callback with the selected product locale' failed because the page rendered <html lang="pt-BR"> and Portuguese copy despite a saved English locale.
+- **Green:** the same focused command passed 2/2 callback tests after injecting the validated setup catalog and rendering translated text as escaped text.
+- **Refactor:** callback copy uses the shared safe catalog translator and has a bounded pt-BR fallback when catalogs cannot load; module validation owns the callback placeholder allowlist.
+- **Scope:** callback success and recovery tests remain in the queue route suite; no Twitch credential or live authorization was used.
+
+### Increment 24 — Select locale-specific plural forms
+
+- **Behavior:** count-bearing chat and panel messages select CLDR categories using native `Intl.PluralRules` and format counts with `Intl.NumberFormat`; every catalog supplies all categories required for its locale, including `many` for pt-BR and Spanish under the bundled Node ICU data.
+- **Red:** `npm exec -- vitest run tests/unit/chat-command-handler.test.js -t 'active locale plural form'` returned the pt-BR fallback string (`2 pessoas chamadas.`) instead of the expected English form. `npm exec -- vitest run tests/integration/panel-localization-contract.test.js -t 'native plural selection'` failed because panel plural selection was absent.
+- **Green:** after wiring plural translation into chat and panel and adding locale-specific catalog groups, `npm exec -- vitest run tests/unit/chat-command-handler.test.js tests/unit/localization-translation.test.js tests/unit/localization-parity.test.js tests/integration/localization-catalog-route.test.js tests/integration/panel-localization-contract.test.js` passed 61/61; `npm run validate:localization` passed for all five modules and required locales.
+- **Refactor:** plural category completeness and shared placeholder contracts are validated centrally; scalar keys ending in `.other` remain distinguishable from plural groups.
+- **Scope:** selection, formatting, catalog completeness and product call sites are covered; user-authored text is not pluralized or rewritten.
+
+### Increment 26 — Document community translation contributions
+
+- **Behavior:** provide reciprocal English/pt-BR contribution guides with `pt-BR` as source locale, the exact module/locale TSV layout, literal-tab template, placeholder and locale-specific plural rules, review workflow, and validation/test commands; reject HTML tags and control characters in catalog values while allowing only known command metavariables such as `<fila>` and `<user>`; link both READMEs to their guide.
+- **Red:** AIOX-QA’s independent review found acceptance criterion 3 lacked the source locale, contribution template, plural example, review flow, and complete contributor steps. A separate validator regression failed because `<script>`, `<iframe>`, and control characters were accepted as catalog values.
+- **Green:** added `docs/TRANSLATION_GUIDE.md` and `docs/pt-BR/TRANSLATION_GUIDE.md`, linked both READMEs, and added a strict catalog-value check with an explicit allowlist for documented command metavariables. The focused validator/discovery/CLI tests passed 18/18; catalog validation passed for five modules and three required locales.
+- **Refactor:** the validator rejects reserved HTML elements/markup and control characters while preserving known command syntax tokens such as `<fila>`, `<user>`, and `<position>`.
+- **Scope:** contributor instructions and safe catalog validation are covered; runtime discovery still reads valid mounted catalogs without a locale registry.
+
+**Final implementation gates (2026-10-06):** `npm test` passed 87 files / 638 tests; `npm run lint`, `npm run typecheck`, `npm run validate:localization`, focused validator/discovery/CLI tests (18/18), `npm run validate:version`, `npm run validate:port-denylist`, `npm run review:static` (70 JavaScript files, 0 findings), `docker compose config --quiet`, and `git diff --check` passed. Independent final QA is still a required story gate.
+
+**Independent AIOX-QA (2026-10-06): PASS — 9.2/10.** QA independently verified rejection of `<script>`, `<script>alert(1)`, `<iframe>`, and `<b>bold</b>`, acceptance of `<fila>` and `<user>` command metavariables, and correction of the pt-BR story status. Focused catalog/validator/discovery/CLI tests passed 27/27; localization validation, typecheck, lint, and diff check passed. The full 638-test suite passed locally on the same implementation snapshot; QA did not rerun the entire suite. Real Twitch authorization/writes, manual browser review, and native macOS behavior remain unvalidated.
 
 ## Files changed in current implementation slice
 
 - Runtime: Compose catalog mount; `apps/api/src/http/localization-routes.mjs`, `apps/api/src/http/queue-routes.mjs`, `apps/api/src/persistence/queue-repository.mjs`, `apps/api/src/server.mjs`, `apps/api/src/web-route.mjs`; setup catalogs and locale picker in `apps/web/`; shared browser/server localization modules.
 - Tests: catalog parser/discovery/CLI/API tests, real PostgreSQL locale persistence/concurrency tests, protected state/API route tests, web module/picker tests, and setup localization tests.
-- Evidence/spec/docs: this story and its pt-BR pair, FND-8 Spec Pipeline artifacts, OPS-5 planning artifacts, bilingual stories indexes, and internal changelogs.
+- Evidence/spec/docs: this story and its pt-BR pair, bilingual translation contribution guides, FND-8 Spec Pipeline artifacts, OPS-5 planning artifacts, bilingual stories indexes, READMEs/user guides, and changelogs.
 
 
 
@@ -256,11 +296,11 @@ As a streamer, I want to select the product language during installation and cha
 
 ## Planning boundary
 
-Implementation remains in progress: locale persistence, catalog discovery, core chat/OBS copy, and POSIX lifecycle localization are implemented; full panel/API coverage, native Windows validation, and final independent QA remain open. This PR advances the alpha MINOR to `0.6.0` but does not promote the stage, create a release, or create a tag. The intended first FND-8 beta MINOR remains `v1.1.0-HHHHHHH-beta`; stage promotion is owner-controlled.
+Implementation and independent QA are complete for review: PASS 9.2/10. PR #31 remains open and retains alpha MINOR `0.6.0`; this work does not promote the stage, create a release, or create a tag. The planned FND-8 beta MINOR remains `v1.1.0-HHHHHHH-beta`; stage promotion is owner-controlled. Live Twitch writes and macOS-native behavior are not claimed as validated.
 
 ## Change Log
 
 | Date | Version | Change | Agent |
 | --- | --- | --- | --- |
-| 2026-10-06 | 0.6.0 | Implement product locale foundations and supported chat/OBS/host localization; panel coverage and platform QA remain open | @aiox-master |
+| 2026-10-06 | 0.6.0 | Complete product-wide locale implementation and test coverage; awaiting independent QA sign-off | @aiox-master |
 | 2026-10-06 | 0.5.2 | Spec v3 records contracts and approved product decisions; TDD implementation has started; runtime contract validation and final QA remain pending | @aiox-master |

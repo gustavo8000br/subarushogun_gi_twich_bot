@@ -7,7 +7,10 @@ export function applyPanelTranslations(root, locale, catalogs) {
   for (const rawElement of root.querySelectorAll('[data-i18n]')) {
     const element = /** @type {HTMLElement} */ (rawElement);
     const key = element.dataset.i18n;
-    if (key) element.textContent = translate(key);
+    if (!key) continue;
+    const textChild = [...(element.childNodes ?? [])].find((child) => child.nodeType === 3);
+    if (textChild) textChild.textContent = translate(key);
+    else element.textContent = translate(key);
   }
   for (const [selector, attribute, property] of [
     ['[data-i18n-placeholder]', 'placeholder', 'i18nPlaceholder'],

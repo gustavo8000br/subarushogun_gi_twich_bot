@@ -33,12 +33,12 @@ describe('discoverCatalogBundle', () => {
     const root = await makeRoot();
     await writeFile(join(root, 'setup', 'de.tsv'), 'title\tEinrichtung\ntranslation.unavailable\tNicht verfügbar.\n');
 
-    const partial = await discoverCatalogBundle(root);
+    const partial = await discoverCatalogBundle(root, { placeholdersByModule: { setup: {} } });
     expect(partial.locales).toEqual(['en', 'es', 'pt-BR']);
     expect(partial.modules.setup.catalogs.de).toBeUndefined();
 
     await writeFile(join(root, 'community-module', 'de.tsv'), 'title\tChat\ntranslation.unavailable\tNicht verfügbar.\n');
-    const complete = await discoverCatalogBundle(root);
+    const complete = await discoverCatalogBundle(root, { placeholdersByModule: { setup: {} } });
 
     expect(complete.locales).toEqual(['de', 'en', 'es', 'pt-BR']);
     expect(complete.modules.setup.catalogs.de.title).toBe('Einrichtung');
@@ -50,7 +50,7 @@ describe('discoverCatalogBundle', () => {
     await writeFile(join(root, 'setup', 'de.tsv'), 'title\tHallo\ntranslation.unavailable\tNicht verfügbar.\n');
     await writeFile(join(root, 'community-module', 'de.tsv'), 'title\tHallo\ntranslation.unavailable\tNicht verfügbar.\nextra.key\tExtra\n');
 
-    const result = await discoverCatalogBundle(root);
+    const result = await discoverCatalogBundle(root, { placeholdersByModule: { setup: {} } });
 
     expect(result.locales).toEqual(['en', 'es', 'pt-BR']);
   });

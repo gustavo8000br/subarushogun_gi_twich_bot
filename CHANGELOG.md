@@ -6,6 +6,10 @@ This file highlights changes that matter to streamers and viewers. Technical and
 
 ## v0.6.0-alpha
 
+- The Twitch sign-in confirmation and recovery page now follows the selected product language.
+
+- Choose Brazilian Portuguese, English, Spanish, or a complete community translation for the panel and bot messages; command roots follow the selected language.
+
 - Choose the product language in the panel. Supported chat replies, OBS labels, and local setup tools can use Brazilian Portuguese, English, or Spanish catalogs.
 
 ## v0.5.2-alpha

@@ -356,9 +356,11 @@ Execute as verificações de qualidade da seção [Desenvolvimento](#desenvolvim
 
 ### Catálogos de tradução
 
+Consulte o [Guia de contribuição de traduções](docs/pt-BR/TRANSLATION_GUIDE.md) para ver o locale-fonte, o modelo de contribuição, exemplos de plural, revisão e validação. O português brasileiro (`pt-BR`) é o locale-fonte e fallback seguro.
+
 As traduções do produto ficam em `apps/web/localization/catalogs/<modulo>/<locale>.tsv`, com um arquivo UTF-8 por módulo e locale. Mantenha completos os catálogos obrigatórios `pt-BR`, `en` e `es`, com as mesmas chaves e placeholders. Para adicionar um locale comunitário, crie um arquivo em cada módulo do produto; ele só ficará disponível quando o conjunto completo passar pela validação.
 
-Execute `npm run validate:localization` para verificar os catálogos do repositório. O bot lê esse diretório por uma montagem somente para leitura do Compose e o verifica novamente enquanto está em execução. Depois de adicionar um locale completo, a página de configurações o encontra na próxima atualização do catálogo (em até aproximadamente 30 segundos); não é preciso reconstruir a imagem nem reiniciar o bot. Edite os arquivos no diretório do projeto, nunca dentro do contêiner. Use somente texto literal; catálogos não contêm código executável nem templates HTML.
+Execute `npm run validate:localization` para verificar os catálogos do repositório. O bot lê esse diretório por uma montagem somente para leitura do Compose e o verifica novamente enquanto está em execução. Depois de adicionar um locale completo, a página de configurações o encontra na próxima atualização do catálogo (em até aproximadamente 30 segundos); não é preciso reconstruir a imagem nem reiniciar o bot. Edite os arquivos no diretório do projeto, nunca dentro do contêiner. Use somente texto literal; catálogos não contêm código executável nem templates HTML. Mensagens com contagens usam as categorias `Intl.PluralRules` do locale; o validador aponta formas ausentes antes que o catálogo seja descoberto. Nomes de filas, descrições de recompensa e templates escritos pelo streamer permanecem exatamente como foram digitados.
 
 ## Commits e versionamento
 
@@ -411,9 +413,9 @@ Abra `https://localhost:3000` manualmente. Se o navegador indicar certificado n�
 | OPS-1 | Gates CI para API, infra e web | QA PASS 9,3/10; aguarda merge da PR |
 | OPS-2 | Rótulos seguros em português para status Twitch | QA PASS 9,3/10; correções de regressão nesta PR |
 | OPS-4 | Metadados da licença MIT | QA PASS 9,3/10; já mesclada |
-| FND-8 | Planejamento e implementação da localização de todo o produto | Em andamento na PR #31; fundação de catálogos/persistência, localização de chat/OBS e ferramentas do host estão sendo integradas; cobertura completa do painel, validação Windows e QA final seguem pendentes |
+| FND-8 | Localização de todo o produto | Implementação concluída na PR aberta #31; persistência de locale, descoberta dinâmica de catálogos comunitários, textos localizados do painel/chat/OBS/ciclo de vida e validação de plurais têm cobertura. QA independente é o gate restante da story; escritas reais na Twitch e macOS nativo continuam sem validação |
 
-A FND-8 implementa um idioma persistente do produto, com catálogos pt-BR, inglês e espanhol organizados por módulo. Catálogos comunitários completos podem ser descobertos com o app em execução. A story registra superfícies implementadas, evidências de teste e critérios ainda pendentes. Ela só será concluída depois da cobertura do painel e do QA por plataforma.
+A FND-8 adiciona um idioma persistente ao produto, com catálogos pt-BR, inglês e espanhol organizados por módulo. Catálogos comunitários completos são descobertos enquanto o app está em execução; painel, chat, textos do OBS e ferramentas de ciclo de vida usam o idioma selecionado. As raízes de chat são `!fila`, `!queue` ou `!cola` conforme o locale. A PR continua aberta até passar pelo gate de QA independente.
 
 ## Dados e segurança
 

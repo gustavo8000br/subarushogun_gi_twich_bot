@@ -5,6 +5,12 @@ const SAFE_UNAVAILABLE = Object.freeze({
   es: 'Texto del producto no disponible.',
 });
 const PLACEHOLDER_PATTERN = /\{([a-z][a-zA-Z0-9_]*)\}/g;
+const PLURAL_SUFFIXES = new Set(['zero', 'one', 'two', 'few', 'many', 'other']);
+
+function pluralBaseKey(key) {
+  const separator = key.lastIndexOf('.');
+  return separator >= 0 && PLURAL_SUFFIXES.has(key.slice(separator + 1)) ? key.slice(0, separator) : null;
+}
 
 /** @param {unknown} value */
 function isSafeInterpolationValue(value) {
@@ -34,7 +40,8 @@ export function translateCatalog(catalogs, locale, key, options = {}) {
   const template = selectedCatalog?.[key] ?? catalogs?.[DEFAULT_LOCALE]?.[key];
   if (typeof template !== 'string') return unavailable();
 
-  const allowed = options.placeholders?.[key] ?? [];
+  const pluralBase = pluralBaseKey(key);
+  const allowed = options.placeholders?.[key] ?? (pluralBase ? options.placeholders?.[pluralBase] : undefined) ?? [];
   const values = options.values ?? {};
   if (!Array.isArray(allowed) || Object.keys(values).some((name) => !allowed.includes(name))) {
     return unavailable();
@@ -45,4 +52,33 @@ export function translateCatalog(catalogs, locale, key, options = {}) {
     if (!allowed.includes(name) || !Object.hasOwn(values, name) || !isSafeInterpolationValue(values[name])) return unavailable();
   }
   return template.replace(PLACEHOLDER_PATTERN, (_, name) => String(values[name]));
+}
+
+/**
+ * Select a message form with native ECMA-402 plural rules and format its count
+ * with the same locale. Catalog forms are plain text and use a shared
+ * allowlisted placeholder contract at the plural base key.
+ * @param {Record<string, Record<string, string>>} catalogs
+ * @param {string} locale
+ * @param {string} key
+ * @param {number} count
+ * @param {{values?: Record<string, unknown>, placeholders?: Record<string, string[]>}} [options]
+ */
+export function translatePluralCatalog(catalogs, locale, key, count, options = {}) {
+  const selectedLocale = typeof locale === 'string' && Object.hasOwn(catalogs ?? {}, locale)
+    ? locale
+    : DEFAULT_LOCALE;
+  if (!Number.isFinite(count)) return translateCatalog(catalogs, selectedLocale, key, options);
+  let category;
+  let formattedCount;
+  try {
+    category = new Intl.PluralRules(selectedLocale).select(count);
+    formattedCount = new Intl.NumberFormat(selectedLocale).format(count);
+  } catch {
+    return translateCatalog(catalogs, DEFAULT_LOCALE, key, options);
+  }
+  return translateCatalog(catalogs, selectedLocale, `${key}.${category}`, {
+    ...options,
+    values: { ...(options.values ?? {}), count: formattedCount },
+  });
 }

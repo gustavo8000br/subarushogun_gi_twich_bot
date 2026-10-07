@@ -18,8 +18,24 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'chat.queue.clear_confirm': Object.freeze(['queue', 'clear_command', 'confirm_command', 'count', 'refunds']),
     'chat.queue.clear_done': Object.freeze(['count', 'refunds']),
   }),
+  setup: Object.freeze({
+    'setup.callback.success_message': Object.freeze(['channel']),
+    'setup.callback.return_message': Object.freeze(['seconds']),
+  }),
   lifecycle: Object.freeze({
     'lifecycle.uninstall.confirm_prompt': Object.freeze(['word']),
+  }),
+  panel: Object.freeze({
+    'panel.queue_settings.call_placeholders': Object.freeze(['user', 'queue', 'position', 'uid', 'account']),
+    'panel.queue_settings.call_message_default': Object.freeze(['user']),
+    'panel.operation.attempts': Object.freeze(['count']),
+    'panel.reconciliation.complete': Object.freeze(['count']),
+    'panel.reconciliation.issues': Object.freeze(['count']),
+    'panel.queue.confirm.delete': Object.freeze(['title', 'count']),
+    'panel.queue.clear.confirm': Object.freeze(['title', 'count', 'refunds']),
+    'panel.queue.clear.changed': Object.freeze(['count']),
+    'panel.queue.clear.done': Object.freeze(['count', 'refunds']),
+    'panel.widget.card_details': Object.freeze(['queue', 'width', 'height', 'id']),
   }),
 });
 

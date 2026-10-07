@@ -4,13 +4,20 @@
 
 ## v0.6.0-alpha
 
+- Conclui os gates de localização da FND-8 na PR #31: a validação de catálogos rejeita marcação HTML e caracteres de controle, preservando metavariáveis de comando documentadas; os guias de contribuição agora são bilíngues. Suíte completa passou 638/638, lint/typecheck/validações de locale/versão/portas/Compose/análise estática passaram, a imagem Docker do bot foi buildada e o QA independente AIOX-QA aprovou com PASS 9,2/10. Escritas reais na Twitch e macOS nativo seguem sem validação.
+
+- Localiza a página de sucesso/recuperação do callback OAuth com catálogos de configuração; escapa texto do catálogo e nome do canal Twitch antes do HTML, preserva o retorno em 30 segundos e usa fallback seguro se os catálogos estiverem indisponíveis.
+
+- Completa a localização por catálogo dos formulários restantes do painel, apresentação dinâmica de filas/entradas/operações/widgets, confirmações e fallback genérico seguro de erros. A projeção de operações não expõe mais detalhes de erro persistidos. A localização DOM preserva controles aninhados nos formulários.
+- Adiciona grupos de plurais do locale ao chat e painel com `Intl.PluralRules` e `Intl.NumberFormat`; a validação exige as categorias ICU de cada idioma. As suítes focadas de localização passaram 61/61 e `npm run validate:localization` passou para chat, lifecycle, overlay, panel e setup. A revisão independente AIOX-QA é o gate restante da story FND-8.
+
 - Persiste o locale da instalação no PostgreSQL com revisão otimista/auditoria, expõe uma API de catálogos protegida por sessão, descobre dinamicamente arquivos TSV completos por módulo/locale e grava uma projeção atômica do locale legível pelo host.
 - Adiciona raízes de chat por idioma e textos suportados de ajuda/resposta, rótulos gerados pelo OBS, textos de configuração/status Twitch e ferramentas host. Conteúdo escrito pelo streamer para filas/widgets continua inalterado.
 - Impede que mensagens de erro do backend/provedor cheguem a avisos e toasts do painel; mapeia conflito de revisão de idioma para texto do catálogo e usa mensagem genérica localizada nos demais casos. Testes de regressão cobrem uma resposta de provedor com conteúdo semelhante a segredo.
 - Adiciona entrypoints genéricos `subarushogun_twich_bot_{setup,update,uninstall}`. Ferramentas POSIX usam o locale salvo; entrypoints `.bat` delegam ao executor PowerShell. Há testes de contrato, mas o executor não foi rodado nativamente porque PowerShell/Windows não está disponível neste ambiente.
 - Atualiza documentação bilíngue de contribuição/operação e valida contratos de catálogo, API/persistência/projeção de locale, ciclo de vida shell, wrappers e Compose.
 - Gates em 2026-10-06: `npm run lint`, `npm run typecheck`, `npm test` (86 arquivos / 616 testes), `npm run validate:port-denylist` (1.024 arquivos, zero achados), `npm run validate:version`, `npm run review:static` (zero achados / 70 arquivos JS da aplicação), `npm run validate:localization` (5 módulos; en/es/pt-BR), `git diff --check` e `docker compose config --quiet` passaram. Localização integral do painel, validação runtime do PowerShell e QA independente final seguem pendentes.
-- Adiciona à PR um gate em `windows-latest` para o atualizador PowerShell, em caminho isolado com espaços e comandos Git/Docker falsos. A primeira execução nativa revelou um código de saída herdado pelo PowerShell após o próprio fixture informar sucesso; o script agora encerra com sucesso explícito após a limpeza. Nova execução está pendente. Localização completa do painel e QA independente final continuam pendentes.
+- Adiciona à PR um gate em `windows-latest` para o atualizador PowerShell, em caminho isolado com espaços e comandos Git/Docker falsos. A primeira execução nativa revelou um código de saída herdado pelo PowerShell após o próprio fixture informar sucesso; o script agora encerra com sucesso explícito após a limpeza. A execução `37557519427` do GitHub Actions passou no cenário Windows nativo. Localização completa do painel e QA independente final continuam pendentes.
 
 ## v0.5.2-alpha
 

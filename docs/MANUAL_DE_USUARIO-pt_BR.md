@@ -2,7 +2,7 @@
 
 [Read in English](USER_GUIDE-en_US.md)
 
-Este manual descreve o produto como ele existe na versão atual do projeto. O painel e as respostas no chat estão em português brasileiro; as traduções do produto para inglês e espanhol estão planejadas, mas ainda não estão disponíveis.
+Este manual descreve o produto como ele existe na versão atual do projeto. O idioma do produto pode ser alterado em **Configurações**; há catálogos em português brasileiro, inglês e espanhol, além de locales comunitários completos descobertos em tempo de execução. O locale selecionado controla os textos próprios do painel, chat, OBS e ferramentas de ciclo de vida.
 
 ## O que é o bot
 
@@ -203,7 +203,7 @@ Em filas com UID visível, avise claramente que ele pode aparecer publicamente. 
 
 **Disponível agora:** gestão local de filas, entrada por recompensa em canais elegíveis, inclusão manual, prioridade conferida e auditada pelo operador, permissões de comandos, acompanhamento de operações de pontos, rótulos de conta, recuperação da conexão Twitch e widgets locais de OBS na plataforma validada.
 
-**Planejado, não disponível nesta versão:** tradução completa para português/inglês/espanhol e catálogos comunitários; operação de filas somente manual para canais inelegíveis a Pontos do Canal; vários canais por instalação; Discord/mensagens privadas; verificação ou processamento automático de PIX, Bits ou inscrições; e hospedagem pública do OBS.
+**Planejado, não disponível nesta versão:** operação de filas somente manual para canais inelegíveis a Pontos do Canal; vários canais por instalação; Discord/mensagens privadas; verificação ou processamento automático de PIX, Bits ou inscrições; e hospedagem pública do OBS.
 
 Não existe comando para viewer se inscrever sozinho, verificação de conta de jogo, cobrança de pagamentos nem uma segunda conta de bot.
 
@@ -214,7 +214,7 @@ Não existe comando para viewer se inscrever sozinho, verificação de conta de 
 - Resgates com UID inválido são registrados para cancelamento sem criar entrada na fila. Não encontrei no handler atual o envio automático da mensagem explicativa específica prevista nos requisitos originais.
 - O primeiro teste no Windows registrou um aviso repetido de redirecionamento de entrada no auxiliar de inicialização. Há uma verificação automatizada para isso, mas uma nova execução manual no Windows ainda não confirmou que o aviso desapareceu.
 - Este projeto ainda não testou a instalação no macOS nem a confiança do certificado OBS nessa plataforma.
-- A tradução FND-8 ainda é um rascunho de planejamento. O painel e o chat continuam somente em português; comandos como `!queue` ainda não mudam conforme o idioma.
+- A raiz global de chat segue o idioma: `!fila` (pt-BR), `!queue` (inglês) ou `!cola` (espanhol). Slugs e aliases das filas continuam sendo os identificadores escolhidos pelo streamer.
 - As opções do desinstalador e o atualizador foram conferidas nos arquivos do projeto; esta tarefa de manual não os executou.
 
 ## Como esta explicação foi conferida

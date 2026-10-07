@@ -16,7 +16,7 @@ const sourceCatalog = {
 async function createCatalogRoot() {
   const root = await mkdtemp(join(tmpdir(), 'queuebot-catalog-cli-'));
   roots.push(root);
-  const moduleRoot = join(root, 'setup');
+  const moduleRoot = join(root, 'sample');
   await mkdir(moduleRoot);
   await Promise.all(Object.entries(sourceCatalog).map(([locale, text]) => (
     writeFile(join(moduleRoot, `${locale}.tsv`), text)
@@ -45,7 +45,7 @@ describe('localization catalog CLI validator', () => {
     const root = await createCatalogRoot();
     const result = await runValidator(root);
     expect(result.code).toBe(0);
-    expect(result.stdout).toContain('setup');
+    expect(result.stdout).toContain('sample');
     expect(result.stdout).toContain('pt-BR');
     expect(result.stdout).toContain('en');
     expect(result.stdout).toContain('es');
@@ -56,7 +56,7 @@ describe('localization catalog CLI validator', () => {
 
   it('exits unsuccessfully with safe output when a required locale catalog is missing', async () => {
     const root = await createCatalogRoot();
-    await rm(join(root, 'setup', 'es.tsv'));
+    await rm(join(root, 'sample', 'es.tsv'));
     const result = await runValidator(root);
     expect(result.code).toBe(1);
     expect(result.stdout).toBe('');

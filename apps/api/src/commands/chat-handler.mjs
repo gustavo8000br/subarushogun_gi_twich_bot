@@ -2,7 +2,7 @@ import { authorizeCommand } from './authorization.mjs';
 import { parseChatCommand } from './parser.mjs';
 import { getCommandDefinition } from './catalog.mjs';
 import { renderGlobalCommandHelp, renderPingResponse, renderQueueCommandHelp } from './help.mjs';
-import { translateCatalog } from '../../../shared/browser/translate-catalog.mjs';
+import { translateCatalog, translatePluralCatalog } from '../../../shared/browser/translate-catalog.mjs';
 
 const seenMessages = new Map();
 const cooldowns = new Map();
@@ -133,7 +133,7 @@ export function createChatCommandHandler({ repository, domainService = repositor
     return body;
   }
 
-  async function queueAction(message, parsed, authorized, policies, t, locale) {
+  async function queueAction(message, parsed, authorized, policies, t, tPlural, locale) {
     const queue = await repository.getQueueByKey(parsed.queueKey);
     if (!queue) return reply(message, t('chat.queue.not_found'));
     const args = parsed.args;
@@ -173,7 +173,7 @@ export function createChatCommandHandler({ repository, domainService = repositor
           const messageText = (queue.callMessage || '{user}, sua vez!').replaceAll('{user}', `@${entry.userLogin}`).replaceAll('{queue}', queue.title).replaceAll('{position}', String(entry.previousPosition)).replaceAll('{uid}', uid).replaceAll('{account}', (await settings.getAccount?.())?.label ?? 'Streamer');
           await repository.enqueueCallNotification?.({ entryId: entry.id, queueId: queue.id, message: messageText });
         }
-        return reply(message, selected.length === 1 ? t('chat.queue.called_one') : t('chat.queue.called_many', { count: selected.length }));
+        return reply(message, selected.length === 1 ? t('chat.queue.called_one') : tPlural('chat.queue.called_many', selected.length));
       }
       case 'atender':
       case 'concluir': {
@@ -277,6 +277,7 @@ export function createChatCommandHandler({ repository, domainService = repositor
       'pt-BR': { ...CHAT_FALLBACKS, ...(chatCatalogs['pt-BR'] ?? {}) },
     };
     const t = (key, values = {}) => translateCatalog(catalogsWithFallback, productLocale, key, { values, placeholders: CHAT_PLACEHOLDERS });
+    const tPlural = (key, count) => translatePluralCatalog(catalogsWithFallback, productLocale, key, count, { placeholders: CHAT_PLACEHOLDERS });
     const definition = getCommandDefinition(parsed);
     let policies = {};
     if (definition && !definition.immutableRoles) {
@@ -315,7 +316,7 @@ export function createChatCommandHandler({ repository, domainService = repositor
       }
     }
     try {
-      if (parsed.scope === 'queue') return await queueAction(message, parsed, authorized, policies, t, productLocale);
+      if (parsed.scope === 'queue') return await queueAction(message, parsed, authorized, policies, t, tPlural, productLocale);
       if (parsed.command === 'queue' && parsed.rootAction === 'queues') {
         const queues = (await repository.listQueueProjection?.() ?? []).filter((queue) => !queue.isArchived && queue.lifecycleStatus !== 'deleting');
         const visible = queues.map((queue) => `${queue.slug}${queue.isOpen ? '' : ` (${t('chat.queues.closed')})`}`);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { translateCatalog } from '../../apps/shared/localization/translate-catalog.mjs';
+import { translateCatalog, translatePluralCatalog } from '../../apps/shared/localization/translate-catalog.mjs';
 
 const catalogs = {
   'pt-BR': {
@@ -67,5 +67,30 @@ describe('translateCatalog', () => {
     expect(translateCatalog(catalogs, 'en', 'setup.greeting', {
       values: { user: 'Ari', secret: 'do-not-show' }, placeholders: { 'setup.greeting': ['user'] },
     })).toBe('Product text unavailable.');
+  });
+
+  it('selects locale plural categories and formats the count using Intl', () => {
+    const pluralCatalogs = Object.fromEntries(Object.entries(catalogs).map(([locale, catalog]) => [locale, {
+      ...catalog,
+      'item.count.one': locale === 'en' ? '{count} item' : locale === 'es' ? '{count} elemento' : '{count} item',
+      'item.count.other': locale === 'en' ? '{count} items' : locale === 'es' ? '{count} elementos' : '{count} itens',
+      ...(locale !== 'en' ? { 'item.count.many': locale === 'es' ? '{count} elementos' : '{count} itens' } : {}),
+    }]));
+    const placeholders = { 'item.count': ['count'] };
+    expect(translatePluralCatalog(pluralCatalogs, 'en', 'item.count', 1, { placeholders })).toBe('1 item');
+    expect(translatePluralCatalog(pluralCatalogs, 'en', 'item.count', 2, { placeholders })).toBe('2 items');
+    expect(translatePluralCatalog(pluralCatalogs, 'pt-BR', 'item.count', 1000, { placeholders })).toBe('1.000 itens');
+  });
+
+  it('selects locale-specific plural categories for community locales', () => {
+    const arabic = {
+      ...catalogs.en,
+      'item.count.zero': '{count} عنصر', 'item.count.one': '{count} عنصر',
+      'item.count.two': '{count} عنصران', 'item.count.few': '{count} عناصر',
+      'item.count.many': '{count} عنصرًا', 'item.count.other': '{count} عنصر',
+    };
+    const pluralCatalogs = { ...catalogs, ar: arabic };
+    const placeholders = { 'item.count': ['count'] };
+    expect(translatePluralCatalog(pluralCatalogs, 'ar', 'item.count', 3, { placeholders })).toBe('3 عناصر');
   });
 });

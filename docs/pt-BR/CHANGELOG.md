@@ -6,6 +6,10 @@ Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes t�
 
 ## v0.6.0-alpha
 
+- A tela de confirmação e recuperação do login Twitch agora segue o idioma selecionado para o produto.
+
+- Escolha português brasileiro, inglês, espanhol ou uma tradução comunitária completa para o painel e as mensagens do bot; a raiz dos comandos acompanha o idioma selecionado.
+
 - Escolha o idioma do produto no painel. Respostas suportadas do chat, rótulos do OBS e ferramentas locais podem usar catálogos em português brasileiro, inglês ou espanhol.
 
 ## v0.5.2-alpha

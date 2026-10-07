@@ -4,13 +4,20 @@
 
 ## v0.6.0-alpha
 
+- Complete FND-8 localization gates on PR #31: catalog validation rejects HTML markup and control characters while allowing documented command metavariables; contributor guides are now bilingual. Full suite passed 638/638, lint/typecheck/catalog/version/port/Compose/static-analysis checks passed, Docker bot image built, and independent AIOX-QA returned PASS 9.2/10. Live Twitch writes and native macOS remain unverified.
+
+- Localize the OAuth callback success/recovery page from setup catalogs; escape catalog copy and the Twitch channel display name before HTML rendering, retain the 30-second return behavior, and fall back safely if catalogs are unavailable.
+
+- Complete catalog-backed localization of remaining panel forms, dynamic queue/entry/operation/widget presentation, confirmations and safe generic error copy. The operations projection no longer exposes persisted error details. DOM localization preserves nested form controls.
+- Add locale-aware plural groups to chat and panel using `Intl.PluralRules` and `Intl.NumberFormat`; validation requires the ICU plural categories for each catalog locale. The focused localization suites passed 61/61 and `npm run validate:localization` passed for chat, lifecycle, overlay, panel, and setup. Independent AIOX-QA review is the remaining FND-8 story gate.
+
 - Persist installation locale in PostgreSQL with optimistic revision/audit, expose a session-protected catalog API, discover complete module/locale TSV files dynamically, and write an atomic host-readable locale projection.
 - Add locale-aware chat roots and supported command/help/reply text, OBS-generated labels, setup/status labels, and host lifecycle copy. Streamer-authored queue/widget content remains unchanged.
 - Prevent backend/provider error strings from reaching panel notices and toasts; map the locale revision conflict to catalog-owned copy and use localized generic copy otherwise. Regression tests cover a provider message containing a secret-like value.
 - Add generic `subarushogun_twich_bot_{setup,update,uninstall}` entrypoints. POSIX tools use the saved locale; Windows `.bat` entrypoints delegate to the PowerShell lifecycle runner. The runner has contract coverage but was not executed natively because PowerShell/Windows is unavailable in this environment.
 - Update bilingual contributor and operations docs and validate catalog, locale API/persistence/projection, shell lifecycle, wrapper, and Compose contracts.
 - Quality gates on 2026-10-06: `npm run lint`, `npm run typecheck`, `npm test` (86 files / 616 tests), `npm run validate:port-denylist` (1,024 files, 0 findings), `npm run validate:version`, `npm run review:static` (0 findings / 70 application JS files), `npm run validate:localization` (5 modules; en/es/pt-BR), `git diff --check`, and `docker compose config --quiet` passed. Whole-panel localization, PowerShell runtime validation, and final independent QA remain open.
-- Add a PR gate on `windows-latest` for the PowerShell updater using an isolated path with spaces and fake Git/Docker commands. The first native run exposed an inherited PowerShell exit code after the fixture itself reported success; the fixture now sets an explicit successful process exit after cleanup. Rerun is pending. Full panel localization and final independent QA remain open.
+- Add a PR gate on `windows-latest` for the PowerShell updater using an isolated path with spaces and fake Git/Docker commands. The first native run exposed an inherited PowerShell exit code after the fixture itself reported success; the fixture now sets an explicit successful process exit after cleanup. GitHub Actions run `37557519427` passed the native Windows scenario. Full panel localization and final independent QA remain open.
 
 ## v0.5.2-alpha
 

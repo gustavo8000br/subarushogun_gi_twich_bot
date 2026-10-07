@@ -1,5 +1,19 @@
 const ERROR_KEYS = Object.freeze({
   PRODUCT_LOCALE_VERSION_CONFLICT: 'panel.error.locale_conflict',
+  INVALID_PRODUCT_LOCALE: 'panel.error.locale_unavailable',
+  LOCALE_UNAVAILABLE: 'panel.error.locale_unavailable',
+  PRODUCT_LOCALE_UNAVAILABLE: 'panel.error.locale_unavailable',
+  LOCALIZATION_CATALOGS_UNAVAILABLE: 'panel.error.catalogs_unavailable',
+  CHANNEL_BINDING_LOCKED: 'panel.error.channel_locked',
+  TWITCH_APP_NOT_CONFIGURED: 'panel.error.twitch_credentials',
+  INVALID_TWITCH_CLIENT_CREDENTIALS: 'panel.error.twitch_credentials',
+  TWITCH_AUTHORIZATION_FAILED: 'panel.error.twitch_authorization',
+  TWITCH_AUTHORIZATION_MISMATCH: 'panel.error.oauth_return',
+  INVALID_OAUTH_CALLBACK: 'panel.error.oauth_return',
+  INVALID_OAUTH_SESSION: 'panel.error.oauth_return',
+  OVERLAY_LINK_ALREADY_ISSUED: 'panel.error.widget_link',
+  INVALID_ENTRY_TRANSITION: 'panel.error.invalid_action',
+  INVALID_OVERLAY_WIDGET_CONFIGURATION: 'panel.error.invalid_action',
 });
 
 const DEFAULT_MESSAGE = 'Não foi possível concluir. Tente novamente.';

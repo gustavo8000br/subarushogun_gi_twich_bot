@@ -6,12 +6,13 @@ import { registerQueueRoutes } from '../../apps/api/src/http/queue-routes.mjs';
 import { createClearConfirmationService } from '../../apps/api/src/domain/clear-confirmation.mjs';
 import { registerOverlayRoutes } from '../../apps/api/src/http/overlay-routes.mjs';
 
-async function createHarness({ domainService, resolveUser = async () => null, beforeSession = async () => undefined } = {}) {
+async function createHarness({ domainService, resolveUser = async () => null, beforeSession = async () => undefined, getSetupCatalogs } = {}) {
   const app = Fastify();
   registerLocalSession(app, { port: 3000 });
   const queue = { id: 'queue-id', slug: 'abismo', title: 'Abismo', cost: 100, uidMode: 'visible', showUidInOverlay: false, isOpen: false, isArchived: false, lifecycleStatus: 'active', version: 1 };
   queue.entries = [{ id: 'entry-id', status: 'waiting', position: 1, userLogin: 'viewer', displayName: 'Viewer', uid: '123456789' }];
   const repository = {
+    getProductLocale: vi.fn(async () => ({ locale: 'pt-BR', revision: 1 })),
     beginPanelOperation: vi.fn(async () => ({ status: 'started' })),
     completePanelOperation: vi.fn(async () => true),
     createQueue: vi.fn(async (input) => ({ ...queue, ...input, uidMode: input.uidMode })),
@@ -33,7 +34,7 @@ async function createHarness({ domainService, resolveUser = async () => null, be
   };
   const integrations = { status: 'not_configured', twitch: null };
   const clearConfirmation = createClearConfirmationService({ repository });
-  registerQueueRoutes(app, { repository, domainService, integrations, clearConfirmation, resolveUser, publicBaseUrl: 'https://localhost:3000', productVersion: 'v0.1.0-1234567-alpha' });
+  registerQueueRoutes(app, { repository, domainService, integrations, clearConfirmation, resolveUser, getSetupCatalogs, publicBaseUrl: 'https://localhost:3000', productVersion: 'v0.1.0-1234567-alpha' });
   await beforeSession({ app, repository });
   const inject = app.inject.bind(app);
   const rawInject = app.inject.bind(app);
@@ -192,6 +193,31 @@ describe('local queue and setup API', () => {
     expect(response.body).toContain("window.history.replaceState(null,'','/callback')");
     expect(response.body).toContain('href="/"');
     expect(response.body).not.toContain('auth-code');
+    await h.app.close();
+  });
+
+  it('renders the OAuth callback with the selected product locale and escaped channel text', async () => {
+    const catalogs = {
+      en: {
+        'translation.unavailable': 'Product text unavailable.',
+        'setup.callback.success_title': 'Channel connected',
+        'setup.callback.success_message': 'The channel {channel} is authorized for this installation.',
+        'setup.callback.secure': 'Secure connection',
+        'setup.callback.local_installation': 'Local installation',
+        'setup.callback.return_message': 'You can return now. This page returns to the panel in {seconds} seconds.',
+        'setup.callback.return_action': 'Return to panel',
+        'setup.callback.eyebrow_success': 'SETUP COMPLETE',
+      },
+    };
+    const h = await createHarness({ getSetupCatalogs: async () => catalogs });
+    h.repository.getProductLocale.mockResolvedValue({ locale: 'en', revision: 2 });
+    h.integrations.completeAuthorization = vi.fn(async () => ({ displayName: '<Channel>' }));
+    const response = await h.app.inject({ method: 'GET', url: '/callback?code=auth-code&state=valid-state', headers: h.sessionHeaders });
+    expect(response.body).toContain('<html lang="en">');
+    expect(response.body).toContain('Channel connected');
+    expect(response.body).toContain('The channel &lt;Channel&gt; is authorized for this installation.');
+    expect(response.body).toContain('Return to panel');
+    expect(response.body).not.toContain('<Channel>');
     await h.app.close();
   });
 
@@ -481,8 +507,9 @@ describe('local queue and setup API', () => {
     h.repository.listFinancialOperations = vi.fn(async () => [{ id: 'delete-task', operationType: 'reward.delete', entityId: 'queue-id', status: 'unknown', attempts: 3, lastError: 'queue_delete_result_unknown', secret: 'must-not-leak' }]);
     const response = await h.app.inject({ method: 'GET', url: '/api/operations', headers: h.sessionHeaders });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual([{ id: 'delete-task', type: 'reward.delete', entityId: 'queue-id', status: 'unknown', attempts: 3, lastError: 'queue_delete_result_unknown', nextAttemptAt: null }]);
+    expect(response.json()).toEqual([{ id: 'delete-task', type: 'reward.delete', entityId: 'queue-id', status: 'unknown', attempts: 3, nextAttemptAt: null }]);
     expect(response.body).not.toContain('must-not-leak');
+    expect(response.body).not.toContain('queue_delete_result_unknown');
     await h.app.close();
   });
 

@@ -160,6 +160,33 @@ describe('Twitch chat command handler', () => {
     expect(h.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringContaining('1 pessoa chamada'));
   });
 
+  it('uses the active locale plural form for multi-person call replies', async () => {
+    const h = setup();
+    h.repository.getProductLocale = vi.fn(async () => ({ locale: 'en', revision: 6 }));
+    h.domainService.callNext.mockResolvedValue([
+      { id: 'entry-1', twitchUserId: 'viewer-1', userLogin: 'viewer', displayName: 'Viewer', previousPosition: 1, status: 'called' },
+      { id: 'entry-2', twitchUserId: 'viewer-2', userLogin: 'viewer2', displayName: 'Viewer 2', previousPosition: 2, status: 'called' },
+    ]);
+    h.handler = createChatCommandHandler({
+      repository: h.repository, domainService: h.domainService, twitch: h.twitch, settings: h.settings,
+      broadcasterId: 'broadcaster-1', getChatCatalogs: async () => ({
+        en: {
+          'chat.command.queue.proximo': 'next',
+          'chat.queue.called_many.one': '{count} viewer called.',
+          'chat.queue.called_many.other': '{count} viewers called.',
+          'translation.unavailable': 'Product text unavailable.',
+        },
+        'pt-BR': {
+          'chat.queue.called_many.one': '{count} pessoa chamada.',
+          'chat.queue.called_many.other': '{count} pessoas chamadas.',
+          'translation.unavailable': 'Texto indisponível.',
+        },
+      }),
+    });
+    await h.handler({ id: 'plural-call-en', text: '!abismo next 2', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+    expect(h.twitch.sendChatMessage).toHaveBeenCalledWith('2 viewers called.');
+  });
+
   it('maps the displayed queue position into the same priority lane when moving from chat', async () => {
     const h = setup();
     h.repository.getActiveEntryForUser.mockResolvedValue({ id: 'entry-standard', status: 'waiting', priorityClass: 'standard', position: 3 });

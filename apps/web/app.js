@@ -2,25 +2,32 @@ import { createApplicationSetupSubmitHandler } from './application-setup.mjs';
 import { resendCallNotification } from './call-notification-actions.mjs';
 import { twitchEligibilityMessage, twitchStatusLabel, twitchStatusState } from './setup-messages.mjs';
 import { formatHealthStatus } from './health-status.mjs';
-import { priorityBenefitLabel } from './priority-labels.mjs';
 import { getInitialPanelPage, selectPanelPage } from './panel-navigation.mjs';
 import { collectCommandPolicies, mergeCommandPolicyState, projectCommandCatalog } from './command-catalog-view.mjs';
 import { buildOverlayWidgetPayload, countOverlayTextCodePoints } from './overlay-widget-form.mjs';
 import { resolveLocaleSelection } from './locale-picker-state.mjs';
 import { applyPanelTranslations } from './dom-localization.mjs';
 import { presentPanelError } from './panel-error-presentation.mjs';
+import { translateCatalog, translatePluralCatalog } from '../shared/browser/translate-catalog.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const optionalLimit = (value) => String(value ?? '').trim() ? Number(value) : null;
 const state = { csrfToken: null, queues: [], productVersion: '—', initialPageSelected: false, twitchConnected: null, productLocale: { locale: 'pt-BR', revision: 1 }, localizationCatalogs: null };
-const commandRoleLabels = { everyone: 'Todos', subscriber: 'Inscritos', vip: 'VIPs', moderator: 'Moderadores' };
+const commandRoleKeys = { everyone: 'panel.command.role.everyone', subscriber: 'panel.command.role.subscriber', vip: 'panel.command.role.vip', moderator: 'panel.command.role.moderator' };
+const panelPlaceholders = Object.freeze({
+  'panel.operation.attempts': ['count'], 'panel.reconciliation.complete': ['count'], 'panel.reconciliation.issues': ['count'],
+  'panel.queue.confirm.delete': ['title', 'count'], 'panel.queue.clear.confirm': ['title', 'count', 'refunds'],
+  'panel.queue.clear.changed': ['count'], 'panel.queue.clear.done': ['count', 'refunds'],
+  'panel.widget.card_details': ['queue', 'width', 'height', 'id'],
+});
 let commandCatalog = null;
 let overlayWidgetsLoaded = false;
 
-const overlaySourceLabels = {
-  account_label: 'Conta atual', queue_name: 'Nome da fila', queue_state: 'Estado da fila',
-  queue_waiting_count: 'Pessoas aguardando', called_viewer_display_name: 'Pessoa chamada',
-  called_viewer_position: 'Posição original da pessoa chamada', in_service_viewer_display_name: 'Pessoa em atendimento', fixed_text: 'Texto fixo',
+const overlaySourceKeys = {
+  account_label: 'panel.widget.source.account', queue_name: 'panel.widget.source.queue_name',
+  queue_state: 'panel.widget.source.queue_state', queue_waiting_count: 'panel.widget.source.queue_count',
+  called_viewer_display_name: 'panel.widget.source.called_name', called_viewer_position: 'panel.widget.source.called_position',
+  in_service_viewer_display_name: 'panel.widget.source.service_name', fixed_text: 'panel.widget.source.fixed_text',
 };
 const overlayStyleFields = ['textColor', 'backgroundColor', 'backgroundOpacity', 'fontFamily', 'fontSize', 'fontWeight', 'alignment', 'effect', 'outlineWidth', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY', 'width', 'height', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'overflow'];
 const queueScopedOverlaySources = new Set(['queue_name', 'queue_state', 'queue_waiting_count']);
@@ -55,6 +62,39 @@ function applyPanelCatalog() {
   if (catalogs) applyPanelTranslations(document, activeProductLocale(), catalogs);
 }
 
+function panelText(key, values = {}) {
+  const catalogs = state.localizationCatalogs?.modules?.panel?.catalogs ?? {};
+  return translateCatalog(catalogs, activeProductLocale(), key, { values, placeholders: panelPlaceholders });
+}
+
+function panelTextPlural(key, count) {
+  const catalogs = state.localizationCatalogs?.modules?.panel?.catalogs ?? {};
+  return translatePluralCatalog(catalogs, activeProductLocale(), key, count, { placeholders: panelPlaceholders });
+}
+
+function commandRoleLabel(role) {
+  const key = commandRoleKeys[role];
+  return key ? panelText(key) : role;
+}
+
+function priorityReasonLabel(reason) {
+  const key = {
+    external_payment: 'panel.entry.reason.external', bits: 'panel.entry.reason.bits',
+    subscription: 'panel.entry.reason.sub', operator_override: 'panel.entry.reason.other',
+  }[reason];
+  return key ? panelText(key) : panelText('translation.unavailable');
+}
+
+function queueSyncLabel(status) {
+  const key = {
+    synced: 'panel.queue.sync.synced', synced_manual: 'panel.queue.sync.manual',
+    pending_update: 'panel.queue.sync.pending', pending_open: 'panel.queue.sync.pending',
+    pending_close: 'panel.queue.sync.pending', update_unknown: 'panel.queue.sync.unknown',
+    create_unknown: 'panel.queue.sync.unknown', update_failed: 'panel.queue.sync.failed',
+  }[status];
+  return key ? panelText(key) : panelText('panel.queue.sync.not_synced');
+}
+
 function renderProductLocalePicker() {
   const selects = /** @type {HTMLSelectElement[]} */ ([...document.querySelectorAll('#product-locale, #product-locale-quick')]);
   const locales = state.localizationCatalogs?.locales ?? [];
@@ -76,7 +116,7 @@ function renderProductLocalePicker() {
     save.disabled = select.disabled || select.value === state.productLocale.locale;
   }
   $('#product-locale-notice').textContent = !locales.includes(state.productLocale.locale)
-    ? 'O idioma salvo não está completo. Português brasileiro está ativo temporariamente.' : '';
+    ? panelText('panel.locale.incomplete') : '';
 }
 
 async function refreshLocalizationCatalogs() {
@@ -99,7 +139,7 @@ async function saveProductLocale(event) {
       method: 'PATCH',
       body: JSON.stringify({ locale: select.value, expectedRevision: state.productLocale.revision }),
     });
-    notice.textContent = 'Idioma do produto atualizado.';
+    notice.textContent = panelText('panel.locale.updated');
     renderProductLocalePicker();
     await refresh();
   } catch (error) { notice.textContent = panelError(error); }
@@ -125,25 +165,25 @@ function action(label, actionName, entryId, queueId) {
 function renderEntryGroup(title, entries, queue, group) {
   const section = document.createElement('section'); section.className = 'entry-group';
   section.append(text('h3', `${title} · ${entries.length}`));
-  if (!entries.length) section.append(text('div', 'Ninguém no momento', 'entry-empty'));
+  if (!entries.length) section.append(text('div', panelText('panel.queue.empty_group'), 'entry-empty'));
   for (const entry of entries) {
     const row = document.createElement('div'); row.className = 'entry-row';
     if (entry.position) row.append(text('span', String(entry.position).padStart(2, '0'), 'position'));
     row.append(text('span', entry.displayName || `@${entry.userLogin}`));
-    if (group === 'waiting' && entry.priorityClass === 'priority') row.append(text('small', `Prioritária · conferida pelo operador (${priorityBenefitLabel(entry.priorityReason)})`, 'priority-badge'));
-    if (queue.uidMode === 'visible' && entry.uid && (group === 'waiting' ? queue.showUidInList : queue.showUidOnCall)) row.append(text('small', `UID ${entry.uid}`));
+    if (group === 'waiting' && entry.priorityClass === 'priority') row.append(text('small', `${panelText('panel.entry.priority_badge')} (${priorityReasonLabel(entry.priorityReason)})`, 'priority-badge'));
+    if (queue.uidMode === 'visible' && entry.uid && (group === 'waiting' ? queue.showUidInList : queue.showUidOnCall)) row.append(text('small', `${panelText('panel.entry.uid_label')} ${entry.uid}`));
     const buttons = document.createElement('span'); buttons.className = 'entry-buttons';
     if (group === 'waiting') {
-      buttons.append(action('chamar', 'call-one', entry.id, queue.id));
+      buttons.append(action(panelText('panel.entry.action.call'), 'call-one', entry.id, queue.id));
       const lane = (queue.entries ?? []).filter((item) => item.status === 'waiting' && (item.priorityClass ?? 'standard') === (entry.priorityClass ?? 'standard'));
       const lanePosition = lane.findIndex((item) => item.id === entry.id) + 1;
-      const moveUp = action('Mover ↑', 'move-up', entry.id, queue.id); moveUp.disabled = lanePosition <= 1; buttons.append(moveUp);
-      const moveDown = action('Mover ↓', 'move-down', entry.id, queue.id); moveDown.disabled = lanePosition >= lane.length; buttons.append(moveDown);
-      buttons.append(action(entry.priorityClass === 'priority' ? 'Remover prioridade' : 'Marcar prioritária', 'toggle-priority', entry.id, queue.id));
+      const moveUp = action(panelText('panel.entry.action.move_up'), 'move-up', entry.id, queue.id); moveUp.disabled = lanePosition <= 1; buttons.append(moveUp);
+      const moveDown = action(panelText('panel.entry.action.move_down'), 'move-down', entry.id, queue.id); moveDown.disabled = lanePosition >= lane.length; buttons.append(moveDown);
+      buttons.append(action(panelText(entry.priorityClass === 'priority' ? 'panel.entry.action.remove_priority' : 'panel.entry.action.mark_priority'), 'toggle-priority', entry.id, queue.id));
     }
-    if (group === 'called') buttons.append(action('atender', 'in_progress', entry.id, queue.id), action('concluir', 'completed', entry.id, queue.id), action('Reenviar chamada', 'resend-call', entry.id, queue.id));
-    if (group === 'in_progress') buttons.append(action('concluir', 'completed', entry.id, queue.id));
-    buttons.append(action('remover', 'removed', entry.id, queue.id)); row.append(buttons); section.append(row);
+    if (group === 'called') buttons.append(action(panelText('panel.entry.action.attend'), 'in_progress', entry.id, queue.id), action(panelText('panel.entry.action.complete'), 'completed', entry.id, queue.id), action(panelText('panel.entry.action.resend'), 'resend-call', entry.id, queue.id));
+    if (group === 'in_progress') buttons.append(action(panelText('panel.entry.action.complete'), 'completed', entry.id, queue.id));
+    buttons.append(action(panelText('panel.entry.action.remove'), 'removed', entry.id, queue.id)); row.append(buttons); section.append(row);
   }
   return section;
 }
@@ -151,51 +191,51 @@ function renderEntryGroup(title, entries, queue, group) {
 function renderQueues(queues) {
   const container = $('#queue-list'); container.replaceChildren();
   if (!queues.length) {
-    const empty = document.createElement('div'); empty.className = 'empty-state'; empty.append(text('span', '◌'), text('strong', 'Nenhuma fila criada'), text('small', 'Use o formulário acima para criar sua primeira fila.'));
+    const empty = document.createElement('div'); empty.className = 'empty-state'; empty.append(text('span', '◌'), text('strong', panelText('panel.queue.empty.title')), text('small', panelText('panel.queue.empty.hint')));
     container.append(empty); return;
   }
   for (const queue of queues) {
     const card = document.createElement('article'); card.className = 'queue-card';
     const head = document.createElement('div'); head.className = 'queue-card-head';
     head.append(text('span', queue.title?.slice(0, 1)?.toUpperCase() || 'Q', 'queue-symbol'));
-    const meta = document.createElement('div'); meta.className = 'queue-meta'; meta.append(text('strong', queue.title)); meta.append(text('small', `!${queue.slug} · ${Number(queue.cost).toLocaleString('pt-BR')} pontos · ${queue.isOpen ? 'ABERTA' : 'FECHADA'} · ${queue.remoteSyncStatus || 'sem sincronização'}`)); head.append(meta);
+    const meta = document.createElement('div'); meta.className = 'queue-meta'; meta.append(text('strong', queue.title)); meta.append(text('small', `!${queue.slug} · ${Number(queue.cost).toLocaleString(activeProductLocale())} ${panelText('panel.queue.points')} · ${panelText(queue.isOpen ? 'panel.queue.status.open' : 'panel.queue.status.closed')} · ${queueSyncLabel(queue.remoteSyncStatus)}`)); head.append(meta);
     const active = queue.entries || [];
     const controls = document.createElement('div'); controls.className = 'queue-actions';
     if (queue.lifecycleStatus === 'deleting') {
-      controls.append(text('span', 'Exclusão pendente: aguardando confirmação dos cancelamentos e da recompensa.', 'muted'));
+      controls.append(text('span', panelText('panel.queue.status.pending_delete'), 'muted'));
     } else {
-      controls.append(action('Excluir fila', 'delete-queue', '', queue.id));
-      controls.append(action('Configurar', 'edit-settings', '', queue.id));
-      if (['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) controls.append(action('Editar recompensa', 'edit-reward-settings', '', queue.id));
+      controls.append(action(panelText('panel.queue.action.delete'), 'delete-queue', '', queue.id));
+      controls.append(action(panelText('panel.queue.action.configure'), 'edit-settings', '', queue.id));
+      if (['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) controls.append(action(panelText('panel.queue.action.edit_reward'), 'edit-reward-settings', '', queue.id));
     }
     if (queue.lifecycleStatus === 'deleting') {
       // Queue mutation controls stay disabled while the durable deletion workflow is pending.
     } else if (queue.isArchived) {
-      controls.append(action('Desarquivar', 'unarchive-queue', '', queue.id));
-      if (active.some((entry) => entry.status === 'waiting')) controls.append(action('Próximo', 'call-next', '', queue.id));
-      controls.append(action('Limpar fila', 'clear-queue', '', queue.id));
+      controls.append(action(panelText('panel.queue.action.unarchive'), 'unarchive-queue', '', queue.id));
+      if (active.some((entry) => entry.status === 'waiting')) controls.append(action(panelText('panel.queue.action.next'), 'call-next', '', queue.id));
+      controls.append(action(panelText('panel.queue.action.clear'), 'clear-queue', '', queue.id));
     } else {
-      controls.append(action('Adicionar', 'add-entry', '', queue.id), action('Próximo', 'call-next', '', queue.id));
-      if (['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) controls.append(action(queue.isOpen ? 'Fechar' : 'Abrir', queue.isOpen ? 'close-queue' : 'open-queue', '', queue.id), action('Arquivar', 'archive-queue', '', queue.id));
-      controls.append(action('Limpar fila', 'clear-queue', '', queue.id));
+      controls.append(action(panelText('panel.queue.action.add'), 'add-entry', '', queue.id), action(panelText('panel.queue.action.next'), 'call-next', '', queue.id));
+      if (['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) controls.append(action(panelText(queue.isOpen ? 'panel.queue.action.close' : 'panel.queue.action.open'), queue.isOpen ? 'close-queue' : 'open-queue', '', queue.id), action(panelText('panel.queue.action.archive'), 'archive-queue', '', queue.id));
+      controls.append(action(panelText('panel.queue.action.clear'), 'clear-queue', '', queue.id));
     }
-    if (queue.remoteSyncStatus === 'create_unknown') controls.append(action('Vincular recompensa', 'resolve-reward', '', queue.id));
+    if (queue.remoteSyncStatus === 'create_unknown') controls.append(action(panelText('panel.queue.action.resolve_reward'), 'resolve-reward', '', queue.id));
     head.append(controls); card.append(head);
-    card.append(renderEntryGroup('Aguardando', active.filter((entry) => entry.status === 'waiting'), queue, 'waiting'));
-    card.append(renderEntryGroup('Chamados', active.filter((entry) => entry.status === 'called'), queue, 'called'));
-    card.append(renderEntryGroup('Em atendimento', active.filter((entry) => entry.status === 'in_progress'), queue, 'in_progress'));
+    card.append(renderEntryGroup(panelText('panel.queue.group.waiting'), active.filter((entry) => entry.status === 'waiting'), queue, 'waiting'));
+    card.append(renderEntryGroup(panelText('panel.queue.group.called'), active.filter((entry) => entry.status === 'called'), queue, 'called'));
+    card.append(renderEntryGroup(panelText('panel.queue.group.in_service'), active.filter((entry) => entry.status === 'in_progress'), queue, 'in_progress'));
     const history = document.createElement('details'); history.className = 'queue-history';
-    history.append(text('summary', 'Histórico recente'));
+    history.append(text('summary', panelText('panel.queue.history.title')));
     const historyContent = document.createElement('div'); historyContent.className = 'history-content';
     history.addEventListener('toggle', async () => {
       if (!history.open || history.dataset.loaded === 'true') return;
       try {
         const entries = await request(`/api/queues/${queue.id}/history`);
         historyContent.replaceChildren();
-        if (!entries.length) historyContent.append(text('p', 'Ainda não há atendimentos encerrados.', 'muted'));
+        if (!entries.length) historyContent.append(text('p', panelText('panel.queue.history.empty'), 'muted'));
         for (const entry of entries) {
-          const date = entry.finishedAt ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(entry.finishedAt)) : 'Data indisponível';
-          const status = { completed: 'Concluído', removed: 'Removido', no_show: 'Ausente' }[entry.status] ?? 'Encerrado';
+          const date = entry.finishedAt ? new Intl.DateTimeFormat(activeProductLocale(), { dateStyle: 'short', timeStyle: 'short' }).format(new Date(entry.finishedAt)) : panelText('panel.queue.history.date_unavailable');
+          const status = panelText(`panel.entry.status.${entry.status}`);
           historyContent.append(text('p', `${entry.displayName || `@${entry.userLogin}`} · ${status} · ${date}`, 'history-entry'));
         }
         history.dataset.loaded = 'true';
@@ -208,24 +248,26 @@ function renderQueues(queues) {
 
 function renderCommandCatalog(catalog) {
   const container = $('#command-catalog'); container.replaceChildren();
-  if (!catalog?.commands?.length) { container.append(text('p', 'O catálogo ainda não está disponível.', 'muted')); return; }
+  if (!catalog?.commands?.length) { container.append(text('p', panelText('panel.commands.unavailable'), 'muted')); return; }
   commandCatalog = catalog;
   for (const command of projectCommandCatalog(catalog)) {
     const card = document.createElement('article'); card.className = 'command-policy-card';
     const description = document.createElement('div');
-    description.append(text('h2', command.description));
-    description.append(text('code', command.syntax, 'command-policy-syntax'));
+    const commandKey = command.key.replaceAll(':', '_');
+    const syntax = panelText(`panel.command.syntax.${commandKey}`);
+    description.append(text('h2', panelText(`panel.command.description.${commandKey}`)));
+    description.append(text('code', syntax, 'command-policy-syntax'));
     const roles = document.createElement('fieldset'); roles.className = 'command-policy-roles';
-    roles.setAttribute('aria-label', `Cargos de ${command.syntax}`);
+    roles.setAttribute('aria-label', `${panelText('panel.command.roles_for')} ${syntax}`);
     const selected = new Set(command.roles);
     for (const role of catalog.configurableRoles) {
       const label = document.createElement('label');
       if (command.locked) label.classList.add('locked-role');
       const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.value = role;
       checkbox.checked = selected.has(role); checkbox.disabled = command.locked;
-      label.append(checkbox, document.createTextNode(commandRoleLabels[role] ?? role)); roles.append(label);
+      label.append(checkbox, document.createTextNode(commandRoleLabel(role))); roles.append(label);
     }
-    const status = text('p', command.locked ? `Acesso fixo: ${(command.immutableRoles ?? command.roles).map((role) => role === 'streamer' ? 'streamer' : commandRoleLabels[role] ?? role).join(' e ')}.` : 'Qualquer cargo marcado pode usar este comando.', 'muted');
+    const status = text('p', command.locked ? `${panelText('panel.command.access_fixed')} ${(command.immutableRoles ?? command.roles).map((role) => role === 'streamer' ? panelText('panel.command.role.streamer') : commandRoleLabel(role)).join(` ${panelText('panel.command.role_join')} `)}.` : panelText('panel.command.marked_roles'), 'muted');
     description.append(status); card.append(description, roles); card.dataset.commandKey = command.key; container.append(card);
   }
 }
@@ -246,7 +288,7 @@ async function saveCommandPolicies(event) {
     const result = await request('/api/command-policies', { method: 'PATCH', body: JSON.stringify({ expectedVersion: commandCatalog.version, policies }) });
     commandCatalog = mergeCommandPolicyState(commandCatalog, result);
     renderCommandCatalog(commandCatalog);
-    $('#command-catalog-notice').textContent = 'Permissões dos comandos atualizadas.';
+    $('#command-catalog-notice').textContent = panelText('panel.commands.saved');
   } catch (error) { $('#command-catalog-notice').textContent = panelError(error); }
 }
 
@@ -261,11 +303,11 @@ function updateOverlayPreview() {
   const fallbackCount = $('#overlay-fallback-count');
   if (fixedCount) fixedCount.textContent = `${countOverlayTextCodePoints(values.get('fixedText'))}/240`;
   if (fallbackCount) fallbackCount.textContent = `${countOverlayTextCodePoints(values.get('fallbackText'))}/240`;
-  const sample = sourceType === 'fixed_text' ? fixedText || 'Exemplo do widget'
-    : sourceType === 'queue_waiting_count' ? '4 aguardando'
-      : sourceType === 'queue_state' ? 'Aberta' : sourceType === 'account_label' ? 'Asia 1'
-        : sourceType.includes('called') ? 'Viewer chamado' : sourceType.includes('in_service') ? 'Viewer em atendimento'
-          : String($('#overlay-queue-field select')?.selectedOptions?.[0]?.textContent ?? 'Nome da fila');
+  const sample = sourceType === 'fixed_text' ? fixedText || panelText('panel.widget.preview_example')
+    : sourceType === 'queue_waiting_count' ? panelText('panel.widget.preview.waiting')
+      : sourceType === 'queue_state' ? panelText('panel.widget.preview.open') : sourceType === 'account_label' ? panelText('panel.widget.preview.account')
+        : sourceType.includes('called') ? panelText('panel.widget.preview.called') : sourceType.includes('in_service') ? panelText('panel.widget.preview.in_service')
+          : String($('#overlay-queue-field select')?.selectedOptions?.[0]?.textContent ?? panelText('panel.widget.queue_label'));
   preview.textContent = sample;
   const color = String(values.get('textColor') || '#ffffff');
   const background = String(values.get('backgroundColor') || '#000000');
@@ -290,7 +332,7 @@ function updateOverlayPreview() {
 
 function populateOverlayQueueOptions(selectedId = '') {
   const select = /** @type {HTMLSelectElement} */ ($('#overlay-queue-field select'));
-  const placeholder = document.createElement('option'); placeholder.textContent = 'Selecione uma fila'; placeholder.value = '';
+  const placeholder = document.createElement('option'); placeholder.textContent = panelText('panel.widget.queue.select'); placeholder.value = '';
   select.replaceChildren(placeholder);
   for (const queue of state.queues.filter((item) => (item.id === selectedId || !item.isArchived) && item.lifecycleStatus !== 'deleting' && item.lifecycleStatus !== 'deleted')) {
     const option = document.createElement('option'); option.textContent = queue.title; option.value = queue.id; select.append(option);
@@ -300,7 +342,7 @@ function populateOverlayQueueOptions(selectedId = '') {
 
 function showOneTimeOverlayLink(url) {
   $('#overlay-link-value').value = url;
-  $('#overlay-link-notice').textContent = 'Copie agora. O link não será exibido novamente.';
+  $('#overlay-link-notice').textContent = panelText('panel.widget.link.copied_once');
   $('#overlay-link-dialog').showModal();
 }
 
@@ -313,39 +355,44 @@ function renderOverlayWidgets(widgets) {
   const container = $('#overlay-widget-list'); container.replaceChildren();
   if (!widgets.length) {
     const empty = document.createElement('div'); empty.className = 'empty-state';
-    empty.append(text('span', '◌'), text('strong', 'Nenhum widget criado'), text('small', 'Crie uma fonte com um único dado da sua live para adicionar ao OBS.'));
-    const create = overlayAction('Criar primeiro widget', () => openOverlayEditor()); create.classList.add('button-primary'); empty.append(create); container.append(empty); return;
+    empty.append(text('span', '◌'), text('strong', panelText('panel.widget.empty.title')), text('small', panelText('panel.widget.empty.hint')));
+    const create = overlayAction(panelText('panel.widget.create_first'), () => openOverlayEditor()); create.classList.add('button-primary'); empty.append(create); container.append(empty); return;
   }
   for (const widget of widgets) {
     const card = document.createElement('article'); card.className = 'overlay-widget-card';
     const heading = document.createElement('div'); heading.className = 'overlay-widget-heading';
-    const title = text('h3', overlaySourceLabels[widget.sourceType] ?? 'Widget');
+    const title = text('h3', panelText(overlaySourceKeys[widget.sourceType] ?? 'panel.widget.source.unknown'));
     const queue = state.queues.find((item) => item.id === widget.queueId);
-    const status = widget.deleted ? 'Widget indisponível' : widget.capabilityActive ? 'Link ativo' : 'Revogado';
+    const status = panelText(widget.deleted ? 'panel.widget.status.unavailable' : widget.capabilityActive ? 'panel.widget.status.active' : 'panel.widget.status.revoked');
     heading.append(title, text('span', status, widget.capabilityActive ? 'status-pill status-connected' : 'status-pill'));
-    const details = text('p', `${queue ? `${queue.title} · ` : ''}${widget.style?.width ?? 'auto'} × ${widget.style?.height ?? 'auto'} · Widget ${widget.id.slice(0, 8)}`, 'muted');
-    const preview = text('p', widget.sourceType === 'fixed_text' ? widget.fixedText : widget.fallbackText || 'Prévia simulada', 'overlay-card-preview');
+    const details = text('p', panelText('panel.widget.card_details', {
+      queue: queue ? `${queue.title} · ` : '',
+      width: widget.style?.width ?? panelText('panel.widget.auto'),
+      height: widget.style?.height ?? panelText('panel.widget.auto'),
+      id: widget.id.slice(0, 8),
+    }), 'muted');
+    const preview = text('p', widget.sourceType === 'fixed_text' ? widget.fixedText : widget.fallbackText || panelText('panel.widget.preview_example'), 'overlay-card-preview');
     const actions = document.createElement('div'); actions.className = 'overlay-widget-actions';
-    actions.append(overlayAction('Editar', () => openOverlayEditor(widget)));
+    actions.append(overlayAction(panelText('panel.widget.action.edit'), () => openOverlayEditor(widget)));
     if (widget.capabilityActive) {
-      actions.append(overlayAction('Regenerar link', async () => {
-        if (!window.confirm('O link atual deixará de funcionar. Gerar um novo link agora?')) return;
+      actions.append(overlayAction(panelText('panel.widget.action.regenerate'), async () => {
+        if (!window.confirm(panelText('panel.widget.confirm.regenerate'))) return;
         try { const result = await request(`/api/overlay-widgets/${widget.id}/regenerate`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) }); showOneTimeOverlayLink(result.capabilityUrl); await loadOverlayWidgets(); }
         catch (error) { toast(panelError(error)); }
       }));
-      actions.append(overlayAction('Revogar', async () => {
-        if (!window.confirm('A fonte do OBS deixará de receber dados. Revogar este link?')) return;
+      actions.append(overlayAction(panelText('panel.widget.action.revoke'), async () => {
+        if (!window.confirm(panelText('panel.widget.confirm.revoke'))) return;
         try { await request(`/api/overlay-widgets/${widget.id}/revoke`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) }); await loadOverlayWidgets(); }
         catch (error) { toast(panelError(error)); }
       }, true));
     } else if (!widget.deleted) {
-      actions.append(overlayAction('Gerar link', async () => {
+      actions.append(overlayAction(panelText('panel.widget.action.generate'), async () => {
         try { const result = await request(`/api/overlay-widgets/${widget.id}/regenerate`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) }); showOneTimeOverlayLink(result.capabilityUrl); await loadOverlayWidgets(); }
         catch (error) { toast(panelError(error)); }
       }));
     }
-    actions.append(overlayAction('Excluir', async () => {
-      if (!window.confirm('Excluir este widget? A URL atual será invalidada e não poderá ser recuperada.')) return;
+    actions.append(overlayAction(panelText('panel.widget.action.delete'), async () => {
+      if (!window.confirm(panelText('panel.widget.confirm.delete'))) return;
       try { await request(`/api/overlay-widgets/${widget.id}`, { method: 'DELETE', body: JSON.stringify({ expectedVersion: widget.version }) }); await loadOverlayWidgets(); }
       catch (error) { toast(panelError(error)); }
     }, true));
@@ -368,7 +415,7 @@ function openOverlayEditor(widget = null) {
   setValue('fallbackText', widget?.fallbackText ?? '');
   const defaults = { textColor: '#FFFFFF', backgroundColor: '#000000', backgroundOpacity: 0, fontFamily: 'system-ui', fontSize: 32, fontWeight: 700, alignment: 'center', effect: 'none', outlineWidth: 1, shadowBlur: 0, shadowOffsetX: 0, shadowOffsetY: 0, width: 640, height: 100, marginTop: 8, marginRight: 8, marginBottom: 8, marginLeft: 8, overflow: 'wrap' };
   for (const field of overlayStyleFields) setValue(field, widget?.style?.[field] ?? defaults[field]);
-  $('#overlay-editor-title').textContent = widget ? 'Editar widget' : 'Criar widget';
+  $('#overlay-editor-title').textContent = panelText(widget ? 'panel.widget.editor.edit' : 'panel.widget.editor.create');
   $('#overlay-editor-notice').textContent = '';
   const sourceType = /** @type {HTMLSelectElement} */ (form.elements.namedItem('sourceType')).value;
   $('#overlay-queue-field').hidden = !queueScopedOverlaySources.has(sourceType);
@@ -396,8 +443,8 @@ async function saveOverlayWidget(event) {
 
 async function copyOverlayLink() {
   const input = /** @type {HTMLInputElement} */ ($('#overlay-link-value'));
-  try { await window.navigator.clipboard.writeText(input.value); $('#overlay-link-notice').textContent = 'Link copiado.'; }
-  catch { input.select(); $('#overlay-link-notice').textContent = 'Selecione e copie o link. Ele não será exibido novamente ao fechar.'; }
+  try { await window.navigator.clipboard.writeText(input.value); $('#overlay-link-notice').textContent = panelText('panel.widget.link.copied'); }
+  catch { input.select(); $('#overlay-link-notice').textContent = panelText('panel.widget.link.copy_fallback'); }
 }
 
 async function refresh() {
@@ -414,18 +461,22 @@ async function refresh() {
     state.productLocale = apiState.product_locale ?? { locale: 'pt-BR', revision: 1 };
     renderProductLocalePicker();
     applyPanelCatalog();
-    $('#account-label').textContent = apiState.account?.label ?? 'Streamer';
-    state.accountDefaultLabel = apiState.account?.defaultLabel ?? 'Streamer';
-    $('#edit-default-account').title = `Padrão atual: ${state.accountDefaultLabel}`;
+    $('#account-label').textContent = apiState.account?.label ?? panelText('panel.settings.account_fallback');
+    state.accountDefaultLabel = apiState.account?.defaultLabel ?? panelText('panel.settings.account_fallback');
+    $('#edit-default-account').title = `${panelText('panel.settings.current_default')}: ${state.accountDefaultLabel}`;
     $('#callback-url').textContent = setup.callbackUrl;
-    $('#channel-name').textContent = setup.connected ? `Canal conectado · ${setup.broadcasterId}` : 'Twitch ainda não conectada';
+    $('#channel-name').textContent = setup.connected
+      ? `${panelText('panel.connection.channel_connected')} · ${setup.broadcasterId}`
+      : panelText('panel.connection.channel_not_connected');
     $('#twitch-status').textContent = twitchEligibilityMessage(setup, activeProductLocale(), state.localizationCatalogs);
     $('#twitch-pill').textContent = twitchStatusLabel(setup, activeProductLocale(), state.localizationCatalogs); $('#twitch-pill').dataset.state = twitchStatusState(setup);
-    $('#secret-state').textContent = setup.secretConfigured ? 'Secret configurado. Para substituir, informe um novo Secret e valide antes de salvar.' : 'O Secret fica guardado localmente e nunca será exibido novamente.';
+    $('#secret-state').textContent = panelText(setup.secretConfigured ? 'panel.credentials.secret_configured' : 'panel.credentials.secret_empty');
     $('#connection-wizard').hidden = setup.connected === true;
     $('#connection-summary').hidden = setup.connected !== true;
-    $('#connected-channel-name').textContent = setup.connected ? `Canal conectado · ${setup.broadcasterId}` : 'Canal desconectado';
-    $('#connection-pill').textContent = setup.connected ? 'CONECTADA' : 'RECONEXÃO';
+    $('#connected-channel-name').textContent = setup.connected
+      ? `${panelText('panel.connection.channel_connected')} · ${setup.broadcasterId}`
+      : panelText('panel.connection.channel_disconnected');
+    $('#connection-pill').textContent = setup.connected ? panelText('panel.connection.pill_connected') : panelText('panel.connection.pill_reconnect');
     $('#connection-status-copy').textContent = twitchEligibilityMessage(setup, activeProductLocale(), state.localizationCatalogs);
     if (setup.clientId) $('#credentials-form [name=clientId]').value = setup.clientId;
     $('#connect-button').disabled = !setup.secretConfigured;
@@ -442,16 +493,21 @@ async function refresh() {
     $('#summary-active').textContent = String(state.queues.reduce((total, queue) => total + (queue.entries ?? []).filter((entry) => ['called', 'in_progress'].includes(entry.status)).length, 0));
     const operations = await request('/api/operations');
     const operationList = $('#operation-list'); operationList.replaceChildren();
-    if (!operations.length) operationList.append(text('p', 'Nenhuma operação pendente.', 'muted'));
+    if (!operations.length) operationList.append(text('p', panelText('panel.operations.empty'), 'muted'));
     for (const operation of operations) {
       const row = document.createElement('div'); row.className = 'operation-row'; row.dataset.status = operation.status;
-      row.append(text('strong', operation.type === 'redemption.cancel' ? 'REEMBOLSO' : operation.type === 'redemption.fulfill' ? 'CONSUMO' : operation.type === 'reward.update' ? 'ATUALIZAÇÃO DE RECOMPENSA' : 'EXCLUSÃO DE FILA'));
-      const statusLabel = operation.status === 'resolved_manual' ? 'resolvido manualmente · Twitch não confirmou' : operation.status;
-      row.append(text('small', `${operation.redemptionId ?? operation.entityId ?? ''} · ${statusLabel} · ${operation.attempts} tentativas${operation.lastError ? ` · ${operation.lastError}` : ''}`));
+      const typeKey = {
+        'redemption.cancel': 'panel.operation.type.refund', 'redemption.fulfill': 'panel.operation.type.fulfillment',
+        'reward.update': 'panel.operation.type.reward_update', 'reward.delete': 'panel.operation.type.queue_delete',
+      }[operation.type] ?? 'panel.operation.type.other';
+      const statusKey = `panel.operation.status.${operation.status}`;
+      row.append(text('strong', panelText(typeKey)));
+      const statusLabel = panelText(statusKey);
+      row.append(text('small', `${operation.redemptionId ?? operation.entityId ?? ''} · ${statusLabel} · ${panelTextPlural('panel.operation.attempts', operation.attempts)}`));
       if (operation.status === 'unknown' && operation.type.startsWith('redemption.')) {
-        const button = text('button', 'Registrar resolução manual'); button.type = 'button';
+        const button = text('button', panelText('panel.operation.action.resolve')); button.type = 'button';
         button.addEventListener('click', async () => {
-          const accepted = window.confirm('O estado dos pontos não pôde ser confirmado pela Twitch. Registrar que você revisou e encerrou o acompanhamento automático? Isso não confirma reembolso nem consumo e não haverá novas tentativas automáticas.');
+          const accepted = window.confirm(panelText('panel.operation.confirm.resolve'));
           if (!accepted) return;
           try { await request(`/api/operations/${operation.id}/resolve-unknown`, { method: 'POST', body: '{}' }); await refresh(); }
           catch (error) { toast(panelError(error)); }
@@ -459,13 +515,13 @@ async function refresh() {
         row.append(button);
       }
       if (['unknown', 'conflict', 'failed'].includes(operation.status)) {
-        const button = text('button', 'Reconciliar / tentar novamente'); button.type = 'button';
+        const button = text('button', panelText('panel.operation.action.retry')); button.type = 'button';
         button.addEventListener('click', async () => { try { await request(`/api/operations/${operation.id}/retry`, { method: 'POST', body: '{}' }); await refresh(); } catch (error) { toast(panelError(error)); } });
         row.append(button);
       }
       operationList.append(row);
     }
-    $('#last-refresh').textContent = `Atualizado ${new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' }).format(new Date())}`;
+    $('#last-refresh').textContent = `${panelText('panel.runtime.refreshed')} ${new Intl.DateTimeFormat(activeProductLocale(), { timeStyle: 'short' }).format(new Date())}`;
   } catch (error) { toast(panelError(error)); }
 }
 
@@ -509,12 +565,12 @@ async function boot() {
   $('#reconcile-now').addEventListener('click', async (event) => {
     const button = event.currentTarget;
     button.disabled = true;
-    $('#reconciliation-notice').textContent = 'Sincronização em andamento…';
+    $('#reconciliation-notice').textContent = panelText('panel.reconciliation.running');
     try {
       const result = await request('/api/reconciliation', { method: 'POST', body: JSON.stringify({}) });
       $('#reconciliation-notice').textContent = result.status === 'complete'
-        ? `Sincronização concluída. ${result.imported ?? 0} resgate(s) importado(s).`
-        : `Sincronização concluída com pendências: ${result.issues?.length ?? 0}. Revise os avisos e operações.`;
+        ? panelTextPlural('panel.reconciliation.complete', result.imported ?? 0)
+        : panelTextPlural('panel.reconciliation.issues', result.issues?.length ?? 0);
       await refresh();
     } catch (error) {
       $('#reconciliation-notice').textContent = panelError(error);
@@ -524,7 +580,7 @@ async function boot() {
     event.preventDefault(); const values = new FormData(event.currentTarget);
     const aliases = String(values.get('aliases') || '').split(',').map((value) => value.trim()).filter(Boolean);
     const body = { title: values.get('title'), slug: values.get('slug'), aliases, cost: Number(values.get('cost')), rewardPrompt: values.get('rewardPrompt'), uidMode: values.get('uidMode'), callTimeoutMin: Number(values.get('callTimeoutMin')), maxRedemptionsPerStream: optionalLimit(values.get('maxRedemptionsPerStream')), maxRedemptionsPerUserPerStream: optionalLimit(values.get('maxRedemptionsPerUserPerStream')), globalCooldownSeconds: optionalLimit(values.get('globalCooldownSeconds')) };
-    try { await request('/api/queues', { method: 'POST', body: JSON.stringify(body) }); $('#queue-notice').textContent = 'Fila salva. A criação da recompensa Twitch está pendente; acompanhe o estado abaixo.'; event.currentTarget.reset(); await refresh(); }
+    try { await request('/api/queues', { method: 'POST', body: JSON.stringify(body) }); $('#queue-notice').textContent = panelText('panel.notice.queue_created'); event.currentTarget.reset(); await refresh(); }
     catch (error) { $('#queue-notice').textContent = panelError(error); }
   });
   $('#queue-settings-form').addEventListener('submit', async (event) => {
@@ -534,7 +590,7 @@ async function boot() {
     for (const name of ['showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled']) body[name] = values.get(name) === 'on';
     try {
       await request(`/api/queues/${values.get('queueId')}/settings`, { method: 'PATCH', body: JSON.stringify(body) });
-      $('#queue-settings-dialog').close(); await refresh(); toast('Configurações da fila salvas.');
+      $('#queue-settings-dialog').close(); await refresh(); toast(panelText('panel.notice.queue_settings_saved'));
     } catch (error) { $('#queue-settings-notice').textContent = panelError(error); }
   });
   $('#reward-settings-form').addEventListener('submit', async (event) => {
@@ -548,7 +604,7 @@ async function boot() {
     };
     try {
       await request(`/api/queues/${values.get('queueId')}/reward-settings`, { method: 'PATCH', body: JSON.stringify(body) });
-      $('#reward-settings-dialog').close(); await refresh(); toast('Alteração solicitada. A fila mostrará “pending_update” até a confirmação da Twitch.');
+      $('#reward-settings-dialog').close(); await refresh(); toast(panelText('panel.notice.reward_update_pending'));
     } catch (error) { $('#reward-settings-notice').textContent = panelError(error); }
   });
   $('#queue-list').addEventListener('click', async (event) => {
@@ -563,7 +619,7 @@ async function boot() {
         form.elements.namedItem('queueId').value = queue.id;
         form.elements.namedItem('expectedVersion').value = String(queue.version);
         form.elements.namedItem('callTimeoutMin').value = queue.callTimeoutMin ?? '';
-        form.elements.namedItem('callMessage').value = queue.callMessage ?? '{user}, sua vez!';
+        form.elements.namedItem('callMessage').value = queue.callMessage ?? panelText('panel.queue_settings.call_message_default');
         for (const name of ['showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled']) form.elements.namedItem(name).checked = queue[name] === true;
         $('#queue-settings-notice').textContent = '';
         $('#queue-settings-dialog').showModal(); return;
@@ -578,7 +634,7 @@ async function boot() {
       }
       if (actionName === 'resend-call') {
         const result = await resendCallNotification({ request, refresh, entryId });
-        toast(result.status === 'already_queued' ? 'A chamada já está na fila de envio.' : 'Reenvio solicitado. O prazo de ausência foi mantido.');
+        toast(panelText(result.status === 'already_queued' ? 'panel.notice.call_already_queued' : 'panel.notice.call_resent'));
         return;
       }
       if (actionName === 'move-up' || actionName === 'move-down') {
@@ -597,51 +653,51 @@ async function boot() {
         const priority = entry.priorityClass !== 'priority';
         let reason = entry.priorityReason;
         if (priority) {
-          const selection = window.prompt('Selecione o benefício conferido: 1 inscrição, 2 Bits, 3 pagamento externo (ex.: PIX), 4 outro.', '3');
+          const selection = window.prompt(panelText('panel.priority.reason_prompt'), '3');
           if (selection === null) return;
           reason = ({ '1': 'subscription', '2': 'bits', '3': 'external_payment', '4': 'operator_override' })[selection.trim()];
-          if (!reason) { toast('Selecione uma opção de 1 a 4.'); return; }
+          if (!reason) { toast(panelText('panel.priority.invalid_reason')); return; }
         }
         await request(`/api/entries/${entryId}/priority`, { method: 'POST', body: JSON.stringify({ priority, reason }) });
-        toast(priority ? 'Prioridade registrada e auditada. A conferência foi feita pelo operador.' : 'Prioridade removida.');
+        toast(panelText(priority ? 'panel.priority.marked' : 'panel.priority.removed'));
         await refresh(); return;
       }
       if (actionName === 'archive-queue' || actionName === 'unarchive-queue') {
         const archiving = actionName === 'archive-queue';
-        if (!window.confirm(archiving ? 'Arquivar esta fila? Ela deixará de aparecer em !filas, mas as entradas existentes serão preservadas. A recompensa será pausada.' : 'Desarquivar esta fila? Ela continuará fechada até você abri-la.')) return;
+        if (!window.confirm(panelText(archiving ? 'panel.queue.confirm.archive' : 'panel.queue.confirm.unarchive'))) return;
         const result = await request(`/api/queues/${queueId}/${archiving ? 'archive' : 'unarchive'}`, { method: 'POST', body: '{}' });
-        toast(archiving && result.status === 'pending' ? 'Arquivamento solicitado; aguardando confirmação da Twitch.' : archiving ? 'Fila arquivada.' : 'Fila desarquivada e continua fechada.');
+        toast(panelText(archiving ? (result.status === 'pending' ? 'panel.queue.archive.pending' : 'panel.queue.archive.done') : 'panel.queue.unarchive.done'));
         await refresh(); return;
       }
       if (actionName === 'delete-queue') {
         const queue = state.queues.find((item) => item.id === queueId);
         const activeCount = (queue?.entries ?? []).filter((entry) => ['waiting', 'called', 'in_progress'].includes(entry.status)).length;
-        const accepted = window.confirm(`Excluir a fila “${queue?.title ?? ''}” e sua recompensa Twitch? ${activeCount} entradas ativas serão removidas e seus resgates terão cancelamento solicitado. A recompensa só será excluída depois da confirmação de todos os cancelamentos. A operação pode permanecer pendente se a Twitch não confirmar.`);
+        const accepted = window.confirm(panelText('panel.queue.confirm.delete', { title: queue?.title ?? '', count: activeCount }));
         if (!accepted) return;
         const result = await request(`/api/queues/${queueId}/delete`, { method: 'POST', body: JSON.stringify({ confirm: true }) });
-        toast(result.status === 'pending' ? 'Exclusão iniciada. A fila ficará pendente até a Twitch confirmar os cancelamentos e a exclusão da recompensa.' : 'A exclusão já estava concluída.');
+        toast(panelText(result.status === 'pending' ? 'panel.queue.delete.pending' : 'panel.queue.delete.done'));
         await refresh(); return;
       }
       if (actionName === 'resolve-reward') {
         const candidates = await request(`/api/queues/${queueId}/reward-candidates`);
-        if (!candidates.length) { toast('Nenhuma recompensa Twitch compatível foi encontrada. Revise a fila e as recompensas gerenciáveis no console Twitch.'); return; }
+        if (!candidates.length) { toast(panelText('panel.reward.no_candidates')); return; }
         const form = $('#reward-form'); const select = form.elements.namedItem('rewardId');
         form.elements.namedItem('queueId').value = queueId; select.replaceChildren();
         for (const candidate of candidates) {
-          const option = text('option', `${candidate.title} · ${candidate.cost} pontos · ${candidate.id}`);
+          const option = text('option', `${candidate.title} · ${candidate.cost} ${panelText('panel.queue.points')} · ${candidate.id}`);
           option.value = candidate.id; select.append(option);
         }
         $('#reward-notice').textContent = ''; $('#reward-dialog').showModal(); return;
       }
       if (actionName === 'clear-queue') {
         const preview = await request(`/api/queues/${queueId}/clear-preview`, { method: 'POST', body: '{}' });
-        if (preview.status === 'empty') { toast('A fila já está vazia.'); return; }
+        if (preview.status === 'empty') { toast(panelText('panel.queue.clear.empty')); return; }
         const queue = state.queues.find((item) => item.id === queueId);
-        const accepted = window.confirm(`Limpar a fila ${queue?.title ?? ''}? ${preview.count} pessoas serão removidas e ${preview.refundsRequested} reembolsos serão solicitados. Confirmação válida por 15 segundos.`);
+        const accepted = window.confirm(panelText('panel.queue.clear.confirm', { title: queue?.title ?? '', count: preview.count, refunds: preview.refundsRequested }));
         if (!accepted) return;
         const result = await request(`/api/queues/${queueId}/clear-confirm`, { method: 'POST', body: '{}' });
-        if (result.status === 'confirmation_required') toast(`A fila mudou. Revise a nova confirmação para ${result.count} pessoas.`);
-        else toast(`${result.count} pessoas removidas; ${result.refundsRequested} reembolsos solicitados.`);
+        if (result.status === 'confirmation_required') toast(panelText('panel.queue.clear.changed', { count: result.count }));
+        else toast(panelText('panel.queue.clear.done', { count: result.count, refunds: result.refundsRequested }));
         await refresh(); return;
       }
       if (actionName === 'call-next' || actionName === 'call-one') await request(`/api/queues/${queueId}/call`, { method: 'POST', body: JSON.stringify({ count: 1, entryId }) });
@@ -664,14 +720,14 @@ async function boot() {
     } catch (error) { $('#reward-notice').textContent = panelError(error); }
   });
   $('#edit-account').addEventListener('click', async () => {
-    const current = $('#account-label').textContent; const value = window.prompt('Nome da conta atual na live (até 60 caracteres):', current);
+    const current = $('#account-label').textContent; const value = window.prompt(panelText('panel.account.prompt.current'), current);
     if (value === null) return;
     try { await request('/api/account', { method: 'POST', body: JSON.stringify({ label: value }) }); await refresh(); }
     catch (error) { toast(panelError(error)); }
   });
   $('#edit-default-account').addEventListener('click', async () => {
-    const fallback = state.accountDefaultLabel ?? 'Streamer';
-    const value = window.prompt('Nome padrão da conta (até 60 caracteres):', fallback);
+    const fallback = state.accountDefaultLabel ?? panelText('panel.settings.account_fallback');
+    const value = window.prompt(panelText('panel.account.prompt.default'), fallback);
     if (value === null) return;
     try { await request('/api/account/default', { method: 'POST', body: JSON.stringify({ label: value }) }); await refresh(); }
     catch (error) { toast(panelError(error)); }

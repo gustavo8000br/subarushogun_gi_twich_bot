@@ -356,9 +356,11 @@ Run the quality checks listed in [Development](#development) before requesting r
 
 ### Translation catalogs
 
+For the source locale, contribution template, plural examples, review steps, and validation requirements, see the [Translation contribution guide](docs/TRANSLATION_GUIDE.md). Brazilian Portuguese (`pt-BR`) is the source locale and safe fallback.
+
 Product translations live in `apps/web/localization/catalogs/<module>/<locale>.tsv`, with one UTF-8 file per module and locale. Keep the required `pt-BR`, `en`, and `es` catalogs complete and key/placeholder-compatible. Add a community locale file to every product module; it becomes available only when the full catalog set passes validation.
 
-Run `npm run validate:localization` to check the repository catalogs. The bot reads this directory through a read-only Compose mount and rescans it while running. After adding a complete locale, the settings page discovers it on its next catalog refresh (within about 30 seconds); rebuilding the image or restarting the bot is not required. Edit files in the project directory, not inside the container. Use literal text only; catalogs do not contain executable code or HTML templates.
+Run `npm run validate:localization` to check the repository catalogs. The bot reads this directory through a read-only Compose mount and rescans it while running. After adding a complete locale, the settings page discovers it on its next catalog refresh (within about 30 seconds); rebuilding the image or restarting the bot is not required. Edit files in the project directory, not inside the container. Use literal text only; catalogs do not contain executable code or HTML templates. Count messages use locale-specific `Intl.PluralRules` categories; the validator reports missing forms before a catalog can be discovered. Streamer-written queue names, reward descriptions and templates remain exactly as entered.
 
 ## Commit messages and versioning
 
@@ -411,9 +413,9 @@ Open `https://localhost:3000` yourself. If the browser reports an untrusted cert
 | OPS-1 | API, infra, and web CI gates | QA PASS 9.3/10; awaiting PR merge |
 | OPS-2 | Safe Portuguese Twitch status labels | QA PASS 9.3/10; regression fixes in this PR |
 | OPS-4 | MIT License metadata | QA PASS 9.3/10; already merged |
-| FND-8 | Product-wide localization planning and implementation | In progress on PR #31; catalog/persistence foundations, chat and OBS localization, and host lifecycle localization are being integrated; whole-panel coverage, Windows runtime validation, and final QA remain pending |
+| FND-8 | Product-wide localization | Implementation complete on open PR #31; locale persistence, live community catalog discovery, localized panel/chat/OBS/lifecycle copy, and plural validation are covered. Independent QA is the remaining story gate; live Twitch writes and native macOS remain unverified |
 
-FND-8 implements a persisted product language with pt-BR, English, and Spanish catalogs organized by module. Complete community catalogs can be discovered while the app is running. The story log records implemented surfaces, test evidence, and remaining acceptance checks. The story is not complete until panel coverage and platform QA are finished.
+FND-8 adds a persisted product language with pt-BR, English, and Spanish catalogs organized by module. Complete community catalogs are discovered while the app is running, and the panel, chat, OBS product copy, and lifecycle tools use the selected language. Chat roots are `!fila`, `!queue`, or `!cola` according to the selected locale. The open PR remains subject to independent QA before the story is closed.
 
 ## Data and security
 

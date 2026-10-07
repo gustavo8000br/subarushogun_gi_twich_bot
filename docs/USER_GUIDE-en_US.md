@@ -2,7 +2,7 @@
 
 [Leia em português brasileiro](MANUAL_DE_USUARIO-pt_BR.md)
 
-This guide describes the product as it exists in the current project version. The panel and chat replies are currently in Brazilian Portuguese; English and Spanish product translations are planned, not available yet.
+This guide describes the product as it exists in the current project version. The product locale can be changed in **Settings**; available catalogs cover Brazilian Portuguese, English, and Spanish, plus complete community locales discovered at runtime. The selected locale controls product-owned panel, chat, OBS, and lifecycle copy.
 
 ## What the bot does
 
@@ -147,7 +147,7 @@ These queue-management actions are reserved to the streamer and moderators and c
 | `!conta reset` | Restores the default account label. |
 | `!queue ping` | Replies `Pong 🏓`, the running version, and the most recently measured Twitch response time. Streamer/moderator only. |
 
-The streamer always has access. For supported commands, the streamer chooses an explicit list of allowed roles in **Comandos do chat**. Selected roles work independently; there is no automatic role inheritance. VIP access also depends on the separate VIP-management setting. Viewer commands have a five-second per-person cooldown; management commands do not. Replies are kept within Twitch's 500-character message limit. The parser accepts upper/lowercase and repeated spaces, and accepts `posicao`/`posição` and `proximo`/`próximo`.
+The streamer always has access. Product copy follows the locale selected in **Settings**. Streamer-authored queue/reward text is preserved verbatim. For supported commands, the streamer chooses an explicit list of allowed roles in **Comandos do chat**. Selected roles work independently; there is no automatic role inheritance. VIP access also depends on the separate VIP-management setting. Viewer commands have a five-second per-person cooldown; management commands do not. Replies are kept within Twitch's 500-character message limit. The parser accepts upper/lowercase and repeated spaces, and accepts `posicao`/`posição` and `proximo`/`próximo`.
 
 ## Current account
 
@@ -203,7 +203,7 @@ For a visible UID queue, tell viewers clearly that the UID may be shown publicly
 
 **Available now:** local queue management, reward-based admissions for eligible channels, manual admissions, audited operator-verified priority, command permissions, point-operation tracking, account labels, Twitch recovery controls, and local OBS widgets on the verified platform.
 
-**Planned, not available in this version:** product-wide Portuguese/English/Spanish translation and community translation catalogs; manual-only queue operation for channels ineligible for Channel Points; multi-channel operation; Discord/private messaging; automatic verification or processing of PIX, Bits, or subscriptions; and public OBS hosting.
+**Planned, not available in this version:** manual-only queue operation for channels ineligible for Channel Points; multi-channel operation; Discord/private messaging; automatic verification or processing of PIX, Bits, or subscriptions; and public OBS hosting.
 
 There is no viewer self-enrollment command, game-account verification, payment collection, or second bot account.
 
@@ -214,7 +214,7 @@ There is no viewer self-enrollment command, game-account verification, payment c
 - Invalid-UID redemptions are recorded for cancellation without creating a queue entry. The current chat handler was not found to send the specific explanatory message described in the original product requirements.
 - Windows first-run testing reported a repeated input-redirection warning in the helper. A proposed automated check exists, but a later manual Windows run has not confirmed the warning is gone.
 - macOS setup and OBS certificate trust have not been tested by this project.
-- FND-8 translation is a planning draft. The panel/chat remain Portuguese-only; commands such as `!queue` are not yet translated.
+- The product locale selects the global chat root: `!fila` (pt-BR), `!queue` (English), or `!cola` (Spanish). Queue slugs and aliases remain the streamer-defined identifiers.
 - The current uninstaller choices and updater were described from the checked-in scripts; this guide task did not run them.
 
 ## How this guide was verified

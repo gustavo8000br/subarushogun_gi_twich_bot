@@ -52,14 +52,18 @@ chat.queue.waiting	En espera
 chat.queue.called	Llamados
 chat.queue.in_progress	En atención
 chat.queue.no_one	nadie
-chat.queue.more	 y {count} más
+chat.queue.more.one	 y {count} más
+chat.queue.more.many	 y {count} más
+chat.queue.more.other	 y {count} más
 chat.queue.not_active	No estás en esta cola.
 chat.queue.exit_pending	Saliste de la cola. Se solicitó un reembolso y está pendiente de confirmación.
 chat.queue.exit_done	Saliste de la cola.
 chat.queue.invalid_count	Usa un número del 1 al 10.
 chat.queue.nobody_waiting	No hay personas esperando.
 chat.queue.called_one	1 persona llamada.
-chat.queue.called_many	{count} personas llamadas.
+chat.queue.called_many.one	{count} persona llamada.
+chat.queue.called_many.many	{count} personas llamadas.
+chat.queue.called_many.other	{count} personas llamadas.
 chat.user.not_found	No se encontró ese usuario de Twitch.
 chat.queue.select_user	Indica el usuario porque hay más de una persona posible.
 chat.queue.person_not_active	Esa persona no está activa en esta cola.

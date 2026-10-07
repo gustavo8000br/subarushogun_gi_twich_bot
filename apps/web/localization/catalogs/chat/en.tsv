@@ -52,14 +52,16 @@ chat.queue.waiting	Waiting
 chat.queue.called	Called
 chat.queue.in_progress	In service
 chat.queue.no_one	no one
-chat.queue.more	 and {count} more
+chat.queue.more.one	 and {count} more
+chat.queue.more.other	 and {count} more
 chat.queue.not_active	You are not in this queue.
 chat.queue.exit_pending	You left the queue. A refund was requested and is awaiting confirmation.
 chat.queue.exit_done	You left the queue.
 chat.queue.invalid_count	Use a number from 1 to 10.
 chat.queue.nobody_waiting	No one is waiting.
 chat.queue.called_one	1 person called.
-chat.queue.called_many	{count} people called.
+chat.queue.called_many.one	{count} person called.
+chat.queue.called_many.other	{count} people called.
 chat.user.not_found	That Twitch user was not found.
 chat.queue.select_user	Specify a user because more than one person is eligible.
 chat.queue.person_not_active	That person is not active in this queue.

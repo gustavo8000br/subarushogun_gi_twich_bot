@@ -13,9 +13,9 @@ async function makeCatalogRoot() {
   const moduleRoot = join(root, 'setup');
   await mkdir(moduleRoot);
   await Promise.all([
-    writeFile(join(moduleRoot, 'pt-BR.tsv'), 'setup.title\tConfiguração\ntranslation.unavailable\tIndisponível.\n'),
-    writeFile(join(moduleRoot, 'en.tsv'), 'setup.title\tSetup\ntranslation.unavailable\tUnavailable.\n'),
-    writeFile(join(moduleRoot, 'es.tsv'), 'setup.title\tConfiguración\ntranslation.unavailable\tNo disponible.\n'),
+    writeFile(join(moduleRoot, 'pt-BR.tsv'), 'setup.title\tConfiguração\nsetup.callback.success_message\tCanal {channel}\nsetup.callback.return_message\tRetorno em {seconds}\ntranslation.unavailable\tIndisponível.\n'),
+    writeFile(join(moduleRoot, 'en.tsv'), 'setup.title\tSetup\nsetup.callback.success_message\tChannel {channel}\nsetup.callback.return_message\tReturn in {seconds}\ntranslation.unavailable\tUnavailable.\n'),
+    writeFile(join(moduleRoot, 'es.tsv'), 'setup.title\tConfiguración\nsetup.callback.success_message\tCanal {channel}\nsetup.callback.return_message\tVolver en {seconds}\ntranslation.unavailable\tNo disponible.\n'),
   ]);
   return { root, moduleRoot };
 }
@@ -34,7 +34,7 @@ describe('discoverCatalogModule', () => {
 
   it('discovers a complete new locale file without a code registry change', async () => {
     const { root, moduleRoot } = await makeCatalogRoot();
-    await writeFile(join(moduleRoot, 'de.tsv'), 'setup.title\tEinrichtung\ntranslation.unavailable\tNicht verfügbar.\n');
+    await writeFile(join(moduleRoot, 'de.tsv'), 'setup.title\tEinrichtung\nsetup.callback.success_message\tKanal {channel}\nsetup.callback.return_message\tZurück in {seconds}\ntranslation.unavailable\tNicht verfügbar.\n');
 
     const result = await discoverCatalogModule(root, 'setup');
 
