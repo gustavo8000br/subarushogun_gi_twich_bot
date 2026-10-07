@@ -4,6 +4,11 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.9.0-alpha
+
+- The installer now shows its progress and confirms resource removal only after checking that product containers, networks, and unused images are gone.
+- Optional unattended commands support setup, updates, and removal. Updates and removal keep saved data unless an explicit erase confirmation is supplied.
+
 ## v0.8.0-alpha
 
 - One installer per operating system handles setup, updates, and removal of saved data, keeps Windows' first-run language choice, checks Docker architecture compatibility, and stays on the version selected from its release.

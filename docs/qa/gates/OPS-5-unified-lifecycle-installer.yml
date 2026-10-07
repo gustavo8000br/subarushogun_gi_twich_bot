@@ -1,36 +1,44 @@
 schema: 1
 story: 'OPS-5'
 story_title: 'Unified cross-platform lifecycle installer'
-gate: PASS
-status_reason: 'All 14 acceptance criteria are covered by the latest native installer run, local contracts, and regression suite. No blocking security, reliability, or documentation gap remains; physical host testing is explicitly not claimed and is not an OPS-5 acceptance prerequisite.'
+gate: CONCERNS
+status_reason: 'The corrective local implementation and gates pass. Native Windows PowerShell execution and the updated Windows Actions job are still required before OPS-5 can be marked Done.'
 reviewer: 'Quinn (Test Architect)'
-reviewed_revision: '11e1e3f836a521256c5c450e5c21cb081b82bb68'
-updated: '2026-10-07T14:40:00Z'
-top_issues: []
+reviewed_revision: 'working-tree on fix/ops5-installer-uninstall-progress; source HEAD 11e1e3f836a521256c5c450e5c21cb081b82bb68'
+updated: '2026-10-07T15:56:39Z'
+top_issues:
+  - id: 'OPS5-WIN-NATIVE'
+    severity: high
+    finding: 'Corrective Windows PowerShell installer and updated native artifact harness have not run on this revision.'
+    suggested_action: 'Run the native Windows job from the corrective branch and resolve any failures before merging or closing issue #30.'
 waiver: { active: false }
-quality_score: 100
-expires: '2026-10-21T14:40:00Z'
+quality_score: 88
+expires: '2026-10-21T15:00:00Z'
 evidence:
-  tests_reviewed: 667
-  risks_identified: 5
+  tests_reviewed: 673
+  focused_installer_tests: 29
+  risks_identified: 1
   trace:
-    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+    ac_covered: [2, 3, 5, 7, 8, 11, 12, 13, 14]
+    ac_pending_native_windows: [1, 4, 6, 9, 10, 15, 16, 17]
     ac_gaps: []
 nfr_validation:
   security:
     status: PASS
-    notes: 'Installer operations use a fixed Compose project name, fixed application paths, and typed localized confirmation for destructive paths. No credentials are embedded in artifacts or emitted by installer diagnostics. OpenGrep reported zero findings.'
+    notes: 'OpenGrep found 0 issues. Image removal is scoped and checks for container references. No global prune or host dependency removal is used.'
   performance:
     status: PASS
-    notes: 'Installer performs bounded local checks and delegates image pull/startup to Docker Compose; no recurring service or unbounded loop was introduced. Health polling is bounded to 60 attempts.'
+    notes: 'Installer checks remain bounded; image inventories are local Docker queries and health polling remains bounded.'
   reliability:
-    status: PASS
-    notes: 'Regression tests cover pull, startup/migration, and panel-health failures while preserving data/settings; native Windows/macOS/Linux artifacts launch and update successfully in Actions run 37637847991.'
+    status: CONCERNS
+    notes: 'Linux tests and runtime checks pass. The corrective PowerShell and native Windows lifecycle behavior remain unverified on this revision.'
   maintainability:
     status: PASS
-    notes: 'Platform sources remain readable and are packaged from reviewed source; Vitest and native-runner contracts cover outputs. Story, release, install, and changelog documentation are synchronized in English and pt-BR.'
+    notes: 'Installer source, tests, operator guides, story evidence, and changelogs are synchronized in English and pt-BR.'
 recommendations:
-  immediate: []
+  immediate:
+    - action: 'Run the updated Windows native Actions job, then refresh this gate with its exact run URL and results.'
+      refs: ['docs/stories/OPS-5/story.md', 'tests/platform/installer-native.mjs']
   future:
-    - action: 'Record the owner’s physical Windows installation/update smoke test when the notebook is available.'
+    - action: 'Record the owner’s physical Windows/macOS host smoke test when available; native CI uses fake Docker.'
       refs: ['docs/stories/OPS-5/story.md']

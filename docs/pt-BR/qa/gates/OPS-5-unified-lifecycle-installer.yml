@@ -1,36 +1,44 @@
 schema: 1
 story: 'OPS-5'
 story_title: 'Instalador unificado multiplataforma'
-gate: PASS
-status_reason: 'Os 14 critérios de aceite estão cobertos pela execução nativa mais recente, contratos locais e suíte de regressão. Não há lacuna bloqueante de segurança, confiabilidade ou documentação; o teste físico do host não é alegado e não é requisito de aceite da OPS-5.'
+gate: CONCERNS
+status_reason: 'A implementação corretiva local e seus gates passaram. A execução PowerShell nativa Windows e o job Windows atualizado do Actions ainda são necessários antes de marcar a OPS-5 como Done.'
 reviewer: 'Quinn (Test Architect)'
-reviewed_revision: '11e1e3f836a521256c5c450e5c21cb081b82bb68'
-updated: '2026-10-07T14:40:00Z'
-top_issues: []
+reviewed_revision: 'árvore de trabalho em fix/ops5-installer-uninstall-progress; HEAD de origem 11e1e3f836a521256c5c450e5c21cb081b82bb68'
+updated: '2026-10-07T15:56:39Z'
+top_issues:
+  - id: 'OPS5-WIN-NATIVE'
+    severity: high
+    finding: 'O instalador corretivo PowerShell e o harness atualizado do artefato nativo Windows ainda não foram executados nesta revisão.'
+    suggested_action: 'Executar o job Windows nativo na branch corretiva e resolver falhas antes do merge ou de fechar a issue #30.'
 waiver: { active: false }
-quality_score: 100
-expires: '2026-10-21T14:40:00Z'
+quality_score: 88
+expires: '2026-10-21T15:00:00Z'
 evidence:
-  tests_reviewed: 667
-  risks_identified: 5
+  tests_reviewed: 673
+  focused_installer_tests: 29
+  risks_identified: 1
   trace:
-    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+    ac_covered: [2, 3, 5, 7, 8, 11, 12, 13, 14]
+    ac_pending_native_windows: [1, 4, 6, 9, 10, 15, 16, 17]
     ac_gaps: []
 nfr_validation:
   security:
     status: PASS
-    notes: 'Operações usam nome fixo de projeto Compose, caminhos fixos do produto e confirmação localizada digitada para ações destrutivas. Credenciais não são embutidas nos artefatos nem expostas pelos diagnósticos do instalador. O OpenGrep não encontrou achados.'
+    notes: 'OpenGrep encontrou 0 achados. A remoção de imagens tem escopo definido e verifica referências por containers. Não se usa prune global nem se removem dependências do host.'
   performance:
     status: PASS
-    notes: 'O instalador executa verificações locais limitadas e delega pull/inicialização ao Docker Compose; não introduz serviço recorrente nem loop sem limite. A consulta de saúde tem limite de 60 tentativas.'
+    notes: 'As verificações do instalador são delimitadas; inventário de imagens usa consultas locais do Docker e a espera de saúde continua limitada.'
   reliability:
-    status: PASS
-    notes: 'Testes de regressão cobrem falhas de pull, inicialização/migration e saúde do painel preservando dados/configuração; os artefatos nativos Windows/macOS/Linux iniciaram e atualizaram na execução Actions 37637847991.'
+    status: CONCERNS
+    notes: 'Testes e runtime Linux passaram. O PowerShell corretivo e o ciclo nativo Windows ainda não foram verificados nesta revisão.'
   maintainability:
     status: PASS
-    notes: 'Os fontes por plataforma continuam legíveis e são empacotados a partir de fontes revisadas; Vitest e contratos nativos cobrem os resultados. Story, release, instalação e changelogs estão sincronizados em inglês e pt-BR.'
+    notes: 'Código do instalador, testes, guias, evidências da story e changelogs estão sincronizados em inglês e pt-BR.'
 recommendations:
-  immediate: []
+  immediate:
+    - action: 'Executar o job Windows nativo atualizado e revisar este gate com o link e os resultados exatos.'
+      refs: ['docs/pt-BR/stories/OPS-5/story.md', 'tests/platform/installer-native.mjs']
   future:
-    - action: 'Registrar o teste físico de instalação/atualização Windows pelo proprietário quando o notebook estiver disponível.'
-      refs: ['docs/stories/OPS-5/story.md']
+    - action: 'Registrar teste físico do host Windows/macOS do proprietário quando disponível; o CI nativo usa Docker falso.'
+      refs: ['docs/pt-BR/stories/OPS-5/story.md']

@@ -20,11 +20,15 @@ async function packageFor(platform, output, imageTag) {
 describe('single-file lifecycle installer', () => {
   it('exits with a clear message instead of looping when Linux starts without an interactive input stream', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-no-stdin-'));
+    const home = await mkdtemp(join(tmpdir(), 'queuebot-installer-no-stdin-home-'));
     try {
       const packageResult = await packageFor('linux', output);
       expect(packageResult.status, packageResult.stderr).toBe(0);
       const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
-      const result = spawnSync('sh', [artifactPath], { input: '', encoding: 'utf8', timeout: 1500, maxBuffer: 1024 });
+      const result = spawnSync('sh', [artifactPath], {
+        input: '', encoding: 'utf8', timeout: 1500, maxBuffer: 1024,
+        env: { ...process.env, HOME: home, QUEUEBOT_INSTALL_HOME: join(home, 'product') },
+      });
 
       expect(result.error).toBeUndefined();
       expect(result.status).toBe(1);
@@ -33,7 +37,7 @@ describe('single-file lifecycle installer', () => {
       expect(result.stdout).not.toContain('\nlanguage\nlanguage_prompt');
       expect(`${result.stdout}\n${result.stderr}`).toContain('terminal interativo');
     } finally {
-      await rm(output, { recursive: true, force: true });
+      await Promise.all([output, home].map((path) => rm(path, { recursive: true, force: true })));
     }
   });
 
@@ -329,7 +333,7 @@ describe('single-file lifecycle installer', () => {
       const dockerCalls = await readFile(logPath, 'utf8');
       expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
       expect(dockerCalls).toContain('info --format {{.Architecture}}');
-      expect(dockerCalls).toContain('compose --project-name subarushogun-gi-twitch-queue-bot');
+      expect(dockerCalls).toContain('compose --progress plain --project-name subarushogun-gi-twitch-queue-bot');
     } finally {
       await Promise.all([output, home, bin].map((path) => rm(path, { recursive: true, force: true })));
     }
@@ -512,6 +516,283 @@ describe('single-file lifecycle installer', () => {
         rm(home, { recursive: true, force: true }),
         rm(bin, { recursive: true, force: true }),
       ]);
+    }
+  });
+
+  it('shows uninstall progress, removes verified product resources, and preserves images used by another project', async () => {
+    const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-uninstall-progress-'));
+    const home = await mkdtemp(join(tmpdir(), 'queuebot-home-uninstall-progress-'));
+    const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-uninstall-progress-'));
+    const logPath = join(bin, 'docker.log');
+    const dockerPath = join(bin, 'docker');
+    try {
+      const packageResult = await packageFor('linux', output);
+      expect(packageResult.status, packageResult.stderr).toBe(0);
+      await writeFile(dockerPath, [
+        '#!/bin/sh',
+        'printf "%s\\n" "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"',
+        'case "$*" in',
+        '  "info --format {{.Architecture}}") printf "%s\\n" "x86_64" ;;',
+        '  *"images --quiet"*) printf "%s\\n" "sha256:queuebot-app" "sha256:postgres" ;;',
+        '  *"image ls --quiet --no-trunc ghcr.io/gustavo8000br/subarushogun_gi_twich_bot"*) printf "%s\\n" "sha256:queuebot-app" "sha256:queuebot-old-app" ;;',
+        '  *"ps --all --quiet --filter label=com.docker.compose.project=subarushogun-gi-twitch-queue-bot"*) if ! grep -q " down " "$QUEUEBOT_TEST_DOCKER_LOG"; then printf "%s\\n" "queuebot-container"; fi ;;',
+        '  *"network ls --quiet --filter label=com.docker.compose.project=subarushogun-gi-twitch-queue-bot"*) if ! grep -q " down " "$QUEUEBOT_TEST_DOCKER_LOG"; then printf "%s\\n" "queuebot-network"; fi ;;',
+        '  *"volume ls --quiet --filter label=com.docker.compose.project=subarushogun-gi-twitch-queue-bot"*) if ! grep -q "down --volumes" "$QUEUEBOT_TEST_DOCKER_LOG"; then printf "%s\\n" "queuebot-postgres-data" "queuebot-operational-secrets"; fi ;;',
+        '  *"ps --all --quiet --filter ancestor=sha256:postgres"*) printf "%s\\n" "other-project-db" ;;',
+        '  *"compose down --volumes --remove-orphans"*) printf "%s\\n" "Removed queuebot containers and network" ;;',
+        '  *"image rm "*) printf "%s\\n" "Deleted image" ;;',
+        'esac',
+        'exit 0',
+        '',
+      ].join('\n'));
+      await chmod(dockerPath, 0o755);
+      const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
+      const installHome = join(home, 'product');
+      const env = {
+        ...process.env,
+        HOME: home,
+        QUEUEBOT_INSTALL_HOME: installHome,
+        QUEUEBOT_DOCKER_BIN: dockerPath,
+        QUEUEBOT_TEST_DOCKER_LOG: logPath,
+        QUEUEBOT_TEST_MODE: '1',
+      };
+      const install = spawnSync('sh', [artifactPath], { input: '2\n1\n3100\n0\n', encoding: 'utf8', env });
+      expect(install.status, `${install.stdout}\n${install.stderr}`).toBe(0);
+      await writeFile(logPath, '');
+
+      const kept = spawnSync('sh', [artifactPath], { input: '3\n1\n0\n', encoding: 'utf8', env });
+      const keptOutput = `${kept.stdout}\n${kept.stderr}`;
+      expect(kept.status, keptOutput).toBe(0);
+      expect(keptOutput).toContain('Removing project containers and networks');
+      expect(keptOutput).toContain('Uninstall complete');
+      expect(keptOutput).toContain('volumes and data preserved');
+      expect(keptOutput).toContain('Image kept because another container still uses it: sha256:postgres');
+      expect(await readFile(join(installHome, '.env'), 'utf8')).toContain('APP_PORT=3100');
+      let dockerCalls = await readFile(logPath, 'utf8');
+      expect(dockerCalls).toContain('down --remove-orphans');
+      expect(dockerCalls).not.toContain('down --volumes --remove-orphans');
+      expect(dockerCalls).toContain('volume ls --quiet --filter label=com.docker.compose.project=subarushogun-gi-twitch-queue-bot');
+
+      const restarted = spawnSync('sh', [artifactPath], { input: '1\n0\n', encoding: 'utf8', env });
+      expect(restarted.status, `${restarted.stdout}\n${restarted.stderr}`).toBe(0);
+      expect(await readFile(join(installHome, '.env'), 'utf8')).toContain('APP_PORT=3100');
+      await writeFile(logPath, '');
+
+      const uninstalled = spawnSync('sh', [artifactPath], { input: '3\n2\nDELETE\n0\n', encoding: 'utf8', env });
+      dockerCalls = await readFile(logPath, 'utf8');
+      const outputText = `${uninstalled.stdout}\n${uninstalled.stderr}`;
+
+      expect(uninstalled.status, outputText).toBe(0);
+      expect(outputText, dockerCalls).toContain('Removing project containers and networks');
+      expect(outputText).toContain('Checking this project’s volumes');
+      expect(outputText).toContain('Image kept because another container still uses it: sha256:postgres');
+      expect(outputText).toContain('Uninstall complete');
+      expect(dockerCalls).toContain('images --quiet');
+      expect(dockerCalls).toContain('image ls --quiet --no-trunc ghcr.io/gustavo8000br/subarushogun_gi_twich_bot');
+      expect(dockerCalls).toContain('compose --progress plain --project-name subarushogun-gi-twitch-queue-bot');
+      expect(dockerCalls).toContain('down --volumes --remove-orphans');
+      expect(dockerCalls).toContain('network ls --quiet --filter label=com.docker.compose.project=subarushogun-gi-twitch-queue-bot');
+      expect(dockerCalls).toContain('volume ls --quiet --filter label=com.docker.compose.project=subarushogun-gi-twitch-queue-bot');
+      expect(dockerCalls).toContain('image rm sha256:queuebot-app');
+      expect(dockerCalls).toContain('image rm sha256:queuebot-old-app');
+      expect(dockerCalls).not.toContain('image rm sha256:postgres');
+      expect(dockerCalls).not.toMatch(/(?:system|volume|image|network) prune/);
+      await expect(readFile(installHome, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+    } finally {
+      await Promise.all([output, home, bin].map((path) => rm(path, { recursive: true, force: true })));
+    }
+  });
+
+  it('reports when no managed installation exists instead of presenting uninstall as completed', async () => {
+    const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-no-install-'));
+    const home = await mkdtemp(join(tmpdir(), 'queuebot-home-no-install-'));
+    const logPath = join(home, 'docker.log');
+    const dockerPath = join(home, 'docker');
+    try {
+      const packageResult = await packageFor('linux', output);
+      expect(packageResult.status, packageResult.stderr).toBe(0);
+      await writeFile(dockerPath, '#!/bin/sh\nprintf "%s\\n" "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\ncase "$*" in "info --format {{.Architecture}}") printf "%s\\n" "x86_64" ;; esac\nexit 0\n');
+      await chmod(dockerPath, 0o755);
+      const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
+      const result = spawnSync('sh', [artifactPath], {
+        input: '2\n3\n0\n',
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          HOME: home,
+          QUEUEBOT_INSTALL_HOME: join(home, 'product'),
+          QUEUEBOT_DOCKER_BIN: dockerPath,
+          QUEUEBOT_TEST_DOCKER_LOG: logPath,
+          QUEUEBOT_TEST_MODE: '1',
+        },
+      });
+
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+      expect(`${result.stdout}\n${result.stderr}`).toContain('No installation or product resources were found');
+      expect(`${result.stdout}\n${result.stderr}`).not.toContain('Uninstall complete');
+      const dockerCalls = await readFile(logPath, 'utf8');
+      expect(dockerCalls).toContain('network ls --quiet --filter label=com.docker.compose.project=subarushogun-gi-twitch-queue-bot');
+      expect(dockerCalls).not.toContain('compose down');
+    } finally {
+      await Promise.all([output, home].map((path) => rm(path, { recursive: true, force: true })));
+    }
+  });
+
+  it('does not claim uninstall success when Docker cannot inventory the product images', async () => {
+    const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-image-inventory-failure-'));
+    const home = await mkdtemp(join(tmpdir(), 'queuebot-home-image-inventory-failure-'));
+    const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-image-inventory-failure-'));
+    const dockerPath = join(bin, 'docker');
+    const logPath = join(bin, 'docker.log');
+    try {
+      const packageResult = await packageFor('linux', output);
+      expect(packageResult.status, packageResult.stderr).toBe(0);
+      await writeFile(dockerPath, [
+        '#!/bin/sh',
+        'printf "%s\\n" "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"',
+        'case "$*" in',
+        '  "info --format {{.Architecture}}") printf "%s\n" x86_64 ;;',
+        '  *"config --images"*) printf "%s\n" app-image postgres:18 ;;',
+        '  *"image ls --quiet --no-trunc"*) exit 1 ;;',
+        'esac',
+        'exit 0',
+        '',
+      ].join('\n'));
+      await chmod(dockerPath, 0o755);
+      const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
+      const env = {
+        ...process.env,
+        HOME: home,
+        QUEUEBOT_INSTALL_HOME: join(home, 'product'),
+        QUEUEBOT_DOCKER_BIN: dockerPath,
+        QUEUEBOT_TEST_DOCKER_LOG: logPath,
+        QUEUEBOT_TEST_MODE: '1',
+      };
+      const install = spawnSync('sh', [artifactPath, '--silent', 'install', '--port', '39119'], { encoding: 'utf8', env });
+      expect(install.status, `${install.stdout}\n${install.stderr}`).toBe(0);
+
+      const uninstall = spawnSync('sh', [artifactPath, '--silent', 'uninstall'], { encoding: 'utf8', env });
+      expect(uninstall.status, `${uninstall.stdout}\n${uninstall.stderr}`).toBe(1);
+      expect(`${uninstall.stdout}\n${uninstall.stderr}`, await readFile(logPath, 'utf8')).toContain('Desinstalação incompleta');
+      expect(uninstall.stdout).not.toContain('Uninstall complete');
+      expect(await readFile(join(env.QUEUEBOT_INSTALL_HOME, '.env'), 'utf8')).toContain('APP_PORT=39119');
+    } finally {
+      await Promise.all([output, home, bin].map((path) => rm(path, { recursive: true, force: true })));
+    }
+  });
+
+  it('does not report uninstall complete while an unused product image remains', async () => {
+    const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-image-remains-'));
+    const home = await mkdtemp(join(tmpdir(), 'queuebot-home-image-remains-'));
+    const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-image-remains-'));
+    const dockerPath = join(bin, 'docker');
+    const logPath = join(bin, 'docker.log');
+    try {
+      const packageResult = await packageFor('linux', output);
+      expect(packageResult.status, packageResult.stderr).toBe(0);
+      await writeFile(dockerPath, [
+        '#!/bin/sh',
+        'printf "%s\\n" "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"',
+        'case "$*" in',
+        '  "info --format {{.Architecture}}") printf "%s\\n" x86_64 ;;',
+        '  *"config --images"*) printf "%s\\n" ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:main postgres:17-alpine ;;',
+        '  *"image ls --quiet --no-trunc"*) printf "%s\\n" sha256:app-image ;;',
+        '  *"image ls --quiet"*) printf "%s\\n" sha256:app-image ;;',
+        '  *"image rm"*) exit 0 ;;',
+        '  *"ps --all --quiet --filter ancestor="*) exit 0 ;;',
+        '  *"ps --all --quiet --filter label=com.docker.compose.project="*) if ! grep -q " down " "$QUEUEBOT_TEST_DOCKER_LOG"; then printf "%s\\n" product-container; fi ;;',
+        '  *"network ls --quiet --filter label=com.docker.compose.project="*) if ! grep -q " down " "$QUEUEBOT_TEST_DOCKER_LOG"; then printf "%s\\n" product-network; fi ;;',
+        '  *"volume ls --quiet --filter label=com.docker.compose.project="*) printf "%s\\n" product-volume ;;',
+        'esac',
+        'exit 0',
+        '',
+      ].join('\n'));
+      await chmod(dockerPath, 0o755);
+      const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
+      const env = {
+        ...process.env,
+        HOME: home,
+        QUEUEBOT_INSTALL_HOME: join(home, 'product'),
+        QUEUEBOT_DOCKER_BIN: dockerPath,
+        QUEUEBOT_TEST_DOCKER_LOG: logPath,
+        QUEUEBOT_TEST_MODE: '1',
+      };
+      const install = spawnSync('sh', [artifactPath, '--silent', 'install', '--port', '39120'], { encoding: 'utf8', env });
+      expect(install.status, `${install.stdout}\n${install.stderr}`).toBe(0);
+
+      const uninstall = spawnSync('sh', [artifactPath, '--silent', 'uninstall'], { encoding: 'utf8', env });
+      expect(uninstall.status).toBe(1);
+      expect(`${uninstall.stdout}\n${uninstall.stderr}`).toContain('Desinstalação incompleta');
+      expect(`${uninstall.stdout}\n${uninstall.stderr}`).not.toContain('Desinstalação concluída');
+      expect(await readFile(join(env.QUEUEBOT_INSTALL_HOME, '.env'), 'utf8')).toContain('APP_PORT=39120');
+    } finally {
+      await Promise.all([output, home, bin].map((path) => rm(path, { recursive: true, force: true })));
+    }
+  });
+
+  it('supports unattended install/update/uninstall and requires explicit destructive flags', async () => {
+    const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-silent-'));
+    const home = await mkdtemp(join(tmpdir(), 'queuebot-home-silent-'));
+    const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-silent-'));
+    const logPath = join(bin, 'docker.log');
+    const dockerPath = join(bin, 'docker');
+    try {
+      const packageResult = await packageFor('linux', output);
+      expect(packageResult.status, packageResult.stderr).toBe(0);
+      await writeFile(dockerPath, '#!/bin/sh\nprintf "%s\\n" "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\ncase "$*" in "info --format {{.Architecture}}") printf "%s\\n" "x86_64" ;; esac\nexit 0\n');
+      await chmod(dockerPath, 0o755);
+      const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
+      const installHome = join(home, 'product');
+      const env = {
+        ...process.env,
+        HOME: home,
+        QUEUEBOT_INSTALL_HOME: installHome,
+        QUEUEBOT_DOCKER_BIN: dockerPath,
+        QUEUEBOT_TEST_DOCKER_LOG: logPath,
+        QUEUEBOT_TEST_MODE: '1',
+      };
+
+      const install = spawnSync('sh', [artifactPath, '--silent', 'install', '--locale', 'en', '--port', '3111'], { encoding: 'utf8', env });
+      expect(install.status, `${install.stdout}\n${install.stderr}`).toBe(0);
+      expect(install.stdout).toContain('Creating/starting database, migrations, and bot');
+      expect(install.stdout).not.toContain('Choose a language');
+      expect(await readFile(join(installHome, '.env'), 'utf8')).toMatch(/APP_PORT=3111[\s\S]*PRODUCT_INITIAL_LOCALE=en/);
+
+      const unconfirmedErase = spawnSync('sh', [artifactPath, '--silent', 'uninstall', '--erase-data'], { encoding: 'utf8', env });
+      expect(unconfirmedErase.status).toBe(2);
+      expect(await readFile(join(installHome, '.env'), 'utf8')).toContain('APP_PORT=3111');
+      let dockerCalls = await readFile(logPath, 'utf8');
+      expect(dockerCalls).not.toContain('down --volumes');
+
+      const contradictoryOptions = spawnSync('sh', [artifactPath, '--silent', 'uninstall', '--keep-data', '--erase-data', '--confirm-erase'], { encoding: 'utf8', env });
+      expect(contradictoryOptions.status).toBe(2);
+      expect(await readFile(join(installHome, '.env'), 'utf8')).toContain('APP_PORT=3111');
+      dockerCalls = await readFile(logPath, 'utf8');
+      expect(dockerCalls).not.toContain('down --volumes');
+
+      const cleanUpdate = spawnSync('sh', [artifactPath, '--silent', 'update', '--erase-data', '--confirm-erase'], { encoding: 'utf8', env });
+      expect(cleanUpdate.status, `${cleanUpdate.stdout}\n${cleanUpdate.stderr}`).toBe(0);
+      expect(await readFile(join(installHome, '.env'), 'utf8')).toMatch(/APP_PORT=3111[\s\S]*PRODUCT_INITIAL_LOCALE=en/);
+      dockerCalls = await readFile(logPath, 'utf8');
+      expect(dockerCalls).toContain('down --volumes --remove-orphans');
+      await writeFile(logPath, '');
+
+      const update = spawnSync('sh', [artifactPath, '--silent', 'update'], { encoding: 'utf8', env });
+      expect(update.status, `${update.stdout}\n${update.stderr}`).toBe(0);
+      expect(update.stdout).toContain('Update complete');
+      dockerCalls = await readFile(logPath, 'utf8');
+      expect(dockerCalls).toMatch(/compose .* pull/);
+      expect(dockerCalls).not.toContain('down --volumes');
+      await writeFile(logPath, '');
+
+      const uninstall = spawnSync('sh', [artifactPath, '--silent', 'uninstall', '--erase-data', '--confirm-erase'], { encoding: 'utf8', env });
+      expect(uninstall.status, `${uninstall.stdout}\n${uninstall.stderr}`).toBe(0);
+      expect(uninstall.stdout).toContain('Uninstall complete');
+      dockerCalls = await readFile(logPath, 'utf8');
+      expect(dockerCalls).toContain('down --volumes --remove-orphans');
+      await expect(readFile(installHome, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+    } finally {
+      await Promise.all([output, home, bin].map((path) => rm(path, { recursive: true, force: true })));
     }
   });
 

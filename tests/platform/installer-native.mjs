@@ -24,7 +24,22 @@ try {
   await (await import('node:fs/promises')).mkdir(bin, { recursive: true });
   const fakeDocker = join(bin, platform === 'windows' ? 'docker.cmd' : 'docker');
   if (platform === 'windows') {
-    await writeFile(fakeDocker, '@echo off\r\necho %*>>"%QUEUEBOT_TEST_DOCKER_LOG%"\r\nif /I "%~1"=="info" if /I "%~2"=="--format" if "%~3"=="{{.Architecture}}" echo x86_64\r\nexit /b 0\r\n');
+    await writeFile(fakeDocker, [
+      '@echo off',
+      'echo %*>>"%QUEUEBOT_TEST_DOCKER_LOG%"',
+      'if /I "%~1"=="info" if /I "%~2"=="--format" if "%~3"=="{{.Architecture}}" (echo x86_64&exit /b 0)',
+      'echo %*|findstr /C:"config --images" >nul && (echo ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:main&echo postgres:17-alpine&exit /b 0)',
+      'echo %*|findstr /C:"images --quiet" >nul && (echo sha256:queuebot-app&echo sha256:postgres&exit /b 0)',
+      'echo %*|findstr /C:"image ls --quiet --no-trunc ghcr.io/gustavo8000br/subarushogun_gi_twich_bot" >nul && (findstr /C:"image rm sha256:queuebot-app" "%QUEUEBOT_TEST_DOCKER_LOG%" >nul || echo sha256:queuebot-app&exit /b 0)',
+      'echo %*|findstr /C:"image ls --quiet --no-trunc postgres:17-alpine" >nul && (echo sha256:postgres&exit /b 0)',
+      'echo %*|findstr /C:"image ls --quiet --no-trunc" >nul && (findstr /C:"image rm sha256:queuebot-app" "%QUEUEBOT_TEST_DOCKER_LOG%" >nul && echo sha256:postgres&exit /b 0&echo sha256:queuebot-app&echo sha256:postgres&exit /b 0)',
+      'echo %*|findstr /C:"ps --all --quiet --filter label=com.docker.compose.project" >nul && (findstr /C:" down" "%QUEUEBOT_TEST_DOCKER_LOG%" >nul || echo queuebot-container&exit /b 0)',
+      'echo %*|findstr /C:"network ls --quiet --filter label=com.docker.compose.project" >nul && (findstr /C:" down" "%QUEUEBOT_TEST_DOCKER_LOG%" >nul || echo queuebot-network&exit /b 0)',
+      'echo %*|findstr /C:"volume ls --quiet --filter label=com.docker.compose.project" >nul && (findstr /C:"down --volumes --remove-orphans" "%QUEUEBOT_TEST_DOCKER_LOG%" >nul || (echo queuebot-postgres-data&echo queuebot-operational-secrets)&exit /b 0)',
+      'echo %*|findstr /C:"ps --all --quiet --filter ancestor=sha256:postgres" >nul && (echo other-project-db&exit /b 0)',
+      'exit /b 0',
+      '',
+    ].join('\r\n'));
   } else {
     await writeFile(fakeDocker, '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\ncase "$*" in "info --format {{.Architecture}}") printf \'%s\\n\' "${QUEUEBOT_TEST_DOCKER_ARCH:-x86_64}" ;; esac\nexit 0\n');
     await chmod(fakeDocker, 0o755);
@@ -43,13 +58,13 @@ try {
     QUEUEBOT_TEST_INPUT_FILE: inputFile,
     QUEUEBOT_EXPECTED_IMAGE_TAG: expectedImageTag,
   };
-  const launch = (input) => {
+  const launch = (input, installerArgs = '') => {
     if (platform === 'windows') {
       return spawnSync('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', '& $env:QUEUEBOT_PREBUILT_INSTALLER'], {
-        encoding: 'utf8', env: { ...env, QUEUEBOT_PREBUILT_INSTALLER: artifact }, timeout: 30_000,
+        encoding: 'utf8', env: { ...env, QUEUEBOT_PREBUILT_INSTALLER: artifact, QUEUEBOT_INSTALLER_ARGS: installerArgs }, timeout: 30_000,
       });
     }
-    return spawnSync(artifact, [], { input, encoding: 'utf8', env, timeout: 30_000 });
+    return spawnSync(artifact, installerArgs ? installerArgs.split(/\s+/) : [], { input, encoding: 'utf8', env, timeout: 30_000 });
   };
   const result = launch('2\n1\n3100\n0\n');
   if (result.status !== 0) throw new Error(`Native installer failed (${result.status}):\n${result.stdout}\n${result.stderr}`);
@@ -74,6 +89,40 @@ try {
   }
   if (!result.stdout.includes('https://localhost:3100/callback')) {
     throw new Error(`Installer did not show the exact callback URL:\n${result.stdout}`);
+  }
+  if (platform === 'windows') {
+    const silentUpdate = launch('', '--silent update');
+    if (silentUpdate.status !== 0 || !silentUpdate.stdout.includes('Update complete')) {
+      throw new Error(`Windows unattended update failed:\n${silentUpdate.stdout}\n${silentUpdate.stderr}`);
+    }
+    const unconfirmedErase = launch('', '--silent uninstall --erase-data');
+    if (unconfirmedErase.status !== 2 || !(await readFile(join(installHome, '.env'), 'utf8')).includes('APP_PORT=3100')) {
+      throw new Error(`Windows unattended uninstall did not refuse an unconfirmed erase:\n${unconfirmedErase.stdout}\n${unconfirmedErase.stderr}`);
+    }
+    const keptUninstall = launch('', '--silent uninstall --keep-data');
+    if (keptUninstall.status !== 0 || !keptUninstall.stdout.includes('volumes and data preserved')) {
+      throw new Error(`Windows unattended uninstall did not preserve product volumes:\n${keptUninstall.stdout}\n${keptUninstall.stderr}`);
+    }
+    let calls = await readFile(log, 'utf8');
+    if (!calls.includes('down --remove-orphans') || calls.includes('down --volumes --remove-orphans')) {
+      throw new Error(`Windows keep-data uninstall used the wrong Compose volume policy:\n${calls}`);
+    }
+    const restarted = launch('', '--silent install');
+    if (restarted.status !== 0) throw new Error(`Windows installer could not restart after preserving data:\n${restarted.stdout}\n${restarted.stderr}`);
+    const erasedUninstall = launch('', '--silent uninstall --erase-data --confirm-erase');
+    if (erasedUninstall.status !== 0 || !erasedUninstall.stdout.includes('Uninstall complete')) {
+      throw new Error(`Windows unattended erase-data uninstall did not complete with verification:\n${erasedUninstall.stdout}\n${erasedUninstall.stderr}`);
+    }
+    calls = await readFile(log, 'utf8');
+    if (!calls.includes('down --volumes --remove-orphans') || calls.includes('image rm sha256:postgres')) {
+      throw new Error(`Windows erase-data uninstall did not remove product volumes safely:\n${calls}`);
+    }
+    try {
+      await readFile(installHome, 'utf8');
+      throw new Error('Windows erase-data uninstall left the product install directory behind.');
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
   }
   await writeFile(inputFile, '');
   const emptyInputEnv = { ...env, QUEUEBOT_INSTALL_HOME: join(fixtureRoot, 'empty input product') };

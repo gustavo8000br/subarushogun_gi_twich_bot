@@ -36,4 +36,14 @@ describe('Windows installer first-run language prompt', () => {
     expect(installer).toMatch(/if \(-not \$script:Locale -and -not \(Prompt-Language\)\)/);
     expect(installer).not.toMatch(/(?<!script:)\$Locale\b/);
   });
+
+  it('parses unattended lifecycle options without evaluating argument text', () => {
+    expect(installer).toContain('function Parse-CommandLine');
+    expect(installer).toContain("$env:QUEUEBOT_INSTALLER_ARGS -split '\\s+'");
+    expect(installer).toContain("'--silent','--non-interactive'");
+    expect(installer).toContain('--erase-data --confirm-erase');
+    expect(installer).not.toMatch(/Invoke-Expression|iex\s/);
+    const packager = readFileSync(new URL('../../apps/infra/scripts/package-installer.mjs', import.meta.url), 'utf8');
+    expect(packager).toContain('set "QUEUEBOT_INSTALLER_ARGS=%*"');
+  });
 });
