@@ -2,6 +2,11 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.13.1-alpha
+
+- Updates the bilingual story indexes and roadmaps to mark OPS-10 complete after PR #46 merged and advances the next sequence to FND-9.
+- Increments the product base version to `0.13.1` for this documentation-only PR; retains `.release-stage` `alpha` and the pre-commit `0000000` marker. No release or Git tag is created.
+
 ## v0.13.0-alpha
 
 - OPS-10 separates pull request CI from main-branch CD. Both call the same reusable quality workflow; the PR-facing aggregate is the only required CI check. Package write permission exists only in the main publisher job.

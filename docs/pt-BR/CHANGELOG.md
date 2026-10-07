@@ -4,6 +4,10 @@
 
 Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.13.1-alpha
+
+- As notas do projeto e das versões agora refletem a versão atual e os próximos passos.
+
 ## v0.13.0-alpha
 
 - As imagens publicadas da main agora vêm somente de alterações aprovadas pelos mesmos gates de qualidade, mantendo as atualizações alinhadas ao código validado.
