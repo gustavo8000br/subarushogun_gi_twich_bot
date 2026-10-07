@@ -1,46 +1,56 @@
-# Especificação OPS-5 — entrypoints de instalação e artefatos de CI
+# Especificação OPS-5 — instalador de ciclo de vida em arquivo único
 
 [English](../../../../stories/OPS-5/spec/spec.md)
 
-**Status:** rascunho de planejamento. Esta proposta precisa de refinamento e não autoriza implementação.
+**Status:** referência de implementação; a OPS-5 está implementada na worktree atual, aguardando gates finais de CI/QA.
 
 ## Objetivo
 
-Oferecer um entrypoint claro de ciclo de vida por família de sistema operacional para primeira configuração, atualização e desinstalação. Usar um workflow GitHub Actions com runners nativos para testar e empacotar os entregáveis por plataforma a partir das fontes revisadas do repositório. O aplicativo runner é open source; Actions hospedado é um serviço.
+Entregar um arquivo de instalador diretamente abrível por sistema operacional suportado. Ao abrir, ele apresenta um único menu para instalar/iniciar, atualizar ou desinstalar. O usuário não precisa baixar arquivos separados de ciclo de vida, script auxiliar nem clonar o repositório. Fontes e testes de desenvolvimento podem continuar modulares; a regra de arquivo único vale para cada artefato baixável pelo usuário.
 
-## Comportamento do produto
+## Fluxo do usuário
 
-- Windows recebe um entrypoint PowerShell; destinos Linux/macOS suportados compartilham um entrypoint POSIX quando seus requisitos testados forem compatíveis.
-- O entrypoint apresenta as ações de menu/argumento `setup/start`, `update` e `uninstall`.
-- Detecta Docker CLI, disponibilidade do daemon, Compose v2, sistema operacional e arquitetura suportados antes de alterar o produto.
-- Explica pré-requisitos ausentes e oferece somente etapas de instalação suportadas e consentidas explicitamente. Nunca eleva privilégios em silêncio, habilita virtualização do host, aceita termos de fornecedor ou executa downloads sem verificação.
-- A atualização preserva volumes do produto e informa origem/versão da imagem.
-- A desinstalação mantém a escolha existente entre preservar e apagar dados, exige confirmação digitada para apagar, remove somente recursos do produto e nunca remove Docker como dependência compartilhada.
-- O entrypoint é idempotente e suporta caminhos com espaços.
+### Instalar / Iniciar
 
-## Comportamento da CI
+1. Detectar sistema/arquitetura, estado atual do produto, Docker CLI/daemon e Docker Compose v2 antes de alterar qualquer coisa.
+2. Se Docker/Compose estiver ausente, oferecer caminho oficial de instalação suportado após explicar privilégios, mudanças no sistema, reinicializações e termos do fornecedor. O usuário pode recusar e receber instruções oficiais manuais. Nunca elevar privilégios, habilitar WSL/virtualização, aceitar termos ou executar código baixado em silêncio.
+3. Na primeira instalação, perguntar idioma do produto (pt-BR padrão; inglês e espanhol disponíveis) e porta host (3000 padrão). Validar a porta, verificar se está ocupada e pedir outro valor em vez de trocar automaticamente.
+4. Mostrar e salvar as configurações escolhidas e as URLs HTTPS exatas do painel/callback OAuth. O locale escolhido pode ser alterado depois no painel. Mudar a porta exige atualizar o callback cadastrado na Twitch.
+5. Iniciar imagem/configuração suportada, aguardar saúde do Compose e abrir o painel ou exibir uma instrução clara para recuperação. Ao reabrir o instalador em uma instalação existente, apresentar seu estado atual e oferecer iniciar/reconfigurar sem duplicar recursos.
 
-- Uma matriz GitHub Actions executa testes contratuais de shell em runners nativos Linux/macOS e testes de PowerShell no Windows.
-- A CI cobre quoting, caminhos com espaços, cancelamento, dependências ausentes, falha/recuperação, limites de elevação, saúde do Compose e política de volumes na desinstalação.
-- O workflow empacota um artefato por família de sistema a partir de fontes versionadas e revisadas e os publica para inspeção. Artefatos gerados nunca são commitados de volta na branch de origem.
-- Permissões do workflow são mínimas; Actions de terceiros são fixadas por SHA completo e atualizadas por PR revisado.
-- Anexar artefatos a release é uma etapa separada e autorizada. A CI de PR não publica releases nem tags.
-- Verificações em runners da CI são identificadas separadamente da aceitação manual nas máquinas dos usuários.
-- O aplicativo runner possui licença MIT/open source; o GitHub Actions hospedado continua sendo um serviço, e o plano de controle completo não é open source. Hospedagem própria é um custo operacional opcional, não a recomendação padrão.
+### Atualizar
 
-## Segurança e operação
+Mostrar a versão/origem instalada e oferecer:
 
-- Nunca desinstalar nem alterar uma instalação compartilhada do Docker.
-- Não imprimir credenciais, material OAuth, segredos do banco ou strings de conexão.
-- Verificar assinaturas/checksums de instaladores baixados quando o fornecedor os publica; falhar com segurança se uma verificação contratual existir e falhar.
-- Falha ao instalar dependência não apaga dados do produto e deixa instruções explícitas de recuperação.
-- Não prometer atualização automática do Docker do host; o workflow empacota apenas os entrypoints de ciclo de vida do produto.
+- **Manter dados e atualizar** (padrão): preservar banco, autorização Twitch, segredos, CA local gerada, idioma e porta; baixar a imagem suportada escolhida e executar migrations. Falha preserva os dados atuais e informa como recuperar.
+- **Apagar dados do produto e instalar do zero**: resumir que filas, histórico, autorização Twitch, segredos e CA local serão apagados. Exigir confirmação digitada no idioma selecionado pelo instalador. Depois remover somente containers/volumes/arquivos deste produto e imagens do app sem uso por outros containers, e repetir as perguntas da primeira instalação. Cancelamento ou confirmação incorreta não apaga dados.
 
-## Decisões em aberto
+### Desinstalar
 
-1. Windows, macOS, distribuições Linux e arquiteturas de CPU exatos suportados.
-2. Se o entregável Windows permanece `.ps1` ou exige um wrapper executável assinado.
-3. Quais pré-requisitos podem ser automatizados em cada sistema, em contraste com instruções oficiais manuais.
-4. Se artefatos distribuíveis da CI são necessários em todo PR ou somente em pushes/execuções manuais.
+Oferecer duas escolhas explícitas:
 
-Consulte [`research.json`](research.json) para pesquisa em fontes oficiais e alternativas.
+- **Manter dados**: parar/remover somente containers deste produto, imagens sem uso e arquivos de aplicação gerenciados pelo instalador. Preservar volumes PostgreSQL/segredos, configurações salvas e CA local gerada para reinstalação futura.
+- **Apagar todos os dados do produto**: listar os dados afetados e exigir confirmação digitada localizada. Remover somente containers/imagens sem uso/arquivos/volumes/segredos e CA gerada deste produto. O instalador baixado permanece sob controle do usuário.
+
+Ambos os caminhos deixam instalados Docker Engine/Desktop, recursos WSL/virtualização, gerenciadores de pacotes e outras dependências do host. Explicar que o usuário deve removê-las manualmente pelas instruções oficiais dos fornecedores se desejar. Nunca remover ou alterar projetos, volumes, imagens Docker ou dependências do host que não pertençam ao produto.
+
+## Artefato por plataforma e CI
+
+- Há exatamente um arquivo de instalador baixável por sistema operacional suportado (Windows, macOS, Linux). O artefato inicia o menu pelo caminho normal de abertura/execução da plataforma, sem segundo launcher ou script. Escolher formatos somente após testes de abertura direta em runners nativos; um `.ps1` que abre em um editor não atende sozinho ao requisito.
+- As fontes podem compartilhar bibliotecas e testes no repositório. A CI gera/empacota cada artefato independente a partir de fontes revisadas e não commita arquivos gerados de volta na branch.
+- Runners nativos GitHub Actions executam contratos do instalador real em cada sistema suportado e publicam exatamente um artefato de instalador por alvo. Artefatos de CI não são releases. Anexar a release e criar tags exige o workflow de release autorizado pelo proprietário.
+- Fixar Actions de terceiros por SHA completo e conceder permissões mínimas. O aplicativo runner é MIT/open source; o GitHub Actions hospedado continua sendo um serviço hospedado.
+
+## Segurança e recuperação
+
+- Cada ação é idempotente e informa estado detectado/instalado antes de modificar o ambiente.
+- Dependência ausente, prompt recusado, falha de download, rede indisponível, migration com erro, serviço Compose não saudável ou interrupção preservam dados existentes e mostram o próximo passo concreto.
+- Sem troca automática de porta, elevação silenciosa, alteração silenciosa de recurso do sistema, aceite implícito de licença, execução de script sem verificação ou `down --volumes` cego sobre projeto que não foi comprovado como pertencente ao app.
+- Não registrar credenciais, códigos/tokens OAuth, segredos do banco ou strings de conexão.
+- Desinstalar o produto nunca desinstala Docker ou dependências compartilhadas do host.
+
+## Evidências de aceite
+
+Os testes cobrem abertura direta/escolha de menu, prompts de idioma e porta, exibição de callback, caminhos com espaços, cancelamento, dependências presentes/ausentes, consentimento/elevação/reinicialização, falhas e recuperação, preservação em atualização, exclusão em atualização limpa, escopo de retenção/exclusão na desinstalação, confirmação localizada digitada, proteção de recursos não relacionados e orientação para remoção manual de dependências. Aceite em computador de usuário é registrado separadamente dos resultados de runner CI.
+
+Os formatos por sistema, comportamento da dependência Docker, confirmações digitadas e escopo de limpeza estão resolvidos na [story](../story.md). Resultados nativos do Actions, gates completos do repositório, QA independente e aceitação física no host do usuário permanecem validações separadas.

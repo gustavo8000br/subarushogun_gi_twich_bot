@@ -14,17 +14,16 @@ A local-first **Twitch chat bot with a streamer control panel** for Genshin Impa
 
 ## Quick start
 
-1. Install Docker and Compose v2. Follow the [installation guide](docs/INSTALLATION.md) for exact requirements, private GHCR access, platform steps, and local HTTPS certificate trust.
-2. Start the bot:
-   - Linux/macOS: `chmod +x subarushogun_twich_bot_setup.sh` once if needed, then `./subarushogun_twich_bot_setup.sh`.
-   - Windows PowerShell: `.\subarushogun_twich_bot_setup.bat`.
-3. Trust this installation's local certificate as described in the guide, then open `https://localhost:3000`.
+1. Install Docker Engine/Desktop with Compose v2. If it is missing, the installer offers current official instructions; host installation and any required privileges stay under your control.
+2. Download the **single installer artifact** for your system from the latest successful [CI run](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml): `.bat` for Windows, `.command` for macOS, or `.sh` for Linux. Open it and choose **Install / Start**. It asks for language and port (defaults: pt-BR and 3000).
+3. Trust this installation's local certificate as described in the [installation guide](docs/INSTALLATION.md), then open the panel address shown by the installer.
 4. Connect your Twitch app in **Conexão do canal**. The [user guide](docs/USER_GUIDE-en_US.md) covers queue setup, chat commands, OBS widgets, recovery, updates, and uninstall.
 
 ## Documentation
 
 | Guide | Covers |
 | --- | --- |
+| [Installer download and platform steps](docs/INSTALLERS.md) | Where to find the installer, how to open it, menu choices, and data behavior |
 | [Installation](docs/INSTALLATION.md) | Requirements, first run on Windows/Linux/macOS, HTTPS trust, Twitch setup |
 | [User guide](docs/USER_GUIDE-en_US.md) | Queues, commands, panel, Channel Points, OBS, daily operation, recovery |
 | [Development](docs/DEVELOPMENT.md) | Tooling, tests, CI, and repository structure |
@@ -45,7 +44,7 @@ Each guide links to its Brazilian Portuguese version. Product UI, help, and chat
 
 ## Project status
 
-FND-2 through FND-8 and OPS-1 through OPS-4/OPS-6 are complete. FND-1 still needs a manual Windows rerun of the startup-helper fix; FND-9 and OPS-5 are in planning. The [roadmap](docs/ROADMAP.md) lists details and remaining validation boundaries.
+FND-2 through FND-8 and OPS-1 through OPS-6 are implemented. OPS-5 provides one generated installer artifact per desktop OS; native CI checks and user-machine acceptance are tracked separately in the [roadmap](docs/ROADMAP.md). The old FND-1 Windows startup helpers were replaced by this installer; Windows operator acceptance is tracked for the current artifact.
 
 ## Contributing
 

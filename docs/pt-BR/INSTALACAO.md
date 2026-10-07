@@ -2,7 +2,7 @@
 
 [Read in English](../INSTALLATION.md) · [Voltar ao README](../../README.pt-BR.md)
 
-Este guia cobre requisitos do computador, primeira inicialização, confiança HTTPS local e configuração Twitch. Para operar filas e painel, consulte o [manual do usuário](../MANUAL_DE_USUARIO-pt_BR.md).
+Este guia cobre requisitos do computador, primeira inicialização, confiança HTTPS local e configuração Twitch. Para ver rapidamente como baixar e abrir o instalador de cada sistema e usar seu menu, consulte [Baixar e usar os instaladores](INSTALADORES.md). Para operar filas e painel, consulte o [manual do usuário](../MANUAL_DE_USUARIO-pt_BR.md).
 
 ## Requisitos
 
@@ -31,78 +31,58 @@ Os valores para Windows também refletem requisitos do Docker Desktop. Consulte 
 
 ## Primeira inicialização
 
+O instalador é um único arquivo abrível diretamente por sistema: `.bat` no Windows, `.command` no macOS e `.sh` no Linux. Baixe o correspondente na última execução bem-sucedida do [workflow de CI](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml). O repositório é privado durante o pré-lançamento, portanto é necessário ter acesso a ele para baixar o artefato. O instalador já contém a configuração Compose; não clone o repositório.
+
+Na primeira abertura, ele pergunta idioma do produto (pt-BR, inglês ou espanhol) e porta local (3000 por padrão), e mostra os endereços exatos do painel e callback Twitch. Depois, o idioma pode ser alterado no painel. Se a porta 3000 estiver ocupada, escolha outra; o instalador não troca a porta silenciosamente.
+
+Se Docker/Compose estiver ausente, o instalador pergunta antes de abrir as instruções oficiais do fornecedor para seu sistema. Instale Docker manualmente, aceite os termos, habilite WSL/virtualização e reinicie se necessário; depois abra o instalador novamente. Ele não eleva privilégios nem altera a virtualização sem sua ação.
+
 ### Windows
 
-O operador já validou no Windows a inicialização Compose, o painel HTTPS/health, a atualização preservando dados e as duas opções de desinstalação. Essa execução também registrou um aviso de redirecionamento de entrada no helper de inicialização. Ainda falta repetir manualmente no Windows após a correção do helper.
-
-1. Instale/atualize WSL 2 e reinicie se solicitado. No PowerShell elevado, use `wsl --install` somente se WSL não estiver instalado; caso contrário, use `wsl --update`. Confira `wsl --version` e habilite virtualização da CPU no BIOS/UEFI se necessário.
-2. Instale e inicie Docker Desktop com backend WSL 2. Mantenha o modo **Linux containers**. No PowerShell, confira `docker --version` e `docker compose version`.
-3. Clone o repositório ou extraia o arquivo do projeto e abra o PowerShell nessa pasta. O instalador aceita caminhos com espaços.
-4. Enquanto o pacote GHCR de pré-lançamento for privado, autentique se necessário:
+1. Instale e inicie Docker Desktop no modo Linux containers. O backend WSL 2 depende de pré-requisitos do Windows; siga o [guia oficial atual](https://docs.docker.com/desktop/setup/install/windows-install/). Docker Desktop não oferece suporte ao Windows Server.
+   No PowerShell, `wsl --version` mostra a versão instalada do WSL. Se o WSL estiver ausente ou precisar de atualização, siga as instruções atuais da Microsoft e reinicie quando o Windows solicitar.
+2. Enquanto o pacote GHCR for privado, autentique uma vez no PowerShell, se necessário:
 
    ```powershell
    docker login ghcr.io --username SEU_USUARIO_GITHUB
    ```
 
-   Informe no prompt de senha um token clássico do GitHub com `read:packages`. Pule esta etapa quando o pacote se tornar público.
-
-5. Inicie o aplicativo:
-
-   ```powershell
-   .\subarushogun_twich_bot_setup.bat
-   ```
-
-   Ou execute `docker compose pull` e depois `docker compose up -d`.
-6. Aguarde o bootstrap e as verificações de saúde. O certificado público local é gravado em `.local\localhost-ca.crt`.
-7. Confie nesse certificado para o usuário atual e reinicie o navegador:
+   Informe no prompt de senha um token GitHub com `read:packages`. Não o salve em arquivo. Esta etapa deixa de ser necessária quando o pacote se tornar público.
+3. Abra o arquivo baixado `subarushogun_twich_bot_installer.bat` (clique duplo ou execute no Prompt de Comando/PowerShell). Escolha **Instalar / Iniciar**, idioma e porta. O artefato é independente e funciona em caminhos com espaços.
+4. O instalador inicia Compose, aguarda a saúde e abre o painel. A CA pública local fica em `%LOCALAPPDATA%\SubaruShogun\subarushogun-gi-twitch-bot\.local\localhost-ca.crt`. Para confiar nela para o usuário atual:
 
    ```powershell
-   Import-Certificate -FilePath (Resolve-Path '.\.local\localhost-ca.crt').Path -CertStoreLocation Cert:\CurrentUser\Root
+   Import-Certificate -FilePath (Join-Path $env:LOCALAPPDATA 'SubaruShogun\subarushogun-gi-twitch-bot\.local\localhost-ca.crt') -CertStoreLocation Cert:\CurrentUser\Root
    ```
 
-   Abra `https://localhost:3000`. Importe somente a CA gerada por esta instalação. Remover o volume de segredos Docker cria uma nova CA e exige repetir esta etapa.
+5. Abra a URL impressa pelo instalador. Se escolheu outra porta, use-a no endereço e cadastre na Twitch o callback exato com `/callback`.
 
 ### Ubuntu/Linux
 
-1. Instale Docker Engine e o plugin Compose da sua distribuição. No Ubuntu, siga o [guia oficial de instalação](https://docs.docker.com/engine/install/ubuntu/).
-2. Clone o repositório ou extraia o arquivo e abra um terminal na pasta do projeto. Se faltar permissão de execução, rode uma vez:
+1. Instale Docker Engine e o plugin Compose. Ubuntu 24.04 LTS é o ambiente Linux validado pelo projeto; confira os [procedimentos oficiais para Linux suportado](https://docs.docker.com/engine/install/).
+2. Enquanto o GHCR for privado, execute `docker login ghcr.io --username SEU_USUARIO_GITHUB` e informe um token GitHub com `read:packages`. Nunca salve o token junto do instalador ou em `.env`.
+3. Baixe e abra `subarushogun_twich_bot_installer.sh`. Se a ferramenta de download não preservou a permissão de execução, execute `chmod +x subarushogun_twich_bot_installer.sh` uma vez e depois `./subarushogun_twich_bot_installer.sh`.
+4. Confie na CA local gerada em `$HOME/.local/share/subarushogun-gi-twitch-bot/.local/localhost-ca.crt`:
 
    ```sh
-   chmod +x subarushogun_twich_bot_setup.sh
-   ```
-
-3. Se o pacote de pré-lançamento GHCR for privado, execute `docker login ghcr.io --username SEU_USUARIO_GITHUB` e informe um token clássico do GitHub com `read:packages`. Nunca grave o token no projeto.
-4. Inicie:
-
-   ```sh
-   ./subarushogun_twich_bot_setup.sh
-   ```
-
-   O helper baixa a imagem multi-plataforma `main`, inicia Compose, aguarda HTTPS/health e abre o navegador quando possível. Caso contrário, exibe o endereço.
-5. Depois que o bootstrap criar `.local/localhost-ca.crt`, confie na CA para todo o sistema:
-
-   ```sh
-   sudo install -Dm644 "$PWD/.local/localhost-ca.crt" /usr/local/share/ca-certificates/queuebot-localhost-ca.crt
+   sudo install -Dm644 "$HOME/.local/share/subarushogun-gi-twitch-bot/.local/localhost-ca.crt" /usr/local/share/ca-certificates/queuebot-localhost-ca.crt
    sudo update-ca-certificates
    ```
 
-   Reinicie o navegador e abra `https://localhost:3000`. `$PWD` fornece caminho absoluto e funciona mesmo se a pasta do projeto tiver espaços.
+5. Abra a URL do painel impressa pelo instalador. O callback exibido corresponde à porta escolhida.
 
 ### macOS
 
-O funcionamento do host macOS ainda não foi validado pelo projeto.
-
-1. Instale e inicie o [Docker Desktop para Mac](https://docs.docker.com/desktop/setup/install/mac-install/) e confira `docker compose version` no Terminal.
-2. Clone/extraia o projeto e abra o Terminal na pasta. Se necessário, execute `chmod +x subarushogun_twich_bot_setup.sh` uma vez.
-3. Enquanto o GHCR for privado, autentique com `docker login ghcr.io --username SEU_USUARIO_GITHUB` e token clássico do GitHub com `read:packages`.
-4. Inicie com `./subarushogun_twich_bot_setup.sh`.
-5. Depois que o bootstrap criar o certificado, adicione-o às chaves de login do usuário atual:
+1. Instale e abra o [Docker Desktop para Mac](https://docs.docker.com/desktop/setup/install/mac-install/). O Docker oferece suporte à versão atual e às duas versões principais anteriores do macOS e exige ao menos 4 GB de RAM; consulte os requisitos atuais antes de instalar. O teste de smoke do instalador roda em runner macOS hospedado pelo GitHub; a aceitação em um Mac físico é uma etapa separada.
+2. Enquanto GHCR for privado, autentique com `docker login ghcr.io --username SEU_USUARIO_GITHUB` e token GitHub com `read:packages`.
+3. Abra `subarushogun_twich_bot_installer.command` pelo Finder. Se o Gatekeeper bloquear um arquivo de comando baixado sem assinatura, use os controles de segurança/Privacidade e Segurança do macOS para permiti-lo, ou execute no Terminal com `chmod +x subarushogun_twich_bot_installer.command && ./subarushogun_twich_bot_installer.command`.
+4. Confie na CA local pelo Acesso às Chaves em `~/Library/Application Support/SubaruShogun/subarushogun-gi-twitch-bot/.local/localhost-ca.crt`. O comando é:
 
    ```sh
-   security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db "$PWD/.local/localhost-ca.crt"
+   security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db "$HOME/Library/Application Support/SubaruShogun/subarushogun-gi-twitch-bot/.local/localhost-ca.crt"
    ```
 
-   Reinicie o navegador e abra `https://localhost:3000`. O comando usa o caminho absoluto; o comportamento macOS ainda não foi verificado.
+5. Abra os endereços do painel e callback impressos pelo instalador.
 
 ## Conectar o canal Twitch
 
@@ -115,19 +95,4 @@ A CA local é privada desta instalação, não uma autoridade certificadora púb
 
 ## Porta avançada no host
 
-A porta `3000` não muda automaticamente se estiver ocupada. Configure explicitamente outra porta publicada e cadastre na Twitch o callback exibido pelo painel.
-
-Linux/macOS:
-
-```sh
-APP_PORT=3217 docker compose up -d
-```
-
-PowerShell:
-
-```powershell
-$env:APP_PORT = "3217"
-docker compose up -d
-```
-
-O painel passa a usar `https://localhost:3217` e mostra o callback OAuth correspondente. Para operação diária, atualização e desinstalação, consulte o [manual do usuário](../MANUAL_DE_USUARIO-pt_BR.md).
+A porta `3000` não muda automaticamente se estiver ocupada. Abra o instalador, escolha **Instalar / Iniciar** e recuse manter as configurações atuais quando solicitado. Selecione o idioma do produto e a nova porta; o instalador imprime as URLs correspondentes do painel e callback. Cadastre na Twitch exatamente esse callback. Para operação diária, atualização e desinstalação, consulte o [manual do usuário](../MANUAL_DE_USUARIO-pt_BR.md).

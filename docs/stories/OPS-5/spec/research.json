@@ -4,7 +4,7 @@
   "researchedBy": "@aiox-master",
   "status": "planning-draft",
   "researchFindings": [
-    "GitHub Actions supports native OS matrix jobs and can persist/share generated archives or binaries as workflow artifacts. This fits testing and packaging one checked-in lifecycle entrypoint per OS family.",
+    "GitHub Actions supports native OS matrix jobs and can persist/share generated archives or binaries as workflow artifacts. This fits testing and packaging exactly one directly openable installer artifact per supported OS target from reviewed source files.",
     "The Actions runner application is MIT-licensed/open source and runner-image definitions are public; GitHub-hosted Actions itself remains a hosted service, so the full CI control plane is not open source.",
     "The workflow should generate distributable artifacts from reviewed source, not mutate or commit installer source automatically. Source changes remain reviewable through the normal PR workflow.",
     "A GitHub Actions workflow can test the product lifecycle scripts, but cannot safely make Docker Desktop or host dependencies self-updating for users. Host dependency setup still requires platform-specific instructions, user consent, and often elevation/restart.",
@@ -13,7 +13,7 @@
     "GitHub-hosted runner results do not replace manual validation on real supported host operating systems; CI must label those evidence levels separately."
   ],
   "recommendations": [
-    "Use GitHub Actions with native Ubuntu, macOS, and Windows runners for contract tests and per-platform packaging.",
+    "Use GitHub Actions with native Ubuntu, macOS, and Windows runners to test and package exactly one standalone, directly openable installer file per supported OS target.",
     "Use first-party or SHA-pinned actions, least-privilege workflow permissions, and reviewed dependency updates.",
     "Upload per-platform artifacts on PR/manual runs for inspection; attach them to a release only in the authorized release workflow.",
     "Keep host Docker installation and updates outside automatic CI behavior; use official vendor instructions and explicit user consent."

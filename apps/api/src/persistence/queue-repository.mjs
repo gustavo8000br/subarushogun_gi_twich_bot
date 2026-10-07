@@ -77,19 +77,25 @@ async function readCommandPolicyState(prisma) {
   return parseCommandPolicyState(record?.value);
 }
 
+/** @typedef {{locale: string, revision: number}} ProductLocaleState */
+
+/** @type {ProductLocaleState} */
 const DEFAULT_PRODUCT_LOCALE = Object.freeze({ locale: 'pt-BR', revision: 1 });
 
-function parseProductLocaleState(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)
-    || typeof value.locale !== 'string' || !Number.isInteger(value.revision) || value.revision < 1) {
-    return DEFAULT_PRODUCT_LOCALE;
+/** @param {unknown} value @param {ProductLocaleState} [fallback] @returns {ProductLocaleState} */
+function parseProductLocaleState(value, fallback = DEFAULT_PRODUCT_LOCALE) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return fallback;
   }
+  const candidate = /** @type {Record<string, unknown>} */ (value);
+  if (typeof candidate.locale !== 'string' || typeof candidate.revision !== 'number'
+    || !Number.isInteger(candidate.revision) || candidate.revision < 1) return fallback;
   try {
-    if (globalThis.Intl.getCanonicalLocales(value.locale)[0] !== value.locale) return DEFAULT_PRODUCT_LOCALE;
+    if (globalThis.Intl.getCanonicalLocales(candidate.locale)[0] !== candidate.locale) return fallback;
   } catch {
-    return DEFAULT_PRODUCT_LOCALE;
+    return fallback;
   }
-  return { locale: value.locale, revision: value.revision };
+  return { locale: candidate.locale, revision: candidate.revision };
 }
 
 function normalizeRedemptionStatus(status) {
@@ -122,7 +128,14 @@ async function createCancellationIntent(tx, redemptionId, entryId = null) {
 }
 
 /** @param {PrismaClientLike} prisma */
-export function createQueueRepository(prisma, { clock = () => new Date() } = {}) {
+export function createQueueRepository(prisma, { clock = () => new Date(), defaultProductLocale = 'pt-BR' } = {}) {
+  let initialProductLocale = 'pt-BR';
+  try {
+    const candidate = globalThis.Intl.getCanonicalLocales(defaultProductLocale)[0];
+    if (candidate === defaultProductLocale) initialProductLocale = candidate;
+  } catch { /* Keep the Portuguese default when a host value is invalid. */ }
+  /** @type {ProductLocaleState} */
+  const productLocaleFallback = Object.freeze({ locale: initialProductLocale, revision: 1 });
   return {
     async getCommandPolicyState() {
       return readCommandPolicyState(prisma);
@@ -288,12 +301,12 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
         prisma.outbox.count({ where: { status: { in: ['pending', 'retry', 'processing', 'unknown', 'conflict', 'failed'] } } }),
         prisma.setting.findUnique({ where: { key: 'product_locale' } }),
       ]);
-      return { account: account?.value ?? { label: 'Streamer', source: 'default' }, productLocale: parseProductLocaleState(productLocale?.value), twitch: credential ? { clientId: credential.clientId, broadcasterId: credential.broadcasterId, status: credential.authStatus, scopes: credential.scopes } : null, queueCount, pendingOperations };
+      return { account: account?.value ?? { label: 'Streamer', source: 'default' }, productLocale: parseProductLocaleState(productLocale?.value, productLocaleFallback), twitch: credential ? { clientId: credential.clientId, broadcasterId: credential.broadcasterId, status: credential.authStatus, scopes: credential.scopes } : null, queueCount, pendingOperations };
     },
 
     async getProductLocale() {
       const setting = await prisma.setting.findUnique({ where: { key: 'product_locale' } });
-      return parseProductLocaleState(setting?.value);
+      return parseProductLocaleState(setting?.value, productLocaleFallback);
     },
 
     async setProductLocale({ locale, expectedRevision, actorId = null }) {
@@ -308,7 +321,7 @@ export function createQueueRepository(prisma, { clock = () => new Date() } = {})
       return prisma.$transaction(async (tx) => {
         await lockScopedOperation(tx, 'setting:product-locale');
         const currentRecord = await tx.setting.findUnique({ where: { key: 'product_locale' } });
-        const previous = parseProductLocaleState(currentRecord?.value);
+        const previous = parseProductLocaleState(currentRecord?.value, productLocaleFallback);
         if (previous.revision !== expectedRevision) {
           throw repositoryError('PRODUCT_LOCALE_VERSION_CONFLICT', 'Product locale changed since it was read');
         }

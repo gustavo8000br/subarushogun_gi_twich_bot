@@ -2,6 +2,13 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## v0.8.0-alpha
+
+- Implementa a OPS-5 como um único artefato independente `.bat`, `.command` ou `.sh`, gerado de fontes revisadas em runners nativos do GitHub Actions. O menu reúne instalar/iniciar, atualizar e desinstalar, com idioma/porta, callback HTTPS exato, preservação por padrão, confirmação localizada para apagar dados, orientação sobre dependências do host e Compose embutido no artefato.
+- Atualização preservando dados mantém os volumes de banco/segredos; atualização limpa baixa a imagem nova antes de qualquer remoção destrutiva; a desinstalação diferencia manter dados de apagar somente os dados do produto. Remove os wrappers separados de ciclo de vida e seus testes após a substituição pelo instalador único.
+- Adiciona testes portáveis de comportamento Linux, regressão do idioma inicial Windows e execução direta dos artefatos por plataforma. A execução nativa do GitHub Actions em Windows/macOS e a aceitação física pelo operador são gates separados; não se alega atualização/desinstalação real do Docker host.
+- Incrementa o MINOR para `0.8.0`; mantém o estágio `alpha` escolhido pelo proprietário e o marcador de identidade `0000000` pré-commit.
+
 ## v0.7.2-alpha
 
 - Sincroniza o roadmap dos READMEs bilíngues com o estado atual das stories/issues e alinha a OPS-2 à localização e precedência de status entregues pela PR #31 da FND-8. Reorganiza os READMEs da raiz como páginas de entrada concisas e cria guias bilíngues específicos de instalação, desenvolvimento, contribuição e roadmap. Adiciona um padrão de estrutura/tamanho do README coberto por teste. Alteração apenas documental; nenhum comportamento de runtime mudou.

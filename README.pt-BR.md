@@ -14,17 +14,16 @@ Um **chatbot da Twitch com painel local para o streamer** organizar filas de Gen
 
 ## Início rápido
 
-1. Instale Docker e Compose v2. Siga o [guia de instalação](docs/pt-BR/INSTALACAO.md) para requisitos exatos, acesso ao GHCR privado, etapas por plataforma e confiança do certificado HTTPS local.
-2. Inicie o bot:
-   - Linux/macOS: se necessário, execute `chmod +x subarushogun_twich_bot_setup.sh` uma vez e depois `./subarushogun_twich_bot_setup.sh`.
-   - Windows PowerShell: `.\subarushogun_twich_bot_setup.bat`.
-3. Confie no certificado local desta instalação conforme o guia e abra `https://localhost:3000`.
+1. Instale Docker Engine/Desktop com Compose v2. Se estiver ausente, o instalador oferece as instruções oficiais atuais; instalação do host e privilégios necessários continuam sob seu controle.
+2. Baixe o **único artefato de instalador** do seu sistema na última execução bem-sucedida da [CI](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml): `.bat` para Windows, `.command` para macOS ou `.sh` para Linux. Abra o arquivo e escolha **Instalar / Iniciar**. Ele pergunta idioma e porta (padrões: pt-BR e 3000).
+3. Confie no certificado local desta instalação conforme o [guia de instalação](docs/pt-BR/INSTALACAO.md) e abra o endereço exibido pelo instalador.
 4. Conecte seu aplicativo Twitch em **Conexão do canal**. O [manual do usuário](docs/MANUAL_DE_USUARIO-pt_BR.md) explica filas, comandos, widgets OBS, recuperação, atualização e desinstalação.
 
 ## Documentação
 
 | Guia | Conteúdo |
 | --- | --- |
+| [Baixar e usar os instaladores](docs/pt-BR/INSTALADORES.md) | Onde encontrar o instalador, como abrir, opções do menu e efeitos sobre os dados |
 | [Instalação](docs/pt-BR/INSTALACAO.md) | Requisitos, primeira execução em Windows/Linux/macOS, confiança HTTPS e configuração Twitch |
 | [Manual do usuário](docs/MANUAL_DE_USUARIO-pt_BR.md) | Filas, comandos, painel, Pontos do Canal, OBS, operação e recuperação |
 | [Desenvolvimento](docs/pt-BR/DESENVOLVIMENTO.md) | Ferramentas, testes, CI e estrutura do repositório |
@@ -45,7 +44,7 @@ Cada guia aponta para sua versão em português brasileiro. A interface, ajuda e
 
 ## Estado do projeto
 
-FND-2 a FND-8 e OPS-1 a OPS-4/OPS-6 estão concluídas. A FND-1 ainda precisa de um novo teste manual no Windows para a correção do helper de inicialização; FND-9 e OPS-5 estão em planejamento. O [roadmap](docs/pt-BR/ROADMAP.md) detalha os itens e limites de validação.
+FND-2 a FND-8 e OPS-1 a OPS-6 estão implementadas. A OPS-5 gera um artefato de instalador por sistema desktop; verificações nativas na CI e aceitação no computador do usuário são acompanhadas separadamente no [roadmap](docs/pt-BR/ROADMAP.md). Os antigos helpers Windows da FND-1 foram substituídos por este instalador; o aceite Windows do artefato atual é acompanhado separadamente.
 
 ## Como contribuir
 

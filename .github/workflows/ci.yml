@@ -59,16 +59,46 @@ jobs:
       - name: Typecheck application JavaScript
         run: npm run typecheck
 
-  windows-lifecycle:
-    name: Windows PowerShell lifecycle localization
-    runs-on: windows-latest
-    timeout-minutes: 10
+  installer-artifacts:
+    name: Native ${{ matrix.platform }} installer
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            runner: ubuntu-24.04
+            extension: sh
+          - platform: macos
+            runner: macos-15
+            extension: command
+          - platform: windows
+            runner: windows-latest
+            extension: bat
     steps:
       - name: Check out source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - name: Run native Windows lifecycle localization check
-        shell: pwsh
-        run: ./tests/platform/windows-lifecycle-localization.ps1
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+          cache: npm
+      - name: Install locked packager dependencies
+        run: npm ci
+      - name: Package one installer file for this operating system
+        run: node apps/infra/scripts/package-installer.mjs --platform ${{ matrix.platform }} --output "${{ runner.temp }}/queuebot-installer"
+      - name: Launch the installer directly with isolated fake Docker
+        env:
+          QUEUEBOT_PREBUILT_INSTALLER: ${{ runner.temp }}/queuebot-installer/subarushogun_twich_bot_installer.${{ matrix.extension }}
+        run: node tests/platform/installer-native.mjs
+      - name: Upload the single installer artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: subarushogun-twitch-queue-bot-installer-${{ matrix.platform }}
+          path: ${{ runner.temp }}/queuebot-installer/*
+          if-no-files-found: error
+          compression-level: 0
 
   tests:
     name: Vitest unit, PostgreSQL, and Compose integration

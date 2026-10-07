@@ -2,6 +2,13 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.8.0-alpha
+
+- Implement OPS-5 as one standalone `.bat`, `.command`, or `.sh` installer artifact generated from reviewed sources on native GitHub Actions runners. Add a single install/start, update, and uninstall menu with language/port selection, exact HTTPS callback display, keep-data defaults, typed localized erase confirmations, host dependency guidance, and Compose configuration embedded in the artifact.
+- Keep-data update preserves database/secrets volumes; clean update downloads the new image before destructive cleanup; uninstall distinguishes retaining data from removing only product-owned data. Remove the previous separate lifecycle wrappers and tests after the unified installer replaces them.
+- Add portable Linux behavior tests, Windows first-run locale regression coverage, and direct-launch matrix tests for the actual platform artifacts. The native Windows/macOS GitHub Actions run and physical operator acceptance are separate gates; no real host Docker update/uninstall is claimed.
+- Bump the product MINOR to `0.8.0`; keep the owner-selected `alpha` stage and `0000000` pre-commit identity marker.
+
 ## v0.7.2-alpha
 
 - Reconcile the bilingual README roadmap with current stories/issues and align OPS-2 with the status localization and precedence behavior delivered by FND-8 PR #31. Restructure the root READMEs as concise landing pages with focused bilingual installation, development, contribution, and roadmap guides. Add a tested README structure/length standard. Documentation only; no runtime behavior changed.

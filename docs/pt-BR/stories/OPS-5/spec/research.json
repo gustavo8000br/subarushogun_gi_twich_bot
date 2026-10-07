@@ -4,7 +4,7 @@
   "researchedBy": "@aiox-master",
   "status": "rascunho-de-planejamento",
   "researchFindings": [
-    "GitHub Actions oferece jobs nativos em matriz de sistemas operacionais e pode guardar/compartilhar arquivos ou binários gerados como artefatos de workflow. Isso atende aos testes e empacotamento de um entrypoint versionado por família de sistema.",
+    "GitHub Actions oferece jobs nativos em matriz de sistemas operacionais e pode guardar/compartilhar arquivos ou binários gerados como artefatos de workflow. Isso atende aos testes e ao empacotamento de exatamente um artefato de instalador diretamente abrível por sistema operacional suportado, gerado de fontes revisadas.",
     "O aplicativo runner do Actions tem licença MIT/open source e as definições de imagens são públicas; o GitHub Actions hospedado continua sendo um serviço, portanto o plano de controle completo da CI não é open source.",
     "O workflow deve gerar artefatos distribuíveis a partir das fontes revisadas, sem modificar ou criar commits automáticos da fonte dos instaladores. Mudanças de fonte permanecem revisáveis pelo fluxo normal de PR.",
     "Um workflow GitHub Actions pode testar os scripts de ciclo de vida do produto, mas não pode manter com segurança o Docker Desktop ou dependências do host atualizados automaticamente para usuários. A configuração de dependências do host continua exigindo instruções específicas, consentimento e frequentemente elevação/reinicialização.",
@@ -13,7 +13,7 @@
     "Resultados de runners hospedados pelo GitHub não substituem validação manual em sistemas operacionais reais suportados; a CI deve distinguir esses níveis de evidência."
   ],
   "recommendations": [
-    "Usar GitHub Actions com runners nativos Ubuntu, macOS e Windows para testes contratuais e empacotamento por plataforma.",
+    "Usar GitHub Actions com runners nativos Ubuntu, macOS e Windows para testar e empacotar exatamente um arquivo de instalador independente e diretamente abrível por sistema operacional suportado.",
     "Usar Actions oficiais ou fixadas por SHA, permissões mínimas no workflow e atualizações de dependências revisadas.",
     "Publicar artefatos de cada plataforma em execuções de PR/manual para inspeção; anexá-los a uma release somente no workflow de release autorizado.",
     "Manter instalação/atualização do Docker do host fora do comportamento automático da CI; usar instruções oficiais e consentimento explícito."

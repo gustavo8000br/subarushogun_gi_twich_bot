@@ -1,6 +1,6 @@
 {
   "name": "subarushogun-gi-twitch-queue-bot",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -16,6 +16,7 @@
     "validate:port-denylist": "node apps/infra/scripts/validate-port-denylist.mjs",
     "validate:localization": "node apps/infra/scripts/validate-localization.mjs",
     "materialize:version": "node apps/infra/scripts/materialize-version.mjs",
+    "installer:package": "node apps/infra/scripts/package-installer.mjs",
     "infra:bootstrap": "node apps/infra/scripts/bootstrap.mjs",
     "lint": "eslint apps tests --max-warnings=0",
     "typecheck": "tsc --noEmit",
@@ -35,7 +36,7 @@
     "@twurple/auth": "8.2.0",
     "@twurple/eventsub-ws": "8.2.0",
     "fastify": "5.12.5",
-    "js-yaml": "^5.4.3",
+    "js-yaml": "5.4.3",
     "pg": "8.23.1"
   },
   "devDependencies": {

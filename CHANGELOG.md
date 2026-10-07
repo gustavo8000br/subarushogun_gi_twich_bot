@@ -4,6 +4,11 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.8.0-alpha
+
+- A single installer for each operating system now handles setup, updates, and removal of saved data.
+- Updates preserve saved queues and settings by default; erasing them requires a clear confirmation.
+
 ## v0.7.2-alpha
 
 - Getting started, daily operation, and project status are now easier to find in focused guides.

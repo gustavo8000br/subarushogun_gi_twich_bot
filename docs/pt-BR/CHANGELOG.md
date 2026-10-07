@@ -4,6 +4,11 @@
 
 Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.8.0-alpha
+
+- Um instalador por sistema agora reúne instalação, atualização e remoção de dados.
+- Atualizações preservam filas e configurações por padrão; apagar esses dados exige confirmação explícita.
+
 ## v0.7.2-alpha
 
 - As orientações de início, operação diária e estado do projeto agora estão mais fáceis de encontrar em guias específicos.

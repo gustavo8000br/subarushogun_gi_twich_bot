@@ -19,7 +19,7 @@ Status checked against the local story index and GitHub issues on 2026-10-07. Op
 | OPS-2 — Safe localized Twitch status ([#21](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/21)) | Complete; initial mapping in PR #13, precedence/localization in FND-8 PR #31 |
 | OPS-3 — Command catalog and role permissions ([#17](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/17)) | Complete; merged in PR #24 |
 | OPS-4 — MIT license ([#29](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/29)) | Complete; merged in PR #25 |
-| OPS-5 — Cross-platform lifecycle installer ([#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30)) | Open planning issue; implementation not started |
+| OPS-5 — Cross-platform lifecycle installer ([#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30)) | Implemented in the current worktree; final quality gates, native Windows/macOS Actions, and independent QA pending |
 | OPS-6 — Clear runtime status and guided panel states ([#32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32)) | Complete; merged in PR #33; independent QA PASS 100/100 |
 
 See the detailed acceptance criteria and implementation evidence in the [story index](stories.md) and its [pt-BR version](pt-BR/stories.md).

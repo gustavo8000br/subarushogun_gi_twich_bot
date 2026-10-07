@@ -155,11 +155,11 @@ A página do OBS cria widgets locais de Browser Source para um único dado selec
 
 ## Parar ou reiniciar o bot
 
-Use `docker compose stop` para pausar o aplicativo sem apagar os dados salvos. Para iniciar de novo, use `docker compose start`. Reiniciar o computador ou aplicativo preserva filas e operações pendentes. Depois da reconexão, o aplicativo verifica a Twitch e retoma o trabalho recuperável. Se não for possível confirmar o estado final dos pontos, a operação continua visível para análise do streamer.
+Pare o produto pelo Docker Desktop ou pelos controles do Docker Engine no computador; isso pausa o aplicativo sem apagar os dados salvos. Para iniciar de novo, abra o instalador único e escolha **Instalar / Iniciar**. Reiniciar o computador ou aplicativo preserva filas e operações pendentes. Depois da reconexão, o aplicativo verifica a Twitch e retoma o trabalho recuperável. Se não for possível confirmar o estado final dos pontos, a operação continua visível para análise do streamer.
 
-Para consultar o estado dos serviços e investigar problemas, execute `docker compose ps` e `docker compose logs --tail=100 bot`. `docker compose down` encerra o projeto e preserva os volumes. Não acrescente `--volumes` a menos que queira apagar intencionalmente o banco local e os segredos.
+Para consultar os serviços, use o Docker Desktop ou as ferramentas do Docker Engine para inspecionar os contêineres do produto. Para investigar problemas, consulte os logs do bot no projeto Compose gerenciado pelo instalador. Parar ou reiniciar contêineres preserva os volumes; nunca os remova apenas para parar ou atualizar.
 
-Use o atualizador fornecido (`subarushogun_twich_bot_update.bat` ou `./subarushogun_twich_bot_update.sh`) somente na branch `main` e em uma cópia Git sem alterações locais. Ele atualiza para a versão atual da `main` e preserva os dados. O desinstalador (`subarushogun_twich_bot_uninstall.bat` ou `./subarushogun_twich_bot_uninstall.sh`) pergunta se deve manter ou apagar os dados. Se escolher apagar, digite `APAGAR` para confirmar a remoção permanente de filas, histórico, conexão Twitch e segredos locais. A opção de preservação mantém o banco e os segredos. Não use a remoção de volumes Docker para parar ou atualizar normalmente.
+Abra o instalador único do seu sistema: `subarushogun_twich_bot_installer.bat` no Windows, `subarushogun_twich_bot_installer.command` no macOS ou `subarushogun_twich_bot_installer.sh` no Linux. Escolha **Atualizar** ou **Desinstalar**. A atualização normal preserva filas, histórico, autorização Twitch, segredos, idioma e porta. A desinstalação pergunta se você quer manter ou apagar os dados do produto; para apagar, é necessário digitar a confirmação localizada mostrada pelo instalador. Docker, virtualização e outras dependências compartilhadas do computador continuam instaladas e devem ser removidas manualmente pelas instruções dos fornecedores, se desejar. Não remova volumes Docker ao parar ou atualizar o produto.
 
 ## Problemas comuns
 
@@ -174,7 +174,6 @@ Use o atualizador fornecido (`subarushogun_twich_bot_update.bat` ou `./subarusho
 | Viewer não consegue entrar | Não existe comando de autoinscrição. A pessoa precisa resgatar a recompensa da fila ou ser adicionada pelo streamer/moderador. |
 | A fila está fechada | Novos resgates da recompensa estão pausados. Streamer/moderador pode usar `!<fila> abrir`; quem já está na fila ainda pode ser atendido. |
 | A chamada não iniciou o prazo de ausência | O prazo só começa quando o envio da chamada ao chat é confirmado. Confira a chamada no painel e tente reenviar a notificação se essa opção aparecer. |
-| A inicialização ou atualização avisa que há alterações na pasta | Salve essas alterações separadamente antes de usar o atualizador; ele se recusa a substituir uma pasta de projeto modificada. |
 
 ## Privacidade e segurança
 
@@ -197,10 +196,10 @@ Não existe comando para viewer se inscrever sozinho, verificação de conta de 
 - O projeto tem testes automatizados e evidências locais de integração. Ainda não foi validada uma sessão completa em canal elegível que crie/abra uma recompensa, receba um resgate e confirme cancelamento/conclusão real.
 - Há registro de uma consulta de saúde somente para leitura na Twitch, mas ela não valida alterações reais de recompensa, envio de mensagens ou movimentação de pontos.
 - Resgates com UID inválido são registrados para cancelamento sem criar entrada na fila. Não encontrei no handler atual o envio automático da mensagem explicativa específica prevista nos requisitos originais.
-- O primeiro teste no Windows registrou um aviso repetido de redirecionamento de entrada no auxiliar de inicialização. Há uma verificação automatizada para isso, mas uma nova execução manual no Windows ainda não confirmou que o aviso desapareceu.
+- Uma execução anterior no Windows registrou um aviso de redirecionamento de entrada no antigo auxiliar de inicialização, que foi removido. O novo instalador de arquivo único é testado no runner nativo Windows do CI; ainda é necessária uma execução do operador no Windows para confirmar o fluxo completo com Docker Desktop.
 - Este projeto ainda não testou a instalação no macOS nem a confiança do certificado OBS nessa plataforma.
 - A raiz global de chat segue o idioma: `!fila` (pt-BR), `!queue` (inglês) ou `!cola` (espanhol). Slugs e aliases das filas continuam sendo os identificadores escolhidos pelo streamer.
-- As opções do desinstalador e o atualizador foram conferidas nos arquivos do projeto; esta tarefa de manual não os executou.
+- Os testes do instalador usam um executável Docker falso e isolado. Eles não afirmam que uma atualização ou desinstalação real preservando dados foi executada no computador do operador.
 
 ## Como esta explicação foi conferida
 

@@ -81,7 +81,7 @@ nfr_validation:
 recommendations:
   immediate: []
   future:
-    - action: 'Run the documented native Windows first-run/updater/uninstaller checks and report their outcome.'
-      refs: ['iniciar.bat', 'atualizar.bat', 'desinstalar.bat']
+    - action: 'Run the unified installer on a native Windows computer and report the complete Docker Desktop first-run/update/uninstall result.'
+      refs: ['docs/INSTALLERS.md', 'apps/infra/installer/installer.ps1']
     - action: 'Run authorized live Twitch setup, reward creation, redemption/EventSub, and recovery acceptance; do not infer financial success from mocks.'
       refs: ['docs/stories/FND-4/story.md', 'docs/integrations.md']

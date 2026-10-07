@@ -75,7 +75,7 @@ describe('foundation operator documentation contract', () => {
       [englishGuide, ['Docker Compose', 'localhost:3000', 'volume']],
       [portugueseGuide, ['Docker Compose', 'localhost:3000', 'volume']],
       [englishUse, ['stop', 'update']],
-      [portugueseUse, ['stop', 'atualizador']],
+      [portugueseUse, ['parar', 'atualizar']],
     ]) {
       for (const term of terms) expect(document.toLowerCase()).toContain(term.toLowerCase());
     }
@@ -107,21 +107,42 @@ describe('foundation operator documentation contract', () => {
   it('documents Linux and macOS executable permissions before first start in both languages', async () => {
     const [english, portuguese] = await Promise.all([read('docs/INSTALLATION.md'), read('docs/pt-BR/INSTALACAO.md')]);
     for (const document of [english, portuguese]) {
-      expect(document).toContain('chmod +x subarushogun_twich_bot_setup.sh');
+      expect(document).toContain('chmod +x subarushogun_twich_bot_installer.sh');
       expect(document).toMatch(/### macOS/);
-      expect(document).toContain('./subarushogun_twich_bot_setup.sh');
+      expect(document).toContain('./subarushogun_twich_bot_installer.sh');
+      expect(document).toContain('subarushogun_twich_bot_installer.command');
+      expect(document).toContain('subarushogun_twich_bot_installer.bat');
       expect(document).toContain('Docker Desktop');
       expect(document).toContain('security add-trusted-cert');
     }
   });
 
-  it('documents safe updater and interactive uninstall behavior in both languages', async () => {
+  it('documents the single-file lifecycle menu and safe data choices in both languages', async () => {
     const [english, portuguese] = await Promise.all([read('docs/USER_GUIDE-en_US.md'), read('docs/MANUAL_DE_USUARIO-pt_BR.md')]);
-    for (const term of ['subarushogun_twich_bot_update.bat', 'subarushogun_twich_bot_update.sh', '`main` branch', 'clean Git checkout', 'subarushogun_twich_bot_uninstall.bat', 'subarushogun_twich_bot_uninstall.sh', 'asks whether to keep or delete', 'docker compose down']) {
+    for (const term of ['subarushogun_twich_bot_installer.bat', 'subarushogun_twich_bot_installer.command', 'subarushogun_twich_bot_installer.sh', 'Update', 'Uninstall', 'asks whether to keep or erase', 'shared host dependencies remain installed']) {
       expect(english.toLowerCase()).toContain(term.toLowerCase());
     }
-    for (const term of ['subarushogun_twich_bot_update.bat', 'subarushogun_twich_bot_update.sh', 'main', 'alterações locais', 'subarushogun_twich_bot_uninstall.bat', 'subarushogun_twich_bot_uninstall.sh', 'pergunta se deve manter ou apagar', 'docker compose down']) {
+    for (const term of ['subarushogun_twich_bot_installer.bat', 'subarushogun_twich_bot_installer.command', 'subarushogun_twich_bot_installer.sh', 'atualizar', 'desinstalar', 'manter ou apagar', 'continuam instaladas']) {
       expect(portuguese.toLowerCase()).toContain(term.toLowerCase());
+    }
+  });
+
+  it('makes platform-specific installer download and launch steps easy to find', async () => {
+    const [englishReadme, portugueseReadme, englishInstallers, portugueseInstallers] = await Promise.all([
+      read('README.md'), read('README.pt-BR.md'), read('docs/INSTALLERS.md'), read('docs/pt-BR/INSTALADORES.md'),
+    ]);
+    expect(englishReadme).toContain('docs/INSTALLERS.md');
+    expect(portugueseReadme).toContain('docs/pt-BR/INSTALADORES.md');
+    expect(englishInstallers).toContain('[Português brasileiro](pt-BR/INSTALADORES.md)');
+    expect(portugueseInstallers).toContain('[English](../INSTALLERS.md)');
+    for (const name of ['subarushogun_twich_bot_installer.bat', 'subarushogun_twich_bot_installer.command', 'subarushogun_twich_bot_installer.sh']) {
+      expect(englishInstallers).toContain(name);
+      expect(portugueseInstallers).toContain(name);
+    }
+    for (const term of ['Install / Start', 'Update', 'Uninstall']) expect(englishInstallers).toContain(term);
+    for (const term of ['Instalar / Iniciar', 'Atualizar', 'Desinstalar']) expect(portugueseInstallers).toContain(term);
+    for (const guide of [englishInstallers, portugueseInstallers]) {
+      expect(guide).toContain('.github/workflows/ci.yml');
     }
   });
 

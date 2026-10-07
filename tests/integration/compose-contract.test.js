@@ -7,8 +7,6 @@ import { describe, expect, it } from 'vitest';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const composePath = `${root}/compose.yaml`;
 const dockerfilePath = `${root}/Dockerfile`;
-const startShellPath = `${root}/iniciar.sh`;
-const startWindowsPath = `${root}/iniciar.bat`;
 
 function getComposeConfig() {
   return spawnSync('docker', ['compose', '-f', composePath, 'config', '--format', 'json'], {
@@ -80,18 +78,6 @@ describe('local Compose runtime contract', () => {
     expect(readFileSync(dockerfilePath, 'utf8')).toMatch(/^USER\s+(?!0(?:\s|:))\d+/m);
   });
 
-  it('mounts product translation catalogs read-only so locale additions do not require rebuilding the image', () => {
-    const result = getComposeConfig();
-    expect(result.status, result.stderr).toBe(0);
-    const config = JSON.parse(result.stdout);
-    expect(config.services.bot.volumes).toContainEqual(expect.objectContaining({
-      type: 'bind',
-      source: resolve(root, 'apps/web/localization/catalogs'),
-      target: '/app/apps/web/localization/catalogs',
-      read_only: true,
-    }));
-  });
-
   it('mounts the host-readable locale projection with a dedicated non-root write group', () => {
     const result = getComposeConfig();
     expect(result.status, result.stderr).toBe(0);
@@ -137,38 +123,6 @@ describe('local Compose runtime contract', () => {
       expect(config.services[serviceName].image)
         .toBe('ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:main-linux-arm64');
     }
-  });
-
-  it('provides start scripts that preserve volumes and open or print the configured host address', () => {
-    expect(existsSync(startShellPath), 'POSIX start script is missing').toBe(true);
-    expect(existsSync(startWindowsPath), 'Windows start script is missing').toBe(true);
-    const shell = readFileSync(startShellPath, 'utf8');
-    const windows = readFileSync(startWindowsPath, 'utf8');
-    for (const script of [shell]) {
-      expect(script).toContain('docker compose pull');
-      expect(script).toContain('docker compose up -d');
-      expect(script).not.toContain('docker compose up --build -d');
-      expect(script).not.toMatch(/docker\s+compose\s+down\s+-v/);
-      expect(script).toMatch(/localhost/);
-    }
-    expect(windows).toContain('subarushogun_twich_bot_setup.bat');
-    const powershell = readFileSync(new URL('../../apps/infra/scripts/host-lifecycle.ps1', import.meta.url), 'utf8');
-    const setupAction = powershell.match(/'setup'\s*\{([\s\S]*?)\n\s{2}'update'/)?.[1] ?? '';
-    expect(powershell).toContain("Invoke-Checked 'docker' @('compose', 'pull')");
-    expect(powershell).toContain("Invoke-Checked 'docker' @('compose', 'up', '-d')");
-    expect(setupAction).not.toContain("'compose', 'down', '--volumes'");
-    expect(powershell).toContain('Start-Process $Address');
-    expect(shell).toContain('https://localhost');
-    expect(powershell).toContain('https://localhost:$Port');
-  });
-
-  it('waits between Windows panel checks without reading redirected stdin', () => {
-    const windows = readFileSync(startWindowsPath, 'utf8');
-    const powershell = readFileSync(new URL('../../apps/infra/scripts/host-lifecycle.ps1', import.meta.url), 'utf8');
-    expect(windows).not.toMatch(/timeout\s+\/t/i);
-    expect(windows).not.toMatch(/Read-Host/i);
-    expect(powershell).toMatch(/Start-Sleep\s+-Seconds\s+2/);
-    expect(powershell).toContain('curl.exe --insecure --silent --fail');
   });
 
   it('serves the callback over HTTPS with TLS material created by bootstrap', () => {

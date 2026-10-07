@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-5/story.md)
 
-**Status:** Planning draft; no installer implementation started.
+**Status:** Implementation complete; local quality gates and Linux native-launch checks pass. Native Windows/macOS Actions results and independent AIOX-QA review remain pending before closure. No physical Windows/macOS operator acceptance is claimed.
 **Planning source:** product owner request on 2026-10-06.
 **GitHub issue:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30) (open for planning).
 
@@ -10,23 +10,26 @@
 
 ## Story
 
-As a streamer installing the local bot, I want one platform-specific setup file to guide installation, dependency setup, update, and uninstall, so that I can operate the product without choosing among separate lifecycle scripts.
+As a streamer installing the local bot, I want to open one installer file for my platform and choose install, update, or uninstall from its menu, so that I do not need to find separate lifecycle scripts or remove shared dependencies by mistake.
 
 ## Confirmed planning decisions
 
-- Deliver one entry-point file per operating system family; do not claim one identical binary can run natively on Windows, macOS, and Linux.
-- The entry point offers install/start, update, and uninstall actions.
+- Deliver exactly one downloadable/openable installer artifact for each supported platform (Windows, macOS, and Linux). The artifact directly opens into the lifecycle menu using that platform's normal launch path; it cannot require a companion `.bat`, `.ps1`, `.sh`, repository clone, or separately downloaded project script. CI may build the artifact from multiple reviewed source/test files.
+- The single menu offers **Install / Start**, **Update**, and **Uninstall**. Separate setup/update/uninstall downloads are not the user-facing delivery model.
+- First install asks for product language (pt-BR default; English and Spanish available) and host port (3000 default), shows the callback URL implied by the selected port, and saves the choices. Existing installs show their current language/port and let the operator keep or change them; the panel remains the normal place to change product language later.
+- If the selected port is occupied, stop and ask for another valid port; never silently select a different port. Explain that changing the port changes the Twitch OAuth callback.
+- Update offers **Keep data and update** (default; preserve database, secrets, language, and port) or **Erase product data and install cleanly**. The clean option displays the exact data to be erased and requires a typed, localized confirmation before deleting product volumes/secrets; afterward it runs first-install setup again.
+- Uninstall offers **Keep data** or **Erase all product data**. Keep-data removal stops/removes only this product's containers, managed application files, and unused app images while leaving its database/secrets volumes and generated local CA available for a later reinstall. Erase-all also removes only this product's volumes, secrets, and generated CA, after a typed, localized confirmation. It does not delete the installer file the user downloaded.
+- Every uninstall result explains that Docker Engine/Desktop, WSL/virtualization features, package managers, and other host dependencies are shared/system software and remain installed. The user must uninstall those dependencies manually using their vendor's instructions if desired.
 - Dependency detection is part of the flow. Any installation that needs elevation, restart, changed system features, or acceptance of third-party terms must be explained and explicitly approved; unsupported cases fall back to official manual instructions.
-- Product removal must retain the existing preserve-data vs delete-data choice. It removes only product resources and never uninstalls Docker as a shared dependency.
-- Existing data-deletion safeguards remain mandatory; no normal action may remove Docker volumes without the operator's explicit typed confirmation.
 
 ## Research conclusion
 
 A truly identical universal native file is not a realistic default. InstallBuilder can generate native installers from one project across major desktop OSes, but its current Professional license is commercial and listed at USD 1,995. IzPack offers one cross-platform Java installer, but requires a Java runtime unless one is bundled. Oracle `jpackage` creates platform-specific packages and must be run on each target OS. Velopack is MIT-licensed and produces cross-platform desktop install/update packages, but targets compiled desktop application output rather than this Compose-operated service.
 
-**Recommended direction:** keep one small interactive source entrypoint for POSIX systems (`.sh`, shared by supported Linux/macOS targets) and one PowerShell entrypoint for Windows (`.ps1`); consolidate actions into a menu/arguments and reuse one tested operation contract. Do not add a paid installer framework, Java, Electron, or another runtime solely to wrap the current Docker Compose app. Explore a native self-contained executable only if testing proves the two entrypoints cannot provide a safe and usable flow.
+**Recommended direction:** ship exactly one directly openable installer artifact per supported OS target (Windows, macOS, Linux). Each artifact owns one interactive menu and all three product lifecycle actions; a user does not need a companion script or repository checkout. The source may share tested modules and CI may package/build platform artifacts from multiple reviewed files. Research and native-runner tests must determine file formats that launch naturally on each OS. Do not add a paid installer framework, Java, Electron, or another runtime solely to wrap the current Docker Compose app unless the one-file launch requirement cannot otherwise be met safely.
 
-**CI direction using open-source runner:** keep the installer source files as the canonical deliverables in Git and use GitHub Actions with a Linux/macOS/Windows runner matrix to execute platform contract checks. Package each platform's entrypoint and its required documentation as separate workflow artifacts, generated from the checked-in sources. This keeps downloadable artifacts aligned with reviewed source changes; Actions must not rewrite or commit installer files automatically. A release workflow may attach the already tested artifacts only as part of an explicitly authorized release. Pin third-party Actions to full commit SHAs and review updates through normal PRs. No paid installer framework is needed for this workflow.
+**CI direction using open-source runner:** keep reviewed installer sources in Git and use GitHub Actions with native Linux/macOS/Windows runners to test the actual single-file deliverable for each supported OS. Upload one installer file per target OS as CI artifacts, generated from checked-in sources; keep its operator documentation in the repository rather than bundling another required file. Actions must not rewrite or commit generated installers. A release workflow may attach tested artifacts only as part of an explicitly authorized release. Pin third-party Actions to full commit SHAs and review updates through normal PRs.
 
 The runner application itself is open source under MIT, and runner-image definitions are public. GitHub-hosted Actions remains a hosted GitHub service, so the complete CI control plane is not open source. Self-hosting the runner is possible but adds machine maintenance and platform-specific capacity; it does not replace GitHub's workflow service.
 
@@ -34,28 +37,51 @@ The CI workflow does not itself install or keep host Docker updated. It tests th
 
 Dependency installation cannot be guaranteed as silent or fully automatic across systems. Windows Docker Desktop supports per-user installation without admin in documented configurations, but WSL enablement can need administrator action. macOS and Linux Docker installation paths differ and can involve sudo/system changes. The setup flow must detect, explain, ask, perform only an explicitly approved supported step, and resume or show the manual next step.
 
-## Acceptance criteria to refine
+## Acceptance criteria
 
-1. A user downloads/runs one documented entrypoint for their OS and sees install/start, update, and uninstall actions.
-2. The entrypoint detects supported OS, architecture, Docker CLI/daemon, and Compose v2 before changing the app.
-3. Missing dependency guidance is versioned and verified against official platform instructions. Supported automated setup requires explicit consent and uses official sources with signature/checksum verification where available.
-4. The flow never elevates silently, changes virtualization/system features silently, accepts license terms for the user, or runs unchecked downloaded scripts.
-5. Interrupted or failed dependency setup leaves a clear recovery path and does not remove application data.
-6. Update preserves PostgreSQL and secret volumes, and identifies the source/version being installed.
-7. Uninstall always offers preserve vs delete; deletion requires a typed confirmation and names the affected app data. Docker itself is left installed.
-8. The single entrypoint is idempotent; invoking it again resumes or reports the actual installed state instead of duplicating setup.
-9. A GitHub Actions workflow runs platform contract tests on native Linux, macOS, and Windows runners; packages one artifact per OS family from checked-in source; and uploads artifacts without committing generated files back to the branch. Documentation states that GitHub-hosted Actions is a hosted service, while the runner application is MIT-licensed.
-10. Test contracts cover Linux/macOS shell and Windows PowerShell behavior, path spaces, quoting, user cancellation, missing tools, privilege/restart boundaries, failed downloads, Compose health, and volume preservation/deletion.
-11. Workflow/action versions are pinned and updated through reviewed PRs; release attachment is separate and requires the project's release authorization.
-12. Bilingual docs and concise internal changelogs stay synchronized. Native Windows/macOS acceptance is recorded only after running on those hosts.
+1. The downloadable package contains exactly one directly openable installer artifact per supported target OS (Windows, macOS, Linux); opening it presents one menu for install/start, update, and uninstall without a companion script, project clone, or separately fetched lifecycle script.
+2. First install detects OS/architecture, Docker CLI/daemon, and Compose v2; it asks for language and port, explains defaults, validates the port, and shows the matching HTTPS panel/callback URLs before continuing.
+3. When a host dependency is missing, the user can approve a supported official install path or decline and receive current vendor instructions. Privilege elevation, restart, WSL/virtualization changes, and third-party terms are explained before the relevant action.
+4. Install/update/uninstall are idempotent and report detected/current state. A failure or cancellation leaves existing product data intact and provides a recovery action.
+5. Normal update preserves PostgreSQL/secrets volumes and current product configuration. Clean update displays data-removal consequences and requires a typed, localized confirmation before deleting product-owned data; it then runs first-install setup again.
+6. Uninstall offers keep-data or erase-all. Keep-data removes product containers, managed program files, and app images not used by other containers, but preserves database/secrets volumes and local CA. Erase-all requires typed, localized confirmation and removes only this product's resources/data; the downloaded installer file remains under user control.
+7. Both uninstall outcomes explicitly state that Docker and other host dependencies remain installed and must be removed manually through their vendors if desired. No installer action removes or updates shared host dependencies during product uninstall.
+8. No path silently chooses another host port, silently elevates, changes virtualization features, accepts license terms, runs unchecked downloaded code, or deletes unrelated Compose projects/resources.
+9. Actions tests the real installer artifact on native Windows, macOS, and Linux runners and uploads exactly one artifact per supported target OS from reviewed sources without committing generated artifacts. It does not publish releases/tags or mutate installer sources.
+10. Tests cover direct launch/menu choice, locale/port configuration, path spaces, cancellation, installed/missing dependencies, consent/elevation/restart boundaries, failed network/image/migration/health paths, preservation vs deletion scope, localized confirmation, and explicit manual-dependency-removal guidance.
+11. Third-party Actions are pinned to full SHAs and reviewed by PR. Release attachment remains a separate owner-authorized operation. Native user-host acceptance is only claimed after an actual Windows/macOS/Linux operator run.
+12. English/pt-BR story, installation/operation guidance, and changelog entries remain equivalent.
 
-## Open questions
+## Implementation and validation record
 
-- Which Linux distributions and macOS versions are officially supported for guided dependency installation, versus detection plus manual instructions?
-- Should a supported dependency install launch the vendor's official GUI installer or run package-manager commands after explicit consent?
-- Should the Windows entrypoint remain `.ps1`, or should the deliverable be a signed native `.exe` that embeds the launcher? A `.bat` shim would violate the one-file goal if it requires a second script.
-- Is automatic Docker Desktop installation an acceptable optional action when UAC/sudo is presented, or should setup always leave that installation to the user?
-- How should this consolidation relate to the FND-8-approved generic names `subarushogun_twich_bot_setup`, `..._update`, and `..._uninstall`? A single setup entrypoint may supersede separate files while preserving those action names in its menu.
+- **Platform artifacts:** `.bat` for Windows embeds the PowerShell implementation; `.command` for macOS and `.sh` for Linux embed the POSIX implementation. `package-installer.mjs` embeds the Compose manifest and strips build/repository-relative mounts. GitHub Actions packages and directly launches the platform artifact on its native runner, then uploads exactly one artifact per OS.
+- **Operator guidance:** Docker is detected, and the installer asks before opening official vendor installation instructions. It does not silently elevate or change WSL/virtualization. Install/update/uninstall steps are in the bilingual installer guide. Existing separate lifecycle wrappers and their tests were removed after the replacement artifact and contracts existed.
+- **Data paths:** normal update retains database/secrets volumes and user settings. Clean update pulls the image before deleting any data, requires `APAGAR` / `DELETE` / `ELIMINAR`, then asks language/port again. Uninstall keeps data by default option or erases only product-owned data after the same localized confirmation. Shared Docker/host dependencies and the downloaded installer remain untouched.
+- **Red → Green — destructive update recovery:** `npm test -- --run tests/integration/unified-installer.test.js -t 'cannot download its image'` first failed because an image-pull failure occurred after the saved `.env` had changed from port 3100 to 3200 and locale `en` to `pt-BR`. Green — move `compose pull` before `compose down --volumes`, then start with the already-pulled image. The focused command passed and the saved configuration/local CA remained intact on pull failure.
+- **Red → Green — Windows first-run locale:** `npm test -- --run tests/unit/windows-installer-first-run.test.js` first failed because the PowerShell source initialized `$Locale` to `pt-BR`, bypassing the language prompt on a fresh install. Green — leave locale empty when there is no saved config and prompt before the menu; invalid saved locale falls back to pt-BR. The static contract and actual direct-launch behavior are checked locally/CI respectively.
+- **Linux installer behavior:** `npm test -- --run tests/integration/unified-installer.test.js` covers packaging, path-safe launch, locale/port/callback, preserved updates, localized confirmation, failed clean-update download, keep/erase uninstall, and missing-Docker guidance. `node tests/platform/installer-native.mjs` directly launched the generated Linux artifact from a path containing spaces with an isolated fake Docker executable.
+- **Documentation:** a bilingual installer guide now gives the GitHub Actions download path, exact artifact names, opening steps for each OS, menu/data behavior, and source-file locations. The Linux CA command uses `$HOME` and `install -Dm644`. Full README, guide, and story contracts remain part of the final suite.
+- **Compose bootstrap regression:** the first full-suite run exposed that the packaged runtime executes bootstrap from `/workspace`, while the production image stores it under `/app`. The real Compose integration failed to find `apps/infra/scripts/bootstrap.mjs`; changing the service working directory to `/app` fixed it. `npm test -- --run tests/integration/compose-runtime.test.js` then passed 3/3, and the final `npm test` passed 643/643.
+
+### Acceptance status
+
+- [x] One directly openable artifact is packaged per OS; no separate old lifecycle file is required.
+- [x] Install/start, update, uninstall, language, port, callback display, path spaces, localized destructive confirmation, keep-data behavior, and missing Docker guidance have implementation tests.
+- [x] Failed clean-update image pull is proven to preserve saved settings and product data.
+- [x] Old lifecycle wrappers and tests are deleted; user-facing guides point to the single installer.
+- [x] Full repository quality gates and OpenGrep pass on the final tree: `npm test` (85 files / 643 tests), `npm run lint`, `npm run typecheck`, `npm run review:static` (0 findings), localization, port-denylist, version, Compose config, `git diff --check`, and `npm audit --omit=dev --audit-level=low` (0 vulnerabilities).
+- [x] Linux native artifact direct-launch check passes from a path containing spaces; the generated `.sh` selected locale/port, displayed the callback, and invoked Compose.
+- [ ] Native Windows, macOS, and Linux Actions artifact jobs pass and upload one artifact each.
+- [ ] Independent AIOX-QA score meets the project's acceptance threshold.
+- [ ] Physical operator acceptance remains separate; real Docker update/uninstall and host dependency installation have not been run in this session.
+
+## Resolved implementation choices
+
+- File formats: `.bat`, `.command`, `.sh`; no companion launcher.
+- Install source: GHCR `main` image through embedded Compose; end users do not clone the repository or need Node.js.
+- Docker prerequisite: detection plus consented opening of official vendor instructions; no silent host installation or privilege escalation.
+- Typed confirmations: `APAGAR`, `DELETE`, `ELIMINAR` for pt-BR, English, and Spanish.
+- Existing wrappers are deleted only after the unified artifact sources/tests and platform instructions are present.
 
 ## Out of scope
 
@@ -67,3 +93,6 @@ Replacing Docker Compose, removing Docker as part of product uninstall, silently
 | --- | --- | --- |
 | 2026-10-06 | Created planning draft after official installer and Docker prerequisite research; implementation not started | @aiox-master |
 | 2026-10-06 | Added GitHub Actions matrix using the open-source runner, native-runner contracts, per-platform artifacts, and no-auto-commit/release boundaries | @aiox-master |
+| 2026-10-07 | Refined delivery to one directly openable installer artifact per OS with a single install/update/uninstall menu, locale/port setup, clean-update confirmation, explicit data-retention choices, and manual host-dependency removal guidance | @aiox-master + @architect |
+| 2026-10-07 | Implemented the unified artifacts, embedded Compose packaging, native CI matrix, safety/regression tests, bilingual per-platform instructions, and removal of superseded lifecycle scripts; final CI/QA gates pending | @aiox-dev |
+| 2026-10-07 | Completed local quality gates (643 tests, lint, typecheck, OpenGrep and supporting validators); fixed the Compose bootstrap working directory from `/workspace` to `/app`; Linux direct-launch passed. Native Windows/macOS Actions and independent QA remain open | @aiox-dev + @qa |

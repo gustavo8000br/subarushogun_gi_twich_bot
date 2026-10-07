@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../pt-BR/stories/DOC-1/story.md)
 
-**Status:** Ready for Review on PR #35. README/documentation contract tests pass 22/22; all 653 repository tests and local quality gates pass.
+**Status:** Done — merged in PR #35 (`dd21c8f`). README/documentation contract tests passed 22/22; all 653 repository tests and local quality gates passed.
 **Capability:** Project documentation and onboarding
 **GitHub issue:** None; requested directly by the project owner.
 
