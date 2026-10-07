@@ -272,12 +272,12 @@ The order below follows the specification's suggested stages. Each story must be
 
 #### OPS-2 — Localize Twitch setup status in the panel
 
-**Status:** Done and merged in PR #23. **GitHub issue:** [#21](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/21).
+**Status:** Initial localization merged in PR #13; this worktree contains two additional test-first precedence fixes and independent QA PASS 9.3/10. Issue [#21](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/21) is updated and remains open until these follow-up fixes merge.
 **Story:** `docs/stories/OPS-2/story.md` and `docs/pt-BR/stories/OPS-2/story.md`.
 **Scope:** Translate internal Twitch integration states into safe pt-BR status-pill copy. Future locale direction is pt-BR default, English and Spanish, with community translation contributions for the remaining panel/frontend strings; full i18n is not part of this fix.
 #### OPS-1 — CI for API, infrastructure, and web
 
-**Status:** InReview. **GitHub issue:** [#20](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/20).
+**Status:** Done and merged in PR #12; independent QA PASS 9.3/10 using successful Actions run `37525101710` on `c008f07`. GitHub issue [#20](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/20) is synchronized and closed.
 **Story:** `docs/stories/OPS-1/story.md` and `docs/pt-BR/stories/OPS-1/story.md`.
 **Scope:** GitHub Actions checks per application area, full integration suite, OpenGrep, version/Compose checks, and production image build.
 
@@ -349,10 +349,11 @@ The order below follows the specification's suggested stages. Each story must be
 - **Repository audit:** see [`docs/audits/product-audit.md`](audits/product-audit.md) and its [pt-BR version](pt-BR/audits/product-audit.md). Scope: 571 files excluding dependencies, AIOX core, Git metadata, and local operational data; ten improvement proposals and scanner limitations are documented.
 - **OBS E2E:** Ubuntu 24.04; OBS Studio 32.2.2, obs-browser 2.26.9 / CEF 127.0.6533.120. HTTPS returned TLS 1.3 secure/200 after trusting the local CA in a temporary NSS profile; no bypass. Page Permissions=None confirmed. Eight active widgets × ten update rounds yielded 80 commit-to-DOM measurements, maximum 905 ms (target <=2,000 ms). Temporary trust and test widgets were removed; OBS was reinstalled and left available. Windows/macOS are untested. A later clean reset generated a new local CA; Chrome initially blocked API fetches, then the operator trusted the certificate and the widget lifecycle worked.
 
-### Published future planning items
+### Story status and planning drafts
 
-- **FND-8 / issue #18 — Internationalization:** published planning issue; implementation remains after FND-7 and owner prioritization. Define pt-BR default, English/Spanish, safe API-to-copy mapping, fallback/formatting, and community contribution workflow. No implementation or stage/version promotion is implied.
+- **FND-8 / issue #18 — Product-wide localization:** implementation and independent QA complete (PASS 9.2/10) on open PR #31. Locale persistence, dynamic module catalogs, localized panel/chat/OBS/setup/lifecycle copy, native Windows lifecycle CI, plural and unsafe-markup validation are implemented. Twitch live writes and macOS-native behavior remain unverified. See `docs/stories/FND-8/` and `docs/pt-BR/stories/FND-8/`.
 - **FND-9 / issue #19 — Manual queue admission for ineligible channels:** published planning issue and bilingual Spec Pipeline draft in `docs/stories/FND-9/spec/` and `docs/pt-BR/stories/FND-9/spec/`. Keep chat and Channel Points as separate capabilities; eligible channels keep app-created reward redemption, ineligible channels use streamer/mod manual admission with no financial operation. Token-scope and live channel acceptance remain gates.
 - **OPS-3 / issue #17 — Command catalog and role permissions:** Done and merged in PR #24 (`fa04ad3`); independent QA PASS (9.2/10). The Twurple badge-object defect found in review was fixed test-first. The Commands panel page lists chat syntax and role policies; `!queue comandos` returns the sender's global role-filtered catalog, `!<queue> comandos` remains queue-specific, and streamer/moderator can use `!queue ping` for cached Twitch latency and runtime version. Queue key `queue` is reserved. TDD evidence and QA gate are in `docs/stories/OPS-3/story.md` and its pt-BR pair.
-- **OPS-4 — MIT license:** Done and merged in PR #25, base version `0.4.1-alpha` (PATCH; alpha retained). Adds the standard MIT license and package metadata. See `docs/stories/OPS-4/story.md` and `docs/pt-BR/stories/OPS-4/story.md`.
+- **OPS-4 / issue #29 — MIT license:** Done and merged in PR #25; independent QA PASS 9.3/10. Issue #29 was published to complete the catalog and closed after verifying the merge. Adds standard MIT license and package metadata. See `docs/stories/OPS-4/story.md` and `docs/pt-BR/stories/OPS-4/story.md`.
+- **OPS-5 / issue #30 — Unified lifecycle installer:** planning draft created 2026-10-06 and published as an open issue. Proposes one entrypoint per OS family, native GitHub Actions matrix tests, and per-platform artifacts. The runner is open source/MIT; hosted GitHub Actions is not a fully open-source control plane. Implementation has not started. See `docs/stories/OPS-5/` and `docs/pt-BR/stories/OPS-5/`.
 - **Official Twitch crosswalk:** [`stories/TWITCH-CAPABILITY-GAP-ANALYSIS.md`](stories/TWITCH-CAPABILITY-GAP-ANALYSIS.md) ↔ [`pt-BR/stories/TWITCH-CAPABILITY-GAP-ANALYSIS.md`](pt-BR/stories/TWITCH-CAPABILITY-GAP-ANALYSIS.md).

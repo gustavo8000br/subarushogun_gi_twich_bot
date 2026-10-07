@@ -17,6 +17,9 @@ import { createClearConfirmationService } from './domain/clear-confirmation.mjs'
 import { createOverlayWidgetService } from './domain/overlay-widget-service.mjs';
 import { createOverlayProjectionService } from './domain/overlay-projection-service.mjs';
 import { registerOverlayRoutes } from './http/overlay-routes.mjs';
+import { registerLocalizationRoutes } from './http/localization-routes.mjs';
+import { discoverCatalogModule } from '../../shared/localization/discover-catalog-module.mjs';
+import { writeProductLocaleProjection } from '../../infra/src/product-locale-projection.mjs';
 import { fileURLToPath } from 'node:url';
 
 const databaseUrl = await createDatabaseUrl();
@@ -26,13 +29,26 @@ const tlsCertificate = await readFile(process.env.TLS_CERT_FILE ?? '/run/secrets
 const app = Fastify({ logger: false, bodyLimit: 32 * 1024, https: { key: tlsKey, cert: tlsCertificate } });
 const productVersion = (await readFile(new URL('../../../VERSION', import.meta.url), 'utf8')).trim();
 const port = Number(process.env.APP_PORT ?? 3000);
+const catalogRoot = fileURLToPath(new URL('../../web/localization/catalogs/', import.meta.url));
 process.env.DATABASE_URL = databaseUrl;
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
 const repository = createQueueRepository(prisma);
+const localeProjectionPath = process.env.PRODUCT_LOCALE_PROJECTION_FILE ?? '/app/.local/product-locale.state';
+try { await writeProductLocaleProjection(localeProjectionPath, await repository.getProductLocale()); }
+catch { process.stderr.write('Product locale host projection could not be synchronized; the database remains authoritative.\n'); }
 const overlayRepository = createOverlayWidgetRepository(prisma);
 const credentialRepository = createTwitchCredentialRepository(prisma);
 let runtime;
 let getTwitchHealth = () => null;
+let overlayCatalogCache = null;
+let overlayCatalogCacheAt = 0;
+const getOverlayCatalogs = async () => {
+  if (overlayCatalogCache && Date.now() - overlayCatalogCacheAt < 5_000) return overlayCatalogCache;
+  const discovered = await discoverCatalogModule(catalogRoot, 'overlay');
+  overlayCatalogCache = discovered.catalogs;
+  overlayCatalogCacheAt = Date.now();
+  return overlayCatalogCache;
+};
 const currentCredential = await credentialRepository.getAuthRecord().catch(() => null);
 const domainServiceProxy = {
   transitionEntry: (input) => runtime.domainService.transitionEntry(input),
@@ -50,7 +66,9 @@ const buildChatHandler = (broadcasterId) => createChatCommandHandler({
     getAccount: () => repository.getCurrentAccount(),
     setAccount: (label, actorId) => repository.setCurrentAccount(label, actorId),
     resetAccount: (actorId) => repository.resetCurrentAccount(actorId),
-  }, broadcasterId, productVersion, getTwitchHealth, onError: () => undefined,
+  }, broadcasterId, productVersion, getTwitchHealth,
+  getChatCatalogs: async () => (await discoverCatalogModule(catalogRoot, 'chat')).catalogs,
+  onError: () => undefined,
 });
 let chatHandler = currentCredential?.broadcasterId ? buildChatHandler(currentCredential.broadcasterId) : null;
 
@@ -65,6 +83,7 @@ registerQueueRoutes(app, {
   repository,
   domainService: domainServiceProxy,
   clearConfirmation,
+  getSetupCatalogs: async () => (await discoverCatalogModule(catalogRoot, 'setup')).catalogs,
   productVersion,
   integrations: {
     get status() { return runtime?.integration?.status ?? 'not_configured'; },
@@ -81,9 +100,18 @@ const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? `https://localhost:${port}`
 registerOverlayRoutes(app, {
   repository: overlayRepository,
   widgetService: createOverlayWidgetService({ repository: overlayRepository, origin: publicBaseUrl }),
-  projectionService: createOverlayProjectionService({ overlayRepository, queueRepository: repository }),
+  projectionService: createOverlayProjectionService({ overlayRepository, queueRepository: repository, getOverlayCatalogs }),
 });
-await registerWebRoutes(app, fileURLToPath(new URL('../../web/', import.meta.url)));
+registerLocalizationRoutes(app, {
+  catalogRoot,
+  writeHostProjection: (localeState) => writeProductLocaleProjection(localeProjectionPath, localeState),
+  repository,
+});
+await registerWebRoutes(
+  app,
+  fileURLToPath(new URL('../../web/', import.meta.url)),
+  fileURLToPath(new URL('../../shared/browser/', import.meta.url)),
+);
 
 runtime = await createApplicationRuntime({ app, pool, prisma, repository, credentialRepository, onError: () => undefined,
   onChatMessage: (event) => {

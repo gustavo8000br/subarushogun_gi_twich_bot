@@ -1,0 +1,31 @@
+setup.callback.eyebrow_failure	CONEXIÓN INCOMPLETA
+setup.callback.eyebrow_success	CONFIGURACIÓN COMPLETADA
+setup.callback.failure_message	La autorización no se completó o venció. Vuelve al panel para comprobar la conexión e intentarlo de nuevo.
+setup.callback.failure_title	No se pudo conectar con Twitch
+setup.callback.local_installation	Instalación local
+setup.callback.return_action	Volver al panel
+setup.callback.return_message	Puedes volver al panel ahora. Esta página regresará automáticamente en {seconds} segundos.
+setup.callback.secure	Conexión segura
+setup.callback.success_message	El canal {channel} está autorizado para esta instalación.
+setup.callback.success_title	Twitch conectada
+translation.unavailable	Texto del producto no disponible.
+twitch.eligibility.affiliate	Afiliado
+twitch.eligibility.app_validated	Aplicación validada. Conecta el canal para comprobar la elegibilidad.
+twitch.eligibility.channel_ineligible	Este canal debe ser Afiliado o Partner para usar recompensas de puntos del canal.
+twitch.eligibility.channel_points_unavailable	La API de puntos del canal no está disponible. Las colas siguen desactivadas.
+twitch.eligibility.connect_channel	Conecta tu canal para activar las recompensas.
+twitch.eligibility.connected_pending	Canal conectado; comprobando elegibilidad y disponibilidad de puntos.
+twitch.eligibility.near_limit	cerca del límite
+twitch.eligibility.partner	Partner
+twitch.eligibility.points_available	Puntos del canal disponibles
+twitch.eligibility.rewards	recompensas
+twitch.status.connected	Conectado
+twitch.status.connecting	Conectando
+twitch.status.degraded	Conexión inestable
+twitch.status.eligibility_unknown	Verificando elegibilidad
+twitch.status.ineligible	El canal debe ser Afiliado o Partner
+twitch.status.not_configured	No configurado
+twitch.status.reconciling	Sincronizando
+twitch.status.reconnect_required	Es necesario reconectar
+twitch.status.stopped	Detenido
+twitch.status.unavailable	Estado no disponible

@@ -23,6 +23,42 @@ function docker(args) {
 }
 
 describe('PostgreSQL queue repository', () => {
+  it('defaults the installation locale to Brazilian Portuguese and persists a revisioned locale change with audit', async () => {
+    await prisma.setting.deleteMany({ where: { key: 'product_locale' } });
+    await expect(repository.getProductLocale()).resolves.toEqual({ locale: 'pt-BR', revision: 1 });
+
+    const actorId = `locale-operator-${randomUUID()}`;
+    await expect(repository.setProductLocale({ locale: 'en', expectedRevision: 1, actorId }))
+      .resolves.toEqual({ locale: 'en', revision: 2 });
+    await expect(repository.getProductLocale()).resolves.toEqual({ locale: 'en', revision: 2 });
+    await expect(prisma.auditLog.findFirst({ where: { event: 'product.locale_changed', actorId } }))
+      .resolves.toMatchObject({ previousState: 'pt-BR', nextState: 'en', reason: 'operator_locale_change', safeDetail: { revision: 2 } });
+  });
+
+  it('rejects invalid locale identifiers and stale revisions without writing audit events', async () => {
+    await prisma.setting.deleteMany({ where: { key: 'product_locale' } });
+    const actorId = `invalid-locale-operator-${randomUUID()}`;
+    await expect(repository.setProductLocale({ locale: 'not_a_locale', expectedRevision: 1 }))
+      .rejects.toMatchObject({ code: 'INVALID_PRODUCT_LOCALE' });
+    await expect(repository.setProductLocale({ locale: 'de', expectedRevision: 0, actorId }))
+      .rejects.toMatchObject({ code: 'PRODUCT_LOCALE_VERSION_CONFLICT' });
+    await expect(repository.getProductLocale()).resolves.toEqual({ locale: 'pt-BR', revision: 1 });
+    await expect(prisma.auditLog.count({ where: { event: 'product.locale_changed', actorId } })).resolves.toBe(0);
+  });
+
+  it('serializes concurrent locale changes using the expected revision', async () => {
+    await prisma.setting.deleteMany({ where: { key: 'product_locale' } });
+    const actorId = `concurrent-locale-operator-${randomUUID()}`;
+    const changes = await Promise.allSettled([
+      repository.setProductLocale({ locale: 'en', expectedRevision: 1, actorId }),
+      repository.setProductLocale({ locale: 'es', expectedRevision: 1, actorId }),
+    ]);
+    expect(changes.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(changes.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    await expect(repository.getProductLocale()).resolves.toMatchObject({ revision: 2, locale: expect.stringMatching(/^(en|es)$/) });
+    await expect(prisma.auditLog.count({ where: { event: 'product.locale_changed', actorId } })).resolves.toBe(1);
+  });
+
   it('persists idempotency reservations, completed responses, and payload conflicts', async () => {
     const operationKey = `panel:${randomUUID()}`;
     const fingerprint = 'a'.repeat(64);

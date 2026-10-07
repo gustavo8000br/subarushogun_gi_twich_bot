@@ -1,0 +1,18 @@
+translation.unavailable	Product text unavailable.
+lifecycle.setup.certificate	Local HTTPS certificate
+lifecycle.setup.trust	Trust this certificate in your operating system before connecting to Twitch.
+lifecycle.setup.timeout	Panel is still unavailable. Check the bot service logs.
+lifecycle.setup.address	Panel address
+lifecycle.setup.open_browser	The browser could not be opened automatically.
+lifecycle.update.git_required	The updater requires a Git checkout and access to GHCR.
+lifecycle.update.main_only	Update only from the main branch.
+lifecycle.update.current_branch	Current branch
+lifecycle.update.dirty	Local changes are present. Save or discard them before updating.
+lifecycle.update.done	Update complete. Data and secret volumes were preserved.
+lifecycle.uninstall.ask	Delete this project's database and local secrets?
+lifecycle.uninstall.warning	This deletes queues, history, Twitch credentials, the database password, and private certificates.
+lifecycle.uninstall.confirm_prompt	Type {word} to confirm permanent deletion:
+lifecycle.uninstall.confirm_word	DELETE
+lifecycle.uninstall.cancelled	Cancelled; nothing was removed.
+lifecycle.uninstall.removed	Application and local data removed.
+lifecycle.uninstall.preserved	Application removed; database, secrets, and public certificate were preserved.

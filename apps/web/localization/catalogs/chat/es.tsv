@@ -1,0 +1,88 @@
+translation.unavailable	Texto del producto no disponible.
+chat.command.root	cola
+chat.command.global.commands	comandos
+chat.command.global.ping	ping
+chat.command.global.queues	colas
+chat.command.global.account	cuenta
+chat.command.global.account_reset	restablecer
+chat.command.queue.lista	lista
+chat.command.queue.comandos	comandos
+chat.command.queue.posicao	posicion
+chat.command.queue.sair	salir
+chat.command.queue.add	agregar
+chat.command.queue.remover	quitar
+chat.command.queue.proximo	siguiente
+chat.command.queue.atender	atender
+chat.command.queue.concluir	completar
+chat.command.queue.mover	mover
+chat.command.queue.abrir	abrir
+chat.command.queue.fechar	cerrar
+chat.command.queue.limpar	limpiar
+chat.command.queue.confirmar	confirmar
+chat.syntax.user	usuario
+chat.syntax.position	posición
+chat.syntax.name	<nombre>
+chat.syntax.queue	<cola>
+chat.help.streamer	Streamer, consulta y configura el catálogo completo en la página “Comandos” del panel local.
+chat.help.none	No hay comandos disponibles para tu cargo. Consulta al streamer.
+chat.help.global_heading	Generales
+chat.help.queue_heading	En cada cola
+chat.help.panel_suffix	Catálogo completo en el panel.
+chat.help.queue_none	No hay comandos disponibles para tu cargo en esta cola.
+chat.help.queue_for	Comandos de
+chat.queues.title	Colas disponibles
+chat.queues.empty	No hay colas disponibles ahora.
+chat.queues.closed	cerrada
+chat.account.current	Cuenta actual: {label}.
+chat.account.invalid_label	Usa un nombre de cuenta de hasta 60 caracteres y sin saltos de línea.
+chat.ping.unavailable	latencia no disponible
+chat.ping.response	Pong 🏓 Bot activo · {version} · Twitch: {latency}
+chat.queue.position	@{user}, estás en la posición {position}.
+chat.queue.viewer_called	@{user}, te han llamado.
+chat.queue.viewer_in_progress	@{user}, tu atención está en curso.
+chat.queue.state.open	abierta
+chat.queue.state.closed	cerrada
+chat.queue.state.pending_open	apertura pendiente
+chat.queue.state.pending_close	cierre pendiente
+chat.queue.state.open_unknown	apertura sin confirmar
+chat.queue.state.close_unknown	cierre sin confirmar
+chat.queue.state.unavailable	recompensa no disponible
+chat.queue.not_found	No se encontró la cola.
+chat.queue.waiting	En espera
+chat.queue.called	Llamados
+chat.queue.in_progress	En atención
+chat.queue.no_one	nadie
+chat.queue.more.one	 y {count} más
+chat.queue.more.many	 y {count} más
+chat.queue.more.other	 y {count} más
+chat.queue.not_active	No estás en esta cola.
+chat.queue.exit_pending	Saliste de la cola. Se solicitó un reembolso y está pendiente de confirmación.
+chat.queue.exit_done	Saliste de la cola.
+chat.queue.invalid_count	Usa un número del 1 al 10.
+chat.queue.nobody_waiting	No hay personas esperando.
+chat.queue.called_one	1 persona llamada.
+chat.queue.called_many.one	{count} persona llamada.
+chat.queue.called_many.many	{count} personas llamadas.
+chat.queue.called_many.other	{count} personas llamadas.
+chat.user.not_found	No se encontró ese usuario de Twitch.
+chat.queue.select_user	Indica el usuario porque hay más de una persona posible.
+chat.queue.person_not_active	Esa persona no está activa en esta cola.
+chat.queue.complete_pending	Atención completada. El consumo de puntos está pendiente de confirmación.
+chat.queue.service_started	Atención iniciada.
+chat.queue.service_completed	Atención completada.
+chat.queue.move_failed	No se pudo mover a esa persona.
+chat.queue.move_done	Posición actualizada.
+chat.queue.remove_pending	Persona eliminada. El reembolso está pendiente de confirmación.
+chat.queue.remove_done	Persona eliminada.
+chat.queue.added	@{user} agregado a la cola.
+chat.queue.duplicate	Esa persona ya está activa en esta cola.
+chat.queue.clear_unavailable	La confirmación para vaciar la cola no está disponible ahora.
+chat.queue.empty	La cola ya está vacía.
+chat.queue.clear_confirm	Confirma en 15 segundos con !{queue} {clear_command} {confirm_command}: se eliminarán {count} personas y se solicitarán {refunds} reembolsos.
+chat.queue.clear_done	Cola vaciada: {count} personas eliminadas; {refunds} reembolsos solicitados y pendientes de confirmación.
+chat.queue.change_pending	Cambio solicitado. La recompensa aún espera confirmación de Twitch.
+chat.queue.open_done	Cola abierta y recompensa confirmada.
+chat.queue.close_done	Cola cerrada y recompensa pausada.
+chat.commands.validation_failed	No se pudieron validar los comandos ahora. Inténtalo de nuevo pronto.
+chat.command.validation_failed	No se pudo validar este comando. Inténtalo de nuevo pronto.
+chat.command.failed	No se pudo completar el comando. Consulta el panel local.

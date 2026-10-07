@@ -15,24 +15,33 @@ export const CHAT_COMMANDS = [
   { key: 'queue:abrir', scope: 'queue', command: 'abrir', syntax: '!<fila> abrir', description: 'Abrir a recompensa da fila.', defaultRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'] },
   { key: 'queue:fechar', scope: 'queue', command: 'fechar', syntax: '!<fila> fechar', description: 'Pausar a recompensa da fila.', defaultRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'] },
   { key: 'queue:limpar', scope: 'queue', command: 'limpar', syntax: '!<fila> limpar [confirmar]', description: 'Pré-visualizar ou confirmar limpeza.', defaultRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'] },
-  { key: 'global:filas', scope: 'global', command: 'filas', syntax: '!filas', description: 'Listar filas disponíveis.', defaultRoles: ['everyone'] },
-  { key: 'global:conta:read', scope: 'global', command: 'conta', syntax: '!conta', description: 'Consultar conta atual.', defaultRoles: ['everyone'] },
-  { key: 'global:conta:set', scope: 'global', command: 'conta', syntax: '!conta <nome>', description: 'Definir rótulo da conta atual.', defaultRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'] },
-  { key: 'global:conta:reset', scope: 'global', command: 'conta', syntax: '!conta reset', description: 'Restaurar conta padrão.', defaultRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'] },
+  { key: 'global:filas', scope: 'global', command: 'filas', syntax: '!fila filas', description: 'Listar filas disponíveis.', defaultRoles: ['everyone'] },
+  { key: 'global:conta:read', scope: 'global', command: 'conta', syntax: '!fila conta', description: 'Consultar conta atual.', defaultRoles: ['everyone'] },
+  { key: 'global:conta:set', scope: 'global', command: 'conta', syntax: '!fila conta <nome>', description: 'Definir rótulo da conta atual.', defaultRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'] },
+  { key: 'global:conta:reset', scope: 'global', command: 'conta', syntax: '!fila conta reset', description: 'Restaurar conta padrão.', defaultRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'] },
   { key: 'global:queue:comandos', scope: 'global', command: 'queue', syntax: '!queue comandos', description: 'Listar todos os comandos disponíveis para seu cargo.', defaultRoles: ['everyone'] },
   { key: 'global:queue:ping', scope: 'global', command: 'queue', syntax: '!queue ping', description: 'Verificar resposta do bot, versão e latência Twitch.', defaultRoles: ['streamer', 'moderator'], immutableRoles: ['streamer', 'moderator'] },
 ];
 
 export const CONFIGURABLE_COMMAND_ROLES = Object.freeze(['moderator', 'vip', 'subscriber', 'everyone']);
 
-/** @param {{scope:string,command:string,args?:string[]}} input */
-export function getCommandDefinition({ scope, command, args = [] }) {
+/** @param {{scope:string,command:string,args?:string[],rootAction?:string}} input */
+export function getCommandDefinition({ scope, command, args = [], rootAction }) {
   if (scope === 'global' && command === 'conta') {
     if (!args.length) return CHAT_COMMANDS.find(({ key }) => key === 'global:conta:read');
     if (args.length === 1 && args[0].toLocaleLowerCase('pt-BR') === 'reset') return CHAT_COMMANDS.find(({ key }) => key === 'global:conta:reset');
     return CHAT_COMMANDS.find(({ key }) => key === 'global:conta:set');
   }
   if (scope === 'global' && command === 'queue') {
+    if (rootAction) {
+      const rootKeys = {
+        commands: 'global:queue:comandos', ping: 'global:queue:ping', queues: 'global:filas',
+        account_read: 'global:conta:read', account_set: 'global:conta:set', account_reset: 'global:conta:reset',
+      };
+      const key = rootKeys[rootAction];
+      if (!key) return undefined;
+      return CHAT_COMMANDS.find((entry) => entry.key === key);
+    }
     if (args.length !== 1) return undefined;
     const subcommand = args[0].toLocaleLowerCase('pt-BR');
     const key = `global:queue:${subcommand}`;

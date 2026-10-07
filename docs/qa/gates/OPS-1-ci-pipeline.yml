@@ -1,0 +1,48 @@
+schema: 1
+story: OPS-1
+story_title: Continuous integration for API, infrastructure, and web
+gate: PASS
+status_reason: >-
+  Independent QA reviewed the workflow and acceptance criteria and verified successful main CI run
+  37525101710 on c008f07, including per-app checks, full Vitest/PostgreSQL/Compose suite, static/version
+  checks, production build, and AMD64/ARM64 publication. The reviewer did not reinstall dependencies
+  or rerun the local suite in the review worktree. Issue/status synchronization is deferred until PR merge.
+reviewer: Quinn (Independent Test Architect)
+reviewed_revision: c008f07
+updated: '2026-10-06T21:04:24Z'
+top_issues: []
+risk_summary:
+  highest_score: 2
+  rationale: >-
+    No acceptance gap was found. Hosted CI evidence covers the committed implementation; this QA pass
+    does not claim a new local rerun after the Docker/Compose update.
+waiver:
+  active: false
+quality_score: 93
+evidence:
+  tests_reviewed: 5
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5]
+    ac_gaps: []
+  commands:
+    - 'GitHub Actions run 37525101710 on c008f07: success; 473 tests / 69 files reported'
+    - 'Reviewed workflow permissions, concurrency, pinned Node/npm ci, per-app lint/typecheck, and build/test jobs'
+  traceability:
+    - ac: 3
+      given: 'A PR or main push runs CI'
+      when: 'the full integration workflow executes on Linux'
+      then: 'Vitest/PostgreSQL/Compose integration job succeeds'
+      tests: ['GitHub Actions run 37525101710']
+    - ac: 4
+      given: 'A release-source commit is built'
+      when: 'static/version/Compose/image gates run'
+      then: 'the gates succeed without Twitch runtime credentials'
+      tests: ['GitHub Actions run 37525101710']
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Workflow has read-only repository token permissions and fixed Actions references.'
+  reliability:
+    status: PASS
+    notes: 'Full hosted suite and production image build passed.'

@@ -1,0 +1,477 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "storyId": "FND-8",
+  "gatheredAt": "2026-10-06T21:04:24Z",
+  "source": "existing",
+  "gatheredBy": "@aiox-master (Spec Pipeline coordinator), reviewed by @aiox-pm and @aiox-architect, with product owner decisions",
+  "elicitationVersion": "2.0",
+  "sourceReferences": [
+    "GitHub issue #18",
+    "Product owner decisions in conversation on 2026-10-06",
+    "Existing README, command catalog, OBS widget contracts, Compose scripts and project constitution"
+  ],
+  "functional": [
+    {
+      "id": "FR-1",
+      "priority": "P0",
+      "description": "Use a single installation-wide product locale selected during first installation, persist it, preserve it through restart/update, and allow the streamer to change it in the protected panel.",
+      "rationale": "Keep all product surfaces consistent while allowing the operator to select a preferred language.",
+      "acceptance": [
+        "AC-1",
+        "AC-2"
+      ]
+    },
+    {
+      "id": "FR-2",
+      "priority": "P0",
+      "description": "Support complete first-party catalogs for pt-BR, en, and es, with pt-BR as safe default and source locale.",
+      "rationale": "These are the product owner's selected initial languages.",
+      "acceptance": [
+        "AC-3",
+        "AC-4"
+      ]
+    },
+    {
+      "id": "FR-3",
+      "priority": "P0",
+      "description": "Localize product-authored UI, setup/callback copy, chat commands/help/replies, OBS widget product labels, and host lifecycle-tool copy.",
+      "rationale": "The product owner explicitly expanded FND-8 beyond frontend-only translation.",
+      "acceptance": [
+        "AC-5",
+        "AC-6"
+      ]
+    },
+    {
+      "id": "FR-4",
+      "priority": "P0",
+      "description": "Store translations as contributor-editable files split by module and locale, with a documented template and automated validation.",
+      "rationale": "The product owner selected one catalog file per module and language to let the community contribute in bounded areas.",
+      "acceptance": [
+        "AC-7",
+        "AC-8"
+      ]
+    },
+    {
+      "id": "FR-5",
+      "priority": "P0",
+      "description": "Resolve stable command IDs into the active locale's global root, subcommand syntax, help and responses; use !fila for pt-BR, !queue for English, and !cola for Spanish, with no legacy aliases.",
+      "rationale": "The owner approved locale-specific roots and explicitly rejected legacy aliases.",
+      "acceptance": [
+        "AC-9",
+        "AC-10"
+      ]
+    },
+    {
+      "id": "FR-6",
+      "priority": "P0",
+      "description": "Map stable public API status/error identifiers to localized copy without returning internal enum text, provider errors, secrets or technical details to browser/chat.",
+      "rationale": "Preserve the existing security boundary while localizing visible product messages.",
+      "acceptance": [
+        "AC-11",
+        "AC-12"
+      ]
+    },
+    {
+      "id": "FR-7",
+      "priority": "P1",
+      "description": "Fall back deterministically to pt-BR for an unknown locale or missing community key; require complete first-party catalogs before shipping.",
+      "rationale": "Never show raw keys or machine identifiers to a streamer/viewer.",
+      "acceptance": [
+        "AC-13",
+        "AC-14"
+      ]
+    },
+    {
+      "id": "FR-8",
+      "priority": "P1",
+      "description": "Provide localized platform-native tools named subarushogun_twich_bot_setup, subarushogun_twich_bot_update, and subarushogun_twich_bot_uninstall, with platform-specific entry points, dependency detection, and explicit data-preservation/deletion behavior.",
+      "rationale": "The owner requested international tool names, dependency handling, updater and uninstaller behavior.",
+      "acceptance": [
+        "AC-15",
+        "AC-16"
+      ]
+    },
+    {
+      "id": "FR-9",
+      "priority": "P1",
+      "description": "Use explicit-locale plural, date, time and number formatting, while preserving UTC data and the existing maximum chat message length.",
+      "rationale": "Avoid locale-sensitive presentation bugs without changing persistence contracts.",
+      "acceptance": [
+        "AC-17"
+      ]
+    },
+    {
+      "id": "FR-10",
+      "priority": "P0",
+      "description": "Preserve streamer-authored content exactly as entered when changing locale; localize only product-owned text. Never silently overwrite or automatically translate persisted values.",
+      "rationale": "Owner-approved policy on 2026-10-06 prevents silent changes to operator-authored content.",
+      "acceptance": [
+        "AC-18"
+      ]
+    }
+  ],
+  "nonFunctional": [
+    {
+      "id": "NFR-1",
+      "category": "security",
+      "description": "Catalog strings and interpolated values are always rendered as text; no translated content is evaluated as HTML, code or shell input.",
+      "metric": "Tests inject HTML/script-like values through UI, chat, and widget copy with zero DOM/script execution."
+    },
+    {
+      "id": "NFR-2",
+      "category": "security",
+      "description": "Raw backend/provider exception text, credentials, tokens and internal enums are not exposed by localized APIs or messages.",
+      "metric": "API/chat/DOM/log tests assert absence of secret sentinels and internal exception text."
+    },
+    {
+      "id": "NFR-3",
+      "category": "reliability",
+      "description": "The saved locale survives application and PostgreSQL restarts and image updates; the initial installer choice never overwrites an existing saved value.",
+      "metric": "Migration-backed PostgreSQL integration test covers seed, restart, update-default conflict, and locale mutation."
+    },
+    {
+      "id": "NFR-4",
+      "category": "usability",
+      "description": "Language changes update product-authored panel, chat and OBS presentation without requiring an API process restart.",
+      "metric": "Protected locale mutation is reflected by subsequent projections and chat handling without restart."
+    },
+    {
+      "id": "NFR-5",
+      "category": "reliability",
+      "description": "First-party locale catalogs have validated required-key, placeholder and plural-form parity; community locales fail closed to pt-BR on missing content.",
+      "metric": "CI validation reports exact locale/module/key and runtime fallback never returns raw keys."
+    },
+    {
+      "id": "NFR-6",
+      "category": "usability",
+      "description": "Local lifecycle tools identify missing Docker/Compose and present an understandable supported next step in the selected language.",
+      "metric": "Platform contract tests cover available, missing, declined installation and preserve/delete choices."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "CON-1",
+      "type": "technical",
+      "description": "Application code remains JavaScript ESM with JSDoc; frontend stays vanilla HTML/CSS/JavaScript without TypeScript, framework, transpiler or bundler."
+    },
+    {
+      "id": "CON-2",
+      "type": "technical",
+      "description": "Runtime remains local-first with Fastify, PostgreSQL/Prisma and Docker Compose; no hosted translation, localization or synchronization service is introduced."
+    },
+    {
+      "id": "CON-3",
+      "type": "product",
+      "description": "One installation-wide locale is selected initially by the installer and can later be changed by the streamer in the panel."
+    },
+    {
+      "id": "CON-4",
+      "type": "product",
+      "description": "Initial first-party languages are pt-BR, English and Spanish; pt-BR is default and source locale."
+    },
+    {
+      "id": "CON-5",
+      "type": "product",
+      "description": "Catalog files are divided by module and locale; command roots are !fila, !queue and !cola with no cross-locale or legacy aliases."
+    },
+    {
+      "id": "CON-6",
+      "type": "security",
+      "description": "Technical identifiers, schema, logs and API contract fields remain stable; local catalogs contain text, not executable templates or backend-derived raw errors."
+    },
+    {
+      "id": "CON-7",
+      "type": "product",
+      "description": "Existing install/update/uninstall entry points may be consolidated by the separately planned OPS-5; approved action names are setup, update, and uninstall."
+    },
+    {
+      "id": "CON-8",
+      "type": "technical",
+      "description": "Host utility scripts cannot assume Node.js, Python, jq, a running API, or a browser is installed before checking/installing Docker/Compose."
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "ASM-1",
+      "description": "An installation has one effective locale at a time; locale per viewer, queue or browser is outside scope.",
+      "risk": "low",
+      "validation_needed": false
+    },
+    {
+      "id": "ASM-2",
+      "description": "The existing JSON Setting store can persist product_locale; the host-local projection is a separate recoverable file.",
+      "risk": "medium",
+      "validation_needed": true
+    },
+    {
+      "id": "ASM-3",
+      "description": "pt-BR is complete first-party catalog source; en/es translations will be maintained with the feature before release.",
+      "risk": "medium",
+      "validation_needed": true
+    },
+    {
+      "id": "ASM-4",
+      "description": "Streamer-authored values are preserved verbatim across locale changes; approved by the owner.",
+      "risk": "medium",
+      "validation_needed": true
+    },
+    {
+      "id": "ASM-5",
+      "description": "OPS-5 owns cross-platform entrypoint consolidation and Actions packaging; FND-8 localizes lifecycle tool copy and uses the approved setup/update/uninstall names.",
+      "risk": "medium",
+      "validation_needed": true
+    }
+  ],
+  "domainModel": [
+    {
+      "entity": "ProductLocale",
+      "description": "Validated locale code, stored as a non-secret installation setting with revision/audit metadata.",
+      "relationships": [
+        "One installation has one effective locale."
+      ]
+    },
+    {
+      "entity": "TranslationCatalog",
+      "description": "Versioned local UTF-8 TSV resource per module/locale with literal text and allowlisted placeholders; cross-platform contract still requires tests.",
+      "relationships": [
+        "A locale has one catalog per supported product module."
+      ]
+    },
+    {
+      "entity": "CommandDefinition",
+      "description": "Stable internal command ID and authorization policy mapped to locale-specific root/subcommand syntax and help copy.",
+      "relationships": [
+        "A command ID has localized presentation in each first-party locale."
+      ]
+    },
+    {
+      "entity": "OperatorAuthoredText",
+      "description": "Streamer-authored queue/reward/template/widget content is distinct from catalog text and is preserved verbatim across locale changes.",
+      "relationships": [
+        "Persisted values are never automatically translated or rewritten."
+      ]
+    }
+  ],
+  "interactions": [
+    {
+      "id": "INT-1",
+      "trigger": "First local installation",
+      "flow": [
+        "Show language selection in the host installer",
+        "Persist/forward a validated initial locale",
+        "Bootstrap application settings only when no locale exists",
+        "Open panel in saved locale"
+      ],
+      "states": {
+        "loading": "Show localized setup progress",
+        "error": "Show localized dependency/bootstrap failure and supported next action",
+        "empty": "New installation starts with chosen locale or pt-BR fallback"
+      }
+    },
+    {
+      "id": "INT-2",
+      "trigger": "Streamer changes product language",
+      "flow": [
+        "Open protected panel language setting",
+        "Select pt-BR/en/es or an approved community locale",
+        "Validate locale and current setting revision",
+        "Persist and audit setting",
+        "Refresh product-owned text in subsequent panel/chat/OBS projections"
+      ],
+      "states": {
+        "loading": "Show localized save state",
+        "error": "Keep previous locale and show localized safe error",
+        "empty": "Not applicable"
+      }
+    },
+    {
+      "id": "INT-3",
+      "trigger": "Contributor adds a translation",
+      "flow": [
+        "Copy module/locale template",
+        "Translate only documented keys and placeholders",
+        "Run local catalog validator",
+        "Open review request with completeness report"
+      ],
+      "states": {
+        "loading": "Validator reports module/key progress",
+        "error": "Identify invalid locale/key/placeholder without executing catalog content",
+        "empty": "A missing optional locale remains unavailable and runtime falls back to pt-BR"
+      }
+    }
+  ],
+  "edgeCases": [
+    {
+      "id": "EC-1",
+      "scenario": "Saved locale is missing, malformed or unsupported during startup.",
+      "handling": "Resolve to pt-BR, persist the normalized safe value when possible, and do not expose the supplied raw string.",
+      "severity": "high"
+    },
+    {
+      "id": "EC-2",
+      "scenario": "Community catalog is incomplete or has mismatched placeholders/plural forms.",
+      "handling": "CI/local validator identifies module and key; locale is not selectable until approved; runtime missing-key fallback uses pt-BR.",
+      "severity": "high"
+    },
+    {
+      "id": "EC-3",
+      "scenario": "Locale is changed while chat or OBS requests are in flight.",
+      "handling": "Each operation uses one resolved locale snapshot; later operations use the latest persisted locale; do not mix languages inside one response.",
+      "severity": "medium"
+    },
+    {
+      "id": "EC-4",
+      "scenario": "Translated/interpolated content contains HTML, shell syntax, command tokens, control characters or an overlength chat result.",
+      "handling": "Treat as plain text, reject prohibited catalog structure, constrain arguments, and apply existing chat length behavior without splitting into spam.",
+      "severity": "high"
+    },
+    {
+      "id": "EC-5",
+      "scenario": "Host lifecycle utility runs before the API/database is available or after containers have stopped.",
+      "handling": "Read a bounded locale source usable by host tools and use pt-BR fallback; never require credentials or print database secrets.",
+      "severity": "high"
+    },
+    {
+      "id": "EC-6",
+      "scenario": "Streamer changes locale while queue/reward/widget custom text is stored.",
+      "handling": "Preserve stored text exactly as entered; localize product-owned labels only. No automatic rewrite/translation.",
+      "severity": "high"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "Locale",
+      "definition": "Language and regional format identifier such as pt-BR, en or es; a single locale applies to one local installation.",
+      "synonyms": [],
+      "avoid": [
+        "browser language as the source of truth"
+      ]
+    },
+    {
+      "term": "Product-owned copy",
+      "definition": "Text authored and shipped by this project, including panel labels, help/replies, generated widget labels and lifecycle-tool prompts.",
+      "synonyms": [
+        "interface copy"
+      ],
+      "avoid": [
+        "operator-authored content"
+      ]
+    },
+    {
+      "term": "Operator-authored content",
+      "definition": "Queue/reward names and descriptions, templates, and fixed widget text authored by the streamer; distinct from catalogs and preserved exactly as entered across locale changes.",
+      "synonyms": [],
+      "avoid": [
+        "translation catalog"
+      ]
+    },
+    {
+      "term": "Command ID",
+      "definition": "Stable internal identifier used by parsing/authorization, independent of localized display syntax.",
+      "synonyms": [],
+      "avoid": [
+        "translated permission key"
+      ]
+    }
+  ],
+  "openQuestions": [
+    {
+      "id": "OQ-1",
+      "question": "Which verification/test process proves the selected contract: PostgreSQL as authority and an atomically updated, revisioned, recoverable host-readable projection available offline to local tools?",
+      "blocking": true,
+      "assignedTo": "@architect",
+      "status": "architecture selected in spec v3; crash, write-failure, corruption, stale/offline, recovery, and Compose tests still block the implementation gate"
+    },
+    {
+      "id": "OQ-2",
+      "question": "Which safe, supported platform package-manager flows can the installer offer for Docker/Compose on Windows, Ubuntu/Linux and macOS, and where must it fall back to manual instructions?",
+      "blocking": false,
+      "assignedTo": "@devops",
+      "status": "verify per platform during installer implementation; never elevate/install silently"
+    },
+    {
+      "id": "OQ-3",
+      "question": "How should the selected UTF-8 no-BOM TSV catalog contract, allowlisted placeholders, and plural selection be validated across browser ESM, Node ESM, and host tools without pre-Docker runtime dependencies?",
+      "blocking": true,
+      "assignedTo": "@architect",
+      "status": "architecture contract selected in spec v3; parser/encoding/safe-parity contract tests are required before closing the gate"
+    },
+    {
+      "id": "OQ-4",
+      "question": "Should streamer-authored content continue to be displayed exactly as entered after locale changes, or should any field have its own locale? Persisted data must never be overwritten without consent.",
+      "blocking": false,
+      "assignedTo": "Product owner",
+      "status": "resolved by product owner on 2026-10-06: preserve authored text exactly; localize only product-owned copy"
+    },
+    {
+      "id": "OQ-5",
+      "question": "How should existing slugs/aliases that collide with fila/queue/cola global roots be resolved? Recommendation: detect and block only activation of the conflicting root until the streamer explicitly renames the key in the panel; never rename automatically.",
+      "blocking": false,
+      "assignedTo": "Product owner / @aiox-po",
+      "status": "resolved by product owner on 2026-10-06: block only the conflicting root and require explicit panel rename; never rename automatically"
+    },
+    {
+      "id": "OQ-6",
+      "question": "Confirm whether the suggested `subarushogun_twich_bot_*` naming family should be retained and define generic suffixes for local entry points.",
+      "blocking": false,
+      "assignedTo": "Product owner",
+      "status": "resolved by product owner on 2026-10-06: setup, update, uninstall"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-1",
+      "decision": "The install-selected locale initializes a single persisted installation locale that the streamer can later change in the panel.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-2",
+      "decision": "Community translations are split into one file per module and locale.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-3",
+      "decision": "Global command roots are !fila (pt-BR), !queue (en), and !cola (es); do not retain legacy/cross-locale aliases.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-4",
+      "decision": "FND-8 covers the full product surfaces listed in the spec, including chat and local lifecycle tools, not only the frontend.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-5",
+      "decision": "Preserve streamer-authored values exactly as entered and localize product-owned copy only; never auto-translate or rewrite stored values.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-6",
+      "decision": "Use local literal UTF-8 TSV catalogs, a narrow resolver, and native Intl; do not add i18next without a demonstrated browser/script integration need.",
+      "owner": "@architect recommendation",
+      "status": "selected by architecture review in spec v3; verify with contract tests"
+    },
+    {
+      "id": "D-7",
+      "decision": "The generic local lifecycle tool suffixes are setup, update, and uninstall under subarushogun_twich_bot_*; platform-specific extensions/entry points may vary.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-8",
+      "decision": "Preserve streamer-authored names, descriptions, templates, and widget fixed text exactly as entered across product locale changes; localize only product-owned strings. Never translate or rewrite stored values automatically.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-9",
+      "decision": "When an existing queue slug/alias collides with a reserved global root, preserve stored keys, block only the conflicting root, and require an explicit operator rename in the panel. Never rename automatically.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-06"
+    }
+  ]
+}

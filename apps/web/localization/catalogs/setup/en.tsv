@@ -1,0 +1,31 @@
+setup.callback.eyebrow_failure	CONNECTION INCOMPLETE
+setup.callback.eyebrow_success	SETUP COMPLETE
+setup.callback.failure_message	Authorization did not finish or has expired. Return to the panel to check the connection and try again.
+setup.callback.failure_title	Could not connect to Twitch
+setup.callback.local_installation	Local installation
+setup.callback.return_action	Return to panel
+setup.callback.return_message	You can return to the panel now. This page will return automatically in {seconds} seconds.
+setup.callback.secure	Secure connection
+setup.callback.success_message	The channel {channel} is authorized for this installation.
+setup.callback.success_title	Twitch connected
+translation.unavailable	Product text unavailable.
+twitch.eligibility.affiliate	Affiliate
+twitch.eligibility.app_validated	Application validated. Connect the channel to check eligibility.
+twitch.eligibility.channel_ineligible	This channel must be Affiliate or Partner to use Channel Points rewards.
+twitch.eligibility.channel_points_unavailable	The Channel Points API is unavailable. Queues remain disabled.
+twitch.eligibility.connect_channel	Connect your channel to enable rewards.
+twitch.eligibility.connected_pending	Channel connected; checking eligibility and Channel Points availability.
+twitch.eligibility.near_limit	near the limit
+twitch.eligibility.partner	Partner
+twitch.eligibility.points_available	Channel Points available
+twitch.eligibility.rewards	rewards
+twitch.status.connected	Connected
+twitch.status.connecting	Connecting
+twitch.status.degraded	Unstable connection
+twitch.status.eligibility_unknown	Checking eligibility
+twitch.status.ineligible	Channel requires Affiliate or Partner status
+twitch.status.not_configured	Not configured
+twitch.status.reconciling	Syncing
+twitch.status.reconnect_required	Reconnection required
+twitch.status.stopped	Stopped
+twitch.status.unavailable	Status unavailable

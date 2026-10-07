@@ -63,6 +63,7 @@ services:
     user: "10001:10001"
     group_add:
       - "999"
+      - "10001"
     environment:
       NODE_ENV: production
       APP_HOST: 0.0.0.0
@@ -71,10 +72,13 @@ services:
       CALLBACK_URL: https://localhost:${APP_PORT:-3000}/callback
       TLS_CERT_FILE: /run/secrets/localhost.crt
       TLS_KEY_FILE: /run/secrets/localhost.key
+      PRODUCT_LOCALE_PROJECTION_FILE: /app/.local/product-locale.state
     ports:
       - "127.0.0.1:${APP_PORT:-3000}:${APP_PORT:-3000}"
     volumes:
       - operational_secrets:/run/secrets:ro
+      - ${LOCAL_CERT_DIRECTORY:-./.local}:/app/.local
+      - ./apps/web/localization/catalogs:/app/apps/web/localization/catalogs:ro
     depends_on:
       db:
         condition: service_healthy

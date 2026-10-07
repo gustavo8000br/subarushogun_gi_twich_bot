@@ -1,0 +1,141 @@
+{
+  "storyId": "FND-8",
+  "researchedAt": "2026-10-06T21:00:00Z",
+  "researchedBy": "@aiox-master (coordenação do Spec Pipeline), com revisão de @aiox-pm e @aiox-architect",
+  "complexity": "COMPLEX",
+  "dependencies": [
+    {
+      "id": "R-1",
+      "name": "API de Internacionalização ECMAScript (ECMA-402)",
+      "type": "standard",
+      "version": "13ª edição, junho de 2026",
+      "verified": true,
+      "existing": {
+        "installed": true,
+        "currentVersion": "Node.js ESM e navegadores compatíveis"
+      },
+      "documentation": {
+        "url": "https://402.ecma-international.org/",
+        "relevantSections": [
+          "formatação sensível a locale",
+          "Intl.DateTimeFormat",
+          "Intl.NumberFormat",
+          "Intl.PluralRules"
+        ]
+      },
+      "pattern": "Usar Intl nativo com locale explícito para datas, horários, números e seleção plural; manter timestamps armazenados em UTC e não adicionar biblioteca de runtime sem lacuna demonstrada."
+    },
+    {
+      "id": "R-2",
+      "name": "Orientações de catálogos/interpolação i18next (somente comparação)",
+      "type": "library-documentation",
+      "version": "Documentação oficial atual consultada em 2026-10-06; nenhuma dependência selecionada",
+      "verified": true,
+      "existing": {
+        "installed": false,
+        "currentVersion": null
+      },
+      "documentation": {
+        "url": "https://www.i18next.com/principles/namespaces",
+        "additionalUrls": [
+          "https://www.i18next.com/translation-function/interpolation",
+          "https://www.i18next.com/misc/json-format"
+        ],
+        "relevantSections": [
+          "namespaces por módulo",
+          "escape de interpolação",
+          "formato plural JSON"
+        ]
+      },
+      "pattern": "Catálogos JSON com namespaces permitem arquivos modulares; o escape de interpolação deve continuar ativo ao renderizar HTML. A revisão de arquitetura recomenda um helper ESM compartilhado e Intl nativo em vez de adotar i18next nesta arquitetura vanilla sem bundler, que inclui scripts."
+    },
+    {
+      "id": "R-3",
+      "name": "Interpolação de variáveis do Docker Compose",
+      "type": "documentation",
+      "version": "Documentação oficial atual consultada em 2026-10-06",
+      "verified": true,
+      "existing": {
+        "installed": true,
+        "currentVersion": "Compose v5.6.0 no ambiente host atual"
+      },
+      "documentation": {
+        "url": "https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/",
+        "relevantSections": [
+          "precedência de interpolação",
+          "ambiente shell e arquivos env",
+          ".env do projeto"
+        ]
+      },
+      "pattern": "Tratar o idioma indicado pelo instalador somente como dica inicial de bootstrap. Ele não pode sobrescrever o idioma já persistido da instalação ao reiniciar Compose ou aplicação."
+    },
+    {
+      "id": "R-4",
+      "name": "Arquitetura existente e superfícies de idioma do produto",
+      "type": "codebase",
+      "version": "main em c008f07",
+      "verified": true,
+      "existing": {
+        "installed": true,
+        "currentVersion": "JavaScript ESM; Fastify/static vanilla web; Prisma 6.19.3; PostgreSQL 18.6; ferramentas .sh/.bat no host; OBS Browser Source"
+      },
+      "documentation": {
+        "url": "https://github.com/gustavo8000br/subarushogun_gi_twich_bot",
+        "relevantSections": [
+          "apps/api",
+          "apps/web",
+          "apps/infra",
+          "comandos de idioma",
+          "scripts Compose"
+        ]
+      },
+      "pattern": "Separar identificadores estáveis de máquina dos textos exibidos, compartilhar catálogos consumíveis por Node e navegador e manter fallback das ferramentas do host quando a aplicação estiver offline."
+    }
+  ],
+  "researchFindings": [
+    "O produto não tem bundler de frontend; uma dependência de tradução em runtime precisa provar compatibilidade com ESM estático do browser, Node ESM e ferramentas do host sem exigir compilação.",
+    "O proprietário confirmou um catálogo por módulo/idioma, raízes !fila/!queue/!cola sem aliases entre idiomas e locale único editável no painel.",
+    "A inspeção do repositório encontrou ferramentas shell e batch mais volumes Compose. A decisão de arquitetura define PostgreSQL como autoridade e .local/product-locale.state como projeção recuperável versionada; a recuperação ainda não foi provada por teste.",
+    "O proprietário aprovou preservar exatamente os textos de fila/recompensa/widget escritos pelo streamer e localizar somente o texto do produto. Valores persistidos nunca devem ser sobrescritos em silêncio."
+  ],
+  "unverifiedClaims": [
+    "O contrato inicial do parser Node passou 9/9; parsing browser/Node/shell/PowerShell, decodificação UTF-8 estrita, placeholders allowlistados e paridade dos catálogos ainda não foram verificados.",
+    "A projeção de locale do host ainda está somente no desenho; recuperação de crash, atomicidade, permissões, persistência Compose e leitura stale/offline ainda precisam de testes.",
+    "A política aprovada de colisão com raízes reservadas ainda não tem implementação nem teste de upgrade/migração.",
+    "Validador de catálogo, migration do locale, seleção de idioma no instalador e parsing de comandos localizados não foram implementados nem validados."
+  ],
+  "recommendations": [
+    "Manter um locale canônico no PostgreSQL e inicializá-lo somente quando ausente; projetar ao host uma revisão monotônica em arquivo local substituído atomicamente e recuperar a projeção no startup/retry.",
+    "Usar arquivos TSV UTF-8 sem BOM, divididos por módulo e idioma, com texto literal, placeholders allowlistados, validação local/CI e fallback pt-BR; sem serviço externo de tradução.",
+    "Antes de localizar ferramentas do host, fechar por testes os casos de crash entre commit/projeção, falha de escrita, corrupção, estado stale/offline, recuperação e permissões.",
+    "Manter a validação de catálogos como gate CI para schema, chaves obrigatórias, placeholders, plurais, IDs de locale e conteúdo seguro.",
+    "Continuar a implementação test-first das políticas aprovadas e solicitar reavaliação QA independente após fechar os achados atuais de consistência editorial da spec."
+  ],
+  "sources": [
+    {
+      "title": "Especificação ECMA-402 da API de Internacionalização",
+      "url": "https://402.ecma-international.org/",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "Namespaces i18next",
+      "url": "https://www.i18next.com/principles/namespaces",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "Interpolação i18next",
+      "url": "https://www.i18next.com/translation-function/interpolation",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "Formato JSON i18next",
+      "url": "https://www.i18next.com/misc/json-format",
+      "consulted": "2026-10-06"
+    },
+    {
+      "title": "Interpolação de variáveis Docker Compose",
+      "url": "https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/",
+      "consulted": "2026-10-06"
+    }
+  ]
+}

@@ -34,10 +34,27 @@ describe('pure pt-BR chat command parser', () => {
   });
 
   it.each([
-    ['!queue comandos', 'comandos'],
-    ['!queue ping', 'ping'],
-  ])('parses the global bot command namespace: %s', (text, command) => {
-    expect(parseChatCommand(text)).toEqual({ kind: 'command', scope: 'global', queueKey: null, command: 'queue', args: [command] });
+    ['!fila comandos', 'comandos', 'commands'],
+    ['!fila ping', 'ping', 'ping'],
+  ])('parses the Portuguese global bot command namespace: %s', (text, command, rootAction) => {
+    expect(parseChatCommand(text)).toMatchObject({ kind: 'command', scope: 'global', queueKey: null, command: 'queue', args: [], rootAction });
+  });
+
+  it.each([
+    ['!queue commands', 'en', 'commands'],
+    ['!cola comandos', 'es', 'commands'],
+  ])('maps the active localized root to a stable command action: %s', (text, locale, rootAction) => {
+    expect(parseChatCommand(text, { locale })).toMatchObject({
+      kind: 'command', scope: 'global', queueKey: null, command: 'queue', rootAction,
+    });
+  });
+
+  it.each([
+    ['!queue comandos', 'pt-BR'],
+    ['!fila commands', 'en'],
+    ['!queue comandos', 'es'],
+  ])('rejects cross-locale global roots: %s under %s', (text, locale) => {
+    expect(parseChatCommand(text, { locale })).toEqual({ kind: 'invalid', code: 'INVALID_SYNTAX' });
   });
 
   it('keeps login arguments distinct and does not resolve display names or permissions', () => {
@@ -46,13 +63,51 @@ describe('pure pt-BR chat command parser', () => {
     });
   });
 
-  it('parses global commands without a queue key', () => {
-    expect(parseChatCommand('!filas')).toEqual({
-      kind: 'command', scope: 'global', queueKey: null, command: 'filas', args: [],
+  it('keeps global queue and account actions inside the selected command namespace', () => {
+    expect(parseChatCommand('!fila filas')).toEqual({
+      kind: 'command', scope: 'global', queueKey: null, command: 'queue', args: [], rootAction: 'queues',
     });
-    expect(parseChatCommand('!conta reset')).toEqual({
-      kind: 'command', scope: 'global', queueKey: null, command: 'conta', args: ['reset'],
+    expect(parseChatCommand('!fila conta')).toEqual({
+      kind: 'command', scope: 'global', queueKey: null, command: 'queue', args: [], rootAction: 'account_read',
     });
+    expect(parseChatCommand('!fila conta reset')).toEqual({
+      kind: 'command', scope: 'global', queueKey: null, command: 'queue', args: ['reset'], rootAction: 'account_reset',
+    });
+    expect(parseChatCommand('!fila conta Conta Atual')).toEqual({
+      kind: 'command', scope: 'global', queueKey: null, command: 'queue', args: ['Conta', 'Atual'], rootAction: 'account_set',
+    });
+  });
+
+  it.each(['!filas', '!conta reset'])('rejects the legacy standalone global command: %s', (text) => {
+    expect(parseChatCommand(text)).toEqual({ kind: 'invalid', code: 'INVALID_SYNTAX' });
+  });
+
+  it.each([
+    ['!queue queues', 'en', 'queues'],
+    ['!cola cuenta', 'es', 'account_read'],
+    ['!cola cuenta restablecer', 'es', 'account_reset'],
+  ])('maps translated global actions to a stable command ID: %s', (text, locale, rootAction) => {
+    expect(parseChatCommand(text, { locale })).toMatchObject({
+      kind: 'command', scope: 'global', command: 'queue', rootAction,
+    });
+  });
+
+  it('accepts command labels supplied by a complete community locale catalog', () => {
+    const labels = {
+      root: 'warteschlange',
+      'global.commands': 'befehle',
+      'queue.posicao': 'position',
+    };
+    expect(parseChatCommand('!warteschlange befehle', { locale: 'de', labels })).toMatchObject({
+      kind: 'command', scope: 'global', rootAction: 'commands',
+    });
+    expect(parseChatCommand('!abismo position', { locale: 'de', labels })).toMatchObject({
+      kind: 'command', scope: 'queue', command: 'posicao',
+    });
+  });
+
+  it.each(['fila', 'queue', 'cola'])('does not resolve localized command roots as queue slugs: %s', (root) => {
+    expect(parseChatCommand(`!${root} lista`)).toEqual({ kind: 'invalid', code: 'INVALID_SYNTAX' });
   });
 
   it.each([

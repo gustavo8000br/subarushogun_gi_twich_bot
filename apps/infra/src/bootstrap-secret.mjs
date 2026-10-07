@@ -36,9 +36,15 @@ export async function ensureDatabaseSecret({ directory, accessGid = 999 }) {
 }
 
 /** Create a persistent local CA and localhost server certificate for the HTTPS panel. */
-export async function ensureLocalTlsCertificate({ directory, exportDirectory, accessGid = 999 }) {
+export async function ensureLocalTlsCertificate({ directory, exportDirectory, accessGid = 999, localeProjectionGid = 10001 }) {
   await mkdir(directory, { recursive: true, mode: 0o750 });
   await mkdir(exportDirectory, { recursive: true, mode: 0o755 });
+  const exportDirectoryStat = await stat(exportDirectory);
+  if (process.getuid?.() === 0 && Number.isInteger(localeProjectionGid)) {
+    const { chown } = await import('node:fs/promises');
+    try { await chown(exportDirectory, exportDirectoryStat.uid, localeProjectionGid); } catch { /* Some host bind-mount providers do not support group changes. */ }
+  }
+  await chmod(exportDirectory, 0o2770);
   const paths = {
     caKeyPath: join(directory, 'localhost-ca.key'),
     caCertificatePath: join(directory, 'localhost-ca.crt'),

@@ -354,6 +354,14 @@ Expectativas para contribuições:
 
 Execute as verificações de qualidade da seção [Desenvolvimento](#desenvolvimento) antes de pedir revisão. Lint, typecheck, testes, validação do Compose e evidências da story devem corresponder à mesma revisão avaliada.
 
+### Catálogos de tradução
+
+Consulte o [Guia de contribuição de traduções](docs/pt-BR/TRANSLATION_GUIDE.md) para ver o locale-fonte, o modelo de contribuição, exemplos de plural, revisão e validação. O português brasileiro (`pt-BR`) é o locale-fonte e fallback seguro.
+
+As traduções do produto ficam em `apps/web/localization/catalogs/<modulo>/<locale>.tsv`, com um arquivo UTF-8 por módulo e locale. Mantenha completos os catálogos obrigatórios `pt-BR`, `en` e `es`, com as mesmas chaves e placeholders. Para adicionar um locale comunitário, crie um arquivo em cada módulo do produto; ele só ficará disponível quando o conjunto completo passar pela validação.
+
+Execute `npm run validate:localization` para verificar os catálogos do repositório. O bot lê esse diretório por uma montagem somente para leitura do Compose e o verifica novamente enquanto está em execução. Depois de adicionar um locale completo, a página de configurações o encontra na próxima atualização do catálogo (em até aproximadamente 30 segundos); não é preciso reconstruir a imagem nem reiniciar o bot. Edite os arquivos no diretório do projeto, nunca dentro do contêiner. Use somente texto literal; catálogos não contêm código executável nem templates HTML. Mensagens com contagens usam as categorias `Intl.PluralRules` do locale; o validador aponta formas ausentes antes que o catálogo seja descoberto. Nomes de filas, descrições de recompensa e templates escritos pelo streamer permanecem exatamente como foram digitados.
+
 ## Commits e versionamento
 
 Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) com um resumo curto e direto:
@@ -402,9 +410,12 @@ Abra `https://localhost:3000` manualmente. Se o navegador indicar certificado n�
 | FND-5 | Comandos, chamadas, timeout, confirmação de limpeza, conta atual e serviços compartilhados ([issue #1](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/1)) | Concluída; QA 9,0/10, operações reais de pontos Twitch não verificadas |
 | FND-6 | Planejamento UX com referências, painel completo, assistente, API protegida e segurança local ([issue #6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | Concluída; QA independente 9,0/10. Escritas de recompensas Twitch reais seguem sem validação |
 | FND-7 | Widgets configuráveis para overlay local OBS ([issue #7](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/7)) | Concluída; QA independente PASS 9,2/10; sincronização Twitch e confiança OBS em Windows/macOS não foram validadas |
-| OPS-2 | Rótulos pt-BR para status Twitch no painel; plano futuro de pt-BR padrão, inglês/espanhol e traduções da comunidade | Implementação e revisão QA em andamento |
+| OPS-1 | Gates CI para API, infra e web | QA PASS 9,3/10; aguarda merge da PR |
+| OPS-2 | Rótulos seguros em português para status Twitch | QA PASS 9,3/10; correções de regressão nesta PR |
+| OPS-4 | Metadados da licença MIT | QA PASS 9,3/10; já mesclada |
+| FND-8 | Localização de todo o produto | Implementação concluída na PR aberta #31; persistência de locale, descoberta dinâmica de catálogos comunitários, textos localizados do painel/chat/OBS/ciclo de vida e validação de plurais têm cobertura. QA independente é o gate restante da story; escritas reais na Twitch e macOS nativo continuam sem validação |
 
-O plano futuro de localização do painel usa pt-BR por padrão, inglês e espanhol, com contribuições da comunidade para outros idiomas do painel/frontend. Esta versão permanece somente em pt-BR. O registro das stories é a fonte de detalhes de estado e evidências de teste. Uma funcionalidade não está concluída apenas porque aparece neste roadmap.
+A FND-8 adiciona um idioma persistente ao produto, com catálogos pt-BR, inglês e espanhol organizados por módulo. Catálogos comunitários completos são descobertos enquanto o app está em execução; painel, chat, textos do OBS e ferramentas de ciclo de vida usam o idioma selecionado. As raízes de chat são `!fila`, `!queue` ou `!cola` conforme o locale. A PR continua aberta até passar pelo gate de QA independente.
 
 ## Dados e segurança
 

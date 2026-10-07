@@ -68,8 +68,8 @@ function renderStyle(widget, value, input) {
 function displayValue(payload) {
   if (payload.value === null || payload.value === undefined || payload.value === '') return String(payload.fallbackText ?? '');
   if (payload.sourceType === 'queue_state') {
-    if (payload.value === 'open') return 'Aberta';
-    if (payload.value === 'closed') return 'Fechada';
+    if (payload.value === 'open') return payload.messages?.['overlay.state.open'] ?? 'Aberta';
+    if (payload.value === 'closed') return payload.messages?.['overlay.state.closed'] ?? 'Fechada';
   }
   return String(payload.value);
 }
@@ -90,14 +90,20 @@ export function mountOverlayWidget({
   let active = tokenPattern.test(token);
   let lastValue = null;
   let inFlight = false;
+  let localizedMessages = {};
+  function localized(key, fallback) { return localizedMessages[key] ?? fallback; }
+  function setProductLocale(locale) {
+    if (typeof locale !== 'string') return;
+    try { document.documentElement.lang = Intl.getCanonicalLocales(locale)[0]; } catch { /* Ignore invalid catalog locale identifiers. */ }
+  }
   if (String(location.hash ?? '')) history.replaceState(null, '', `${location.pathname}${location.search}`);
-  if (!active) status.textContent = 'Fonte indisponível';
+  if (!active) status.textContent = localized('overlay.status.unavailable', 'Fonte indisponível');
 
   function clearForRevocation() {
     active = false;
     lastValue = null;
     value.textContent = '';
-    status.textContent = 'Fonte indisponível';
+    status.textContent = localized('overlay.status.unavailable', 'Fonte indisponível');
     widget.classList.remove('is-stale');
   }
 
@@ -117,31 +123,34 @@ export function mountOverlayWidget({
         return;
       }
       if (!response.ok) {
-        if (lastValue === null) status.textContent = 'Dados temporariamente indisponíveis';
+        if (lastValue === null) status.textContent = localized('overlay.status.data_unavailable', 'Dados temporariamente indisponíveis');
         else {
-          status.textContent = 'Atualização atrasada';
+          status.textContent = localized('overlay.status.stale', 'Atualização atrasada');
           widget.classList.add('is-stale');
         }
         return;
       }
       const payload = await response.json();
       if (!payload || typeof payload !== 'object' || !['string', 'number'].includes(typeof payload.value) && payload.value !== null) {
-        if (lastValue === null) status.textContent = 'Dados temporariamente indisponíveis';
+        if (lastValue === null) status.textContent = localized('overlay.status.data_unavailable', 'Dados temporariamente indisponíveis');
         else {
-          status.textContent = 'Atualização atrasada';
+          status.textContent = localized('overlay.status.stale', 'Atualização atrasada');
           widget.classList.add('is-stale');
         }
         return;
       }
+      setProductLocale(payload.productLocale);
+      if (payload.messages && typeof payload.messages === 'object' && !Array.isArray(payload.messages)) localizedMessages = payload.messages;
+      if (payload.messages?.['overlay.document.title']) document.title = payload.messages['overlay.document.title'];
       renderStyle(widget, value, payload.style);
       lastValue = displayValue(payload);
       value.textContent = lastValue;
       status.textContent = '';
       widget.classList.remove('is-stale');
     } catch {
-      if (lastValue === null) status.textContent = 'Dados temporariamente indisponíveis';
+      if (lastValue === null) status.textContent = localized('overlay.status.data_unavailable', 'Dados temporariamente indisponíveis');
       else {
-        status.textContent = 'Atualização atrasada';
+        status.textContent = localized('overlay.status.stale', 'Atualização atrasada');
         widget.classList.add('is-stale');
       }
     } finally {

@@ -1,0 +1,48 @@
+schema: 1
+story: OPS-1
+story_title: Integração contínua para API, infraestrutura e web
+gate: PASS
+status_reason: >-
+  QA independente revisou o workflow e os critérios de aceite e verificou a execução CI bem-sucedida
+  37525101710 em main no commit c008f07, incluindo verificações por app, suíte Vitest/PostgreSQL/Compose,
+  gates estáticos/de versão, build de produção e publicação AMD64/ARM64. A pessoa revisora não reinstalou
+  dependências nem repetiu a suíte local nesse worktree. Sincronização da issue/status fica para após o merge.
+reviewer: Quinn (Arquiteto de Testes Independente)
+reviewed_revision: c008f07
+updated: '2026-10-06T21:04:24Z'
+top_issues: []
+risk_summary:
+  highest_score: 2
+  rationale: >-
+    Nenhuma lacuna de aceite foi encontrada. Evidência CI hospedada cobre a implementação commitada;
+    este PASS QA não afirma novo rerun local após atualização Docker/Compose.
+waiver:
+  active: false
+quality_score: 93
+evidence:
+  tests_reviewed: 5
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5]
+    ac_gaps: []
+  commands:
+    - 'GitHub Actions 37525101710 em c008f07: sucesso; relatório mostra 473 testes / 69 arquivos'
+    - 'Workflow revisado: permissões, concorrência, Node/npm ci fixados, lint/typecheck por app e jobs de teste/build'
+  traceability:
+    - ac: 3
+      given: 'Uma PR ou push em main aciona o CI'
+      when: 'a integração completa roda em Linux'
+      then: 'o job de integração Vitest/PostgreSQL/Compose passa'
+      tests: ['GitHub Actions 37525101710']
+    - ac: 4
+      given: 'Um commit de origem do produto é construído'
+      when: 'gates estáticos/de versão/Compose/imagem executam'
+      then: 'os gates passam sem credenciais Twitch de runtime'
+      tests: ['GitHub Actions 37525101710']
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Workflow usa permissões somente leitura e referências Actions fixas.'
+  reliability:
+    status: PASS
+    notes: 'Suíte hospedada completa e build da imagem passaram.'

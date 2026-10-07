@@ -3,7 +3,7 @@
 const queueKeyPattern = /^[a-z0-9-]{2,24}$/;
 const reservedQueueKeys = new Set([
   'add', 'remover', 'sair', 'posicao', 'proximo', 'atender', 'concluir', 'mover',
-  'abrir', 'fechar', 'limpar', 'confirmar', 'filas', 'conta', 'lista', 'queue',
+  'abrir', 'fechar', 'limpar', 'confirmar', 'filas', 'conta', 'lista', 'fila', 'queue', 'cola',
 ]);
 
 /** @param {string} code */

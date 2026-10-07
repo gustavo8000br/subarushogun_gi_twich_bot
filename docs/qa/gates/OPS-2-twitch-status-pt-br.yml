@@ -1,0 +1,60 @@
+schema: 1
+story: OPS-2
+story_title: Localize Twitch setup status in the panel
+gate: PASS
+status_reason: >-
+  Independent QA first found a misleading connected/ineligible label, then identified a stale eligibility
+  reason masking reconnect_required. Both were reproduced, fixed test-first, and re-reviewed. Known
+  operational status now takes precedence over stale eligibility while connected ineligible channels
+  remain clearly labeled. No live Twitch behavior is claimed.
+reviewer: Quinn (Independent Test Architect)
+reviewed_revision: 'c008f07 plus OPS-2 regression fixes in this PR worktree'
+updated: '2026-10-06T21:09:30Z'
+top_issues: []
+risk_summary:
+  highest_score: 2
+  rationale: >-
+    Both state-precedence cases are covered by regression tests. Status values remain allowlisted and
+    unknown values use a generic safe fallback. Live Twitch credential/session behavior was not tested.
+waiver:
+  active: false
+quality_score: 93
+evidence:
+  tests_reviewed: 7
+  risks_identified: 2
+  trace:
+    ac_covered: [1, 2, 3, 4]
+    ac_gaps: []
+  commands:
+    - 'npm test -- --run tests/unit/setup-messages.test.js tests/unit/web-route.test.js: 12/12 passed'
+    - 'npm run lint:web: passed'
+    - 'npm run typecheck:web: passed'
+    - 'Direct helper checks: connected+ineligible label/state; stale ineligible reason with reconnect_required; unknown status fallback'
+  traceability:
+    - ac: 1
+      given: 'Channel setup projection is connected but ineligible'
+      when: 'the status pill renders'
+      then: 'the label and visual category show the Affiliate/Partner requirement, not connected'
+      tests: ['tests/unit/setup-messages.test.js']
+    - ac: 2
+      given: 'An unknown internal status is projected'
+      when: 'the status pill renders'
+      then: 'a generic Portuguese fallback is shown without exposing the raw value'
+      tests: ['tests/unit/setup-messages.test.js']
+    - ac: 3
+      given: 'Eligibility details are available'
+      when: 'the setup panel renders'
+      then: 'the existing safe Portuguese eligibility explanation remains visible'
+      tests: ['tests/unit/setup-messages.test.js', 'tests/unit/web-route.test.js']
+    - ac: 4
+      given: 'A persisted operational status requires reconnect while eligibility data is stale'
+      when: 'the status pill renders'
+      then: 'the current operational reconnect label/state takes precedence'
+      tests: ['tests/unit/setup-messages.test.js']
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Internal status values remain allowlisted; unknown values are not reflected to UI.'
+  reliability:
+    status: PASS
+    notes: 'Regression tests cover both connected/ineligible and reconnect/stale-eligibility tuples.'

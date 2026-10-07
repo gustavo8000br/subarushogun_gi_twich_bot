@@ -2,6 +2,50 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## v0.6.0-alpha
+
+- Complete FND-8 localization gates on PR #31: catalog validation rejects HTML markup and control characters while allowing documented command metavariables; contributor guides are now bilingual. Full suite passed 638/638, lint/typecheck/catalog/version/port/Compose/static-analysis checks passed, Docker bot image built, and independent AIOX-QA returned PASS 9.2/10. Live Twitch writes and native macOS remain unverified.
+
+- Localize the OAuth callback success/recovery page from setup catalogs; escape catalog copy and the Twitch channel display name before HTML rendering, retain the 30-second return behavior, and fall back safely if catalogs are unavailable.
+
+- Complete catalog-backed localization of remaining panel forms, dynamic queue/entry/operation/widget presentation, confirmations and safe generic error copy. The operations projection no longer exposes persisted error details. DOM localization preserves nested form controls.
+- Add locale-aware plural groups to chat and panel using `Intl.PluralRules` and `Intl.NumberFormat`; validation requires the ICU plural categories for each catalog locale. The focused localization suites passed 61/61 and `npm run validate:localization` passed for chat, lifecycle, overlay, panel, and setup. Independent AIOX-QA review is the remaining FND-8 story gate.
+
+- Persist installation locale in PostgreSQL with optimistic revision/audit, expose a session-protected catalog API, discover complete module/locale TSV files dynamically, and write an atomic host-readable locale projection.
+- Add locale-aware chat roots and supported command/help/reply text, OBS-generated labels, setup/status labels, and host lifecycle copy. Streamer-authored queue/widget content remains unchanged.
+- Prevent backend/provider error strings from reaching panel notices and toasts; map the locale revision conflict to catalog-owned copy and use localized generic copy otherwise. Regression tests cover a provider message containing a secret-like value.
+- Add generic `subarushogun_twich_bot_{setup,update,uninstall}` entrypoints. POSIX tools use the saved locale; Windows `.bat` entrypoints delegate to the PowerShell lifecycle runner. The runner has contract coverage but was not executed natively because PowerShell/Windows is unavailable in this environment.
+- Update bilingual contributor and operations docs and validate catalog, locale API/persistence/projection, shell lifecycle, wrapper, and Compose contracts.
+- Quality gates on 2026-10-06: `npm run lint`, `npm run typecheck`, `npm test` (86 files / 616 tests), `npm run validate:port-denylist` (1,024 files, 0 findings), `npm run validate:version`, `npm run review:static` (0 findings / 70 application JS files), `npm run validate:localization` (5 modules; en/es/pt-BR), `git diff --check`, and `docker compose config --quiet` passed. Whole-panel localization, PowerShell runtime validation, and final independent QA remain open.
+- Add a PR gate on `windows-latest` for the PowerShell updater using an isolated path with spaces and fake Git/Docker commands. The first native run exposed an inherited PowerShell exit code after the fixture itself reported success; the fixture now sets an explicit successful process exit after cleanup. GitHub Actions run `37557519427` passed the native Windows scenario. Full panel localization and final independent QA remain open.
+
+## v0.5.2-alpha
+
+- Validate the current FND-8 implementation slice with the full suite: `npm test` passed 79 files / 566 tests; localization catalog validation, typecheck, lint, and `git diff --check` passed. FND-8 remains in progress; broader product localization and independent QA are still pending.
+- Add a panel locale picker backed by discovered complete catalogs, save locale/revision in PostgreSQL settings with transactional audit and conflict checks, and use catalogs for Twitch setup labels. New community catalog files are mounted read-only by Compose and discovered during panel refresh. Real PostgreSQL tests cover default, audit, invalid IDs, and concurrent changes; focused panel/API/repository checks passed 161/161. Full interface/chat/OBS/host localization remains pending.
+- Preserve pending locale selection across background catalog refreshes with a pure tested selector (3/3). Add bilingual contributor instructions for catalog paths, validation, and live discovery.
+- Add `npm run validate:localization` for safe CLI validation of module/locale catalog coverage. Red reproduced a missing validator script; Green passed 2/2 CLI tests, and the real catalog tree validates for setup in en/es/pt-BR. Combined localization suites passed 44/44; typecheck and lint passed.
+- Add a session-protected local catalog API that rescans module TSV files on every request; TDD proved it discovers a newly added complete community locale while the server stays running. Production Fastify registers the route, and initial Twitch setup catalogs now have pt-BR, English, and Spanish files. Focused integration passed 21/21; typecheck and lint passed. Browser rendering and persisted locale remain pending.
+- Add a shared catalog resolver by TDD. Red showed the missing module; Green passed 7/7 tests for locale/key fallback and allowlisted scalar interpolation. The resolver is not yet wired to browser catalogs or product locale state.
+- Add shared ESM catalog contracts by TDD: literal TSV parser, safe translator, strict UTF-8 decoder, byte-to-catalog parser, dynamic locale/key/placeholder validation, and per-module filesystem discovery. A real filesystem integration test found and fixed a defect that admitted incomplete extra-locale catalogs; discovery/parity integration passed 15/15, and combined catalog suites passed 32/32. Global module completeness, browser, and host-script parity remain pending.
+- Plan OPS-5 as a cross-platform lifecycle entrypoint story. Research GitHub Actions matrix tests and per-platform artifacts; distinguish its MIT open-source runner from the hosted GitHub service, and clarify that artifacts come from reviewed sources, CI does not auto-commit changes, and Docker host updates remain outside the workflow. Published planning issue #30; implementation has not started.
+- Localize Twitch setup's incomplete-state prompts for English and Spanish with TDD. Red reproduced 6 missing translations; Green passed 39/39 focused tests, and a refactor centralized the pt-BR fallback.
+- Localize the eligible Twitch channel summary for English and Spanish with TDD. Red reproduced 2 untranslated assertions; Green passed 33/33 focused tests, and the refactored locale-map implementation passed the same suite.
+- Localize the Twitch eligibility guidance for English and Spanish with TDD; 4 Red cases reproduced the missing behavior and the focused setup-message suite passed 31/31 after Green.
+
+- Record owner-approved collision behavior: preserve keys, block only the conflicting global command root, and require an explicit panel rename without automatic changes.
+
+- The owner approved preserving streamer-authored names, descriptions, templates, and fixed widget text exactly as entered when locale changes; only product-owned text is localized.
+
+- Localize all Twitch integration status labels for English and Spanish with TDD; 15 Red assertions reproduced missing translations, then the focused setup-message suite passed 27/27 after Green.
+
+- Fix two Twitch setup status-precedence defects with regression tests first: connected-but-ineligible showed a misleading connected label, and stale eligibility could hide a required reconnect. Independent QA re-review passed OPS-2 at 9.3/10; no live Twitch account was used.
+- Record independent QA PASS 9.3/10 for OPS-1, OPS-2 and OPS-4 in bilingual story and gate records. OPS-1/2 source completion and issue synchronization await this branch review/PR merge; OPS-4 is already merged.
+- Start independent FND-8 P0 TDD increments. The first localizes the Twitch eligibility label for en/es; Red failed 2 assertions and Green passed 9/9 in the focused test. The persisted locale is not wired to the panel yet.
+- Record the owner-approved generic lifecycle tool names `subarushogun_twich_bot_setup`, `subarushogun_twich_bot_update`, and `subarushogun_twich_bot_uninstall`.
+- Update the bilingual FND-8 Spec Pipeline to v3: define PostgreSQL as locale authority with an atomic revisioned projection for offline tools and literal UTF-8 TSV catalogs; synchronize EN/pt-BR research and story artifacts. The v2 QA re-review remained CONCERNS without a new score; product decisions and fresh QA still block implementation.
+- Bump only PATCH to `0.5.2`; keep `.release-stage` at `alpha` and `VERSION` at the zero-source marker for the not-yet-committed checkout.
+
 ## v0.5.1-alpha
 
 - Normalize the macOS first-run sequence number across the bilingual READMEs. Explicitly pass `.Path` from PowerShell `Resolve-Path` to `Import-Certificate`, and add a contract test for the platform instructions. Red reproduced the stale pt-BR step number; Green passed the focused contract suite (6/6). The Windows and macOS commands remain documented as untested on their native hosts.

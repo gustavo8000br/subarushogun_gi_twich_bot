@@ -70,6 +70,7 @@ describe('local operational secret bootstrap', () => {
     expect(await readFile(join(exportDirectory, 'localhost-ca.crt'), 'utf8')).toBe(await readFile(result.caCertificatePath, 'utf8'));
     expect(existsSync(join(exportDirectory, 'localhost-ca.key'))).toBe(false);
     expect((await stat(result.privateKeyPath)).mode & 0o777).toBe(0o440);
+    expect((await stat(exportDirectory)).mode & 0o7777).toBe(0o2770);
   });
 
   it('preserves the same localhost certificate and exported CA across bootstrap runs', async () => {

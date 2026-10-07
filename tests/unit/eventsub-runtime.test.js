@@ -74,14 +74,14 @@ describe('EventSub WebSocket runtime', () => {
       onChatMessage: (message) => {
         decision = authorizeCommand({
           broadcasterId: 'channel-1', message,
-          command: parseChatCommand('!fila proximo'),
+          command: parseChatCommand('!abismo proximo'),
         });
       },
     });
 
     listener.handlers.chat({
       broadcasterId: 'channel-1', chatterId: 'mod-1', chatterName: 'moderator',
-      chatterDisplayName: 'Moderator', messageId: 'message-3', messageText: '!fila proximo',
+      chatterDisplayName: 'Moderator', messageId: 'message-3', messageText: '!abismo proximo',
       badges: { moderator: '1', subscriber: '12' }, sourceBroadcasterId: null,
     });
 

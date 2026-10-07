@@ -1,0 +1,31 @@
+schema: 1
+story: OPS-4
+story_title: Adopt the MIT License
+gate: PASS
+status_reason: >-
+  Independent QA verified the canonical MIT license, package/lock metadata, bilingual references,
+  merged PR #25 at 27effa7, and successful PR/main CI evidence. No product behavior changed, so no
+  additional application test was needed. This closes the missing QA record for an already merged story.
+reviewer: Quinn (Independent Test Architect)
+reviewed_revision: 'PR #25 / merge 27effa7'
+updated: '2026-10-06T21:04:24Z'
+top_issues: []
+risk_summary:
+  highest_score: 2
+  rationale: 'No license or repository-metadata acceptance gap remains.'
+waiver:
+  active: false
+quality_score: 93
+evidence:
+  tests_reviewed: 0
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7]
+    ac_gaps: []
+  commands:
+    - 'PR #25 checks: passed; main CI run 37525101710: passed'
+    - 'Inspected LICENSE, package.json/package-lock.json, bilingual README/changelog/versioning references'
+nfr_validation:
+  reliability:
+    status: PASS
+    notes: 'Merged package and repository metadata are consistent.'

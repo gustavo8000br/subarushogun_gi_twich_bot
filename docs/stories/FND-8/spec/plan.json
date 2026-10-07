@@ -1,0 +1,108 @@
+{
+  "storyId": "FND-8",
+  "plannedAt": "2026-10-06T21:09:30Z",
+  "plannedBy": "@aiox-master after PM/architect and independent QA critique",
+  "specVersion": 3,
+  "complexity": "COMPLEX",
+  "planningStatus": "PLANNING_BASELINE_COMPLETE_IMPLEMENTATION_IN_PROGRESS",
+  "implementationStarted": true,
+  "phases": [
+    {
+      "id": "P0",
+      "name": "TDD locale/catalog contracts",
+      "goal": "Execute Red→Green→Refactor for independent locale/catalog foundations: PostgreSQL-authoritative locale projection, cross-runtime UTF-8 TSV parser, safe localized messages, and catalog validation.",
+      "status": "in_progress",
+      "gate": "Each behavior starts with a failing contract/regression test. The approved authored-text, root-collision, and tool-naming decisions no longer block independent foundations; their dependent behaviors still require their own TDD coverage.",
+      "likelyFiles": [
+        "docs/stories/FND-8/spec/spec.md",
+        "docs/stories/FND-8/spec/plan.json",
+        "docs/stories/FND-8/story.md"
+      ]
+    },
+    {
+      "id": "P1",
+      "name": "Catalog and locale foundation",
+      "goal": "Introduce shared pt-BR/en/es module catalogs, a narrow translation helper, locale validation and explicit native Intl formatting using test-first increments.",
+      "status": "in_progress",
+      "verification": [
+        "catalog unit/contract matrix",
+        "key/placeholder/plural parity validator",
+        "unsafe markup and unknown-locale fallback tests"
+      ]
+    },
+    {
+      "id": "P2",
+      "name": "Persisted locale and setup/panel surfaces",
+      "goal": "Seed only a new installation, preserve saved locale through restart/update, and allow protected audited panel changes without process restart.",
+      "status": "in_progress",
+      "verification": [
+        "real PostgreSQL migration/integration tests",
+        "session/CSRF/API allowlist tests",
+        "browser rendering and persistence tests"
+      ]
+    },
+    {
+      "id": "P3",
+      "name": "Chat roots, commands and responses",
+      "goal": "Use only the active locale root !fila, !queue or !cola; localize product replies/help; detect any legacy slug/alias collision and block conflicting-root activation without automatic rename until the owner-approved upgrade resolution is complete.",
+      "status": "not_started",
+      "verification": [
+        "TDD parser and authorization matrix",
+        "all roots/forbidden aliases/reserved queue keys",
+        "500-character output and secret/error leak tests"
+      ]
+    },
+    {
+      "id": "P4",
+      "name": "OBS and product-owned widget copy",
+      "goal": "Localize OBS product-owned widget labels and fallback copy; preserve streamer-authored widget text.",
+      "status": "not_started",
+      "verification": [
+        "renderer and projection tests",
+        "locale switch with an active OBS projection",
+        "no UID/secret leakage"
+      ]
+    },
+    {
+      "id": "P5",
+      "name": "Host install/update/uninstall tools",
+      "goal": "Localize lifecycle tool copy and the approved setup/update/uninstall action names. Coordinate installer consolidation and platform packaging with planning story OPS-5; do not duplicate its installer architecture.",
+      "status": "not_started",
+      "verification": [
+        "Linux shell, Windows batch/PowerShell, and macOS shell contract tests where supported",
+        "dependency detection and no silent elevation",
+        "offline locale bridge and typed delete confirmation"
+      ]
+    },
+    {
+      "id": "P6",
+      "name": "Community workflow and quality gates",
+      "goal": "Publish module/locale templates and contribution guide, automate catalog checks, complete bilingual docs/changelogs, run full quality and platform acceptance, and obtain independent QA.",
+      "status": "not_started",
+      "verification": [
+        "community catalog validation test matrix",
+        "full repository quality gates",
+        "manual native host tool acceptance",
+        "English/pt-BR parity review"
+      ]
+    }
+  ],
+  "workflowNotes": [
+    "Every behavior increment follows Red/Green/Refactor; documentation or planning records must not claim tests that were not run.",
+    "Use real PostgreSQL migrations when persistence/transaction behavior is asserted; do not substitute Prisma mocks.",
+    "Keep translation tools local; no hosted service or generated translations are assumed.",
+    "Update bilingual docs and concise user-facing/internal changelogs within the same release PR."
+  ],
+  "versioning": {
+    "planningChange": "documentation-only PATCH, current alpha stage retained",
+    "ownerIntentForFND8Implementation": "v1.1.0-HHHHHHH-beta",
+    "promotionAuthorized": false,
+    "releaseOrTagAuthorized": false
+  },
+  "nextSteps": [
+    "Continue the implementation with Red→Green→Refactor per behavior and record exact evidence in the bilingual story log.",
+    "Add tests for approved authored-text preservation and reserved-root collision behavior before implementing those dependent behaviors.",
+    "Keep lifecycle tool localization within FND-8 and coordinate consolidation/CI artifact design with OPS-5.",
+    "Obtain independent QA follow-up after implementation gates and platform acceptance are ready."
+  ]
+}

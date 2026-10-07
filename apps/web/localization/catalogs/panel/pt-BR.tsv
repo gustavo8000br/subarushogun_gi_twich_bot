@@ -1,0 +1,433 @@
+translation.unavailable	Texto do produto indisponível.
+panel.document.title	Fila Local · Twitch
+panel.brand.home	Fila Local início
+panel.runtime.version	Versão local
+panel.runtime.local_data	Dados neste computador
+panel.sidebar.title	PAINEL DO STREAMER
+panel.navigation.label	Navegação principal
+panel.navigation.overview	Visão geral
+panel.navigation.queues	Filas e atendimentos
+panel.navigation.new_queue	Nova fila
+panel.navigation.operations	Operações financeiras
+panel.navigation.commands	Comandos do chat
+panel.navigation.widgets	Widgets do OBS
+panel.navigation.settings	Configurações
+panel.navigation.connection	Conexão Twitch
+panel.sidebar.local_note	O painel e os dados ficam neste computador.
+panel.health.label	Saúde da instalação
+panel.health.database	Banco de dados
+panel.health.twitch_api	API da Twitch
+panel.health.database.connected	Conectado
+panel.health.database.unavailable	Indisponível
+panel.health.database.checking	Verificando
+panel.health.twitch.connected	Conectada
+panel.health.twitch.not_configured	Não configurada
+panel.health.twitch.connecting	Conectando
+panel.health.twitch.reconciling	Sincronizando
+panel.health.twitch.degraded	Instável
+panel.health.twitch.reconnect_required	Reconexão necessária
+panel.health.twitch.ineligible	Canal não elegível
+panel.health.twitch.stopped	Desconectada
+panel.health.twitch.unknown	Estado desconhecido
+panel.health.ping_unavailable	Sem medição
+panel.health.overall.operational	Operacional
+panel.health.overall.check	Verificar conexão
+panel.summary.label	Resumo da operação
+panel.summary.queues	FILAS
+panel.summary.configured	configuradas
+panel.summary.waiting	AGUARDANDO
+panel.summary.viewers_waiting	viewers na fila
+panel.summary.in_service	EM ATENDIMENTO
+panel.summary.called_or_started	chamados ou iniciados
+panel.overview.eyebrow	OPERAÇÃO
+panel.overview.ready	Pronto para a live?
+panel.overview.description	Gerencie as pessoas aguardando e os atendimentos em uma página própria.
+panel.overview.open_queues	Abrir filas
+panel.queues.eyebrow	AO VIVO
+panel.queues.title	Filas e atendimentos
+panel.queues.description	Acompanhe aguardantes, chamadas e atendimentos em andamento.
+panel.new_queue.eyebrow	CONFIGURE SUA LIVE
+panel.new_queue.title	Nova fila
+panel.new_queue.description	Cada fila usa uma Custom Reward própria da Twitch.
+panel.operations.eyebrow	PONTOS E RECUPERAÇÃO
+panel.operations.title	Operações financeiras
+panel.operations.description	Acompanhe pedidos de reembolso e consumo até a confirmação da Twitch.
+panel.commands.eyebrow	CHAT DA LIVE
+panel.commands.title	Comandos disponíveis
+panel.commands.description	Consulte as permissões e escolha quais cargos podem usar cada comando. Vários cargos marcados funcionam como opções independentes.
+panel.widgets.eyebrow	FONTES DA LIVE
+panel.widgets.title	Widgets do OBS
+panel.widgets.description	Cada widget mostra um único dado no OBS por uma conexão HTTPS local. OBS e bot precisam estar neste computador.
+panel.settings.eyebrow	PREFERÊNCIAS
+panel.settings.title	Configurações
+panel.settings.description	Ajuste os rótulos de conta usados durante os atendimentos.
+panel.connection.eyebrow	TWITCH
+panel.connection.title	Conexão do canal
+panel.connection.description	O assistente aparece durante a configuração ou quando uma reconexão é necessária.
+panel.locale.label	Idioma
+panel.locale.save	Salvar
+panel.locale.eyebrow	IDIOMA DO PRODUTO
+panel.locale.title	Idioma do painel
+panel.locale.description	O idioma selecionado também será usado nas mensagens próprias do bot. Catálogos comunitários completos aparecem automaticamente.
+panel.locale.available	Idioma disponível
+panel.error.generic	Não foi possível concluir. Tente novamente.
+panel.error.locale_conflict	O idioma mudou em outra solicitação. Atualize a página.
+panel.form.queue_name	Nome da fila
+panel.form.create_queue	Criar fila
+panel.widget.appearance	Aparência
+panel.widget.save	Salvar widget
+panel.entry.add	Adicionar à fila
+panel.form.command	Comando
+panel.form.command_placeholder	abismo
+panel.form.aliases	Apelidos
+panel.form.aliases_placeholder	abyss, espiral
+panel.form.cost	Custo em pontos
+panel.form.max_per_stream	Limite por live (opcional)
+panel.form.max_per_viewer	Limite por pessoa por live (opcional)
+panel.form.cooldown	Intervalo global em segundos (opcional)
+panel.form.no_limit	Sem limite
+panel.form.no_cooldown	Sem intervalo
+panel.form.twitch_limits_hint	Esses limites são aplicados pela própria Twitch. Deixe vazio para desativar.
+panel.form.reward_description	Descrição da recompensa
+panel.form.reward_prompt_placeholder	Resgate para entrar na fila. UID somente se solicitado.
+panel.form.uid_mode	Modo do UID
+panel.form.uid_hidden	Oculto
+panel.form.uid_visible	Solicitar UID
+panel.form.call_timeout	Prazo de chamada (min)
+panel.dialog.close	Fechar
+panel.queue_settings.title	Opções da fila
+panel.queue_settings.call_deadline	Prazo para iniciar atendimento (minutos; vazio desativa)
+panel.queue_settings.call_message	Mensagem de chamada
+panel.queue_settings.call_placeholders	Campos aceitos: {user}, {queue}, {position}, {uid}, {account}.
+panel.queue_settings.show_uid_list	Mostrar UID na lista do chat
+panel.queue_settings.show_uid_overlay	Permitir UID na projeção de overlay
+panel.queue_settings.show_uid_call	Mostrar UID na chamada
+panel.queue_settings.auto_switch_account	Trocar conta automaticamente ao chamar uma pessoa
+panel.queue_settings.refund_removed	Solicitar reembolso ao remover pessoa chamada/em atendimento
+panel.queue_settings.refund_no_show	Solicitar reembolso quando houver ausência
+panel.queue_settings.refund_viewer_leave	Solicitar reembolso se a pessoa chamada sair
+panel.reward_settings.title	Editar recompensa
+panel.reward_settings.twitch_limits_hint	A Twitch aplica os limites e cooldown. Alterações ficam pendentes até a API confirmar. Ocultar UID também remove os valores locais armazenados.
+panel.entry.priority_toggle	Prioridade conferida por mim
+panel.entry.priority_audit_hint	A confirmação fica auditada com seu usuário. O bot não verifica pagamento/inscrição nem guarda comprovantes. Entradas prioritárias seguem FIFO na faixa prioritária e não criam operações de pontos.
+panel.entry.reason_external	Pagamento externo (ex.: PIX)
+panel.entry.reason_bits	Bits
+panel.entry.reason_sub	Inscrição
+panel.entry.reason_other	Outro benefício conferido
+panel.reward.manual_association_hint	A resposta anterior da Twitch ficou ambígua. Escolha a recompensa gerenciável que corresponde a esta fila. Essa escolha será auditada e não afirma confirmação financeira pela API.
+panel.commands.policy_title	Como as permissões funcionam
+panel.commands.policy_help	O streamer sempre pode gerenciar os comandos. VIP só vale quando a opção de gerenciamento por VIP está ativada. Comandos exclusivos e o teste de conexão não podem ser ampliados.
+panel.commands.loading	Carregando catálogo…
+panel.commands.save	Salvar permissões
+panel.widgets.list_eyebrow	SEUS WIDGETS
+panel.widgets.list_title	Fontes independentes
+panel.widgets.create	Criar widget
+panel.widgets.link_help	O link é exibido uma vez ao criar ou regenerar. Guarde-o nas configurações da fonte Browser do OBS. Defina Page Permissions como None.
+panel.widgets.empty	Abra esta página para carregar os widgets.
+panel.settings.account_eyebrow	CONTA ATUAL
+panel.settings.edit_account	Alterar conta atual
+panel.settings.account_help	O rótulo atual pode ficar associado a uma pessoa chamada. O rótulo padrão é usado quando não há troca automática.
+panel.settings.default_account	Conta padrão
+panel.settings.edit_default	Editar padrão
+panel.connection.setup_eyebrow	PRIMEIROS PASSOS
+panel.connection.connect_channel	Conectar canal
+panel.connection.confidential_app_help	Crie um aplicativo confidencial no console Twitch. O callback deste painel é:
+panel.connection.open_console	Abrir console de desenvolvedor ↗
+panel.connection.connect	Conectar com a Twitch
+panel.connection.authorized_eyebrow	CANAL AUTORIZADO
+panel.connection.connected_fallback	Canal conectado
+panel.connection.connected	A Twitch está conectada a este painel local.
+panel.connection.reconnect	Reconectar com a Twitch
+panel.connection.reconcile	Sincronizar agora
+panel.credentials.eyebrow	APLICATIVO CONFIDENCIAL
+panel.credentials.title	Credenciais Twitch
+panel.credentials.client_id	Client ID
+panel.credentials.client_secret	Client Secret
+panel.credentials.client_id_placeholder	Seu Client ID
+panel.credentials.secret_configured	Secret configurado. Para substituir, informe um novo Secret e valide antes de salvar.
+panel.credentials.secret_empty	O Secret fica guardado localmente e nunca será exibido novamente.
+panel.credentials.validate_save	Validar e salvar aplicativo
+panel.widget.editor_eyebrow	CONFIGURAÇÃO DO WIDGET
+panel.widget.source_label	O que exibir
+panel.widget.queue_label	Fila
+panel.widget.fallback_label	Texto alternativo quando não houver valor
+panel.widget.link_lifetime_help	O link não pode ser consultado depois que esta janela for fechada. Se perder, gere outro link; o anterior será invalidado.
+panel.widget.copy_link	Copiar link
+panel.widget.obs_help	No OBS: adicione uma fonte Navegador, cole a URL, ajuste as dimensões e defina Page Permissions como None. Nunca ignore erros de certificado nem troque para HTTP.
+panel.widget.close	Fechar
+panel.locale.incomplete	O idioma salvo não está completo. Português brasileiro está ativo temporariamente.
+panel.locale.updated	Idioma do produto atualizado.
+panel.connection.channel_connected	Canal conectado
+panel.connection.channel_not_connected	Twitch ainda não conectada
+panel.connection.channel_disconnected	Canal desconectado
+panel.connection.pill_connected	CONECTADA
+panel.connection.pill_reconnect	RECONEXÃO
+panel.runtime.refreshed	Atualizado
+panel.queue.group.waiting	Aguardando
+panel.queue.group.called	Chamados
+panel.queue.group.in_service	Em atendimento
+panel.queue.empty.title	Nenhuma fila criada
+panel.queue.empty.hint	Use o formulário acima para criar sua primeira fila.
+panel.queue.empty_group	Ninguém no momento
+panel.queue.status.open	ABERTA
+panel.queue.status.closed	FECHADA
+panel.queue.status.pending_delete	Exclusão pendente: aguardando confirmação dos cancelamentos e da recompensa.
+panel.queue.action.delete	Excluir fila
+panel.queue.action.configure	Configurar
+panel.queue.action.edit_reward	Editar recompensa
+panel.queue.action.unarchive	Desarquivar
+panel.queue.action.next	Próximo
+panel.queue.action.clear	Limpar fila
+panel.queue.action.add	Adicionar
+panel.queue.action.open	Abrir
+panel.queue.action.close	Fechar
+panel.queue.action.archive	Arquivar
+panel.queue.action.resolve_reward	Vincular recompensa
+panel.queue.history.title	Histórico recente
+panel.queue.history.empty	Ainda não há atendimentos encerrados.
+panel.queue.history.date_unavailable	Data indisponível
+panel.entry.action.call	chamar
+panel.entry.action.move_up	Mover ↑
+panel.entry.action.move_down	Mover ↓
+panel.entry.action.remove_priority	Remover prioridade
+panel.entry.action.mark_priority	Marcar prioritária
+panel.entry.action.attend	atender
+panel.entry.action.complete	concluir
+panel.entry.action.resend	Reenviar chamada
+panel.entry.action.remove	remover
+panel.entry.priority_badge	Prioritária · conferida pelo operador
+panel.entry.uid_label	UID
+panel.queue.points	pontos
+panel.queue.sync.synced	Twitch sincronizada
+panel.queue.sync.manual	recompensa vinculada manualmente
+panel.queue.sync.pending	sincronização pendente
+panel.queue.sync.unknown	resultado desconhecido · revise no painel
+panel.queue.sync.failed	falha de sincronização · revise no painel
+panel.queue.sync.not_synced	sem sincronização confirmada
+panel.command.role.everyone	Todos
+panel.command.role.subscriber	Inscritos
+panel.command.role.vip	VIPs
+panel.command.role.moderator	Moderadores
+panel.command.role.streamer	streamer
+panel.command.role_join	e
+panel.command.access_fixed	Acesso fixo:
+panel.command.marked_roles	Qualquer cargo marcado pode usar este comando.
+panel.widget.source.account	Conta atual
+panel.widget.source.queue_name	Nome de uma fila
+panel.widget.source.queue_state	Estado aberta/fechada de uma fila
+panel.widget.source.queue_count	Quantidade aguardando em uma fila
+panel.widget.source.called_name	Pessoa chamada
+panel.widget.source.called_position	Posição original da pessoa chamada
+panel.widget.source.service_name	Pessoa em atendimento
+panel.widget.source.fixed_text	Texto fixo
+panel.widget.source.unknown	Widget
+panel.widget.status.unavailable	Widget indisponível
+panel.widget.status.active	Link ativo
+panel.widget.status.revoked	Revogado
+panel.widget.empty.title	Nenhum widget criado
+panel.widget.empty.hint	Crie uma fonte com um único dado da sua live para adicionar ao OBS.
+panel.widget.create_first	Criar primeiro widget
+panel.widget.action.edit	Editar
+panel.widget.action.regenerate	Regenerar link
+panel.widget.action.revoke	Revogar
+panel.widget.action.generate	Gerar link
+panel.widget.action.delete	Excluir
+panel.widget.confirm.regenerate	O link atual deixará de funcionar. Gerar um novo link agora?
+panel.widget.confirm.revoke	A fonte do OBS deixará de receber dados. Revogar este link?
+panel.widget.confirm.delete	Excluir este widget? A URL atual será invalidada e não poderá ser recuperada.
+panel.widget.link.copied_once	Copie agora. O link não será exibido novamente.
+panel.widget.link.copied	Link copiado.
+panel.widget.link.copy_fallback	Selecione e copie o link. Ele não será exibido novamente ao fechar.
+panel.widget.queue.select	Selecione uma fila
+panel.widget.editor.create	Criar widget
+panel.widget.editor.edit	Editar widget
+panel.widget.preview_example	Exemplo do widget
+panel.widget.preview.waiting	4 aguardando
+panel.widget.preview.open	Aberta
+panel.widget.preview.called	Viewer chamado
+panel.widget.preview.in_service	Viewer em atendimento
+panel.widget.fixed_text_label	Texto fixo
+panel.widget.text_color	Cor do texto
+panel.widget.background_color	Cor do fundo
+panel.widget.background_opacity	Opacidade do fundo (%)
+panel.widget.font	Fonte
+panel.widget.font.system	Sistema
+panel.widget.font.arial	Arial
+panel.widget.font.verdana	Verdana
+panel.widget.font.georgia	Georgia
+panel.widget.font.courier	Courier New
+panel.widget.alignment	Alinhamento
+panel.widget.alignment.left	Esquerda
+panel.widget.alignment.center	Centro
+panel.widget.alignment.right	Direita
+panel.widget.effect	Efeito
+panel.widget.effect.none	Nenhum
+panel.widget.effect.outline	Contorno
+panel.widget.effect.shadow	Sombra
+panel.widget.overflow	Texto longo
+panel.widget.overflow.wrap	Quebrar linha
+panel.widget.overflow.clip	Cortar
+panel.widget.overflow.ellipsis	Reticências
+panel.widget.preview_eyebrow	PRÉVIA SIMULADA
+panel.widget.link_eyebrow	LINK DE USO ÚNICO
+panel.widget.copy_now	Copie agora
+panel.widget.local_widget_url	URL local do widget
+panel.command.description.queue_lista	Consultar aguardantes, chamados e atendimentos.
+panel.command.syntax.queue_lista	!<fila> [lista]
+panel.command.description.queue_comandos	Ver comandos disponíveis para seu cargo.
+panel.command.syntax.queue_comandos	!<fila> comandos
+panel.command.description.queue_posicao	Consultar sua posição ou estado na fila.
+panel.command.syntax.queue_posicao	!<fila> posição
+panel.command.description.queue_sair	Sair da própria entrada ativa.
+panel.command.syntax.queue_sair	!<fila> sair
+panel.command.description.queue_add	Adicionar uma pessoa manualmente.
+panel.command.syntax.queue_add	!<fila> add <usuário> [UID]
+panel.command.description.queue_remover	Remover uma pessoa da fila.
+panel.command.syntax.queue_remover	!<fila> remover <usuário>
+panel.command.description.queue_proximo	Chamar as próximas pessoas.
+panel.command.syntax.queue_proximo	!<fila> próximo [1-10]
+panel.command.description.queue_atender	Iniciar um atendimento chamado.
+panel.command.syntax.queue_atender	!<fila> atender [usuário]
+panel.command.description.queue_concluir	Concluir um atendimento.
+panel.command.syntax.queue_concluir	!<fila> concluir [usuário]
+panel.command.description.queue_mover	Alterar a posição de quem aguarda.
+panel.command.syntax.queue_mover	!<fila> mover <usuário> <posição>
+panel.command.description.queue_abrir	Abrir a recompensa da fila.
+panel.command.syntax.queue_abrir	!<fila> abrir
+panel.command.description.queue_fechar	Pausar a recompensa da fila.
+panel.command.syntax.queue_fechar	!<fila> fechar
+panel.command.description.queue_limpar	Pré-visualizar ou confirmar a limpeza.
+panel.command.syntax.queue_limpar	!<fila> limpar [confirmar]
+panel.command.description.global_filas	Listar filas disponíveis.
+panel.command.syntax.global_filas	!fila filas
+panel.command.description.global_conta_read	Consultar a conta atual.
+panel.command.syntax.global_conta_read	!fila conta
+panel.command.description.global_conta_set	Definir o rótulo da conta atual.
+panel.command.syntax.global_conta_set	!fila conta <nome>
+panel.command.description.global_conta_reset	Restaurar a conta padrão.
+panel.command.syntax.global_conta_reset	!fila conta reset
+panel.command.description.global_queue_comandos	Listar os comandos disponíveis para seu cargo.
+panel.command.syntax.global_queue_comandos	!fila comandos
+panel.command.description.global_queue_ping	Verificar o bot, sua versão e a latência da Twitch.
+panel.command.syntax.global_queue_ping	!fila ping
+panel.commands.unavailable	O catálogo de comandos ainda não está disponível.
+panel.command.roles_for	Cargos que podem usar
+panel.settings.current_default	Padrão atual
+panel.operations.empty	Nenhuma operação pendente.
+panel.operation.type.refund	REEMBOLSO
+panel.operation.type.fulfillment	CONSUMO
+panel.operation.type.reward_update	ATUALIZAÇÃO DE RECOMPENSA
+panel.operation.type.queue_delete	EXCLUSÃO DE FILA
+panel.operation.type.other	OPERAÇÃO
+panel.operation.status.pending	Pendente
+panel.operation.status.retry	Nova tentativa agendada
+panel.operation.status.processing	Em andamento
+panel.operation.status.unknown	Estado desconhecido · revise no painel
+panel.operation.status.conflict	Conflito · requer revisão
+panel.operation.status.failed	Falha · requer revisão
+panel.operation.status.confirmed	Confirmada pela Twitch
+panel.operation.status.resolved_manual	Resolvida manualmente · Twitch não confirmou
+panel.operation.status.cancelled	Cancelada
+panel.operation.attempts.one	{count} tentativa
+panel.operation.attempts.many	{count} tentativas
+panel.operation.attempts.other	{count} tentativas
+panel.operation.action.resolve	Registrar resolução manual
+panel.operation.action.retry	Reconciliar / tentar novamente
+panel.operation.confirm.resolve	O estado dos pontos não pôde ser confirmado pela Twitch. Registrar que você revisou e encerrou o acompanhamento automático? Isso não confirma reembolso nem consumo e não haverá novas tentativas automáticas.
+panel.reconciliation.running	Sincronização em andamento…
+panel.reconciliation.complete.one	Sincronização concluída. {count} resgate importado.
+panel.reconciliation.complete.many	Sincronização concluída. {count} resgates importados.
+panel.reconciliation.complete.other	Sincronização concluída. {count} resgates importados.
+panel.reconciliation.issues.one	Sincronização concluída com {count} pendência. Revise os avisos e operações.
+panel.reconciliation.issues.many	Sincronização concluída com {count} pendências. Revise os avisos e operações.
+panel.reconciliation.issues.other	Sincronização concluída com {count} pendências. Revise os avisos e operações.
+panel.entry.status.completed	Concluído
+panel.entry.status.removed	Removido
+panel.entry.status.no_show	Ausente
+panel.commands.saved	Permissões dos comandos atualizadas.
+panel.notice.queue_created	Fila salva. A criação da recompensa Twitch está pendente; acompanhe o estado abaixo.
+panel.notice.queue_settings_saved	Configurações da fila salvas.
+panel.notice.reward_update_pending	Alteração solicitada. A fila mostrará a sincronização pendente até a confirmação da Twitch.
+panel.notice.call_already_queued	A chamada já está na fila de envio.
+panel.notice.call_resent	Reenvio solicitado. O prazo de ausência foi mantido.
+panel.priority.reason_prompt	Selecione o benefício conferido: 1 inscrição, 2 Bits, 3 pagamento externo (ex.: PIX), 4 outro.
+panel.priority.invalid_reason	Selecione uma opção de 1 a 4.
+panel.priority.marked	Prioridade registrada e auditada. A conferência foi feita pelo operador.
+panel.priority.removed	Prioridade removida.
+panel.queue.confirm.archive	Arquivar esta fila? Ela deixará de aparecer na descoberta, mas as entradas existentes serão preservadas. A recompensa será pausada.
+panel.queue.confirm.unarchive	Desarquivar esta fila? Ela continuará fechada até você abri-la.
+panel.queue.archive.pending	Arquivamento solicitado; aguardando confirmação da Twitch.
+panel.queue.archive.done	Fila arquivada.
+panel.queue.unarchive.done	Fila desarquivada e continua fechada.
+panel.queue.confirm.delete	Excluir a fila “{title}” e sua recompensa Twitch? {count} entradas ativas serão removidas e seus resgates terão cancelamento solicitado. A recompensa só será excluída depois da confirmação de todos os cancelamentos. A operação pode ficar pendente se a Twitch não confirmar.
+panel.queue.delete.pending	Exclusão iniciada. A fila ficará pendente até a Twitch confirmar os cancelamentos e a exclusão da recompensa.
+panel.queue.delete.done	A exclusão já estava concluída.
+panel.reward.no_candidates	Nenhuma recompensa Twitch compatível foi encontrada. Revise a fila e as recompensas gerenciáveis no console Twitch.
+panel.queue.clear.empty	A fila já está vazia.
+panel.queue.clear.confirm	Limpar a fila “{title}”? {count} pessoas serão removidas e {refunds} reembolsos serão solicitados. A confirmação vale por 15 segundos.
+panel.queue.clear.changed	A fila mudou. Revise a nova confirmação para {count} pessoas.
+panel.queue.clear.done	{count} pessoas removidas; {refunds} reembolsos solicitados.
+panel.account.prompt.current	Nome da conta atual na live (até 60 caracteres):
+panel.account.prompt.default	Nome padrão da conta (até 60 caracteres):
+panel.overview.headline	Suas filas,
+panel.overview.headline_emphasis	no seu ritmo.
+panel.overview.lead	Acompanhe a live, o estado das integrações e o movimento das suas filas.
+panel.connection.starting	Twitch ainda não conectada
+panel.connection.starting_hint	Conecte seu canal para ativar as recompensas.
+panel.connection.starting_state	DESLIGADA
+panel.queue.loading	Preparando suas filas
+panel.queue.loading_hint	Elas aparecerão aqui conforme você configurar o painel.
+panel.locale.loading	Carregando idiomas…
+panel.footer.brand	Fila Local · operação local-first
+panel.runtime.refreshing	Atualizando estado
+panel.queue_settings.local_eyebrow	CONFIGURAÇÃO LOCAL
+panel.queue_settings.uid_policy_hint	A política de UID e a recompensa são editadas em “Editar recompensa”, com sincronização confirmada pela Twitch.
+panel.queue_settings.save	Salvar configurações
+panel.widget.font_size	Tamanho (px)
+panel.widget.font_weight	Peso
+panel.widget.width	Largura (px ou auto)
+panel.widget.height	Altura (px ou auto)
+panel.widget.margin_top	Margem superior
+panel.widget.margin_right	Margem direita
+panel.widget.margin_bottom	Margem inferior
+panel.widget.margin_left	Margem esquerda
+panel.widget.outline_width	Contorno (px)
+panel.widget.shadow_blur	Desfoque da sombra
+panel.widget.shadow_offset_x	Deslocamento X da sombra
+panel.widget.shadow_offset_y	Deslocamento Y da sombra
+panel.reward_settings.eyebrow	CUSTOM REWARD DA FILA
+panel.reward_settings.reward_name	Nome da recompensa
+panel.reward_settings.cost	Custo em pontos
+panel.reward_settings.description	Descrição
+panel.reward_settings.uid_field	Campo de UID
+panel.reward_settings.no_uid	Não solicitar UID
+panel.reward_settings.stream_limit	Limite por live (vazio desativa)
+panel.reward_settings.viewer_limit	Limite por pessoa por live
+panel.reward_settings.cooldown	Intervalo global em segundos
+panel.reward_settings.submit	Solicitar atualização na Twitch
+panel.entry.dialog_eyebrow	ADICIONAR MANUALMENTE
+panel.entry.dialog_title	Entrada na fila
+panel.entry.twitch_login	Login Twitch
+panel.entry.uid_optional	UID (opcional)
+panel.entry.benefit	Benefício conferido
+panel.reward.dialog_eyebrow	ASSOCIAÇÃO MANUAL
+panel.reward.dialog_title	Recompensa Twitch
+panel.reward.compatible_rewards	Recompensas compatíveis
+panel.reward.link_selected	Vincular recompensa selecionada
+panel.form.queue_name_placeholder	Ex.: Abismo Espiral
+panel.settings.account_fallback	Streamer
+panel.entry.login_placeholder	@usuario
+panel.entry.uid_placeholder	9 dígitos
+panel.connection.starting_pill	VERIFICANDO
+panel.error.locale_unavailable	Esse idioma não está disponível. Atualize os catálogos e tente novamente.
+panel.error.catalogs_unavailable	Não foi possível carregar os catálogos locais. Corrija os arquivos e tente novamente.
+panel.error.channel_locked	Este aplicativo já está vinculado a outro canal. Use uma instalação separada.
+panel.error.twitch_credentials	A Twitch não aceitou o aplicativo. Confira o Client ID e o Client Secret.
+panel.error.twitch_authorization	Não foi possível autorizar a Twitch. Reconecte o canal.
+panel.error.oauth_return	O retorno de autorização expirou ou não corresponde a esta sessão. Inicie a conexão novamente.
+panel.error.widget_link	Este link de widget não pode ser exibido novamente. Gere um novo link.
+panel.error.invalid_action	O estado foi alterado. Atualize o painel e tente novamente.
+panel.widget.preview.account	Asia 1
+panel.widget.card_details	{queue}{width} × {height} · Widget {id}
+panel.widget.auto	automático
+panel.queue_settings.call_message_default	{user}, sua vez!

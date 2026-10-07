@@ -10,7 +10,7 @@
 
 ## Status
 
-**InReview**
+**Done**
 
 ## Story
 
@@ -33,7 +33,7 @@
 - **Per-app typecheck regression:** `npm run typecheck:infra` failed because the isolated project could not resolve Node globals/types which had been incidentally loaded in the aggregate project. Adding the pinned `@types/node@24.13.6` development dependency and explicit Node types made `npm run typecheck:api`, `npm run typecheck:infra`, and `npm run typecheck:web` pass.
 - **Final local verification:** `npm test` — 46 files, 288 tests passed; `npm run lint`, `npm run typecheck`, all six per-app lint/typecheck commands, `npm run review:static` (40 application JS files, 0 findings), `npm run validate:version`, `docker compose config --quiet`, `docker compose build bot`, Ruby YAML parsing of `.github/workflows/ci.yml`, and `git diff --check` passed.
 - **Action pinning Red/Green:** the workflow contract first failed because actions referenced movable release tags. After replacing them with the immutable commit SHAs corresponding to checkout `v6.0.3`, setup-node `v7.0.0`, and setup-buildx `v4.4.1`, the focused contract passed again. Release references were checked against the official repositories on 2026-10-05.
-- GitHub-hosted Actions execution is pending the pull request and is not claimed as passed yet.
+- Independent QA reviewed successful GitHub Actions run `37525101710` on `c008f07` (473 tests / 69 files), per-app jobs and image publication. QA did not reinstall dependencies or rerun the suite locally in its review worktree; the review correctly relies on hosted CI evidence.
 
 ## File List
 
@@ -48,4 +48,23 @@
 
 ## QA Results
 
-Pending @qa review.
+### Review Date: 2026-10-06
+
+### Reviewed By: Quinn (AIOX QA)
+
+- Reviewed revision: `c008f07` (current main code before this documentation PR).
+- Acceptance criteria: all five verified against `.github/workflows/ci.yml`, the package scripts, current docs, and successful GitHub Actions run [37525101710](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37525101710) on `main` (`c008f07`).
+- Independent QA did not reproduce the local suite in its review worktree because dependencies were not installed. It verified successful GitHub Actions run `37525101710` (473 tests / 69 files) and inspected the workflow and acceptance coverage. The coordinator had separately run the listed local gates on the same source revision before this documentation update; after the Docker/Compose update, local gates are being rerun in this branch.
+- Compose validation and `docker compose -p queuebot-fnd7 build bot` passed. The build did not recreate or alter the running installation.
+- GitHub Actions evidence includes separate API, infra, web and shared checks, full Vitest/PostgreSQL/Compose integration, OpenGrep/version gates, production image build, and successful AMD64/ARM64 publication.
+- Limit: no Twitch credentials or live Twitch operations were used; this story's acceptance does not require them.
+
+### Gate Status
+
+Independent QA: PASS, 9.3/10 → `docs/qa/gates/OPS-1-ci-pipeline.yml`. The workflow was merged in PR #12; issue #20 was synchronized and closed after verifying successful main CI run 37525101710.
+
+## Change Log
+
+| Date | Version | Change | Agent |
+| --- | --- | --- | --- |
+| 2026-10-06 | 0.5.2 | QA Gate PASS — Status: InReview → Done | @qa |

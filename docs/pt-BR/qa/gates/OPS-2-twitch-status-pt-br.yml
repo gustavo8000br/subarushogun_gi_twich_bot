@@ -1,0 +1,60 @@
+schema: 1
+story: OPS-2
+story_title: Traduzir o status Twitch no painel
+gate: PASS
+status_reason: >-
+  QA independente primeiro encontrou rótulo enganoso para conectado/inelegível e depois identificou
+  razão de elegibilidade antiga ocultando reconnect_required. Ambos foram reproduzidos, corrigidos primeiro
+  com TDD e re-revisados. Status operacional conhecido agora prevalece sobre elegibilidade antiga e canal
+  conectado inelegível continua identificado claramente. Nenhum comportamento Twitch real é alegado.
+reviewer: Quinn (Arquiteto de Testes Independente)
+reviewed_revision: 'c008f07 mais correções de regressão OPS-2 nesta worktree de PR'
+updated: '2026-10-06T21:09:30Z'
+top_issues: []
+risk_summary:
+  highest_score: 2
+  rationale: >-
+    Os dois casos de precedência estão cobertos por testes de regressão. Status continuam allowlistados
+    e valores desconhecidos usam fallback genérico seguro. Credenciais/sessão Twitch reais não foram testadas.
+waiver:
+  active: false
+quality_score: 93
+evidence:
+  tests_reviewed: 7
+  risks_identified: 2
+  trace:
+    ac_covered: [1, 2, 3, 4]
+    ac_gaps: []
+  commands:
+    - 'npm test -- --run tests/unit/setup-messages.test.js tests/unit/web-route.test.js: 12/12 passaram'
+    - 'npm run lint:web: passou'
+    - 'npm run typecheck:web: passou'
+    - 'Verificação direta do helper: label/estado conectado+inelegível; razão antiga com reconnect_required; fallback de status desconhecido'
+  traceability:
+    - ac: 1
+      given: 'Projeção de configuração do canal está conectada, porém inelegível'
+      when: 'a pílula de status é renderizada'
+      then: 'rótulo e categoria visual mostram exigência Afiliado/Parceiro, não conectado'
+      tests: ['tests/unit/setup-messages.test.js']
+    - ac: 2
+      given: 'Um status interno desconhecido é projetado'
+      when: 'a pílula de status é renderizada'
+      then: 'um fallback genérico em português aparece sem revelar o valor cru'
+      tests: ['tests/unit/setup-messages.test.js']
+    - ac: 3
+      given: 'Detalhes de elegibilidade estão disponíveis'
+      when: 'o painel de configuração é renderizado'
+      then: 'a explicação segura de elegibilidade em português continua visível'
+      tests: ['tests/unit/setup-messages.test.js', 'tests/unit/web-route.test.js']
+    - ac: 4
+      given: 'Status operacional persistido exige reconexão e dados de elegibilidade estão antigos'
+      when: 'a pílula de status é renderizada'
+      then: 'rótulo/estado de reconexão operacional atual prevalece'
+      tests: ['tests/unit/setup-messages.test.js']
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Status internos permanecem allowlistados; valores desconhecidos não são refletidos na interface.'
+  reliability:
+    status: PASS
+    notes: 'Testes de regressão cobrem conectado/inelegível e reconexão com elegibilidade antiga.'

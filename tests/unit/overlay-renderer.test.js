@@ -66,6 +66,20 @@ describe('OBS overlay renderer', () => {
     expect(document.elements.value.textContent).toBe('Aberta');
   });
 
+  it('uses the installation locale for queue-state and status copy in the OBS widget', async () => {
+    const document = createDocument();
+    document.documentElement = { lang: 'pt-BR' };
+    const fetch = vi.fn(async () => response(200, {
+      sourceType: 'queue_state', value: 'open', fallbackText: '', style: {}, productLocale: 'en',
+      messages: { 'overlay.document.title': 'Local widget', 'overlay.state.open': 'Open', 'overlay.status.stale': 'Update delayed' },
+    }));
+    const renderer = mountOverlayWidget({ document, fetch, location: { hash: `#${'g'.repeat(43)}`, pathname: '/overlay.html', search: '' }, history: { replaceState() {} } });
+    await renderer.pollNow();
+    expect(document.documentElement.lang).toBe('en');
+    expect(document.elements.value.textContent).toBe('Open');
+    renderer.destroy();
+  });
+
   it('retains the last good value on a transient failure, marks stale, and clears stale after recovery', async () => {
     const document = createDocument();
     const fetch = vi.fn()

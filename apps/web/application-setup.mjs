@@ -1,5 +1,5 @@
-/** @param {{request: (url: string, options: object) => Promise<any>, notice: HTMLElement, refresh: () => Promise<void>, formDataFactory?: (form: HTMLFormElement) => FormData}} dependencies */
-export function createApplicationSetupSubmitHandler({ request, notice, refresh, formDataFactory }) {
+/** @param {{request: (url: string, options: object) => Promise<any>, notice: HTMLElement, refresh: () => Promise<void>, formDataFactory?: (form: HTMLFormElement) => FormData, presentError?: (error:unknown)=>string}} dependencies */
+export function createApplicationSetupSubmitHandler({ request, notice, refresh, formDataFactory, presentError = () => 'Não foi possível concluir. Tente novamente.' }) {
   return async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -15,7 +15,7 @@ export function createApplicationSetupSubmitHandler({ request, notice, refresh, 
       notice.textContent = 'Aplicativo validado e salvo com segurança.';
       await refresh();
     } catch (error) {
-      notice.textContent = error.message;
+      notice.textContent = presentError(error);
     }
   };
 }

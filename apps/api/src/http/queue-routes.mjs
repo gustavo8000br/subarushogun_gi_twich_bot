@@ -1,6 +1,7 @@
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { createHash } from 'node:crypto';
 import { CHAT_COMMANDS, CONFIGURABLE_COMMAND_ROLES, resolveAllowedRoles } from '../commands/catalog.mjs';
+import { translateCatalog } from '../../../shared/browser/translate-catalog.mjs';
 
 function canonicalValue(value) {
   if (Array.isArray(value)) return value.map(canonicalValue);
@@ -85,8 +86,8 @@ function matchesPendingQueueReward(reward, queue) {
     && reward.isEnabled === true && reward.isPaused === true;
 }
 
-/** @param {import('fastify').FastifyInstance} app @param {{repository: any, domainService?: any, integrations?: any, clearConfirmation?: any, publicBaseUrl?: string, productVersion?: string, resolveUser?: (login: string) => Promise<any>}} deps */
-export function registerQueueRoutes(app, { repository, domainService = repository, integrations = {}, clearConfirmation, publicBaseUrl = process.env.PUBLIC_BASE_URL ?? 'https://localhost:3000', productVersion = process.env.PRODUCT_VERSION ?? 'v0.1.0-0000000-alpha', resolveUser = async () => null }) {
+/** @param {import('fastify').FastifyInstance} app @param {{repository: any, domainService?: any, integrations?: any, clearConfirmation?: any, getSetupCatalogs?: () => Promise<Record<string, Record<string, string>>>, publicBaseUrl?: string, productVersion?: string, resolveUser?: (login: string) => Promise<any>}} deps */
+export function registerQueueRoutes(app, { repository, domainService = repository, integrations = {}, clearConfirmation, getSetupCatalogs = async () => ({}), publicBaseUrl = process.env.PUBLIC_BASE_URL ?? 'https://localhost:3000', productVersion = process.env.PRODUCT_VERSION ?? 'v0.1.0-0000000-alpha', resolveUser = async () => null }) {
   app.addHook('preHandler', async (request, reply) => {
     if (!request.url.startsWith('/api/') || request.url === '/api/session'
       || ['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
@@ -133,6 +134,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       product_version: state.productVersion ?? productVersion,
       api_contract_version: '1', revision: state.revision ?? 1,
       generated_at: new Date().toISOString(), account: state.account ?? { label: 'Streamer', source: 'default' },
+      product_locale: state.productLocale ?? { locale: 'pt-BR', revision: 1 },
       connectivity: { database: 'connected', twitch: integrations.status ?? 'not_configured' },
       queues: (await repository.listQueueProjection?.() ?? []).map((queue) => queueDto(queue)),
       pending_operations: await repository.listFinancialOperations?.() ?? [],
@@ -189,7 +191,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   app.get('/api/operations', async () => (await repository.listFinancialOperations?.() ?? []).map((operation) => ({
     id: operation.id, type: operation.operationType, redemptionId: operation.redemptionId,
     ...(operation.operationType.startsWith('reward.') ? { entityId: operation.entityId } : {}),
-    status: operation.status, attempts: operation.attempts, lastError: operation.lastError,
+    status: operation.status, attempts: operation.attempts,
     nextAttemptAt: operation.nextAttemptAt ?? null,
   })));
   app.post('/api/operations/:operationId/retry', async (request, reply) => {
@@ -235,17 +237,21 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   app.get('/callback', async (request, reply) => {
     /** @type {import('fastify').FastifyRequest & {localSession?: {id: string}, query: Record<string, any>}} */
     const localRequest = request;
-    if (!localRequest.localSession?.id) return reply.code(400).type('text/html; charset=utf-8').send(callbackPage('', { success: false }));
+    const localeState = typeof repository.getProductLocale === 'function' ? await repository.getProductLocale().catch(() => null) : null;
+    const locale = localeState?.locale ?? 'pt-BR';
+    let catalogs = {};
+    try { catalogs = await getSetupCatalogs(); } catch { /* Use the safe pt-BR callback fallback. */ }
+    if (!localRequest.localSession?.id) return reply.code(400).type('text/html; charset=utf-8').send(callbackPage('', { success: false, locale, catalogs }));
     const code = localRequest.query?.code;
     const state = localRequest.query?.state;
     if (typeof code !== 'string' || typeof state !== 'string' || !integrations.completeAuthorization || localRequest.query?.error) {
-      return reply.code(400).type('text/html; charset=utf-8').send(callbackPage('', { success: false }));
+      return reply.code(400).type('text/html; charset=utf-8').send(callbackPage('', { success: false, locale, catalogs }));
     }
     try {
       const identity = await integrations.completeAuthorization({ sessionId: localRequest.localSession.id, code, state });
-      return reply.type('text/html; charset=utf-8').send(callbackPage(identity.displayName ?? identity.login ?? 'Canal conectado'));
+      return reply.type('text/html; charset=utf-8').send(callbackPage(identity.displayName ?? identity.login ?? 'Canal conectado', { locale, catalogs }));
     } catch {
-      return reply.code(400).type('text/html; charset=utf-8').send(callbackPage('', { success: false }));
+      return reply.code(400).type('text/html; charset=utf-8').send(callbackPage('', { success: false, locale, catalogs }));
     }
   });
   app.post('/api/queues', async (request, reply) => {
@@ -547,14 +553,41 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
 function safePrompt(value) { return typeof value === 'string' ? value.trim().slice(0, 180) : ''; }
 function validCallMessage(value) { return typeof value === 'string' && value.length <= 350 ? value : '{user}, sua vez!'; }
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]); }
-function callbackPage(displayName, { success = true } = {}) {
-  const title = success ? 'Twitch conectada' : 'Não foi possível conectar a Twitch';
+const CALLBACK_PLACEHOLDERS = Object.freeze({
+  'setup.callback.success_message': ['channel'],
+  'setup.callback.return_message': ['seconds'],
+});
+const CALLBACK_FALLBACKS = Object.freeze({
+  'setup.callback.success_title': 'Twitch conectada',
+  'setup.callback.failure_title': 'Não foi possível conectar a Twitch',
+  'setup.callback.success_message': 'O canal {channel} está autorizado para esta instalação.',
+  'setup.callback.failure_message': 'A autorização não foi concluída ou expirou. Volte ao painel para conferir a conexão e tentar novamente.',
+  'setup.callback.secure': 'Conexão segura',
+  'setup.callback.local_installation': 'Instalação local',
+  'setup.callback.return_message': 'Você pode voltar ao painel agora. Esta tela também retornará automaticamente em {seconds} segundos.',
+  'setup.callback.return_action': 'Voltar ao painel',
+  'setup.callback.eyebrow_success': 'CONFIGURAÇÃO CONCLUÍDA',
+  'setup.callback.eyebrow_failure': 'CONEXÃO NÃO CONCLUÍDA',
+});
+function callbackPage(displayName, { success = true, locale = 'pt-BR', catalogs = {} } = {}) {
+  const localCatalogs = {
+    ...catalogs,
+    'pt-BR': { ...CALLBACK_FALLBACKS, ...(catalogs?.['pt-BR'] ?? {}) },
+  };
+  const t = (key, values = {}) => translateCatalog(localCatalogs, locale, key, { values, placeholders: CALLBACK_PLACEHOLDERS });
+  const title = t(success ? 'setup.callback.success_title' : 'setup.callback.failure_title');
   const message = success
-    ? `O canal <strong>${escapeHtml(displayName || 'conectado')}</strong> está autorizado para esta instalação.`
-    : 'A autorização não foi concluída ou expirou. Volte ao painel para conferir a conexão e tentar novamente.';
+    ? t('setup.callback.success_message', { channel: displayName || 'Canal conectado' })
+    : t('setup.callback.failure_message');
   const icon = success ? '✓' : '!';
-  const eyebrow = success ? 'CONFIGURAÇÃO CONCLUÍDA' : 'CONEXÃO NÃO CONCLUÍDA';
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#111318"><title>${title} · Fila Local</title><link rel="stylesheet" href="/styles.css"></head><body><header class="topbar"><a class="brand" href="/" aria-label="Fila Local início"><span class="brand-mark">F</span><span>FILA <b>LOCAL</b></span></a><div class="runtime"><span>Conexão segura</span><span class="runtime-dot"></span><span>Instalação local</span></div></header><main class="callback-shell"><section class="panel callback-card" role="status" aria-live="polite"><span class="callback-success-icon${success ? '' : ' callback-error-icon'}" aria-hidden="true">${icon}</span><p class="eyebrow">${eyebrow}</p><h1>${title}</h1><p class="lead">${message}</p><p class="muted">Você pode voltar ao painel agora. Esta tela também retornará automaticamente em <strong id="callback-countdown">30</strong> segundos.</p><a class="button button-primary callback-return" href="/">Voltar ao painel</a></section></main><script>window.history.replaceState(null,\x27\x27,\x27/callback\x27);let seconds=30;const counter=document.getElementById('callback-countdown');const timer=window.setInterval(()=>{seconds-=1;if(counter)counter.textContent=String(seconds);if(seconds<=0){window.clearInterval(timer);window.location.assign('/');}},1000);window.setTimeout(()=>window.location.assign('/'),30000);</script></body></html>`;
+  const eyebrow = t(success ? 'setup.callback.eyebrow_success' : 'setup.callback.eyebrow_failure');
+  const returnMessageParts = t('setup.callback.return_message', { seconds: '__CALLBACK_SECONDS__' }).split('__CALLBACK_SECONDS__');
+  return '<!doctype html><html lang="' + escapeHtml(locale) + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#111318"><title>'
+    + escapeHtml(title) + ' · Fila Local</title><link rel="stylesheet" href="/styles.css"></head><body><header class="topbar"><a class="brand" href="/" aria-label="Fila Local início"><span class="brand-mark">F</span><span>FILA <b>LOCAL</b></span></a><div class="runtime"><span>'
+    + escapeHtml(t('setup.callback.secure')) + '</span><span class="runtime-dot"></span><span>' + escapeHtml(t('setup.callback.local_installation')) + '</span></div></header><main class="callback-shell"><section class="panel callback-card" role="status" aria-live="polite"><span class="callback-success-icon'
+    + (success ? '' : ' callback-error-icon') + '" aria-hidden="true">' + icon + '</span><p class="eyebrow">' + escapeHtml(eyebrow) + '</p><h1>' + escapeHtml(title) + '</h1><p class="lead">'
+    + escapeHtml(message) + '</p><p class="muted">' + escapeHtml(returnMessageParts[0] ?? '') + '<strong id="callback-countdown">30</strong>' + escapeHtml(returnMessageParts.slice(1).join('__CALLBACK_SECONDS__')) + '</p><a class="button button-primary callback-return" href="/">' + escapeHtml(t('setup.callback.return_action'))
+    + '</a></section></main><script>window.history.replaceState(null,\x27\x27,\x27/callback\x27);let seconds=30;const counter=document.getElementById(\x27callback-countdown\x27);const timer=window.setInterval(()=>{seconds-=1;if(counter)counter.textContent=String(seconds);if(seconds<=0){window.clearInterval(timer);window.location.assign(\x27/\x27);}},1000);window.setTimeout(()=>window.location.assign(\x27/\x27),30000);</script></body></html>';
 }
 function userError(error) {
   if (error?.code === 'DUPLICATE_QUEUE_KEY') return 'Esse identificador ou apelido já está em uso.';

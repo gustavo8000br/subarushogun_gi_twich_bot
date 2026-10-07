@@ -354,6 +354,14 @@ Contribution expectations:
 
 Run the quality checks listed in [Development](#development) before requesting review. The lint, typecheck, tests, Compose validation, and story evidence should describe the same revision being reviewed.
 
+### Translation catalogs
+
+For the source locale, contribution template, plural examples, review steps, and validation requirements, see the [Translation contribution guide](docs/TRANSLATION_GUIDE.md). Brazilian Portuguese (`pt-BR`) is the source locale and safe fallback.
+
+Product translations live in `apps/web/localization/catalogs/<module>/<locale>.tsv`, with one UTF-8 file per module and locale. Keep the required `pt-BR`, `en`, and `es` catalogs complete and key/placeholder-compatible. Add a community locale file to every product module; it becomes available only when the full catalog set passes validation.
+
+Run `npm run validate:localization` to check the repository catalogs. The bot reads this directory through a read-only Compose mount and rescans it while running. After adding a complete locale, the settings page discovers it on its next catalog refresh (within about 30 seconds); rebuilding the image or restarting the bot is not required. Edit files in the project directory, not inside the container. Use literal text only; catalogs do not contain executable code or HTML templates. Count messages use locale-specific `Intl.PluralRules` categories; the validator reports missing forms before a catalog can be discovered. Streamer-written queue names, reward descriptions and templates remain exactly as entered.
+
 ## Commit messages and versioning
 
 Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) with a concise imperative summary:
@@ -402,9 +410,12 @@ Open `https://localhost:3000` yourself. If the browser reports an untrusted cert
 | FND-5 | Chat commands, calls, timeouts, cleanup confirmation, current account, and shared application services ([issue #1](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/1)) | Complete; QA 9.0/10, live Twitch point operations unverified |
 | FND-6 | UX planning with references, complete panel, setup wizard, protected API, and local security ([issue #6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | Complete; independent QA 9.0/10. Live Twitch reward writes remain unverified |
 | FND-7 | Configurable local OBS overlay widgets ([issue #7](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/7)) | Complete; independent QA PASS 9.2/10; Twitch synchronization and Windows/macOS OBS trust remain unverified |
-| OPS-2 | Localize Twitch setup states in the panel; future default pt-BR with English/Spanish and community translations | Implementation and QA review in progress |
+| OPS-1 | API, infra, and web CI gates | QA PASS 9.3/10; awaiting PR merge |
+| OPS-2 | Safe Portuguese Twitch status labels | QA PASS 9.3/10; regression fixes in this PR |
+| OPS-4 | MIT License metadata | QA PASS 9.3/10; already merged |
+| FND-8 | Product-wide localization | Implementation complete on open PR #31; locale persistence, live community catalog discovery, localized panel/chat/OBS/lifecycle copy, and plural validation are covered. Independent QA is the remaining story gate; live Twitch writes and native macOS remain unverified |
 
-The future panel localization plan is pt-BR by default, with English and Spanish, and community contributions for additional panel/frontend translations. This release remains pt-BR only. The story log is the source for detailed status and test evidence. A feature is not complete because it appears in this roadmap.
+FND-8 adds a persisted product language with pt-BR, English, and Spanish catalogs organized by module. Complete community catalogs are discovered while the app is running, and the panel, chat, OBS product copy, and lifecycle tools use the selected language. Chat roots are `!fila`, `!queue`, or `!cola` according to the selected locale. The open PR remains subject to independent QA before the story is closed.
 
 ## Data and security
 

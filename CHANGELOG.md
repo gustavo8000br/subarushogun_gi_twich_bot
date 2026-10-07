@@ -4,6 +4,18 @@
 
 This file highlights changes that matter to streamers and viewers. Technical and operational details are in [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
 
+## v0.6.0-alpha
+
+- The Twitch sign-in confirmation and recovery page now follows the selected product language.
+
+- Choose Brazilian Portuguese, English, Spanish, or a complete community translation for the panel and bot messages; command roots follow the selected language.
+
+- Choose the product language in the panel. Supported chat replies, OBS labels, and local setup tools can use Brazilian Portuguese, English, or Spanish catalogs.
+
+## v0.5.2-alpha
+
+- The Twitch setup panel now clearly labels channels that are connected but cannot use Channel Points rewards.
+
 ## v0.5.1-alpha
 
 - Clarified first-run local certificate setup instructions for Windows, Linux, and macOS.

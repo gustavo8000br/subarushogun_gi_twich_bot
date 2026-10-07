@@ -1,0 +1,39 @@
+{
+  "storyId": "FND-8",
+  "assessedAt": "2026-10-06T21:00:00Z",
+  "assessedBy": "@aiox-master, com contribuições da revisão de @aiox-pm e @aiox-architect",
+  "result": "COMPLEX",
+  "overridden": false,
+  "totalScore": 22,
+  "dimensions": {
+    "scope": {
+      "score": 5,
+      "notes": "Abrange painel/configuração/callback, parser e respostas do chat, textos de produto do OBS, configurações persistidas, ferramentas locais, catálogos comunitários, documentação e CI; provavelmente mais de 20 arquivos."
+    },
+    "integration": {
+      "score": 4,
+      "notes": "Coordena ESM do navegador, ESM do Node, PostgreSQL, Compose e entrypoints nativos shell/PowerShell; não precisa de provedor remoto de tradução."
+    },
+    "infrastructure": {
+      "score": 4,
+      "notes": "Exige comportamento de idioma persistido, compatibilidade de configurações, empacotamento/entrega de catálogos e coordenação com instalação/atualização/remoção."
+    },
+    "knowledge": {
+      "score": 4,
+      "notes": "Exige conhecimento de locale/Intl, gramática de chat e estabilidade de cargos, limites seguros de localização, scripts Windows/macOS/Linux e fluxo de contribuição."
+    },
+    "risk": {
+      "score": 5,
+      "notes": "Divergência de idioma, aceitação acidental de raízes legadas, vazamento de erros do backend, XSS/injeção de shell e divergência quando API/banco estiverem indisponíveis precisam de cobertura explícita."
+    }
+  },
+  "flags": [
+    "A reavaliação independente da spec v3 foi CONCERNS sem nova nota; os três achados editoriais foram corrigidos, e o QA final da implementação permanece pendente.",
+    "A arquitetura da projeção locale host/PostgreSQL foi escolhida; crash, falha de escrita, corrupção, stale/offline e recuperação ainda exigem testes.",
+    "O contrato TSV UTF-8 foi escolhido; parser, encoding, placeholders/plurais seguros e paridade multiplataforma ainda exigem testes.",
+    "As raízes globais fila, queue e cola são reservadas; a colisão existente é resolvida bloqueando a raiz em conflito até renomeação explícita, conforme decisão do proprietário.",
+    "A preservação de texto escrito pelo streamer e os nomes das ferramentas (setup/update/uninstall) foram aprovados pelo proprietário; os comportamentos dependentes ainda exigem testes.",
+    "TDD e migrations reais em PostgreSQL são obrigatórios para persistência e migração do locale.",
+    "FND-8 é pretendida como primeira MINOR beta v1.1.0, mas promoção/release segue sem autorização."
+  ]
+}
