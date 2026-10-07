@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-5/story.md)
 
-**Status:** Ready for Review — local corrective implementation and gates are complete; native Windows Actions is the remaining acceptance gate. Prior PR #36 QA and native Actions are historical baseline evidence only. No physical host uninstall is claimed.
+**Status:** Done — corrective implementation, all local/native CI gates, and independent QA are complete. Prior PR #36 QA and native Actions remain historical baseline evidence only. No physical host uninstall is claimed.
 **Planning source:** product owner request on 2026-10-06.
 **GitHub issue:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30), reopened on 2026-10-07 for the corrective increment after PR #36.
 
@@ -96,16 +96,16 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 - [x] Docker daemon architecture tests allow `amd64`/`x86_64` and `arm64`/`aarch64`, reject unsupported values before Compose, and verify a readable first-run language prompt. Controlled CLI-boundary failure tests verify that startup/migration errors and an unhealthy post-update panel preserve the saved configuration and never request volume deletion.
 - [x] Failed clean-update image pull is proven to preserve saved settings and product data.
 - [x] Old lifecycle wrappers and tests are deleted; user-facing guides point to the single installer.
-- [x] Full repository quality gates and OpenGrep pass on the current tree: `npm test` (86 files / 673 tests), lint, typecheck, OpenGrep (0 findings), localization, port denylist, version, Compose config, workflow YAML parsing, and diff check. The last production dependency audit recorded earlier in this story found 0 vulnerabilities.
+- [x] Full repository quality gates and OpenGrep pass on the current tree: `npm test` (86 files / 677 tests), lint, typecheck, OpenGrep (0 findings), localization, port denylist, version, Compose config, workflow YAML parsing, and diff check. The last production dependency audit recorded earlier in this story found 0 vulnerabilities.
 - [x] Linux native artifact direct-launch check passes from a path containing spaces; the generated `.sh` selected locale/port, displayed the callback, invoked Compose, and exits cleanly when first-run input is unavailable.
 - [x] Public source-repository access and GHCR image-package access are documented separately in English and pt-BR; anonymous GHCR access was checked and denied while the package remains private.
 - **Earlier extracted-artifact instructions — historical Red / Green, superseded:** the operator ran `sh ./subarushogun_twich_bot_setup.sh` from the repository root and received `cannot open ... No such file`; at that time the packaged file existed only in a downloaded CI archive. The resulting documentation contract was fixed by explaining the extraction directory. The current delivery plan uses standalone files attached to GitHub Releases, so users open the downloaded `.sh` directly from its saved location; the earlier CI archive instruction is not current guidance.
 - [x] Historical native Windows, macOS, and Linux Actions passed in [run 37637847991](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37637847991).
-- [ ] Updated corrective installer must pass native Windows/macOS/Linux Actions before OPS-5 is Done.
+- [x] Corrective installer passed native Windows/macOS/Linux Actions in [run 37651571138](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37651571138).
 - [x] Tag release workflow validates runtime identity and creates release notes from the matching English and pt-BR changelog sections.
 - [x] User guides use GitHub Releases; Actions artifacts are documented as temporary engineering/QA files.
 - [ ] Create any tag/release only after the owner-approved gate; FND-9 is incomplete and no public product release exists.
-- [x] Historical AIOX-QA passed the pre-reopen baseline only. Current corrective review is 88/100 CONCERNS because native Windows CI is pending; see the current gate and QA Results above.
+- [x] Historical AIOX-QA applies only to the pre-reopen baseline. Corrective AIOX-QA passed 17/17 criteria at 100/100; see the final review and gate below.
 - [x] Physical Windows/macOS acceptance is not claimed; actual host Docker lifecycle and dependency-install runs remain operator follow-up and are not a prerequisite for the native-runner CI criterion.
 - [ ] Before the planned post-FND-9 Twitch streamer acceptance, make the GHCR package public and verify an anonymous pull; the source repository is public, but the image package was still private on 2026-10-07.
 
@@ -239,6 +239,8 @@ Replacing Docker Compose, removing Docker as part of product uninstall, silently
 | 2026-10-07 | Independent AIOX-QA review passed 14/14 acceptance criteria with score 100/100; no blocking risks remain. Physical Windows/macOS host tests remain unclaimed | @qa |
 | 2026-10-07 | Reopened after operator feedback; added progress, scoped Docker cleanup, volume-policy postconditions, and no-install reporting acceptance criteria. Previous Done/QA evidence is retained as historical baseline only; corrective increment is InProgress | @aiox-master + @aiox-devops |
 | 2026-10-07 | Added unattended cross-platform CLI contract, safe explicit erase flags, and bilingual operator commands; real Linux Compose install/update fire test passed. Native Windows PowerShell execution and new QA remain pending | @aiox-dev + @aiox-master |
+| 2026-10-07 | Native Windows/macOS/Linux matrix passed in Actions run 37651571138; local gates pass with 677 tests. Status transitioned Ready for Review → InReview for independent corrective QA | @aiox-dev |
+| 2026-10-07 | QA Gate PASS (0.9.0) — Status: InReview → Done; all 17 acceptance criteria verified against 677 tests and native Windows/macOS/Linux CI | @qa |
 
 ## QA Results
 
@@ -259,17 +261,17 @@ The corrective POSIX and PowerShell installers now report lifecycle progress, sc
 - Linux Compose runtime remains healthy; `bot` and `db` are healthy and the `postgres_data`/`operational_secrets` volumes are preserved.
 - Native Windows Actions run 37648518488 initially failed before launch on a PowerShell parse error caused by smart quotes in single-quoted strings; commit `b92a4cc` fixes it. Run 37649015429 then passed parsing and installation but exposed an argument-forwarding defect in the native harness during unattended update. The harness now forwards explicit test arguments, and a new native matrix run is pending.
 
-### Gate Status
+### Interim Gate Status — superseded by final corrective review below
 
-CONCERNS — score 88/100 (8.8/10). Local gates pass, but native Windows verification is required before the story can be marked Done. Acceptance criteria 1, 4, 6, 9, 10, and 15–17 need the updated Windows artifact run; no claim is made that these are fully validated on this revision.
+Historical interim result: CONCERNS — score 88/100 (8.8/10), recorded before the last Windows harness fix and final native Actions run. It is superseded by the final corrective review below, which covers the updated revision and reports PASS 100/100.
 
 ### Security Review
 
 OpenGrep reported 0 findings. Image cleanup checks container references before removal; no global prune or host dependency removal is used. The database and secrets volumes in the active installation were not removed.
 
-### Lifecycle Decision
+### Interim Lifecycle Decision — superseded
 
-Remain Ready for Review until the current branch passes native Windows CI. Do not close issue #30 or mark OPS-5 Done before that gate passes.
+Independent QA evaluated the corrective revision after the final CI run. No physical Windows/macOS host run or Twitch write operation is claimed.
 
 ### Historical baseline review — Review Date: 2026-10-07
 
@@ -321,4 +323,58 @@ NFR assessment: `docs/qa/assessments/OPS-5-nfr-20261007.md`
 
 ### Lifecycle Transition
 
-Historical baseline only: PASS InReview → Done for PR #36. OPS-5 was reopened on 2026-10-07; this prior review does not cover the corrective progress/uninstall/CLI increment. Current lifecycle status is InProgress and requires new QA plus native Windows validation before Done. @devops synchronizes the issue after the corrective PR is merged.
+Historical baseline only: PASS InReview → Done for PR #36. OPS-5 was reopened on 2026-10-07; this prior review did not cover the corrective increment. The final corrective review below records PASS InReview → Done for PR #37; @devops synchronizes issue #30 after merge.
+
+### Final corrective review — Review Date: 2026-10-07
+
+### Reviewed By: Quinn (Test Architect)
+
+### Reviewed Revision: `07f2dbdb7e9bfb2f916dab3ad1b1169dd3637d55`
+
+### Code Quality Assessment
+
+The corrective installer work is maintainable across POSIX and PowerShell entrypoints, keeps Docker cleanup scoped to the product Compose project, validates removal postconditions, preserves shared images and user data by default, and makes destructive actions explicit. The Windows native run exercised the packaged `.bat` directly and verified unattended update, refusal of unconfirmed erase, keep-data uninstall, restart, confirmed erase, and exit-code behavior.
+
+### Refactoring Performed
+
+No QA-owned code refactor was needed. All test-harness and PowerShell probe corrections were made test-first by development and have Red/Green evidence in the implementation records.
+
+### Compliance Check
+
+- Coding Standards: ✓ JavaScript ESM, shell/PowerShell boundaries, scoped Docker operations, and English technical identifiers are preserved.
+- Project Structure: ✓ Installer, packaging, tests, documentation, and QA files follow the established project layout.
+- Testing Strategy: ✓ Vitest contracts, real PostgreSQL/Compose integration, direct native artifact launches, and test-first regressions were used at the appropriate boundaries.
+- All ACs Met: ✓ 17/17. CI run [37651571138](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37651571138) passed Windows, macOS, Linux, lint/typecheck, OpenGrep, tests, and production image build.
+
+### Improvements Checklist
+
+- [x] Verify all 17 acceptance criteria against implementation tests, release workflow contracts, bilingual docs, and native artifact CI.
+- [x] Verify full local suite: 86 files / 677 tests; lint, typecheck, OpenGrep (0 findings), version/localization/port validators, Compose config, Linux direct launch, shell/Node syntax, and diff check pass.
+- [x] Verify the final Windows/macOS/Linux native artifact matrix and uploads in Actions run 37651571138.
+- [ ] Record physical Windows/macOS host lifecycle smoke tests when the owner performs them; current native runner uses isolated fake Docker.
+
+### Security Review
+
+OpenGrep found 0 issues. Uninstall inventories project-labeled resources, checks image use by any container, verifies selected volume policy, and never runs global prune or removes host dependencies. No secrets or raw user data are added to artifacts or logs.
+
+### Performance Considerations
+
+Installer checks are bounded local Docker queries and bounded health polling. No resident process, background service, or dependency was added.
+
+### Files Modified During Review
+
+Only the QA gate, QA results, and lifecycle/status records were updated; product source was not changed during QA.
+
+### Gate Status
+
+Gate: PASS (100/100) → `docs/qa/gates/OPS-5-unified-lifecycle-installer.yml`
+
+Risk profile: existing baseline `docs/qa/assessments/OPS-5-risk-20261007.md`; no new blocking risk identified in this corrective review.
+
+NFR assessment: corrective security, performance, reliability, and maintainability checks PASS in the gate file.
+
+Physical Windows/macOS host acceptance and Twitch write operations were not performed and are not claimed.
+
+### Lifecycle Transition
+
+PASS: InReview → Done (0.9.0). @devops can now synchronize issue #30 and merge PR #37 after the QA gate is committed.

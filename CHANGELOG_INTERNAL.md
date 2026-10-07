@@ -4,6 +4,8 @@
 
 ## v0.9.0-alpha
 
+- Final OPS-5 corrective gates passed: Actions run 37651571138 is green across Linux/macOS/Windows native installer flows, tests/PostgreSQL/Compose, lint/typecheck, OpenGrep/version policy, and production image build. Independent AIOX-QA recorded PASS 100/100 for 17/17 acceptance criteria. Local suite: 86 files / 677 tests. Physical Windows/macOS host lifecycle testing and Twitch write operations remain unclaimed.
+
 - Reopen OPS-5 / issue #30 after operator feedback. Preserve the previous PR #36 QA result only as historical baseline; this increment needs fresh QA and native Windows execution.
 - Add localized install/update/uninstall progress, interactive-terminal clearing, project-label resource inventory, post-uninstall container/network/volume checks, no-install reporting, and removal of product images only when no remaining container uses them. Never run global Docker prune.
 - Add unattended CLI actions on POSIX and Windows: `--silent install|update|uninstall`, optional `--locale`/`--port` for install, keep-data defaults, and explicit `--erase-data --confirm-erase` confirmation. Non-interactive runs keep visible progress/errors and do not open a browser.

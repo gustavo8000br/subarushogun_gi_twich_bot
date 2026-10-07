@@ -1,44 +1,37 @@
 schema: 1
 story: 'OPS-5'
 story_title: 'Unified cross-platform lifecycle installer'
-gate: CONCERNS
-status_reason: 'Windows run 37651180098 passed architecture detection and unattended update, then exposed that the PowerShell harness discarded the batch exit status during the erase-confirmation check. The wrapper now propagates the batch result; focused tests pass, but a new native run and final QA are required.'
+gate: PASS
+status_reason: 'All 17 acceptance criteria are covered by tests, bilingual documentation, release workflow contracts, and the passing native Windows/macOS/Linux Actions matrix. No blocking or medium-severity findings remain.'
 reviewer: 'Quinn (Test Architect)'
-reviewed_revision: 'working-tree on fix/ops5-installer-uninstall-progress; source HEAD 32ddfa414cf7250ee8388e99f985d8a04bfae573 plus uncommitted harness exit-code correction'
-updated: '2026-10-07T16:10:00Z'
-top_issues:
-  - id: 'OPS5-WIN-NATIVE'
-    severity: high
-    finding: 'Windows run 37651180098 passed architecture detection and update but the PowerShell wrapper failed to propagate the .bat exit status for an expected refusal. The harness correction is local; native confirmation is pending.'
-    suggested_action: 'Run the complete local gates, push the fake correction, rerun native Windows/macOS/Linux CI, and resolve any remaining failures before merge or issue closure.'
+reviewed_revision: '07f2dbdb7e9bfb2f916dab3ad1b1169dd3637d55'
+updated: '2026-10-07T16:30:00Z'
+top_issues: []
 waiver: { active: false }
-quality_score: 88
-expires: '2026-10-21T15:00:00Z'
+quality_score: 100
+expires: '2026-10-21T16:30:00Z'
 evidence:
   tests_reviewed: 677
   focused_installer_tests: 9
-  risks_identified: 1
+  risks_identified: 0
   trace:
-    ac_covered: [2, 3, 5, 7, 8, 11, 12, 13, 14]
-    ac_pending_native_windows: [1, 4, 6, 9, 10, 15, 16, 17]
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
     ac_gaps: []
 nfr_validation:
   security:
     status: PASS
-    notes: 'OpenGrep found 0 issues. Image removal is scoped and checks for container references. No global prune or host dependency removal is used.'
+    notes: 'OpenGrep found 0 issues. Resource removal is scoped, shared image use is checked, erase requires explicit confirmation, and global prune or host dependency removal is absent.'
   performance:
     status: PASS
-    notes: 'Installer checks remain bounded; image inventories are local Docker queries and health polling remains bounded.'
+    notes: 'Docker inventory queries and health polling are bounded; no persistent helper or new runtime dependency was introduced.'
   reliability:
-    status: CONCERNS
-    notes: 'Linux tests and runtime checks pass. The native fake preflight passed in run 37650741917; the corrected PowerShell output/status handling needs another native run.'
+    status: PASS
+    notes: 'Native Windows/macOS/Linux artifacts passed run 37651571138. Tests verify retained data on image, migration, startup, health, inventory, and postcondition failures.'
   maintainability:
     status: PASS
-    notes: 'Installer source, tests, operator guides, story evidence, and changelogs are synchronized in English and pt-BR.'
+    notes: 'Test-first regressions, bilingual story/docs/changelogs, and updated release/installer contracts are synchronized.'
 recommendations:
-  immediate:
-    - action: 'Run the updated native installer matrix, then refresh this gate with its exact run URL and results.'
-      refs: ['docs/stories/OPS-5/story.md', 'tests/platform/installer-native.mjs']
+  immediate: []
   future:
-    - action: 'Record the owner’s physical Windows/macOS host smoke test when available; native CI uses fake Docker.'
+    - action: 'Record physical Windows/macOS host lifecycle smoke tests if/when the owner performs them; native CI uses isolated fake Docker.'
       refs: ['docs/stories/OPS-5/story.md']

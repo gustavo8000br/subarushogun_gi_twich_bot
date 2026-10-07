@@ -4,6 +4,8 @@
 
 ## v0.9.0-alpha
 
+- Gates corretivos finais da OPS-5 passaram: a execução Actions 37651571138 está verde nos fluxos nativos Linux/macOS/Windows, testes/PostgreSQL/Compose, lint/typecheck, OpenGrep/política de versão e build da imagem de produção. QA AIOX independente registrou PASS 100/100 para 17/17 critérios. Suíte local: 86 arquivos / 677 testes. Não alegamos testes físicos de ciclo de vida em Windows/macOS nem operações de escrita na Twitch.
+
 - Reabre OPS-5 / issue #30 após o feedback do operador. Mantém o QA da PR #36 como linha de base histórica; este incremento exige novo QA e execução nativa Windows.
 - Adiciona progresso localizado para instalar/atualizar/desinstalar, limpeza somente em terminal interativo, inventário por labels do projeto, verificações posteriores de containers/redes/volumes, mensagem de instalação ausente e remoção de imagens do produto somente quando nenhum container restante as utiliza. Nunca executa prune global do Docker.
 - Adiciona ações CLI sem interação em POSIX e Windows: `--silent install|update|uninstall`, `--locale`/`--port` opcionais para instalação, manter dados por padrão e confirmação explícita `--erase-data --confirm-erase`. Execuções sem interação mantêm progresso/erros visíveis e não abrem o navegador.
