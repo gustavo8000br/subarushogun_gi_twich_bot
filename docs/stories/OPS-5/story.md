@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-5/story.md)
 
-**Status:** InReview — implementation, local quality gates, and Linux native launch passed. Windows/macOS/Linux Actions passed on the previous revision; a fresh native run is required for the latest architecture checks. Independent AIOX-QA review follows that run. No physical Windows/macOS operator acceptance is claimed.
+**Status:** InReview — implementation, local quality gates, and Linux native launch passed. The latest Actions run passed macOS/Linux but Windows failed before the harness observed `compose up -d`; the cause is not yet established. The fake Docker argument matcher and failure diagnostics have been improved, and a fresh Windows rerun is required before independent AIOX-QA review. No physical Windows/macOS operator acceptance is claimed.
 **Planning source:** product owner request on 2026-10-06.
 **GitHub issue:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30) (implementation delivered in PR #36; issue remains open until merge).
 
@@ -78,6 +78,7 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 
 - [x] One directly openable artifact is packaged per OS; no separate old lifecycle file is required.
 - [x] Install/start, update, uninstall, language, port, callback display, path spaces, localized destructive confirmation, keep-data behavior, and missing Docker guidance have implementation tests.
+- [x] Docker daemon architecture tests allow `amd64`/`x86_64` and `arm64`/`aarch64`, reject unsupported values before Compose, and verify a readable first-run language prompt. Controlled CLI-boundary failure tests verify that startup/migration errors and an unhealthy post-update panel preserve the saved configuration and never request volume deletion.
 - [x] Failed clean-update image pull is proven to preserve saved settings and product data.
 - [x] Old lifecycle wrappers and tests are deleted; user-facing guides point to the single installer.
 - [x] Full repository quality gates and OpenGrep pass on the current tree: `npm test` (86 files / 667 tests), lint, typecheck, OpenGrep (0 findings), localization, port denylist, version, Compose config, workflow YAML parsing, and diff check. The last production dependency audit recorded earlier in this story found 0 vulnerabilities.
@@ -210,3 +211,4 @@ Replacing Docker Compose, removing Docker as part of product uninstall, silently
 | 2026-10-07 | Release installers now pin the matching versioned image and save the new tag only after a successful pull; regression covers failure without config mutation. QEMU updated to a verified Node 24-compatible pin. At that point, local gates passed with 660 tests and native Linux passed; this evidence was superseded by the later 667-test run and Windows/macOS/Linux Actions run 37634641892. Docker inspection found only the active install; one-shot containers and volumes were preserved | @aiox-dev + @qa |
 | 2026-10-07 | Updated acceptance evidence: all three native Actions installer jobs passed (run 37634641892); physical operator acceptance remains unclaimed; independent QA started | @aiox-dev |
 | 2026-10-07 | Added architecture and recovery regressions: unsupported Docker daemon architectures stop before Compose, supported architecture aliases proceed, the first language prompt is readable, and migration/startup or post-update health failures preserve settings/data. The new Red cases failed because architecture was not checked and the initial copy showed internal keys; Green adds daemon architecture checks and a pt-BR prompt fallback. Local full-suite result is 667 tests; fresh native CI and independent QA remain pending | @aiox-dev |
+| 2026-10-07 | Native Actions run 37637259314 passed Linux/macOS but Windows failed because the harness log lacked `compose up -d`; its failure output did not yet reveal the cause. Updated the `.cmd` fake to match arguments individually and included captured installer output in the assertion. Linux/macOS reruns and local gates pass; a new Windows result is required before QA | @aiox-dev |

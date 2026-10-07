@@ -4,6 +4,7 @@
 
 ## v0.8.0-alpha
 
+- Melhora os diagnósticos do instalador nativo Windows após o job nativo não observar `compose up -d`: o Docker falso em `.cmd` agora compara argumentos separados, e o harness inclui a saída capturada do instalador quando a asserção de inicialização do Compose falha. A causa ainda não foi estabelecida; nova execução Windows pendente e nenhuma aprovação é alegada.
 - Adiciona pipeline nativa de release para tags de versão materializada. Exige SHA/versão base/estágio exatos, commit ancestral de main e CI aprovada para aquele commit; empacota e abre exatamente um instalador por sistema desktop; deriva notas públicas dos dois changelogs; mantém a publicação isolada em job com permissão contents-write. Nenhuma tag ou release foi criada.
 - Atualiza a ação Docker QEMU fixada, saindo do runtime Node 20 para a versão Node 24; o manifesto publicado e o SHA completo foram conferidos antes da troca. Buildx já usa Node 24 e não foi alterado.
 - Alinha READMEs e guias ao repositório-fonte público. Verifica o GHCR separadamente: o pull anônimo de `main` retornou HTTP 403 em 2026-10-07, então a imagem ainda exige uma conta autorizada e `read:packages`; documenta a visibilidade independente e a retenção temporária dos artefatos Actions.

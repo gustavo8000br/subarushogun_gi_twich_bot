@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-5/story.md)
 
-**Status:** InReview — implementação, gates locais e execução nativa Linux passaram. Actions nativo Windows/macOS/Linux passou na revisão anterior; é necessária uma nova execução para verificar as alterações recentes de arquitetura. A revisão independente AIOX-QA vem depois dessa execução. Não se alega aceitação física em Windows/macOS.
+**Status:** InReview — implementação, gates locais e execução nativa Linux passaram. A última execução Actions passou em macOS/Linux, mas o Windows falhou antes de o harness observar `compose up -d`; a causa ainda não foi estabelecida. O matcher do Docker falso e os diagnósticos de falha foram aprimorados, e é necessário repetir o Windows antes da revisão AIOX-QA. Não se alega aceitação física em Windows/macOS.
 **Origem do planejamento:** solicitação do proprietário em 2026-10-06.
 **Issue GitHub:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30), implementação entregue na PR #36; a issue permanece aberta até o merge.
 
@@ -80,6 +80,7 @@ A instalação de dependências não pode ser garantida como silenciosa ou total
 
 - [x] Um artefato diretamente abrível é empacotado por sistema; nenhum arquivo de ciclo de vida antigo é necessário.
 - [x] Instalar/iniciar, atualizar, desinstalar, idioma, porta, callback, caminhos com espaços, confirmação localizada destrutiva, preservação e orientação para Docker ausente têm testes de implementação.
+- [x] Testes de arquitetura do daemon Docker permitem `amd64`/`x86_64` e `arm64`/`aarch64`, rejeitam valores incompatíveis antes do Compose e verificam um prompt inicial de idioma legível. Testes controlados na fronteira do CLI comprovam que falhas de inicialização/migration e um painel não saudável após atualização preservam a configuração salva e não solicitam a remoção de volumes.
 - [x] Falha ao baixar a imagem em atualização limpa comprovadamente preserva configurações e dados do produto.
 - [x] Wrappers e testes antigos foram removidos; os guias orientam o uso do instalador único.
 - [x] Todos os gates locais de qualidade e OpenGrep passam na árvore atual: `npm test` (86 arquivos / 667 testes), lint, typecheck, OpenGrep (0 achados), localização, denylist de portas, versão, configuração Compose, parse YAML dos workflows e diff. A última auditoria de dependências de produção registrada nesta story encontrou 0 vulnerabilidades.
@@ -212,3 +213,4 @@ Substituir Docker Compose, remover Docker ao desinstalar o produto, provisionar 
 | 2026-10-07 | Instaladores de release agora fixam a imagem na tag versionada correspondente e só salvam a nova tag após pull bem-sucedido; regressão cobre falha sem alterar a configuração. QEMU atualizado para pin compatível com Node 24. Naquele ponto, os gates locais passaram com 660 testes e o artefato Linux nativo passou; essa evidência foi superada pela suíte posterior de 667 testes e pela execução Actions 37634641892 em Windows/macOS/Linux. A inspeção Docker encontrou somente a instalação ativa e preservou os containers one-shot e volumes | @aiox-dev + @qa |
 | 2026-10-07 | Evidência de aceite atualizada: os três jobs nativos de instalador no Actions passaram (execução 37634641892); aceitação física do operador não é alegada; QA independente iniciado | @aiox-dev |
 | 2026-10-07 | Adicionadas regressões de arquitetura e recuperação: arquiteturas Docker incompatíveis param antes do Compose, aliases suportados prosseguem, o prompt inicial de idioma é legível e falhas de migration/inicialização ou de saúde após atualização preservam configurações/dados. Os novos casos Red falharam porque a arquitetura não era verificada e o prompt exibia chaves internas; Green adiciona a verificação da arquitetura do daemon e fallback pt-BR no prompt. A suíte local completa passa com 667 testes; CI nativo atualizado e QA independente ainda pendentes | @aiox-dev |
+| 2026-10-07 | Actions nativo 37637259314 passou em Linux/macOS, mas o Windows falhou porque o log do harness não continha `compose up -d`; a saída da falha ainda não revelou a causa. O Docker falso `.cmd` agora compara os argumentos individualmente e a asserção inclui a saída capturada do instalador. Linux/macOS e gates locais passaram; é necessária uma nova execução Windows antes do QA | @aiox-dev |

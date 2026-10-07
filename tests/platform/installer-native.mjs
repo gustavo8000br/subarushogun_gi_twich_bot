@@ -24,7 +24,7 @@ try {
   await (await import('node:fs/promises')).mkdir(bin, { recursive: true });
   const fakeDocker = join(bin, platform === 'windows' ? 'docker.cmd' : 'docker');
   if (platform === 'windows') {
-    await writeFile(fakeDocker, '@echo off\r\necho %*>>"%QUEUEBOT_TEST_DOCKER_LOG%"\r\nif "%*"=="info --format {{.Architecture}}" echo x86_64\r\nexit /b 0\r\n');
+    await writeFile(fakeDocker, '@echo off\r\necho %*>>"%QUEUEBOT_TEST_DOCKER_LOG%"\r\nif /I "%~1"=="info" if /I "%~2"=="--format" if "%~3"=="{{.Architecture}}" echo x86_64\r\nexit /b 0\r\n');
   } else {
     await writeFile(fakeDocker, '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\ncase "$*" in "info --format {{.Architecture}}") printf \'%s\\n\' "${QUEUEBOT_TEST_DOCKER_ARCH:-x86_64}" ;; esac\nexit 0\n');
     await chmod(fakeDocker, 0o755);
@@ -70,7 +70,7 @@ try {
   if (!config.includes(`IMAGE_TAG=${expectedImageTag}`)) throw new Error(`Update did not select its release image tag:\n${config}`);
   const dockerCalls = await readFile(log, 'utf8');
   if (!/compose .* pull/.test(dockerCalls) || !/compose .* up -d/.test(dockerCalls)) {
-    throw new Error(`Installer did not start the product using Compose:\n${dockerCalls}`);
+    throw new Error(`Installer did not start the product using Compose:\n${dockerCalls}\nInstaller output:\n${result.stdout}\n${result.stderr}\nUpdate output:\n${updateResult.stdout}\n${updateResult.stderr}`);
   }
   if (!result.stdout.includes('https://localhost:3100/callback')) {
     throw new Error(`Installer did not show the exact callback URL:\n${result.stdout}`);

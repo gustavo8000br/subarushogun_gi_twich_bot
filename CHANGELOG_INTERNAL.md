@@ -4,6 +4,7 @@
 
 ## v0.8.0-alpha
 
+- Improve Windows native installer diagnostics after the native job failed to observe `compose up -d`: the fake Docker `.cmd` now matches parsed arguments individually, and the harness includes captured installer output when Compose startup assertions fail. The failure cause is not yet established; Windows rerun is pending, and no new Windows pass is claimed.
 - Add a native release pipeline for materialized version tags. Require the exact source SHA/base version/stage, main-branch ancestry, and a successful CI run for that commit; build and launch exactly one installer per desktop OS; derive public notes from both language changelogs; keep release publishing isolated to a job with contents-write permission. No tag or release is created.
 - Upgrade the pinned Docker QEMU setup action from its Node 20 runtime to the Node 24 release; its published action manifest and full commit SHA were verified before changing the pin. Buildx already targets Node 24 and remains unchanged.
 - Align public-facing repository and installation docs with the source repository's public visibility. Verify GHCR separately: anonymous pull of `main` returned HTTP 403 on 2026-10-07, so the image package still requires an authorized account and `read:packages`; document the independent visibility boundary and temporary Actions artifact retention.
