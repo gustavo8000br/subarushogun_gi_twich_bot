@@ -71,7 +71,7 @@ try {
     if (platform === 'windows') {
       return spawnSync('powershell.exe', [
         '-NoLogo', '-NoProfile', '-Command',
-        '$installerArgs = @($env:QUEUEBOT_TEST_INSTALLER_ARGS -split "\\s+" | Where-Object { $_ }); & $env:QUEUEBOT_PREBUILT_INSTALLER @installerArgs',
+        '$installerArgs = @($env:QUEUEBOT_TEST_INSTALLER_ARGS -split "\\s+" | Where-Object { $_ }); & $env:QUEUEBOT_PREBUILT_INSTALLER @installerArgs; exit $LASTEXITCODE',
       ], {
         encoding: 'utf8', env: { ...env, QUEUEBOT_PREBUILT_INSTALLER: artifact, QUEUEBOT_TEST_INSTALLER_ARGS: installerArgs }, timeout: 30_000,
       });
@@ -143,7 +143,7 @@ try {
   await writeFile(inputFile, '');
   const emptyInputEnv = { ...env, QUEUEBOT_INSTALL_HOME: join(fixtureRoot, 'empty input product') };
   const emptyInputResult = platform === 'windows'
-    ? spawnSync('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', '& $env:QUEUEBOT_PREBUILT_INSTALLER'], { encoding: 'utf8', env: { ...emptyInputEnv, QUEUEBOT_PREBUILT_INSTALLER: artifact }, timeout: 30_000 })
+      ? spawnSync('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', '& $env:QUEUEBOT_PREBUILT_INSTALLER; exit $LASTEXITCODE'], { encoding: 'utf8', env: { ...emptyInputEnv, QUEUEBOT_PREBUILT_INSTALLER: artifact }, timeout: 30_000 })
     : spawnSync(artifact, [], { input: '', encoding: 'utf8', env: emptyInputEnv, timeout: 30_000 });
   if (emptyInputResult.status !== 1 || !`${emptyInputResult.stdout}\n${emptyInputResult.stderr}`.includes('terminal')) {
     throw new Error(`Installer did not exit cleanly when no interactive input was available:\n${emptyInputResult.stdout}\n${emptyInputResult.stderr}`);

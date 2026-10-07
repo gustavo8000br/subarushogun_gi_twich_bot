@@ -2,14 +2,14 @@ schema: 1
 story: 'OPS-5'
 story_title: 'Unified cross-platform lifecycle installer'
 gate: CONCERNS
-status_reason: 'Windows run 37650741917 verified the fake Docker preflight and expected query but the installer still treated the architecture probe as failed. The PowerShell script now captures native output and exit status before processing; focused tests pass, but a new native run and final QA are required.'
+status_reason: 'Windows run 37651180098 passed architecture detection and unattended update, then exposed that the PowerShell harness discarded the batch exit status during the erase-confirmation check. The wrapper now propagates the batch result; focused tests pass, but a new native run and final QA are required.'
 reviewer: 'Quinn (Test Architect)'
-reviewed_revision: 'working-tree on fix/ops5-installer-uninstall-progress; source HEAD b7a69aeb90b0795dfa6d4ae8d3b5d2aea88b9db5 plus uncommitted PowerShell exit-code correction'
+reviewed_revision: 'working-tree on fix/ops5-installer-uninstall-progress; source HEAD 32ddfa414cf7250ee8388e99f985d8a04bfae573 plus uncommitted harness exit-code correction'
 updated: '2026-10-07T16:10:00Z'
 top_issues:
   - id: 'OPS5-WIN-NATIVE'
     severity: high
-    finding: 'Windows run 37650741917 passed the fake Docker preflight and initial install but failed unattended update when the installer read the architecture command status after a pipeline. The output/status capture fix is local; native confirmation is pending.'
+    finding: 'Windows run 37651180098 passed architecture detection and update but the PowerShell wrapper failed to propagate the .bat exit status for an expected refusal. The harness correction is local; native confirmation is pending.'
     suggested_action: 'Run the complete local gates, push the fake correction, rerun native Windows/macOS/Linux CI, and resolve any remaining failures before merge or issue closure.'
 waiver: { active: false }
 quality_score: 88

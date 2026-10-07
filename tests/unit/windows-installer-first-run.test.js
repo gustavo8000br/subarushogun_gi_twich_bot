@@ -60,7 +60,8 @@ describe('Windows installer first-run language prompt', () => {
   it('passes unattended actions as arguments to the packaged Windows batch file', () => {
     const harness = readFileSync(new URL('../platform/installer-native.mjs', import.meta.url), 'utf8');
     expect(harness).toContain('QUEUEBOT_TEST_INSTALLER_ARGS');
-    expect(harness).toContain('& $env:QUEUEBOT_PREBUILT_INSTALLER @installerArgs');
+    expect(harness).toContain('& $env:QUEUEBOT_PREBUILT_INSTALLER @installerArgs; exit $LASTEXITCODE');
+    expect(harness).toContain("'-Command', '& $env:QUEUEBOT_PREBUILT_INSTALLER; exit $LASTEXITCODE'");
   });
 
   it('makes the native Windows Docker fake answer architecture probes and preserves calls on failure', () => {
