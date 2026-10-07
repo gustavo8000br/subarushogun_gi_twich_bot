@@ -6,9 +6,11 @@ This file highlights changes that matter to streamers and viewers. Technical and
 
 ## v0.8.0-alpha
 
-- A single installer for each operating system now handles setup, updates, and removal of saved data.
+- One installer per operating system handles setup, updates, and removal of saved data, and stays on the version selected from its release.
 - Updates preserve saved queues and settings by default; erasing them requires a clear confirmation.
 - Linux now explains how to launch the installer if it opens without an interactive terminal.
+- Installation guidance now separates normal prebuilt-image use from developer build requirements.
+- When product releases begin, each version will provide the three platform installers and change notes in English and pt-BR from its GitHub Release page.
 
 ## v0.7.2-alpha
 

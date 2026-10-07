@@ -106,7 +106,7 @@
     "Shared TSV format, encoding/placeholder/plural rules, and target runtimes are defined; runtime tests remain pending.",
     "Streamer-authored-text policy is consistently marked as a recommendation, not approval.",
     "No-automatic-rename root collision handling is marked as a proposal pending owner decision.",
-    "Lifecycle tool naming is marked as a proposal pending owner decision.",
+    "Historical planning finding: lifecycle filename family was proposed, then superseded by OPS-5 unified artifacts.",
     "EN/pt-BR research, story, and plan parity has been corrected."
   ],
   "postReviewUpdates": {
@@ -115,13 +115,14 @@
     "ownerDecisionsResolved": [
       "OQ-4 authored-text preservation",
       "OQ-5 reserved-root collision handling",
-      "OQ-6 setup/update/uninstall names"
+      "OQ-6 historical name proposal superseded by OPS-5 unified installer"
     ],
     "editorialFindingsStatus": "The three editorial findings were corrected in the bilingual artifacts; independent follow-up is still pending.",
     "runtimeEvidenceAdded": [
       "setup localized status/messages: focused 39/39 tests",
       "eligible channel setup summary: included in focused 39/39 tests",
       "TSV parser contract: focused 9/9 tests"
-    ]
+    ],
+    "installerDecisionUpdate": "On 2026-10-07, the separate setup/update/uninstall filename decision was superseded by OPS-5: one unified artifact per operating system with all three operations in the same menu."
   }
 }

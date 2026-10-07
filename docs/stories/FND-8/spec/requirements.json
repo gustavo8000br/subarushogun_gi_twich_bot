@@ -84,7 +84,7 @@
     {
       "id": "FR-8",
       "priority": "P1",
-      "description": "Provide localized platform-native tools named subarushogun_twich_bot_setup, subarushogun_twich_bot_update, and subarushogun_twich_bot_uninstall, with platform-specific entry points, dependency detection, and explicit data-preservation/deletion behavior.",
+      "description": "Localize the unified installer menu delivered by OPS-5, with one distributed file per operating system. Install/start, update, and uninstall are actions in that file, not separate names/files.",
       "rationale": "The owner requested international tool names, dependency handling, updater and uninstaller behavior.",
       "acceptance": [
         "AC-15",
@@ -182,7 +182,7 @@
     {
       "id": "CON-7",
       "type": "product",
-      "description": "Existing install/update/uninstall entry points may be consolidated by the separately planned OPS-5; approved action names are setup, update, and uninstall."
+      "description": "OPS-5 delivers one installer artifact per operating system with a menu for install/start, update, and uninstall; FND-8 localizes these action labels and does not define three separate filenames."
     },
     {
       "id": "CON-8",
@@ -217,7 +217,7 @@
     },
     {
       "id": "ASM-5",
-      "description": "OPS-5 owns cross-platform entrypoint consolidation and Actions packaging; FND-8 localizes lifecycle tool copy and uses the approved setup/update/uninstall names.",
+      "description": "OPS-5 owns cross-platform consolidation and Actions packaging of one installer per operating system; FND-8 localizes that file’s menu and messages.",
       "risk": "medium",
       "validation_needed": true
     }
@@ -412,10 +412,10 @@
     },
     {
       "id": "OQ-6",
-      "question": "Confirm whether the suggested `subarushogun_twich_bot_*` naming family should be retained and define generic suffixes for local entry points.",
+      "question": "Should separate names for local lifecycle files be retained? Historical question superseded by the owner decision to use one unified installer.",
       "blocking": false,
       "assignedTo": "Product owner",
-      "status": "resolved by product owner on 2026-10-06: setup, update, uninstall"
+      "status": "superseded by owner decision on 2026-10-07: one unified installer artifact per OS; install/update/uninstall are menu actions, not separate files."
     }
   ],
   "decisions": [
@@ -457,9 +457,9 @@
     },
     {
       "id": "D-7",
-      "decision": "The generic local lifecycle tool suffixes are setup, update, and uninstall under subarushogun_twich_bot_*; platform-specific extensions/entry points may vary.",
+      "decision": "The previously proposed separate tool filenames are superseded by OPS-5: one unified installer per operating system; lifecycle actions are menu choices.",
       "owner": "Product owner",
-      "status": "approved 2026-10-06"
+      "status": "superseded 2026-10-07 by owner decision; see D-10"
     },
     {
       "id": "D-8",
@@ -472,6 +472,12 @@
       "decision": "When an existing queue slug/alias collides with a reserved global root, preserve stored keys, block only the conflicting root, and require an explicit operator rename in the panel. Never rename automatically.",
       "owner": "Product owner",
       "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-10",
+      "decision": "OPS-5 provides one unified installer artifact per OS; install/start, update, and uninstall are menu actions, not separate file names or downloads.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-07; supersedes D-7/OQ-6"
     }
   ]
 }

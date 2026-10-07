@@ -84,7 +84,7 @@
     {
       "id": "FR-8",
       "priority": "P1",
-      "description": "Fornecer ferramentas nativas localizadas chamadas subarushogun_twich_bot_setup, subarushogun_twich_bot_update e subarushogun_twich_bot_uninstall, com entrypoints específicos por plataforma, detecção de dependências e comportamento explícito de preservar/apagar dados.",
+      "description": "Localize o menu do instalador unificado entregue pela OPS-5, com uma única distribuição por sistema operacional. Instalar/iniciar, atualizar e desinstalar são ações desse arquivo, não nomes/arquivos separados.",
       "rationale": "O proprietário pediu nomes internacionais, tratamento de dependências, atualizador e desinstalador.",
       "acceptance": [
         "AC-15",
@@ -182,7 +182,7 @@
     {
       "id": "CON-7",
       "type": "product",
-      "description": "As entradas de instalar/atualizar/desinstalar podem ser consolidadas pela OPS-5 planejada separadamente; os nomes aprovados das ações são setup, update e uninstall."
+      "description": "A OPS-5 entrega um único artefato de instalador por sistema operacional com menu para instalar/iniciar, atualizar e desinstalar; a FND-8 localiza o texto dessas ações, sem definir três nomes de arquivos."
     },
     {
       "id": "CON-8",
@@ -217,7 +217,7 @@
     },
     {
       "id": "ASM-5",
-      "description": "OPS-5 trata da consolidação dos entrypoints multiplataforma e empacotamento Actions; FND-8 localiza os textos das ferramentas e usa os nomes aprovados setup/update/uninstall.",
+      "description": "A OPS-5 é responsável pela consolidação multiplataforma e pelo empacotamento Actions de um único instalador por sistema; a FND-8 localiza o menu e as mensagens desse arquivo.",
       "risk": "medium",
       "validation_needed": true
     }
@@ -412,10 +412,10 @@
     },
     {
       "id": "OQ-6",
-      "question": "Confirmar se a convenção sugerida `subarushogun_twich_bot_*` deve ser mantida e definir os sufixos genéricos dos entrypoints locais.",
+      "question": "A sugestão de nomes separados para arquivos locais deve continuar? Pergunta histórica, substituída pela decisão do proprietário de usar um instalador unificado.",
       "blocking": false,
       "assignedTo": "Product owner",
-      "status": "resolved by product owner on 2026-10-06: setup, update, uninstall"
+      "status": "substituída pela decisão do proprietário em 2026-10-07: um instalador unificado por sistema operacional; instalar/atualizar/desinstalar são ações do menu, não arquivos separados."
     }
   ],
   "decisions": [
@@ -457,9 +457,9 @@
     },
     {
       "id": "D-7",
-      "decision": "Os sufixos genéricos das ferramentas locais são setup, update e uninstall sob subarushogun_twich_bot_*; extensões/entrypoints podem variar por plataforma.",
+      "decision": "Os nomes anteriormente propostos para ferramentas separadas foram substituídos pela OPS-5: um instalador unificado por sistema operacional; ações de ciclo de vida são opções do menu.",
       "owner": "Product owner",
-      "status": "approved 2026-10-06"
+      "status": "superseded 2026-10-07 by owner decision; see D-10"
     },
     {
       "id": "D-8",
@@ -472,6 +472,12 @@
       "decision": "Quando slug/alias existente de fila colidir com uma raiz global reservada, preservar as chaves armazenadas, bloquear somente a raiz conflitante e exigir renomeação explícita pelo operador no painel. Nunca renomear automaticamente.",
       "owner": "Product owner",
       "status": "approved 2026-10-06"
+    },
+    {
+      "id": "D-10",
+      "decision": "A OPS-5 fornece um artefato de instalador unificado por sistema operacional; instalar/iniciar, atualizar e desinstalar são ações do menu, não nomes de arquivos ou downloads separados.",
+      "owner": "Product owner",
+      "status": "approved 2026-10-07; supersedes D-7/OQ-6"
     }
   ]
 }

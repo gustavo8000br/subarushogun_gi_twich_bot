@@ -15,7 +15,7 @@ Um **chatbot da Twitch com painel local para o streamer** organizar filas de Gen
 ## Início rápido
 
 1. Instale Docker Engine/Desktop com Compose v2. Se estiver ausente, o instalador oferece as instruções oficiais atuais; instalação do host e privilégios necessários continuam sob seu controle.
-2. Baixe o **único artefato de instalador** do seu sistema na última execução bem-sucedida da [CI](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml): `.bat` para Windows, `.command` para macOS ou `.sh` para Linux. Abra-o e escolha **Instalar / Iniciar**. No Linux, execute `sh ./subarushogun_twich_bot_installer.sh` pelo terminal. Ele pergunta idioma e porta (padrões: pt-BR e 3000).
+2. Quando a primeira release pública estiver disponível, baixe o instalador do seu sistema em [GitHub Releases](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases). A primeira beta canônica está planejada para depois da FND-9; cada release incluirá notas em inglês e pt-BR das seções correspondentes nos changelogs. Consulte o [guia do instalador](docs/pt-BR/INSTALADORES.md) para saber a disponibilidade atual e o acesso ao GHCR.
 3. Confie no certificado local desta instalação conforme o [guia de instalação](docs/pt-BR/INSTALACAO.md) e abra o endereço exibido pelo instalador.
 4. Conecte seu aplicativo Twitch em **Conexão do canal**. O [manual do usuário](docs/MANUAL_DE_USUARIO-pt_BR.md) explica filas, comandos, widgets OBS, recuperação, atualização e desinstalação.
 
@@ -23,7 +23,7 @@ Um **chatbot da Twitch com painel local para o streamer** organizar filas de Gen
 
 | Guia | Conteúdo |
 | --- | --- |
-| [Baixar e usar os instaladores](docs/pt-BR/INSTALADORES.md) | Onde encontrar o instalador, como abrir, opções do menu e efeitos sobre os dados |
+| [Guia de download do instalador](docs/pt-BR/INSTALADORES.md) | Onde encontrar o instalador unificado, como abrir, opções do menu e efeitos sobre os dados |
 | [Instalação](docs/pt-BR/INSTALACAO.md) | Requisitos, primeira execução em Windows/Linux/macOS, confiança HTTPS e configuração Twitch |
 | [Manual do usuário](docs/MANUAL_DE_USUARIO-pt_BR.md) | Filas, comandos, painel, Pontos do Canal, OBS, operação e recuperação |
 | [Desenvolvimento](docs/pt-BR/DESENVOLVIMENTO.md) | Ferramentas, testes, CI e estrutura do repositório |
@@ -48,7 +48,7 @@ FND-2 a FND-8 e OPS-1 a OPS-6 estão implementadas. A OPS-5 gera um artefato de 
 
 ## Como contribuir
 
-O repositório está privado. Para obter acesso e conhecer os requisitos de contribuição, comece por [Como contribuir](docs/pt-BR/CONTRIBUICAO.md) e [Desenvolvimento](docs/pt-BR/DESENVOLVIMENTO.md). Mudanças de comportamento seguem Red → Green → Refactor test-first; a documentação afetada é mantida em inglês e pt-BR.
+O repositório-fonte é público. Para conhecer os requisitos de contribuição, comece por [Como contribuir](docs/pt-BR/CONTRIBUICAO.md) e [Desenvolvimento](docs/pt-BR/DESENVOLVIMENTO.md). Mudanças de comportamento seguem Red → Green → Refactor test-first; a documentação afetada é mantida em inglês e pt-BR.
 
 ## Dados e licença
 

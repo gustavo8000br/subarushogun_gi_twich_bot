@@ -4,6 +4,7 @@ set -eu
 # Built from this source as one downloadable .sh (Linux) or .command (macOS).
 # The packager embeds the Compose manifest so the user needs no repository clone.
 COMPOSE_B64='__COMPOSE_B64__'
+RELEASE_IMAGE_TAG='__IMAGE_TAG__'
 APP_NAME='subarushogun-gi-twitch-bot'
 PROJECT_NAME='subarushogun-gi-twitch-queue-bot'
 IMAGE='ghcr.io/gustavo8000br/subarushogun_gi_twich_bot'
@@ -158,7 +159,7 @@ ask_port() {
 
 write_config() {
   umask 077
-  printf 'APP_PORT=%s\nIMAGE_TAG=main\nPRODUCT_INITIAL_LOCALE=%s\n' "$PORT" "$LOCALE" > "$ENV_FILE"
+  printf 'APP_PORT=%s\nIMAGE_TAG=%s\nPRODUCT_INITIAL_LOCALE=%s\n' "$PORT" "$RELEASE_IMAGE_TAG" "$LOCALE" > "$ENV_FILE"
   chmod 600 "$ENV_FILE"
   decode_compose
 }
@@ -224,11 +225,16 @@ do_update() {
   msg keep_update
   msg choice; IFS= read -r answer || answer=''
   case "$answer" in
-    1|'') decode_compose; if compose pull && compose up -d; then msg updated; wait_for_panel; else msg failure; return 1; fi ;;
+    1|'')
+      decode_compose
+      if ! IMAGE_TAG="$RELEASE_IMAGE_TAG" compose pull; then msg failure; return 1; fi
+      set_image_tag "$RELEASE_IMAGE_TAG" || { msg failure; return 1; }
+      if compose up -d; then msg updated; wait_for_panel; else msg failure; return 1; fi
+      ;;
     2)
       msg confirm_clean; confirm_word; IFS= read -r answer || answer=''
       [ "$answer" = "$CONFIRM_WORD" ] || return 0
-      compose pull || { msg failure; return 1; }
+      IMAGE_TAG="$RELEASE_IMAGE_TAG" compose pull || { msg failure; return 1; }
       compose down --volumes --remove-orphans || { msg failure; return 1; }
       rm -rf "$INSTALL_HOME/.local" "$ENV_FILE"
       LOCALE=''; choose_language; ask_port; write_config
@@ -236,6 +242,12 @@ do_update() {
       ;;
     *) return 0 ;;
   esac
+}
+
+set_image_tag() {
+  CONFIG_TMP="$ENV_FILE.tmp.$$"
+  awk -v tag="$1" 'BEGIN { seen=0 } /^IMAGE_TAG=/ { if (!seen) print "IMAGE_TAG=" tag; seen=1; next } { print } END { if (!seen) print "IMAGE_TAG=" tag }' "$ENV_FILE" > "$CONFIG_TMP" || { rm -f "$CONFIG_TMP"; return 1; }
+  chmod 600 "$CONFIG_TMP" && mv "$CONFIG_TMP" "$ENV_FILE"
 }
 
 do_uninstall() {

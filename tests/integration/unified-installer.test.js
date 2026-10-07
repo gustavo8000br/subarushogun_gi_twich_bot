@@ -8,8 +8,10 @@ import { load } from 'js-yaml';
 const root = new URL('../../', import.meta.url);
 const packager = new URL('../../apps/infra/scripts/package-installer.mjs', import.meta.url);
 
-async function packageFor(platform, output) {
-  return spawnSync(process.execPath, [packager.pathname, '--platform', platform, '--output', output], {
+async function packageFor(platform, output, imageTag) {
+  const args = [packager.pathname, '--platform', platform, '--output', output];
+  if (imageTag) args.push('--image-tag', imageTag);
+  return spawnSync(process.execPath, args, {
     cwd: root,
     encoding: 'utf8',
   });
@@ -21,7 +23,7 @@ describe('single-file lifecycle installer', () => {
     try {
       const packageResult = await packageFor('linux', output);
       expect(packageResult.status, packageResult.stderr).toBe(0);
-      const artifactPath = join(output, 'subarushogun_twich_bot_installer.sh');
+      const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
       const result = spawnSync('sh', [artifactPath], { input: '', encoding: 'utf8', timeout: 1500, maxBuffer: 1024 });
 
       expect(result.error).toBeUndefined();
@@ -33,9 +35,9 @@ describe('single-file lifecycle installer', () => {
   });
 
   it.each([
-    ['linux', 'subarushogun_twich_bot_installer.sh'],
-    ['macos', 'subarushogun_twich_bot_installer.command'],
-    ['windows', 'subarushogun_twich_bot_installer.bat'],
+    ['linux', 'subarushogun_twich_bot_setup.sh'],
+    ['macos', 'subarushogun_twich_bot_setup.command'],
+    ['windows', 'subarushogun_twich_bot_setup.bat'],
   ])('packages exactly one directly launchable artifact for %s', async (platform, expectedName) => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-'));
     try {
@@ -78,6 +80,81 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
+  it('updates a preserved installation to the release image and retains its old tag if the pull fails', async () => {
+    const mainOutput = await mkdtemp(join(tmpdir(), 'queuebot-installer-main-update-'));
+    const releaseOutput = await mkdtemp(join(tmpdir(), 'queuebot-installer-release-update-'));
+    const home = await mkdtemp(join(tmpdir(), 'queuebot-home-version-update-'));
+    const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-version-update-'));
+    const logPath = join(bin, 'docker.log');
+    const dockerPath = join(bin, 'docker');
+    const imageTag = 'v1.0.0-a1b2c3d-beta';
+    try {
+      const [mainPackage, releasePackage] = await Promise.all([
+        packageFor('linux', mainOutput, 'main'),
+        packageFor('linux', releaseOutput, imageTag),
+      ]);
+      expect(mainPackage.status, mainPackage.stderr).toBe(0);
+      expect(releasePackage.status, releasePackage.stderr).toBe(0);
+      await writeFile(dockerPath, [
+        '#!/bin/sh',
+        'printf "IMAGE_TAG=%s %s\\n" "${IMAGE_TAG:-<from-env-file>}" "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"',
+        'case "$*" in *pull*) if [ "${IMAGE_TAG:-}" = "${QUEUEBOT_FAIL_IMAGE_TAG:-__never__}" ]; then exit 1; fi ;; esac',
+        'exit 0',
+        '',
+      ].join('\n'));
+      await chmod(dockerPath, 0o755);
+      const mainInstallerPath = join(mainOutput, 'subarushogun_twich_bot_setup.sh');
+      const releaseInstallerPath = join(releaseOutput, 'subarushogun_twich_bot_setup.sh');
+      const envPath = join(home, 'product', '.env');
+      const env = {
+        ...process.env,
+        HOME: home,
+        QUEUEBOT_INSTALL_HOME: join(home, 'product'),
+        QUEUEBOT_DOCKER_BIN: dockerPath,
+        QUEUEBOT_TEST_DOCKER_LOG: logPath,
+        QUEUEBOT_TEST_MODE: '1',
+      };
+      const firstRun = spawnSync('sh', [mainInstallerPath], { input: '2\n1\n3100\n0\n', encoding: 'utf8', env });
+      expect(firstRun.status, `${firstRun.stdout}\n${firstRun.stderr}`).toBe(0);
+      expect(await readFile(envPath, 'utf8')).toContain('IMAGE_TAG=main');
+
+      const update = spawnSync('sh', [releaseInstallerPath], { input: '2\n1\n0\n', encoding: 'utf8', env });
+      expect(update.status, `${update.stdout}\n${update.stderr}`).toBe(0);
+      expect(await readFile(envPath, 'utf8')).toContain(`IMAGE_TAG=${imageTag}`);
+      expect(await readFile(logPath, 'utf8')).toContain(`IMAGE_TAG=${imageTag} compose`);
+
+      await writeFile(envPath, (await readFile(envPath, 'utf8')).replace(`IMAGE_TAG=${imageTag}`, 'IMAGE_TAG=main'));
+      const failedUpdate = spawnSync('sh', [releaseInstallerPath], {
+        input: '2\n1\n0\n', encoding: 'utf8', env: { ...env, QUEUEBOT_FAIL_IMAGE_TAG: imageTag },
+      });
+      expect(failedUpdate.status, `${failedUpdate.stdout}\n${failedUpdate.stderr}`).toBe(1);
+      expect(await readFile(envPath, 'utf8')).toContain('IMAGE_TAG=main');
+    } finally {
+      await Promise.all([mainOutput, releaseOutput, home, bin].map((path) => rm(path, { recursive: true, force: true })));
+    }
+  });
+
+  it.each([
+    ['linux', 'subarushogun_twich_bot_setup.sh'],
+    ['macos', 'subarushogun_twich_bot_setup.command'],
+    ['windows', 'subarushogun_twich_bot_setup.bat'],
+  ])('embeds the requested versioned GHCR image tag in the %s release installer', async (platform, expectedName) => {
+    const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-release-'));
+    const imageTag = 'v1.0.0-a1b2c3d-beta';
+    try {
+      const result = await packageFor(platform, output, imageTag);
+      expect(result.status, result.stderr).toBe(0);
+      const artifact = await readFile(join(output, expectedName), 'utf8');
+      const executableSource = platform === 'windows'
+        ? Buffer.from(artifact.match(/:payload\r?\n([\s\S]*?)\r?\n:endpayload/)?.[1]?.replace(/\s/g, '') ?? '', 'base64').toString('utf16le')
+        : artifact;
+
+      expect(executableSource).toContain(imageTag);
+    } finally {
+      await rm(output, { recursive: true, force: true });
+    }
+  });
+
   it('installs from the Linux artifact using its chosen language and port and preserves volumes on update', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-linux-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-'));
@@ -89,7 +166,7 @@ describe('single-file lifecycle installer', () => {
       expect(packageResult.status, packageResult.stderr).toBe(0);
       await writeFile(dockerPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\nexit 0\n`);
       await chmod(dockerPath, 0o755);
-      const artifactPath = join(output, 'subarushogun_twich_bot_installer.sh');
+      const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
       const env = {
         ...process.env,
         HOME: home,
@@ -132,7 +209,7 @@ describe('single-file lifecycle installer', () => {
       expect(packageResult.status, packageResult.stderr).toBe(0);
       await writeFile(dockerPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\nexit 0\n`);
       await chmod(dockerPath, 0o755);
-      const artifactPath = join(output, 'subarushogun_twich_bot_installer.sh');
+      const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
       const env = {
         ...process.env,
         HOME: home,
@@ -184,7 +261,7 @@ describe('single-file lifecycle installer', () => {
       expect(packageResult.status, packageResult.stderr).toBe(0);
       await writeFile(dockerPath, '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\ncase "$*" in *pull*) [ "${QUEUEBOT_TEST_FAIL_PULL:-0}" = 1 ] && exit 17 ;; esac\nexit 0\n');
       await chmod(dockerPath, 0o755);
-      const artifactPath = join(output, 'subarushogun_twich_bot_installer.sh');
+      const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
       const env = {
         ...process.env,
         HOME: home,
@@ -228,7 +305,7 @@ describe('single-file lifecycle installer', () => {
       expect(packageResult.status, packageResult.stderr).toBe(0);
       await writeFile(dockerPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\nexit 0\n`);
       await chmod(dockerPath, 0o755);
-      const artifactPath = join(output, 'subarushogun_twich_bot_installer.sh');
+      const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
       const installHome = join(home, 'product');
       const env = {
         ...process.env,
@@ -268,7 +345,7 @@ describe('single-file lifecycle installer', () => {
       expect(packageResult.status, packageResult.stderr).toBe(0);
       await writeFile(dockerPath, '#!/bin/sh\nexit 1\n');
       await chmod(dockerPath, 0o755);
-      const artifactPath = join(output, 'subarushogun_twich_bot_installer.sh');
+      const artifactPath = join(output, 'subarushogun_twich_bot_setup.sh');
       const installHome = join(home, 'product');
       const env = {
         ...process.env,

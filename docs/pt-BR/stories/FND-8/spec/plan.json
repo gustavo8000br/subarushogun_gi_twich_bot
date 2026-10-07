@@ -66,7 +66,7 @@
     {
       "id": "P5",
       "name": "Ferramentas locais de instalação/atualização/remoção",
-      "goal": "Localizar textos das ferramentas de ciclo de vida e nomes aprovados das ações setup/update/uninstall. Coordenar consolidação do instalador e empacotamento por plataforma com a story de planejamento OPS-5; não duplicar sua arquitetura.",
+      "goal": "Localizar as mensagens do instalador unificado por sistema operacional, incluindo as ações instalar/iniciar, atualizar e desinstalar; a OPS-5 já cuida do empacotamento multiplataforma.",
       "status": "not_started",
       "verification": [
         "testes de contrato shell Linux, batch/PowerShell Windows e shell macOS quando suportado",
@@ -100,9 +100,8 @@
     "releaseOrTagAuthorized": false
   },
   "nextSteps": [
-    "Continuar a implementação com Red→Green→Refactor para cada comportamento e registrar as evidências exatas no histórico bilíngue da story.",
-    "Adicionar testes para a preservação aprovada de textos autorais e para colisões de raízes reservadas antes de implementar esses comportamentos dependentes.",
-    "Manter localização das ferramentas na FND-8 e coordenar consolidação/artefatos CI com OPS-5.",
-    "Solicitar acompanhamento independente de QA quando os gates de implementação e a aceitação por plataforma estiverem prontos."
+    "Continuar as pendências de localização e manter a documentação operacional sincronizada com o instalador unificado da OPS-5.",
+    "Usar Red→Green→Refactor e registrar as evidências exatas no histórico bilíngue da story.",
+    "Executar QA independente e validações por plataforma quando aplicável."
   ]
 }

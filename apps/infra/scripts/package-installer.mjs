@@ -8,8 +8,14 @@ const options = new Map();
 for (let index = 2; index < process.argv.length; index += 2) options.set(process.argv[index], process.argv[index + 1]);
 const platform = options.get('--platform');
 const output = resolve(options.get('--output') ?? 'artifacts/installer');
+const imageTag = options.get('--image-tag') ?? 'main';
+const validImageTag = /^(main|v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-[0-9a-f]{7}-(?:alpha|beta|rc|stable))$/;
 if (!['linux', 'macos', 'windows'].includes(platform)) {
-  process.stderr.write('Usage: node apps/infra/scripts/package-installer.mjs --platform <linux|macos|windows> --output <directory>\n');
+  process.stderr.write('Usage: node apps/infra/scripts/package-installer.mjs --platform <linux|macos|windows> --output <directory> [--image-tag <main|materialized-version>]\n');
+  process.exit(2);
+}
+if (!validImageTag.test(imageTag)) {
+  process.stderr.write('Invalid image tag; use main or a materialized version identity.\n');
   process.exit(2);
 }
 
@@ -28,9 +34,9 @@ await mkdir(output, { recursive: true });
 let filename;
 let artifact;
 if (platform === 'windows') {
-  filename = 'subarushogun_twich_bot_installer.bat';
+  filename = 'subarushogun_twich_bot_setup.bat';
   const source = await readFile(join(root, 'apps/infra/installer/installer.ps1'), 'utf8');
-  const powershell = source.replace('__COMPOSE_B64__', composeBase64);
+  const powershell = source.replace('__COMPOSE_B64__', composeBase64).replaceAll('__IMAGE_TAG__', imageTag);
   const encoded = Buffer.from(powershell, 'utf16le').toString('base64').match(/.{1,76}/g).join('\r\n');
   artifact = [
     '@echo off',
@@ -50,9 +56,9 @@ if (platform === 'windows') {
     '',
   ].join('\r\n');
 } else {
-  filename = platform === 'macos' ? 'subarushogun_twich_bot_installer.command' : 'subarushogun_twich_bot_installer.sh';
+  filename = platform === 'macos' ? 'subarushogun_twich_bot_setup.command' : 'subarushogun_twich_bot_setup.sh';
   const source = await readFile(join(root, 'apps/infra/installer/installer.sh'), 'utf8');
-  artifact = source.replace('__COMPOSE_B64__', composeBase64);
+  artifact = source.replace('__COMPOSE_B64__', composeBase64).replaceAll('__IMAGE_TAG__', imageTag);
 }
 
 const target = join(output, filename);

@@ -7,9 +7,10 @@ Este guia cobre requisitos do computador, primeira inicialização, confiança H
 ## Requisitos
 
 - Computador de 64 bits com Docker Engine ou Docker Desktop no modo de containers Linux, plugin Docker Compose v2 (`docker compose`) e permissão para executar comandos Docker.
+- Arquitetura de host 64 bits compatível: `amd64`/`x86_64` ou `arm64`/`aarch64`. A imagem publicada do aplicativo atualmente atende Linux `amd64` e `arm64`.
 - Navegador atual no mesmo computador que possa confiar em uma autoridade certificadora local.
 - Internet para baixar imagens do GHCR e conectar à Twitch.
-- Durante este pré-lançamento privado, acesso ao repositório-fonte e ao pacote GHCR. Se o pacote for privado, autentique uma vez com um token clássico do GitHub com `read:packages`; nunca salve o token nos arquivos do projeto.
+- O repositório-fonte é público. O pacote de imagem GHCR tem controle de acesso separado e ainda estava privado em 2026-10-07; até a mudança de visibilidade, o pull da imagem exige uma conta GitHub autorizada a ler o pacote e um token clássico com `read:packages`. Nunca salve o token nos arquivos do projeto. O repositório público, por si só, não libera uma imagem privada.
 - Node.js, PostgreSQL, Git e compilador não são necessários no host para executar pelo Compose. Node.js `24.20.0` roda no contêiner e só é necessário no host para desenvolvimento.
 
 ### Sistemas host
@@ -20,18 +21,20 @@ Este guia cobre requisitos do computador, primeira inicialização, confiança H
 
 ### Estimativas aproximadas de hardware
 
-Estes são valores **aproximados para a alpha atual**, não mínimos garantidos. O uso real depende da versão do produto, reconstrução de imagens, sistema operacional, histórico de filas, logs e outros programas. Os requisitos podem mudar entre versões e serão revisados conforme o uso medido.
+Estes são valores **aproximados para a alpha atual**, não mínimos garantidos. O uso real depende da versão do produto, sistema operacional, histórico de filas, logs e outros programas. Os requisitos podem mudar entre versões e serão revisados conforme o uso medido. Uma instalação normal baixa uma imagem pré-construída; o usuário não compila a imagem do aplicativo localmente.
 
-- CPU: cerca de 2 núcleos lógicos disponíveis ao Docker; 4 são mais confortáveis no primeiro build.
-- Memória: cerca de 4 GB disponíveis ao Docker para o app e o primeiro build; 8 GB de RAM total é uma meta prática.
-- Disco: cerca de 10 GB livres antes do primeiro build para imagens, cache de build e volumes iniciais.
+- CPU: cerca de 2 núcleos lógicos disponíveis ao Docker para a operação normal.
+- Memória: cerca de 4 GB disponíveis ao Docker; 8 GB de RAM total é uma meta prática. O Docker Desktop para Mac exige ao menos 4 GB de RAM.
+- Disco: cerca de 10 GB livres para imagens baixadas, volumes de banco/segredos, logs e atualizações.
 - Não é necessária GPU dedicada.
+
+Compilar a imagem localmente é necessário apenas para desenvolvimento e pode exigir CPU, memória e disco adicionais para o cache; consulte o [guia de desenvolvimento](../DEVELOPMENT.md).
 
 Os valores para Windows também refletem requisitos do Docker Desktop. Consulte os guias atuais de [Windows](https://docs.docker.com/desktop/setup/install/windows-install/), [Docker Engine no Ubuntu](https://docs.docker.com/engine/install/ubuntu/), [pós-instalação Linux](https://docs.docker.com/engine/install/linux-postinstall/) e [plugin Compose](https://docs.docker.com/compose/install/linux/).
 
 ## Primeira inicialização
 
-O instalador é um único arquivo abrível diretamente por sistema: `.bat` no Windows, `.command` no macOS e `.sh` no Linux. Baixe o correspondente na última execução bem-sucedida do [workflow de CI](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml). O repositório é privado durante o pré-lançamento, portanto é necessário ter acesso a ele para baixar o artefato. O instalador já contém a configuração Compose; não clone o repositório.
+A OPS-5 entrega **um único instalador unificado por sistema operacional**. Cada arquivo abre um menu com **Instalar / Iniciar**, **Atualizar** e **Desinstalar**; não há downloads separados para atualização ou desinstalação. Quando estiver disponível, baixe o arquivo do seu sistema na página pública de [GitHub Releases](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases). Cada release terá um instalador para Windows, macOS e Linux, além de notas para usuários em inglês e pt-BR extraídas das seções correspondentes dos dois changelogs públicos. Ainda não há release pública do produto: a primeira beta canônica está planejada para depois da FND-9 e de seus critérios de aceite. Artefatos CI são builds temporários de engenharia/QA, não o caminho de download para usuários. O instalador inclui sua configuração Compose, portanto o usuário final não precisa clonar o código-fonte. O pacote da imagem GHCR ainda é privado; ele deve ser tornado público antes do teste planejado com streamer após a FND-9. No Linux, execute o arquivo `.sh` baixado conforme os passos na seção [Ubuntu/Linux](#ubuntulinux).
 
 Na primeira abertura, ele pergunta idioma do produto (pt-BR, inglês ou espanhol) e porta local (3000 por padrão), e mostra os endereços exatos do painel e callback Twitch. Depois, o idioma pode ser alterado no painel. Se a porta 3000 estiver ocupada, escolha outra; o instalador não troca a porta silenciosamente.
 
@@ -41,14 +44,14 @@ Se Docker/Compose estiver ausente, o instalador pergunta antes de abrir as instr
 
 1. Instale e inicie Docker Desktop no modo Linux containers. O backend WSL 2 depende de pré-requisitos do Windows; siga o [guia oficial atual](https://docs.docker.com/desktop/setup/install/windows-install/). Docker Desktop não oferece suporte ao Windows Server.
    No PowerShell, `wsl --version` mostra a versão instalada do WSL. Se o WSL estiver ausente ou precisar de atualização, siga as instruções atuais da Microsoft e reinicie quando o Windows solicitar.
-2. Enquanto o pacote GHCR for privado, autentique uma vez no PowerShell, se necessário:
+2. O pacote de imagem GHCR está privado neste momento, embora o repositório-fonte seja público. Autentique no PowerShell com uma conta autorizada a ler o pacote:
 
    ```powershell
    docker login ghcr.io --username SEU_USUARIO_GITHUB
    ```
 
-   Informe no prompt de senha um token GitHub com `read:packages`. Não o salve em arquivo. Esta etapa deixa de ser necessária quando o pacote se tornar público.
-3. Abra o arquivo baixado `subarushogun_twich_bot_installer.bat` (clique duplo ou execute no Prompt de Comando/PowerShell). Escolha **Instalar / Iniciar**, idioma e porta. O artefato é independente e funciona em caminhos com espaços.
+   Informe no prompt de senha um token clássico do GitHub com `read:packages`. Não o salve em arquivo. Pule esta etapa quando o pacote se tornar público.
+3. Abra o arquivo de release `subarushogun_twich_bot_setup.bat` (clique duplo ou execute no Prompt de Comando/PowerShell). Escolha **Instalar / Iniciar**, idioma e porta. O arquivo é independente e funciona em caminhos com espaços.
 4. O instalador inicia Compose, aguarda a saúde e abre o painel. A CA pública local fica em `%LOCALAPPDATA%\SubaruShogun\subarushogun-gi-twitch-bot\.local\localhost-ca.crt`. Para confiar nela para o usuário atual:
 
    ```powershell
@@ -60,8 +63,14 @@ Se Docker/Compose estiver ausente, o instalador pergunta antes de abrir as instr
 ### Ubuntu/Linux
 
 1. Instale Docker Engine e o plugin Compose. Ubuntu 24.04 LTS é o ambiente Linux validado pelo projeto; confira os [procedimentos oficiais para Linux suportado](https://docs.docker.com/engine/install/).
-2. Enquanto o GHCR for privado, execute `docker login ghcr.io --username SEU_USUARIO_GITHUB` e informe um token GitHub com `read:packages`. Nunca salve o token junto do instalador ou em `.env`.
-3. No terminal, dentro da pasta extraída, execute `sh ./subarushogun_twich_bot_installer.sh`; isso funciona mesmo se o download remover a permissão de execução. Para abrir depois com duplo clique, habilite **Permitir executar arquivo como programa** nas propriedades ou execute `chmod +x subarushogun_twich_bot_installer.sh` uma vez e depois `./subarushogun_twich_bot_installer.sh`. Um lançador gráfico sem terminal interativo recebe uma mensagem clara de encerramento.
+2. O pacote de imagem GHCR está privado neste momento, embora este repositório seja público. Execute `docker login ghcr.io --username SEU_USUARIO_GITHUB` com uma conta autorizada a ler o pacote e informe um token clássico do GitHub com `read:packages`. Nunca salve o token junto do instalador ou em `.env`. Pule esta etapa quando o pacote se tornar público.
+3. Baixe `subarushogun_twich_bot_setup.sh` na página da release. Se salvou em `Downloads`, abra o terminal e execute:
+
+   ```sh
+   sh "$HOME/Downloads/subarushogun_twich_bot_setup.sh"
+   ```
+
+   Troque o caminho se salvou o arquivo em outra pasta. Isso funciona mesmo sem permissão executável. Para abrir depois, execute `chmod +x subarushogun_twich_bot_setup.sh` uma vez e então `./subarushogun_twich_bot_setup.sh`. Um lançador gráfico sem terminal interativo recebe uma mensagem clara de encerramento.
 4. Confie na CA local gerada em `$HOME/.local/share/subarushogun-gi-twitch-bot/.local/localhost-ca.crt`:
 
    ```sh
@@ -74,8 +83,8 @@ Se Docker/Compose estiver ausente, o instalador pergunta antes de abrir as instr
 ### macOS
 
 1. Instale e abra o [Docker Desktop para Mac](https://docs.docker.com/desktop/setup/install/mac-install/). O Docker oferece suporte à versão atual e às duas versões principais anteriores do macOS e exige ao menos 4 GB de RAM; consulte os requisitos atuais antes de instalar. O teste de smoke do instalador roda em runner macOS hospedado pelo GitHub; a aceitação em um Mac físico é uma etapa separada.
-2. Enquanto GHCR for privado, autentique com `docker login ghcr.io --username SEU_USUARIO_GITHUB` e token GitHub com `read:packages`.
-3. Abra `subarushogun_twich_bot_installer.command` pelo Finder. Se o Gatekeeper bloquear um arquivo de comando baixado sem assinatura, use os controles de segurança/Privacidade e Segurança do macOS para permiti-lo, ou execute no Terminal com `chmod +x subarushogun_twich_bot_installer.command && ./subarushogun_twich_bot_installer.command`.
+2. O pacote de imagem GHCR está privado neste momento, embora este repositório seja público. Autentique com `docker login ghcr.io --username SEU_USUARIO_GITHUB` usando uma conta autorizada a ler o pacote e um token clássico do GitHub com `read:packages`. Pule esta etapa quando o pacote se tornar público.
+3. Abra pelo Finder o arquivo de release `subarushogun_twich_bot_setup.command`. Se o Gatekeeper bloquear o arquivo sem assinatura, confira a origem e use o aviso de segurança/Privacidade e Segurança do macOS para permiti-lo, ou execute no Terminal com `chmod +x subarushogun_twich_bot_setup.command && ./subarushogun_twich_bot_setup.command`.
 4. Confie na CA local pelo Acesso às Chaves em `~/Library/Application Support/SubaruShogun/subarushogun-gi-twitch-bot/.local/localhost-ca.crt`. O comando é:
 
    ```sh

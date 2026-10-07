@@ -22,7 +22,7 @@ The streamer is identified by the Twitch account connected to this installation.
 
 ## Before first use
 
-Follow the [installation guide](INSTALLATION.md) for exact host requirements, private GHCR access, platform-specific startup, and certificate trust. Node.js and PostgreSQL do not need to be installed on the host. Once the panel opens at `https://localhost:3000`, continue with **Connecting Twitch** below.
+Follow the [installation guide](INSTALLATION.md) for exact host requirements, current GHCR package access, platform-specific startup, and certificate trust. The source repository is public, but the image package has separate permissions and currently requires an authorized account plus `read:packages`; Node.js and PostgreSQL do not need to be installed on the host. Once the panel opens at `https://localhost:3000`, continue with **Connecting Twitch** below.
 
 ## Connecting Twitch
 
@@ -159,7 +159,7 @@ Stop the product from Docker Desktop or the Docker Engine controls on your compu
 
 For service status, use Docker Desktop or Docker Engine tools to inspect the product containers. To troubleshoot, inspect the bot logs in the installer-managed Compose project. Stopping or restarting containers preserves product volumes; never remove volumes when merely stopping or updating.
 
-Open your platform's single installer: `subarushogun_twich_bot_installer.bat` on Windows, `subarushogun_twich_bot_installer.command` on macOS, or `subarushogun_twich_bot_installer.sh` on Linux. Choose **Update** or **Uninstall**. A normal update preserves queues, history, Twitch authorization, secrets, language, and port. Uninstall asks whether to keep or erase product data; the erase path requires the localized typed confirmation shown by the installer. Docker, virtualization, and other shared host dependencies remain installed and must be removed manually through their vendors if desired. Do not remove Docker volumes when stopping or updating the product.
+For installation, update, or removal, use the same unified installer file for your operating system: `subarushogun_twich_bot_setup.bat` on Windows, `subarushogun_twich_bot_setup.command` on macOS, or `subarushogun_twich_bot_setup.sh` on Linux. Download the file from the [GitHub Releases page](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases) when the first public product release is available; its notes will summarize the matching version's `CHANGELOG.md` section. The first canonical beta is planned after FND-9. On Linux, use the downloaded file directly as shown in the [installer guide](INSTALLERS.md). Choose **Update** or **Uninstall** from its menu. A normal update preserves queues, history, Twitch authorization, secrets, language, and port. Uninstall asks whether to keep or erase product data; erasure requires the localized typed confirmation shown by the installer. Docker, virtualization, and other shared host dependencies remain installed and must be removed manually through their vendors if desired. Do not remove Docker volumes when stopping or updating the product.
 
 ## Common problems
 

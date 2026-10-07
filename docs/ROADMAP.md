@@ -23,3 +23,10 @@ Status checked against the local story index and GitHub issues on 2026-10-07. Op
 | OPS-6 — Clear runtime status and guided panel states ([#32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32)) | Complete; merged in PR #33; independent QA PASS 100/100 |
 
 See the detailed acceptance criteria and implementation evidence in the [story index](stories.md) and its [pt-BR version](pt-BR/stories.md).
+
+## Candidate stories for later planning
+
+These owner-requested ideas are backlog candidates, not scoped stories or issues yet:
+
+- Recover Twitch API/EventSub connectivity automatically after temporary network loss, sleep, shutdown, or restart when persisted OAuth credentials remain valid; do not request a new login for a transient outage.
+- Add carefully selected product screenshots to the English and pt-BR documentation, with an agreed capture/update process.

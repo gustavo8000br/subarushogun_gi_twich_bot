@@ -2,7 +2,7 @@
 
 [Português brasileiro](pt-BR/CONTRIBUICAO.md) · [Back to README](../README.md)
 
-The repository is currently private. Contributions require access and should follow the active story and its GitHub issue.
+The source repository is public. Anyone can read the code and propose a change; maintainers review pull requests against the active story, its GitHub issue, and the contribution rules below.
 
 ## Before changing behavior
 

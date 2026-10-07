@@ -17,7 +17,7 @@ As a streamer, I want to select the product language during installation and cha
 - Community resources are split into one catalog file per product module and locale. New canonical locales are discovered from complete catalog files and do not require adding a locale to a JavaScript registry.
 - Global command roots are `!fila` (`pt-BR`), `!queue` (`en`), and `!cola` (`es`). No legacy root aliases are retained. Reserve all three roots from queue slugs in every locale.
 - Stable internal command IDs, API contract fields, database identifiers, and technical logs remain language-neutral/English.
-- Local lifecycle tools use the approved generic names `subarushogun_twich_bot_setup`, `subarushogun_twich_bot_update`, and `subarushogun_twich_bot_uninstall`; platform-specific entry points may vary.
+- OPS-5 now delivers one unified installer artifact per operating system. Its localized menu offers Install / Start, Update, and Uninstall; these actions are not separate files or downloads.
 - Existing queue-key collisions with `fila`, `queue`, or `cola` block only the conflicting root until explicit panel rename; automatic rename is forbidden.
 - Target product surfaces: panel and setup/callback; chat command syntax/help/replies; OBS widget editor and product-generated labels/fallbacks; start/install, update, and uninstall tools.
 - The implementation stays local-first, vanilla JavaScript ESM, with no runtime translation service, frontend framework, TypeScript, or bundler.
@@ -27,7 +27,7 @@ As a streamer, I want to select the product language during installation and cha
 ## Owner-approved policies
 
 - Streamer-authored text remains exactly as entered across locale changes; localize only product-owned copy.
-- Generic lifecycle tool names are `subarushogun_twich_bot_setup`, `subarushogun_twich_bot_update`, and `subarushogun_twich_bot_uninstall`; entry points vary by platform.
+- **Superseded by OPS-5 (2026-10-07):** lifecycle actions remain localized, but they are offered from one unified installer file per operating system rather than separate setup/update/uninstall files.
 - Existing slug/alias collisions with `fila`, `queue`, or `cola` block only the conflicting root until an explicit panel rename; never rename automatically.
 
 

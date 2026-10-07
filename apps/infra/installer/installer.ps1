@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $ComposeBase64 = '__COMPOSE_B64__'
+$ReleaseImageTag = '__IMAGE_TAG__'
 $ProjectName = 'subarushogun-gi-twitch-queue-bot'
 $ImageName = 'ghcr.io/gustavo8000br/subarushogun_gi_twich_bot'
 $Docker = if ($env:QUEUEBOT_DOCKER_BIN) { $env:QUEUEBOT_DOCKER_BIN } else { 'docker' }
@@ -114,8 +115,14 @@ function Invoke-Docker([string[]]$Arguments) {
   $exitCode=$LASTEXITCODE
   return ($exitCode -eq 0)
 }
-function Compose([string[]]$Arguments) {
-  return Invoke-Docker (@('compose','--project-name',$ProjectName,'--project-directory',$InstallHome,'--file',$ComposeFile,'--env-file',$EnvFile) + $Arguments)
+function Compose([string[]]$Arguments, [string]$ImageTag = '') {
+  $previousImageTag = $env:IMAGE_TAG
+  if ($ImageTag) { $env:IMAGE_TAG = $ImageTag }
+  try {
+    return Invoke-Docker (@('compose','--project-name',$ProjectName,'--project-directory',$InstallHome,'--file',$ComposeFile,'--env-file',$EnvFile) + $Arguments)
+  } finally {
+    if ($ImageTag) { [Environment]::SetEnvironmentVariable('IMAGE_TAG',$previousImageTag,'Process') }
+  }
 }
 function Write-ComposeFile {
   New-Item -ItemType Directory -Force -Path (Join-Path $InstallHome '.local') | Out-Null
@@ -134,8 +141,19 @@ function Read-Port {
 }
 function Save-Config([int]$Port) {
   New-Item -ItemType Directory -Force -Path $InstallHome | Out-Null
-  Set-Content -LiteralPath $EnvFile -Encoding ascii -Value @("APP_PORT=$Port",'IMAGE_TAG=main',"PRODUCT_INITIAL_LOCALE=$Locale")
+  Set-Content -LiteralPath $EnvFile -Encoding ascii -Value @("APP_PORT=$Port","IMAGE_TAG=$ReleaseImageTag","PRODUCT_INITIAL_LOCALE=$Locale")
   Write-ComposeFile
+}
+function Save-ImageTag {
+  $lines = @(Get-Content -LiteralPath $EnvFile)
+  $found = $false
+  $updated = foreach ($line in $lines) {
+    if ($line -match '^IMAGE_TAG=') {
+      if (-not $found) { "IMAGE_TAG=$ReleaseImageTag"; $found = $true }
+    } else { $line }
+  }
+  if (-not $found) { $updated += "IMAGE_TAG=$ReleaseImageTag" }
+  Set-Content -LiteralPath $EnvFile -Encoding ascii -Value $updated
 }
 function Wait-Panel([int]$Port) {
   if ($TestMode) { return $true }
@@ -164,7 +182,7 @@ function Setup-Product {
   }
   Write-Host ([string]::Format((T 'callback'),$port))
   Write-ComposeFile
-  if ((Compose @('pull')) -and (Compose @('up','-d')) -and (Wait-Panel $port)) { return }
+  if ((Compose @('pull') $ReleaseImageTag) -and (Compose @('up','-d')) -and (Wait-Panel $port)) { return }
   Write-Host (T 'failure')
 }
 function Remove-ImageIfUnused {
@@ -182,13 +200,16 @@ function Update-Product {
   Write-Host (T 'update'); $choice=Read-Answer (T 'choice')
   if (-not $choice -or $choice -eq '1') {
     Write-ComposeFile
-    if ((Compose @('pull')) -and (Compose @('up','-d'))) { Write-Host (T 'updated'); [void](Wait-Panel $port) } else { Write-Host (T 'failure') }
+    if (Compose @('pull') $ReleaseImageTag) {
+      Save-ImageTag
+      if ((Compose @('up','-d')) -and (Wait-Panel $port)) { Write-Host (T 'updated') } else { Write-Host (T 'failure') }
+    } else { Write-Host (T 'failure') }
     return
   }
   if ($choice -ne '2') { return }
   Write-Host (T 'confirm'); $answer=Read-Answer
   if ($answer -cne [string]$Copy[$Locale].word) { return }
-  if (-not (Compose @('pull'))) { Write-Host (T 'failure'); return }
+  if (-not (Compose @('pull') $ReleaseImageTag)) { Write-Host (T 'failure'); return }
   if (-not (Compose @('down','--volumes','--remove-orphans'))) { Write-Host (T 'failure'); return }
   Remove-Item -LiteralPath (Join-Path $InstallHome '.local'),$EnvFile -Recurse -Force -ErrorAction SilentlyContinue
   Prompt-Language; $newPort=Read-Port; Save-Config $newPort

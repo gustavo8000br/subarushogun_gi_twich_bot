@@ -23,3 +23,10 @@ Estado conferido com o índice local de stories e as issues do GitHub em 2026-10
 | OPS-6 — Status de runtime claro e orientações no painel ([#32](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/32)) | Concluída; mesclada na PR #33; QA independente PASS 100/100 |
 
 Consulte critérios de aceite e evidências detalhadas no [índice de stories](stories.md) e na [versão em inglês](../stories.md).
+
+## Candidatas a stories para planejamento futuro
+
+Estas ideias solicitadas pelo proprietário são candidatas ao backlog; ainda não são stories ou issues refinadas:
+
+- Recuperar automaticamente a conexão com Twitch API/EventSub após perda temporária de rede, suspensão, desligamento ou reinício quando as credenciais OAuth persistidas continuarem válidas; não pedir novo login por uma falha transitória.
+- Incluir capturas de tela selecionadas na documentação em inglês e pt-BR, com processo definido para capturar e atualizar as imagens.

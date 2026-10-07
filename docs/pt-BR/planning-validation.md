@@ -2,6 +2,8 @@
 
 [English](../planning-validation.md)
 
+> **Registro histórico de planejamento:** este documento registra a revisão Greenfield inicial, antes da implementação da FND-1. Afirmações sobre repositório, versão e estado de workflows são históricas; consulte o [roadmap atual](../ROADMAP.md), as stories e a política de versão para o estado vigente. Downloads de instaladores para usuários agora usam GitHub Releases versionadas; o workflow de tag e seu estado atual estão descritos na política de versão.
+
 ## Escopo revisado
 
 O resumo do produto, PRD, especificação do frontend, arquitetura integrada, arquitetura do serviço e arquitetura do frontend foram comparados aos artefatos FND-0 de requisitos/spec/pesquisa e ao `po-master-checklist.md` fornecido pelo AIOX.

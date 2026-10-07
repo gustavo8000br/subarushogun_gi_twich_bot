@@ -2,76 +2,66 @@
 
 [Português brasileiro](pt-BR/INSTALADORES.md) · [Back to README](../README.md)
 
-There is one directly openable installer artifact for each supported desktop operating system. The artifact embeds the product's Compose file; do not download separate setup, update, or uninstall scripts and do not clone the repository to use it.
+The project provides one unified installer file per supported operating system. It offers **Install / Start**, **Update**, and **Uninstall** in one menu. You do not need to clone the source repository. A release installer installs and updates to the GHCR image matching its release identity; the `main` image remains the default for CI/development builds.
 
-## Download from GitHub Actions
+## Download a release
 
-1. Sign in to the private repository: [SubaruShogun Twitch Queue Bot](https://github.com/gustavo8000br/subarushogun_gi_twich_bot).
-2. Open **Actions** → **CI** → choose the latest successful run on the `main` branch.
-3. At the bottom of that run's summary, find **Artifacts** and download the artifact for your operating system:
-   - `subarushogun-twitch-queue-bot-installer-windows`
-   - `subarushogun-twitch-queue-bot-installer-macos`
-   - `subarushogun-twitch-queue-bot-installer-linux`
-4. Extract the downloaded artifact. It contains one installer file. Follow the matching platform steps below.
+Download the installer from the public [GitHub Releases page](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases). Choose the release for the version you want, read its notes, and download the single file for your system:
 
-## Windows
+- Windows: `subarushogun_twich_bot_setup.bat`
+- macOS: `subarushogun_twich_bot_setup.command`
+- Linux: `subarushogun_twich_bot_setup.sh`
 
-1. Install and start Docker Desktop with Linux containers. If Docker is missing, the installer can open [Docker's official Windows installation guide](https://docs.docker.com/desktop/setup/install/windows-install/) after you agree.
-2. Open `subarushogun_twich_bot_installer.bat` by double-clicking it, or run it from Command Prompt/PowerShell. It works from a folder whose path contains spaces.
-3. On a first install, choose a product language, then choose a port or press Enter for `3000`. Review the displayed HTTPS panel and Twitch callback addresses.
-4. On an existing install, choose **Install / Start**. Keep current language/port or answer **No** to reconfigure them.
-5. To update, choose **Update**. The default keeps your data. To erase queues, history, authorization, secrets, and the local certificate before a clean install, choose the erase option and type the exact confirmation displayed in your selected language.
-6. To remove the product, choose **Uninstall**, then choose **Keep data** or **Erase all product data**. Docker Desktop, WSL, virtualization, and other shared Windows dependencies stay installed.
+Each release description contains the user-facing changes from the matching version sections in `CHANGELOG.md` and `docs/pt-BR/CHANGELOG.md`. The tag and title use the complete version identity. A tag-triggered workflow validates the tag against the source commit/version, builds and launches one installer on each native OS runner, then publishes the three installers and bilingual notes together. A normal branch push never creates a release.
 
-If Windows blocks the file, verify it came from the repository's CI artifact, then use Windows' file properties/security controls. Do not run a replacement script from an unrelated download.
+**Release status:** there is no public product release yet. The first canonical beta, `v1.0.0-HHHHHHH-beta`, is planned after FND-9 and its acceptance gates. GitHub Actions artifacts are temporary engineering/QA builds, not the end-user download path.
 
-## macOS
+**GHCR status:** the source repository is public, but its image package was still private on 2026-10-07 (anonymous pull returned HTTP 403). The package must be made public and an anonymous pull verified before the planned post-FND-9 Twitch streamer test. Until then, starting the app requires an account authorized to read the package and a classic GitHub token with `read:packages`; see the [installation guide](INSTALLATION.md). Once the package is public, no registry login is needed.
 
-1. Install and open Docker Desktop for Mac. If Docker is missing, the installer can open [Docker's official Mac installation guide](https://docs.docker.com/desktop/setup/install/mac-install/) after you agree.
-2. Open `subarushogun_twich_bot_installer.command` from Finder. If macOS blocks the downloaded file, verify its source and allow it through **System Settings → Privacy & Security**, or open Terminal in the extracted folder and run:
+## Open the installer
 
-   ```sh
-   chmod +x subarushogun_twich_bot_installer.command
-   ./subarushogun_twich_bot_installer.command
-   ```
+### Windows
 
-3. Choose **Install / Start**, **Update**, or **Uninstall** from the menu. First install asks for language and port. Existing installs can keep or change their saved settings.
-4. Update preserves data by default. Clean update and full uninstall erase product data only after you type the exact confirmation shown in the selected language. Docker Desktop and other shared host dependencies remain installed.
+1. Install and start Docker Desktop with Linux containers.
+2. Open the downloaded `.bat` file by double-clicking it or from Command Prompt/PowerShell. It supports paths containing spaces.
+3. Choose **Install / Start**, **Update**, or **Uninstall**. On first install, choose the product language and port; the defaults are pt-BR and `3000`.
 
-## Linux
+If Windows blocks the file, verify it came from the project's GitHub Releases page before allowing it through the file security controls.
 
-1. Install Docker Engine and the Docker Compose v2 plugin. If Docker is missing, the installer can open [Docker's official Engine installation instructions](https://docs.docker.com/engine/install/) after you agree.
-2. In a terminal, change to the folder containing the extracted artifact and run it through the system shell. This works even if the download removed the executable permission:
+### macOS
+
+1. Install and start Docker Desktop for Mac.
+2. Open the downloaded `.command` file in Finder. If macOS blocks it, verify its source and allow it through **System Settings → Privacy & Security**. You can also open Terminal in the download folder and run:
 
    ```sh
-   sh ./subarushogun_twich_bot_installer.sh
+   chmod +x subarushogun_twich_bot_setup.command
+   ./subarushogun_twich_bot_setup.command
    ```
 
-   For later double-click launches in a file manager, enable **Allow executing file as program** in the file properties, or run `chmod +x subarushogun_twich_bot_installer.sh` once and then `./subarushogun_twich_bot_installer.sh`. A graphical launcher without an interactive terminal now receives a clear exit message instead of a repeated prompt.
+3. Choose **Install / Start**, **Update**, or **Uninstall** from the menu.
 
-3. Choose **Install / Start**, **Update**, or **Uninstall**. The menu asks for language/port on first install and prints the exact HTTPS callback URL.
-4. Normal update preserves data. Clean update or data-erasing uninstall requires the exact localized confirmation. Docker Engine and other shared host packages remain installed.
+### Linux
 
-## Menu choices and data
+1. Install Docker Engine and the Docker Compose v2 plugin.
+2. Open a terminal in the folder where you downloaded the `.sh` file. If it is in `Downloads`, run:
 
-| Choice | Result |
+   ```sh
+   sh "$HOME/Downloads/subarushogun_twich_bot_setup.sh"
+   ```
+
+   Replace the path if you saved it elsewhere. This works even when the download does not preserve executable permission. For later launches, use `chmod +x subarushogun_twich_bot_setup.sh` once, then `./subarushogun_twich_bot_setup.sh`.
+3. Choose **Install / Start**, **Update**, or **Uninstall** from the menu.
+
+## Data choices
+
+| Menu choice | Result |
 | --- | --- |
-| **Install / Start** | Creates or starts the local app. Existing installations can keep or change language/port. |
-| **Update → Keep data** | Pulls the selected image and updates the app while preserving database/secrets volumes and current settings. |
-| **Update → Erase data and install cleanly** | Downloads the image first; after confirmation, removes this product's volumes and local certificate, then asks for language/port again. |
-| **Uninstall → Keep data** | Stops/removes this product's containers and Compose file while retaining its volumes, saved settings, and local certificate. |
-| **Uninstall → Erase all product data** | After confirmation, removes this product's containers, volumes, settings, secrets, and local certificate. |
+| **Install / Start** | Creates or starts the local app. Existing installations can keep or change language and port. |
+| **Update → Keep data** | Updates the app while preserving database/secrets volumes and settings. |
+| **Update → Erase data and install cleanly** | Requires a typed confirmation, then removes this product's data and starts a clean setup. |
+| **Uninstall → Keep data** | Removes this product's containers and Compose files but keeps its volumes, settings, and local certificate. |
+| **Uninstall → Erase all product data** | Requires a typed confirmation, then removes this product's containers, volumes, settings, secrets, and local certificate. |
 
-Cancel a confirmation by entering anything other than the word shown. The installer never removes Docker Engine/Desktop, WSL, virtualization features, system packages, or the downloaded installer file. Remove host dependencies manually through their official vendor instructions if you want to uninstall them.
+The installer does not remove Docker, WSL, virtualization, system packages, or other shared host dependencies. Remove those manually through their vendors if desired. Do not use `docker compose down -v` as a normal stop or update command; it deletes saved data.
 
-## Where the installer files live in this repository
-
-These are developer source files; users should download the single packaged artifact from Actions:
-
-| Platform artifact | Source | Packager/workflow |
-| --- | --- | --- |
-| `subarushogun_twich_bot_installer.bat` | `apps/infra/installer/installer.ps1` | `apps/infra/scripts/package-installer.mjs` and `.github/workflows/ci.yml` |
-| `subarushogun_twich_bot_installer.command` | `apps/infra/installer/installer.sh` | `apps/infra/scripts/package-installer.mjs` and `.github/workflows/ci.yml` |
-| `subarushogun_twich_bot_installer.sh` | `apps/infra/installer/installer.sh` | `apps/infra/scripts/package-installer.mjs` and `.github/workflows/ci.yml` |
-
-The workflow tests and uploads one artifact per native runner. Its Actions artifact is a test/download package, not a product release.
+For certificate trust, Twitch setup, and full requirements, see the [installation guide](INSTALLATION.md). For daily use, see the [user guide](USER_GUIDE-en_US.md).

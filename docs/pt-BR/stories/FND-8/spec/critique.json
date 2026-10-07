@@ -115,13 +115,14 @@
     "ownerDecisionsResolved": [
       "OQ-4 authored-text preservation",
       "OQ-5 reserved-root collision handling",
-      "OQ-6 setup/update/uninstall names"
+      "OQ-6 historical name proposal superseded by OPS-5 unified installer"
     ],
     "editorialFindingsStatus": "Os três achados editoriais foram corrigidos nos artefatos bilíngues; a reavaliação independente ainda está pendente.",
     "runtimeEvidenceAdded": [
       "setup localized status/messages: focused 39/39 tests",
       "eligible channel setup summary: included in focused 39/39 tests",
       "TSV parser contract: focused 9/9 tests"
-    ]
+    ],
+    "installerDecisionUpdate": "Em 2026-10-07, a decisão de nomes separados setup/update/uninstall foi substituída pela OPS-5: um artefato unificado por sistema operacional; as três operações são opções do mesmo menu."
   }
 }
