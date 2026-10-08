@@ -1,0 +1,36 @@
+consumed: false
+from_agent: devops
+to_agent: dev
+last_command: "*push"
+
+handoff:
+  version: "1.0"
+  timestamp: "2026-10-08T01:23:25-03:00"
+  from_agent: devops
+  to_agent: dev
+  story_context:
+    story_id: FND-9
+    story_path: docs/stories/FND-9/story.md
+    story_status: InProgress
+    current_task: "Final panel confirmation-dialog fix committed and pushed; continue remaining FND-9 acceptance work."
+    branch: feat/fnd-9-manual-queue-modes
+  decisions:
+    - "Commit 6a75874 replaces all eight panel window.confirm calls with the accessible, localized product dialog; Cancel/Escape do not authorize mutations."
+    - "The separate priority-reason window.prompt remains because it collects an input value, not a confirmation."
+    - "No PR, merge, version promotion, or stage change was made."
+    - "Compose bot was rebuilt and reloaded; health was ok. Existing database and secrets volumes were preserved."
+    - "Final checks passed: 104 test files / 872 tests, lint, typecheck, localization/version validation, OpenGrep (0 findings), Compose config, and diff check."
+  files_modified:
+    - apps/web/app.js
+    - apps/web/index.html
+    - apps/web/panel-confirmation.mjs
+    - apps/web/styles.css
+    - apps/web/localization/catalogs/panel/en.tsv
+    - apps/web/localization/catalogs/panel/es.tsv
+    - apps/web/localization/catalogs/panel/pt-BR.tsv
+    - tests/unit/panel-confirmation-contract.test.js
+    - docs/stories/FND-9/story.md
+    - CHANGELOG.md
+  blockers:
+    - "FND-9 remains InProgress; independent QA/UX review and remaining authorized Twitch acceptance are still open."
+  next_action: "In the Codespace, check git status before syncing; if the worktree is clean, run git pull --ff-only and verify HEAD includes 6a75874. Then resume FND-9 using @dev, preserve current user data/volumes, and do not promote beta until the remaining release criteria and user authorization are satisfied."
