@@ -549,3 +549,6 @@ panel.entry.call.awaiting_delivery	El plazo aún no ha comenzado; esperando la c
 panel.entry.call.no_deadline	No hay plazo automático para iniciar la atención.
 panel.entry.call.remaining	Tiempo para iniciar la atención: quedan {time}.
 panel.entry.call.expired	El plazo terminó; esperando la actualización de la atención.
+panel.confirmation.title	Confirmar acción
+panel.confirmation.cancel	Cancelar
+panel.confirmation.accept	Aceptar

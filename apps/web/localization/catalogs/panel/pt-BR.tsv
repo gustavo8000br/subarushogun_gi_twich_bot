@@ -549,3 +549,6 @@ panel.entry.call.awaiting_delivery	Prazo ainda não iniciado; aguardando confirm
 panel.entry.call.no_deadline	Sem prazo automático para iniciar o atendimento.
 panel.entry.call.remaining	Prazo para iniciar atendimento: {time} restante.
 panel.entry.call.expired	Prazo encerrado; aguardando atualização do atendimento.
+panel.confirmation.title	Confirmar ação
+panel.confirmation.cancel	Cancelar
+panel.confirmation.accept	OK

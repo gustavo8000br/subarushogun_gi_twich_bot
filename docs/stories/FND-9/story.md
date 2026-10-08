@@ -221,6 +221,7 @@ Implementation remains in progress. The 2026-10-08 full quality run passed 103 f
 - `apps/web/dom-localization.mjs`
 - `apps/web/health-status.mjs`
 - `apps/web/index.html`
+- `apps/web/panel-confirmation.mjs`
 - `apps/web/localization/catalogs/chat/en.tsv`
 - `apps/web/localization/catalogs/chat/es.tsv`
 - `apps/web/localization/catalogs/chat/pt-BR.tsv`
@@ -286,6 +287,7 @@ Implementation remains in progress. The 2026-10-08 full quality run passed 103 f
 - `tests/unit/overlay-routes.test.js`
 - `tests/unit/panel-catalog-placeholders.test.js`
 - `tests/unit/panel-error-presentation.test.js`
+- `tests/unit/panel-confirmation-contract.test.js`
 - `tests/unit/pending-queue-reward-compatibility.test.js`
 - `tests/unit/queue-action-state.test.js`
 - `tests/unit/queue-domain-service.test.js`
@@ -335,3 +337,11 @@ Pending independent @qa review after implementation.
 ### Context-specific reward errors — 2026-10-08
 
 - Red: `npx vitest run tests/unit/panel-error-presentation.test.js -t 'stable locale, Twitch, OAuth, widget, and state-conflict codes'` failed because `QUEUE_REWARD_NOT_READY` used deletion-only copy, which was misleading in the reward settings dialog. Green maps it to dedicated actionable copy (“refresh and review pending reward operations”) with pt-BR, English and Spanish catalog entries. The focused regression passed 1/1 and `npm run validate:localization` passed.
+
+### In-app confirmation dialogs — 2026-10-08
+
+- **Behavior:** Every panel action that previously used a browser-native `window.confirm` now opens a product-styled, translated dialog. Cancel, Escape, unavailable UI, or an already-open dialog must not authorize the action; OK accepts exactly once. Confirmation messages use `textContent`, and Cancel receives initial focus.
+- **Red:** `npx vitest run tests/unit/panel-confirmation-contract.test.js` failed **2/2**: all eight confirmation call sites still used `window.confirm`, and the accessible in-app dialog/localized buttons did not exist. This was an expected behavior failure, not a syntax or environment issue.
+- **Green:** Added the reusable modal helper, accessible `<dialog>`, responsive product styling, and pt-BR/English/Spanish labels. All eight call sites now await the helper. `npx vitest run tests/unit/panel-confirmation-contract.test.js` passed **6/6**, covering removal of native confirms, dialog/localization contract, safe text insertion, OK, Cancel, Escape, and fail-closed behavior. `npm run validate:localization` passed.
+- **Refactor/UX:** Uses the panel's existing native HTML `<dialog>` pattern (not the browser JavaScript confirmation prompt); the browser manages modal focus containment, the safer Cancel action is focused first, button spacing adapts to narrow screens, and message content is inserted as text. The separate priority-reason `window.prompt` is an input prompt, not a confirmation action, and remains unchanged.
+- **Files:** `apps/web/app.js`, `apps/web/index.html`, `apps/web/panel-confirmation.mjs`, `apps/web/styles.css`, all three panel catalogs, and `tests/unit/panel-confirmation-contract.test.js`.

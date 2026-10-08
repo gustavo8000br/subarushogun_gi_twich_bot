@@ -221,6 +221,7 @@ Implementação continua em andamento. A execução completa de qualidade de 202
 - `apps/web/dom-localization.mjs`
 - `apps/web/health-status.mjs`
 - `apps/web/index.html`
+- `apps/web/panel-confirmation.mjs`
 - `apps/web/localization/catalogs/chat/en.tsv`
 - `apps/web/localization/catalogs/chat/es.tsv`
 - `apps/web/localization/catalogs/chat/pt-BR.tsv`
@@ -286,6 +287,7 @@ Implementação continua em andamento. A execução completa de qualidade de 202
 - `tests/unit/overlay-routes.test.js`
 - `tests/unit/panel-catalog-placeholders.test.js`
 - `tests/unit/panel-error-presentation.test.js`
+- `tests/unit/panel-confirmation-contract.test.js`
 - `tests/unit/pending-queue-reward-compatibility.test.js`
 - `tests/unit/queue-action-state.test.js`
 - `tests/unit/queue-domain-service.test.js`
@@ -335,3 +337,11 @@ Revisão independente @qa pendente após a implementação.
 ### Mensagens de reward conforme o contexto — 2026-10-08
 
 - Red: `npx vitest run tests/unit/panel-error-presentation.test.js -t 'stable locale, Twitch, OAuth, widget, and state-conflict codes'` falhou porque `QUEUE_REWARD_NOT_READY` exibia uma mensagem exclusiva de exclusão, inadequada no editor de reward. Green usa texto próprio com orientação para atualizar o painel e conferir operações pendentes, nos catálogos pt-BR, inglês e espanhol. A regressão focada passou 1/1 e `npm run validate:localization` passou.
+
+### Pop-ups de confirmação no painel — 2026-10-08
+
+- **Comportamento:** Toda ação do painel que usava `window.confirm` agora abre um diálogo traduzido e com o visual do produto. Cancelar, pressionar Esc, não conseguir abrir o diálogo ou já haver outro aberto não autoriza a ação; OK confirma uma única vez. Mensagens entram por `textContent`, e Cancelar recebe o foco inicial.
+- **Red:** `npx vitest run tests/unit/panel-confirmation-contract.test.js` falhou **2/2**: os oito pontos de confirmação ainda chamavam `window.confirm`, e o diálogo acessível com botões localizados não existia. Foi uma falha esperada de comportamento, sem erro de sintaxe ou ambiente.
+- **Green:** Adicionados helper reutilizável, `<dialog>` acessível, estilo responsivo do produto e rótulos em pt-BR/inglês/espanhol. Os oito pontos agora aguardam o helper. `npx vitest run tests/unit/panel-confirmation-contract.test.js` passou **6/6**, cobrindo remoção das confirmações nativas, contrato do diálogo/catálogos, texto seguro, OK, Cancelar, Esc e falha fechada. `npm run validate:localization` passou.
+- **Refatoração/UX:** Reutiliza o padrão existente de `<dialog>` HTML do painel, em vez da caixa JavaScript nativa; o navegador mantém o foco dentro do modal, o botão mais seguro (Cancelar) recebe foco primeiro, o espaçamento se adapta a telas estreitas e a mensagem é inserida como texto. O `window.prompt` separado que coleta o motivo de prioridade é um prompt de entrada, não uma confirmação, e permanece igual.
+- **Arquivos:** `apps/web/app.js`, `apps/web/index.html`, `apps/web/panel-confirmation.mjs`, `apps/web/styles.css`, os três catálogos do painel e `tests/unit/panel-confirmation-contract.test.js`.

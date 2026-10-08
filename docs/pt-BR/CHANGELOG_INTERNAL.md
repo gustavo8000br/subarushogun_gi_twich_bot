@@ -4,6 +4,8 @@
 
 ## Implementação FND-9 em andamento — 2026-10-07
 
+- **2026-10-08 — Confirmações no painel:** Red: o novo contrato do painel falhou 2/2 porque as oito ações ainda usavam `window.confirm` e o diálogo do produto não existia. Green adiciona helper reutilizável, marcação acessível, estilo responsivo e botões Cancelar/OK traduzidos em pt-BR, inglês e espanhol. Seis verificações focadas cobrem confirmar, cancelar, Esc, inserção segura de texto, localização e falha fechada; a validação dos catálogos passou. O prompt separado de motivo de prioridade permanece igual.
+
 - **2026-10-08 — Ambiente de continuação no Codespaces:** Adicionado Dev Container do repositório com Node.js 24.20.0, Docker-in-Docker/Compose v2 isolado, GitHub CLI, OpenGrep 1.30.0 e Codex CLI 0.161.0; `npm ci` instala o lockfile do projeto. Os guias de desenvolvimento bilíngues explicam como criar o Codespace a partir de uma branch enviada e autenticar o Codex sem gravar credenciais no repositório. Testes de contrato cobrem configuração, versões fixadas, preparação e ambos os guias. Esta é uma ferramenta de desenvolvimento e não satisfaz os critérios de produto da FND-9.
 
 - **2026-10-08 — Retorno consistente do editor de filas:** Red reproduziu a ausência de códigos API para versão desatualizada e configurações inválidas; por segurança, o painel mostrava apenas o texto genérico. Green adiciona códigos estáveis para validação/conflitos dos editores de fila/reward e traduções acionáveis em pt-BR, inglês e espanhol. Testes focados de rotas, apresentação de erro e integração dos catálogos passaram; a suíte completa passou com 102 arquivos / 863 testes. Lint/typecheck e os demais gates locais passaram.

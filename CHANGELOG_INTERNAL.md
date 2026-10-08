@@ -4,6 +4,8 @@
 
 ## FND-9 implementation in progress — 2026-10-07
 
+- **2026-10-08 — In-app confirmations:** Red: the new panel contract failed 2/2 because all eight product confirmation actions still used `window.confirm` and the in-app dialog was absent. Green adds one reusable dialog helper, accessible markup, responsive styling, and translated Cancel/OK labels in English, Spanish, and pt-BR. Six focused checks cover accept, cancel, Escape, safe text insertion, localization, and fail-closed behavior; localization validation passes. This is a product panel fix; the separate priority-reason input prompt is unchanged.
+
 - **2026-10-08 — Codespaces continuation environment:** Added a repository Dev Container with Node.js 24.20.0, isolated Docker-in-Docker/Compose v2, GitHub CLI, OpenGrep 1.30.0, and Codex CLI 0.161.0; `npm ci` installs the project lockfile. The bilingual developer guides explain how to create the Codespace from a pushed branch and authenticate Codex without storing credentials in the repository. Local contract coverage verifies configuration, tool pins, setup, and both guides. This is developer tooling and does not satisfy FND-9 product acceptance.
 
 - **2026-10-08 — Stable queue-settings feedback:** Red reproduced missing API codes for stale-version and invalid-setting responses, which the panel intentionally rendered as generic copy. Green adds stable machine-readable codes for queue/reward editor validation and state conflicts, plus actionable panel translations in pt-BR, English, and Spanish. Focused route, error-presentation, and catalog integration checks passed; final full suite passed 102 files / 863 tests. Lint/typecheck and all other local gates pass.

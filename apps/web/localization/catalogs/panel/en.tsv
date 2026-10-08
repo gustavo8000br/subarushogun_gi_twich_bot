@@ -546,3 +546,6 @@ panel.entry.call.awaiting_delivery	Deadline has not started; waiting for deliver
 panel.entry.call.no_deadline	No automatic deadline to start service.
 panel.entry.call.remaining	Time to start service: {time} remaining.
 panel.entry.call.expired	Deadline passed; waiting for the service status to update.
+panel.confirmation.title	Confirm action
+panel.confirmation.cancel	Cancel
+panel.confirmation.accept	OK

@@ -13,6 +13,7 @@ import { getCallDeadlinePresentation } from './call-deadline-presentation.mjs';
 import { getQueueActionState } from './queue-action-state.mjs';
 import { getQueueOnboardingTransition } from './queue-onboarding-flow.mjs';
 import { normalizeRewardCandidates } from './reward-link-dialog.mjs';
+import { requestPanelConfirmation } from './panel-confirmation.mjs';
 import { canRetryQueueSettingsAfterVersionBump } from './queue-settings-version.mjs';
 import { translateCatalog, translatePluralCatalog } from '../shared/browser/translate-catalog.mjs';
 import { PANEL_PLACEHOLDERS } from './panel-catalog.mjs';
@@ -75,6 +76,16 @@ function panelText(key, values = {}) {
 function panelTextPlural(key, count) {
   const catalogs = state.localizationCatalogs?.modules?.panel?.catalogs ?? {};
   return translatePluralCatalog(catalogs, activeProductLocale(), key, count, { placeholders: PANEL_PLACEHOLDERS });
+}
+
+function confirmPanelAction(message) {
+  return requestPanelConfirmation({
+    dialog: $('#panel-confirmation-dialog'),
+    messageNode: $('#panel-confirmation-message'),
+    acceptButton: $('#panel-confirmation-accept'),
+    cancelButton: $('#panel-confirmation-cancel'),
+    message,
+  });
 }
 
 function commandRoleLabel(role) {
@@ -592,12 +603,12 @@ function renderOverlayWidgets(widgets) {
     actions.append(overlayAction(panelText('panel.widget.action.edit'), () => openOverlayEditor(widget)));
     if (widget.capabilityActive) {
       actions.append(overlayAction(panelText('panel.widget.action.regenerate'), async () => {
-        if (!window.confirm(panelText('panel.widget.confirm.regenerate'))) return;
+        if (!await confirmPanelAction(panelText('panel.widget.confirm.regenerate'))) return;
         try { const result = await request(`/api/overlay-widgets/${widget.id}/regenerate`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) }); showOneTimeOverlayLink(result.capabilityUrl); await loadOverlayWidgets(); }
         catch (error) { toast(panelError(error)); }
       }));
       actions.append(overlayAction(panelText('panel.widget.action.revoke'), async () => {
-        if (!window.confirm(panelText('panel.widget.confirm.revoke'))) return;
+        if (!await confirmPanelAction(panelText('panel.widget.confirm.revoke'))) return;
         try { await request(`/api/overlay-widgets/${widget.id}/revoke`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) }); await loadOverlayWidgets(); }
         catch (error) { toast(panelError(error)); }
       }, true));
@@ -608,7 +619,7 @@ function renderOverlayWidgets(widgets) {
       }));
     }
     actions.append(overlayAction(panelText('panel.widget.action.delete'), async () => {
-      if (!window.confirm(panelText('panel.widget.confirm.delete'))) return;
+      if (!await confirmPanelAction(panelText('panel.widget.confirm.delete'))) return;
       try { await request(`/api/overlay-widgets/${widget.id}`, { method: 'DELETE', body: JSON.stringify({ expectedVersion: widget.version }) }); await loadOverlayWidgets(); }
       catch (error) { toast(panelError(error)); }
     }, true));
@@ -727,7 +738,7 @@ async function refresh({ quiet = false } = {}) {
       if (operation.status === 'unknown' && operation.type.startsWith('redemption.')) {
         const button = text('button', panelText('panel.operation.action.resolve')); button.type = 'button';
         button.addEventListener('click', async () => {
-          const accepted = window.confirm(panelText('panel.operation.confirm.resolve'));
+          const accepted = await confirmPanelAction(panelText('panel.operation.confirm.resolve'));
           if (!accepted) return;
           try { await request(`/api/operations/${operation.id}/resolve-unknown`, { method: 'POST', body: '{}' }); await refresh(); }
           catch (error) { toast(panelError(error)); }
@@ -925,13 +936,13 @@ async function boot() {
       }
       if (actionName === 'archive-queue' || actionName === 'unarchive-queue') {
         const archiving = actionName === 'archive-queue';
-        if (!window.confirm(panelText(archiving ? 'panel.queue.confirm.archive' : 'panel.queue.confirm.unarchive'))) return;
+        if (!await confirmPanelAction(panelText(archiving ? 'panel.queue.confirm.archive' : 'panel.queue.confirm.unarchive'))) return;
         const result = await request(`/api/queues/${queueId}/${archiving ? 'archive' : 'unarchive'}`, { method: 'POST', body: '{}' });
         toast(panelText(archiving ? (result.status === 'pending' ? 'panel.queue.archive.pending' : 'panel.queue.archive.done') : 'panel.queue.unarchive.done'));
         await refresh(); return;
       }
       if (actionName === 'manual-mode' || actionName === 'manual-mode-retry') {
-        if (!window.confirm(panelText('panel.queue.confirm.manual_mode'))) return;
+        if (!await confirmPanelAction(panelText('panel.queue.confirm.manual_mode'))) return;
         const result = await request(`/api/queues/${queueId}/manual-mode`, { method: 'POST', body: '{}' });
         toast(panelText(result.status === 'pending' ? 'panel.queue.mode_transition.pending' : 'panel.queue.mode_transition.done'));
         await refresh(); return;
@@ -939,7 +950,7 @@ async function boot() {
       if (actionName === 'delete-queue') {
         const queue = state.queues.find((item) => item.id === queueId);
         const activeCount = (queue?.entries ?? []).filter((entry) => ['waiting', 'called', 'in_progress'].includes(entry.status)).length;
-        const accepted = window.confirm(panelText('panel.queue.confirm.delete', { title: queue?.title ?? '', count: activeCount }));
+        const accepted = await confirmPanelAction(panelText('panel.queue.confirm.delete', { title: queue?.title ?? '', count: activeCount }));
         if (!accepted) return;
         const result = await request(`/api/queues/${queueId}/delete`, { method: 'POST', body: JSON.stringify({ confirm: true }) });
         toast(panelText(result.status === 'pending' ? 'panel.queue.delete.pending' : 'panel.queue.delete.done'), result.status === 'pending' ? 'warning' : 'success');
@@ -958,7 +969,7 @@ async function boot() {
         const preview = await request(`/api/queues/${queueId}/clear-preview`, { method: 'POST', body: '{}' });
         if (preview.status === 'empty') { toast(panelText('panel.queue.clear.empty')); return; }
         const queue = state.queues.find((item) => item.id === queueId);
-        const accepted = window.confirm(panelText('panel.queue.clear.confirm', { title: queue?.title ?? '', count: preview.count, refunds: preview.refundsRequested }));
+        const accepted = await confirmPanelAction(panelText('panel.queue.clear.confirm', { title: queue?.title ?? '', count: preview.count, refunds: preview.refundsRequested }));
         if (!accepted) return;
         const result = await request(`/api/queues/${queueId}/clear-confirm`, { method: 'POST', body: '{}' });
         if (result.status === 'confirmation_required') toast(panelText('panel.queue.clear.changed', { count: result.count }));
