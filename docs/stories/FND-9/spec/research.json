@@ -1,6 +1,6 @@
 {
   "storyId": "FND-9",
-  "checkedAt": "2026-10-06 UTC",
+  "checkedAt": "2026-10-07 UTC",
   "targets": [
     {
       "target": "Twitch Channel Points and creator Custom Rewards",
@@ -75,19 +75,47 @@
         "NFR-3"
       ],
       "source": "https://dev.twitch.tv/docs/api/reference/",
-      "finding": "Helix can list custom rewards with only_manageable_rewards=false, but only the app that created a reward may retrieve its redemption records; reward mutation and deletion also require the creating Client ID. Therefore each eligible queue needs a dedicated Custom Reward created through this app, linked by reward ID rather than title, so reconciliation and point status changes remain available.",
-      "status": "verified_documentation; live Twitch operation remains untested"
+      "finding": "Helix can list rewards with only_manageable_rewards=false, but only the creating app may retrieve redemption records; reward updates, redemption status changes, and deletion are also tied to creator ownership. Support bot-created rewards by default. A dashboard-created reward may be selected only if an authorized test proves this Client ID can perform every lifecycle operation the product requires, including pause/open, pending and individual redemption retrieval/reconciliation, cancel/fulfill, and safe deletion after pending redemptions are resolved.",
+      "status": "official documentation reviewed 2026-10-07; end-to-end Dashboard reward test pending"
+    },
+    {
+      "target": "Twitch Monetization for All and Channel Points availability",
+      "type": "product",
+      "requirements": [
+        "FR-1",
+        "FR-5"
+      ],
+      "source": "https://blog.twitch.tv/en/2026/05/13/monetization-for-all/",
+      "relatedSources": [
+        "https://help.twitch.tv/s/article/channel-points-faq",
+        "https://help.twitch.tv/s/article/channel-points-guide?language=en_US"
+      ],
+      "finding": "Current Twitch documentation says Channel Points are available to monetized streamers after completing creator onboarding; availability can no longer be inferred only from Affiliate/Partner status. The operator reports successfully creating a reward in the Creator Dashboard while not Affiliate, which is reported evidence of Dashboard access, not evidence that this app can use the API.",
+      "status": "official documentation reviewed 2026-10-07; Dashboard access reported by operator; API untested"
+    },
+    {
+      "target": "Creator Dashboard reward visibility versus Helix ownership",
+      "type": "api",
+      "requirements": [
+        "FR-5",
+        "NFR-3"
+      ],
+      "source": "https://dev.twitch.tv/docs/api/reference/",
+      "finding": "GET /helix/channel_points/custom_rewards can list rewards with only_manageable_rewards=false; true limits results to rewards manageable by the Client ID. The reference says only the creating app may retrieve redemptions, update the reward, update redemption status, or delete the reward. EventSub delivery does not prove full recovery/management capability. The API still documents 403 for non-Affiliate/Partner broadcasters on Custom Reward endpoints, conflicting with expanded product availability.",
+      "status": "official documentation reviewed 2026-10-07; authorized end-to-end test pending"
     }
   ],
   "inference": [
     "Since Twitch documents chat EventSub scopes/conditions without an Affiliate/Partner gate while the Channel Points create endpoint explicitly has that gate, chat may be usable independently for a non-affiliate broadcaster. This is an inference from the separate contracts and still needs a controlled real-channel acceptance check before claiming it works end to end.",
-    "The smallest architecture appears to be to preserve OAuth/chat runtime and command authorization while conditionally disabling only Channel Points reward subscriptions, reward workers, and reconciliation for ineligible channels. Confirm token scope requirements and Twurple behavior before implementation.",
-    "Using an arbitrary pre-existing custom reward as a queue trigger would allow event observation but would not provide the required Helix redemption recovery and status control for a different Client ID; this conflicts with the product reliability and financial-audit requirements."
+    "The implementation now probes the actual Helix reward endpoint rather than relying on broadcasterType, preserves OAuth/chat runtime and command authorization when that probe is unsupported, and conditionally disables reward subscriptions, workers, and reconciliation. Adapter and integration tests cover the result mapping and chat continuity; authorized live OAuth/EventSub/chat acceptance and full reward lifecycle proof remain pending.",
+    "Using an arbitrary pre-existing custom reward as a queue trigger would allow event observation but would not provide the required Helix redemption recovery and status control for a different Client ID; this conflicts with the product reliability and financial-audit requirements.",
+    "Capability decisions should use actual authorized results of the required Helix operations, not broadcasterType alone or Dashboard visibility. Transient network/auth failures must be distinguished from definitive unavailability to avoid silently downgrading a queue already linked to a reward."
   ],
   "unverifiedClaims": [
     "No authorized non-affiliate channel has been tested with the installed EventSub chat flow in this repository.",
     "The exact Twitch OAuth token validation policy for an ineligible channel when channel:manage:redemptions is absent has not been exercised against Twitch.",
-    "Live messages and replies from an ineligible channel have not been tested."
+    "Live messages and replies from an ineligible channel have not been tested.",
+    "It has not been tested whether this bot Client ID can retrieve history, reconcile missed redemptions, and update the status of a reward manually created in Creator Dashboard."
   ],
   "noNewDependencies": true
 }

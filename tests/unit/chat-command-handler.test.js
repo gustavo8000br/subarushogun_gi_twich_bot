@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createChatCommandHandler } from '../../apps/api/src/commands/chat-handler.mjs';
 import { createClearConfirmationService } from '../../apps/api/src/domain/clear-confirmation.mjs';
+import * as healthRoute from '../../apps/api/src/health-route.mjs';
 
-function setup() {
+function setup({ getTwitchHealth } = {}) {
   const repository = {
     getQueueByKey: vi.fn(async () => ({ id: 'queue-1', slug: 'abismo', title: 'Abismo', uidMode: 'hidden', showUidInList: false, isOpen: true })),
     listQueueProjection: vi.fn(async () => [{ slug: 'abismo', title: 'Abismo', isOpen: true }]),
@@ -23,8 +24,8 @@ function setup() {
     callNext: vi.fn(async () => [{ id: 'entry-1', twitchUserId: 'viewer-1', userLogin: 'viewer', displayName: 'Viewer', previousPosition: 1, status: 'called' }]),
   };
   const clearConfirmation = createClearConfirmationService({ repository });
-  const getTwitchHealth = vi.fn(() => ({ status: 'connected', pingMs: 82 }));
-  return { handler: createChatCommandHandler({ repository, domainService, twitch, settings, clearConfirmation, broadcasterId: 'broadcaster-1', productVersion: 'v0.4.0-1234567-alpha', getTwitchHealth }), repository, domainService, twitch, settings, getTwitchHealth };
+  const healthReader = getTwitchHealth ?? vi.fn(() => ({ status: 'connected', pingMs: 82 }));
+  return { handler: createChatCommandHandler({ repository, domainService, twitch, settings, clearConfirmation, broadcasterId: 'broadcaster-1', productVersion: 'v0.4.0-1234567-alpha', getTwitchHealth: healthReader }), repository, domainService, twitch, settings, getTwitchHealth: healthReader };
 }
 
 describe('Twitch chat command handler', () => {
@@ -204,6 +205,15 @@ describe('Twitch chat command handler', () => {
     expect(h.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringContaining('1 pessoa chamada'));
   });
 
+  it('explains that calls are paused while a reward queue switches to manual mode', async () => {
+    const h = setup();
+    h.domainService.callNext.mockRejectedValue(Object.assign(new Error('internal detail'), { code: 'QUEUE_MODE_TRANSITION_PENDING' }));
+    await h.handler({ id: 'conversion-call-pending', text: '!abismo proximo', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+    expect(h.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringMatching(/pausa.*Twitch|Twitch.*pausa/i));
+    expect(h.twitch.sendChatMessage).not.toHaveBeenCalledWith(expect.stringContaining('internal detail'));
+    expect(h.repository.enqueueCallNotification).not.toHaveBeenCalled();
+  });
+
   it('uses the active locale plural form for multi-person call replies', async () => {
     const h = setup();
     h.repository.getProductLocale = vi.fn(async () => ({ locale: 'en', revision: 6 }));
@@ -315,6 +325,18 @@ describe('Twitch chat command handler', () => {
     expect(h.twitch.sendChatMessage).toHaveBeenCalledWith('Pong 🏓 Bot ativo · v0.4.0-1234567-alpha · Twitch: 82 ms');
     expect(h.repository.getQueueByKey).not.toHaveBeenCalled();
     expect(h.twitch.getUserByLogin).not.toHaveBeenCalled();
+  });
+
+  it('lets a chat handler created before health registration read the attached cached Twitch latency', async () => {
+    expect(healthRoute.createTwitchHealthBridge).toBeTypeOf('function');
+    const bridge = healthRoute.createTwitchHealthBridge();
+    const h = setup({ getTwitchHealth: bridge.read });
+    await h.handler({ id: 'ping-before-health', text: '!fila ping', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+    expect(h.twitch.sendChatMessage).toHaveBeenLastCalledWith(expect.stringContaining('Twitch: latência indisponível'));
+
+    bridge.attach(() => ({ status: 'connected', pingMs: 231 }));
+    await h.handler({ id: 'ping-after-health', text: '!fila ping', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+    expect(h.twitch.sendChatMessage).toHaveBeenLastCalledWith('Pong 🏓 Bot ativo · v0.4.0-1234567-alpha · Twitch: 231 ms');
   });
 
   it('does not read ping status or respond to an unauthorized viewer', async () => {

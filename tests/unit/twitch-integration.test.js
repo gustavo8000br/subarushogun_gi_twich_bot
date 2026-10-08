@@ -27,7 +27,7 @@ function harness({ credential = { clientId: 'client-1', broadcasterId: 'channel-
     onStatus, setIntervalImpl: (handler, delay) => { timers.push({ handler, delay }); return timers.length; },
     clearIntervalImpl: vi.fn(),
   });
-  return { integrationPromise, listener, authRuntime, authRuntimeFactory, apiFactory, adapterFactory, eventSubRuntimeFactory, callbacks, reconciler, onStatus, timers };
+  return { integrationPromise, listener, authRuntime, authRuntimeFactory, apiFactory, adapterFactory, eventSubRuntimeFactory, reconcilerFactory, callbacks, reconciler, onStatus, timers };
 }
 
 describe('Twitch integration lifecycle', () => {
@@ -46,6 +46,17 @@ describe('Twitch integration lifecycle', () => {
     expect(integration.status).toBe('connecting');
     resolveEligibility({ eligible: true, broadcasterType: 'affiliate', channelPointsAvailable: true, rewardCount: 0, rewardLimit: 50, nearRewardLimit: false });
     integration.stop();
+  });
+
+  it('exposes the active Twitch adapter to durable outbox workers after initialization', async () => {
+    const h = harness();
+    const integration = await h.integrationPromise;
+    await integration.ready;
+
+    expect(integration.twitch).toBe(h.adapterFactory.mock.results[0].value);
+
+    await integration.stop();
+    expect(integration.twitch).toBeNull();
   });
 
   it('retries transient authentication startup failures and cancels retries on stop', async () => {
@@ -307,16 +318,44 @@ describe('Twitch integration lifecycle', () => {
     integration.stop();
   });
 
-  it('requires Affiliate or Partner eligibility before opening reward/chat EventSub', async () => {
+  it('starts chat EventSub without reward processing when Channel Points capability is unavailable', async () => {
     const h = harness({ eligible: false });
     const integration = await h.integrationPromise;
     await integration.ready;
     expect(integration.status).toBe('ineligible');
-    expect(h.eventSubRuntimeFactory).not.toHaveBeenCalled();
+    expect(integration.chatStatus).toBe('connecting');
+    expect(h.eventSubRuntimeFactory).toHaveBeenCalledWith(expect.objectContaining({ redemptionsEnabled: false }));
+    expect(h.reconcilerFactory).not.toHaveBeenCalled();
     await expect(integration.probeTwitchApi()).resolves.toBe(true);
     expect(h.adapterFactory).toHaveBeenCalledOnce();
+    await h.callbacks.onReady();
+    expect(integration.status).toBe('ineligible');
+    expect(integration.chatStatus).toBe('connected');
+    h.callbacks.onRevoked('channel.channel_points_custom_reward_redemption.add', 'authorization_revoked');
+    expect(integration.chatStatus).toBe('connected');
+    expect(integration.rewardStatus).toBe('reconnect_required');
+    expect(h.listener.stop).not.toHaveBeenCalled();
     integration.stop();
     expect(h.authRuntime.stop).toHaveBeenCalledOnce();
+  });
+
+  it('keeps chat available when Twitch denies the Channel Points capability probe', async () => {
+    const h = harness();
+    h.adapterFactory.mockImplementation(() => ({
+      getChannelEligibility: vi.fn(async () => ({
+        eligible: false, broadcasterType: 'unknown', channelPointsAvailable: false, reason: 'channel_ineligible',
+      })),
+      ping: vi.fn(async () => true),
+    }));
+    const integration = await h.integrationPromise;
+    await integration.ready;
+
+    expect(integration.status).toBe('ineligible');
+    expect(integration.rewardStatus).toBe('unsupported');
+    expect(integration.chatStatus).toBe('connecting');
+    expect(h.eventSubRuntimeFactory).toHaveBeenCalledWith(expect.objectContaining({ redemptionsEnabled: false }));
+    expect(h.reconcilerFactory).not.toHaveBeenCalled();
+    integration.stop();
   });
 
   it('starts observation before reconciliation, reconciles after readiness/reconnect and shuts down cleanly', async () => {

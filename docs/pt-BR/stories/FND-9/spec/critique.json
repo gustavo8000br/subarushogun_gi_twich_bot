@@ -1,0 +1,64 @@
+{
+  "storyId": "FND-9",
+  "critiquedAt": "2026-10-07T00:00:00Z",
+  "critiquedBy": "@aiox-master usando lentes de revisão @architect e @qa; não é revisão externa independente",
+  "specVersion": 3,
+  "verdict": "APPROVED",
+  "verdictReason": "O planejamento agora inclui adição gratuita explicitamente feita pelo operador nos dois modos e conversão reward-para-manual unidirecional e durável, aguardando confirmação de pausa Twitch e drenando resgates anteriores/concorrentes; documentos e testes definem recuperação de falhas e preservação financeira.",
+  "averageScore": 4.6,
+  "dimensions": {
+    "accuracy": 5,
+    "completeness": 5,
+    "consistency": 4,
+    "feasibility": 4,
+    "alignment": 5
+  },
+  "issues": [],
+  "blockingIssues": [],
+  "observations": [
+    {
+      "severity": "MEDIUM",
+      "category": "feasibility",
+      "description": "A documentação de produto da Twitch diz que Pontos do Canal estão disponíveis a streamers monetizados após onboarding, enquanto a Helix ainda documenta restrições Affiliate/Partner. Capacidade e OAuth devem ser testados com o app instalado antes de alegar suporte a rewards para canais não Afiliados.",
+      "location": "research.json#targets; requirements.json#FR-1, FR-8; plan/implementation.yaml#phase-0",
+      "mitigation": "Manter chat-only e filas manual-only disponíveis; distinguir estados de capacidade disponível, indisponível e temporário/desconhecido. Registrar resultados de endpoints ao vivo autorizados sem segredos."
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "reliability",
+      "description": "Uma reward criada no Creator Dashboard pode aparecer ou emitir EventSub, mas ser inacessível a este Client ID para buscar resgates ou alterar status. Isso enfraqueceria recuperação e garantias de pontos do produto.",
+      "location": "requirements.json#D-1; spec.md#3.6; plan/implementation.yaml#phase-0",
+      "mitigation": "Habilitar seleção de reward do Dashboard somente depois de comprovar o ciclo completo exigido em um teste Twitch controlado; caso contrário, rejeitar essa origem e oferecer criação local/manual."
+    },
+    {
+      "severity": "LOW",
+      "category": "consistency",
+      "description": "Filas somente manuais não têm estado remoto de reward; controles de abrir/fechar reward apresentariam um comportamento enganoso.",
+      "location": "requirements.json#FR-4; spec.md#3.11",
+      "mitigation": "Ocultar/desabilitar controles remotos de abrir/fechar em filas manuais; manter a regra existente de que streamer/mod pode adicionar em fila fechada e que arquivar/apagar bloqueia novas entradas."
+    },
+    {
+      "severity": "HIGH",
+      "category": "reliability",
+      "description": "A conversão concorre com pausa/criação de reward e chegada de resgate EventSub. O modo não pode virar manual se o resultado da pausa for desconhecido; preservar intenções financeiras pendentes e cancelar resgates concorrentes de forma durável.",
+      "location": "spec.md#3.8; requirements.json#FR-8; plan/implementation.yaml#phase-3b",
+      "mitigation": "Testes de integração da máquina de estados PostgreSQL, chave de transição idempotente, reconciliação do estado remoto e estados explícitos pendente/falhou no painel antes de declarar modo local ativo."
+    }
+  ],
+  "resolvedFindings": [
+    "Substituiu a afirmação antiga de elegibilidade apenas por Affiliate/Partner pela discrepância documentada de monetização/API e uma política baseada em capacidade.",
+    "Adicionou modo explícito de fila manual_only sem reward ID, intent de reward na outbox, ingestão de resgates ou operação financeira.",
+    "Registrou aprovação para rewards criadas pelo bot e permissão condicional para rewards do Creator Dashboard somente após comprovar ciclo completo.",
+    "Registrou que falha temporária Twitch/OAuth/rede nunca muda silenciosamente o modo de entrada persistido da fila.",
+    "Separou saúde do chat, capacidade da API de Pontos do Canal, comportamento atual do repositório e evidência de Twitch ao vivo.",
+    "Adicionou adição gratuita explícita por streamer/moderador nos dois modos; mensagem livre de viewer nunca faz autoinscrição.",
+    "Adicionou conversão unidirecional reward-para-manual após pausa remota confirmada, preservando identidade histórica da reward e drenando/cancelando resgates com segurança."
+  ],
+  "securityNote": "Manter adição manual restrita à identidade streamer/moderador e badges confiáveis da mensagem atual. Nunca fazer autoinscrição por texto livre. Entradas manuais não têm ID de resgate nem intenção financeira. A conversão deve preservar a verdade financeira remota, usar idempotência durável e nunca registrar segredos ou mensagens brutas.",
+  "nextAction": "Implementar somente quando FND-9 entrar na sequência autorizada. Seguir TDD-first, incluindo testes reais PostgreSQL da transição/concorrência. Reward do Dashboard continua bloqueada até passar pelo gate autorizado de ciclo completo ao vivo.",
+  "limitations": [
+    "Esta é uma revisão do Spec Pipeline, não QA de implementação. Nenhum código, migration, suíte de testes, chat ao vivo, criação de reward, alteração de resgate ou fluxo OAuth foi executado neste incremento de planejamento.",
+    "O relato do usuário de criação de reward no Creator Dashboard está registrado somente como evidência fornecida pelo operador; propriedade/API não foi testada independentemente.",
+    "A documentação Twitch de produto e Helix citada está em conflito; a implementação precisa preservar a incerteza em vez de alegar suporte com base em apenas uma das fontes."
+  ]
+}

@@ -65,4 +65,16 @@ describe('safe panel catalog application', () => {
     applyPanelTranslations(root, 'en', { 'pt-BR': { 'translation.unavailable': 'Texto indisponível.' }, en: { 'translation.unavailable': 'Product text unavailable.' } });
     expect(node.textContent).toBe('Product text unavailable.');
   });
+
+  it('preserves documented placeholder tokens in static help text', () => {
+    const node = { dataset: { i18n: 'panel.queue_settings.call_placeholders' }, textContent: '' };
+    const root = { querySelectorAll: (selector) => selector === '[data-i18n]' ? [node] : [] };
+    const placeholders = { 'panel.queue_settings.call_placeholders': ['user', 'queue', 'position', 'uid', 'account'] };
+
+    applyPanelTranslations(root, 'pt-BR', {
+      'pt-BR': { 'panel.queue_settings.call_placeholders': 'Campos: {user}, {queue}, {position}, {uid}, {account}.' },
+    }, placeholders);
+
+    expect(node.textContent).toBe('Campos: {user}, {queue}, {position}, {uid}, {account}.');
+  });
 });

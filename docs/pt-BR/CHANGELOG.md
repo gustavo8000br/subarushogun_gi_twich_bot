@@ -6,7 +6,11 @@ Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes t�
 
 ## v0.13.1-alpha
 
-- As notas do projeto e das versões agora refletem a versão atual e os próximos passos.
+- A recuperação de rewards explica diferenças de configuração; filas confirmadas podem iniciar a exclusão durável, enquanto propriedade desconhecida continua bloqueada. `!fila ping` também pode mostrar o tempo de resposta da Twitch.
+- Novas rewards da Twitch são criadas indisponíveis e só são vinculadas após a confirmação do estado pausado seguro.
+- Erros inesperados mostram um número de referência para localizar os logs correspondentes sem exibir detalhes técnicos no painel.
+- Filas novas começam pausadas e abrem as configurações após a criação. O vínculo abre uma lista da Twitch que pode ser atualizada, e a ativação aguarda confirmação.
+- As configurações da fila agora são restauradas corretamente, mostram a confirmação do salvamento e incluem um número de referência quando uma falha inesperada precisa ser investigada.
 
 ## v0.13.0-alpha
 

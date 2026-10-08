@@ -1,14 +1,14 @@
 {
   "storyId": "FND-9",
-  "status": "planning_complete_pending_sequence_approval",
+  "status": "implementation_in_progress",
   "source": "user",
-  "summary": "Plan manual queue admission for Twitch channels that cannot use Channel Points rewards, while eligible channels use one dedicated Twitch Custom Reward created by the bot per queue.",
+  "summary": "Keep Twitch chat independent from Channel Points APIs; support conditional reward-backed queues, local queues, free manager-initiated manual adds in either mode, and safe reward-to-manual conversion with durable redemption draining.",
   "functionalRequirements": [
     {
       "id": "FR-1",
       "priority": "P0",
-      "description": "A configured and authorized Twitch broadcaster can keep the chatbot connected to channel chat even when the broadcaster cannot use Channel Points custom rewards.",
-      "acceptance": "The integration reports chat readiness separately from Channel Points availability and does not stop chat commands solely because rewards are unavailable."
+      "description": "An authorized Twitch broadcaster can keep the chatbot connected to chat when Channel Points reward APIs are unavailable.",
+      "acceptance": "Chat readiness is independent from reward capability; runtime does not stop chat commands solely because reward capability is unavailable."
     },
     {
       "id": "FR-2",
@@ -25,20 +25,44 @@
     {
       "id": "FR-4",
       "priority": "P1",
-      "description": "The local operator panel explains that an ineligible channel is using manual queue admission and describes the authorized chat command.",
-      "acceptance": "The state is understandable in pt-BR and distinguishes unavailable points rewards from Twitch chat connection health."
+      "description": "The local panel explains whether each queue uses a Twitch reward or manual-only mode and distinguishes that from chat connection.",
+      "acceptance": "Manual mode shows no active Twitch reward; a converted queue may display prior reward ID/origin as historical metadata. Chat and reward capability are shown separately without raw provider errors."
     },
     {
       "id": "FR-5",
       "priority": "P1",
-      "description": "For each eligible queue, create and manage a dedicated Twitch Custom Reward through this app; do not adopt or alter pre-existing rewards.",
-      "acceptance": "The reward is created through Twitch API, linked by its immutable reward ID, and only that ID is used for queue redemptions and lifecycle operations."
+      "description": "Support reward-backed (`channel_points`) and local/manual (`manual_only`) queue modes; choose bot-created reward by default or a Dashboard reward only after full lifecycle proof. Manual entry is a separate source allowed in either mode.",
+      "acceptance": "New local queues have no reward_id; converted queues retain historical reward ID/origin. Manual entries in either mode create no financial operation; Dashboard reward selection requires proof of open/pause, pending/individual retrieval, reconciliation, cancel/fulfill, and safe deletion."
     },
     {
       "id": "FR-6",
       "priority": "P0",
-      "description": "Keep the existing localized global ping command available to streamer/moderator when Channel Points are unavailable.",
-      "acceptance": "In an ineligible channel, the authorized localized ping command returns the existing Pong, product version, and cached Twitch latency; viewers get no ping reply and no per-message Helix probe or reward API call occurs."
+      "description": "Keep the localized global ping available to streamer/moderator whenever chat is authorized, independently of reward capability.",
+      "acceptance": "When chat is connected but reward APIs are unavailable, authorized ping returns existing Pong, product version, and cached Twitch latency; viewers receive no reply and no per-message Helix probe occurs."
+    },
+    {
+      "id": "FR-7",
+      "priority": "P0",
+      "description": "Streamer/moderator can add a viewer manually and for free to any active queue, including a reward-backed queue.",
+      "acceptance": "The shared queue service resolves the Twitch user and creates a manual entry without redemption ID or financial intent; archive/delete and duplicate rules still apply."
+    },
+    {
+      "id": "FR-8",
+      "priority": "P0",
+      "description": "A reward-backed queue may transition to local/manual mode after Twitch confirms the reward pause.",
+      "acceptance": "Persist a recoverable transition; keep reward-backed mode on unknown/failure; after confirmation stop new reward admission, retain reward identity as history, durably cancel racing redemptions, and continue resolving already admitted redemption finance."
+    },
+    {
+      "id": "FR-9",
+      "priority": "P1",
+      "description": "Free-form viewer chat is not an enrollment interface.",
+      "acceptance": "Only an explicit authorized streamer/moderator add action creates a manual entry; no chat message text is parsed as a request to join."
+    },
+    {
+      "id": "FR-10",
+      "priority": "P1",
+      "description": "Pausing, archiving, and converting a managed queue synchronizes the Twitch reward through the documented pause control.",
+      "acceptance": "Send and confirm is_paused only. Twitch exposes is_in_stock in reads but does not list it as an Update Custom Reward request field; a live PATCH probe returned 200 while both response and later GET retained the existing stock value. Never claim a stock change. Reconciliation ignores stock as a writable field and confirms only after rereading the same queue version that was compared with Twitch."
     }
   ],
   "nonFunctionalRequirements": [
@@ -82,17 +106,24 @@
     },
     {
       "id": "CON-4",
-      "description": "Each eligible queue uses a dedicated Twitch Custom Reward created by this bot via API. Pre-existing streamer rewards, such as drink-water, are not queue triggers and are not adopted."
+      "description": "Bot-created rewards are the default; a Dashboard reward requires complete lifecycle proof; otherwise allow a local/manual queue. Streamer/moderator can explicitly add a viewer for free in either queue mode."
     },
     {
       "id": "CON-5",
       "description": "The existing integration currently stops before EventSub startup when channel eligibility is false, so chat and points lifecycle must be separated."
+    },
+    {
+      "id": "CON-6",
+      "description": "Do not infer reward API capability exclusively from Affiliate/Partner status or Creator Dashboard visibility; official product and Helix docs diverge."
     }
   ],
   "assumptions": [
-    "Manual-only admission is used for ineligible channels; eligible channels retain Channel Points redemption admission through a dedicated bot-created Twitch Custom Reward for each queue.",
     "Existing authorized queue add command is reused rather than adding a second command syntax.",
-    "Manual admissions are FIFO in the standard lane unless an explicitly verified priority decision says otherwise; benefits such as paid priority remain outside this FND-9 scope."
+    "Manual admissions are FIFO in the standard lane unless an explicitly verified priority decision says otherwise; benefits such as paid priority remain outside this FND-9 scope.",
+    "Network, authentication, authorization, or server failure does not prove definitive API unavailability and never silently changes the persisted queue mode.",
+    "Dashboard rewards use Channel Points mode only if this Client ID passes the required full-lifecycle verification; otherwise offer manual_only mode without a reward.",
+    "New local queues have no reward ID. A queue converted from reward-backed mode retains prior reward ID and origin as historical metadata; local mode has no active reward management or redemption intake.",
+    "Reward-to-manual conversion is one-way in FND-9. It becomes effective only after confirmed remote pause; existing redemption operations continue, and racing redemptions receive durable cancellation."
   ],
   "openQuestions": [
     {
@@ -103,29 +134,83 @@
     },
     {
       "id": "Q-2",
-      "question": "Should eligible channels keep Channel Points redemption admission through a dedicated Twitch Custom Reward created by the bot, while ineligible channels use manual chat admission?",
+      "question": "Should channels with proven reward API capability use Channel Points admission, and channels without it use manual admission?",
       "owner": "Product owner",
-      "status": "resolved: yes; each queue gets a dedicated bot-created Twitch Custom Reward (2026-10-06)"
+      "status": "resolved: reward-backed mode where full API capability is proven; manual-only queue where unavailable (2026-10-07)"
     },
     {
       "id": "Q-3",
       "question": "Should new manual queue entries remain possible in a closed queue, as the existing product rule says, including in manual-only mode?",
       "owner": "Product specification",
-      "status": "resolved by existing requirement: yes"
+      "status": "resolved by existing product rule: manual additions are allowed while closed; archived/deleting queues block them"
+    },
+    {
+      "id": "Q-6",
+      "question": "For monetized non-Affiliate/Partner streamers, should runtime capability be determined by actual supported API operations rather than broadcasterType?",
+      "owner": "Product owner",
+      "status": "resolved through D-3 and the local-manual fallback decision (2026-10-07)"
+    },
+    {
+      "id": "Q-7",
+      "question": "May streamer/moderator add a viewer for free after hearing a request, without the viewer issuing a command or redeeming?",
+      "owner": "Product owner",
+      "status": "resolved: yes, explicit operator action only; free-form messages do not auto-enroll (2026-10-07)"
+    },
+    {
+      "id": "Q-8",
+      "question": "May a reward-backed queue be switched to local/manual mode, and what happens to pending redemptions?",
+      "owner": "Product owner",
+      "status": "resolved: pause must be remotely confirmed; preserve/drain existing redemptions and durably cancel a redemption racing with transition (2026-10-07)"
+    },
+    {
+      "id": "Q-9",
+      "owner": "Product owner",
+      "question": "Should pausing/archiving a managed queue also mark the Twitch reward out of stock, and how should reopening affect existing Twitch-native stock limits?",
+      "status": "resolved 2026-10-08 from current official Helix contract and an authorized idempotent live probe: pause/unpause via is_paused only; is_in_stock is read-only for this endpoint. Do not persist or restore stock snapshots."
     }
   ],
   "decisions": [
     {
       "id": "D-1",
-      "decision": "For eligible channels, the bot creates one dedicated Twitch Custom Reward through the API for each queue. Existing custom rewards are not adopted by title or used as queue triggers.",
+      "decision": "Bot-created reward is the default Channel Points mode. A Creator Dashboard reward is selectable only if the Client ID proves the complete required API lifecycle, including recovery/reconciliation, status updates, and safe deletion.",
       "owner": "Product owner",
-      "status": "approved (2026-10-06)"
+      "status": "approved (2026-10-07)"
     },
     {
       "id": "D-2",
-      "decision": "For ineligible channels, streamer/moderator manual chat admission is the fallback; eligible channels retain redemption admission.",
+      "decision": "When the API cannot provide a complete reward lifecycle, allow a local/manual queue without a Twitch reward and let streamer/moderator add through the authorized command.",
       "owner": "Product owner",
-      "status": "approved (2026-10-06)"
+      "status": "approved (2026-10-07)"
+    },
+    {
+      "id": "D-3",
+      "decision": "Check reward capability through actual API operations and distinguish available/unsupported/unknown; do not rely solely on broadcasterType. Transient errors never change queue mode.",
+      "owner": "Product owner",
+      "status": "approved (2026-10-07)"
+    },
+    {
+      "id": "D-4",
+      "decision": "Manual mode has no active reward lifecycle or remote open/closed state. A converted queue retains the historical reward ID/origin; archive/delete follow the existing mode-specific remote cleanup rules and preserve history.",
+      "owner": "Product specification",
+      "status": "derived from D-2 and existing rules; recorded 2026-10-07"
+    },
+    {
+      "id": "D-5",
+      "decision": "Streamer/moderator may explicitly add a viewer for free to any active queue; chat text itself never enrolls a viewer. Manual entries have no redemption identity or finance operation.",
+      "owner": "Product owner",
+      "status": "approved (2026-10-07)"
+    },
+    {
+      "id": "D-6",
+      "decision": "Allow one-way reward-backed to local/manual conversion. Keep transition pending until Twitch pause confirmation; preserve reward ID/origin as history; drain existing redemption workflows and durably cancel racing redemptions; do not delete the reward during conversion.",
+      "owner": "Product owner",
+      "status": "approved (2026-10-07)"
+    },
+    {
+      "id": "D-7",
+      "owner": "Product owner",
+      "decision": "Pause, archive, and reward-to-manual conversion update only the documented is_paused field. is_in_stock is read from Twitch but is not writable through Update Custom Reward; no stock state is persisted or changed by this app.",
+      "status": "approved (2026-10-07)"
     }
   ]
 }

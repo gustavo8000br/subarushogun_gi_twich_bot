@@ -21,7 +21,8 @@ export function createTwitchReconciler({ repository, twitch, processor, broadcas
           await repository.markQueueRemoteDivergence(queue.id, 'reward_missing');
           continue;
         }
-        const shouldBePaused = !queue.isOpen || queue.isArchived || queue.lifecycleStatus !== 'active';
+        const shouldBePaused = queue.queueMode === 'manual_only' || (queue.modeTransitionStatus && queue.modeTransitionStatus !== 'none')
+          || !queue.isOpen || queue.isArchived || queue.lifecycleStatus !== 'active';
         if (reward.id !== queue.rewardId || reward.autoFulfill !== false || reward.shouldRedemptionsSkipRequestQueue !== false
             || reward.userInputRequired !== (queue.uidMode === 'visible')
             || reward.isEnabled !== true || reward.isPaused !== shouldBePaused) {
@@ -29,6 +30,19 @@ export function createTwitchReconciler({ repository, twitch, processor, broadcas
           result.issues.push({ queueId: queue.id, code: 'reward_configuration_mismatch' });
           await repository.markQueueRemoteDivergence(queue.id, 'reward_configuration_mismatch');
           continue;
+        }
+        if (queue.remoteSyncStatus === 'diverged' && queue.queueMode !== 'manual_only'
+            && typeof repository.confirmQueueRemoteState === 'function') {
+          const confirmed = await repository.confirmQueueRemoteState(queue.id, { expectedVersion: queue.version });
+          if (!confirmed) {
+            result.status = 'partial';
+            result.issues.push({ queueId: queue.id, code: 'queue_state_changed_during_reconciliation' });
+            continue;
+          }
+        }
+        if (queue.modeTransitionStatus && queue.modeTransitionStatus !== 'none' && reward.isPaused === true
+            && typeof repository.confirmManualModeFromReconciliation === 'function') {
+          await repository.confirmManualModeFromReconciliation(queue.id);
         }
 
         let redemptions;

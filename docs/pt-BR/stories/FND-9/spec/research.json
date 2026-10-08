@@ -1,6 +1,6 @@
 {
   "storyId": "FND-9",
-  "checkedAt": "2026-10-06 UTC",
+  "checkedAt": "2026-10-07 UTC",
   "targets": [
     {
       "target": "Pontos do Canal Twitch e Custom Rewards do criador",
@@ -75,19 +75,47 @@
         "NFR-3"
       ],
       "source": "https://dev.twitch.tv/docs/api/reference/",
-      "finding": "A Helix pode listar recompensas com only_manageable_rewards=false, mas somente o app que criou a recompensa pode consultar seus resgates; alterações e exclusão também exigem o Client ID criador. Portanto cada fila elegível precisa de uma Custom Reward dedicada criada por este app, vinculada pelo ID e não pelo título, para manter reconciliação e atualização do estado dos pontos.",
-      "status": "documentação verificada; operação Twitch real ainda não testada"
+      "finding": "A Helix pode listar recompensas com only_manageable_rewards=false, mas somente o app criador pode consultar os resgates; atualização da recompensa, alteração de status do resgate e exclusão também dependem da propriedade do app criador. Suportar recompensas criadas pelo bot por padrão. Uma recompensa do Dashboard só pode ser selecionada se um teste autorizado provar que este Client ID executa todas as operações do ciclo exigidas pelo produto, incluindo abrir/pausar, consultar resgates pendentes e individuais/reconciliar, cancelar/concluir e excluir com segurança após resolver resgates pendentes.",
+      "status": "documentação oficial consultada em 2026-10-07; teste end-to-end de reward do Dashboard pendente"
+    },
+    {
+      "target": "Twitch Monetization for All e disponibilidade de Pontos do Canal",
+      "type": "product",
+      "requirements": [
+        "FR-1",
+        "FR-5"
+      ],
+      "source": "https://blog.twitch.tv/en/2026/05/13/monetization-for-all/",
+      "relatedSources": [
+        "https://help.twitch.tv/s/article/channel-points-faq",
+        "https://help.twitch.tv/s/article/channel-points-guide?language=en_US"
+      ],
+      "finding": "A documentação atual da Twitch diz que Pontos do Canal estão disponíveis para streamers monetizados após concluir o onboarding; a disponibilidade não pode mais ser inferida apenas pelo status Afiliado/Parceiro. O operador relata que conseguiu criar uma recompensa no Creator Dashboard sem ser Afiliado, o que comprova acesso informado ao Dashboard, mas não acesso da API para este app.",
+      "status": "documentação oficial consultada em 2026-10-07; acesso ao Dashboard relatado pelo operador; API não testada"
+    },
+    {
+      "target": "Visibilidade de recompensas do Creator Dashboard versus propriedade Helix",
+      "type": "api",
+      "requirements": [
+        "FR-5",
+        "NFR-3"
+      ],
+      "source": "https://dev.twitch.tv/docs/api/reference/",
+      "finding": "GET /helix/channel_points/custom_rewards pode listar recompensas com only_manageable_rewards=false; true limita a resposta às gerenciáveis pelo Client ID. A referência diz que somente o app criador pode buscar os resgates, alterar a recompensa, alterar o status do resgate ou excluir a recompensa. A entrega EventSub não prova capacidade de recuperação/gestão completa. A API ainda documenta 403 para broadcaster não Afiliado/Parceiro em endpoints de Custom Rewards, em conflito com a disponibilidade de produto ampliada.",
+      "status": "documentação oficial consultada em 2026-10-07; teste autorizado end-to-end pendente"
     }
   ],
   "inference": [
     "Como a Twitch documenta escopos/condições EventSub de chat sem gate Afiliado/Parceiro, enquanto o endpoint de criação de Pontos do Canal lista esse gate explicitamente, o chat pode funcionar de modo independente para broadcaster não afiliado. É uma inferência de contratos separados e ainda requer aceitação controlada em canal real antes de afirmar funcionamento completo.",
-    "A arquitetura menor parece preservar OAuth/chat e autorização de comandos e desabilitar condicionalmente somente assinaturas de resgate, workers de recompensa e reconciliação de Pontos do Canal para canais inelegíveis. Confirmar requisitos de escopos do token e comportamento Twurple antes de implementar.",
-    "Usar uma recompensa personalizada preexistente qualquer como gatilho permitiria observar eventos, mas não ofereceria a recuperação Helix de resgates nem o controle de status para um Client ID diferente; isso conflita com os requisitos de confiabilidade e auditoria financeira do produto."
+    "A implementação agora consulta o endpoint Helix real de rewards, em vez de depender de broadcasterType, preserva OAuth/chat e autorização de comandos quando a consulta indica indisponibilidade, e desabilita condicionalmente subscriptions, workers e reconciliação de rewards. Testes do adapter e integração cobrem o mapeamento dos resultados e a continuidade do chat; aceite real autorizado de OAuth/EventSub/chat e prova do ciclo completo de rewards continuam pendentes.",
+    "Usar uma recompensa personalizada preexistente qualquer como gatilho permitiria observar eventos, mas não ofereceria a recuperação Helix de resgates nem o controle de status para um Client ID diferente; isso conflita com os requisitos de confiabilidade e auditoria financeira do produto.",
+    "A decisão de capacidade deve considerar o resultado real e autorizado das operações Helix necessárias, não apenas broadcasterType nem a presença da recompensa no Creator Dashboard. Falha transitória de rede/auth precisa ser separada de indisponibilidade definitiva para evitar downgrade silencioso de uma fila já associada a recompensa."
   ],
   "unverifiedClaims": [
     "Nenhum canal não afiliado autorizado foi testado com o fluxo EventSub de chat instalado deste repositório.",
     "A política exata de validação OAuth Twitch para canal inelegível sem channel:manage:redemptions não foi exercitada na Twitch.",
-    "Mensagens e respostas reais de canal inelegível não foram testadas."
+    "Mensagens e respostas reais de canal inelegível não foram testadas.",
+    "Não foi testado se o Client ID deste bot consegue consultar histórico, reconciliar resgates perdidos e alterar estado de uma recompensa criada manualmente no Creator Dashboard."
   ],
   "noNewDependencies": true
 }

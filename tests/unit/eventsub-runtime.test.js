@@ -19,6 +19,20 @@ function listenerFake() {
 }
 
 describe('EventSub WebSocket runtime', () => {
+  it('subscribes to broadcaster chat without reward events when redemption handling is disabled', () => {
+    const listener = listenerFake();
+    const onChatMessage = vi.fn();
+    createEventSubRuntime({
+      apiClient: {}, broadcasterId: 'channel-1', listenerFactory: () => listener,
+      redemptionsEnabled: false, onRedemptionAdd: vi.fn(), onRedemptionUpdate: vi.fn(), onChatMessage,
+    });
+
+    expect(listener.onChannelChatMessage).toHaveBeenCalledWith('channel-1', 'channel-1', expect.any(Function));
+    expect(listener.onChannelRedemptionAdd).not.toHaveBeenCalled();
+    expect(listener.onChannelRedemptionUpdate).not.toHaveBeenCalled();
+    expect(listener.start).toHaveBeenCalledOnce();
+  });
+
   it('subscribes redemption add/update and broadcaster chat through the authenticated user socket', () => {
     const listener = listenerFake();
     const runtime = createEventSubRuntime({
@@ -127,5 +141,25 @@ describe('EventSub WebSocket runtime', () => {
     listener.handlers.ready('channel-1', 'socket-1');
     listener.handlers.disconnect('channel-1', new Error('temporary failure'));
     expect(onDisconnect).toHaveBeenLastCalledWith({ established: true });
+  });
+
+  it('replaces Twurple EventSub raw logs with correlated safe diagnostics', () => {
+    const reportError = vi.fn(() => 'diagnostic-ref');
+    let config;
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const listener = listenerFake();
+    createEventSubRuntime({
+      apiClient: {}, broadcasterId: 'channel-1', reportError,
+      listenerFactory: (_client, listenerConfig) => {
+        config = listenerConfig;
+        return listener;
+      },
+      onRedemptionAdd() {}, onRedemptionUpdate() {}, onChatMessage() {},
+    });
+    config.logger.custom(1, 'raw authorization=secret response');
+    expect(reportError).toHaveBeenCalledWith({ source: 'twitch.eventsub', errorType: 'EventSubError' });
+    expect(stderr.mock.calls.flat().join(' ')).toContain('diagnostic-ref');
+    expect(stderr.mock.calls.flat().join(' ')).not.toContain('authorization=secret');
+    stderr.mockRestore();
   });
 });

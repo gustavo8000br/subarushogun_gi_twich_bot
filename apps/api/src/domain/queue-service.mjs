@@ -56,3 +56,14 @@ export function createQueueDomainService({ repository }) {
     },
   };
 }
+
+/** @param {{getService: () => ReturnType<typeof createQueueDomainService>}} input */
+export function createQueueDomainServiceProxy({ getService }) {
+  return {
+    transitionEntry: (input) => getService().transitionEntry(input),
+    callNext: (input) => getService().callNext(input),
+    callSpecificEntry: (input) => getService().callSpecificEntry(input),
+    clearActiveEntries: (input) => getService().clearActiveEntries(input),
+    deleteQueue: (input) => getService().deleteQueue(input),
+  };
+}

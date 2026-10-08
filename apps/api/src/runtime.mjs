@@ -21,10 +21,11 @@ export async function createApplicationRuntime({
   timeoutLoopFactory = createCallTimeoutLoop,
   onChatMessage = () => undefined,
   onError = () => undefined,
+  reportDiagnostic = () => undefined,
 }) {
   const domainService = createQueueDomainService({ repository });
   const credentialRepository = suppliedCredentialRepository ?? dependenciesCredentialRepository(prisma);
-  const integration = await integrationFactory({ credentialRepository, repository, domainService, onChatMessage, onStatus: onError });
+  const integration = await integrationFactory({ credentialRepository, repository, domainService, onChatMessage, onStatus: onError, reportDiagnostic });
   let financialImplementation = financialWorker ?? null;
   let chatImplementation = chatWorker ?? null;
   let rewardImplementation = rewardWorker ?? null;
@@ -45,11 +46,15 @@ export async function createApplicationRuntime({
   const reward = {
     async processOne() {
       if (!integration.twitch) return 'idle';
-      rewardImplementation ??= rewardWorkerFactory({ repository, getTwitch: () => integration.twitch, twitch: integration.twitch });
+      rewardImplementation ??= rewardWorkerFactory({ repository, getTwitch: () => integration.twitch, twitch: integration.twitch, onDiagnostic: reportDiagnostic });
       return rewardImplementation.processOne();
     },
   };
-  const loops = [loopFactory({ worker: financial, onError }), loopFactory({ worker: chat, onError }), loopFactory({ worker: reward, onError })];
+  const loops = [
+    loopFactory({ worker: financial, onError, source: 'outbox.financial', onDiagnostic: reportDiagnostic }),
+    loopFactory({ worker: chat, onError, source: 'outbox.chat', onDiagnostic: reportDiagnostic }),
+    loopFactory({ worker: reward, onError, source: 'outbox.reward', onDiagnostic: reportDiagnostic }),
+  ];
   for (const loop of loops) loop.start();
   const timeoutLoop = timeoutLoopFactory({ repository, domainService, onError, isRecovered: () => integration?.status === 'connected' });
   timeoutLoop.start();

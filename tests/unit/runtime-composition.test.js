@@ -51,6 +51,25 @@ describe('application runtime composition', () => {
     await runtime.stop();
   });
 
+  it('passes safe diagnostic reporting into the reward worker', async () => {
+    const onDiagnostic = vi.fn();
+    let rewardDependencies;
+    const runtime = await createApplicationRuntime({
+      app: {}, pool: {}, prisma: {}, repository: {},
+      credentialRepository: { getAuthRecord: vi.fn(async () => null) },
+      integrationFactory: async () => ({ status: 'connected', twitch: {}, stop: vi.fn() }),
+      reportDiagnostic: onDiagnostic,
+      rewardWorkerFactory: (dependencies) => { rewardDependencies = dependencies; return { processOne: vi.fn() }; },
+      loopFactory: () => ({ start() {}, stop() {} }),
+      timeoutLoopFactory: () => ({ start() {}, stop() {} }),
+    });
+
+    await runtime.rewardWorker.processOne();
+
+    expect(rewardDependencies.onDiagnostic).toBe(onDiagnostic);
+    await runtime.stop();
+  });
+
   it('projects runtime Twitch state and version from the composed application health endpoint', async () => {
     const app = (await import('fastify')).default();
     const integration = { status: 'not_configured', stop: vi.fn() };

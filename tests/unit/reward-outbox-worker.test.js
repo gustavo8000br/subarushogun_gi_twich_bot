@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createRewardOutboxWorker } from '../../apps/api/src/outbox/reward-worker.mjs';
 
-function makeHarness({ attempts = 1, payload = {}, eligibility, managedRewards = [], createError = null } = {}) {
+function makeHarness({ attempts = 1, payload = {}, eligibility, managedRewards = [], createError = null, updateError = null, onDiagnostic = vi.fn() } = {}) {
   const queue = { id: 'queue-1', title: 'Abismo', cost: 250, rewardPrompt: 'Envie somente UID.', uidMode: 'visible', rewardId: null, lifecycleStatus: 'active' };
   const task = { id: 'outbox-1', operationType: 'reward.create', attempts, leaseToken: 'lease-1', payload, queue };
   const existing = [...managedRewards];
   const repository = {
     claimNextRewardOperation: vi.fn(async () => task),
-    prepareRewardCreate: vi.fn(async (_id, data) => { task.payload = { ...task.payload, ...data }; }),
+    prepareRewardCreate: vi.fn(async (_id, data) => { task.payload = { ...task.payload, ...data }; return true; }),
     confirmRewardCreated: vi.fn(async () => true),
     retryRewardOperation: vi.fn(async () => true),
     failedRewardOperation: vi.fn(async () => true),
@@ -16,8 +16,9 @@ function makeHarness({ attempts = 1, payload = {}, eligibility, managedRewards =
   const createdReward = {
     id: 'reward-new', title: queue.title, cost: queue.cost, prompt: queue.rewardPrompt,
     userInputRequired: true, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false,
-    isEnabled: true, isPaused: true,
+    isEnabled: false, isPaused: false, isInStock: true,
   };
+  const readyReward = { ...createdReward, isEnabled: true, isPaused: true };
   let createCalls = 0;
   const twitch = {
     getChannelEligibility: vi.fn(async () => eligibility ?? ({ eligible: true, channelPointsAvailable: true, rewardCount: 10, rewardLimit: 50 })),
@@ -28,23 +29,63 @@ function makeHarness({ attempts = 1, payload = {}, eligibility, managedRewards =
         if (createError.afterCreate) existing.push(createdReward);
         throw createError.error;
       }
+      existing.push(createdReward);
       return createdReward;
     }),
+    updateReward: vi.fn(async (rewardId, data) => {
+      if (updateError) throw updateError;
+      expect(rewardId).toBe('reward-new');
+      expect(data).toEqual({ isEnabled: true, isPaused: true, autoFulfill: false });
+      Object.assign(createdReward, data, { shouldRedemptionsSkipRequestQueue: false });
+      const updated = { ...createdReward, ...readyReward };
+      Object.assign(createdReward, updated);
+      return updated;
+    }),
+    setRewardOpen: vi.fn(async (rewardId, isOpen) => {
+      expect(rewardId).toBe('reward-new');
+      expect(isOpen).toBe(false);
+      Object.assign(createdReward, { isEnabled: true, isPaused: true });
+      return { ...createdReward };
+    }),
   };
-  return { worker: createRewardOutboxWorker({ repository, twitch, random: () => 0 }), repository, twitch, task, queue, createdReward, existing, get createCalls() { return createCalls; } };
+  return { worker: createRewardOutboxWorker({ repository, twitch, onDiagnostic, random: () => 0 }), repository, twitch, task, queue, createdReward, readyReward, existing, onDiagnostic, get createCalls() { return createCalls; } };
 }
 
 describe('managed reward creation outbox worker', () => {
+  it.each([true, false, undefined])('confirms a newly created closed reward for Twitch stock value %s', async (stock) => {
+    const h = makeHarness();
+    h.createdReward.isInStock = stock;
+    h.readyReward.isInStock = stock;
+
+    await expect(h.worker.processOne()).resolves.toBe('confirmed');
+
+    expect(h.twitch.setRewardOpen).toHaveBeenCalledWith('reward-new', false);
+    expect(h.repository.confirmRewardCreated).toHaveBeenCalledWith('outbox-1', { rewardId: 'reward-new' }, 'lease-1');
+  });
+
   it('creates and confirms a paused, queued, manually fulfilled reward', async () => {
     const h = makeHarness();
     await expect(h.worker.processOne()).resolves.toBe('confirmed');
     expect(h.twitch.createReward).toHaveBeenCalledWith({
       title: 'Abismo', cost: 250, prompt: 'Envie somente UID.', userInputRequired: true,
       maxRedemptionsPerStream: null, maxRedemptionsPerUserPerStream: null, globalCooldown: null,
-      autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true,
+      autoFulfill: false, isEnabled: false,
     });
+    expect(h.twitch.updateReward).toHaveBeenCalledWith('reward-new', { isEnabled: true, isPaused: true, autoFulfill: false });
     expect(h.repository.prepareRewardCreate).toHaveBeenCalledWith('outbox-1', { baselineRewardIds: [], requestMayHaveReachedTwitch: true }, 'lease-1');
     expect(h.repository.confirmRewardCreated).toHaveBeenCalledWith('outbox-1', { rewardId: 'reward-new' }, 'lease-1');
+  });
+
+  it('reports a safe source and operation code when Twitch returns an unverified reward response', async () => {
+    const h = makeHarness();
+    h.createdReward.title = 'Unexpected reward response';
+
+    await expect(h.worker.processOne()).resolves.toBe('unknown');
+
+    expect(h.onDiagnostic).toHaveBeenCalledWith({
+      source: 'outbox.reward', errorType: 'RewardOperation', errorCode: 'reward_create_response_unverified',
+    });
+    expect(h.repository.unknownRewardOperation).toHaveBeenCalledWith('outbox-1', 'reward_create_response_unverified', 'lease-1');
   });
 
   it('sends the persisted Twitch-native limits in the reward creation request and verifies them', async () => {
@@ -68,6 +109,7 @@ describe('managed reward creation outbox worker', () => {
     const h = makeHarness({ createError: { afterCreate: true, error: Object.assign(new Error('timeout'), { code: 'ETIMEDOUT' }) } });
     await expect(h.worker.processOne()).resolves.toBe('confirmed');
     expect(h.repository.confirmRewardCreated).toHaveBeenCalledWith('outbox-1', { rewardId: 'reward-new' }, 'lease-1');
+    expect(h.twitch.updateReward).toHaveBeenCalledWith('reward-new', { isEnabled: true, isPaused: true, autoFulfill: false });
   });
 
   it('marks an ambiguous create result unknown instead of repeating the POST', async () => {
@@ -82,7 +124,20 @@ describe('managed reward creation outbox worker', () => {
     h.twitch.getManagedRewards.mockResolvedValueOnce([h.createdReward]);
     await expect(h.worker.processOne()).resolves.toBe('confirmed');
     expect(h.twitch.createReward).not.toHaveBeenCalled();
+    expect(h.twitch.updateReward).toHaveBeenCalledWith('reward-new', { isEnabled: true, isPaused: true, autoFulfill: false });
     expect(h.repository.confirmRewardCreated).toHaveBeenCalledWith('outbox-1', { rewardId: 'reward-new' }, 'lease-1');
+  });
+
+  it('keeps reward creation recoverable when the pause PATCH fails and retries without a duplicate POST', async () => {
+    const h = makeHarness({ updateError: Object.assign(new Error('temporary network failure'), { code: 'ETIMEDOUT' }) });
+    await expect(h.worker.processOne()).resolves.toBe('retry');
+    expect(h.repository.confirmRewardCreated).not.toHaveBeenCalled();
+    expect(h.repository.retryRewardOperation).toHaveBeenCalledWith('outbox-1', expect.objectContaining({
+      errorCode: 'reward_create_pause_pending', payloadUpdates: { requestMayHaveReachedTwitch: true },
+    }), 'lease-1');
+    h.twitch.updateReward.mockImplementationOnce(async () => h.readyReward);
+    await expect(h.worker.processOne()).resolves.toBe('confirmed');
+    expect(h.twitch.createReward).toHaveBeenCalledTimes(1);
   });
 
   it('does not guess ownership when multiple new rewards match after restart', async () => {
@@ -94,7 +149,7 @@ describe('managed reward creation outbox worker', () => {
   });
 
   it('retries an explicit 429 after its retry-after delay without retaining an ambiguous request marker', async () => {
-    const rateLimited = Object.assign(new Error('rate limited'), { status: 429, retryAfterSeconds: 17 });
+    const rateLimited = Object.assign(new Error('rate limited'), { statusCode: 429, retryAfterSeconds: 17 });
     const h = makeHarness({ createError: { error: rateLimited } });
     await expect(h.worker.processOne()).resolves.toBe('retry');
     expect(h.repository.retryRewardOperation).toHaveBeenCalledWith('outbox-1', expect.objectContaining({
@@ -114,7 +169,7 @@ describe('managed reward creation outbox worker', () => {
       failedRewardOperation: vi.fn(async () => true),
       unknownRewardOperation: vi.fn(async () => true),
     };
-    const closedReward = { id: 'reward-managed', title: queue.title, cost: queue.cost, prompt: queue.rewardPrompt, userInputRequired: true, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true };
+    const closedReward = { id: 'reward-managed', title: queue.title, cost: queue.cost, prompt: queue.rewardPrompt, userInputRequired: true, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true, isInStock: true };
     const openedReward = { ...closedReward, isPaused: false };
     const twitch = { getReward: vi.fn(async () => closedReward), setRewardOpen: vi.fn(async () => openedReward) };
     const worker = createRewardOutboxWorker({ repository, twitch, random: () => 0 });
@@ -125,6 +180,52 @@ describe('managed reward creation outbox worker', () => {
     expect(repository.confirmRewardOpen).toHaveBeenCalledWith('open-task', { isOpen: true }, 'open-lease');
   });
 
+  it.each([
+    [400, 'failed'],
+    [401, 'retry'],
+    [403, 'failed'],
+    [429, 'retry'],
+    [500, 'unknown'],
+    ['network', 'unknown'],
+  ])('does not confirm a reward pause after Twitch update failure %s and classifies it as %s', async (status, expected) => {
+    const queue = { id: 'queue-failure', title: 'Queue', cost: 50, rewardPrompt: '', uidMode: 'hidden', rewardId: 'reward-1', lifecycleStatus: 'active', isArchived: false };
+    const task = { id: 'pause-task', operationType: 'reward.set_open', attempts: 1, leaseToken: 'pause-lease', payload: { isOpen: false, requestMayHaveReachedTwitch: false }, queue };
+    const repository = {
+      claimNextRewardOperation: vi.fn(async () => task), prepareRewardOpen: vi.fn(async () => true),
+      confirmRewardOpen: vi.fn(async () => true), retryRewardOperation: vi.fn(async () => true),
+      failedRewardOperation: vi.fn(async () => true), unknownRewardOperation: vi.fn(async () => true),
+    };
+    const reward = { id: 'reward-1', title: 'Queue', cost: 50, prompt: '', userInputRequired: false, autoFulfill: false,
+      shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: false, isInStock: true };
+    const error = status === 'network' ? Object.assign(new Error('temporary network error'), { code: 'ETIMEDOUT' })
+      : Object.assign(new Error('Twitch update rejected'), { statusCode: status, ...(status === 429 ? { retryAfterSeconds: 12 } : {}) });
+    const twitch = { getReward: vi.fn(async () => reward), setRewardOpen: vi.fn(async () => { throw error; }) };
+    const worker = createRewardOutboxWorker({ repository, twitch, random: () => 0 });
+
+    await expect(worker.processOne()).resolves.toBe(expected);
+    expect(repository.confirmRewardOpen).not.toHaveBeenCalled();
+    if (expected === 'retry') expect(repository.retryRewardOperation).toHaveBeenCalledOnce();
+    if (expected === 'failed') expect(repository.failedRewardOperation).toHaveBeenCalledOnce();
+    if (expected === 'unknown') expect(repository.unknownRewardOperation).toHaveBeenCalledOnce();
+  });
+
+  it('does not confirm when PATCH response and persisted Twitch state still disagree', async () => {
+    const queue = { id: 'queue-stale-pause', title: 'Queue', cost: 50, rewardPrompt: '', uidMode: 'hidden', rewardId: 'reward-1', lifecycleStatus: 'active', isArchived: false };
+    const task = { id: 'pause-task', operationType: 'reward.set_open', attempts: 1, leaseToken: 'pause-lease', payload: { isOpen: false, requestMayHaveReachedTwitch: false }, queue };
+    const repository = {
+      claimNextRewardOperation: vi.fn(async () => task), prepareRewardOpen: vi.fn(async () => true),
+      confirmRewardOpen: vi.fn(async () => true), unknownRewardOperation: vi.fn(async () => true),
+    };
+    const reward = { id: 'reward-1', title: 'Queue', cost: 50, prompt: '', userInputRequired: false, autoFulfill: false,
+      shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: false, isInStock: true };
+    const twitch = { getReward: vi.fn(async () => reward), setRewardOpen: vi.fn(async () => reward) };
+    const worker = createRewardOutboxWorker({ repository, twitch });
+
+    await expect(worker.processOne()).resolves.toBe('unknown');
+    expect(repository.confirmRewardOpen).not.toHaveBeenCalled();
+    expect(repository.unknownRewardOperation).toHaveBeenCalledWith('pause-task', 'reward_open_response_unverified', 'pause-lease');
+  });
+
   it('reconciles a lost open response from the current managed reward without repeating the mutation', async () => {
     const queue = { id: 'queue-1', title: 'Abismo', cost: 250, rewardPrompt: 'Envie somente UID.', uidMode: 'visible', rewardId: 'reward-managed', lifecycleStatus: 'active', isArchived: false };
     const task = { id: 'open-task', operationType: 'reward.set_open', attempts: 2, leaseToken: 'open-lease', payload: { isOpen: true, queueVersion: 4, requestMayHaveReachedTwitch: true }, queue };
@@ -132,12 +233,28 @@ describe('managed reward creation outbox worker', () => {
       claimNextRewardOperation: vi.fn(async () => task), confirmRewardOpen: vi.fn(async () => true),
       unknownRewardOperation: vi.fn(async () => true),
     };
-    const twitch = { getReward: vi.fn(async () => ({ id: 'reward-managed', title: queue.title, cost: queue.cost, prompt: queue.rewardPrompt, userInputRequired: true, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: false })), setRewardOpen: vi.fn() };
+    const twitch = { getReward: vi.fn(async () => ({ id: 'reward-managed', title: queue.title, cost: queue.cost, prompt: queue.rewardPrompt, userInputRequired: true, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: false, isInStock: true })), setRewardOpen: vi.fn() };
     const worker = createRewardOutboxWorker({ repository, twitch });
 
     await expect(worker.processOne()).resolves.toBe('confirmed');
     expect(repository.confirmRewardOpen).toHaveBeenCalledWith('open-task', { isOpen: true }, 'open-lease');
     expect(twitch.setRewardOpen).not.toHaveBeenCalled();
+  });
+
+  it('retries a manual-mode pause safely when a lost Twitch response still shows the reward active', async () => {
+    const queue = { id: 'queue-manual-switch', title: 'Abismo', cost: 250, rewardPrompt: 'UID', uidMode: 'visible', rewardId: 'reward-managed', lifecycleStatus: 'active', isArchived: false };
+    const task = { id: 'switch-task', operationType: 'reward.set_open', attempts: 2, leaseToken: 'switch-lease', payload: { isOpen: false, queueVersion: 4, convertToManualAfterConfirm: true, requestMayHaveReachedTwitch: true }, queue };
+    const repository = {
+      claimNextRewardOperation: vi.fn(async () => task), retryRewardOperation: vi.fn(async () => true),
+      unknownRewardOperation: vi.fn(async () => true), confirmRewardOpen: vi.fn(async () => true),
+    };
+    const twitch = { getReward: vi.fn(async () => ({ id: queue.rewardId, title: queue.title, cost: queue.cost, prompt: queue.rewardPrompt, userInputRequired: true, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: false, isInStock: true })), setRewardOpen: vi.fn() };
+    const worker = createRewardOutboxWorker({ repository, twitch, clock: () => new Date('2026-10-07T00:00:00Z'), random: () => 0 });
+
+    await expect(worker.processOne()).resolves.toBe('retry');
+    expect(repository.retryRewardOperation).toHaveBeenCalledWith('switch-task', expect.objectContaining({ errorCode: 'manual_mode_pause_not_yet_visible', payloadUpdates: { requestMayHaveReachedTwitch: false } }), 'switch-lease');
+    expect(repository.confirmRewardOpen).not.toHaveBeenCalled();
+    expect(repository.unknownRewardOperation).not.toHaveBeenCalled();
   });
 
   it('pauses an archived queue through the reward worker before reporting remote sync', async () => {
@@ -147,8 +264,8 @@ describe('managed reward creation outbox worker', () => {
       claimNextRewardOperation: vi.fn(async () => task), prepareRewardOpen: vi.fn(async () => true),
       confirmRewardOpen: vi.fn(async () => true), failedRewardOperation: vi.fn(async () => true),
     };
-    const opened = { id: 'reward-managed', title: queue.title, cost: queue.cost, prompt: '', userInputRequired: false, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: false };
-    const paused = { ...opened, isPaused: true };
+    const opened = { id: 'reward-managed', title: queue.title, cost: queue.cost, prompt: '', userInputRequired: false, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: false, isInStock: true };
+    const paused = { ...opened, isPaused: true, isInStock: true };
     const twitch = { getReward: vi.fn(async () => opened), setRewardOpen: vi.fn(async () => paused) };
     const worker = createRewardOutboxWorker({ repository, twitch });
 

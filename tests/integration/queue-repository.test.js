@@ -5,6 +5,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createQueueDomainService } from '../../apps/api/src/domain/queue-service.mjs';
+import { normalizeQueueKeys } from '../../apps/api/src/domain/queue-keys.mjs';
 import { createQueueRepository } from '../../apps/api/src/persistence/queue-repository.mjs';
 import { createTwitchCredentialRepository } from '../../apps/api/src/persistence/twitch-credential-repository.mjs';
 
@@ -23,6 +24,229 @@ function docker(args) {
 }
 
 describe('PostgreSQL queue repository', () => {
+  it('clears a prior remote divergence only after reconciliation confirms the managed queue state', async () => {
+    const queue = await repository.createQueue({ slug: `recovered-${randomUUID().slice(0, 8)}`, title: 'Recovered reward', cost: 250 });
+    await prisma.queue.update({ where: { id: queue.id }, data: {
+      rewardId: `managed-${randomUUID()}`, rewardOrigin: 'bot_created', remoteSyncStatus: 'diverged', version: { increment: 1 },
+    } });
+
+    const verifiedVersion = (await prisma.queue.findUnique({ where: { id: queue.id } })).version;
+    await expect(repository.confirmQueueRemoteState(queue.id, { expectedVersion: verifiedVersion })).resolves.toBe(true);
+
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ remoteSyncStatus: 'synced', version: 3 });
+    expect(await prisma.auditLog.findFirst({ where: { queueId: queue.id, event: 'queue.remote_state_confirmed' } }))
+      .toMatchObject({ origin: 'reconciliation', previousState: 'diverged', nextState: 'synced', reason: 'twitch_reward_state_verified' });
+  });
+
+  it('does not clear a remote divergence when queue configuration changed after the Twitch read', async () => {
+    const queue = await repository.createQueue({ slug: `stale-reconcile-${randomUUID().slice(0, 8)}`, title: 'Stale reconciliation', cost: 250 });
+    await prisma.queue.update({ where: { id: queue.id }, data: {
+      rewardId: `managed-${randomUUID()}`, rewardOrigin: 'bot_created', remoteSyncStatus: 'diverged', version: { increment: 1 },
+    } });
+    const verifiedVersion = (await prisma.queue.findUnique({ where: { id: queue.id } })).version;
+    await prisma.queue.update({ where: { id: queue.id }, data: { title: 'Changed after Twitch read', version: { increment: 1 } } });
+
+    await expect(repository.confirmQueueRemoteState(queue.id, { expectedVersion: verifiedVersion })).resolves.toBe(false);
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ remoteSyncStatus: 'diverged', title: 'Changed after Twitch read' });
+  });
+
+  it('persists the admission mode and reward provenance for existing and local queues', async () => {
+    const rewardQueue = await repository.createQueue({ slug: `mode-reward-${randomUUID().slice(0, 8)}`, title: 'Reward queue', cost: 1 });
+    const localQueue = await repository.createQueue({ slug: `mode-local-${randomUUID().slice(0, 8)}`, title: 'Local queue', cost: 1 });
+
+    await prisma.$executeRaw`UPDATE queues SET reward_id = ${`historical-${randomUUID()}`} WHERE id = ${rewardQueue.id}::uuid`;
+    const rows = await prisma.$queryRaw`SELECT id, queue_mode, reward_id, reward_origin, mode_transition_status FROM queues WHERE id IN (${rewardQueue.id}::uuid, ${localQueue.id}::uuid) ORDER BY slug`;
+
+    expect(rows).toHaveLength(2);
+    expect(rows.find(({ id }) => id === rewardQueue.id)).toMatchObject({ reward_id: expect.stringMatching(/^historical-/), queue_mode: 'channel_points', reward_origin: 'legacy_unknown', mode_transition_status: 'none' });
+    expect(rows.find(({ id }) => id === localQueue.id)).toMatchObject({ reward_id: null, queue_mode: 'channel_points', reward_origin: 'legacy_unknown', mode_transition_status: 'none' });
+  });
+
+  it('creates a local manual-only queue without a Twitch reward or financial task', async () => {
+    const slug = `local-${randomUUID().slice(0, 8)}`;
+    const actorId = `operator-${randomUUID()}`;
+    const result = await repository.createManualQueue({ slug, aliases: [`${slug}-alt`], title: 'Manual queue', actorId, callMessage: 'Chegou sua vez, {user}!', callTimeoutMin: 15, uidMode: 'visible' });
+
+    expect(result).toMatchObject({
+      slug, cost: null, queueMode: 'manual_only', rewardOrigin: 'none', rewardId: null,
+      remoteSyncStatus: 'local_only', lifecycleStatus: 'active', isOpen: false,
+      callMessage: 'Chegou sua vez, {user}!', callTimeoutMin: 15, uidMode: 'visible',
+    });
+    expect(await prisma.outbox.count({ where: { entityId: result.id } })).toBe(0);
+    expect(await prisma.auditLog.findFirst({ where: { queueId: result.id } }))
+      .toMatchObject({ event: 'queue.manual_created', actorId, origin: 'panel', nextState: 'manual_only', reason: 'local_queue_created' });
+    expect(await repository.getQueueByKey(`${slug}-alt`)).toMatchObject({ id: result.id, queueMode: 'manual_only' });
+    const admission = await repository.addManualEntry({ queueId: result.id, twitchUserId: `viewer-${randomUUID()}`, userLogin: 'local_viewer', displayName: 'Local Viewer', actorId, origin: 'panel' });
+    expect(admission).toMatchObject({ status: 'created', entry: { source: 'manual', redemptionId: null, position: 1 } });
+    expect(await prisma.outbox.count({ where: { entityId: result.id } })).toBe(0);
+  });
+
+  it('includes operator queue settings in the panel projection', async () => {
+    const slug = `projection-${randomUUID().slice(0, 8)}`;
+    const queue = await repository.createManualQueue({
+      slug,
+      title: 'Projection settings',
+      actorId: 'operator',
+      callMessage: 'Sua vez, {user}!',
+      callTimeoutMin: 25,
+      uidMode: 'visible',
+    });
+    await prisma.queue.update({ where: { id: queue.id }, data: {
+      autoSwitchAccount: true,
+      refundIfRemovedWhileCalled: false,
+      refundOnNoShow: true,
+      refundIfViewerLeavesCalled: true,
+    } });
+
+    const projection = (await repository.listQueueProjection()).find(({ id }) => id === queue.id);
+
+    expect(projection).toMatchObject({
+      callMessage: 'Sua vez, {user}!',
+      callTimeoutMin: 25,
+      autoSwitchAccount: true,
+      refundIfRemovedWhileCalled: false,
+      refundOnNoShow: true,
+      refundIfViewerLeavesCalled: true,
+    });
+  });
+
+  it('persists reward queues from the normalized key bundle passed by the HTTP route', async () => {
+    const normalized = normalizeQueueKeys({ slug: `route-reward-${randomUUID().slice(0, 8)}`, aliases: [] });
+    const result = await repository.createQueueWithRewardIntent({
+      ...normalized, title: 'Route reward queue', cost: 1000, rewardPrompt: '',
+      maxRedemptionsPerStream: null, maxRedemptionsPerUserPerStream: null, globalCooldownSeconds: null,
+      callMessage: '{user}, sua vez!', callTimeoutMin: 10, uidMode: 'hidden', isOpen: false,
+    });
+
+    expect(result).toMatchObject({ status: 'pending', queue: { slug: normalized.slug, title: 'Route reward queue', queueMode: 'channel_points', remoteSyncStatus: 'pending_create' } });
+    expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `queue:${result.queue.id}:reward.create` } })).toMatchObject({ operationType: 'reward.create', entityId: result.queue.id });
+  });
+
+  it('persists manual queues from the normalized key bundle passed by the HTTP route', async () => {
+    const normalized = normalizeQueueKeys({ slug: `route-manual-${randomUUID().slice(0, 8)}`, aliases: [] });
+    const queue = await repository.createManualQueue({
+      ...normalized, title: 'Route manual queue', callMessage: '{user}, sua vez!', callTimeoutMin: 10, uidMode: 'hidden',
+    });
+
+    expect(queue).toMatchObject({ slug: normalized.slug, title: 'Route manual queue', queueMode: 'manual_only', remoteSyncStatus: 'local_only' });
+    expect(await prisma.outbox.count({ where: { entityId: queue.id } })).toBe(0);
+  });
+
+  it('opens and closes a local queue using only local state and audit records', async () => {
+    const queue = await repository.createManualQueue({ slug: `local-state-${randomUUID().slice(0, 8)}`, title: 'Local state' });
+    const opened = await repository.setQueueOpen(queue.id, true, 'operator-1');
+    expect(opened).toMatchObject({ status: 'confirmed', isOpen: true, remoteSyncStatus: 'local_only' });
+    const closed = await repository.setQueueOpen(queue.id, false, 'operator-1');
+    expect(closed).toMatchObject({ status: 'confirmed', isOpen: false, remoteSyncStatus: 'local_only' });
+    expect(await prisma.outbox.count({ where: { entityId: queue.id } })).toBe(0);
+    expect(await prisma.auditLog.count({ where: { queueId: queue.id, event: 'queue.open_state_changed' } })).toBe(2);
+  });
+
+  it('deletes a never-rewarded local queue while preserving entry history and requesting no points operation', async () => {
+    const queue = await repository.createManualQueue({ slug: `local-delete-${randomUUID().slice(0, 8)}`, title: 'Local deletion' });
+    const added = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `viewer-${randomUUID()}`, userLogin: 'viewer', displayName: 'Viewer' });
+    const result = await queueService.deleteQueue({ queueId: queue.id, actorId: 'operator-1' });
+    expect(result).toMatchObject({ status: 'deleted', activeRemoved: 1, refundsRequested: 0, queue: { lifecycleStatus: 'deleted', deletedAt: expect.any(Date) } });
+    expect(await repository.getEntry(added.entry.id)).toMatchObject({ status: 'removed', terminalReason: 'queue_deleted' });
+    expect(await repository.getQueueById(queue.id)).toMatchObject({ lifecycleStatus: 'deleted' });
+    expect(await prisma.queueKey.findMany({ where: { queueId: queue.id } })).toHaveLength(0);
+    expect(await prisma.outbox.count({ where: { entityId: queue.id } })).toBe(0);
+  });
+
+  it('cancels a Twitch redemption received while a reward-backed queue is switching to manual mode', async () => {
+    const queue = await repository.createQueue({ slug: `switch-redempt-${randomUUID().slice(0, 8)}`, title: 'Switch redemption', cost: 100 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `reward-${randomUUID()}`, rewardOrigin: 'bot_created', remoteSyncStatus: 'synced', isOpen: true } });
+    await repository.requestManualModeTransition({ queueId: queue.id, actorId: 'operator-1' });
+    const imported = await repository.importRedemption({ id: `redemption-${randomUUID()}`, rewardId: (await repository.getQueueById(queue.id)).rewardId, broadcasterId: 'broadcaster-1', userId: `viewer-${randomUUID()}`, redeemedAt: new Date(), status: 'UNFULFILLED', userInput: '' });
+    expect(imported).toMatchObject({ status: 'cancellation_pending', reason: 'queue_mode_transition' });
+    expect(await prisma.outbox.findFirst({ where: { redemptionId: imported.redemptionId } })).toMatchObject({ operationType: 'redemption.cancel', status: 'pending' });
+    expect(await repository.getActiveEntryForUser(queue.id, 'unused')).toBeNull();
+  });
+
+  it('keeps free operator adds available during conversion while preserving racing redemption cancellation', async () => {
+    const queue = await repository.createQueue({ slug: `switch-add-${randomUUID().slice(0, 8)}`, title: 'Switch manual add', cost: 100 });
+    const rewardId = `reward-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, rewardOrigin: 'bot_created', remoteSyncStatus: 'synced', isOpen: true } });
+    await repository.requestManualModeTransition({ queueId: queue.id, actorId: 'operator-1' });
+    const redemption = await repository.importRedemption({
+      id: `redemption-${randomUUID()}`, rewardId, broadcasterId: 'broadcaster-1', userId: `reward-viewer-${randomUUID()}`,
+      redeemedAt: new Date(), status: 'UNFULFILLED', userInput: '',
+    });
+
+    const added = await repository.addManualEntry({
+      queueId: queue.id, twitchUserId: `manual-viewer-${randomUUID()}`, userLogin: 'manual_viewer',
+      displayName: 'Manual Viewer', actorId: 'operator-2', origin: 'panel',
+    });
+
+    expect(added).toMatchObject({ status: 'created', entry: { source: 'manual', redemptionId: null, status: 'waiting', position: 1 } });
+    expect(await prisma.outbox.findMany({ where: { entityId: added.entry.id } })).toEqual([]);
+    expect(await prisma.outbox.findMany({ where: { redemptionId: redemption.redemptionId } })).toMatchObject([
+      { operationType: 'redemption.cancel', status: 'pending' },
+    ]);
+    expect(await repository.getQueueById(queue.id)).toMatchObject({ queueMode: 'channel_points', modeTransitionStatus: 'pending_pause' });
+  });
+
+  it('switches to manual mode only after the durable Twitch pause task is confirmed', async () => {
+    const queue = await repository.createQueue({ slug: `switch-confirm-${randomUUID().slice(0, 8)}`, title: 'Switch confirmation', cost: 100 });
+    const rewardId = `reward-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, rewardOrigin: 'bot_created', remoteSyncStatus: 'synced', isOpen: true } });
+    const requested = await repository.requestManualModeTransition({ queueId: queue.id, actorId: 'operator-1' });
+    expect(requested).toMatchObject({ status: 'pending', queue: { queueMode: 'channel_points', modeTransitionStatus: 'pending_pause', isOpen: false, rewardId } });
+    const beforeConfirmation = await repository.getQueueById(queue.id);
+    expect(beforeConfirmation).toMatchObject({ queueMode: 'channel_points', rewardId });
+    const task = await repository.claimNextRewardOperation();
+    expect(task).toMatchObject({ operationType: 'reward.set_open', payload: { convertToManualAfterConfirm: true, isOpen: false } });
+    expect(await repository.confirmRewardOpen(task.id, { isOpen: false }, task.leaseToken)).toBe(true);
+    expect(await repository.getQueueById(queue.id)).toMatchObject({ queueMode: 'manual_only', modeTransitionStatus: 'confirmed', remoteSyncStatus: 'local_only', rewardOrigin: 'bot_created', rewardId, cost: 100 });
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'confirmed' });
+    expect(await prisma.auditLog.findFirst({ where: { queueId: queue.id, event: 'queue.manual_mode_confirmed' } })).toMatchObject({ reason: 'twitch_reward_pause_confirmed' });
+  });
+
+  it('allows an operator to safely retry an unknown Twitch pause before switching modes', async () => {
+    const queue = await repository.createQueue({ slug: `switch-retry-${randomUUID().slice(0, 8)}`, title: 'Switch retry', cost: 100 });
+    const rewardId = `reward-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, rewardOrigin: 'bot_created', remoteSyncStatus: 'synced' } });
+    await repository.requestManualModeTransition({ queueId: queue.id, actorId: 'operator-1' });
+    const first = await repository.claimNextRewardOperation();
+    await repository.unknownRewardOperation(first.id, 'reward_open_result_unknown', first.leaseToken);
+    const retry = await repository.requestManualModeTransition({ queueId: queue.id, actorId: 'operator-2' });
+    expect(retry).toMatchObject({ status: 'pending', queue: { queueMode: 'channel_points', modeTransitionStatus: 'pending_pause', rewardId } });
+    expect(await prisma.outbox.count({ where: { entityId: queue.id, operationType: 'reward.set_open' } })).toBe(2);
+  });
+
+  it('reconciles a remotely confirmed pause into manual mode after an unknown worker result', async () => {
+    const queue = await repository.createQueue({ slug: `switch-recon-${randomUUID().slice(0, 8)}`, title: 'Switch reconcile', cost: 100 });
+    const rewardId = `reward-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, rewardOrigin: 'bot_created', remoteSyncStatus: 'synced' } });
+    await repository.requestManualModeTransition({ queueId: queue.id, actorId: 'operator-1' });
+    const task = await repository.claimNextRewardOperation();
+    await repository.unknownRewardOperation(task.id, 'reward_open_result_unknown', task.leaseToken);
+    const result = await repository.confirmManualModeFromReconciliation(queue.id);
+    expect(result).toMatchObject({ status: 'confirmed', queue: { queueMode: 'manual_only', modeTransitionStatus: 'confirmed', rewardId, rewardOrigin: 'bot_created', remoteSyncStatus: 'local_only' } });
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'confirmed' });
+  });
+
+  it('rejects a converted manual queue that loses its historical Twitch reward identity', async () => {
+    await expect(prisma.queue.create({ data: {
+      slug: `invalid-conversion-${randomUUID().slice(0, 8)}`,
+      title: 'Invalid converted queue',
+      cost: 100,
+      queueMode: 'manual_only',
+      rewardOrigin: 'bot_created',
+      modeTransitionStatus: 'confirmed',
+      remoteSyncStatus: 'local_only',
+    } })).rejects.toThrow(/queues_mode_reward_origin_consistency_check/);
+    await expect(prisma.queue.create({ data: {
+      slug: `invalid-transition-${randomUUID().slice(0, 8)}`,
+      title: 'Invalid transition state',
+      cost: 100,
+      queueMode: 'channel_points',
+      rewardOrigin: 'bot_created',
+      modeTransitionStatus: 'confirmed',
+      remoteSyncStatus: 'synced',
+    } })).rejects.toThrow(/queues_mode_transition_consistency_check/);
+  });
+
   it('defaults the installation locale to Brazilian Portuguese and persists a revisioned locale change with audit', async () => {
     await prisma.setting.deleteMany({ where: { key: 'product_locale' } });
     await expect(repository.getProductLocale()).resolves.toEqual({ locale: 'pt-BR', revision: 1 });
@@ -214,7 +438,7 @@ describe('PostgreSQL queue repository', () => {
       actorId: 'operator-session',
     });
 
-    expect(result.queue).toMatchObject({ slug, title: 'Reward queue', rewardId: null, remoteSyncStatus: 'pending_create', maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: 2, globalCooldownSeconds: 90 });
+    expect(result.queue).toMatchObject({ slug, title: 'Reward queue', rewardId: null, queueMode: 'channel_points', rewardOrigin: 'bot_created', modeTransitionStatus: 'none', remoteSyncStatus: 'pending_create', maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: 2, globalCooldownSeconds: 90 });
     await expect(repository.listQueueProjection()).resolves.toEqual(expect.arrayContaining([
       expect.objectContaining({ id: result.queue.id, maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: 2, globalCooldownSeconds: 90 }),
     ]));
@@ -270,11 +494,12 @@ describe('PostgreSQL queue repository', () => {
   it('rolls back queue and reward intent together when queue keys collide', async () => {
     const slug = `collision-${randomUUID().slice(0, 8)}`;
     await repository.createQueue({ slug, title: 'Existing', cost: 1 });
+    const rewardIntentCountBefore = await prisma.outbox.count({ where: { operationType: 'reward.create' } });
 
     await expect(repository.createQueueWithRewardIntent({ slug, title: 'Duplicate', cost: 250 }))
       .rejects.toMatchObject({ code: 'DUPLICATE_QUEUE_KEY' });
     expect(await prisma.queue.count({ where: { slug } })).toBe(1);
-    expect(await prisma.outbox.count({ where: { operationType: 'reward.create' } })).toBe(1);
+    expect(await prisma.outbox.count({ where: { operationType: 'reward.create' } })).toBe(rewardIntentCountBefore);
   });
 
   it('claims reward creation with a lease, records safe intent, confirms ownership, and recovers expired leases', async () => {
@@ -302,6 +527,22 @@ describe('PostgreSQL queue repository', () => {
     const recovered = await repository.claimNextRewardOperation({ now: new Date(now.getTime() + 86_402_001), leaseMs: 1000 });
     expect(recovered).toMatchObject({ id: firstClaim.id, queue: { id: nextQueue.queue.id }, attempts: 2 });
     expect(recovered.leaseToken).not.toBe(firstClaim.leaseToken);
+  });
+
+  it('confirms reward ownership without persisting unsupported Twitch stock state', async () => {
+    const created = await repository.createQueueWithRewardIntent({
+      slug: `reward-stock-${randomUUID().slice(0, 8)}`, title: 'Stock capture queue', cost: 250,
+    });
+    const task = await repository.claimNextRewardOperation({ now: new Date(Date.now() + 86_400_000) });
+    expect(task).toMatchObject({ id: expect.any(String), queue: { id: created.queue.id } });
+
+    await expect(repository.confirmRewardCreated(
+      task.id, { rewardId: 'stock-captured-reward' }, task.leaseToken,
+    )).resolves.toBe(true);
+
+    expect(await prisma.queue.findUnique({ where: { id: created.queue.id } }))
+      .toMatchObject({ rewardId: 'stock-captured-reward', remoteSyncStatus: 'synced' });
+    expect(await prisma.queue.findUnique({ where: { id: created.queue.id } })).not.toHaveProperty('rewardStockBeforeClose');
   });
 
   it('keeps an ambiguous reward association visible and prevents queue activation', async () => {
@@ -361,6 +602,25 @@ describe('PostgreSQL queue repository', () => {
     const selected = await queueService.callNext({ queueId: queue.id, count: 2 });
     expect(selected).toMatchObject([{ id: first.entry.id, previousPosition: 1, status: 'called' }, { id: second.entry.id, previousPosition: 2, status: 'called' }]);
     expect(await repository.listWaiting(queue.id)).toEqual([]);
+  });
+
+  it('blocks new calls while a reward-backed queue is switching to manual mode', async () => {
+    const queue = await repository.createQueue({ slug: `switch-call-${randomUUID().slice(0, 8)}`, title: 'Switch call', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `reward-${randomUUID()}`, rewardOrigin: 'bot_created', remoteSyncStatus: 'synced', isOpen: true } });
+    const first = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `switch-a-${randomUUID()}`, userLogin: 'first', displayName: 'First' });
+    const second = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `switch-b-${randomUUID()}`, userLogin: 'second', displayName: 'Second' });
+    await repository.requestManualModeTransition({ queueId: queue.id, actorId: 'operator' });
+
+    await expect(queueService.callNext({ queueId: queue.id, count: 1, actorId: 'operator' }))
+      .rejects.toMatchObject({ code: 'QUEUE_MODE_TRANSITION_PENDING' });
+    await expect(queueService.callSpecificEntry({ queueId: queue.id, entryId: first.entry.id, actorId: 'operator' }))
+      .rejects.toMatchObject({ code: 'QUEUE_MODE_TRANSITION_PENDING' });
+
+    expect(await repository.listWaiting(queue.id)).toMatchObject([
+      { id: first.entry.id, position: 1, status: 'waiting' },
+      { id: second.entry.id, position: 2, status: 'waiting' },
+    ]);
+    expect(await prisma.outbox.count({ where: { entityId: { in: [first.entry.id, second.entry.id] }, operationType: 'chat.call' } })).toBe(0);
   });
 
   it('calls a selected waiting entry through the domain service and preserves remaining order', async () => {
@@ -584,6 +844,17 @@ describe('PostgreSQL queue repository', () => {
     expect(await repository.getEntry(entry.entry.id)).toMatchObject({ status: 'waiting', position: 1 });
     await expect(repository.addManualEntry({ queueId: queue.id, twitchUserId: 'other-archive-user', userLogin: 'other', displayName: 'Other' }))
       .rejects.toMatchObject({ code: 'QUEUE_NOT_AVAILABLE' });
+  });
+
+  it('archives an already closed reward queue through a durable remote stock and pause confirmation', async () => {
+    const queue = await repository.createQueue({ slug: `archive-closed-${randomUUID().slice(0, 8)}`, title: 'Archive closed', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, rewardOrigin: 'bot_created', remoteSyncStatus: 'synced', isOpen: false } });
+
+    const result = await repository.archiveQueue({ queueId: queue.id, actorId: 'operator-archive' });
+    const task = await prisma.outbox.findFirst({ where: { operationType: 'reward.set_open', entityId: queue.id } });
+
+    expect(result).toMatchObject({ status: 'pending', queue: { isArchived: true, isOpen: false, remoteSyncStatus: 'pending_close' } });
+    expect(task).toMatchObject({ status: 'pending', payload: { isOpen: false, archiveAfterConfirm: true } });
   });
 
   it('keeps archived queue entries callable while blocking new entries', async () => {

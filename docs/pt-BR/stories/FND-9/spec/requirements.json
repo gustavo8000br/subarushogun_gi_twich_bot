@@ -1,14 +1,14 @@
 {
   "storyId": "FND-9",
-  "status": "planning_complete_pending_sequence_approval",
+  "status": "implementation_in_progress",
   "source": "user",
-  "summary": "Planejar adição manual à fila para canais Twitch que não podem usar recompensas de Pontos do Canal; canais elegíveis usam uma Custom Reward dedicada da Twitch, criada pelo bot para cada fila.",
+  "summary": "Manter o chat Twitch independente das APIs de Pontos do Canal; permitir filas com reward conforme capacidade, filas locais, adição manual gratuita pelo operador nos dois modos e conversão segura com drenagem durável dos resgates.",
   "functionalRequirements": [
     {
       "id": "FR-1",
       "priority": "P0",
-      "description": "Um broadcaster Twitch configurado e autorizado pode manter o chatbot conectado ao chat do canal mesmo quando não pode usar recompensas personalizadas de Pontos do Canal.",
-      "acceptance": "A integração informa prontidão do chat separadamente da disponibilidade dos Pontos do Canal e não interrompe comandos apenas porque recompensas estão indisponíveis."
+      "description": "Um broadcaster Twitch autorizado mantém o chatbot conectado ao chat mesmo quando as APIs de reward de Pontos do Canal estiverem indisponíveis.",
+      "acceptance": "O estado de prontidão do chat é independente da capacidade de reward; o runtime não encerra comandos apenas por indisponibilidade/inelegibilidade de reward."
     },
     {
       "id": "FR-2",
@@ -25,20 +25,44 @@
     {
       "id": "FR-4",
       "priority": "P1",
-      "description": "O painel local explica que um canal inelegível está usando entrada manual de fila e apresenta o comando autorizado no chat.",
-      "acceptance": "O estado é claro em pt-BR e distingue Pontos do Canal indisponíveis da conectividade de chat Twitch."
+      "description": "O painel local explica se cada fila usa reward Twitch ou modo somente manual e distingue isso da conexão do chat.",
+      "acceptance": "Modo manual mostra que não há reward Twitch ativa; fila convertida pode exibir ID/origem anterior somente como metadado histórico. Chat e capacidade de reward aparecem separados, sem erros brutos do provedor."
     },
     {
       "id": "FR-5",
       "priority": "P1",
-      "description": "Para cada fila elegível, criar e gerenciar uma Custom Reward dedicada da Twitch por este app; não adotar nem alterar recompensas preexistentes.",
-      "acceptance": "A recompensa é criada pela API Twitch, vinculada pelo ID imutável, e somente esse ID é usado para resgates e operações do ciclo de vida da fila."
+      "description": "Suportar filas vinculadas a reward (`channel_points`) e locais/manuais (`manual_only`); usar reward criada pelo bot por padrão ou reward do Dashboard somente após prova do ciclo completo. Entrada manual é origem separada, permitida nos dois modos.",
+      "acceptance": "Fila local nova não tem reward_id; fila convertida mantém ID/origem históricos. Entradas manuais nos dois modos não criam operação financeira; reward do Dashboard exige prova de abrir/pausar, consultar pendentes/individuais, reconciliar, cancelar/concluir e excluir com segurança."
     },
     {
       "id": "FR-6",
       "priority": "P0",
-      "description": "Manter o comando global de ping localizado existente disponível para streamer/moderador quando Pontos do Canal estiverem indisponíveis.",
-      "acceptance": "Em canal inelegível, o comando localizado de ping autorizado retorna o Pong existente, versão do produto e latência Twitch em cache; viewers não recebem resposta de ping e não há consulta Helix por mensagem nem chamada à API de rewards."
+      "description": "Manter o comando global localizado de ping para streamer/moderador sempre que o chat estiver autorizado, sem depender da capacidade de reward.",
+      "acceptance": "Em canal com chat conectado e API de reward indisponível, ping autorizado retorna o Pong existente, versão do produto e latência Twitch em cache; viewer não recebe resposta nem há consulta Helix por mensagem."
+    },
+    {
+      "id": "FR-7",
+      "priority": "P0",
+      "description": "Streamer/moderador pode adicionar viewer manualmente e gratuitamente a qualquer fila ativa, inclusive fila vinculada a reward.",
+      "acceptance": "O serviço compartilhado resolve o usuário Twitch e cria entrada manual sem ID de resgate ou intenção financeira; regras de duplicidade, arquivamento e exclusão permanecem aplicáveis."
+    },
+    {
+      "id": "FR-8",
+      "priority": "P0",
+      "description": "Uma fila vinculada a reward pode mudar para modo local/manual depois que a Twitch confirmar a pausa da reward.",
+      "acceptance": "Persistir transição recuperável; manter modo vinculado à reward diante de falha/resultado desconhecido; após confirmação, interromper novas admissões de reward, preservar identidade histórica, cancelar resgate concorrente por intenção durável e continuar resolvendo operações financeiras de resgates já admitidos."
+    },
+    {
+      "id": "FR-9",
+      "priority": "P1",
+      "description": "Texto livre de viewer no chat não é interface de inscrição.",
+      "acceptance": "Somente uma ação add explícita e autorizada de streamer/moderador cria entrada manual; nenhuma mensagem de chat é interpretada como pedido para entrar."
+    },
+    {
+      "id": "FR-10",
+      "priority": "P1",
+      "description": "Pausar, arquivar e converter fila gerenciada sincroniza a reward Twitch pelo controle documentado de pausa.",
+      "acceptance": "Enviar e confirmar somente is_paused. A Twitch expõe is_in_stock nas leituras, mas não lista esse campo no corpo de Update Custom Reward; um teste real idempotente recebeu 200 enquanto a resposta e o GET seguinte mantiveram o estoque existente. Nunca afirmar alteração de estoque. A reconciliação ignora estoque como campo gravável e só confirma após reler a mesma versão da fila comparada com a Twitch."
     }
   ],
   "nonFunctionalRequirements": [
@@ -82,50 +106,112 @@
     },
     {
       "id": "CON-4",
-      "description": "Cada fila elegível usa uma Custom Reward dedicada da Twitch criada por este bot via API. Recompensas preexistentes do streamer, como beber água, não são gatilhos de fila nem são adotadas."
+      "description": "Rewards criadas pelo bot são o padrão; reward do Dashboard exige prova do ciclo completo da API; caso contrário, permitir fila local/manual. Streamer/moderador pode adicionar viewer gratuitamente nos dois modos."
     },
     {
       "id": "CON-5",
       "description": "A integração atual para antes de iniciar EventSub quando a elegibilidade do canal é falsa; chat e ciclo de Pontos do Canal precisam ser separados."
+    },
+    {
+      "id": "CON-6",
+      "description": "Não inferir capacidade de API de reward exclusivamente por status Afiliado/Parceiro nem pela presença no Creator Dashboard; as documentações oficiais de produto e Helix divergem."
     }
   ],
   "assumptions": [
-    "Canais inelegíveis usam entrada manual; canais elegíveis mantêm entrada por resgate de Pontos do Canal em uma Custom Reward dedicada criada pelo bot para cada fila.",
     "O comando autorizado existente de adição à fila é reutilizado, sem criar outra sintaxe.",
-    "Adições manuais usam FIFO na faixa normal salvo decisão explícita de prioridade; benefícios pagos permanecem fora do escopo da FND-9."
+    "Adições manuais usam FIFO na faixa normal salvo decisão explícita de prioridade; benefícios pagos permanecem fora do escopo da FND-9.",
+    "O produto possui modo local manual_only com reward_id nulo; add continua restrito a streamer/moderador e não cria eventos/efeitos financeiros.",
+    "Falha de rede, autenticação, autorização ou servidor não prova indisponibilidade definitiva da API nem muda silenciosamente o modo persistido da fila.",
+    "Recompensas do Dashboard só entram no modo Channel Points se este Client ID passar verificação do ciclo completo exigido; caso contrário, oferecer modo manual_only sem reward.",
+    "Fila local nova não tem ID de reward. Fila convertida do modo vinculado a reward mantém o ID/origem anterior como metadado histórico; modo local não gerencia reward nem recebe resgates.",
+    "A conversão de reward para manual é unidirecional na FND-9. Ela só se efetiva após confirmação da pausa remota; operações de resgates existentes continuam e resgates concorrentes recebem cancelamento durável."
   ],
   "openQuestions": [
     {
       "id": "Q-1",
       "question": "Quais cargos podem executar a adição manual: streamer e moderadores, somente streamer ou VIPs configuráveis também?",
-      "owner": "Product owner",
+      "owner": "Proprietário do produto",
       "status": "resolvido: streamer e moderadores (2026-10-06)"
     },
     {
       "id": "Q-2",
-      "question": "Canais elegíveis devem manter entrada por Pontos do Canal usando uma Custom Reward dedicada criada pelo bot, enquanto canais inelegíveis usam entrada manual pelo chat?",
-      "owner": "Product owner",
-      "status": "resolvido: sim; cada fila recebe Custom Reward dedicada criada pelo bot (2026-10-06)"
+      "question": "Canais com capacidade de API de reward comprovada devem usar Pontos do Canal, e canais sem ela, entrada manual?",
+      "owner": "Proprietário do produto",
+      "status": "resolvido: modo com reward quando ciclo completo da API for comprovado; fila somente manual quando indisponível (2026-10-07)"
     },
     {
       "id": "Q-3",
       "question": "Novas entradas manuais continuam permitidas em fila fechada, conforme regra atual, inclusive no modo somente manual?",
-      "owner": "Product specification",
-      "status": "resolvido pelo requisito existente: sim"
+      "owner": "Proprietário do produto",
+      "status": "resolvido pela regra existente: adição manual pode em fila fechada; filas arquivadas/em exclusão bloqueiam novas adições"
+    },
+    {
+      "id": "Q-6",
+      "question": "Para streamers monetizados não Afiliados/Parceiros, a capacidade runtime deve ser determinada pelas operações reais suportadas pela API, em vez de broadcasterType?",
+      "owner": "Proprietário do produto",
+      "status": "resolvido pela D-3 e pela decisão de fallback local manual (2026-10-07)"
+    },
+    {
+      "id": "Q-7",
+      "question": "Streamer/moderador pode adicionar viewer gratuitamente após ouvir pedido, sem viewer usar comando ou resgatar?",
+      "owner": "Proprietário do produto",
+      "status": "resolvida: sim, somente ação explícita do operador; mensagens livres não fazem autoinscrição (2026-10-07)"
+    },
+    {
+      "id": "Q-8",
+      "question": "Fila vinculada a reward pode mudar para modo local/manual e o que ocorre com resgates pendentes?",
+      "owner": "Proprietário do produto",
+      "status": "resolvida: exigir confirmação remota da pausa; preservar/drenar resgates existentes e cancelar duravelmente resgate que concorra com a transição (2026-10-07)"
+    },
+    {
+      "id": "Q-9",
+      "owner": "Proprietário do produto",
+      "question": "Pausar/arquivar fila gerenciada também deve marcar a reward Twitch sem estoque, e como a reabertura deve tratar limites de estoque nativos da Twitch?",
+      "status": "resolvida em 2026-10-08 pela documentação oficial Helix atual e por uma consulta real autorizada e idempotente: pausar/retomar somente via is_paused; is_in_stock é somente leitura neste endpoint. Não persistir nem restaurar snapshots de estoque."
     }
   ],
   "decisions": [
     {
       "id": "D-1",
-      "decision": "Em canais elegíveis, o bot cria pela API uma Custom Reward dedicada da Twitch para cada fila. Recompensas personalizadas preexistentes não são adotadas pelo título nem usadas como gatilho da fila.",
-      "owner": "Product owner",
-      "status": "approved (2026-10-06)"
+      "decision": "Recompensa criada pelo bot é o modo Channel Points padrão. Reward do Creator Dashboard só é selecionável se o Client ID provar o ciclo completo exigido da API, incluindo recuperação/reconciliação, alterações de status e exclusão segura.",
+      "owner": "Proprietário do produto",
+      "status": "aprovado (2026-10-07)"
     },
     {
       "id": "D-2",
-      "decision": "Em canais inelegíveis, a alternativa é entrada manual pelo chat por streamer/moderador; canais elegíveis mantêm entrada por resgate.",
-      "owner": "Product owner",
-      "status": "approved (2026-10-06)"
+      "decision": "Quando a API não oferece um ciclo completo de reward, permitir criar fila local/manual sem reward Twitch e adicionar pessoas por comando autorizado de streamer/moderador.",
+      "owner": "Proprietário do produto",
+      "status": "aprovado (2026-10-07)"
+    },
+    {
+      "id": "D-3",
+      "decision": "Capacidade de reward é verificada por operações API reais e separada em available/unsupported/unknown; não depender exclusivamente de broadcasterType. Erros temporários não convertem modo de fila.",
+      "owner": "Proprietário do produto",
+      "status": "aprovado (2026-10-07)"
+    },
+    {
+      "id": "D-4",
+      "decision": "Modo manual não tem ciclo ativo de reward nem estado remoto de abrir/fechar. Fila convertida mantém ID/origem históricos; arquivar/excluir seguem as regras remotas existentes por modo e preservam histórico.",
+      "owner": "Especificação do produto",
+      "status": "decorrência da D-2/D-6 e regras existentes; registrada em 2026-10-07"
+    },
+    {
+      "id": "D-5",
+      "decision": "Streamer/moderador pode adicionar viewer explicitamente e sem custo a qualquer fila ativa; texto do chat não inscreve ninguém. Entradas manuais não têm identidade de resgate nem operação financeira.",
+      "owner": "Proprietário do produto",
+      "status": "aprovado (2026-10-07)"
+    },
+    {
+      "id": "D-6",
+      "decision": "Permitir conversão unidirecional de fila vinculada a reward para local/manual. Manter transição pendente até confirmação da pausa Twitch; preservar ID/origem da reward como histórico; drenar fluxos de resgate existentes e cancelar duravelmente os concorrentes; não excluir a reward durante a conversão.",
+      "owner": "Proprietário do produto",
+      "status": "aprovado (2026-10-07)"
+    },
+    {
+      "id": "D-7",
+      "owner": "Proprietário do produto",
+      "decision": "Pausa, arquivamento e conversão de reward para modo manual atualizam somente o campo documentado is_paused. is_in_stock é lido da Twitch, mas não pode ser alterado por Update Custom Reward; o app não persiste nem modifica esse estado de estoque.",
+      "status": "aprovado (2026-10-07)"
     }
   ]
 }

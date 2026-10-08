@@ -273,7 +273,7 @@ describe('foundation operator documentation contract', () => {
     expect(portuguese).toContain('[English](../integrations.md)');
     expect(english).toMatch(/\*\*Documentation checked:\*\*\s*\d{4}-\d{2}-\d{2}/);
     expect(portuguese).toMatch(/\*\*Documentação consultada:\*\*\s*\d{4}-\d{2}-\d{2}/);
-    for (const term of ['getCustomRewards(broadcasterId, false)', 'channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'is_sent', 'queue creation durably requests a paused twitch reward']) {
+    for (const term of ['getCustomRewards(broadcasterId, false)', 'channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'is_sent', 'is_in_stock', 'Twurple 8.2.0']) {
       expect(english.toLowerCase()).toContain(term.toLowerCase());
     }
     expect(portuguese.toLowerCase()).toContain('getcustomrewards(broadcasterid, false)');
@@ -281,6 +281,12 @@ describe('foundation operator documentation contract', () => {
     expect(portuguese.toLowerCase()).toContain('user:read:chat');
     expect(portuguese.toLowerCase()).toContain('user:write:chat');
     expect(portuguese.toLowerCase()).toContain('is_sent');
-    expect(portuguese.toLowerCase()).toContain('criar uma fila registra duravelmente a solicitação de recompensa twitch pausada');
+    expect(portuguese.toLowerCase()).toContain('is_in_stock');
+    expect(portuguese.toLowerCase()).toContain('twurple 8.2.0');
+    expect(english).toContain('updateCustomReward');
+    expect(english).toContain('not an update request field');
+    expect(portuguese.toLowerCase()).toContain('updatecustomreward');
+    expect(portuguese.toLowerCase()).toContain('não aceita esse campo no corpo de atualização');
+    expect(portuguese.toLowerCase()).not.toContain('captura/restauração do estoque twitch');
   });
 });

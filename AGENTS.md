@@ -43,6 +43,14 @@ Ao retomar uma sessao de desenvolvimento, leia primeiro o handoff ativo em `docs
 
 Ordem de execução para mudanças: Master coordena; responsáveis especialistas podem revisar/plano; `$aiox-dev` implementa; `$aiox-qa` faz a validação independente antes de concluir; `$aiox-devops` executa operações de repositório autorizadas. Uma revisão de UX ou arquitetura não substitui o gate de QA. Não alegue que uma persona validou trabalho sem executar seu fluxo de ativação e revisão.
 
+### Autoridade de banco de dados — regra global
+
+- `@data-engineer` (Dara) coordena todo trabalho que envolva banco de dados em qualquer story: modelagem, schema Prisma, migrations SQL, constraints, índices, persistência, transações, concorrência, recuperação, testes de banco, operações e documentação correspondente.
+- O Master mantém a orquestração geral; o `@dev` implementa as mudanças de aplicação e código delegadas pelo plano de dados aprovado. Não desenhar, aplicar ou alterar persistência/schema/migration sem coordenação explícita de `@data-engineer`.
+- `@architect` pode revisar a arquitetura e `@qa` valida os resultados de forma independente; essas revisões não substituem a responsabilidade de dados.
+- Garantias de PostgreSQL exigem integração em PostgreSQL isolado com migrations reais. Nunca usar SQLite ou mocks de Prisma como evidência de atomicidade, constraints, concorrência ou recuperação.
+- Antes de mudança de schema em banco persistente, `@data-engineer` verifica o alvo e define snapshot/rollback compatível. Testes devem usar instância e dados descartáveis, sem tocar nos volumes ativos do produto.
+
 ## Sincronização de stories e issues
 
 - O @devops atualiza o corpo e o status da issue correspondente quando publicar uma story marcada como Done por PR mesclada.
@@ -54,6 +62,13 @@ Ordem de execução para mudanças: Master coordena; responsáveis especialistas
 - Antes da remoção, conferir projeto/labels e vínculo com worktree para proteger a instalação ativa e os serviços do trabalho atual.
 - Para instâncias comprovadamente órfãs, remover também os volumes associados quando autorizado pelo usuário ou quando forem artefatos descartáveis de teste sem dados do produto. Nunca remover volumes da instalação ativa.
 - Manter os serviços one-shot `bootstrap` e `migrate` do Compose atual quando fazem parte do projeto ativo; seu estado `Exited (0)` é esperado, não órfão.
+
+## Erros e diagnóstico
+
+- Falhas inesperadas da API retornam texto genérico localizado e um `referenceId`; nunca retornam mensagens, stack traces ou dados internos da exceção.
+- Registre eventos JSON com `referenceId`, horário UTC, origem, tipo da exceção e código técnico sanitizado. Não registre mensagem/stack brutos, corpo de chat/resgate, UID, tokens, headers, segredos, senha ou connection string.
+- Nomeie a origem de cada worker/rota com identificador estável. O painel deve mostrar a referência para que ela possa ser correlacionada com `docker compose logs bot`.
+- Erros de operação Twitch devem permanecer na outbox com estado/código seguro e recuperação apropriada; uma resposta ausente nunca vira confirmação.
 
 <!-- AIOX-MANAGED-START: quality -->
 ## Quality Gates

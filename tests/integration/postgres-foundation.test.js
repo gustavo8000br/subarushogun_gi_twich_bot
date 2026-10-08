@@ -62,6 +62,15 @@ describe('PostgreSQL migration and constraint contract', () => {
     expect(migrationCount.rows[0].count).toBeGreaterThan(0);
   });
 
+  it('does not persist Twitch reward stock state that Helix cannot update', async () => {
+    const { rows } = await pool.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'queues'
+        AND column_name = 'reward_stock_before_close'
+    `);
+    expect(rows).toEqual([]);
+  });
+
   it('enforces queue key namespace, redemption, active-entry and outbox intent uniqueness in PostgreSQL', async () => {
     const { rows: queues } = await pool.query(`
       INSERT INTO queues (slug, title, cost) VALUES ('queue-one', 'Queue One', 1)

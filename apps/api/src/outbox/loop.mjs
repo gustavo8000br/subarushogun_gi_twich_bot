@@ -1,7 +1,7 @@
-/** @param {{worker: {processOne: () => Promise<string>}, idleDelayMs?: number, activeDelayMs?: number, setTimeoutImpl?: typeof setTimeout, clearTimeoutImpl?: typeof clearTimeout, onError?: (code: string) => unknown}} options */
+/** @param {{worker: {processOne: () => Promise<string>}, idleDelayMs?: number, activeDelayMs?: number, setTimeoutImpl?: typeof setTimeout, clearTimeoutImpl?: typeof clearTimeout, onError?: (code: string) => unknown, onDiagnostic?: (event: {source: string, errorType: string, errorCode: string | null}) => unknown, source?: string}} options */
 export function createOutboxLoop({
   worker, idleDelayMs = 1000, activeDelayMs = 10, setTimeoutImpl = setTimeout,
-  clearTimeoutImpl = clearTimeout, onError = () => undefined,
+  clearTimeoutImpl = clearTimeout, onError = () => undefined, onDiagnostic = () => undefined, source = 'outbox.worker',
 }) {
   let active = false;
   let timer;
@@ -18,7 +18,10 @@ export function createOutboxLoop({
       let outcome = 'idle';
       try {
         outcome = await worker.processOne();
-      } catch {
+      } catch (error) {
+        const errorType = typeof error?.name === 'string' && /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(error.name) ? error.name : 'Error';
+        const errorCode = typeof error?.code === 'string' && /^[A-Z][A-Z0-9_]{1,31}$/.test(error.code) ? error.code : null;
+        try { onDiagnostic({ source, errorType, errorCode }); } catch { /* A diagnostic sink must not stop recovery. */ }
         onError('outbox_processing_failed');
       }
       if (active) schedule(outcome === 'idle' ? idleDelayMs : activeDelayMs);

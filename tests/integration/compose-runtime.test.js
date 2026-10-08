@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
+import { cleanupIsolatedComposeProject } from '../helpers/isolated-compose-cleanup.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const projectName = `queuebot-accept-${process.pid}-${randomUUID().slice(0, 8)}`;
@@ -80,10 +81,15 @@ describe('isolated Compose first-run and restart acceptance', () => {
 
   afterAll(() => {
     if (!composeStarted) return;
-    const result = spawnSync('docker', [
-      'compose', '--project-name', projectName, '--file', composeFile, 'down', '--volumes', '--remove-orphans',
-    ], { cwd: root, encoding: 'utf8', timeout: 60_000 });
-    if (result.status !== 0) throw new Error(result.stderr || result.stdout || 'isolated Compose cleanup failed');
+    cleanupIsolatedComposeProject({
+      projectName,
+      composeFile,
+      runDocker: (args) => spawnSync('docker', args, {
+        cwd: root,
+        encoding: 'utf8',
+        timeout: 60_000,
+      }),
+    });
     if (localCertDirectory) rmSync(localCertDirectory, { recursive: true, force: true });
   });
 

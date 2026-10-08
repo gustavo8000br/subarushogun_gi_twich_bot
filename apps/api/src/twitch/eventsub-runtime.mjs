@@ -1,13 +1,32 @@
 import { EventSubWsListener } from '@twurple/eventsub-ws';
 import { normalizeRedemptionStatus } from './helix-adapter.mjs';
 
-/** @param {{apiClient: any, broadcasterId: string, listenerFactory?: (apiClient: any) => any, onRedemptionAdd: (event: object) => unknown, onRedemptionUpdate: (event: object) => unknown, onChatMessage: (event: object) => unknown, onReady?: () => unknown, onReconnected?: () => unknown, onDisconnect?: (details: {established: boolean}) => unknown, onRevoked?: (type: string, status: string) => unknown, onError?: (code: string) => unknown}} input */
+/** @param {(event?: {source?: string, errorType?: string, errorCode?: string}) => string} reportError */
+function createSafeEventSubLogger(reportError) {
+  return (level, _message) => {
+    if (level === 0 || level === 1 || level === 'error' || level === 'crit' || level === 'critical') {
+      const referenceId = reportError({ source: 'twitch.eventsub', errorType: 'EventSubError' });
+      process.stderr.write(`${JSON.stringify({ event: 'third_party_error', level: 'error', source: 'twitch.eventsub', referenceId })}\n`);
+      return;
+    }
+    if (level === 2 || level === 'warn' || level === 'warning') {
+      process.stderr.write(`${JSON.stringify({ event: 'third_party_warning', source: 'twitch.eventsub', code: 'eventsub_warning' })}\n`);
+    }
+  };
+}
+
+/** @param {{apiClient: any, broadcasterId: string, listenerFactory?: (apiClient: any, config?: any) => any, reportError?: (event?: {source?: string, errorType?: string, errorCode?: string}) => string | null, redemptionsEnabled?: boolean, onRedemptionAdd: (event: object) => unknown, onRedemptionUpdate: (event: object) => unknown, onChatMessage: (event: object) => unknown, onReady?: () => unknown, onReconnected?: () => unknown, onDisconnect?: (details: {established: boolean}) => unknown, onRevoked?: (type: string, status: string) => unknown, onError?: (code: string) => unknown}} input */
 export function createEventSubRuntime({
-  apiClient, broadcasterId, listenerFactory = (client) => new EventSubWsListener({ apiClient: client }),
+  apiClient, broadcasterId, listenerFactory, reportError = () => null, redemptionsEnabled = true,
   onRedemptionAdd, onRedemptionUpdate, onChatMessage, onReady = () => undefined, onReconnected = () => undefined,
   onRevoked = () => undefined, onDisconnect = () => undefined, onError = () => undefined,
 }) {
-  const listener = listenerFactory(apiClient);
+  const listenerConfig = {
+    apiClient,
+    logger: { custom: createSafeEventSubLogger(reportError) },
+  };
+  listenerFactory ??= (_client, config) => new EventSubWsListener(config);
+  const listener = listenerFactory(apiClient, listenerConfig);
   let disconnected = false;
   let stopped = false;
   let didConnect = false;
@@ -18,7 +37,7 @@ export function createEventSubRuntime({
       onError('event_handler_failed');
     }
   };
-  listener.onChannelRedemptionAdd(broadcasterId, (event) => {
+  if (redemptionsEnabled) listener.onChannelRedemptionAdd(broadcasterId, (event) => {
     if (event.broadcasterId !== broadcasterId) return;
     dispatch(onRedemptionAdd, {
       id: event.id,
@@ -32,7 +51,7 @@ export function createEventSubRuntime({
       redeemedAt: event.redemptionDate,
     });
   });
-  listener.onChannelRedemptionUpdate(broadcasterId, (event) => {
+  if (redemptionsEnabled) listener.onChannelRedemptionUpdate(broadcasterId, (event) => {
     if (event.broadcasterId !== broadcasterId) return;
     dispatch(onRedemptionUpdate, {
     id: event.id,

@@ -175,7 +175,7 @@ describe('panel catalog contract', () => {
       'panel.queue.status.open', 'panel.queue.status.closed', 'panel.queue.status.pending_delete',
       'panel.queue.action.delete', 'panel.queue.action.configure', 'panel.queue.action.edit_reward',
       'panel.queue.action.unarchive', 'panel.queue.action.next', 'panel.queue.action.clear',
-      'panel.queue.action.add', 'panel.queue.action.open', 'panel.queue.action.close',
+      'panel.queue.action.add', 'panel.queue.action.open', 'panel.queue.action.activate', 'panel.queue.action.pause',
       'panel.queue.action.archive', 'panel.queue.action.resolve_reward', 'panel.queue.history.title',
       'panel.queue.history.empty', 'panel.queue.history.date_unavailable',
       'panel.entry.action.call', 'panel.entry.action.move_up', 'panel.entry.action.move_down',
@@ -183,6 +183,16 @@ describe('panel catalog contract', () => {
       'panel.entry.action.attend', 'panel.entry.action.complete', 'panel.entry.action.resend',
       'panel.entry.action.remove', 'panel.entry.priority_badge', 'panel.entry.uid_label',
     ]) expect(app).toContain(key);
+  });
+
+  it('explains why a reward with a matching title may still be unavailable for recovery', async () => {
+    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url)), 'panel');
+    for (const locale of ['pt-BR', 'en', 'es']) {
+      const message = catalogs.catalogs[locale]['panel.reward.no_candidates'];
+      expect(message).toMatch(/paused|pausad|pausad/i);
+      expect(message).toMatch(/manag|gerenci|administrable/i);
+      expect(message).toMatch(/delete|exclu|elimin/i);
+    }
   });
 
   it('uses catalog-owned labels and confirmations for OBS widgets', async () => {
@@ -277,8 +287,12 @@ describe('panel catalog contract', () => {
 
   it('uses catalog copy for queue workflow confirmations, prompts, and outcomes', async () => {
     const app = await readFile(fileURLToPath(new URL('../../apps/web/app.js', import.meta.url)), 'utf8');
+    const html = await readFile(fileURLToPath(new URL('../../apps/web/index.html', import.meta.url)), 'utf8');
     for (const key of [
-      'panel.notice.queue_created', 'panel.notice.queue_settings_saved', 'panel.notice.reward_update_pending',
+      'panel.queue.onboarding.reward_pending', 'panel.queue.onboarding.activate_next',
+      'panel.queue.onboarding.activate_waiting', 'panel.queue.onboarding.reward_diverged',
+      'panel.reward.loading_candidates',
+      'panel.notice.queue_settings_saved', 'panel.notice.reward_update_pending',
       'panel.priority.reason_prompt', 'panel.priority.invalid_reason', 'panel.priority.marked',
       'panel.queue.confirm.archive', 'panel.queue.confirm.unarchive', 'panel.queue.confirm.delete',
       'panel.queue.delete.pending', 'panel.reward.no_candidates', 'panel.queue.clear.confirm',
@@ -289,8 +303,21 @@ describe('panel catalog contract', () => {
       expect(app).not.toContain(oldCopy);
     }
     expect(app).toContain('panel.queue_settings.call_message_default');
+    expect(app.indexOf("$('#reward-dialog').showModal();")).toBeLessThan(app.indexOf('await loadRewardCandidates(queueId);'));
+    expect(html).toContain('id="reward-candidate-refresh"');
+    expect(html).toContain('data-i18n="panel.reward.refresh_candidates"');
     expect(app).not.toContain("'{user}, sua vez!'");
     expect(app).not.toContain("?? 'Streamer'");
+  });
+
+  it('captures the queue form before awaiting creation so the success path can reset and redirect', async () => {
+    const app = await readFile(fileURLToPath(new URL('../../apps/web/app.js', import.meta.url)), 'utf8');
+    const start = app.indexOf("$('#queue-form').addEventListener('submit'");
+    const end = app.indexOf("$('#queue-form [name=\"queueMode\"]')", start);
+    const handler = app.slice(start, end);
+    expect(handler).toMatch(/const form = .*event\.currentTarget/);
+    expect(handler).toContain('form.reset()');
+    expect(handler).not.toContain('event.currentTarget.reset()');
   });
 
   it('covers every static text and accessible-label key in the panel for each first-party locale', async () => {

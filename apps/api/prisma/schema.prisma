@@ -12,7 +12,7 @@ model Queue {
   slug                        String     @unique
   title                       String
   rewardPrompt                String     @default("") @map("reward_prompt")
-  cost                        Int
+  cost                        Int?
   maxRedemptionsPerStream     Int?       @map("max_redemptions_per_stream")
   maxRedemptionsPerUserPerStream Int?    @map("max_redemptions_per_user_per_stream")
   globalCooldownSeconds      Int?       @map("global_cooldown_seconds")
@@ -31,6 +31,9 @@ model Queue {
   lifecycleStatus             String     @default("active") @map("lifecycle_status")
   remoteSyncStatus            String     @default("pending") @map("remote_sync_status")
   rewardId                    String?    @unique @map("reward_id")
+  queueMode                   String     @default("channel_points") @map("queue_mode")
+  rewardOrigin                String     @default("legacy_unknown") @map("reward_origin")
+  modeTransitionStatus        String     @default("none") @map("mode_transition_status")
   version                     Int        @default(1)
   deletedAt                   DateTime?  @map("deleted_at") @db.Timestamptz(3)
   createdAt                   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)

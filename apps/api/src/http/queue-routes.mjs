@@ -2,6 +2,8 @@ import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { createHash } from 'node:crypto';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES, resolveCommandPolicy } from '../commands/catalog.mjs';
 import { translateCatalog } from '../../../shared/browser/translate-catalog.mjs';
+import { createErrorDiagnosticReporter } from '../observability/error-diagnostics.mjs';
+import { evaluatePendingQueueRewardCompatibility, summarizePendingQueueRewardCompatibility } from '../twitch/pending-queue-reward-compatibility.mjs';
 
 function canonicalValue(value) {
   if (Array.isArray(value)) return value.map(canonicalValue);
@@ -15,11 +17,18 @@ function mutationFingerprint(request) {
 }
 
 function routeError(error) {
-  if (['INVALID_QUEUE_KEY', 'RESERVED_QUEUE_KEY', 'DUPLICATE_QUEUE_KEY', 'INVALID_QUEUE_ALIASES', 'INVALID_UID'].includes(error?.code)) return 400;
+  if (['INVALID_QUEUE_KEY', 'RESERVED_QUEUE_KEY', 'INVALID_QUEUE_ALIASES', 'INVALID_UID'].includes(error?.code)) return 400;
   if (['DUPLICATE_QUEUE_KEY'].includes(error?.code)) return 409;
   if (error?.code === 'QUEUE_NOT_FOUND' || error?.code === 'ENTRY_NOT_FOUND') return 404;
-  if (error?.code === 'QUEUE_NOT_AVAILABLE') return 409;
-  return 400;
+  if (['QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY', 'QUEUE_MODE_TRANSITION_PENDING', 'QUEUE_MODE_TRANSITION_UNAVAILABLE', 'QUEUE_OPEN_WHILE_ARCHIVED'].includes(error?.code)) return 409;
+  return 500;
+}
+
+/** @param {any} reply @param {{reportDiagnostic:(event:{source:string,error?:Error})=>string,source:string,error:Error,statusCode?:number,message:string,code?:string}} options */
+function sendDiagnosedFailure(reply, { reportDiagnostic, source, error, statusCode = 503, message, code = 'INTERNAL_ERROR' }) {
+  const referenceId = reportDiagnostic({ source, error });
+  reply.header('x-error-reference', referenceId);
+  return reply.code(statusCode).send({ ...(code ? { code } : {}), error: message, referenceId });
 }
 
 function containsControlCharacters(value) {
@@ -33,13 +42,15 @@ function queueDto(queue, { operator = false } = {}) {
   return {
     id: queue.id, slug: queue.slug, aliases: queue.aliases ?? [], title: queue.title,
     rewardPrompt: queue.rewardPrompt, cost: queue.cost, uidMode: queue.uidMode,
+    queueMode: queue.queueMode ?? 'channel_points', rewardOrigin: queue.rewardOrigin ?? 'legacy_unknown',
+    modeTransitionStatus: queue.modeTransitionStatus ?? 'none', rewardId: queue.rewardId ?? null,
     maxRedemptionsPerStream: queue.maxRedemptionsPerStream ?? null,
     maxRedemptionsPerUserPerStream: queue.maxRedemptionsPerUserPerStream ?? null,
     globalCooldownSeconds: queue.globalCooldownSeconds ?? null,
     callMessage: queue.callMessage, callTimeoutMin: queue.callTimeoutMin,
     showUidInList: queue.showUidInList, showUidInOverlay: queue.showUidInOverlay, showUidOnCall: queue.showUidOnCall,
     autoSwitchAccount: queue.autoSwitchAccount, refundIfRemovedWhileCalled: queue.refundIfRemovedWhileCalled,
-    refundOnNoShow: queue.refundOnNoShow, refundIfViewerLeavesWhileCalled: queue.refundIfViewerLeavesCalled,
+    refundOnNoShow: queue.refundOnNoShow, refundIfViewerLeavesCalled: queue.refundIfViewerLeavesCalled,
     isOpen: queue.isOpen, isArchived: queue.isArchived, lifecycleStatus: queue.lifecycleStatus,
     version: queue.version, remoteSyncStatus: queue.remoteSyncStatus,
     entries: (queue.entries ?? []).map((entry) => ({
@@ -47,7 +58,7 @@ function queueDto(queue, { operator = false } = {}) {
       status: entry.status, position: entry.position, version: entry.version,
       priorityClass: entry.priorityClass ?? 'standard', priorityReason: entry.priorityReason ?? null,
       ...((operator && queue.uidMode === 'visible') || (!operator && queue.uidMode === 'visible' && queue.showUidInOverlay) ? { uid: entry.uid ?? null } : {}),
-      calledAt: entry.calledAt, callDeadlineAt: entry.callDeadlineAt,
+      calledAt: entry.calledAt, callNotifiedAt: entry.callNotifiedAt, callDeadlineAt: entry.callDeadlineAt,
     })),
   };
 }
@@ -71,23 +82,14 @@ function setupDto(value, publicBaseUrl) {
     broadcasterId: source.connected === true ? source.broadcasterId ?? null : null,
     scopes: source.connected === true && Array.isArray(source.scopes) ? source.scopes : [],
     status: source.status ?? (source.connected === true ? 'connected' : 'not_configured'),
+    chatStatus: ['not_configured', 'connecting', 'connected', 'degraded', 'retrying', 'reconnect_required', 'stopped'].includes(source.chatStatus) ? source.chatStatus : 'unknown',
+    rewardStatus: ['not_configured', 'available', 'unsupported', 'unknown', 'reconnect_required', 'stopped'].includes(source.rewardStatus) ? source.rewardStatus : 'unknown',
     eligibility,
   };
 }
 
-function matchesPendingQueueReward(reward, queue) {
-  return reward.title === queue.title && reward.cost === queue.cost
-    && (reward.prompt ?? '') === (queue.rewardPrompt ?? '')
-    && reward.userInputRequired === (queue.uidMode === 'visible')
-    && (reward.maxRedemptionsPerStream ?? null) === (queue.maxRedemptionsPerStream ?? null)
-    && (reward.maxRedemptionsPerUserPerStream ?? null) === (queue.maxRedemptionsPerUserPerStream ?? null)
-    && (reward.globalCooldown ?? null) === (queue.globalCooldownSeconds ?? null)
-    && reward.autoFulfill === false && reward.shouldRedemptionsSkipRequestQueue === false
-    && reward.isEnabled === true && reward.isPaused === true;
-}
-
-/** @param {import('fastify').FastifyInstance} app @param {{repository: any, domainService?: any, integrations?: any, clearConfirmation?: any, getSetupCatalogs?: () => Promise<Record<string, Record<string, string>>>, publicBaseUrl?: string, productVersion?: string, resolveUser?: (login: string) => Promise<any>}} deps */
-export function registerQueueRoutes(app, { repository, domainService = repository, integrations = {}, clearConfirmation, getSetupCatalogs = async () => ({}), publicBaseUrl = process.env.PUBLIC_BASE_URL ?? 'https://localhost:3000', productVersion = process.env.PRODUCT_VERSION ?? 'v0.1.0-0000000-alpha', resolveUser = async () => null }) {
+/** @param {import('fastify').FastifyInstance} app @param {{repository: any, domainService?: any, integrations?: any, clearConfirmation?: any, getSetupCatalogs?: () => Promise<Record<string, Record<string, string>>>, publicBaseUrl?: string, productVersion?: string, resolveUser?: (login: string) => Promise<any>, reportDiagnostic?: (event: {source: string, error?: Error}) => string, logEvent?: (event: object) => unknown}} deps */
+export function registerQueueRoutes(app, { repository, domainService = repository, integrations = {}, clearConfirmation, getSetupCatalogs = async () => ({}), publicBaseUrl = process.env.PUBLIC_BASE_URL ?? 'https://localhost:3000', productVersion = process.env.PRODUCT_VERSION ?? 'v0.1.0-0000000-alpha', resolveUser = async () => null, reportDiagnostic = createErrorDiagnosticReporter(), logEvent = () => undefined }) {
   app.addHook('preHandler', async (request, reply) => {
     if (!request.url.startsWith('/api/') || request.url === '/api/session'
       || ['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
@@ -135,7 +137,10 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       api_contract_version: '1', revision: state.revision ?? 1,
       generated_at: new Date().toISOString(), account: state.account ?? { label: 'Streamer', source: 'default' },
       product_locale: state.productLocale ?? { locale: 'pt-BR', revision: 1 },
-      connectivity: { database: 'connected', twitch: integrations.status ?? 'not_configured' },
+      connectivity: {
+        database: 'connected', twitch: integrations.status ?? 'not_configured',
+        twitch_chat: integrations.chatStatus ?? 'not_configured', twitch_rewards: integrations.rewardStatus ?? 'unknown',
+      },
       queues: (await repository.listQueueProjection?.() ?? []).map((queue) => queueDto(queue)),
       pending_operations: await repository.listFinancialOperations?.() ?? [],
     };
@@ -299,10 +304,27 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const localRequest = request;
     try {
       const keys = normalizeQueueKeys({ slug: body.slug, aliases: body.aliases ?? [] });
+      const queueMode = body.queueMode ?? 'channel_points';
       if (typeof body.title !== 'string' || body.title.trim().length < 1 || body.title.length > 45
-        || !Number.isInteger(body.cost) || body.cost <= 0
+        || !['channel_points', 'manual_only'].includes(queueMode)
+        || (queueMode === 'channel_points' && (!Number.isInteger(body.cost) || body.cost <= 0))
+        || (queueMode === 'manual_only' && body.cost !== undefined && body.cost !== null)
         || ['maxRedemptionsPerStream', 'maxRedemptionsPerUserPerStream', 'globalCooldownSeconds'].some((field) => body[field] !== undefined && body[field] !== null && (!Number.isInteger(body[field]) || body[field] < 1 || body[field] > 2147483647))
         || !['hidden', 'visible'].includes(body.uidMode ?? 'hidden')) return reply.code(400).send({ error: 'Revise o nome, o custo e o modo de UID da fila.' });
+      if (queueMode === 'manual_only') {
+        if (body.maxRedemptionsPerStream != null || body.maxRedemptionsPerUserPerStream != null || body.globalCooldownSeconds != null || body.rewardPrompt != null) {
+          return reply.code(400).send({ error: 'Filas manuais não aceitam configurações de recompensa Twitch.' });
+        }
+        if (body.callTimeoutMin !== undefined && body.callTimeoutMin !== null && (!Number.isInteger(body.callTimeoutMin) || body.callTimeoutMin < 1 || body.callTimeoutMin > 120)) {
+          return reply.code(400).send({ error: 'Revise o prazo de chamada da fila.' });
+        }
+        const queue = await repository.createManualQueue({
+          ...keys, title: body.title.trim(), callMessage: validCallMessage(body.callMessage),
+          callTimeoutMin: body.callTimeoutMin === undefined ? 10 : body.callTimeoutMin,
+          uidMode: body.uidMode ?? 'hidden', actorId: localRequest.localSession?.id ?? null,
+        });
+        return reply.code(201).send(queueDto(queue, { operator: true }));
+      }
       const result = await repository.createQueueWithRewardIntent({
         ...keys, title: body.title.trim(), cost: body.cost, rewardPrompt: safePrompt(body.rewardPrompt),
         maxRedemptionsPerStream: body.maxRedemptionsPerStream ?? null,
@@ -313,7 +335,13 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       });
       return reply.code(201).send(queueDto(result.queue, { operator: true }));
     } catch (error) {
-      return reply.code(routeError(error)).send({ error: userError(error) });
+      const statusCode = routeError(error);
+      if (statusCode >= 500) {
+        const referenceId = reportDiagnostic({ source: 'http.queue.create', error });
+        reply.header('x-error-reference', referenceId);
+        return reply.code(statusCode).send({ code: 'INTERNAL_ERROR', error: 'Não foi possível concluir. Tente novamente.', referenceId });
+      }
+      return reply.code(statusCode).send({ error: userError(error) });
     }
   });
   app.get('/api/queues', async () => (await repository.listQueueProjection?.() ?? []).map((queue) => queueDto(queue, { operator: true })));
@@ -322,28 +350,31 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const body = localRequest.body && typeof localRequest.body === 'object' ? localRequest.body : {};
     const allowed = new Set(['expectedVersion', 'callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled']);
     const keys = Object.keys(body);
+    if (keys.some((key) => ['uidMode', 'title', 'cost', 'rewardPrompt', 'maxRedemptionsPerStream', 'maxRedemptionsPerUserPerStream', 'globalCooldownSeconds'].includes(key))) {
+      return reply.code(400).send({ code: 'INVALID_LOCAL_QUEUE_SETTING', error: 'A privacidade do UID e a recompensa devem ser alteradas no editor de recompensa Twitch.' });
+    }
     if (!Number.isInteger(body.expectedVersion) || body.expectedVersion < 1 || keys.some((key) => !allowed.has(key))) {
-      return reply.code(400).send({ error: 'Atualize a fila e informe somente configurações válidas.' });
+      return reply.code(400).send({ code: 'INVALID_QUEUE_SETTINGS', error: 'Atualize a fila e informe somente configurações válidas.' });
     }
     const settings = Object.fromEntries(keys.filter((key) => key !== 'expectedVersion').map((key) => [key, body[key]]));
     if (!Object.keys(settings).length
       || ('callTimeoutMin' in settings && settings.callTimeoutMin !== null && (!Number.isInteger(settings.callTimeoutMin) || settings.callTimeoutMin < 1 || settings.callTimeoutMin > 120))
       || ('callMessage' in settings && (typeof settings.callMessage !== 'string' || settings.callMessage.length > 350 || containsControlCharacters(settings.callMessage)))
       || Object.entries(settings).some(([key, value]) => !['callTimeoutMin', 'callMessage'].includes(key) && typeof value !== 'boolean')) {
-      return reply.code(400).send({ error: 'Revise as configurações da fila.' });
+      return reply.code(400).send({ code: 'INVALID_QUEUE_SETTINGS', error: 'Revise as configurações da fila.' });
     }
     if (typeof settings.callMessage === 'string' && [...settings.callMessage.matchAll(/\{([^}]+)\}/g)].some(([, name]) => !['user', 'queue', 'position', 'uid', 'account'].includes(name))) {
-      return reply.code(400).send({ error: 'O modelo de chamada contém um campo não permitido.' });
+      return reply.code(400).send({ code: 'INVALID_CALL_MESSAGE_TEMPLATE', error: 'O modelo de chamada contém um campo não permitido.' });
     }
     try {
       const queue = await repository.updateLocalQueueSettings({ queueId: localRequest.params.queueId, expectedVersion: body.expectedVersion, settings, actorId: localRequest.localSession?.id ?? null, origin: 'panel' });
       return queueDto(queue, { operator: true });
     } catch (error) {
-      if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ error: 'Fila não encontrada.' });
-      if (error?.code === 'STALE_QUEUE_VERSION') return reply.code(409).send({ error: 'A fila mudou em outra operação. Atualize o painel e tente novamente.' });
-      if (error?.code === 'QUEUE_NOT_AVAILABLE') return reply.code(409).send({ error: 'Esta fila não aceita alterações enquanto está sendo excluída.' });
-      if (error?.code === 'INVALID_LOCAL_QUEUE_SETTING') return reply.code(400).send({ error: 'A privacidade do UID e a recompensa devem ser alteradas no editor de recompensa Twitch.' });
-      return reply.code(503).send({ error: 'Não foi possível salvar as configurações da fila.' });
+      if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code: error.code, error: 'Fila não encontrada.' });
+      if (error?.code === 'STALE_QUEUE_VERSION') return reply.code(409).send({ code: error.code, error: 'A fila mudou em outra operação. Atualize o painel e tente novamente.' });
+      if (error?.code === 'QUEUE_NOT_AVAILABLE') return reply.code(409).send({ code: error.code, error: 'Esta fila não aceita alterações enquanto está sendo excluída.' });
+      if (error?.code === 'INVALID_LOCAL_QUEUE_SETTING') return reply.code(400).send({ code: error.code, error: 'A privacidade do UID e a recompensa devem ser alteradas no editor de recompensa Twitch.' });
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.settings', error, message: 'Não foi possível salvar as configurações da fila.' });
     }
   });
   app.patch('/api/queues/:queueId/reward-settings', async (request, reply) => {
@@ -352,7 +383,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const allowed = new Set(['expectedVersion', 'title', 'cost', 'rewardPrompt', 'uidMode', 'maxRedemptionsPerStream', 'maxRedemptionsPerUserPerStream', 'globalCooldownSeconds']);
     const keys = Object.keys(body);
     if (!Number.isInteger(body.expectedVersion) || body.expectedVersion < 1 || keys.some((key) => !allowed.has(key)) || keys.length < 2) {
-      return reply.code(400).send({ error: 'Atualize a fila e informe configurações de recompensa válidas.' });
+      return reply.code(400).send({ code: 'INVALID_REWARD_SETTINGS', error: 'Atualize a fila e informe configurações de recompensa válidas.' });
     }
     const settings = Object.fromEntries(keys.filter((key) => key !== 'expectedVersion').map((key) => [key, body[key]]));
     const validLimit = (key) => !(key in settings) || settings[key] === null || (Number.isInteger(settings[key]) && settings[key] > 0 && settings[key] <= 2147483647);
@@ -361,7 +392,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       || ('rewardPrompt' in settings && (typeof settings.rewardPrompt !== 'string' || settings.rewardPrompt.trim().length > 200 || containsControlCharacters(settings.rewardPrompt)))
       || ('uidMode' in settings && !['hidden', 'visible'].includes(settings.uidMode))
       || !validLimit('maxRedemptionsPerStream') || !validLimit('maxRedemptionsPerUserPerStream') || !validLimit('globalCooldownSeconds')) {
-      return reply.code(400).send({ error: 'Revise título, custo, descrição, modo de UID e limites da recompensa.' });
+      return reply.code(400).send({ code: 'INVALID_REWARD_SETTINGS', error: 'Revise título, custo, descrição, modo de UID e limites da recompensa.' });
     }
     if (typeof settings.title === 'string') settings.title = settings.title.trim();
     if (typeof settings.rewardPrompt === 'string') settings.rewardPrompt = settings.rewardPrompt.trim();
@@ -369,10 +400,10 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       const result = await repository.updateQueueRewardSettings({ queueId: localRequest.params.queueId, expectedVersion: body.expectedVersion, settings, actorId: localRequest.localSession?.id ?? null, origin: 'panel' });
       return reply.code(202).send({ ...queueDto(result.queue, { operator: true }), operationStatus: result.status });
     } catch (error) {
-      if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ error: 'Fila não encontrada.' });
-      if (['STALE_QUEUE_VERSION', 'QUEUE_REWARD_NOT_READY', 'QUEUE_REWARD_UPDATE_PENDING'].includes(error?.code)) return reply.code(409).send({ error: 'A recompensa não está sincronizada ou a fila mudou. Atualize o painel e tente novamente.' });
-      if (error?.code === 'QUEUE_NOT_AVAILABLE') return reply.code(409).send({ error: 'Esta fila não aceita alterações enquanto está sendo excluída.' });
-      return reply.code(503).send({ error: 'Não foi possível solicitar a alteração da recompensa Twitch.' });
+      if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code: error.code, error: 'Fila não encontrada.' });
+      if (['STALE_QUEUE_VERSION', 'QUEUE_REWARD_NOT_READY', 'QUEUE_REWARD_UPDATE_PENDING'].includes(error?.code)) return reply.code(409).send({ code: error.code, error: 'A recompensa não está sincronizada ou a fila mudou. Atualize o painel e tente novamente.' });
+      if (error?.code === 'QUEUE_NOT_AVAILABLE') return reply.code(409).send({ code: error.code, error: 'Esta fila não aceita alterações enquanto está sendo excluída.' });
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.reward_settings', error, message: 'Não foi possível solicitar a alteração da recompensa Twitch.' });
     }
   });
   app.get('/api/queues/:queueId/history', async (request, reply) => {
@@ -424,12 +455,28 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const queue = await repository.getQueueById(queueId);
     if (!queue) return reply.code(404).send({ error: 'Fila não encontrada.' });
     if (queue.rewardId || queue.remoteSyncStatus !== 'create_unknown') return reply.code(409).send({ error: 'Esta fila não está aguardando associação manual de recompensa.' });
-    if (typeof integrations.twitch?.getManagedRewards !== 'function') return reply.code(503).send({ error: 'Conecte novamente a Twitch para consultar recompensas gerenciáveis.' });
+    if (typeof integrations.twitch?.getManagedRewards !== 'function') {
+      const referenceId = reportDiagnostic({ source: 'http.queue.reward_candidates', error: Object.assign(new Error('Twitch adapter unavailable'), { code: 'TWITCH_ADAPTER_UNAVAILABLE' }) });
+      reply.header('x-error-reference', referenceId);
+      return reply.code(503).send({ error: 'A conexão Twitch está indisponível para consultar recompensas. Aguarde a reconexão e tente novamente.', referenceId });
+    }
     try {
+      logEvent({ event: 'queue_reward_candidates_lookup_started', level: 'debug', source: 'http.queue.reward_candidates', details: { queueMode: queue.queueMode ?? 'channel_points', remoteSyncStatus: queue.remoteSyncStatus } });
       const rewards = await integrations.twitch.getManagedRewards();
-      return rewards.filter((reward) => matchesPendingQueueReward(reward, queue)).map(({ id, title, cost, prompt }) => ({ id, title, cost, prompt: prompt ?? '' }));
-    } catch {
-      return reply.code(503).send({ error: 'Não foi possível consultar as recompensas gerenciáveis da Twitch.' });
+      const summary = summarizePendingQueueRewardCompatibility(rewards, queue);
+      logEvent({ event: 'queue_reward_candidates_evaluated', level: 'info', source: 'http.queue.reward_candidates', details: {
+        managedRewardCount: summary.managedRewardCount, candidateCount: summary.candidateCount, rejectedRewardCount: summary.rejectedRewardCount,
+      } });
+      if (summary.rejectedRewardCount > 0) logEvent({ event: 'queue_reward_candidates_rejected', level: 'verbose', source: 'http.queue.reward_candidates', details: { mismatchCounts: summary.mismatchCounts } });
+      return {
+        candidates: rewards.filter((reward) => evaluatePendingQueueRewardCompatibility(reward, queue).compatible)
+          .map(({ id, title, cost, prompt }) => ({ id, title, cost, prompt: prompt ?? '' })),
+        diagnostics: summary,
+      };
+    } catch (error) {
+      const referenceId = reportDiagnostic({ source: 'http.queue.reward_candidates', error });
+      reply.header('x-error-reference', referenceId);
+      return reply.code(503).send({ error: 'Não foi possível consultar as recompensas gerenciáveis da Twitch.', referenceId });
     }
   });
   app.post('/api/queues/:queueId/resolve-reward', async (request, reply) => {
@@ -440,16 +487,27 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const queue = await repository.getQueueById(queueId);
     if (!queue) return reply.code(404).send({ error: 'Fila não encontrada.' });
     if (queue.rewardId || queue.remoteSyncStatus !== 'create_unknown') return reply.code(409).send({ error: 'Esta fila não está aguardando associação manual de recompensa.' });
-    if (typeof integrations.twitch?.getManagedRewards !== 'function') return reply.code(503).send({ error: 'Conecte novamente a Twitch para validar a recompensa selecionada.' });
+    if (typeof integrations.twitch?.getManagedRewards !== 'function') {
+      const referenceId = reportDiagnostic({ source: 'http.queue.resolve_reward', error: Object.assign(new Error('Twitch adapter unavailable'), { code: 'TWITCH_ADAPTER_UNAVAILABLE' }) });
+      reply.header('x-error-reference', referenceId);
+      return reply.code(503).send({ error: 'A conexão Twitch está indisponível para validar a recompensa. Aguarde a reconexão e tente novamente.', referenceId });
+    }
     try {
+      logEvent({ event: 'queue_reward_association_lookup_started', level: 'debug', source: 'http.queue.resolve_reward' });
       const rewards = await integrations.twitch.getManagedRewards();
       const selected = rewards.find((reward) => reward.id === rewardId);
-      if (!selected || !matchesPendingQueueReward(selected, queue)) return reply.code(409).send({ error: 'A recompensa não pertence ao conjunto gerenciável esperado ou seus parâmetros mudaram. Atualize a lista e revise no console Twitch.' });
+      const evaluation = selected ? evaluatePendingQueueRewardCompatibility(selected, queue) : { compatible: false, mismatchReasons: ['reward_not_managed'] };
+      if (!evaluation.compatible) {
+        logEvent({ event: 'queue_reward_association_rejected', level: 'notice', source: 'http.queue.resolve_reward', details: { mismatchCounts: Object.fromEntries(evaluation.mismatchReasons.map((reason) => [reason, 1])) } });
+        return reply.code(409).send({ error: 'A recompensa não pertence ao conjunto gerenciável esperado ou seus parâmetros mudaram. Atualize a lista e revise no console Twitch.' });
+      }
       const result = await repository.resolveUnknownRewardCreation({ queueId, rewardId, actorId: localRequest.localSession?.id });
       return { status: result.status, queue: queueDto(result.queue, { operator: true }), remoteConfirmed: false };
     } catch (error) {
       if (error?.code === 'REWARD_ASSOCIATION_NOT_PENDING') return reply.code(409).send({ error: 'A associação da recompensa foi alterada. Atualize o painel.' });
-      return reply.code(503).send({ error: 'Não foi possível consultar ou registrar a recompensa selecionada.' });
+      const referenceId = reportDiagnostic({ source: 'http.queue.resolve_reward', error });
+      reply.header('x-error-reference', referenceId);
+      return reply.code(503).send({ error: 'Não foi possível consultar ou registrar a recompensa selecionada.', referenceId });
     }
   });
   app.post('/api/queues/:queueId/manual-entries', async (request, reply) => {
@@ -511,7 +569,10 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       const called = await domainService.callNext({ queueId: localRequest.params.queueId, count, actorId: localRequest.localSession.id });
       for (const entry of called) await repository.enqueueCallNotification({ queueId: localRequest.params.queueId, entryId: entry.id });
       return { status: 'called', count: called.length };
-    } catch (error) { return reply.code(routeError(error)).send({ error: userError(error) }); }
+    } catch (error) {
+      if (error?.code === 'QUEUE_MODE_TRANSITION_PENDING') return reply.code(409).send({ code: error.code });
+      return reply.code(routeError(error)).send({ error: userError(error) });
+    }
   });
   for (const [suffix, method] of [['clear-preview', 'request'], ['clear-confirm', 'confirm']]) {
     app.post(`/api/queues/:queueId/${suffix}`, async (request, reply) => {
@@ -532,7 +593,26 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const localRequest = request;
     if (typeof body.isOpen !== 'boolean') return reply.code(400).send({ error: 'Estado da fila inválido.' });
     try { return await repository.setQueueOpen(localRequest.params.queueId, body.isOpen, localRequest.localSession.id); }
-    catch (error) { return reply.code(routeError(error)).send({ error: userError(error) }); }
+    catch (error) {
+      const status = routeError(error);
+      const code = ['QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY'].includes(error?.code) ? error.code : undefined;
+      if (status >= 500) return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.open_state', error, statusCode: status, message: userError(error), code });
+      return reply.code(status).send({ ...(code ? { code } : {}), error: userError(error) });
+    }
+  });
+  app.post('/api/queues/:queueId/manual-mode', async (request, reply) => {
+    /** @type {any} */
+    const localRequest = request;
+    if (typeof repository.requestManualModeTransition !== 'function') return reply.code(503).send({ error: 'A troca para fila local não está disponível.' });
+    try {
+      const result = await repository.requestManualModeTransition({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
+      return reply.code(result.status === 'pending' ? 202 : 200).send({ status: result.status, queue: queueDto(result.queue, { operator: true }) });
+    } catch (error) {
+      const status = routeError(error);
+      const code = ['QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY', 'QUEUE_MODE_TRANSITION_PENDING', 'QUEUE_MODE_TRANSITION_UNAVAILABLE'].includes(error?.code) ? error.code : undefined;
+      if (status >= 500) return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.manual_mode', error, statusCode: status, message: userError(error), code });
+      return reply.code(status).send({ ...(code ? { code } : {}), error: userError(error) });
+    }
   });
   app.post('/api/queues/:queueId/archive', async (request, reply) => {
     /** @type {any} */
@@ -541,8 +621,9 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       const result = await repository.archiveQueue({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
       return { status: result.status, queue: queueDto(result.queue, { operator: true }) };
     } catch (error) {
-      return reply.code(error?.code === 'QUEUE_NOT_AVAILABLE' || error?.code === 'QUEUE_REWARD_NOT_READY' ? 409 : 503)
+      if (error?.code === 'QUEUE_NOT_AVAILABLE' || error?.code === 'QUEUE_REWARD_NOT_READY') return reply.code(409)
         .send({ error: 'Não foi possível arquivar a fila neste estado. Verifique a sincronização da recompensa.' });
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.archive', error, message: 'Não foi possível arquivar a fila neste estado. Verifique a sincronização da recompensa.' });
     }
   });
   app.post('/api/queues/:queueId/unarchive', async (request, reply) => {
@@ -552,8 +633,9 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       const result = await repository.unarchiveQueue({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
       return { status: result.status, queue: queueDto(result.queue, { operator: true }) };
     } catch (error) {
-      return reply.code(error?.code === 'QUEUE_NOT_AVAILABLE' || error?.code === 'QUEUE_REWARD_NOT_READY' || error?.code === 'QUEUE_OPEN_WHILE_ARCHIVED' ? 409 : 503)
+      if (error?.code === 'QUEUE_NOT_AVAILABLE' || error?.code === 'QUEUE_REWARD_NOT_READY' || error?.code === 'QUEUE_OPEN_WHILE_ARCHIVED') return reply.code(409)
         .send({ error: 'Não foi possível desarquivar a fila. Confirme primeiro que a recompensa está pausada.' });
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.unarchive', error, message: 'Não foi possível desarquivar a fila. Confirme primeiro que a recompensa está pausada.' });
     }
   });
   app.post('/api/queues/:queueId/delete', async (request, reply) => {
@@ -565,8 +647,12 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       const result = await domainService.deleteQueue({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
       return { status: result.status, activeRemoved: result.activeRemoved, refundsRequested: result.refundsRequested, queue: queueDto(result.queue, { operator: true }) };
     } catch (error) {
-      return reply.code(error?.code === 'QUEUE_NOT_FOUND' ? 404 : error?.code === 'QUEUE_REWARD_NOT_READY' || error?.code === 'QUEUE_NOT_AVAILABLE' ? 409 : 503)
-        .send({ error: 'A exclusão não pode começar agora. Resolva a sincronização da recompensa antes de tentar novamente.' });
+      if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code: 'QUEUE_NOT_FOUND', error: 'Fila não encontrada.' });
+      if (error?.code === 'QUEUE_REWARD_NOT_READY') return reply.code(409).send({ code: 'QUEUE_REWARD_NOT_READY', error: 'A recompensa ainda não foi confirmada.' });
+      if (error?.code === 'QUEUE_NOT_AVAILABLE') return reply.code(409).send({ code: 'QUEUE_NOT_AVAILABLE', error: 'A fila não está disponível para exclusão.' });
+      const referenceId = reportDiagnostic({ source: 'http.queue.delete', error });
+      reply.header('x-error-reference', referenceId);
+      return reply.code(503).send({ code: 'QUEUE_DELETE_UNAVAILABLE', error: 'A exclusão não pôde ser iniciada.', referenceId });
     }
   });
   app.post('/api/account', async (request, reply) => {
@@ -631,6 +717,9 @@ function userError(error) {
   if (error?.code === 'DUPLICATE_QUEUE_KEY') return 'Esse identificador ou apelido já está em uso.';
   if (error?.code === 'RESERVED_QUEUE_KEY') return 'Esse identificador é reservado para um comando.';
   if (error?.code === 'QUEUE_NOT_AVAILABLE') return 'Essa fila não aceita novas entradas.';
+  if (error?.code === 'QUEUE_REWARD_NOT_READY') return 'Confirme a recompensa da Twitch antes de alterar a fila.';
+  if (error?.code === 'QUEUE_MODE_TRANSITION_PENDING') return 'A troca do modo da fila ainda está sendo confirmada pela Twitch.';
+  if (error?.code === 'QUEUE_MODE_TRANSITION_UNAVAILABLE') return 'A troca para fila local não está disponível neste estado.';
   if (error?.code === 'INVALID_UID') return 'O UID deve conter exatamente 9 dígitos ASCII.';
   return 'Não foi possível concluir a operação.';
 }

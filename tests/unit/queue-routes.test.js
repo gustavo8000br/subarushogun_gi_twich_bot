@@ -5,8 +5,9 @@ import { registerLocalSession } from '../../apps/api/src/http/local-session.mjs'
 import { registerQueueRoutes } from '../../apps/api/src/http/queue-routes.mjs';
 import { createClearConfirmationService } from '../../apps/api/src/domain/clear-confirmation.mjs';
 import { registerOverlayRoutes } from '../../apps/api/src/http/overlay-routes.mjs';
+import { createQueueDomainService, createQueueDomainServiceProxy } from '../../apps/api/src/domain/queue-service.mjs';
 
-async function createHarness({ domainService, resolveUser = async () => null, beforeSession = async () => undefined, getSetupCatalogs } = {}) {
+async function createHarness({ domainService, resolveUser = async () => null, beforeSession = async () => undefined, getSetupCatalogs, reportDiagnostic, logEvent } = {}) {
   const app = Fastify();
   registerLocalSession(app, { port: 3000 });
   const queue = { id: 'queue-id', slug: 'abismo', title: 'Abismo', cost: 100, uidMode: 'visible', showUidInOverlay: false, isOpen: false, isArchived: false, lifecycleStatus: 'active', version: 1 };
@@ -16,6 +17,7 @@ async function createHarness({ domainService, resolveUser = async () => null, be
     beginPanelOperation: vi.fn(async () => ({ status: 'started' })),
     completePanelOperation: vi.fn(async () => true),
     createQueue: vi.fn(async (input) => ({ ...queue, ...input, uidMode: input.uidMode })),
+    createManualQueue: vi.fn(async (input) => ({ ...queue, ...input, cost: null, queueMode: 'manual_only', rewardOrigin: 'none', rewardId: null, remoteSyncStatus: 'local_only', isOpen: false })),
     createQueueWithRewardIntent: vi.fn(async (input) => ({ status: 'pending', queue: { ...queue, ...input, remoteSyncStatus: 'pending_create' } })),
     getQueueById: vi.fn(async () => queue),
     addManualEntry: vi.fn(async () => ({ status: 'created', entry: { id: 'entry-id', status: 'waiting', position: 1 } })),
@@ -34,7 +36,7 @@ async function createHarness({ domainService, resolveUser = async () => null, be
   };
   const integrations = { status: 'not_configured', twitch: null };
   const clearConfirmation = createClearConfirmationService({ repository });
-  registerQueueRoutes(app, { repository, domainService, integrations, clearConfirmation, resolveUser, getSetupCatalogs, publicBaseUrl: 'https://localhost:3000', productVersion: 'v0.1.0-1234567-alpha' });
+  registerQueueRoutes(app, { repository, domainService, integrations, clearConfirmation, resolveUser, getSetupCatalogs, reportDiagnostic, logEvent, publicBaseUrl: 'https://localhost:3000', productVersion: 'v0.1.0-1234567-alpha' });
   await beforeSession({ app, repository });
   const inject = app.inject.bind(app);
   const rawInject = app.inject.bind(app);
@@ -52,6 +54,23 @@ async function createHarness({ domainService, resolveUser = async () => null, be
 }
 
 describe('local queue and setup API', () => {
+  it('returns a trace reference and reports unexpected queue creation failures without exposing their details', async () => {
+    const reportDiagnostic = vi.fn(() => '11111111-1111-4111-8111-111111111111');
+    const h = await createHarness({ reportDiagnostic });
+    h.repository.createQueueWithRewardIntent.mockRejectedValue(Object.assign(new Error('secret token and SQL details'), { code: 'P2002' }));
+
+    const response = await h.app.inject({
+      method: 'POST', url: '/api/queues', headers: h.headers,
+      payload: { slug: 'trace-queue', title: 'Trace queue', cost: 100 },
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível concluir. Tente novamente.', referenceId: '11111111-1111-4111-8111-111111111111' });
+    expect(response.body).not.toContain('secret token');
+    expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.queue.create', error: expect.objectContaining({ message: 'secret token and SQL details', code: 'P2002' }) });
+    await h.app.close();
+  });
+
   it('replays a mutation response for a repeated idempotency key without repeating its effect', async () => {
     const h = await createHarness();
     const outcomes = new Map();
@@ -225,10 +244,10 @@ describe('local queue and setup API', () => {
 
   it('returns a safe setup projection and never emits configured secrets', async () => {
     const h = await createHarness();
-    h.integrations.getSetupState = vi.fn(async () => ({ callbackUrl: 'https://localhost:3000/callback', clientId: 'client-id', secretConfigured: true, clientSecret: 'must-not-leak', eligibility: { eligible: true, broadcasterType: 'affiliate', channelPointsAvailable: true, rewardCount: 46, rewardLimit: 50, nearRewardLimit: true, privateToken: 'must-not-leak' } }));
+    h.integrations.getSetupState = vi.fn(async () => ({ callbackUrl: 'https://localhost:3000/callback', clientId: 'client-id', secretConfigured: true, clientSecret: 'must-not-leak', chatStatus: 'connected', rewardStatus: 'unsupported', eligibility: { eligible: false, broadcasterType: 'unknown', channelPointsAvailable: false, rewardCount: 46, rewardLimit: 50, nearRewardLimit: true, privateToken: 'must-not-leak' } }));
     const response = await h.app.inject({ method: 'GET', url: '/api/setup', headers: h.sessionHeaders });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ callbackUrl: 'https://localhost:3000/callback', clientId: 'client-id', secretConfigured: true, connected: false, broadcasterId: null, scopes: [], status: 'not_configured', eligibility: { eligible: true, broadcasterType: 'affiliate', channelPointsAvailable: true, rewardCount: 46, rewardLimit: 50, nearRewardLimit: true } });
+    expect(response.json()).toEqual({ callbackUrl: 'https://localhost:3000/callback', clientId: 'client-id', secretConfigured: true, connected: false, broadcasterId: null, scopes: [], status: 'not_configured', chatStatus: 'connected', rewardStatus: 'unsupported', eligibility: { eligible: false, broadcasterType: 'unknown', channelPointsAvailable: false, rewardCount: 46, rewardLimit: 50, nearRewardLimit: true } });
     expect(response.body).not.toContain('must-not-leak');
     await h.app.close();
   });
@@ -329,6 +348,32 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('creates a manual-only queue through the protected API without a reward or cost', async () => {
+    const h = await createHarness();
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues', headers: h.headers, payload: {
+      slug: 'free-queue', title: 'Fila gratuita', queueMode: 'manual_only',
+      callMessage: '{user}, sua vez chegou!', callTimeoutMin: null, uidMode: 'visible',
+    } });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({ queueMode: 'manual_only', rewardOrigin: 'none', rewardId: null, cost: null, isOpen: false, remoteSyncStatus: 'local_only' });
+    expect(h.repository.createManualQueue).toHaveBeenCalledWith(expect.objectContaining({ slug: 'free-queue', title: 'Fila gratuita', callMessage: '{user}, sua vez chegou!', callTimeoutMin: null, uidMode: 'visible', actorId: h.headers.cookie.split('=')[1] }));
+    expect(h.repository.createQueueWithRewardIntent).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it('requests a durable switch to manual-only mode through a protected route', async () => {
+    const h = await createHarness();
+    h.repository.requestManualModeTransition = vi.fn(async () => ({ status: 'pending', queue: { ...h.repository.queue, queueMode: 'channel_points', modeTransitionStatus: 'pending_pause', isOpen: false, remoteSyncStatus: 'pending_close', rewardId: 'reward-1' } }));
+    const denied = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-mode', headers: h.sessionHeaders, payload: {} });
+    expect(denied.statusCode).toBe(403);
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-mode', headers: h.headers, payload: {} });
+    expect(response.statusCode).toBe(202);
+    expect(response.json()).toMatchObject({ status: 'pending', queue: { queueMode: 'channel_points', modeTransitionStatus: 'pending_pause', rewardId: 'reward-1' } });
+    expect(h.repository.requestManualModeTransition).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' }));
+    await h.app.close();
+  });
+
   it('updates only validated local queue settings through the protected route', async () => {
     const h = await createHarness();
     h.repository.updateLocalQueueSettings = vi.fn(async ({ settings }) => ({ id: 'queue-id', slug: 'abismo', title: 'Abismo', cost: 100, uidMode: 'visible', ...settings, version: 2 }));
@@ -336,9 +381,14 @@ describe('local queue and setup API', () => {
     expect(denied.statusCode).toBe(403);
     const invalid = await h.app.inject({ method: 'PATCH', url: '/api/queues/queue-id/settings', headers: h.headers, payload: { expectedVersion: 1, callTimeoutMin: 0 } });
     expect(invalid.statusCode).toBe(400);
+    expect(invalid.json()).toMatchObject({ code: 'INVALID_QUEUE_SETTINGS' });
     expect(h.repository.updateLocalQueueSettings).not.toHaveBeenCalled();
     const remoteOnly = await h.app.inject({ method: 'PATCH', url: '/api/queues/queue-id/settings', headers: h.headers, payload: { expectedVersion: 1, uidMode: 'hidden' } });
     expect(remoteOnly.statusCode).toBe(400);
+    expect(remoteOnly.json()).toMatchObject({ code: 'INVALID_LOCAL_QUEUE_SETTING' });
+    const invalidTemplate = await h.app.inject({ method: 'PATCH', url: '/api/queues/queue-id/settings', headers: h.headers, payload: { expectedVersion: 1, callMessage: '{secret}' } });
+    expect(invalidTemplate.statusCode).toBe(400);
+    expect(invalidTemplate.json()).toMatchObject({ code: 'INVALID_CALL_MESSAGE_TEMPLATE' });
     expect(h.repository.updateLocalQueueSettings).not.toHaveBeenCalled();
     const response = await h.app.inject({ method: 'PATCH', url: '/api/queues/queue-id/settings', headers: h.headers, payload: { expectedVersion: 1, callTimeoutMin: null, showUidInList: true, autoSwitchAccount: true } });
     expect(response.statusCode).toBe(200);
@@ -349,6 +399,37 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('returns a stable code for an expected stale queue-settings conflict', async () => {
+    const h = await createHarness();
+    h.repository.updateLocalQueueSettings = vi.fn().mockRejectedValue(Object.assign(new Error('version conflict'), { code: 'STALE_QUEUE_VERSION' }));
+
+    const response = await h.app.inject({ method: 'PATCH', url: '/api/queues/queue-id/settings', headers: h.headers, payload: {
+      expectedVersion: 1, callTimeoutMin: 15,
+    } });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ code: 'STALE_QUEUE_VERSION' });
+    await h.app.close();
+  });
+
+  it('returns a safe diagnostic reference when saving local queue settings fails unexpectedly', async () => {
+    const referenceId = '33333333-3333-4333-8333-333333333333';
+    const reportDiagnostic = vi.fn(() => referenceId);
+    const h = await createHarness({ reportDiagnostic });
+    h.repository.updateLocalQueueSettings = vi.fn().mockRejectedValue(new Error('database password and raw SQL'));
+
+    const response = await h.app.inject({ method: 'PATCH', url: '/api/queues/queue-id/settings', headers: h.headers, payload: {
+      expectedVersion: 1, callTimeoutMin: 15,
+    } });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível salvar as configurações da fila.', referenceId });
+    expect(response.headers['x-error-reference']).toBe(referenceId);
+    expect(response.body).not.toMatch(/database password|raw SQL/);
+    expect(reportDiagnostic).toHaveBeenCalledWith(expect.objectContaining({ source: 'http.queue.settings', error: expect.any(Error) }));
+    await h.app.close();
+  });
+
   it('requests version-checked Twitch reward edits through a durable repository operation', async () => {
     const h = await createHarness();
     h.repository.updateQueueRewardSettings = vi.fn(async () => ({ status: 'pending', queue: { id: 'queue-id', title: 'Teatro', cost: 200, version: 2, remoteSyncStatus: 'pending_update' } }));
@@ -356,6 +437,7 @@ describe('local queue and setup API', () => {
     expect(denied.statusCode).toBe(403);
     const invalid = await h.app.inject({ method: 'PATCH', url: '/api/queues/queue-id/reward-settings', headers: h.headers, payload: { expectedVersion: 1, title: 'Teatro', cost: 0 } });
     expect(invalid.statusCode).toBe(400);
+    expect(invalid.json()).toMatchObject({ code: 'INVALID_REWARD_SETTINGS' });
     expect(h.repository.updateQueueRewardSettings).not.toHaveBeenCalled();
     const response = await h.app.inject({ method: 'PATCH', url: '/api/queues/queue-id/reward-settings', headers: h.headers, payload: {
       expectedVersion: 1, title: 'Teatro', cost: 200, rewardPrompt: 'UID opcional', uidMode: 'visible',
@@ -400,14 +482,17 @@ describe('local queue and setup API', () => {
     const h = await createHarness();
     h.repository.getQueueById.mockResolvedValue({ ...h.repository.getQueueById.mock.results[0]?.value, id: 'queue-id', title: 'Abismo', cost: 100, rewardPrompt: 'Send UID', uidMode: 'visible', remoteSyncStatus: 'create_unknown' });
     h.integrations.twitch = { getManagedRewards: vi.fn(async () => [
-      { id: 'candidate', title: 'Abismo', cost: 100, prompt: 'Send UID', userInputRequired: true, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true },
-      { id: 'other', title: 'Different', cost: 100, prompt: 'Send UID', userInputRequired: true, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true },
+      { id: 'candidate', title: 'Abismo', cost: 100, prompt: 'Send UID', userInputRequired: true, maxRedemptionsPerStream: null, maxRedemptionsPerUserPerStream: null, globalCooldown: null, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true },
+      { id: 'other', title: 'Different', cost: 100, prompt: 'Send UID', userInputRequired: true, maxRedemptionsPerStream: null, maxRedemptionsPerUserPerStream: null, globalCooldown: null, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true },
     ]) };
     h.repository.resolveUnknownRewardCreation = vi.fn(async (input) => ({ status: 'resolved', queue: { ...h.repository.getQueueById.mock.results[0].value, ...input, remoteSyncStatus: 'synced_manual' } }));
 
     const candidates = await h.app.inject({ method: 'GET', url: '/api/queues/queue-id/reward-candidates', headers: h.sessionHeaders });
     expect(candidates.statusCode).toBe(200);
-    expect(candidates.json()).toEqual([{ id: 'candidate', title: 'Abismo', cost: 100, prompt: 'Send UID' }]);
+    expect(candidates.json()).toMatchObject({
+      candidates: [{ id: 'candidate', title: 'Abismo', cost: 100, prompt: 'Send UID' }],
+      diagnostics: { managedRewardCount: 2, candidateCount: 1, rejectedRewardCount: 1, mismatchCounts: { title_mismatch: 1 } },
+    });
     const denied = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/resolve-reward', headers: h.sessionHeaders, payload: { rewardId: 'candidate' } });
     expect(denied.statusCode).toBe(403);
     expect(h.repository.resolveUnknownRewardCreation).not.toHaveBeenCalled();
@@ -418,14 +503,109 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('logs safe mismatch counts when Twitch returns managed rewards but none are compatible', async () => {
+    const logEvent = vi.fn();
+    const h = await createHarness({ logEvent });
+    h.repository.getQueueById.mockResolvedValue({ id: 'queue-id', title: 'Private queue title', cost: 100, rewardPrompt: 'private prompt', uidMode: 'hidden', remoteSyncStatus: 'create_unknown' });
+    h.integrations.twitch = { getManagedRewards: vi.fn(async () => [{
+      id: 'private-reward-id', title: 'Different private title', cost: 900, prompt: 'private reward prompt',
+      userInputRequired: false, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false,
+      isEnabled: true, isPaused: false,
+    }]) };
+    const response = await h.app.inject({ method: 'GET', url: '/api/queues/queue-id/reward-candidates', headers: h.sessionHeaders });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      candidates: [],
+      diagnostics: {
+        managedRewardCount: 1, candidateCount: 0, rejectedRewardCount: 1,
+        mismatchCounts: { title_mismatch: 1, cost_mismatch: 1, prompt_mismatch: 1, reward_not_paused: 1 },
+      },
+    });
+    expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({
+      event: 'queue_reward_candidates_evaluated', level: 'info',
+      details: { managedRewardCount: 1, candidateCount: 0, rejectedRewardCount: 1 },
+    }));
+    expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({
+      event: 'queue_reward_candidates_rejected', level: 'verbose',
+      details: { mismatchCounts: expect.objectContaining({ title_mismatch: 1, cost_mismatch: 1, prompt_mismatch: 1, reward_not_paused: 1 }) },
+    }));
+    expect(JSON.stringify(logEvent.mock.calls)).not.toMatch(/Private queue title|private prompt|private-reward-id|Different private title|900/);
+    await h.app.close();
+  });
+
+  it('correlates reward-candidate lookup failures without returning the raw Twitch error', async () => {
+    const reportDiagnostic = vi.fn(() => '11111111-1111-4111-8111-111111111111');
+    const h = await createHarness({ reportDiagnostic });
+    h.repository.getQueueById.mockResolvedValue({ id: 'queue-id', title: 'Abismo', cost: 100, rewardPrompt: 'UID', uidMode: 'visible', remoteSyncStatus: 'create_unknown' });
+    h.integrations.twitch = { getManagedRewards: vi.fn(async () => { throw new Error('authorization=secret raw response'); }) };
+
+    const response = await h.app.inject({ method: 'GET', url: '/api/queues/queue-id/reward-candidates', headers: h.sessionHeaders });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ error: 'Não foi possível consultar as recompensas gerenciáveis da Twitch.', referenceId: '11111111-1111-4111-8111-111111111111' });
+    expect(response.headers['x-error-reference']).toBe('11111111-1111-4111-8111-111111111111');
+    expect(response.body).not.toMatch(/authorization=secret|raw response/);
+    expect(reportDiagnostic).toHaveBeenCalledWith(expect.objectContaining({ source: 'http.queue.reward_candidates', error: expect.any(Error) }));
+    await h.app.close();
+  });
+
+  it('correlates unavailable Twitch adapter responses for reward recovery', async () => {
+    const reportDiagnostic = vi.fn(() => '22222222-2222-4222-8222-222222222222');
+    const h = await createHarness({ reportDiagnostic });
+    h.repository.getQueueById.mockResolvedValue({ id: 'queue-id', title: 'Abismo', cost: 100, rewardPrompt: 'UID', uidMode: 'visible', remoteSyncStatus: 'create_unknown' });
+    h.integrations.twitch = null;
+
+    const candidates = await h.app.inject({ method: 'GET', url: '/api/queues/queue-id/reward-candidates', headers: h.sessionHeaders });
+    const association = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/resolve-reward', headers: h.headers, payload: { rewardId: 'candidate' } });
+
+    for (const response of [candidates, association]) {
+      expect(response.statusCode).toBe(503);
+      expect(response.json().referenceId).toBe('22222222-2222-4222-8222-222222222222');
+      expect(response.headers['x-error-reference']).toBe('22222222-2222-4222-8222-222222222222');
+    }
+    expect(reportDiagnostic).toHaveBeenCalledTimes(2);
+    expect(reportDiagnostic).toHaveBeenCalledWith(expect.objectContaining({ source: 'http.queue.reward_candidates' }));
+    expect(reportDiagnostic).toHaveBeenCalledWith(expect.objectContaining({ source: 'http.queue.resolve_reward' }));
+    await h.app.close();
+  });
+
   it('refuses reward association when the selected managed reward no longer matches the intended configuration', async () => {
     const h = await createHarness();
     h.repository.getQueueById.mockResolvedValue({ id: 'queue-id', title: 'Abismo', cost: 100, rewardPrompt: 'Send UID', uidMode: 'visible', remoteSyncStatus: 'create_unknown' });
-    h.integrations.twitch = { getManagedRewards: vi.fn(async () => [{ id: 'candidate', title: 'Abismo', cost: 999, prompt: 'Send UID', userInputRequired: true, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true }]) };
+    h.integrations.twitch = { getManagedRewards: vi.fn(async () => [{ id: 'candidate', title: 'Abismo', cost: 999, prompt: 'Send UID', userInputRequired: true, maxRedemptionsPerStream: null, maxRedemptionsPerUserPerStream: null, globalCooldown: null, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true }]) };
     h.repository.resolveUnknownRewardCreation = vi.fn();
     const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/resolve-reward', headers: h.headers, payload: { rewardId: 'candidate' } });
     expect(response.statusCode).toBe(409);
     expect(h.repository.resolveUnknownRewardCreation).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it('refuses association when a previously listed reward is no longer returned by Twitch', async () => {
+    const h = await createHarness();
+    h.repository.getQueueById.mockResolvedValue({ id: 'queue-id', title: 'Abismo', cost: 100, rewardPrompt: 'Send UID', uidMode: 'visible', remoteSyncStatus: 'create_unknown' });
+    h.integrations.twitch = { getManagedRewards: vi.fn(async () => []) };
+    h.repository.resolveUnknownRewardCreation = vi.fn();
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/resolve-reward', headers: h.headers, payload: { rewardId: 'reward-that-disappeared' } });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.body).not.toContain('reward-that-disappeared');
+    expect(h.repository.resolveUnknownRewardCreation).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it('returns a correlated safe response when an unexpected failure starts queue deletion', async () => {
+    const reportDiagnostic = vi.fn(() => '33333333-3333-4333-8333-333333333333');
+    const domainService = { deleteQueue: vi.fn(async () => { throw new Error('database password and raw SQL'); }) };
+    const h = await createHarness({ domainService, reportDiagnostic });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: { confirm: true } });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ code: 'QUEUE_DELETE_UNAVAILABLE', error: 'A exclusão não pôde ser iniciada.', referenceId: '33333333-3333-4333-8333-333333333333' });
+    expect(response.headers['x-error-reference']).toBe('33333333-3333-4333-8333-333333333333');
+    expect(response.body).not.toMatch(/database password|raw SQL/);
+    expect(reportDiagnostic).toHaveBeenCalledWith(expect.objectContaining({ source: 'http.queue.delete', error: expect.any(Error) }));
     await h.app.close();
   });
 
@@ -440,12 +620,59 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('returns the settings needed to reopen and edit a queue in the operator projection', async () => {
+    const h = await createHarness();
+    h.repository.listQueueProjection.mockResolvedValue([{
+      ...h.repository.getQueueById.mock.results[0]?.value,
+      callMessage: 'Sua vez, {user}!', callTimeoutMin: 25,
+      autoSwitchAccount: true, refundIfRemovedWhileCalled: false,
+      refundOnNoShow: true, refundIfViewerLeavesCalled: true,
+    }]);
+
+    const response = await h.app.inject({ method: 'GET', url: '/api/queues', headers: h.sessionHeaders });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()[0]).toMatchObject({
+      callMessage: 'Sua vez, {user}!', callTimeoutMin: 25,
+      autoSwitchAccount: true, refundIfRemovedWhileCalled: false,
+      refundOnNoShow: true, refundIfViewerLeavesCalled: true,
+    });
+    await h.app.close();
+  });
+
+  it('projects call delivery and persisted deadline only in the protected operator queue response', async () => {
+    const h = await createHarness();
+    const calledAt = new Date('2026-10-07T12:00:00.000Z');
+    const callNotifiedAt = new Date('2026-10-07T12:00:04.000Z');
+    const callDeadlineAt = new Date('2026-10-07T12:10:04.000Z');
+    h.repository.listQueueProjection.mockResolvedValue([{ ...h.repository.createQueue.mock.results[0]?.value, entries: [{
+      id: 'called-entry', status: 'called', position: null, userLogin: 'viewer', displayName: 'Viewer', uid: null,
+      calledAt, callNotifiedAt, callDeadlineAt,
+    }] }]);
+
+    const operatorQueues = await h.app.inject({ method: 'GET', url: '/api/queues', headers: h.sessionHeaders });
+    expect(operatorQueues.json()[0].entries[0]).toMatchObject({ calledAt: calledAt.toISOString(), callNotifiedAt: callNotifiedAt.toISOString(), callDeadlineAt: callDeadlineAt.toISOString() });
+    const panelProjection = await h.app.inject({ method: 'GET', url: '/api/state', headers: h.sessionHeaders });
+    expect(panelProjection.json().queues[0].entries[0].callDeadlineAt).toBe(callDeadlineAt.toISOString());
+    await h.app.close();
+  });
+
   it('includes a stable product locale and revision in the protected state projection', async () => {
     const h = await createHarness();
     h.repository.getLocalState = vi.fn(async () => ({ productLocale: { locale: 'de', revision: 4 } }));
     const response = await h.app.inject({ method: 'GET', url: '/api/state', headers: h.sessionHeaders });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ product_locale: { locale: 'de', revision: 4 } });
+    await h.app.close();
+  });
+
+  it('projects Twitch API, chat, and reward capability separately to the local panel', async () => {
+    const h = await createHarness();
+    h.integrations.status = 'ineligible';
+    h.integrations.chatStatus = 'connected';
+    h.integrations.rewardStatus = 'unsupported';
+    const response = await h.app.inject({ method: 'GET', url: '/api/state', headers: h.sessionHeaders });
+    expect(response.json().connectivity).toEqual({ database: 'connected', twitch: 'ineligible', twitch_chat: 'connected', twitch_rewards: 'unsupported' });
     await h.app.close();
   });
 
@@ -527,6 +754,18 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('returns a stable safe error code when confirmed reward state blocks queue deletion', async () => {
+    const domainService = { deleteQueue: vi.fn(async () => { throw Object.assign(new Error('private database detail'), { code: 'QUEUE_REWARD_NOT_READY' }); }) };
+    const h = await createHarness({ domainService });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: { confirm: true } });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ code: 'QUEUE_REWARD_NOT_READY' });
+    expect(response.body).not.toContain('private database detail');
+    await h.app.close();
+  });
+
   it('includes a visible UID in the state projection only when the overlay toggle is enabled', async () => {
     const h = await createHarness();
     h.repository.listQueueProjection.mockResolvedValue([{ ...h.repository.createQueue.mock.results[0]?.value, uidMode: 'visible', showUidInOverlay: true, entries: [{ id: 'entry-id', status: 'waiting', uid: '123456789' }] }]);
@@ -578,6 +817,173 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('routes a confirmed panel deletion through the late-bound production domain proxy', async () => {
+    const h = await createHarness();
+    h.repository.requestQueueDeletion = vi.fn(async ({ queueId }) => ({ status: 'pending', activeRemoved: 0, refundsRequested: 0, queue: { id: queueId, lifecycleStatus: 'deleting' } }));
+    const runtimeService = createQueueDomainService({ repository: h.repository });
+    const proxy = createQueueDomainServiceProxy({ getService: () => runtimeService });
+    const app = Fastify();
+    registerLocalSession(app, { port: 3000 });
+    registerQueueRoutes(app, { repository: h.repository, domainService: proxy, integrations: h.integrations });
+    const session = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
+    const cookie = session.cookies[0];
+    const headers = { host: 'localhost:3000', origin: 'https://localhost:3000', cookie: `${cookie.name}=${cookie.value}`, 'x-csrf-token': session.json().csrfToken, 'idempotency-key': 'delete-proxy-test-01' };
+
+    const response = await app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers, payload: { confirm: true } });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ status: 'pending', queue: { lifecycleStatus: 'deleting' } });
+    expect(h.repository.requestQueueDeletion).toHaveBeenCalledOnce();
+    await app.close();
+    await h.app.close();
+  });
+
+  it('returns a conflict when opening a queue whose Twitch reward is not confirmed', async () => {
+    const h = await createHarness();
+    h.repository.setQueueOpen = vi.fn(async () => { throw Object.assign(new Error('internal reward state'), { code: 'QUEUE_REWARD_NOT_READY' }); });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/open-state', headers: h.headers, payload: { isOpen: true } });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ code: 'QUEUE_REWARD_NOT_READY' });
+    expect(response.body).not.toContain('internal reward state');
+    expect(h.repository.setQueueOpen).toHaveBeenCalledOnce();
+    await h.app.close();
+  });
+
+  it('correlates unexpected failures from queue open, archive, unarchive, and mode-switch actions', async () => {
+    const reportDiagnostic = vi.fn(({ source }) => `33333333-3333-4333-8333-${source.endsWith('archive') ? '333333333331' : '333333333332'}`);
+    const h = await createHarness({ reportDiagnostic });
+    const failure = new Error('secret database and Twitch details');
+    h.repository.setQueueOpen = vi.fn().mockRejectedValue(failure);
+    h.repository.archiveQueue = vi.fn().mockRejectedValue(failure);
+    h.repository.unarchiveQueue = vi.fn().mockRejectedValue(failure);
+    h.repository.requestManualModeTransition = vi.fn().mockRejectedValue(failure);
+
+    const results = await Promise.all([
+      h.app.inject({ method: 'POST', url: '/api/queues/queue-id/open-state', headers: h.headers, payload: { isOpen: true } }),
+      h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive', headers: h.headers, payload: {} }),
+      h.app.inject({ method: 'POST', url: '/api/queues/queue-id/unarchive', headers: h.headers, payload: {} }),
+      h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-mode', headers: h.headers, payload: {} }),
+    ]);
+
+    expect(results.map(({ statusCode }) => statusCode)).toEqual([500, 503, 503, 500]);
+    for (const response of results) {
+      expect(response.headers['x-error-reference']).toMatch(/^[0-9a-f-]{36}$/i);
+      expect(response.body).not.toMatch(/secret database|Twitch details/);
+    }
+    expect(reportDiagnostic).toHaveBeenCalledTimes(4);
+    expect(reportDiagnostic.mock.calls.map(([event]) => event.source)).toEqual(expect.arrayContaining([
+      'http.queue.open_state', 'http.queue.archive', 'http.queue.unarchive', 'http.queue.manual_mode',
+    ]));
+    await h.app.close();
+  });
+
+  it('keeps an open-state request pending until Twitch confirmation instead of reporting it as completed', async () => {
+    const h = await createHarness();
+    h.repository.setQueueOpen = vi.fn(async (_queueId, isOpen) => ({ status: 'pending', isOpen, remoteSyncStatus: 'pending_open' }));
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/open-state', headers: h.headers, payload: { isOpen: true } });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ status: 'pending', isOpen: true, remoteSyncStatus: 'pending_open' });
+    expect(response.json().status).not.toBe('confirmed');
+    expect(h.repository.setQueueOpen).toHaveBeenCalledWith('queue-id', true, expect.any(String));
+    await h.app.close();
+  });
+
+  it('returns a stable conflict when a manual-mode transition is already unavailable', async () => {
+    const h = await createHarness();
+    h.repository.requestManualModeTransition = vi.fn(async () => { throw Object.assign(new Error('internal transition detail'), { code: 'QUEUE_MODE_TRANSITION_UNAVAILABLE' }); });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-mode', headers: h.headers, payload: {} });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ code: 'QUEUE_MODE_TRANSITION_UNAVAILABLE' });
+    expect(response.body).not.toContain('internal transition detail');
+    expect(h.repository.requestManualModeTransition).toHaveBeenCalledOnce();
+    await h.app.close();
+  });
+
+  it('retries only available financial operations and reports stale or completed operations safely', async () => {
+    const h = await createHarness();
+    h.repository.retryOutboxManually = vi.fn()
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+
+    const retried = await h.app.inject({ method: 'POST', url: '/api/operations/op-1/retry', headers: h.headers, payload: {} });
+    const unavailable = await h.app.inject({ method: 'POST', url: '/api/operations/op-2/retry', headers: h.headers, payload: {} });
+
+    expect(retried.statusCode).toBe(200);
+    expect(retried.json()).toEqual({ status: 'pending' });
+    expect(unavailable.statusCode).toBe(409);
+    expect(unavailable.body).not.toContain('op-2');
+    expect(h.repository.retryOutboxManually).toHaveBeenNthCalledWith(1, 'op-1');
+    expect(h.repository.retryOutboxManually).toHaveBeenNthCalledWith(2, 'op-2');
+    await h.app.close();
+  });
+
+  it('validates and saves Twitch application credentials without returning the secret', async () => {
+    const h = await createHarness();
+    h.integrations.validateAndSaveApplication = vi.fn(async ({ clientId, clientSecret }) => {
+      expect(clientSecret).toBe('private-secret');
+      return { clientId };
+    });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/setup/application', headers: h.headers, payload: { clientId: ' public-client ', clientSecret: 'private-secret' } });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ status: 'validated', clientId: 'public-client', secretConfigured: true });
+    expect(response.body).not.toContain('private-secret');
+    expect(h.integrations.validateAndSaveApplication).toHaveBeenCalledOnce();
+    await h.app.close();
+  });
+
+  it('does not persist or expose rejected Twitch application credentials', async () => {
+    const h = await createHarness();
+    h.integrations.validateAndSaveApplication = vi.fn(async () => { throw Object.assign(new Error('private secret and provider response'), { code: 'INVALID_TWITCH_CLIENT_CREDENTIALS' }); });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/setup/application', headers: h.headers, payload: { clientId: 'client', clientSecret: 'private-secret' } });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).not.toContain('private-secret');
+    expect(response.body).not.toContain('provider response');
+    expect(response.json()).toEqual({ error: 'Não foi possível validar as credenciais da Twitch.' });
+    await h.app.close();
+  });
+
+  it('starts Twitch authorization for the current local session and fails closed when unavailable', async () => {
+    const h = await createHarness();
+    h.integrations.beginAuthorization = vi.fn(async (sessionId) => ({ url: `https://id.twitch.tv/oauth2/authorize?state=${sessionId}` }));
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/setup/connect', headers: h.headers, payload: {} });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().authorizationUrl).toContain('https://id.twitch.tv/oauth2/authorize?state=');
+    expect(h.integrations.beginAuthorization).toHaveBeenCalledWith(expect.any(String));
+    h.integrations.beginAuthorization = undefined;
+    const unavailable = await h.app.inject({ method: 'POST', url: '/api/setup/connect', headers: h.headers, payload: {} });
+    expect(unavailable.statusCode).toBe(503);
+    expect(unavailable.body).not.toContain('state=');
+    await h.app.close();
+  });
+
+  it('updates the current account label through the protected panel route and sanitizes failures', async () => {
+    const h = await createHarness();
+    h.repository.setCurrentAccount = vi.fn(async (label, actorId) => ({ label: label.trim(), source: 'manual', actorId }));
+
+    const updated = await h.app.inject({ method: 'POST', url: '/api/account', headers: h.headers, payload: { label: '  Spiral Abyss  ' } });
+
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json()).toMatchObject({ label: 'Spiral Abyss', source: 'manual' });
+    expect(h.repository.setCurrentAccount).toHaveBeenCalledWith('  Spiral Abyss  ', expect.any(String));
+    h.repository.setCurrentAccount.mockRejectedValueOnce(Object.assign(new Error('private database detail'), { code: 'DATABASE_FAILURE' }));
+    const failed = await h.app.inject({ method: 'POST', url: '/api/account', headers: h.headers, payload: { label: 'Other' } });
+    expect(failed.statusCode).toBe(500);
+    expect(failed.body).not.toContain('private database detail');
+    await h.app.close();
+  });
+
   it('updates the default account label through a session and CSRF protected route', async () => {
     const h = await createHarness();
     const response = await h.app.inject({ method: 'POST', url: '/api/account/default', headers: h.headers, payload: { label: 'World Level 9' } });
@@ -604,6 +1010,22 @@ describe('local queue and setup API', () => {
     expect(response.statusCode).toBe(200);
     expect(domainService.callNext).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', count: 1 }));
     expect(h.repository.callNext).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it('returns a stable conflict code when reward-to-manual conversion blocks calls', async () => {
+    const conflict = async () => { throw Object.assign(new Error('internal detail'), { code: 'QUEUE_MODE_TRANSITION_PENDING' }); };
+    const domainService = { callNext: vi.fn(conflict), callSpecificEntry: vi.fn(conflict) };
+    const h = await createHarness({ domainService });
+    const groupResponse = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/call', headers: h.headers, payload: { count: 1 } });
+    expect(groupResponse.statusCode).toBe(409);
+    expect(groupResponse.json()).toMatchObject({ code: 'QUEUE_MODE_TRANSITION_PENDING' });
+    expect(groupResponse.body).not.toContain('internal detail');
+    const singleResponse = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/call', headers: h.headers, payload: { entryId: 'entry-id' } });
+    expect(singleResponse.statusCode).toBe(409);
+    expect(singleResponse.json()).toMatchObject({ code: 'QUEUE_MODE_TRANSITION_PENDING' });
+    expect(singleResponse.body).not.toContain('internal detail');
+    expect(h.repository.enqueueCallNotification).not.toHaveBeenCalled();
     await h.app.close();
   });
 });

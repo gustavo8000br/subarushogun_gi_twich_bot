@@ -19,19 +19,23 @@ function redemptionStatus(value) {
 }
 
 function rewardProjection(reward) {
+  const skipRequestQueue = reward.shouldRedemptionsSkipRequestQueue
+    ?? reward.should_redemptions_skip_request_queue
+    ?? reward.autoFulfill;
   return {
     id: reward.id,
     title: reward.title,
     cost: reward.cost,
     prompt: reward.prompt,
-    isEnabled: reward.isEnabled,
-    isPaused: reward.isPaused,
-    userInputRequired: reward.userInputRequired,
-    autoFulfill: reward.autoFulfill,
+    isEnabled: reward.isEnabled ?? reward.is_enabled,
+    isPaused: reward.isPaused ?? reward.is_paused,
+    isInStock: reward.isInStock ?? reward.is_in_stock,
+    userInputRequired: reward.userInputRequired ?? reward.is_user_input_required,
+    autoFulfill: reward.autoFulfill ?? reward.shouldRedemptionsSkipRequestQueue ?? reward.should_redemptions_skip_request_queue,
     maxRedemptionsPerStream: reward.maxRedemptionsPerStream ?? null,
     maxRedemptionsPerUserPerStream: reward.maxRedemptionsPerUserPerStream ?? null,
     globalCooldown: reward.globalCooldown ?? null,
-    shouldRedemptionsSkipRequestQueue: reward.shouldRedemptionsSkipRequestQueue ?? reward.should_redemptions_skip_request_queue ?? false,
+    shouldRedemptionsSkipRequestQueue: skipRequestQueue,
   };
 }
 
@@ -69,9 +73,25 @@ export function createTwitchApiAdapter({ api, broadcasterId, authProvider }) {
       return rewardProjection(await api.channelPoints.updateCustomReward(broadcasterId, rewardId, { ...data, autoFulfill: false }));
     },
     async setRewardOpen(rewardId, isOpen) {
-      return rewardProjection(await api.channelPoints.updateCustomReward(broadcasterId, rewardId, {
-        isEnabled: true, isPaused: !isOpen, autoFulfill: false,
-      }));
+      if (typeof api.channelPoints?.updateCustomReward !== 'function'
+          || typeof api.channelPoints?.getCustomRewardById !== 'function') {
+        throw Object.assign(new Error('Twitch reward update is not configured'), { status: 401, code: 'TWITCH_REWARD_UPDATE_NOT_CONFIGURED' });
+      }
+      const updatedReward = await api.channelPoints.updateCustomReward(broadcasterId, rewardId, {
+        isPaused: !isOpen,
+        autoFulfill: false,
+      });
+      if (!updatedReward || updatedReward.id !== rewardId) {
+        throw Object.assign(new Error('Twitch reward update response is invalid'), { code: 'TWITCH_REWARD_RESPONSE_INVALID' });
+      }
+      // Helix can acknowledge PATCH while its response still reflects stale state.
+      // The caller uses this projection to confirm financial/reward lifecycle state,
+      // so read the persisted reward before reporting success.
+      const persistedReward = await api.channelPoints.getCustomRewardById(broadcasterId, rewardId);
+      if (!persistedReward || persistedReward.id !== rewardId) {
+        throw Object.assign(new Error('Twitch reward state could not be verified after update'), { code: 'TWITCH_REWARD_STATE_UNVERIFIED' });
+      }
+      return rewardProjection(persistedReward);
     },
     async deleteReward(rewardId) {
       return api.channelPoints.deleteCustomReward(broadcasterId, rewardId);
@@ -86,9 +106,6 @@ export function createTwitchApiAdapter({ api, broadcasterId, authProvider }) {
     async getChannelEligibility() {
       const user = await api.users.getUserById(broadcasterId);
       const broadcasterType = String(user?.broadcasterType ?? '').toLowerCase() || 'unknown';
-      if (!['affiliate', 'partner'].includes(broadcasterType)) {
-        return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'channel_ineligible' };
-      }
       let rewards;
       try {
         rewards = await api.channelPoints.getCustomRewards(broadcasterId, false);
@@ -98,7 +115,7 @@ export function createTwitchApiAdapter({ api, broadcasterId, authProvider }) {
           return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'access_token_invalid' };
         }
         if (status === 403) {
-          return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'authorization_required' };
+          return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'channel_ineligible' };
         }
         return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'channel_points_unavailable' };
       }

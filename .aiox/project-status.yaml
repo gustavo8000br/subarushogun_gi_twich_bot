@@ -1,19 +1,19 @@
 status:
-  branch: feat/ops5-single-file-installer
+  branch: feat/fnd-9-manual-queue-modes
   modifiedFiles:
+    - .aiox-core/development/agents/data-engineer.md
     - .aiox/project-status.yaml
-    - .github/workflows/ci.yml
+    - AGENTS.md
     - CHANGELOG.md
     - CHANGELOG_INTERNAL.md
-    - README.md
-  modifiedFilesTotalCount: 51
+  modifiedFilesTotalCount: 116
   recentCommits:
-    - 'fix(installer): handle missing terminal input'
-    - 'fix(installer): render language prompt before locale selection'
+    - 'docs(roadmap): sync merged OPS-10 status and patch version (#47)'
+    - 'feat(ops-10): separate PR CI from main image publishing (#46)'
   currentEpic: null
-  currentStory: null
-  lastUpdate: '2026-10-07T14:02:10.931Z'
+  currentStory: story
+  lastUpdate: '2026-10-08T03:55:10.328Z'
   isGitRepo: true
-timestamp: 1791381730933
+timestamp: 1791431710330
 ttl: 60
-gitFingerprint: 1791349166634.3765:1791350572131.3586
+gitFingerprint: 1791412748238.816:1791412432350.4302

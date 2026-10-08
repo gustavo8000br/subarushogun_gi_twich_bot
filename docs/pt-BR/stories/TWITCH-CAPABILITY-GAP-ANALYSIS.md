@@ -2,7 +2,7 @@
 
 [English](../../stories/TWITCH-CAPABILITY-GAP-ANALYSIS.md)
 
-**Consulta:** 2026-10-06 (UTC)<br>
+**Consulta:** 2026-10-07 (UTC)<br>
 **Workflow:** lentes do AIOX Planning / Spec Pipeline — Gather, Assess, Research, Write, Critique, Plan<br>
 **Objetivo:** comparar capacidades oficiais da Twitch relacionadas ao produto com todas as stories locais e issues futuras publicadas. Este é um registro de planejamento/pesquisa, não autorização para implementar ou alterar status de story.
 
@@ -12,7 +12,7 @@ O modelo de integração principal do produto é compatível com as interfaces d
 
 A pesquisa encontrou uma lacuna concreta dentro da FND-6: a especificação original exige limites nativos por usuário por transmissão, por transmissão e cooldown global para cada recompensa de fila. O schema `Queue` atual e o adapter de recompensa ainda não representam essas configurações. Como a FND-6 já inclui edição das configurações de fila/recompensa, refine esse critério nela; use os limites nativos da Twitch sem criar contadores locais concorrentes.
 
-A FND-9 trata de uma separação real de capacidades: a documentação permite EventSub de chat com `user:read:chat`, enquanto operações de recompensa exigem elegibilidade Afiliado/Parceiro e `channel:manage:redemptions`. O repositório atualmente associa inelegibilidade ao encerramento de toda a integração Twitch; portanto, a FND-9 deve separar conectividade de chat da capacidade de Pontos do Canal. A inferência de que a operação de chat manual funcionará de ponta a ponta em canal inelegível ainda precisa de validação autorizada real.
+A FND-9 separa conectividade de chat da capacidade de rewards de Pontos do Canal e agora cobre três escolhas: reward criada pelo app, reward do Dashboard somente após comprovar ciclo completo e modo local/manual. Streamer/moderador pode adicionar alguém explicitamente e sem custo em qualquer fila ativa; chat livre nunca faz autoinscrição. Uma fila com reward pode mudar uma única vez para modo manual após a Twitch confirmar a pausa; preservar e drenar resgates existentes e cancelar duravelmente resgate concorrente. A operação chat-only em canal inelegível ainda precisa de validação real autorizada.
 
 Para a issue #17, dados de assinante/moderador/VIP podem ser avaliados da lista confiável de badges da mensagem EventSub atual. A elegibilidade de follower é diferente: consultar um viewer pela Helix exige `moderator:read:followers`. Recomendação: não incluir acesso condicionado a follower na primeira versão do catálogo, a menos que o proprietário aprove explicitamente o escopo e suas implicações de privacidade. Essa é uma decisão de produto, não uma suposição de implementação.
 
@@ -42,7 +42,7 @@ Para a issue #17, dados de assinante/moderador/VIP podem ser avaliados da lista 
 | OPS-1 — CI | Em revisão local; story existe, mas não há issue correspondente na lista atual do GitHub. | Nenhuma lacuna Twitch específica. Manter build/testes/scanners como gates de release. |
 | OPS-2 — status localizado | Em andamento localmente; story existe, mas não há issue correspondente na lista atual do GitHub. | Ajuste pontual de texto pt-BR não conclui i18n. Acompanhar aceite restante em OPS-2/FND-8; não expor enums da Twitch. |
 | FND-8 / issue #18 — i18n | Publicada, planejamento necessário após FND-7; implementação não autorizada. | Estados internos/do provedor devem ser mapeados a códigos públicos estáveis e depois a mensagens localizadas. Nenhum escopo Twitch novo é necessário. |
-| FND-9 / issue #19 — canais inelegíveis | Rascunho de planejamento publicado; implementação não autorizada. | Separar funcionamento do chat da elegibilidade de Pontos do Canal. Canais elegíveis mantêm resgate por recompensa criada pelo app; canais inelegíveis usam `add` manual por streamer/mod sem operação financeira. Exige validação posterior em canal real. |
+| FND-9 / issue #19 — modo de fila local/manual | Spec Pipeline concluído; implementação em andamento. Migration de modo/proveniência, filas locais, criação protegida no painel/API, ciclo de vida local, conversão durável, cancelamento de concorrência, retry/reconciliação e saúde separada de chat/rewards têm implementação e testes direcionados (195 passaram em 9 arquivos). | Manter chat independente; aceitar rewards criadas pelo app, rewards do Dashboard somente após prova de ciclo completo, filas locais, adição gratuita explícita pelo operador nos dois modos e conversão após pausa confirmada drenando resgates atuais. Exige testes PostgreSQL da transição/concorrência e validação posterior em canal real. |
 | Issue #17 — catálogo de comandos e cargos | Item de planejamento publicado; ainda sem diretório de story formal no repositório local. | A mensagem atual fornece badges confiáveis para verificações contextuais de moderador/assinante/VIP. Acesso por follower exige escopo extra; recomenda-se adiar esse cargo. Comandos exclusivos do streamer permanecem inalteráveis, conforme decisão do produto. |
 
 Inventário do GitHub consultado no remoto privado configurado em 2026-10-06. Issues #1, #2, #4 e #5 estão fechadas; #3 e #6 abertas; #7 e #17–#19 são itens de planejamento abertos. OPS-1 e OPS-2 foram publicadas como novas issues #20 e #21 durante este trabalho. O índice local também mantém FND-0 e FND-1–FND-7. Nenhum comentário foi publicado.
@@ -55,11 +55,11 @@ A Helix Custom Reward permite criar/atualizar `max_per_stream_setting`, `max_per
 
 Inclua-os nas configurações da fila da FND-6 com semântica explícita de habilitado/desabilitado e validação de entrada. A listagem de recompensas da API inclui recompensas de outros apps para verificação de capacidade; este app só pode alterar recompensas que criou. A Twitch documenta máximo de 50 recompensas no canal, incluindo desativadas, títulos únicos de até 45 caracteres e descrições de até 200. A edição deve enviar somente campos alterados e permanecer uma operação remota durável/recuperável. Continue sem duplicar localmente os limites nativos por live/usuário.
 
-### FND-9: separar chat e Pontos do Canal em capacidades distintas
+### FND-9: separar chat, capacidade de reward e entrada manual
 
 A Twitch documenta `channel.chat.message` com `user:read:chat` (e token de usuário do streamer para este cliente local). EventSub de resgate e operações de recompensa exigem escopos de resgate; o gerenciamento de Custom Reward restringe canais inelegíveis. Isso sustenta a separação proposta, mas o comportamento OAuth/runtime da aplicação com token sem `channel:manage:redemptions` e um canal inelegível ainda não foi validado.
 
-A aplicação deve apresentar os estados de chat e Pontos do Canal separadamente. Canal inelegível não deve receber indicação de que toda conexão Twitch caiu quando o chat segue conectado. Entradas manuais continuam com origem `manual`, sem ID de resgate e sem ação financeira na outbox. Manter a regra aceita: apenas streamer/moderador adicionam outra pessoa; viewer nunca se inscreve por conta própria.
+A aplicação deve apresentar os estados de chat e reward separadamente. Canal inelegível não deve receber indicação de que toda conexão Twitch caiu quando o chat segue conectado. Entradas manuais continuam com origem `manual`, sem ID de resgate e sem ação financeira na outbox. Streamer/moderador pode adicionar gratuitamente de forma explícita nos dois modos após ouvir o pedido; texto livre nunca é interpretado como inscrição. Conversão de reward para manual é unidirecional e permanece pendente até a Twitch confirmar a pausa. Preservar o ID histórico da reward, continuar as operações financeiras de resgates existentes e cancelar duravelmente os concorrentes. Resultado desconhecido da pausa não ativa o modo manual.
 
 ### Issue #17: decidir acesso de followers antes de pedir escopo
 
@@ -73,7 +73,7 @@ Recomendação inicial de planejamento: oferecer cargos streamer, moderador, VIP
 | --- | --- | --- |
 | Streamer opera tudo no painel local; separar conexão, filas, nova fila, operações financeiras e configurações. | FND-6 / issue #6 e pesquisa UX. | Registrada; configuração de fila e gates finais de controles/QA seguem abertos. |
 | Reward genérica existente como “beber água” não deve iniciar a fila; usar recompensa dedicada criada por este app. | FND-9 / issue #19. | Registrada e respaldada pelos limites de propriedade de app da Helix. |
-| Streamer/mod adiciona pessoas manualmente se o canal for inelegível; canais elegíveis seguem com resgates de pontos. | FND-9 / issue #19. | Confirmada e registrada; faltam separação runtime de chat/Pontos e validação em canal real. |
+| Streamer/mod pode adicionar gratuitamente nos dois modos; filas com reward podem mudar para modo local/manual. | FND-9 / issue #19. | Confirmada e registrada. Conversão exige pausa confirmada, preserva/drena resgates existentes e cancela concorrentes; texto livre não faz inscrição automática. |
 | Prioridade para benefício externo como inscrição/Bits/PIX. | Trabalho de faixas prioritárias da FND-6 e story. | Registrada como prioridade FIFO conferida pelo operador; não há verificação automática de pagamento/Bits nem armazenamento de comprovante. |
 | Catálogo completo de comandos com acesso por cargo, `!<fila> comandos` contextual e comandos exclusivos do streamer imutáveis. | Issue #17. | Registrada em issue publicada; escopo de follower é dependência Twitch material ainda não resolvida. |
 | pt-BR padrão, inglês/espanhol, traduções comunitárias e sem vazamento de estado backend. | Issue #18/FND-8; OPS-2 acompanha texto atual. | Registrada. i18n completo segue como escopo futuro. |
@@ -103,5 +103,5 @@ Não encontramos outra ideia de produto sem registro nos arquivos de stories atu
 
 1. Incorporar os limites nativos da recompensa ao aceite e implementação existentes de configurações de fila/reward na FND-6; manter a Twitch como autoridade dos limites.
 2. Não definir cargo follower para #17 sem autorização explícita do proprietário para `moderator:read:followers` durante seu Spec Pipeline.
-3. Deixar a ordem de implementação da FND-9 em relação à FND-8 com o proprietário, conforme já registrado na issue #19.
+3. Implementar FND-9 somente quando entrar na sequência autorizada; usar Spec Pipeline publicado e preservar regras aprovadas de conversão/pontos.
 4. Revisitar este cruzamento quando a FND-6 for encerrada ou quando a Twitch alterar sua API. Esta auditoria não criou issue, release, comentário, chamada real Twitch ou conclusão de story.
