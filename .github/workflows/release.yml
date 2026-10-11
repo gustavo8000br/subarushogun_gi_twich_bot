@@ -19,7 +19,7 @@ concurrency:
 jobs:
   resolve-release-image:
     name: Verify and pin the release image
-    if: ${{ github.actor == 'gustavo8000br' }}
+    if: ${{ github.actor == 'gustavo8000br' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

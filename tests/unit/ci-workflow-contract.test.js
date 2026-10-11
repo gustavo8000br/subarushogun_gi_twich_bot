@@ -105,6 +105,7 @@ describe('GitHub Actions application CI contract', () => {
     expect(release.jobs['publish-release'].needs).toEqual(['resolve-release-image', 'build-installers']);
     expect(release.jobs['resolve-release-image'].permissions).toEqual({ contents: 'read', packages: 'read' });
     expect(release.jobs['resolve-release-image'].if).toContain("github.actor == 'gustavo8000br'");
+    expect(release.jobs['resolve-release-image'].if).toContain("github.ref == 'refs/heads/main'");
     expect(release.jobs['publish-release'].permissions).toEqual({ actions: 'read', contents: 'write' });
     expect(releaseWorkflow).toContain('node apps/infra/scripts/create-release-notes.mjs');
     expect(releaseWorkflow).toContain('--image-tag "$RELEASE_IMAGE_REF"');
