@@ -6,7 +6,11 @@ This file highlights changes that matter to streamers and viewers. Technical and
 
 ## v0.13.1-alpha
 
-- Project and release notes now reflect the current version and next steps.
+- Reward recovery explains configuration differences; confirmed queues can enter the durable deletion flow, while unknown ownership stays blocked. `!fila ping` can report the Twitch response time.
+- New Twitch rewards are created unavailable first and linked only after Twitch confirms the safe paused state.
+- Unexpected errors show a reference number so the matching support logs can be found without displaying technical details in the panel.
+- New queues stay paused and open their settings after creation. Reward linking opens a refreshable Twitch-backed picker, settings save reliably, and activation waits for confirmation.
+- Risky panel actions now use a clear in-app confirmation dialog instead of the browser's native confirmation box.
 
 ## v0.13.0-alpha
 

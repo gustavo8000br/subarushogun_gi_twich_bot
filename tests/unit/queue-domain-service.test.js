@@ -1,7 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createQueueDomainService } from '../../apps/api/src/domain/queue-service.mjs';
+import { createQueueDomainService, createQueueDomainServiceProxy } from '../../apps/api/src/domain/queue-service.mjs';
 
 describe('queue domain service', () => {
+  it('forwards queue deletion through a late-bound runtime proxy', async () => {
+    const runtimeService = { deleteQueue: vi.fn(async (input) => ({ status: 'pending', queueId: input.queueId })) };
+    const proxy = createQueueDomainServiceProxy({ getService: () => runtimeService });
+
+    await expect(proxy.deleteQueue({ queueId: 'queue-1', actorId: 'operator-1', origin: 'panel' }))
+      .resolves.toEqual({ status: 'pending', queueId: 'queue-1' });
+    expect(runtimeService.deleteQueue).toHaveBeenCalledWith({ queueId: 'queue-1', actorId: 'operator-1', origin: 'panel' });
+  });
+
   it('decides a transition inside the persistence boundary and never claims remote completion', async () => {
     let persistedDecision;
     const repository = {

@@ -1,9 +1,12 @@
 import { translateCatalog } from '../shared/browser/translate-catalog.mjs';
 
 /** @param {Document|{documentElement?:{lang?:string},querySelectorAll:(selector:string)=>Iterable<HTMLElement>}} root @param {string} locale @param {Record<string,Record<string,string>>} catalogs */
-export function applyPanelTranslations(root, locale, catalogs) {
+export function applyPanelTranslations(root, locale, catalogs, placeholders = {}) {
   if (root.documentElement) root.documentElement.lang = locale;
-  const translate = (key) => translateCatalog(catalogs, locale, key);
+  const translate = (key) => {
+    const values = Object.fromEntries((placeholders[key] ?? []).map((name) => [name, `{${name}}`]));
+    return translateCatalog(catalogs, locale, key, { values, placeholders });
+  };
   for (const rawElement of root.querySelectorAll('[data-i18n]')) {
     const element = /** @type {HTMLElement} */ (rawElement);
     const key = element.dataset.i18n;

@@ -10,6 +10,46 @@ try {
 }
 
 describe('local health response contract', () => {
+  it('reports Twitch API reachability separately from a degraded Twitch integration', async () => {
+    const app = Fastify();
+    const probeTwitchApi = vi.fn(async () => true);
+    healthModule.registerHealthRoute(app, {
+      pool: { query: vi.fn().mockResolvedValue({ rows: [] }) },
+      productVersion: 'v0.13.1-0000000-alpha',
+      getTwitchStatus: () => 'degraded',
+      getTwitchChatStatus: () => 'connected',
+      getTwitchRewardStatus: () => 'available',
+      probeTwitchApi,
+    });
+
+    const response = await app.inject({ method: 'GET', url: '/health' });
+    expect(response.json().dependencies).toMatchObject({
+      twitch_api: 'connected', twitch_integration: 'degraded',
+      twitch_api_ping_ms: expect.any(Number), twitch_chat: 'connected', twitch_rewards: 'available',
+    });
+    expect(probeTwitchApi).toHaveBeenCalledOnce();
+    await app.close();
+  });
+
+  it('reports Twitch chat and reward capability as independent dependencies', async () => {
+    const app = Fastify();
+    healthModule.registerHealthRoute(app, {
+      pool: { query: vi.fn().mockResolvedValue({ rows: [] }) },
+      productVersion: 'v0.13.1-0000000-alpha',
+      getTwitchStatus: () => 'ineligible',
+      getTwitchChatStatus: () => 'connected',
+      getTwitchRewardStatus: () => 'unsupported',
+      probeTwitchApi: vi.fn(async () => true),
+    });
+
+    const response = await app.inject({ method: 'GET', url: '/health' });
+    expect(response.json().dependencies).toEqual({
+      database: 'connected', twitch_api: 'connected', twitch_integration: 'ineligible', twitch_api_ping_ms: expect.any(Number),
+      twitch_chat: 'connected', twitch_rewards: 'unsupported',
+    });
+    await app.close();
+  });
+
   it('reports runtime product version and explicit database and Twitch API states', async () => {
     expect(healthModule.registerHealthRoute, 'health route contract is not implemented').toBeTypeOf('function');
     const app = Fastify();
@@ -21,7 +61,7 @@ describe('local health response contract', () => {
     expect(response.json()).toEqual({
       status: 'ok',
       product_version: 'v0.1.0-0000000-alpha',
-      dependencies: { database: 'connected', twitch_api: 'not_configured', twitch_api_ping_ms: null },
+      dependencies: { database: 'connected', twitch_api: 'not_configured', twitch_integration: 'not_configured', twitch_api_ping_ms: null, twitch_chat: 'not_configured', twitch_rewards: 'not_configured' },
     });
     expect(pool.query).toHaveBeenCalledWith('SELECT 1');
     await app.close();
@@ -37,7 +77,7 @@ describe('local health response contract', () => {
     expect(response.json()).toEqual({
       status: 'unavailable',
       product_version: 'v0.1.0-0000000-alpha',
-      dependencies: { database: 'unavailable', twitch_api: 'not_configured', twitch_api_ping_ms: null },
+      dependencies: { database: 'unavailable', twitch_api: 'not_configured', twitch_integration: 'unknown', twitch_api_ping_ms: null, twitch_chat: 'not_configured', twitch_rewards: 'not_configured' },
     });
     expect(response.body).not.toContain('private database details');
     await app.close();
@@ -52,7 +92,7 @@ describe('local health response contract', () => {
       probeTwitchApi: vi.fn(async () => true),
     });
     const response = await app.inject({ method: 'GET', url: '/health' });
-    expect(response.json().dependencies).toMatchObject({ twitch_api: 'connected', twitch_api_ping_ms: expect.any(Number) });
+    expect(response.json().dependencies).toMatchObject({ twitch_api: 'connected', twitch_integration: 'connected', twitch_api_ping_ms: expect.any(Number) });
     await app.close();
   });
 
@@ -63,7 +103,7 @@ describe('local health response contract', () => {
       getTwitchStatus: () => 'retrying', probeTwitchApi: vi.fn(),
     });
     const response = await app.inject({ method: 'GET', url: '/health' });
-    expect(response.json().dependencies).toEqual({ database: 'connected', twitch_api: 'retrying', twitch_api_ping_ms: null });
+    expect(response.json().dependencies).toEqual({ database: 'connected', twitch_api: 'retrying', twitch_integration: 'retrying', twitch_api_ping_ms: null, twitch_chat: 'not_configured', twitch_rewards: 'not_configured' });
     await app.close();
   });
 
@@ -79,7 +119,7 @@ describe('local health response contract', () => {
 
     const response = await app.inject({ method: 'GET', url: '/health' });
     expect(response.json().dependencies).toMatchObject({
-      twitch_api: 'ineligible', twitch_api_ping_ms: expect.any(Number),
+      twitch_api: 'connected', twitch_integration: 'ineligible', twitch_api_ping_ms: expect.any(Number),
     });
     expect(probeTwitchApi).toHaveBeenCalledOnce();
     await app.close();
@@ -134,6 +174,7 @@ describe('local health response contract', () => {
     });
     const response = await app.inject({ method: 'GET', url: '/health' });
     expect(response.json().dependencies.twitch_api).toBe('unknown');
+    expect(response.json().dependencies.twitch_integration).toBe('unknown');
     expect(response.json().dependencies.twitch_api_ping_ms).toBeNull();
     expect(response.body).not.toContain('private token details');
     await app.close();

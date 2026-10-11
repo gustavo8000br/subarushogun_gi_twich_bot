@@ -17,6 +17,7 @@ panel.sidebar.local_note	El panel y los datos permanecen en este equipo.
 panel.health.label	Estado de la instalación
 panel.health.database	Base de datos
 panel.health.twitch_api	API de Twitch
+panel.health.twitch_integration	Integración de Twitch
 panel.health.database.connected	Conectada
 panel.health.database.unavailable	No disponible
 panel.health.database.checking	Verificando
@@ -61,7 +62,7 @@ panel.queues.title	Colas y atención
 panel.queues.description	Consulta las personas en espera, llamadas y en atención.
 panel.new_queue.eyebrow	CONFIGURA TU TRANSMISIÓN
 panel.new_queue.title	Nueva cola
-panel.new_queue.description	Cada cola usa una Custom Reward propia de Twitch.
+panel.new_queue.description	Elige entre una cola con Puntos del canal y una cola local con entradas manuales.
 panel.operations.eyebrow	PUNTOS Y RECUPERACIÓN
 panel.operations.title	Operaciones financieras
 panel.operations.description	Sigue las solicitudes de reembolso y consumo hasta que Twitch las confirme.
@@ -84,6 +85,7 @@ panel.locale.title	Idioma del panel
 panel.locale.description	El idioma seleccionado también se usa en los mensajes del bot. Los catálogos comunitarios completos aparecen automáticamente.
 panel.locale.available	Idioma disponible
 panel.error.generic	No se pudo completar la acción. Inténtalo de nuevo.
+panel.error.reference	Referencia: {id}
 panel.error.locale_conflict	El idioma cambió en otra solicitud. Actualiza la página.
 panel.form.queue_name	Nombre de la cola
 panel.form.create_queue	Crear cola
@@ -127,7 +129,7 @@ panel.entry.reason_external	Pago externo (p. ej., PIX)
 panel.entry.reason_bits	Bits
 panel.entry.reason_sub	Suscripción
 panel.entry.reason_other	Otro beneficio verificado
-panel.reward.manual_association_hint	La respuesta anterior de Twitch quedó ambigua. Elige la recompensa administrable asociada a esta cola. La elección se audita y no confirma operaciones financieras mediante la API.
+panel.reward.manual_association_hint	La lista se consulta directamente en Twitch. Elige una recompensa administrable por esta aplicación que coincida con la configuración de la cola; el vínculo queda auditado.
 panel.commands.policy_title	Cómo funcionan los permisos
 panel.commands.policy_help	El streamer siempre puede usar comandos configurables. Los cargos superiores heredan acceso. VIP depende de la opción actual. El acceso de seguidores requiere autorización Twitch adicional y se verifica en cada uso.
 panel.commands.group.configurable	Acceso de la audiencia
@@ -193,7 +195,9 @@ panel.queue.empty_group	Nadie por ahora
 panel.queue.status.open	ABIERTA
 panel.queue.status.closed	CERRADA
 panel.queue.status.pending_delete	Eliminación pendiente: esperando la confirmación de cancelaciones y de la recompensa.
+panel.queue.status.pending_local_delete	Eliminación local pendiente: esperando la confirmación de todos los canjes conocidos y las operaciones financieras relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa pausada se conservará.
 panel.queue.action.delete	Eliminar cola
+panel.queue.action.retry_local_delete	Comprobar eliminación
 panel.queue.action.configure	Configurar
 panel.queue.action.edit_reward	Editar recompensa
 panel.queue.action.unarchive	Desarchivar
@@ -202,8 +206,20 @@ panel.queue.action.clear	Vaciar cola
 panel.queue.action.add	Añadir
 panel.queue.action.open	Abrir
 panel.queue.action.close	Cerrar
+panel.queue.action.activate	Activar cola
+panel.queue.action.pause	Pausar cola
 panel.queue.action.archive	Archivar
 panel.queue.action.resolve_reward	Vincular recompensa
+panel.queue.action_blocked.reward_unresolved	Los controles están pausados hasta vincular y confirmar una recompensa de Twitch. Usa «Vincular recompensa» para continuar.
+panel.queue.action_blocked.reward_creation_pending	Los controles estarán disponibles cuando Twitch confirme la creación de la recompensa.
+panel.queue.action_blocked.remote_operation_pending	Los controles esperan que termine la operación pendiente de Twitch.
+panel.queue.action_blocked.queue_mode_transition_pending	Las llamadas y los controles de la cola están pausados hasta que Twitch confirme que la recompensa está pausada. Se pueden añadir entradas manualmente mientras se resuelve el cambio.
+panel.queue.action_blocked.queue_not_active	Esta cola se está eliminando y no se puede cambiar.
+panel.queue.delete_blocked.reward_unresolved	No se puede eliminar porque la recompensa no está identificada. Resuelve el vínculo primero para evitar borrar la recompensa equivocada.
+panel.queue.delete_blocked.reward_creation_pending	No se puede eliminar mientras Twitch confirma la creación de la recompensa.
+panel.queue.delete_blocked.remote_operation_pending	No se puede eliminar mientras haya una operación de Twitch pendiente.
+panel.queue.delete_blocked.queue_mode_transition_pending	No se puede eliminar mientras cambia el modo de la cola.
+panel.queue.delete_blocked.queue_not_active	Esta cola ya se está eliminando o fue eliminada.
 panel.queue.history.title	Historial reciente
 panel.queue.history.empty	Todavía no hay atenciones finalizadas.
 panel.queue.history.date_unavailable	Fecha no disponible
@@ -225,6 +241,11 @@ panel.queue.sync.pending	sincronización pendiente
 panel.queue.sync.unknown	resultado desconocido · revísalo en el panel
 panel.queue.sync.failed	error de sincronización · revísalo en el panel
 panel.queue.sync.not_synced	sin sincronización confirmada
+panel.queue.sync.diverged	la configuración difiere en Twitch · requiere revisión
+panel.queue.onboarding.reward_pending	La cola está guardada y cerrada. Twitch aún debe confirmar la recompensa; no podrá activarse antes.
+panel.queue.onboarding.reward_diverged	La cola está guardada y cerrada, pero la recompensa de Twitch difiere de la configuración guardada. Revisa la diferencia antes de continuar.
+panel.queue.onboarding.activate_next	Configuración guardada. Revisa la cola abajo; seguirá cerrada hasta que la actives.
+panel.queue.onboarding.activate_waiting	Configuración guardada. La cola seguirá cerrada mientras Twitch confirma la recompensa.
 panel.command.role.everyone	Todos
 panel.command.role.follower	Seguidores
 panel.command.role.subscriber	Suscriptores
@@ -385,14 +406,19 @@ panel.priority.invalid_reason	Selecciona una opción del 1 al 4.
 panel.priority.marked	La prioridad quedó registrada y auditada. El operador verificó el beneficio.
 panel.priority.removed	Se quitó la prioridad.
 panel.queue.confirm.archive	¿Archivar esta cola? Dejará de aparecer en el descubrimiento, pero se conservarán las entradas existentes. Se pausará la recompensa.
+panel.queue.confirm.archive_local	¿Archivar esta cola local? Dejará de aparecer en el descubrimiento, pero se conservarán las entradas existentes.
+panel.queue.confirm.archive_converted	¿Archivar esta cola manual convertida? Dejará de aparecer en el descubrimiento, se conservarán las entradas existentes y la recompensa de Twitch seguirá pausada.
 panel.queue.confirm.unarchive	¿Desarchivar esta cola? Permanecerá cerrada hasta que la abras.
 panel.queue.archive.pending	Archivado solicitado; esperando confirmación de Twitch.
 panel.queue.archive.done	Cola archivada.
 panel.queue.unarchive.done	Cola desarchivada y permanece cerrada.
 panel.queue.confirm.delete	¿Eliminar la cola “{title}” y su recompensa de Twitch? Se quitarán {count} entradas activas y se solicitará cancelar sus canjes. La recompensa solo se eliminará cuando se confirmen todas las cancelaciones. Puede quedar pendiente si Twitch no confirma.
-panel.queue.delete.pending	Se inició la eliminación. La cola quedará pendiente hasta que Twitch confirme las cancelaciones y la eliminación de la recompensa.
-panel.queue.delete.done	La cola ya se había eliminado.
-panel.reward.no_candidates	No se encontró una recompensa administrable de Twitch compatible. Revisa la cola y las recompensas administrables en la consola de Twitch.
+panel.queue.confirm.delete_local	¿Eliminar la cola local “{title}”? Se quitarán {count} entradas activas. Esta cola no tiene recompensas ni canjes de Twitch vinculados.
+panel.queue.confirm.delete_converted	¿Eliminar la cola manual “{title}”? Se quitarán {count} entradas activas. La eliminación seguirá pendiente hasta confirmar todos los canjes conocidos y las operaciones financieras relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
+panel.queue.confirm.retry_delete_converted	Comprueba si se confirmaron todos los canjes conocidos pendientes y las operaciones financieras relacionadas. Si es así, se eliminará la cola local. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
+panel.queue.delete.pending	Se inició la eliminación local. La cola seguirá pendiente hasta que se confirmen todos los canjes conocidos y las operaciones financieras relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá intacta.
+panel.queue.delete.done	Cola eliminada. Se conservó el historial de canjes y la recompensa de Twitch sigue pausada.
+panel.reward.no_candidates	La consulta se completó, pero no se encontró una recompensa administrable por esta aplicación, pausada y compatible con todos los ajustes de la cola. Las acciones remotas, como eliminar, siguen bloqueadas hasta confirmar la propiedad. Revisa las diferencias y actualiza la lista.
 panel.queue.clear.empty	La cola ya está vacía.
 panel.queue.clear.confirm	¿Vaciar la cola “{title}”? Se quitarán {count} personas y se solicitarán {refunds} reembolsos. La confirmación es válida durante 15 segundos.
 panel.queue.clear.changed	La cola cambió. Revisa la nueva confirmación para {count} personas.
@@ -440,10 +466,34 @@ panel.entry.dialog_title	Entrada en la cola
 panel.entry.twitch_login	Usuario de Twitch
 panel.entry.uid_optional	UID (opcional)
 panel.entry.benefit	Beneficio verificado
-panel.reward.dialog_eyebrow	ASOCIACIÓN MANUAL
-panel.reward.dialog_title	Recompensa de Twitch
+panel.reward.dialog_eyebrow	RECUPERAR RECOMPENSA
+panel.reward.dialog_title	Buscar la recompensa de la cola
+panel.reward.lookup_error_title	No se pudieron consultar las recompensas de Twitch
+panel.reward.link_error_title	No se pudo vincular la recompensa
+panel.reward.link_success	Recompensa vinculada y asociación registrada.
+panel.reward.candidates_found_title	Consulta completada
 panel.reward.compatible_rewards	Recompensas compatibles
+panel.reward.loading_candidates	Consultando recompensas administrables en Twitch…
+panel.reward.refresh_candidates	Actualizar lista de Twitch
 panel.reward.link_selected	Vincular recompensa seleccionada
+panel.reward.no_candidates_title	Ninguna recompensa coincide con esta cola
+panel.reward.candidate_counts	{compatible} compatibles de {total} recompensas administrables consultadas.
+panel.reward.mismatch_summary	Diferencias encontradas: {reasons}.
+panel.reward.mismatch_overlap	Los recuentos pueden solaparse porque una recompensa puede tener varias diferencias. No se muestran datos de recompensas incompatibles.
+panel.reward.mismatch.title	Título diferente ({count})
+panel.reward.mismatch.cost	Coste en puntos diferente ({count})
+panel.reward.mismatch.prompt	Descripción diferente ({count})
+panel.reward.mismatch.uid	Regla del campo de texto diferente ({count})
+panel.reward.mismatch.stream_limit	Límite por directo diferente ({count})
+panel.reward.mismatch.viewer_limit	Límite por persona diferente ({count})
+panel.reward.mismatch.cooldown	Intervalo global diferente ({count})
+panel.reward.mismatch.auto_fulfill	Finalización automática activada ({count})
+panel.reward.mismatch.skip_queue	Solicitudes fuera de la cola activadas ({count})
+panel.reward.mismatch.disabled	Recompensa desactivada ({count})
+panel.reward.mismatch.not_paused	Recompensa no pausada ({count})
+panel.reward.step.title	Comprueba el título y el coste configurados en la cola y Twitch.
+panel.reward.step.settings	Comprueba la descripción, el campo de texto y los límites.
+panel.reward.step.paused	Mantén la recompensa activa y pausada para canjear; después actualiza la lista.
 panel.form.queue_name_placeholder	p. ej., Abismo Espiral
 panel.settings.account_fallback	Streamer
 panel.entry.login_placeholder	@usuario
@@ -457,9 +507,60 @@ panel.error.twitch_authorization	No se pudo autorizar Twitch. Vuelve a conectar 
 panel.error.oauth_return	La respuesta de autorización caducó o no corresponde a esta sesión. Inicia la conexión de nuevo.
 panel.error.widget_link	Este enlace del widget no se puede volver a mostrar. Genera uno nuevo.
 panel.error.invalid_action	El estado cambió. Actualiza el panel e inténtalo de nuevo.
+panel.error.invalid_queue_settings	Revisa la configuración de la cola e inténtalo de nuevo.
+panel.error.invalid_call_template	Usa solo los campos de llamada indicados en la ayuda.
+panel.error.invalid_reward_settings	Revisa el nombre, coste, descripción y límites de la recompensa.
+panel.error.invalid_local_queue_setting	Cambia el UID y la recompensa en el editor de recompensas de Twitch.
+panel.error.stale_queue_settings	La cola cambió mientras la editabas. Actualiza el panel e inténtalo de nuevo.
+panel.error.queue_not_found	Esta cola ya no existe. Actualiza el panel.
+panel.error.queue_not_available	Esta cola se está eliminando y no se puede modificar.
+panel.error.reward_update_pending	Ya hay una actualización de recompensa en curso. Actualiza el panel para ver su estado.
+panel.error.reward_not_ready	La recompensa de esta cola aún no está confirmada. Actualiza el panel y revisa las operaciones pendientes.
 panel.widget.preview.account	Asia 1
 panel.widget.card_details	{queue}{width} × {height} · Widget {id}
 panel.widget.auto	automático
 panel.queue_settings.call_message_default	{user}, ¡es tu turno!
 panel.command.follower_scope_lost	Hay comandos configurados para seguidores, pero el permiso de Twitch no está disponible. Vuelve a autorizar para restaurarlo.
 panel.command.follower_reauthorize	Volver a autorizar acceso de seguidores
+panel.health.twitch_chat	Chat de Twitch
+panel.health.twitch_rewards	Recompensas de puntos del canal
+panel.health.chat.connected	Conectado
+panel.health.chat.not_configured	No configurado
+panel.health.chat.connecting	Conectando
+panel.health.chat.degraded	Inestable
+panel.health.chat.retrying	Reconectando
+panel.health.chat.reconnect_required	Se requiere reconectar
+panel.health.chat.stopped	Detenido
+panel.health.chat.unknown	Estado desconocido
+panel.health.rewards.available	Disponibles
+panel.health.rewards.not_configured	No configuradas
+panel.health.rewards.unsupported	No disponibles para este canal
+panel.health.rewards.unknown	Comprobando
+panel.health.rewards.reconnect_required	Se requiere autorización
+panel.health.rewards.stopped	Desactivadas
+panel.form.queue_mode	Tipo de cola
+panel.form.mode_channel_points	Puntos del canal con recompensa exclusiva del bot
+panel.form.mode_manual	Local, con entradas manuales gratuitas
+panel.queue.mode.manual	Cola local · entrada manual gratuita
+panel.queue.sync.local	cola local
+panel.queue.action.manual_mode	Usar cola local
+panel.queue.action.manual_mode_retry	Reintentar solicitud de pausa segura
+panel.queue.confirm.manual_mode	La recompensa se pausará en Twitch; se conservarán los canjes existentes y sus operaciones financieras. La cola solo cambiará a modo manual después de que Twitch confirme la pausa. ¿Continuar?
+panel.queue.confirm.manual_mode_retry	¿Reintentar la solicitud segura de pausa de esta recompensa Twitch? La cola seguirá vinculada a la recompensa hasta que Twitch confirme la pausa; se conservarán los canjes y operaciones financieras existentes.
+panel.queue.mode_transition.pending	Pausa de Twitch pendiente; los canjes durante el cambio se cancelarán.
+panel.queue.mode_transition.unknown	Twitch aún no confirmó la pausa. Reconéctate y reintenta; el modo local solo se activa tras la confirmación.
+panel.queue.mode_transition.failed	Twitch no confirmó la pausa. Revisa la conexión y reintenta; la cola sigue vinculada a la recompensa hasta confirmarla.
+panel.queue.mode_transition.done	La cola cambió al modo local. Los canjes anteriores se conservaron.
+panel.queue.mode.converted	Convertida desde una recompensa Twitch · la recompensa histórica sigue pausada
+panel.error.queue_mode_transition_pending	La cola está cambiando de modo. Espera a que Twitch confirme la pausa.
+panel.error.queue_mode_transition_unavailable	La cola no puede cambiar de modo en su estado actual. Actualiza el panel y revisa las operaciones.
+panel.entry.call.awaiting_delivery	El plazo aún no ha comenzado; esperando la confirmación del envío.
+panel.entry.call.no_deadline	No hay plazo automático para iniciar la atención.
+panel.entry.call.remaining	Tiempo para iniciar la atención: quedan {time}.
+panel.entry.call.expired	El plazo terminó; esperando la actualización de la atención.
+panel.confirmation.title	Confirmar acción
+panel.confirmation.cancel	Cancelar
+panel.confirmation.accept	Aceptar
+panel.queue.status.pending_local_delete_diverged	La eliminación local está pausada porque hay que verificar el estado de la recompensa de Twitch. Los canjes y las operaciones financieras relacionadas siguen en recuperación; los canjes posteriores de Twitch se detectarán y registrarán para su cancelación. Esta aplicación no cambiará la recompensa.
+panel.queue.confirm.retry_delete_converted_diverged	Comprueba el progreso de la eliminación. La cola seguirá pendiente hasta que Twitch confirme que la recompensa histórica está pausada y se resuelvan todos los canjes conocidos y las operaciones financieras relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. Esta acción no cambiará la recompensa de Twitch.
+panel.queue.status.deletion_complete	La eliminación de la cola ha finalizado.

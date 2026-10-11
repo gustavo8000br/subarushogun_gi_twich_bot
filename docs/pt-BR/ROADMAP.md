@@ -14,7 +14,7 @@ Estado conferido com o índice local de stories e as issues do GitHub em 2026-10
 | FND-6 — Painel do streamer e segurança local ([#6](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/6)) | Concluída; escritas reais na Twitch não verificadas |
 | FND-7 — Widgets locais para OBS ([#7](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/7)) | Concluída; QA PASS 9,2/10. Certificado OBS no Windows/macOS e escritas reais Twitch não verificados |
 | FND-8 — Localização do produto ([#18](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/18)) | Concluída; mesclada na PR #31; QA PASS 9,2/10 |
-| FND-9 — Filas manuais para canais inelegíveis ([#19](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/19)) | Issue de planejamento aberta; implementação não iniciada |
+| FND-9 — Filas locais/com reward conforme capacidade Twitch ([#19](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/19)) | Implementação em andamento; retry, recuperação de resgate atrasado e estados acessíveis estão em validação final. Exclusão de fila manual convertida é local e aguarda bloqueios financeiros. QA/UX independente de acessibilidade e prova autorizada de resgates continuam pendentes |
 | OPS-1 — CI para API, infra e web ([#20](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/20)) | Concluída; mesclada na PR #12 |
 | OPS-2 — Status Twitch localizado com segurança ([#21](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/21)) | Concluída; mapa inicial na PR #13 e precedência/localização na PR #31 da FND-8 |
 | OPS-3 — Catálogo de comandos e permissões por cargo ([#17](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/17)) | Concluída; mesclada na PR #24 |
@@ -26,7 +26,7 @@ Estado conferido com o índice local de stories e as issues do GitHub em 2026-10
 | OPS-9 — Regras unificadas de acesso a comandos | Concluída; mesclada na PR #44; AIOX-QA PASS |
 | OPS-10 — Separar CI de PR da entrega de imagem na main ([#45](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/45)) | Concluída; mesclada na PR #46 (`01c63d9`); QA PASS 9,4/10 |
 | DOC-2 — Capturas bilíngues corretas do produto ([#40](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/40)) | Aberta; capturas/GIF planejados depois da FND-9; revisão visual registrada |
-| DOC-3 — Auditoria completa de consistência documental e padrão UX | Próxima story solicitada pelo proprietário após OPS-8, FND-9 e DOC-2; ainda não planejada nem publicada como issue |
+| DOC-3 — Auditoria completa de consistência documental e padrão UX ([#48](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/48)) | Planejada após FND-9 e DOC-2; issue e story bilíngue publicadas |
 
 Consulte critérios de aceite e evidências detalhadas no [índice de stories](stories.md) e na [versão em inglês](../stories.md).
 
@@ -35,4 +35,4 @@ Consulte critérios de aceite e evidências detalhadas no [índice de stories](s
 Estas ideias solicitadas pelo proprietário são candidatas ao backlog; ainda não são stories ou issues refinadas:
 
 - Incluir capturas de tela selecionadas na documentação em inglês e pt-BR, com processo definido para capturar e atualizar as imagens.
-- **Sequência atual autorizada:** FND-9 → DOC-2 → DOC-3 (auditoria documental completa). OPS-7 foi mesclada na PR #42; OPS-8 na PR #43 com QA PASS 9,5/10; OPS-9 na PR #44; OPS-10 na PR #46 com QA PASS 9,4/10. O proprietário pediu uma pré-revisão visual e o ajuste de Cargos e permissões antes da FND-9; a DOC-2 registra a revisão e os requisitos de mídia. As capturas/GIF continuam depois da FND-9. O proprietário autorizou condicionalmente `beta` somente depois da conclusão de OPS-8, FND-9 e DOC-2; DOC-3 continua como auditoria documental final solicitada. Não promover o stage antes de cumprir a condição de release.
+- **Sequência atual de implementação:** FND-9 → DOC-2 → DOC-3 (#48, auditoria documental completa). OPS-7 foi mesclada na PR #42; OPS-8 na PR #43 com QA PASS 9,5/10; OPS-9 na PR #44; OPS-10 na PR #46 com QA PASS 9,4/10. O proprietário pediu uma pré-revisão visual e o ajuste de Cargos e permissões antes da FND-9; a DOC-2 registra a revisão e os requisitos de mídia. As capturas/GIF continuam depois da FND-9. **A promoção para beta não tem data definida:** o produto permanece `alpha` após a FND-9 até concluir o reteste nativo Windows da FND-1, a aceitação completa da FND-9, DOC-2, DOC-3, outras mudanças importantes priorizadas pelo proprietário e seus gates de release. Somente o proprietário aprova explicitamente a prontidão para beta. Não promover o estágio antes dessa aprovação.

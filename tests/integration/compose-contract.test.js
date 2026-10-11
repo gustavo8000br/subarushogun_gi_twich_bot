@@ -38,6 +38,7 @@ describe('local Compose runtime contract', () => {
       host_ip: '127.0.0.1', target: 3000, published: '3000',
     }));
     expect(config.services.bot.environment.APP_PORT).toBe('3000');
+    expect(config.services.bot.environment.APP_LOG_LEVEL).toBe('info');
     expect(config.services.bot.environment.PUBLIC_BASE_URL).toBe('https://localhost:3000');
     expect(config.services.bot.environment.CALLBACK_URL).toBe('https://localhost:3000/callback');
     expect(config.services.bot.environment.TLS_CERT_FILE).toBe('/run/secrets/localhost.crt');
@@ -50,7 +51,7 @@ describe('local Compose runtime contract', () => {
     const result = spawnSync('docker', ['compose', '-f', composePath, 'config', '--format', 'json'], {
       cwd: root,
       encoding: 'utf8',
-      env: { ...process.env, APP_PORT: '3217' },
+      env: { ...process.env, APP_PORT: '3217', APP_LOG_LEVEL: 'debug' },
     });
     expect(result.status, result.stderr).toBe(0);
     const config = JSON.parse(result.stdout);
@@ -58,6 +59,7 @@ describe('local Compose runtime contract', () => {
       host_ip: '127.0.0.1', target: 3217, published: '3217',
     }));
     expect(config.services.bot.environment.APP_PORT).toBe('3217');
+    expect(config.services.bot.environment.APP_LOG_LEVEL).toBe('debug');
     expect(config.services.bot.environment.PUBLIC_BASE_URL).toBe('https://localhost:3217');
     expect(config.services.bot.environment.CALLBACK_URL).toBe('https://localhost:3217/callback');
   });

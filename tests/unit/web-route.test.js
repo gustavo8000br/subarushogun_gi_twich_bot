@@ -45,6 +45,10 @@ describe('local web entrypoint', () => {
     expect(page).toContain('id="credentials-form"');
     expect(page).toMatch(/data-panel-page="queues"[\s\S]*?id="queue-list"/);
     expect(page).toMatch(/data-panel-page="new-queue"[\s\S]*?id="queue-form"/);
+    expect(page).toContain('name="queueMode"');
+    expect(page).toContain('value="manual_only"');
+    expect(page).toContain('id="queue-reward-fields"');
+    expect(page).toContain('id="queue-cost-field"');
     expect(page).toMatch(/data-panel-page="operations"[\s\S]*?id="operation-list"/);
     expect(page).toContain('name="maxRedemptionsPerStream"');
     expect(page).toContain('name="maxRedemptionsPerUserPerStream"');
@@ -55,6 +59,12 @@ describe('local web entrypoint', () => {
     expect(script.body).toContain('getInitialPanelPage(setup)');
     expect(script.body).toContain("selectPanelPage(pageId");
     expect(script.body).toContain('maxRedemptionsPerStream: optionalLimit(values.get');
+    expect(script.body).toContain("queueMode === 'channel_points'");
+    expect(script.body).toContain('queue-reward-fields');
+    expect(script.body).toContain('/manual-mode');
+    expect(script.body).toContain("queue.modeTransitionStatus === 'pending_pause'");
+    expect(script.body).toContain('getCallDeadlinePresentation(entry)');
+    expect(script.body).toContain('panelText(deadline.key, deadline.values)');
   });
 
   it('offers a locale picker populated from discovered catalogs and saves it without restarting', async () => {
@@ -170,8 +180,9 @@ describe('local web entrypoint', () => {
     await registerWebRoutes(app, webRoot);
     const script = await app.inject({ method: 'GET', url: '/app.js' });
     expect(script.body).toContain("action(panelText('panel.queue.action.delete'), 'delete-queue'");
+    expect(script.body).toContain("action(panelText('panel.queue.action.retry_local_delete'), 'delete-queue'");
     expect(script.body).toContain('body: JSON.stringify({ confirm: true })');
-    expect(script.body).toContain("panelText('panel.queue.confirm.delete'");
+    expect(script.body).toContain("panelText(getQueueConfirmationCopy(queue, 'delete'), { title: queue?.title ?? '', count: activeCount })");
     expect(script.body).toContain("panel.queue.delete.pending");
     await app.close();
   });

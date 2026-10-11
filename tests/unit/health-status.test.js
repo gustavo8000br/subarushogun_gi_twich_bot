@@ -2,11 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { formatHealthStatus } from '../../apps/web/health-status.mjs';
 
 describe('streamer panel health status projection', () => {
+  it('separates API reachability from a degraded Twitch reward integration', () => {
+    expect(formatHealthStatus({ status: 'ok', dependencies: {
+      database: 'connected', twitch_api: 'connected', twitch_integration: 'degraded', twitch_api_ping_ms: 31,
+    } })).toMatchObject({ twitch: 'Conectada', integration: 'Instável', ping: '31 ms', overall: 'Verificar conexão' });
+  });
+
+  it('shows chat connectivity and reward capability independently for an ineligible channel', () => {
+    expect(formatHealthStatus({ status: 'ok', dependencies: {
+      database: 'connected', twitch_api: 'ineligible', twitch_api_ping_ms: 87,
+      twitch_chat: 'connected', twitch_rewards: 'unsupported',
+    } })).toMatchObject({ database: 'Conectado', twitch: 'Canal não elegível', chat: 'Conectado', rewards: 'Indisponíveis neste canal', ping: '87 ms' });
+  });
+
   it('renders database and Twitch state plus a numeric API response time in pt-BR', () => {
     expect(formatHealthStatus({ status: 'ok', product_version: 'v0.2.0-0000000-alpha', dependencies: {
       database: 'connected', twitch_api: 'connected', twitch_api_ping_ms: 42,
     } })).toEqual({
-      database: 'Conectado', twitch: 'Conectada', ping: '42 ms', overall: 'Operacional',
+      database: 'Conectado', twitch: 'Conectada', chat: 'Não configurado', rewards: 'Não configuradas', ping: '42 ms', overall: 'Operacional',
     });
   });
 
@@ -14,7 +27,7 @@ describe('streamer panel health status projection', () => {
     expect(formatHealthStatus({ status: 'ok', dependencies: {
       database: 'connected', twitch_api: 'not_configured', twitch_api_ping_ms: null,
     } })).toEqual({
-      database: 'Conectado', twitch: 'Não configurada', ping: 'Sem medição', overall: 'Operacional',
+      database: 'Conectado', twitch: 'Não configurada', chat: 'Não configurado', rewards: 'Não configuradas', ping: 'Sem medição', overall: 'Operacional',
     });
   });
 
@@ -22,14 +35,14 @@ describe('streamer panel health status projection', () => {
     expect(formatHealthStatus({ status: 'unavailable', dependencies: {
       database: 'unavailable', twitch_api: 'reconnect_required', twitch_api_ping_ms: null,
     } })).toEqual({
-      database: 'Indisponível', twitch: 'Reconexão necessária', ping: 'Sem medição', overall: 'Verificar conexão',
+      database: 'Indisponível', twitch: 'Reconexão necessária', chat: 'Não configurado', rewards: 'Não configuradas', ping: 'Sem medição', overall: 'Verificar conexão',
     });
   });
 
   it('shows automatic reconnection as a retrying state', () => {
     expect(formatHealthStatus({ status: 'ok', dependencies: {
       database: 'connected', twitch_api: 'retrying', twitch_api_ping_ms: null,
-    } })).toEqual({ database: 'Conectado', twitch: 'Reconectando', ping: 'Sem medição', overall: 'Verificar conexão' });
+    } })).toEqual({ database: 'Conectado', twitch: 'Reconectando', chat: 'Não configurado', rewards: 'Não configuradas', ping: 'Sem medição', overall: 'Verificar conexão' });
   });
 
   it('localizes dependency states and fallback copy using the selected product catalog', () => {
@@ -47,6 +60,8 @@ describe('streamer panel health status projection', () => {
         'panel.health.twitch.ineligible': 'Channel ineligible',
         'panel.health.twitch.stopped': 'Disconnected',
         'panel.health.twitch.unknown': 'Unknown state',
+        'panel.health.chat.not_configured': 'Not configured',
+        'panel.health.rewards.not_configured': 'Not configured',
         'panel.health.ping_unavailable': 'No measurement',
         'panel.health.overall.operational': 'Operational',
         'panel.health.overall.check': 'Check connection',
@@ -55,7 +70,7 @@ describe('streamer panel health status projection', () => {
     expect(formatHealthStatus({ dependencies: {
       database: 'unavailable', twitch_api: 'reconnect_required', twitch_api_ping_ms: null,
     } }, 'en', catalogs)).toEqual({
-      database: 'Unavailable', twitch: 'Reconnect required', ping: 'No measurement', overall: 'Check connection',
+      database: 'Unavailable', twitch: 'Reconnect required', chat: 'Not configured', rewards: 'Not configured', ping: 'No measurement', overall: 'Check connection',
     });
   });
 });

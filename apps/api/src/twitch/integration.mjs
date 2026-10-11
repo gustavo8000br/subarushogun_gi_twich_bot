@@ -21,11 +21,12 @@ function retryDelay(attempt, random) {
 
 /**
  * Start Twitch supervision without making local HTTP readiness depend on Twitch availability.
- * @param {{credentialRepository: any, repository: any, domainService: any, onChatMessage?: (event: object) => unknown, onStatus?: (status: object) => unknown, authRuntimeFactory?: (input: any) => Promise<any>, apiFactory?: (options: any) => any, adapterFactory?: (input: any) => any, eventSubRuntimeFactory?: (input: any) => any, reconcilerFactory?: (input: any) => any, setIntervalImpl?: typeof setInterval, clearIntervalImpl?: typeof clearInterval, setTimeoutImpl?: typeof setTimeout, clearTimeoutImpl?: typeof clearTimeout, random?: () => number, redirectUri?: string, fetchImpl?: typeof fetch, oauthStateStore?: any, authProviderFactory?: (config: any) => any, validateOAuthToken?: (token: string, clientId: string) => Promise<any>}} dependencies
+ * @param {{credentialRepository: any, repository: any, domainService: any, onChatMessage?: (event: object) => unknown, onStatus?: (status: object) => void, reportDiagnostic?: (event: object) => string, authRuntimeFactory?: (input: any) => Promise<any>, apiFactory?: (options: any) => any, adapterFactory?: (input: any) => any, eventSubRuntimeFactory?: (input: any) => any, reconcilerFactory?: (input: any) => any, setIntervalImpl?: typeof setInterval, clearIntervalImpl?: typeof clearInterval, setTimeoutImpl?: typeof setTimeout, clearTimeoutImpl?: typeof clearTimeout, random?: () => number, redirectUri?: string, fetchImpl?: typeof fetch, oauthStateStore?: any, authProviderFactory?: (config: any) => any, validateOAuthToken?: (token: string, clientId: string) => Promise<any>}} dependencies
  */
 export async function createTwitchIntegration({
   credentialRepository, repository, domainService, onChatMessage = () => undefined,
   onStatus = () => undefined,
+  reportDiagnostic = () => null,
   authRuntimeFactory = (input) => createRefreshingAuthRuntime(input),
   apiFactory = (options) => new ApiClient(options),
   adapterFactory = (input) => createTwitchApiAdapter(input),
@@ -41,6 +42,8 @@ export async function createTwitchIntegration({
 }) {
   let credential = await credentialRepository.getAuthRecord();
   let status = credential?.accessToken && credential?.refreshToken ? 'connecting' : 'not_configured';
+  let chatStatus = credential?.accessToken && credential?.refreshToken ? 'connecting' : 'not_configured';
+  let rewardStatus = credential?.accessToken && credential?.refreshToken ? 'unknown' : 'not_configured';
   let channelEligibility = null;
   let twitchApiProbe = null;
   let api;
@@ -70,6 +73,7 @@ export async function createTwitchIntegration({
     reconcileTimer = undefined;
     api = undefined; twitch = undefined; processor = undefined; reconciler = undefined; twitchApiProbe = null;
     eventSubAvailable = false;
+    if (!stopped && credential?.accessToken && credential?.refreshToken) chatStatus = 'connecting';
   };
   const scheduleRetry = (reason) => {
     if (stopped || authLost || retryTimer) return;
@@ -98,9 +102,11 @@ export async function createTwitchIntegration({
   };
   const startSession = async () => {
     api = apiFactory({ authProvider: authRuntime.provider });
-    twitch = adapterFactory({ api, broadcasterId: credential.broadcasterId, authProvider: authRuntime.provider });
+    twitch = adapterFactory({ api, broadcasterId: credential.broadcasterId, clientId: credential.clientId, authProvider: authRuntime.provider, fetchImpl });
     twitchApiProbe = () => twitch.ping();
     channelEligibility = await twitch.getChannelEligibility();
+    rewardStatus = channelEligibility.eligible ? 'available'
+      : channelEligibility.reason === 'channel_ineligible' ? 'unsupported' : 'unknown';
     if (stopped) return;
     if (channelEligibility.reason === 'access_token_invalid') {
       if (typeof authRuntime?.validateNow !== 'function') {
@@ -109,10 +115,12 @@ export async function createTwitchIntegration({
       }
       const refreshed = await authRuntime.validateNow();
       if (!refreshed || stopped) return;
-      channelEligibility = await twitch.getChannelEligibility();
+        channelEligibility = await twitch.getChannelEligibility();
+        rewardStatus = channelEligibility.eligible ? 'available'
+          : channelEligibility.reason === 'channel_ineligible' ? 'unsupported' : 'unknown';
       if (stopped) return;
     }
-    if (!channelEligibility.eligible) {
+    if (!channelEligibility.eligible && channelEligibility.reason !== 'channel_ineligible') {
       if (channelEligibility.reason === 'authorization_required') {
         authLost = true;
         await credentialRepository.markReconnectRequired(credential.clientId);
@@ -124,27 +132,42 @@ export async function createTwitchIntegration({
         scheduleRetry('channel_points_unavailable');
         return;
       }
-      authRuntime?.stop?.(); authRuntime = undefined;
+      rewardStatus = channelEligibility.reason === 'authorization_required' ? 'reconnect_required' : 'unsupported';
       publishStatus('ineligible', { broadcasterType: channelEligibility.broadcasterType });
-      return;
+    } else if (channelEligibility.reason === 'channel_ineligible') {
+      rewardStatus = 'unsupported';
+      publishStatus('ineligible', { broadcasterType: channelEligibility.broadcasterType });
     }
-    processor = createTwitchRedemptionProcessor({ repository, domainService, broadcasterId: credential.broadcasterId });
-    reconciler = reconcilerFactory({ repository, twitch, processor, broadcasterId: credential.broadcasterId });
+    if (channelEligibility.eligible) {
+      processor = createTwitchRedemptionProcessor({ repository, domainService, broadcasterId: credential.broadcasterId });
+      reconciler = reconcilerFactory({ repository, twitch, processor, broadcasterId: credential.broadcasterId });
+    }
     let initialReady = false;
     eventSubRuntime = eventSubRuntimeFactory({
       apiClient: api, broadcasterId: credential.broadcasterId,
-      onRedemptionAdd: processor.onRedemptionAdd, onRedemptionUpdate: processor.onRedemptionUpdate, onChatMessage,
+      reportError: reportDiagnostic,
+      onRedemptionAdd: processor?.onRedemptionAdd ?? (() => undefined),
+      onRedemptionUpdate: processor?.onRedemptionUpdate ?? (() => undefined),
+      onChatMessage,
       onReady: () => {
         if (initialReady || stopped) return;
         initialReady = true;
         eventSubAvailable = true;
+        chatStatus = 'connected';
         retryAttempt = 0;
+        if (!channelEligibility.eligible) return;
         reconcileTimer = setIntervalImpl(() => void reconcile('periodic'), 5 * 60 * 1000);
         return reconcile('startup');
       },
-      onReconnected: () => { eventSubAvailable = true; return reconcile('reconnect'); },
+      redemptionsEnabled: channelEligibility.eligible,
+      onReconnected: () => {
+        eventSubAvailable = true;
+        chatStatus = 'connected';
+        return channelEligibility.eligible ? reconcile('reconnect') : undefined;
+      },
       onDisconnect: ({ established }) => {
         eventSubAvailable = false;
+        chatStatus = 'degraded';
         publishStatus('degraded', { reason: established ? 'eventsub_disconnected' : 'eventsub_startup_disconnected' });
         if (!established) {
           eventSubRuntime?.stop?.(); eventSubRuntime = undefined;
@@ -153,9 +176,17 @@ export async function createTwitchIntegration({
       },
       onRevoked: (type, revokeStatus) => {
         if (revokeStatus === 'authorization_revoked') {
-          authLost = true; publishStatus('reconnect_required', { revokedSubscription: type });
-          void credentialRepository.markReconnectRequired(credential.clientId);
-          eventSubRuntime?.stop?.();
+          if (type === 'channel.chat.message') {
+            authLost = true;
+            chatStatus = 'reconnect_required';
+            rewardStatus = 'reconnect_required';
+            publishStatus('reconnect_required', { revokedSubscription: type });
+            void credentialRepository.markReconnectRequired(credential.clientId);
+            eventSubRuntime?.stop?.();
+          } else {
+            rewardStatus = 'reconnect_required';
+            publishStatus('degraded', { revokedSubscription: type, revokeStatus });
+          }
         } else publishStatus('degraded', { revokedSubscription: type, revokeStatus });
       },
     });
@@ -171,7 +202,7 @@ export async function createTwitchIntegration({
       try {
         authRuntime = await authRuntimeFactory({
           credential, credentialRepository, redirectUri, providerFactory: authProviderFactory,
-          onAuthLost: () => { authLost = true; clearSession(); publishStatus('reconnect_required'); },
+          onAuthLost: () => { authLost = true; clearSession(); chatStatus = 'reconnect_required'; rewardStatus = 'reconnect_required'; publishStatus('reconnect_required'); },
           onTransientFailure: () => publishStatus('retrying', { reason: 'token_validation_unavailable' }),
           onRecovered: () => {
             if (eventSubAvailable) publishStatus('connected');
@@ -180,7 +211,7 @@ export async function createTwitchIntegration({
         });
         if (stopped) { clearSession(); return; }
         if (authRuntime.status === 'reconnect_required') {
-          authLost = true; clearSession(); publishStatus('reconnect_required'); return;
+          authLost = true; clearSession(); chatStatus = 'reconnect_required'; rewardStatus = 'reconnect_required'; publishStatus('reconnect_required'); return;
         }
         if (authRuntime.status !== 'connected' || !authRuntime.provider) {
           clearSession(); scheduleRetry('token_validation_unavailable'); return;
@@ -189,6 +220,7 @@ export async function createTwitchIntegration({
       } catch {
         clearSession();
         channelEligibility = { eligible: false, broadcasterType: 'unknown', reason: 'eligibility_unknown' };
+        rewardStatus = 'unknown';
         scheduleRetry('twitch_unavailable');
       }
     })().finally(() => { attemptPromise = null; });
@@ -199,7 +231,10 @@ export async function createTwitchIntegration({
 
   const integration = {
     oauthStateStore,
+    get twitch() { return twitch ?? null; },
     get status() { return status; },
+    get chatStatus() { return chatStatus; },
+    get rewardStatus() { return rewardStatus; },
     get ready() { return lastAttempt; },
     async probeTwitchApi() { return twitchApiProbe ? twitchApiProbe() : false; },
     async validateAndSaveApplication({ clientId, clientSecret }) {
@@ -211,7 +246,7 @@ export async function createTwitchIntegration({
     },
     async getSetupState() {
       const safe = await credentialRepository.getPublicStatus();
-      return { ...safe, status, eligibility: channelEligibility };
+      return { ...safe, status, chatStatus, rewardStatus, eligibility: channelEligibility };
     },
     async beginAuthorization(sessionId) {
       if (!credential?.clientId || !sessionId) return null;
@@ -270,7 +305,9 @@ export async function createTwitchIntegration({
       retryTimer = undefined;
       clearSession();
       status = 'stopped';
-      onStatus({ status });
+      chatStatus = 'stopped';
+      rewardStatus = rewardStatus === 'not_configured' ? 'not_configured' : 'stopped';
+      onStatus({ status, chatStatus, rewardStatus });
     },
   };
   return integration;

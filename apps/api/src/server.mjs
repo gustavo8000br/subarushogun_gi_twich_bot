@@ -4,11 +4,12 @@ import { readFile } from 'node:fs/promises';
 import { createDatabaseUrl } from '../../infra/src/database-url.mjs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
-import { registerHealthRoute } from './health-route.mjs';
+import { createTwitchHealthBridge, registerHealthRoute } from './health-route.mjs';
 import { registerWebRoutes } from './web-route.mjs';
 import { registerLocalSession } from './http/local-session.mjs';
 import { registerQueueRoutes } from './http/queue-routes.mjs';
 import { createQueueRepository } from './persistence/queue-repository.mjs';
+import { createQueueDomainServiceProxy } from './domain/queue-service.mjs';
 import { createOverlayWidgetRepository } from './persistence/overlay-widget-repository.mjs';
 import { createTwitchCredentialRepository } from './persistence/twitch-credential-repository.mjs';
 import { createApplicationRuntime } from './runtime.mjs';
@@ -21,12 +22,19 @@ import { registerLocalizationRoutes } from './http/localization-routes.mjs';
 import { discoverCatalogModule } from '../../shared/localization/discover-catalog-module.mjs';
 import { writeProductLocaleProjection } from '../../infra/src/product-locale-projection.mjs';
 import { fileURLToPath } from 'node:url';
+import { createErrorDiagnosticReporter } from './observability/error-diagnostics.mjs';
+import { createStructuredLogger } from './observability/structured-logger.mjs';
+import { registerSafeHttpErrorHandler } from './http/safe-http-error-handler.mjs';
+import { createTwitchRouteIntegrationProxy } from './twitch/route-integration-proxy.mjs';
 
 const databaseUrl = await createDatabaseUrl();
 const pool = new pg.Pool({ connectionString: databaseUrl });
 const tlsKey = await readFile(process.env.TLS_KEY_FILE ?? '/run/secrets/localhost.key');
 const tlsCertificate = await readFile(process.env.TLS_CERT_FILE ?? '/run/secrets/localhost.crt');
 const app = Fastify({ logger: false, bodyLimit: 32 * 1024, https: { key: tlsKey, cert: tlsCertificate } });
+const logEvent = createStructuredLogger({ level: process.env.APP_LOG_LEVEL ?? 'info' });
+const reportDiagnostic = createErrorDiagnosticReporter({ logger: logEvent });
+registerSafeHttpErrorHandler(app, { reportDiagnostic });
 const productVersion = (await readFile(new URL('../../../VERSION', import.meta.url), 'utf8')).trim();
 const port = Number(process.env.APP_PORT ?? 3000);
 const catalogRoot = fileURLToPath(new URL('../../web/localization/catalogs/', import.meta.url));
@@ -39,7 +47,7 @@ catch { process.stderr.write('Product locale host projection could not be synchr
 const overlayRepository = createOverlayWidgetRepository(prisma);
 const credentialRepository = createTwitchCredentialRepository(prisma);
 let runtime;
-let getTwitchHealth = () => null;
+const twitchHealthBridge = createTwitchHealthBridge();
 let overlayCatalogCache = null;
 let overlayCatalogCacheAt = 0;
 const getOverlayCatalogs = async () => {
@@ -50,12 +58,7 @@ const getOverlayCatalogs = async () => {
   return overlayCatalogCache;
 };
 const currentCredential = await credentialRepository.getAuthRecord().catch(() => null);
-const domainServiceProxy = {
-  transitionEntry: (input) => runtime.domainService.transitionEntry(input),
-  callNext: (input) => runtime.domainService.callNext(input),
-  callSpecificEntry: (input) => runtime.domainService.callSpecificEntry(input),
-  clearActiveEntries: (input) => runtime.domainService.clearActiveEntries(input),
-};
+const domainServiceProxy = createQueueDomainServiceProxy({ getService: () => runtime.domainService });
 const clearConfirmation = createClearConfirmationService({ repository, domainService: domainServiceProxy });
 const twitchProxy = {
   async sendChatMessage(message) { return runtime?.integration?.twitch?.sendChatMessage(message) ?? { sent: false }; },
@@ -66,36 +69,33 @@ const buildChatHandler = (broadcasterId) => createChatCommandHandler({
     getAccount: () => repository.getCurrentAccount(),
     setAccount: (label, actorId) => repository.setCurrentAccount(label, actorId),
     resetAccount: (actorId) => repository.resetCurrentAccount(actorId),
-  }, broadcasterId, productVersion, getTwitchHealth,
+  }, broadcasterId, productVersion, getTwitchHealth: twitchHealthBridge.read,
   getChatCatalogs: async () => (await discoverCatalogModule(catalogRoot, 'chat')).catalogs,
   onError: () => undefined,
 });
 let chatHandler = currentCredential?.broadcasterId ? buildChatHandler(currentCredential.broadcasterId) : null;
 
 registerLocalSession(app, { port });
-({ getTwitchHealth } = registerHealthRoute(app, {
+const healthRoute = registerHealthRoute(app, {
   pool,
   productVersion,
   getTwitchStatus: () => runtime?.twitchStatus ?? 'connecting',
+  getTwitchChatStatus: () => runtime?.integration?.chatStatus ?? 'not_configured',
+  getTwitchRewardStatus: () => runtime?.integration?.rewardStatus ?? 'unknown',
   probeTwitchApi: () => runtime?.integration?.probeTwitchApi?.() ?? false,
-}));
+});
+twitchHealthBridge.attach(healthRoute.getTwitchHealth);
 registerQueueRoutes(app, {
   repository,
   domainService: domainServiceProxy,
   clearConfirmation,
   getSetupCatalogs: async () => (await discoverCatalogModule(catalogRoot, 'setup')).catalogs,
   productVersion,
-  integrations: {
-    get status() { return runtime?.integration?.status ?? 'not_configured'; },
-    async getSetupState() { return runtime?.integration?.getSetupState?.(); },
-    async validateAndSaveApplication(input) { return runtime?.integration?.validateAndSaveApplication?.(input); },
-    async beginAuthorization(sessionId) { return runtime?.integration?.beginAuthorization?.(sessionId); },
-    async beginFollowerAuthorization(input) { return runtime?.integration?.beginFollowerAuthorization?.(input); },
-    async completeAuthorization(input) { return runtime?.integration?.completeAuthorization?.(input); },
-    async reconcileNow() { return runtime?.integration?.reconcileNow?.(); },
-  },
+  integrations: createTwitchRouteIntegrationProxy(() => runtime?.integration ?? null),
   publicBaseUrl: process.env.PUBLIC_BASE_URL ?? `https://localhost:${port}`,
   resolveUser: async (login) => runtime?.integration?.twitch?.getUserByLogin(login) ?? null,
+  reportDiagnostic,
+  logEvent,
 });
 const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? `https://localhost:${port}`;
 registerOverlayRoutes(app, {
@@ -114,7 +114,7 @@ await registerWebRoutes(
   fileURLToPath(new URL('../../shared/browser/', import.meta.url)),
 );
 
-runtime = await createApplicationRuntime({ app, pool, prisma, repository, credentialRepository, onError: () => undefined,
+runtime = await createApplicationRuntime({ app, pool, prisma, repository, credentialRepository, reportDiagnostic, onError: () => undefined,
   onChatMessage: (event) => {
     chatHandler ??= buildChatHandler(event.broadcasterId);
     return chatHandler(event);

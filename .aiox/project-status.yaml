@@ -1,19 +1,19 @@
 status:
-  branch: feat/ops5-single-file-installer
+  branch: feat/fnd-9-manual-queue-modes
   modifiedFiles:
     - .aiox/project-status.yaml
-    - .github/workflows/ci.yml
-    - CHANGELOG.md
-    - CHANGELOG_INTERNAL.md
-    - README.md
+    - .claude/skills/AIOX/agents/data-engineer/SKILL.md
+    - .codex/agents/data-engineer.md
+    - .gemini/rules/AIOX/agents/data-engineer.md
+    - .github/agents/data-engineer.agent.md
   modifiedFilesTotalCount: 51
   recentCommits:
-    - 'fix(installer): handle missing terminal input'
-    - 'fix(installer): render language prompt before locale selection'
+    - 'docs(handoff): prepare Codespaces continuation'
+    - 'fix(panel): replace native confirmation dialogs'
   currentEpic: null
-  currentStory: null
-  lastUpdate: '2026-10-07T14:02:10.931Z'
+  currentStory: story
+  lastUpdate: '2026-10-11T01:19:52.779Z'
   isGitRepo: true
-timestamp: 1791381730933
+timestamp: 1791681592780
 ttl: 60
-gitFingerprint: 1791349166634.3765:1791350572131.3586
+gitFingerprint: 1791432201301.4626:1791681283634.28

@@ -12,7 +12,7 @@ Toda PR de distribuição recebe sua versão escolhida antes do merge. Registre 
 
 ## Plano atual de release
 
-A versão base atual do produto é `0.13.1`, `.release-stage` é `alpha` e a identidade não materializada do checkout é `v0.13.1-0000000-alpha`. OPS-8, OPS-9 e OPS-10 foram concluídas; FND-9 e DOC-2 continuam pendentes antes da primeira beta pública canônica. O proprietário autorizou promover para beta somente depois de concluir a FND-9 e cumprir os gates de release registrados para OPS-8/DOC-2. A primeira identidade de release pública planejada é `v1.0.0-HHHHHHH-beta`; não promova o estágio, altere para `1.0.0`, crie tag nem publique release antes de cumprir esses gates.
+A versão base atual do produto é `0.13.1`, `.release-stage` é `alpha` e a identidade não materializada do checkout é `v0.13.1-0000000-alpha`. OPS-8, OPS-9 e OPS-10 foram concluídas; o reteste nativo Windows da FND-1, a aceitação completa da FND-9, DOC-2, DOC-3 e outras mudanças priorizadas pelo proprietário continuam no plano pré-release. Não há promoção para beta agendada imediatamente após a FND-9. Mantenha o estágio `alpha` até essas mudanças importantes e seus gates de aceite serem concluídos e o proprietário aprovar explicitamente a prontidão de release. `v1.0.0-HHHHHHH-beta` continua como identidade candidata, sem release agendada; não promova o estágio, altere para `1.0.0`, crie tag nem publique release antes dos gates atualizados.
 
 ## Conteúdo das GitHub Releases
 

@@ -1,0 +1,408 @@
+storyId: FND-9
+createdAt: '2026-10-07T00:00:00Z'
+updatedAt: '2026-10-07T23:48:00Z'
+createdBy: '@architect (fase de plano do Spec Pipeline), coordenado por @aiox-master'
+status: implementation_in_progress
+complexity: COMPLEX
+statusLegend:
+  planned: Ainda não iniciado.
+  implemented: Código e testes automatizados existem; aceite externo/ao vivo pode continuar pendente.
+  implemented_pending_dashboard_lifecycle_proof: Modos criados pelo bot e manual estão implementados; reward do Dashboard permanece indisponível até prova autorizada do ciclo completo.
+  implemented_pending_ux_review: UI funcional e testes existem; revisão UX permanece para a auditoria de projeto planejada.
+  pending_authorized_live_test: Requer teste Twitch real explicitamente autorizado; mocks não comprovam mutação real.
+  pending_independent_qa: Requer o gate independente do AIOX QA.
+estimatedEffort: Vários incrementos TDD revisáveis; estimativa de calendário adiada intencionalmente.
+productDecisions:
+  - Custom Reward Twitch criada pelo bot é a fonte padrão de Pontos do Canal.
+  - Reward do Creator Dashboard pode ser selecionada somente se este Client ID comprovar o ciclo completo da API exigido para a reward.
+  - Fila local somente manual, sem reward Twitch, é permitida quando APIs de reward estiverem indisponíveis.
+  - Capacidade de chat é independente da capacidade de reward; falhas temporárias nunca mudam o modo da fila silenciosamente.
+  - Streamer/moderador pode adicionar alguém gratuitamente nos dois modos; mensagem livre não inscreve ninguém.
+  - Conversão unidirecional de reward para modo manual só se efetiva após confirmação da pausa, preserva identidade histórica e drena resgates existentes.
+  - Pausar, arquivar e converter reward gerenciada usa somente o campo documentado `is_paused`. `is_in_stock` aparece nas leituras, mas não é um campo gravável de Update Custom Reward; nunca persistir nem restaurar snapshot de estoque.
+dependencies:
+  - name: APIs Twitch de chat e Pontos do Canal
+    version: Contrato documentado atual; conferir métodos SDK com Twurple 8.2.0 fixado
+    purpose: OAuth/chat EventSub base, propriedade/capacidade de rewards, recuperação e atualização de resgates.
+  - name: PostgreSQL
+    version: PostgreSQL atual do Compose
+    purpose: Testes reais de migration/integridade/recuperação do modo persistido de entrada e origem da reward.
+  - name: FND-2, FND-3, FND-4, FND-5, FND-6, OPS-8, OPS-9 existentes
+    version: Base mesclada
+    purpose: Domínio de filas, outbox financeira, OAuth/adaptadores Twitch, comandos de chat, painel protegido, recuperação Twitch e autorização de cargos.
+phases:
+  - id: phase-0
+    name: Preparação e evidência de capacidade Twitch
+    description: Confirmar escopos e registrar evidências antes de expor uma origem de reward; operação chat-only/manual deve continuar possível se recursos de reward não forem suportados.
+    subtasks:
+      - id: '0.1'
+        service: planning
+        files:
+          - docs/stories/FND-9/spec/spec.md
+          - docs/stories/FND-9/spec/research.json
+          - docs/stories/FND-9/spec/requirements.json
+        description: Revalidar documentação oficial Twitch e declarações Twurple fixadas; registrar divergência monetização/Helix sem transformar alegações documentais em prova runtime.
+        verification:
+          type: manual
+          instructions: Manter links de fonte, data, escopo/endpoint, limitação de propriedade e status exato da evidência em inglês e pt-BR.
+        status: done
+        dependencies: []
+      - id: '0.2'
+        service: planning
+        files:
+          - docs/stories/FND-9/spec/spec.md
+          - docs/stories/FND-9/plan/implementation.yaml
+        description: Mapear rota atual de criação de fila, rewardId nullable, remoteSyncStatus, escopos OAuth obrigatórios, saída antecipada do chat, registros EventSub, outbox, exclusão e adição manual.
+        verification:
+          type: manual
+          instructions: Registrar arquivos de origem e estados legados, especialmente synced_manual ou propriedade incerta de reward; inventário não precisa acessar banco ativo nem alterar Twitch.
+        status: done
+        dependencies: []
+      - id: '0.3'
+        service: twitch
+        files:
+          - docs/stories/FND-9/validation.md
+        description: Com autorização explícita do operador e canal Twitch controlado, testar separadamente OAuth/EventSub chat-only e capacidade das APIs de reward. Para reward do Dashboard, verificar se o Client ID pode abrir/pausar, enumerar e consultar resgates, reconciliar evento perdido, cancelar/concluir redemption descartável e excluir com segurança após resolver pendências.
+        verification:
+          type: manual
+          instructions: Salvar somente evidência de endpoint/status/método/versão; nunca credenciais ou payload bruto de resgate/chat. Não alegar suporte à reward do Dashboard sem sucesso em todas as operações. Nenhum teste ao vivo foi feito neste planejamento.
+        status: pending_authorized_live_test
+        dependencies:
+          - '0.1'
+        notes: Se o gate de reward do Dashboard falhar, essa origem permanece indisponível e manual_only segue suportado; não reduzir as garantias financeiras.
+      - id: '0.4'
+        service: frontend
+        files:
+          - docs/stories/FND-9/ux-refinement.md
+          - docs/pt-BR/stories/FND-9/ux-refinement.md
+        description: Revisar escolha de criação de fila e textos de estado para reward criada pelo bot, reward do Dashboard comprovada, fila somente manual, estado Twitch desconhecido/temporário e falhas recuperáveis de escopo/capacidade.
+        verification:
+          type: manual
+          instructions: "@ux-design-expert revisa o fluxo protegido, distinção clara entre fila com reward e somente manual, ações desabilitadas e estados acessíveis de erro/vazio antes da UI."
+        status: pending_ux_review
+        dependencies:
+          - '0.1'
+  - id: phase-1
+    name: Persistir modo de entrada e origem da reward
+    description: Adicionar contratos de dados somente após testes de integração PostgreSQL demonstrarem o comportamento ausente; preservar dados instalados e histórico.
+    subtasks:
+      - id: '1.1'
+        service: database
+        files:
+          - tests/integration/queue-repository.test.js
+          - tests/integration/queue-repository.test.js
+        description: Escrever testes de contrato da migration para backfill de filas existentes, fila manual_only sem rewardId, origem de reward-backed, IDs de reward únicos, persistência após reinício e ausência de outbox financeira em entrada/exclusão manual.
+        verification:
+          type: command
+          command: npm test -- --run tests/integration/queue-repository.test.js tests/integration/queue-repository.test.js
+        status: implemented
+        dependencies:
+          - '0.2'
+        notes: Red deve falhar pela ausência do contrato comportamental. Usar PostgreSQL isolado com migrations reais; sem SQLite ou mock Prisma para atomicidade.
+      - id: '1.2'
+        service: database
+        files:
+          - apps/api/prisma/schema.prisma
+          - apps/api/prisma/migrations/<timestamp>_fnd9_queue_admission_mode/migration.sql
+        description: Adicionar admissionMode/rewardOrigin persistidos e conversionStatus/estado de pausa remota. Fila manual nova pode ter rewardId nulo; fila convertida mantém ID/origem histórica. Constraints SQL distinguem vínculo histórico de modo reward ativo e impedem estado de conversão inválido.
+        verification:
+          type: command
+          command: npm test -- --run tests/integration/queue-repository.test.js tests/integration/queue-repository.test.js
+        status: implemented
+        dependencies:
+          - '1.1'
+        notes: Só classificar rewards antigos como bot_created quando trilha de auditoria provar propriedade; marcar linha ambígua como legacy_unknown e exigir reconciliação/resolução. Preservar filas, entradas, resgates, auditoria, OAuth e volumes.
+      - id: '1.3'
+        service: database
+        files:
+          - apps/api/src/persistence/queue-repository.mjs
+          - tests/integration/queue-repository.test.js
+        description: Implementar criação local e modo manual transacionais. Fila convertida interrompe nova admissão de resgates somente após pausa confirmada, mantém vínculo histórico e operações financeiras existentes, e não exclui reward durante a conversão. Preservar histórico e auditar ator/motivo.
+        verification:
+          type: command
+          command: npm test -- --run tests/integration/queue-repository.test.js
+        status: implemented
+        dependencies:
+          - '1.2'
+        notes: Primeiro Red, Green mínimo e depois Refactor com nova execução da suíte PostgreSQL afetada.
+  - id: phase-2
+    name: Separar capacidades Twitch de chat e reward
+    description: Manter chat ativo quando operações de reward estiverem indisponíveis sem enfraquecer a segurança financeira.
+    subtasks:
+      - id: '2.1'
+        service: backend
+        files:
+          - tests/unit/twitch-adapter.test.js
+          - apps/api/src/twitch/helix-adapter.mjs
+        description: Definir resultados testados de capacidade available, unsupported e unknown/temporário a partir das operações API reais necessárias; parar de usar apenas broadcasterType como prova de elegibilidade.
+        verification:
+          type: command
+          command: npm test -- --run tests/unit/twitch-adapter.test.js
+        status: implemented
+        dependencies:
+          - '0.3'
+        notes: Erro de auth/escopo/rede/5xx/timeout resulta em unknown/recuperável salvo resposta que comprove indisponibilidade; nunca muda modo persistido por falha temporária.
+      - id: '2.2'
+        service: backend
+        files:
+          - tests/unit/twitch-auth-runtime.test.js
+          - tests/unit/twitch-integration.test.js
+          - apps/api/src/twitch/auth-runtime.mjs
+          - apps/api/src/twitch/integration.mjs
+        description: Separar escopos base de chat do escopo de gestão de rewards conforme provado por teste OAuth autorizado. Iniciar EventSub de chat quando autorização de chat estiver válida; iniciar EventSub/workers/reconciliação de rewards somente para filas reward-backed com escopo válido.
+        verification:
+          type: command
+          command: npm test -- --run tests/unit/twitch-auth-runtime.test.js tests/unit/twitch-integration.test.js
+        status: pending_authorized_live_test
+        dependencies:
+          - '0.3'
+          - '2.1'
+        notes: Não adicionar escopos sem evidência. Consentimento posterior de reward usa OAuth existente, de uso único e vinculado à sessão; chat continua operando durante novo consentimento.
+      - id: '2.3'
+        service: backend
+        files:
+          - tests/unit/eventsub-runtime.test.js
+          - apps/api/src/twitch/eventsub-runtime.mjs
+        description: Manter `channel.chat.message`, autorização confiável streamer/mod e ping global localizado com autorização chat-only; omitir assinaturas de reward no modo somente manual.
+        verification:
+          type: command
+          command: npm test -- --run tests/unit/eventsub-runtime.test.js
+        status: implemented
+        dependencies:
+          - '2.2'
+  - id: phase-3
+    name: Seleção de origem e criação de fila
+    description: Expor somente origens que cumpram o contrato durável da API; manter modo local manual-only como opção de primeira classe.
+    subtasks:
+      - id: '3.1'
+        service: backend
+        files:
+          - tests/unit/queue-routes.test.js
+          - apps/api/src/http/queue-routes.mjs
+          - apps/api/src/twitch/helix-adapter.mjs
+        description: Adicionar rotas protegidas/idempotentes para criação bot_created, dashboard_existing após prova de ciclo completo e manual_only. Validar identidade do canal, estado da API, ID imutável da reward selecionada, CSRF, chave de operação e versão; nunca adivinhar propriedade pelo título.
+        verification:
+          type: command
+          command: npm test -- --run tests/unit/queue-routes.test.js
+        status: implemented_pending_dashboard_lifecycle_proof
+        dependencies:
+          - '1.3'
+          - '2.1'
+          - '2.2'
+        notes: Rejeitar reward do Dashboard se não for comprovadamente gerenciável por este Client ID em todos os métodos necessários; mostrar motivo seguro e oferecer modo manual_only.
+      - id: '3.2'
+        service: frontend
+        files:
+          - tests/unit/web-route.test.js
+          - apps/web/app.js
+        description: Implementar criação e projeção de fila para reward criada pelo bot, reward gerenciável comprovada do Dashboard e modo local manual-only. Mostrar estados de chat/reward separados e erros temporários/desconhecidos acionáveis; nunca expor INELIGIBLE ou erro SDK bruto.
+        verification:
+          type: command
+          command: npm test -- --run tests/unit/web-route.test.js
+        status: implemented_pending_ux_review
+        dependencies:
+          - '0.4'
+          - '3.1'
+        notes: Renderizar title/prompt fornecido pelo usuário como texto sem reescrever seu conteúdo. Modo manual oculta/desabilita controles remotos de abrir/fechar/apagar reward.
+      - id: '3.3'
+        service: backend
+        files:
+          - tests/unit/chat-command-handler.test.js
+          - apps/api/src/commands/chat-handler.mjs
+        description: Manter add manual streamer/mod pelo domínio compartilhado para filas manual_only e com reward; admissão manual nunca carrega identidade de resgate nem intenção financeira.
+        verification:
+          type: command
+          command: npm test -- --run tests/unit/chat-command-handler.test.js
+        status: implemented
+        dependencies:
+          - '1.3'
+          - '2.3'
+      - id: '3.4'
+        service: frontend
+        files:
+          - apps/api/src/http/queue-routes.mjs
+          - apps/web/call-deadline-presentation.mjs
+          - apps/web/app.js
+          - apps/web/localization/catalogs/panel/en.tsv
+          - apps/web/localization/catalogs/panel/es.tsv
+          - apps/web/localization/catalogs/panel/pt-BR.tsv
+          - tests/unit/call-deadline-presentation.test.js
+          - tests/unit/queue-routes.test.js
+        description: Projetar timestamps de envio/prazo para o painel protegido e mostrar contagem localizada somente após a confirmação do envio no chat, com estados explícitos de espera, desativado e expirado.
+        verification:
+          type: command
+          command: npm test -- --run tests/unit/call-deadline-presentation.test.js tests/unit/queue-routes.test.js tests/unit/web-route.test.js
+        status: implemented
+        dependencies:
+          - '3.2'
+          - '4.3'
+  - id: phase-3b
+    name: Conversão reward-para-manual e adições gratuitas do operador
+    description: Permitir adição explícita gratuita pelo operador nos dois modos e conversão segura após confirmação de pausa remota.
+    subtasks:
+      - id: '3b.1'
+        service: backend
+        files:
+          - tests/integration/queue-repository.test.js
+          - apps/api/src/domain/queue-service.mjs
+          - apps/api/src/outbox/reward-worker.mjs
+        description: Aplicar TDD à máquina de estados durável, resultados da pausa remota, retry/reconciliação de resultado desconhecido, preservação do ID/origem da reward, drenagem financeira dos resgates existentes e cancelamento durável de resgate que concorra com a conversão.
+        verification:
+          type: command
+          command: npm test -- --run tests/integration/queue-repository.test.js
+        status: implemented
+        dependencies:
+          - '1.2'
+          - '2.1'
+          - '3.1'
+        notes: Usar PostgreSQL isolado real para estado/unicidade/atomicidade e fake Twitch somente na fronteira de rede. Não ativar modo manual em timeout/falha. Nunca executar DELETE da reward durante a conversão.
+      - id: '3b.2'
+        service: frontend
+        files:
+          - tests/unit/queue-routes.test.js
+          - apps/web/app.js
+        description: Adicionar ação protegida e versionada “mudar para fila local/manual”, com confirmação revisável e estados pendente/confirmado/falhou; exibir histórico da reward retida e resgates pendentes.
+        verification:
+          type: command
+          command: npm test -- --run tests/unit/queue-routes.test.js
+        status: implemented_pending_ux_review
+        dependencies:
+          - '3b.1'
+      - id: '3b.3'
+        service: backend
+        files:
+          - tests/unit/chat-command-handler.test.js
+          - apps/api/src/commands/chat-handler.mjs
+        description: Verificar por teste que add explícito de streamer/mod funciona nos dois modos, sem vínculo redemption/financeiro, e que mensagens livres de viewer não criam entradas.
+        verification:
+          type: command
+          command: npm test -- --run tests/unit/chat-command-handler.test.js
+        status: implemented
+        dependencies:
+          - '3.3'
+  - id: phase-4
+    name: Ciclo de vida, recuperação e invariantes financeiras
+    description: Verificar que filas manuais e com reward mantêm persistência, recuperação e efeitos externos distintos após reinícios/falhas.
+    subtasks:
+      - id: '4.1'
+        service: backend
+        files:
+          - tests/unit/twitch-event-processor.test.js
+          - apps/api/src/twitch/reconciliation.mjs
+          - apps/api/src/twitch/redemption-processor.mjs
+        description: Associar eventos de reward somente por ID configurado na fila; preservar update-before-add, paginação, consulta após resposta perdida, estado desconhecido e outbox. Rejeitar resgates de reward não gerenciável/não comprovada sem efeito financeiro.
+        verification:
+          type: command
+          command: npm test -- --run tests/unit/twitch-event-processor.test.js
+        status: implemented
+        dependencies:
+          - '3.1'
+        notes: Não concluir/cancelar resgate de origem não gerenciável nem inferir sucesso só por evento entregue.
+      - id: '4.2'
+        service: backend
+        files:
+          - tests/integration/queue-repository.test.js
+          - tests/integration/queue-repository.test.js
+        description: Verificar que fila manual-only, entradas e auditoria sobrevivem a reinícios API/rede/banco; arquivar/apagar não chama Twitch e exclusão preserva histórico sem operação de pontos.
+        verification:
+          type: command
+          command: npm test -- --run tests/integration/queue-repository.test.js tests/integration/queue-repository.test.js
+        status: implemented
+        dependencies:
+          - '1.3'
+          - '2.3'
+      - id: '4.3'
+        service: backend
+        files:
+          - tests/unit/health-route.test.js
+          - apps/api/src/health-route.mjs
+          - apps/api/src/http/queue-routes.mjs
+        description: Projetar status de chat e capacidade de reward separadamente com códigos estáveis sanitizados; preservar versão do produto e latência Twitch em cache; não expor broadcaster, erro bruto ou entidade ORM.
+        verification:
+          type: command
+          command: npm test -- --run tests/unit/health-route.test.js
+        status: implemented
+        dependencies:
+          - '2.2'
+          - '3.1'
+      - id: '4.4'
+        service: backend
+        files:
+          - tests/unit/twitch-adapter.test.js
+          - tests/unit/reward-outbox-worker.test.js
+          - tests/unit/twitch-reconciliation.test.js
+          - tests/integration/postgres-foundation.test.js
+          - tests/integration/queue-repository.test.js
+          - apps/api/src/twitch/helix-adapter.mjs
+          - apps/api/src/outbox/reward-worker.mjs
+          - apps/api/src/twitch/reconciliation.mjs
+          - apps/api/src/persistence/queue-repository.mjs
+          - apps/api/prisma/schema.prisma
+          - apps/api/prisma/migrations/20261008010000_remove_unsupported_reward_stock_state/migration.sql
+        description: Substituir gravações/snapshots não suportados de is_in_stock pela atualização de pausa documentada do Twurple; verificar estado remoto persistido, classificar erros statusCode do Twurple e proteger a reconciliação contra concorrência de versão local.
+        verification:
+          type: command
+          command: npx vitest run tests/unit/twitch-adapter.test.js tests/unit/reward-outbox-worker.test.js tests/unit/twitch-reconciliation.test.js tests/integration/postgres-foundation.test.js tests/integration/queue-repository.test.js
+        status: implemented
+        dependencies:
+          - '4.1'
+        notes: Red registrado para suposições de campo não suportado, desvio do SDK/erros statusCode e recuperação com versão obsoleta. Green passou 158 testes em cinco arquivos com migrations PostgreSQL reais. Os gates completos passaram (99 arquivos/833 testes, lint, typecheck, OpenGrep, localização, versão, configuração Compose e diff check). Rebuild/verificação runtime no navegador permanecem pendentes.
+  - id: phase-5
+    name: QA independente e aceite
+    description: Concluir somente quando critérios, evidência TDD e contratos reais de migration PostgreSQL passarem.
+    subtasks:
+      - id: '5.1'
+        service: qa
+        files:
+          - docs/stories/FND-9/qa-report.md
+          - docs/pt-BR/stories/FND-9/qa-report.md
+          - docs/stories.md
+          - docs/ROADMAP.md
+        description: Executar QA AIOX independente dos critérios, cronologia TDD, ausência de efeitos financeiros, migration/schema, UI e paridade documental; relatar score e bloqueios por evidência real.
+        verification:
+          type: command
+          command: npm run lint && npm run typecheck && npm test
+        status: pending_independent_qa
+        dependencies:
+          - '4.1'
+          - '4.2'
+          - '4.3'
+        notes: Também executar integração PostgreSQL, migrations Prisma, saúde Compose isolada, validação de localização/versão e OpenGrep conforme gates do repo.
+      - id: '5.2'
+        service: twitch
+        files:
+          - docs/stories/FND-9/validation.md
+          - docs/pt-BR/stories/FND-9/validation.md
+        description: Registrar aceite Twitch autorizado para chat-only ping/add manual e, somente se o gate passar, ciclo de reward criada pelo bot e do Dashboard. Não declarar operação financeira real com base em mocks.
+        verification:
+          type: manual
+          instructions: Registrar classe do canal, escopos app/API, operação, resultado endpoint, IDs redigidos e se os pontos foram realmente reembolsados/concluídos; nunca credenciais ou payload bruto.
+        status: pending_authorized_live_test
+        dependencies:
+          - '0.3'
+          - '5.1'
+qualityGates:
+  - Red TDD deve falhar por comportamento ausente, não por sintaxe/dependência/ambiente; cada incremento registra Red, Green e Refactor em docs/stories.md nas duas línguas.
+  - PostgreSQL isolado real com migrations versionadas prova constraints/atomicidade; mocks somente nas fronteiras externas.
+  - npm run lint
+  - npm run typecheck
+  - npm test
+  - Prisma migrate deploy e validação de inicialização/saúde Compose isolada.
+  - OpenGrep, validadores de localização/versão, configuração Compose e diff.
+  - Aprovação de @qa independente e aceite Twitch autorizado; não afirmar suporte a reward do Dashboard ou efeito financeiro sem evidência.
+filesToUpdate:
+  - docs/stories/FND-9/spec/spec.md
+  - docs/stories/FND-9/spec/requirements.json
+  - docs/stories/FND-9/spec/research.json
+  - docs/stories/FND-9/plan/implementation.yaml
+  - docs/stories.md
+  - docs/ROADMAP.md
+  - docs/integrations.md
+  - CHANGELOG_INTERNAL.md
+  - docs/pt-BR/stories/FND-9/spec/spec.md
+  - docs/pt-BR/stories/FND-9/spec/requirements.json
+  - docs/pt-BR/stories/FND-9/spec/research.json
+  - docs/pt-BR/stories/FND-9/plan/implementation.yaml
+  - docs/pt-BR/ROADMAP.md
+  - docs/pt-BR/integrations.md
+  - docs/pt-BR/CHANGELOG_INTERNAL.md

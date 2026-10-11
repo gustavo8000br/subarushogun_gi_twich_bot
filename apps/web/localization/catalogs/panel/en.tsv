@@ -17,6 +17,7 @@ panel.sidebar.local_note	The panel and data stay on this computer.
 panel.health.label	Installation health
 panel.health.database	Database
 panel.health.twitch_api	Twitch API
+panel.health.twitch_integration	Twitch integration
 panel.health.database.connected	Connected
 panel.health.database.unavailable	Unavailable
 panel.health.database.checking	Checking
@@ -61,7 +62,7 @@ panel.queues.title	Queues and service
 panel.queues.description	Track people waiting, called, and currently in service.
 panel.new_queue.eyebrow	SET UP YOUR STREAM
 panel.new_queue.title	New queue
-panel.new_queue.description	Each queue uses its own Twitch Custom Reward.
+panel.new_queue.description	Choose between a Channel Points queue and a local queue with manual entries.
 panel.operations.eyebrow	POINTS AND RECOVERY
 panel.operations.title	Financial operations
 panel.operations.description	Track refund and fulfillment requests until Twitch confirms them.
@@ -84,6 +85,7 @@ panel.locale.title	Panel language
 panel.locale.description	The selected language is also used for bot messages. Complete community catalogs appear automatically.
 panel.locale.available	Available language
 panel.error.generic	Could not complete the action. Try again.
+panel.error.reference	Reference: {id}
 panel.error.locale_conflict	The language changed in another request. Refresh the page.
 panel.form.queue_name	Queue name
 panel.form.create_queue	Create queue
@@ -127,7 +129,7 @@ panel.entry.reason_external	External payment (e.g. PIX)
 panel.entry.reason_bits	Bits
 panel.entry.reason_sub	Subscription
 panel.entry.reason_other	Other verified benefit
-panel.reward.manual_association_hint	The previous Twitch response was ambiguous. Choose the manageable reward associated with this queue. This choice is audited and does not claim financial confirmation from the API.
+panel.reward.manual_association_hint	This list is read directly from Twitch. Select a reward managed by this app that matches the queue settings; the link is audited.
 panel.commands.policy_title	How permissions work
 panel.commands.policy_help	The streamer can always use configurable commands. Higher audience levels inherit access. VIP requires the existing VIP toggle. Follower access needs an extra Twitch permission and is checked live.
 panel.commands.group.configurable	Audience access
@@ -193,7 +195,9 @@ panel.queue.empty_group	No one right now
 panel.queue.status.open	OPEN
 panel.queue.status.closed	CLOSED
 panel.queue.status.pending_delete	Deletion pending: waiting for redemption cancellations and reward confirmation.
+panel.queue.status.pending_local_delete	Local deletion pending: waiting for all known pending redemptions and related financial operations to be confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The paused reward will be preserved.
 panel.queue.action.delete	Delete queue
+panel.queue.action.retry_local_delete	Check deletion progress
 panel.queue.action.configure	Configure
 panel.queue.action.edit_reward	Edit reward
 panel.queue.action.unarchive	Unarchive
@@ -202,8 +206,20 @@ panel.queue.action.clear	Clear queue
 panel.queue.action.add	Add
 panel.queue.action.open	Open
 panel.queue.action.close	Close
+panel.queue.action.activate	Activate queue
+panel.queue.action.pause	Pause queue
 panel.queue.action.archive	Archive
 panel.queue.action.resolve_reward	Link reward
+panel.queue.action_blocked.reward_unresolved	Queue controls are paused until you link and confirm a Twitch reward. Use “Link reward” to continue.
+panel.queue.action_blocked.reward_creation_pending	Queue controls will be available after Twitch confirms reward creation.
+panel.queue.action_blocked.remote_operation_pending	Queue controls are waiting for the pending Twitch operation to finish.
+panel.queue.action_blocked.queue_mode_transition_pending	Calling and queue controls are paused until Twitch confirms the reward is paused. Manual entry remains available while this change is unresolved.
+panel.queue.action_blocked.queue_not_active	This queue is being deleted and cannot be changed.
+panel.queue.delete_blocked.reward_unresolved	Deletion is unavailable because the reward is unidentified. Resolve the link first to avoid deleting the wrong reward.
+panel.queue.delete_blocked.reward_creation_pending	Deletion is unavailable while Twitch confirms reward creation.
+panel.queue.delete_blocked.remote_operation_pending	Deletion is unavailable while a Twitch operation is pending.
+panel.queue.delete_blocked.queue_mode_transition_pending	Deletion is unavailable while the queue mode is changing.
+panel.queue.delete_blocked.queue_not_active	This queue is already being deleted or has been deleted.
 panel.queue.history.title	Recent history
 panel.queue.history.empty	There are no completed services yet.
 panel.queue.history.date_unavailable	Date unavailable
@@ -225,6 +241,11 @@ panel.queue.sync.pending	sync pending
 panel.queue.sync.unknown	unknown result · review in the panel
 panel.queue.sync.failed	sync failed · review in the panel
 panel.queue.sync.not_synced	no confirmed sync
+panel.queue.sync.diverged	Twitch settings differ · review required
+panel.queue.onboarding.reward_pending	The queue is saved and closed. Twitch still has to confirm its reward; activation stays unavailable until then.
+panel.queue.onboarding.reward_diverged	The queue is saved and closed, but its Twitch reward differs from the saved settings. Review the mismatch before continuing.
+panel.queue.onboarding.activate_next	Settings saved. Review the queue below; it stays closed until you activate it.
+panel.queue.onboarding.activate_waiting	Settings saved. The queue stays closed while Twitch confirms its reward.
 panel.command.role.everyone	Everyone
 panel.command.role.follower	Followers
 panel.command.role.subscriber	Subscribers
@@ -382,14 +403,19 @@ panel.priority.invalid_reason	Choose an option from 1 to 4.
 panel.priority.marked	Priority was recorded and audited. The operator verified the benefit.
 panel.priority.removed	Priority removed.
 panel.queue.confirm.archive	Archive this queue? It will disappear from discovery, while existing entries are preserved. Its reward will be paused.
+panel.queue.confirm.archive_local	Archive this local queue? It will disappear from discovery, while existing entries are preserved.
+panel.queue.confirm.archive_converted	Archive this converted manual queue? It will disappear from discovery, existing entries will be preserved, and the Twitch reward will stay paused.
 panel.queue.confirm.unarchive	Unarchive this queue? It will remain closed until you open it.
 panel.queue.archive.pending	Archive requested; waiting for Twitch confirmation.
 panel.queue.archive.done	Queue archived.
 panel.queue.unarchive.done	Queue unarchived and remains closed.
 panel.queue.confirm.delete	Delete queue “{title}” and its Twitch reward? {count} active entries will be removed and their redemptions will be cancellation requests. The reward is deleted only after every cancellation is confirmed. This may remain pending if Twitch does not confirm.
-panel.queue.delete.pending	Deletion started. The queue remains pending until Twitch confirms cancellations and reward deletion.
-panel.queue.delete.done	The queue was already deleted.
-panel.reward.no_candidates	No matching manageable Twitch reward was found. Review the queue and manageable rewards in the Twitch console.
+panel.queue.confirm.delete_local	Delete local queue “{title}”? {count} active entries will be removed. This queue has no linked Twitch reward or redemption.
+panel.queue.confirm.delete_converted	Delete manual queue “{title}”? {count} active entries will be removed. Deletion will remain pending until all known redemptions and related financial operations are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.
+panel.queue.confirm.retry_delete_converted	Check whether all known pending redemptions and related financial operations are confirmed. If they are, the local queue will be deleted. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.
+panel.queue.delete.pending	Local deletion started. The queue remains pending until all known redemptions and related financial operations are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain untouched.
+panel.queue.delete.done	Queue deleted. Redemption history was preserved and the Twitch reward remains paused.
+panel.reward.no_candidates	The lookup succeeded, but no reward managed by this app, paused, and matching every queue setting was found. Actions such as delete stay blocked until ownership is confirmed. Review the differences below and refresh the list.
 panel.queue.clear.empty	The queue is already empty.
 panel.queue.clear.confirm	Clear queue “{title}”? {count} people will be removed and {refunds} refunds requested. Confirmation is valid for 15 seconds.
 panel.queue.clear.changed	The queue changed. Review the new confirmation for {count} people.
@@ -437,10 +463,34 @@ panel.entry.dialog_title	Queue entry
 panel.entry.twitch_login	Twitch login
 panel.entry.uid_optional	UID (optional)
 panel.entry.benefit	Verified benefit
-panel.reward.dialog_eyebrow	MANUAL ASSOCIATION
-panel.reward.dialog_title	Twitch reward
+panel.reward.dialog_eyebrow	REWARD RECOVERY
+panel.reward.dialog_title	Find this queue's reward
+panel.reward.lookup_error_title	Could not read Twitch rewards
+panel.reward.link_error_title	Could not link the reward
+panel.reward.link_success	Reward linked and association recorded.
+panel.reward.candidates_found_title	Lookup complete
 panel.reward.compatible_rewards	Matching rewards
+panel.reward.loading_candidates	Reading manageable rewards from Twitch…
+panel.reward.refresh_candidates	Refresh Twitch list
 panel.reward.link_selected	Link selected reward
+panel.reward.no_candidates_title	No reward matches this queue
+panel.reward.candidate_counts	{compatible} compatible out of {total} manageable rewards checked.
+panel.reward.mismatch_summary	Differences found: {reasons}.
+panel.reward.mismatch_overlap	Counts can overlap because one reward may have multiple differences. Details from incompatible rewards are not shown.
+panel.reward.mismatch.title	Different title ({count})
+panel.reward.mismatch.cost	Different points cost ({count})
+panel.reward.mismatch.prompt	Different description ({count})
+panel.reward.mismatch.uid	Different text-input rule ({count})
+panel.reward.mismatch.stream_limit	Different per-stream limit ({count})
+panel.reward.mismatch.viewer_limit	Different per-viewer limit ({count})
+panel.reward.mismatch.cooldown	Different global cooldown ({count})
+panel.reward.mismatch.auto_fulfill	Automatic fulfillment enabled ({count})
+panel.reward.mismatch.skip_queue	Skip-request-queue enabled ({count})
+panel.reward.mismatch.disabled	Reward is disabled ({count})
+panel.reward.mismatch.not_paused	Reward is not paused ({count})
+panel.reward.step.title	Check the title and cost configured in the queue and Twitch.
+panel.reward.step.settings	Check the description, text input, and reward limits.
+panel.reward.step.paused	Keep the reward enabled and paused for redemption, then refresh the list.
 panel.form.queue_name_placeholder	e.g. Spiral Abyss
 panel.settings.account_fallback	Streamer
 panel.entry.login_placeholder	@username
@@ -454,9 +504,60 @@ panel.error.twitch_authorization	Twitch authorization failed. Reconnect the chan
 panel.error.oauth_return	The authorization response expired or does not match this session. Start the connection again.
 panel.error.widget_link	This widget link cannot be shown again. Generate a new link.
 panel.error.invalid_action	The state changed. Refresh the panel and try again.
+panel.error.invalid_queue_settings	Review the queue settings and try again.
+panel.error.invalid_call_template	Use only the call fields listed in the help text.
+panel.error.invalid_reward_settings	Review the reward title, cost, description, and limits.
+panel.error.invalid_local_queue_setting	Change UID and reward options in the Twitch reward editor.
+panel.error.stale_queue_settings	The queue changed while you were editing. Refresh the panel and try again.
+panel.error.queue_not_found	This queue no longer exists. Refresh the panel.
+panel.error.queue_not_available	This queue is being deleted and cannot be changed.
+panel.error.reward_update_pending	A reward update is already in progress. Refresh the panel to check its status.
+panel.error.reward_not_ready	This queue reward is not confirmed yet. Refresh the panel and review pending reward operations.
 panel.widget.preview.account	Asia 1
 panel.widget.card_details	{queue}{width} × {height} · Widget {id}
 panel.widget.auto	auto
 panel.queue_settings.call_message_default	{user}, it’s your turn!
 panel.command.follower_scope_lost	Follower access is configured, but Twitch follower permission is unavailable. Reauthorize to restore it.
 panel.command.follower_reauthorize	Reauthorize follower access
+panel.health.twitch_chat	Twitch chat
+panel.health.twitch_rewards	Channel Points rewards
+panel.health.chat.connected	Connected
+panel.health.chat.not_configured	Not configured
+panel.health.chat.connecting	Connecting
+panel.health.chat.degraded	Unstable
+panel.health.chat.retrying	Reconnecting
+panel.health.chat.reconnect_required	Reconnect required
+panel.health.chat.stopped	Stopped
+panel.health.chat.unknown	Unknown state
+panel.health.rewards.available	Available
+panel.health.rewards.not_configured	Not configured
+panel.health.rewards.unsupported	Unavailable for this channel
+panel.health.rewards.unknown	Checking
+panel.health.rewards.reconnect_required	Authorization required
+panel.health.rewards.stopped	Disabled
+panel.form.queue_mode	Queue type
+panel.form.mode_channel_points	Channel Points with a bot-owned reward
+panel.form.mode_manual	Local, with free manual entries
+panel.queue.mode.manual	Local queue · free manual entry
+panel.queue.sync.local	local queue
+panel.queue.action.manual_mode	Use local queue
+panel.queue.action.manual_mode_retry	Retry safe pause request
+panel.queue.confirm.manual_mode	The reward will be paused on Twitch; existing redemptions and their financial operations will be preserved. The queue switches to manual only after Twitch confirms the pause. Continue?
+panel.queue.confirm.manual_mode_retry	Retry the safe pause request for this Twitch reward? The queue remains reward-backed until Twitch confirms the pause; existing redemptions and financial operations remain preserved.
+panel.queue.mode_transition.pending	Twitch pause pending; redemptions during the switch will be canceled.
+panel.queue.mode_transition.unknown	Twitch has not confirmed the pause. Reconnect, then retry; local mode starts only after confirmation.
+panel.queue.mode_transition.failed	Twitch did not confirm the pause. Check the connection, then retry; the queue remains reward-backed until confirmation.
+panel.queue.mode_transition.done	Queue switched to local mode. Existing redemptions remain preserved.
+panel.queue.mode.converted	Converted from a Twitch reward · historical reward remains paused
+panel.error.queue_mode_transition_pending	This queue is switching modes. Wait until the Twitch pause is confirmed.
+panel.error.queue_mode_transition_unavailable	This queue cannot switch modes in its current state. Refresh the panel and review its operations.
+panel.entry.call.awaiting_delivery	Deadline has not started; waiting for delivery confirmation.
+panel.entry.call.no_deadline	No automatic deadline to start service.
+panel.entry.call.remaining	Time to start service: {time} remaining.
+panel.entry.call.expired	Deadline passed; waiting for the service status to update.
+panel.confirmation.title	Confirm action
+panel.confirmation.cancel	Cancel
+panel.confirmation.accept	OK
+panel.queue.status.pending_local_delete_diverged	Local deletion is paused because the Twitch reward state needs verification. Redemptions and related financial operations remain under recovery; later Twitch redemptions will be detected and recorded for cancellation. This app will not change the Twitch reward.
+panel.queue.confirm.retry_delete_converted_diverged	Check deletion progress. The queue will remain pending until Twitch confirms the historical reward is paused and all currently known redemptions and related financial operations are resolved. Later Twitch redemptions will still be detected and recorded for cancellation. This action will not change the Twitch reward.
+panel.queue.status.deletion_complete	Queue deletion is complete.

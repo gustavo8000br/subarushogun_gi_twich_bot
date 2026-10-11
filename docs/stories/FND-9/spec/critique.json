@@ -1,0 +1,64 @@
+{
+  "storyId": "FND-9",
+  "critiquedAt": "2026-10-07T00:00:00Z",
+  "critiquedBy": "@aiox-master using @architect and @qa review lenses; not an independent external review",
+  "specVersion": 3,
+  "verdict": "APPROVED",
+  "verdictReason": "Planning now includes free explicit operator adds in either queue mode and a one-way, durable reward-to-manual transition that waits for Twitch pause confirmation and drains prior/racing redemptions; docs and tests specify failure recovery and finance preservation.",
+  "averageScore": 4.6,
+  "dimensions": {
+    "accuracy": 5,
+    "completeness": 5,
+    "consistency": 4,
+    "feasibility": 4,
+    "alignment": 5
+  },
+  "issues": [],
+  "blockingIssues": [],
+  "observations": [
+    {
+      "severity": "MEDIUM",
+      "category": "feasibility",
+      "description": "Twitch product documentation says Channel Points are available to monetized streamers after onboarding, while Helix still documents Affiliate/Partner restrictions. Capability and OAuth behavior must be tested against the installed app before claiming reward support for non-Affiliate channels.",
+      "location": "research.json#targets; requirements.json#FR-1, FR-8; plan/implementation.yaml#phase-0",
+      "mitigation": "Keep chat-only operation and manual-only queues available; distinguish available, unsupported, and transient/unknown capability states. Record authorized live endpoint results without secrets."
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "reliability",
+      "description": "A reward created through Creator Dashboard may be visible or emit EventSub but inaccessible to this Client ID for redemption retrieval or status updates. That would weaken the product's recovery and points guarantees.",
+      "location": "requirements.json#D-1; spec.md#3.6; plan/implementation.yaml#phase-0",
+      "mitigation": "Enable Dashboard reward selection only after proving the complete required lifecycle with a controlled Twitch test; otherwise reject that source and offer local/manual-only queue creation."
+    },
+    {
+      "severity": "LOW",
+      "category": "consistency",
+      "description": "Manual-only queues have no remote reward state, so displaying reward open/closed controls would misrepresent behavior.",
+      "location": "requirements.json#FR-4; spec.md#3.11",
+      "mitigation": "Hide or disable remote open/close controls for manual-only queues; retain the existing rule that authorized manual add works in closed queues and archive/delete blocks new additions."
+    },
+    {
+      "severity": "HIGH",
+      "category": "reliability",
+      "description": "Queue conversion races reward creation/pause with EventSub redemption arrival. Mode must not become manual on an unknown pause result; preserve pending financial intents and cancel racing redemptions durably.",
+      "location": "spec.md#3.8; requirements.json#FR-8; plan/implementation.yaml#phase-3b",
+      "mitigation": "PostgreSQL state-machine integration tests, idempotent transition key, remote-state reconciliation, and explicit pending/failed UI states before declaring local mode active."
+    }
+  ],
+  "resolvedFindings": [
+    "Replaced the stale Affiliate/Partner-only product eligibility statement with the documented monetization/API discrepancy and a capability-based policy.",
+    "Added explicit manual_only queue mode with no reward ID, reward outbox intent, redemption ingestion, or financial operation.",
+    "Recorded product approval to use bot-created rewards and conditionally allow Creator Dashboard rewards only after full lifecycle capability is proven.",
+    "Recorded that a transient Twitch/OAuth/network failure never silently changes a queue's persisted admission mode.",
+    "Separated chat health, Channel Points API capability, current repository behavior, and live Twitch evidence.",
+    "Added explicit free streamer/moderator adds to either queue mode; free-form viewer chat never auto-enrolls.",
+    "Added one-way reward-to-manual conversion after confirmed remote pause, retaining historical reward identity and draining/canceling redemptions safely."
+  ],
+  "securityNote": "Keep manual admission restricted to streamer/moderator identity and trusted current-message badges. Never auto-enroll from free-form chat. Manual entries have no redemption ID or financial intent. Conversion must preserve remote financial truth, use durable idempotency and never log secrets or raw messages.",
+  "nextAction": "Implement only when FND-9 enters the authorized sequence. Follow the TDD-first plan, including real PostgreSQL transition/race tests. Dashboard reward use remains behind its authorized full-lifecycle live gate.",
+  "limitations": [
+    "This is a Spec Pipeline review, not implementation QA. No application code, migration, test suite, live chat, reward creation, redemption update, or OAuth scope flow was executed in this planning increment.",
+    "The user's report that a reward was created in Creator Dashboard is recorded as operator-provided evidence only; API ownership and operations were not independently tested.",
+    "The cited Twitch product and Helix documentation currently conflict on eligibility; implementation must preserve this uncertainty rather than claim support based on either source alone."
+  ]
+}

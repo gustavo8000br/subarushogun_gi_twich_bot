@@ -73,4 +73,24 @@ describe('local OBS widget routes', () => {
     expect(revoked.body).not.toContain('capabilityUrl');
     await h.app.close();
   });
+
+  it('deletes only the requested widget revision and reports concurrent edits without hiding the failure', async () => {
+    const h = await makeHarness();
+    const denied = await h.app.inject({ method: 'DELETE', url: '/api/overlay-widgets/widget-1', headers: h.sessionHeaders, payload: { expectedVersion: 1 } });
+    expect(denied.statusCode).toBe(403);
+    expect(h.repository.delete).not.toHaveBeenCalled();
+
+    const headers = { ...h.adminHeaders, 'idempotency-key': 'overlay-delete-0001' };
+    const removed = await h.app.inject({ method: 'DELETE', url: '/api/overlay-widgets/widget-1', headers, payload: { expectedVersion: 1 } });
+    expect(removed.statusCode).toBe(200);
+    expect(removed.json()).toMatchObject({ id: 'widget-1', deleted: true, capabilityActive: false });
+    expect(h.repository.delete).toHaveBeenCalledWith({ id: 'widget-1', expectedVersion: 1 });
+
+    h.repository.delete.mockRejectedValueOnce(Object.assign(new Error('private state'), { code: 'OVERLAY_WIDGET_VERSION_CONFLICT' }));
+    const conflict = await h.app.inject({ method: 'DELETE', url: '/api/overlay-widgets/widget-1', headers: { ...h.adminHeaders, 'idempotency-key': 'overlay-delete-0002' }, payload: { expectedVersion: 1 } });
+    expect(conflict.statusCode).toBe(409);
+    expect(conflict.body).not.toContain('private state');
+    expect(conflict.json().error).toContain('mudou');
+    await h.app.close();
+  });
 });

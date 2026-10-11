@@ -1,15 +1,43 @@
 {
   "storyId": "FND-9",
   "result": "COMPLEX",
-  "total": 18,
+  "total": 23,
   "dimensions": {
-    "scope": {"score": 4, "rationale": "Cross-cutting changes across OAuth scope policy, Twitch integration lifecycle, EventSub subscription setup, chat command availability, panel state, health projection, documentation, and tests."},
-    "integration": {"score": 3, "rationale": "Uses existing Twitch OAuth, Helix, EventSub WebSocket, Twurple, and command services; no new external provider is proposed."},
-    "infrastructure": {"score": 2, "rationale": "No new container/service is needed; a persisted mode flag may be unnecessary if eligibility derives the mode. Confirm during implementation planning."},
-    "knowledge": {"score": 5, "rationale": "Twitch authorization behavior and separation between Channel Points eligibility and installed chatbot EventSub must be verified precisely."},
-    "risk": {"score": 4, "rationale": "Current code shuts down all Twitch integration on ineligibility; changing this boundary could affect OAuth, authorization, chat commands, reward workers, reconciliation, and status reporting."}
+    "scope": {
+      "score": 5,
+      "rationale": "Adds persisted admission modes, a one-way conversion state machine, remote pause, redemption draining, chat/EventSub separation, reward selection, free manual adds, and documentation."
+    },
+    "integration": {
+      "score": 4,
+      "rationale": "Crosses Twurple OAuth, Helix ownership/read/write operations, redemption EventSub, reconciliation, queue repository, outbox and local HTTP projections; dashboard-reward behavior needs authorized verification."
+    },
+    "infrastructure": {
+      "score": 4,
+      "rationale": "No new service, but PostgreSQL migration/checks must represent conversion intent, remote pause confirmation, historical reward identity, and race-safe redemption drain."
+    },
+    "knowledge": {
+      "score": 5,
+      "rationale": "Official monetization and Helix docs diverge; OAuth scope acceptance, app ownership, full lifecycle for Dashboard rewards and live chat behavior are not proven in this installation."
+    },
+    "risk": {
+      "score": 5,
+      "rationale": "A silent fallback or unmanaged Dashboard redemption could lose queue events or violate point refund/fulfillment guarantees; preserve explicit unknown states and no financial claims."
+    }
   },
-  "pipelinePhases": ["gather", "assess", "research", "spec", "critique_1", "revise", "critique_2", "plan"],
-  "flags": ["Architectural review required", "Product authorization decisions pending", "Do not implement until FND-9 is approved and sequenced"],
-  "status": "draft_pending_product_decisions"
+  "pipelinePhases": [
+    "gather",
+    "assess",
+    "research",
+    "spec",
+    "critique_1",
+    "revise",
+    "critique_2",
+    "plan"
+  ],
+  "flags": [
+    "Architectural review required",
+    "Live Twitch capability acceptance required before enabling Dashboard reward mode",
+    "Implementation authorized and in progress on 2026-10-07"
+  ],
+  "status": "implementation_in_progress"
 }

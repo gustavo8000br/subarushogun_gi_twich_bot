@@ -28,15 +28,18 @@ describe('outbox processing loop', () => {
   it('reports sanitized processing errors and continues after a delay', async () => {
     const callbacks = [];
     const onError = vi.fn();
+    const onDiagnostic = vi.fn();
     const processOne = vi.fn().mockRejectedValueOnce(new Error('sensitive response body'));
     const loop = createOutboxLoop({
-      worker: { processOne }, onError,
+      worker: { processOne }, onError, onDiagnostic, source: 'outbox.reward',
       setTimeoutImpl: (callback) => { callbacks.push(callback); return callbacks.length; },
       clearTimeoutImpl: vi.fn(),
     });
     loop.start();
     callbacks.shift()();
     await vi.waitFor(() => expect(onError).toHaveBeenCalledWith('outbox_processing_failed'));
+    expect(onDiagnostic).toHaveBeenCalledWith({ source: 'outbox.reward', errorType: 'Error', errorCode: null });
+    expect(JSON.stringify(onDiagnostic.mock.calls)).not.toContain('sensitive response body');
     expect(callbacks).toHaveLength(1);
     expect(onError.mock.calls.flat().join(' ')).not.toContain('sensitive response body');
     loop.stop();

@@ -64,9 +64,23 @@ describe('Twurple Helix adapter', () => {
     expect(createCustomReward).toHaveBeenCalledWith('channel-1', expect.objectContaining({ autoFulfill: false, isPaused: true }));
     await expect(adapter.getManagedRewards()).resolves.toEqual([{
       id: 'reward-1', title: 'Queue', cost: 50, prompt: undefined, isEnabled: false,
-      isPaused: true, userInputRequired: undefined, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false,
+      isPaused: true, isInStock: undefined, userInputRequired: undefined, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false,
       maxRedemptionsPerStream: null, maxRedemptionsPerUserPerStream: null, globalCooldown: null,
     }]);
+  });
+
+  it('maps Twurple autoFulfill to Helix should_redemptions_skip_request_queue without defaulting absent data', async () => {
+    const adapter = createTwitchApiAdapter({
+      api: { channelPoints: { getCustomRewards: vi.fn(async () => [
+        { id: 'explicit', title: 'Queue', cost: 10, autoFulfill: true },
+        { id: 'missing', title: 'Queue', cost: 10 },
+      ]) } }, broadcasterId: 'channel-1',
+    });
+    const rewards = await adapter.getManagedRewards();
+    expect(rewards.map(({ autoFulfill, shouldRedemptionsSkipRequestQueue }) => ({ autoFulfill, shouldRedemptionsSkipRequestQueue }))).toEqual([
+      { autoFulfill: true, shouldRedemptionsSkipRequestQueue: true },
+      { autoFulfill: undefined, shouldRedemptionsSkipRequestQueue: undefined },
+    ]);
   });
 
   it('normalizes Twitch native reward redemption caps and global cooldown', async () => {
@@ -113,6 +127,69 @@ describe('Twurple Helix adapter', () => {
     }));
   });
 
+  it('updates only pause through the pinned Twurple API and preserves Twitch-owned stock state', async () => {
+    const updateCustomReward = vi.fn(async (_broadcasterId, rewardId, data) => ({
+      id: rewardId, isPaused: data.isPaused, isInStock: true,
+    }));
+    const getCustomRewardById = vi.fn(async (_broadcasterId, rewardId) => ({
+      id: rewardId, title: 'Queue', cost: 50, prompt: '', isEnabled: true,
+      isPaused: true, isInStock: true, userInputRequired: false,
+      autoFulfill: false, shouldRedemptionsSkipRequestQueue: false,
+    }));
+    const adapter = createTwitchApiAdapter({ api: { channelPoints: { updateCustomReward, getCustomRewardById } }, broadcasterId: 'channel-1' });
+
+    await expect(adapter.setRewardOpen('reward-stock', false)).resolves.toMatchObject({ isPaused: true, isInStock: true });
+    expect(updateCustomReward).toHaveBeenCalledWith('channel-1', 'reward-stock', { isPaused: true, autoFulfill: false });
+    expect(getCustomRewardById).toHaveBeenCalledWith('channel-1', 'reward-stock');
+  });
+
+  it('verifies the persisted reward state after Twitch accepts a pause PATCH with a stale response', async () => {
+    const getCustomRewardById = vi.fn(async () => ({
+      id: 'reward-stale', title: 'Queue', cost: 50, isEnabled: true,
+      isPaused: true, isInStock: false, userInputRequired: false,
+      autoFulfill: false, shouldRedemptionsSkipRequestQueue: false,
+    }));
+    const updateCustomReward = vi.fn(async () => ({ id: 'reward-stale', isPaused: false, isInStock: true }));
+    const adapter = createTwitchApiAdapter({
+      api: { channelPoints: { getCustomRewardById, updateCustomReward } }, broadcasterId: 'channel-1',
+    });
+
+    await expect(adapter.setRewardOpen('reward-stale', false, true)).resolves.toMatchObject({
+      isPaused: true, isInStock: false,
+    });
+    expect(getCustomRewardById).toHaveBeenCalledWith('channel-1', 'reward-stale');
+  });
+
+  it.each([
+    ['missing persisted reward', async () => null],
+    ['wrong persisted reward id', async () => ({ id: 'other-reward', isPaused: true })],
+  ])('keeps successful HTTP status separate from verification when GET returns %s', async (_label, getReward) => {
+    const getCustomRewardById = vi.fn(getReward);
+    const updateCustomReward = vi.fn(async () => ({ id: 'reward-1' }));
+    const adapter = createTwitchApiAdapter({
+      api: { channelPoints: { getCustomRewardById, updateCustomReward } }, broadcasterId: 'channel-1',
+    });
+
+    await expect(adapter.setRewardOpen('reward-1', false)).rejects.toMatchObject({ code: 'TWITCH_REWARD_STATE_UNVERIFIED' });
+    expect(getCustomRewardById).toHaveBeenCalledOnce();
+  });
+
+  it('does not mask a failed remote read after a successful PATCH as a confirmed state', async () => {
+    const getCustomRewardById = vi.fn(async () => { throw Object.assign(new Error('temporary read failure'), { code: 'TWITCH_READ_FAILED' }); });
+    const updateCustomReward = vi.fn(async () => ({ id: 'reward-1', isPaused: true }));
+    const adapter = createTwitchApiAdapter({
+      api: { channelPoints: { getCustomRewardById, updateCustomReward } }, broadcasterId: 'channel-1',
+    });
+
+    await expect(adapter.setRewardOpen('reward-1', false)).rejects.toMatchObject({ code: 'TWITCH_READ_FAILED' });
+  });
+
+  it('does not attempt raw HTTP if the pinned Twurple update operation is unavailable', async () => {
+    const adapter = createTwitchApiAdapter({ api: { channelPoints: {} }, broadcasterId: 'channel-1' });
+
+    await expect(adapter.setRewardOpen('reward-1', false)).rejects.toMatchObject({ code: 'TWITCH_REWARD_UPDATE_NOT_CONFIGURED' });
+  });
+
 
   it('returns sent/drop status from the actual Helix Send Chat Message response', async () => {
     const sendChatMessage = vi.fn(async () => ({ isSent: false, dropReasonCode: 'msg_rejected' }));
@@ -155,18 +232,18 @@ describe('Twurple Helix adapter', () => {
     expect(getUserById).toHaveBeenCalledWith('channel-1');
   });
 
-  it('does not probe Channel Points for an ineligible broadcaster', async () => {
-    const getCustomRewards = vi.fn();
+  it('checks actual Helix reward capability instead of rejecting unknown broadcaster type up front', async () => {
+    const getCustomRewards = vi.fn(async () => [{ id: 'reward-1' }, { id: 'reward-2' }]);
     const adapter = createTwitchApiAdapter({ api: {
       users: { getUserById: vi.fn(async () => ({ broadcasterType: '' })) },
       channelPoints: { getCustomRewards },
     }, broadcasterId: 'channel-1' });
 
     await expect(adapter.getChannelEligibility()).resolves.toMatchObject({
-      eligible: false, broadcasterType: 'unknown', channelPointsAvailable: false,
-      reason: 'channel_ineligible',
+      eligible: true, broadcasterType: 'unknown', channelPointsAvailable: true,
+      rewardCount: 2, rewardLimit: 50,
     });
-    expect(getCustomRewards).not.toHaveBeenCalled();
+    expect(getCustomRewards).toHaveBeenCalledWith('channel-1', false);
   });
 
   it('reports unavailable Channel Points access without leaking SDK errors', async () => {
@@ -181,13 +258,13 @@ describe('Twurple Helix adapter', () => {
     });
   });
 
-  it('distinguishes revoked Channel Points authorization from a transient service outage', async () => {
+  it('classifies a forbidden Channel Points capability probe as unsupported, not a reconnect request', async () => {
     const adapter = createTwitchApiAdapter({ api: {
       users: { getUserById: vi.fn(async () => ({ broadcasterType: 'affiliate' })) },
       channelPoints: { getCustomRewards: vi.fn(async () => { throw Object.assign(new Error('private response'), { statusCode: 403 }); }) },
     }, broadcasterId: 'channel-1' });
     await expect(adapter.getChannelEligibility()).resolves.toMatchObject({
-      eligible: false, channelPointsAvailable: false, reason: 'authorization_required',
+      eligible: false, channelPointsAvailable: false, reason: 'channel_ineligible',
     });
   });
 

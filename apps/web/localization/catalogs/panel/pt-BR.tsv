@@ -17,6 +17,7 @@ panel.sidebar.local_note	O painel e os dados ficam neste computador.
 panel.health.label	Saúde da instalação
 panel.health.database	Banco de dados
 panel.health.twitch_api	API da Twitch
+panel.health.twitch_integration	Integração Twitch
 panel.health.database.connected	Conectado
 panel.health.database.unavailable	Indisponível
 panel.health.database.checking	Verificando
@@ -61,7 +62,7 @@ panel.queues.title	Filas e atendimentos
 panel.queues.description	Acompanhe aguardantes, chamadas e atendimentos em andamento.
 panel.new_queue.eyebrow	CONFIGURE SUA LIVE
 panel.new_queue.title	Nova fila
-panel.new_queue.description	Cada fila usa uma Custom Reward própria da Twitch.
+panel.new_queue.description	Escolha entre uma fila com Pontos do Canal e uma fila local com entradas manuais.
 panel.operations.eyebrow	PONTOS E RECUPERAÇÃO
 panel.operations.title	Operações financeiras
 panel.operations.description	Acompanhe pedidos de reembolso e consumo até a confirmação da Twitch.
@@ -84,6 +85,7 @@ panel.locale.title	Idioma do painel
 panel.locale.description	O idioma selecionado também será usado nas mensagens próprias do bot. Catálogos comunitários completos aparecem automaticamente.
 panel.locale.available	Idioma disponível
 panel.error.generic	Não foi possível concluir. Tente novamente.
+panel.error.reference	Referência: {id}
 panel.error.locale_conflict	O idioma mudou em outra solicitação. Atualize a página.
 panel.form.queue_name	Nome da fila
 panel.form.create_queue	Criar fila
@@ -127,7 +129,7 @@ panel.entry.reason_external	Pagamento externo (ex.: PIX)
 panel.entry.reason_bits	Bits
 panel.entry.reason_sub	Inscrição
 panel.entry.reason_other	Outro benefício conferido
-panel.reward.manual_association_hint	A resposta anterior da Twitch ficou ambígua. Escolha a recompensa gerenciável que corresponde a esta fila. Essa escolha será auditada e não afirma confirmação financeira pela API.
+panel.reward.manual_association_hint	A lista é consultada diretamente na Twitch. Selecione uma recompensa gerenciável por este app que corresponda às configurações da fila; o vínculo será auditado.
 panel.commands.policy_title	Como as permissões funcionam
 panel.commands.policy_help	O streamer sempre pode usar comandos configuráveis. Cargos superiores herdam acesso. VIP depende do toggle atual. Acesso de seguidor exige uma permissão Twitch adicional e é verificado ao vivo.
 panel.commands.group.configurable	Acesso da audiência
@@ -193,7 +195,9 @@ panel.queue.empty_group	Ninguém no momento
 panel.queue.status.open	ABERTA
 panel.queue.status.closed	FECHADA
 panel.queue.status.pending_delete	Exclusão pendente: aguardando confirmação dos cancelamentos e da recompensa.
+panel.queue.status.pending_local_delete	Exclusão local pendente: aguardando confirmação de todos os resgates conhecidos e operações financeiras relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward pausada será preservada.
 panel.queue.action.delete	Excluir fila
+panel.queue.action.retry_local_delete	Verificar andamento da exclusão
 panel.queue.action.configure	Configurar
 panel.queue.action.edit_reward	Editar recompensa
 panel.queue.action.unarchive	Desarquivar
@@ -202,8 +206,20 @@ panel.queue.action.clear	Limpar fila
 panel.queue.action.add	Adicionar
 panel.queue.action.open	Abrir
 panel.queue.action.close	Fechar
+panel.queue.action.activate	Ativar fila
+panel.queue.action.pause	Pausar fila
 panel.queue.action.archive	Arquivar
 panel.queue.action.resolve_reward	Vincular recompensa
+panel.queue.action_blocked.reward_unresolved	Os controles estão pausados até vincular e confirmar uma recompensa da Twitch. Use “Vincular recompensa” para continuar.
+panel.queue.action_blocked.reward_creation_pending	Os controles serão liberados quando a Twitch confirmar a criação da recompensa.
+panel.queue.action_blocked.remote_operation_pending	Os controles aguardam a conclusão da operação pendente na Twitch.
+panel.queue.action_blocked.queue_mode_transition_pending	As chamadas e os controles da fila ficam pausados até a Twitch confirmar que a reward está pausada. A inclusão manual continua disponível enquanto a alteração não é resolvida.
+panel.queue.action_blocked.queue_not_active	Esta fila está sendo excluída e não pode ser alterada.
+panel.queue.delete_blocked.reward_unresolved	Exclusão indisponível: a recompensa ainda não foi identificada. Recupere o vínculo primeiro para evitar excluir a recompensa errada.
+panel.queue.delete_blocked.reward_creation_pending	Exclusão indisponível enquanto a Twitch confirma a criação da recompensa.
+panel.queue.delete_blocked.remote_operation_pending	Exclusão indisponível enquanto houver uma operação Twitch pendente.
+panel.queue.delete_blocked.queue_mode_transition_pending	Exclusão indisponível durante a troca de modo da fila.
+panel.queue.delete_blocked.queue_not_active	Esta fila já está em exclusão ou foi excluída.
 panel.queue.history.title	Histórico recente
 panel.queue.history.empty	Ainda não há atendimentos encerrados.
 panel.queue.history.date_unavailable	Data indisponível
@@ -225,6 +241,11 @@ panel.queue.sync.pending	sincronização pendente
 panel.queue.sync.unknown	resultado desconhecido · revise no painel
 panel.queue.sync.failed	falha de sincronização · revise no painel
 panel.queue.sync.not_synced	sem sincronização confirmada
+panel.queue.sync.diverged	divergência na Twitch · requer revisão
+panel.queue.onboarding.reward_pending	A fila está salva e fechada. A Twitch ainda precisa confirmar a recompensa; a ativação espera essa confirmação.
+panel.queue.onboarding.reward_diverged	A fila está salva e fechada, mas a recompensa da Twitch diverge das configurações salvas. Revise a diferença antes de continuar.
+panel.queue.onboarding.activate_next	Configurações salvas. Confira a fila abaixo; ela continuará fechada até você ativá-la.
+panel.queue.onboarding.activate_waiting	Configurações salvas. A fila permanece fechada enquanto a Twitch confirma a recompensa.
 panel.command.role.everyone	Todos
 panel.command.role.follower	Seguidores
 panel.command.role.subscriber	Inscritos
@@ -385,14 +406,19 @@ panel.priority.invalid_reason	Selecione uma opção de 1 a 4.
 panel.priority.marked	Prioridade registrada e auditada. A conferência foi feita pelo operador.
 panel.priority.removed	Prioridade removida.
 panel.queue.confirm.archive	Arquivar esta fila? Ela deixará de aparecer na descoberta, mas as entradas existentes serão preservadas. A recompensa será pausada.
+panel.queue.confirm.archive_local	Arquivar esta fila local? Ela deixará de aparecer na descoberta, mas as entradas existentes serão preservadas.
+panel.queue.confirm.archive_converted	Arquivar esta fila manual convertida? Ela deixará de aparecer na descoberta, as entradas existentes serão preservadas e a reward Twitch permanecerá pausada.
 panel.queue.confirm.unarchive	Desarquivar esta fila? Ela continuará fechada até você abri-la.
 panel.queue.archive.pending	Arquivamento solicitado; aguardando confirmação da Twitch.
 panel.queue.archive.done	Fila arquivada.
 panel.queue.unarchive.done	Fila desarquivada e continua fechada.
 panel.queue.confirm.delete	Excluir a fila “{title}” e sua recompensa Twitch? {count} entradas ativas serão removidas e seus resgates terão cancelamento solicitado. A recompensa só será excluída depois da confirmação de todos os cancelamentos. A operação pode ficar pendente se a Twitch não confirmar.
-panel.queue.delete.pending	Exclusão iniciada. A fila ficará pendente até a Twitch confirmar os cancelamentos e a exclusão da recompensa.
-panel.queue.delete.done	A exclusão já estava concluída.
-panel.reward.no_candidates	Nenhuma recompensa Twitch compatível foi encontrada. Revise a fila e as recompensas gerenciáveis no console Twitch.
+panel.queue.confirm.delete_local	Excluir a fila local “{title}”? {count} entradas ativas serão removidas. Não há reward ou resgate Twitch vinculado a esta fila.
+panel.queue.confirm.delete_converted	Excluir a fila manual “{title}”? {count} entradas ativas serão removidas. A exclusão ficará pendente até a confirmação de todos os resgates conhecidos e operações financeiras relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá pausada e intacta.
+panel.queue.confirm.retry_delete_converted	Verifique se todos os resgates conhecidos pendentes e as operações financeiras relacionadas foram confirmados. Se sim, a fila local será excluída. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá pausada e intacta.
+panel.queue.delete.pending	Exclusão local iniciada. A fila ficará pendente até a confirmação de todos os resgates conhecidos e operações financeiras relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá intacta.
+panel.queue.delete.done	Fila excluída. O histórico dos resgates foi preservado e a reward Twitch continua pausada.
+panel.reward.no_candidates	A consulta funcionou, mas nenhuma recompensa gerenciável por este app, pausada e com todos os dados compatíveis foi localizada. Sem confirmar a propriedade, ações remotas como excluir ficam bloqueadas. Confira as diferenças abaixo e atualize a lista.
 panel.queue.clear.empty	A fila já está vazia.
 panel.queue.clear.confirm	Limpar a fila “{title}”? {count} pessoas serão removidas e {refunds} reembolsos serão solicitados. A confirmação vale por 15 segundos.
 panel.queue.clear.changed	A fila mudou. Revise a nova confirmação para {count} pessoas.
@@ -440,10 +466,34 @@ panel.entry.dialog_title	Entrada na fila
 panel.entry.twitch_login	Login Twitch
 panel.entry.uid_optional	UID (opcional)
 panel.entry.benefit	Benefício conferido
-panel.reward.dialog_eyebrow	ASSOCIAÇÃO MANUAL
-panel.reward.dialog_title	Recompensa Twitch
+panel.reward.dialog_eyebrow	RECUPERAÇÃO DE RECOMPENSA
+panel.reward.dialog_title	Localizar recompensa da fila
+panel.reward.lookup_error_title	Falha ao consultar a Twitch
+panel.reward.link_error_title	Não foi possível vincular a recompensa
+panel.reward.link_success	Recompensa vinculada e associação registrada.
+panel.reward.candidates_found_title	Consulta concluída
 panel.reward.compatible_rewards	Recompensas compatíveis
+panel.reward.loading_candidates	Consultando recompensas gerenciáveis na Twitch…
+panel.reward.refresh_candidates	Atualizar lista da Twitch
 panel.reward.link_selected	Vincular recompensa selecionada
+panel.reward.no_candidates_title	Nenhuma recompensa corresponde à fila
+panel.reward.candidate_counts	{compatible} compatíveis de {total} recompensas gerenciáveis consultadas.
+panel.reward.mismatch_summary	Diferenças encontradas: {reasons}.
+panel.reward.mismatch_overlap	Os totais podem se sobrepor porque uma recompensa pode ter mais de uma diferença. Nenhum texto da recompensa incompatível é exibido.
+panel.reward.mismatch.title	Nome diferente ({count})
+panel.reward.mismatch.cost	Custo em pontos diferente ({count})
+panel.reward.mismatch.prompt	Descrição diferente ({count})
+panel.reward.mismatch.uid	Regra do campo de texto diferente ({count})
+panel.reward.mismatch.stream_limit	Limite por live diferente ({count})
+panel.reward.mismatch.viewer_limit	Limite por pessoa diferente ({count})
+panel.reward.mismatch.cooldown	Intervalo global diferente ({count})
+panel.reward.mismatch.auto_fulfill	Conclusão automática ativada ({count})
+panel.reward.mismatch.skip_queue	Pedidos fora da fila ativados ({count})
+panel.reward.mismatch.disabled	Recompensa desativada ({count})
+panel.reward.mismatch.not_paused	Recompensa não está pausada ({count})
+panel.reward.step.title	Confira o nome e o custo configurados na fila e na Twitch.
+panel.reward.step.settings	Confira descrição, campo de texto e limites da recompensa.
+panel.reward.step.paused	Deixe a recompensa ativa e pausada para resgate; depois atualize a lista.
 panel.form.queue_name_placeholder	Ex.: Abismo Espiral
 panel.settings.account_fallback	Streamer
 panel.entry.login_placeholder	@usuario
@@ -457,9 +507,60 @@ panel.error.twitch_authorization	Não foi possível autorizar a Twitch. Reconect
 panel.error.oauth_return	O retorno de autorização expirou ou não corresponde a esta sessão. Inicie a conexão novamente.
 panel.error.widget_link	Este link de widget não pode ser exibido novamente. Gere um novo link.
 panel.error.invalid_action	O estado foi alterado. Atualize o painel e tente novamente.
+panel.error.invalid_queue_settings	Revise as configurações da fila e tente novamente.
+panel.error.invalid_call_template	Use somente os campos de chamada listados na ajuda.
+panel.error.invalid_reward_settings	Revise o título, custo, descrição e limites da recompensa.
+panel.error.invalid_local_queue_setting	Altere UID e recompensa no editor de recompensa da Twitch.
+panel.error.stale_queue_settings	A fila mudou enquanto você editava. Atualize o painel e tente novamente.
+panel.error.queue_not_found	Esta fila não existe mais. Atualize o painel.
+panel.error.queue_not_available	Esta fila está sendo excluída e não aceita alterações.
+panel.error.reward_update_pending	Já existe uma alteração de recompensa em andamento. Atualize o painel para conferir o estado.
+panel.error.reward_not_ready	A recompensa desta fila ainda não foi confirmada. Atualize o painel e confira as operações pendentes.
 panel.widget.preview.account	Asia 1
 panel.widget.card_details	{queue}{width} × {height} · Widget {id}
 panel.widget.auto	automático
 panel.queue_settings.call_message_default	{user}, sua vez!
 panel.command.follower_scope_lost	Há comandos configurados para seguidores, mas a permissão Twitch não está disponível. Autorize novamente para restaurá-la.
 panel.command.follower_reauthorize	Reautorizar acesso de seguidores
+panel.health.twitch_chat	Chat da Twitch
+panel.health.twitch_rewards	Recompensas de Pontos do Canal
+panel.health.chat.connected	Conectado
+panel.health.chat.not_configured	Não configurado
+panel.health.chat.connecting	Conectando
+panel.health.chat.degraded	Instável
+panel.health.chat.retrying	Reconectando
+panel.health.chat.reconnect_required	Reconexão necessária
+panel.health.chat.stopped	Desconectado
+panel.health.chat.unknown	Estado desconhecido
+panel.health.rewards.available	Disponíveis
+panel.health.rewards.not_configured	Não configuradas
+panel.health.rewards.unsupported	Indisponíveis neste canal
+panel.health.rewards.unknown	Verificando
+panel.health.rewards.reconnect_required	Autorização necessária
+panel.health.rewards.stopped	Desativadas
+panel.form.queue_mode	Tipo de fila
+panel.form.mode_channel_points	Pontos do Canal com recompensa exclusiva do bot
+panel.form.mode_manual	Local, com entradas manuais gratuitas
+panel.queue.mode.manual	Fila local · entrada manual gratuita
+panel.queue.sync.local	fila local
+panel.queue.action.manual_mode	Usar fila local
+panel.queue.action.manual_mode_retry	Repetir solicitação segura de pausa
+panel.queue.confirm.manual_mode	A recompensa será pausada na Twitch; os resgates existentes e suas operações financeiras serão preservados. A fila só muda para manual após a confirmação da Twitch. Continuar?
+panel.queue.confirm.manual_mode_retry	Repetir a solicitação segura para pausar esta reward Twitch? A fila continua vinculada à reward até a Twitch confirmar a pausa; os resgates e as operações financeiras existentes serão preservados.
+panel.queue.mode_transition.pending	Pausa Twitch pendente; resgates durante a troca serão cancelados.
+panel.queue.mode_transition.unknown	A Twitch ainda não confirmou a pausa. Reconecte e tente novamente; o modo local só começa após a confirmação.
+panel.queue.mode_transition.failed	A Twitch não confirmou a pausa. Revise a conexão e tente novamente; a fila continua vinculada à reward até a confirmação.
+panel.queue.mode_transition.done	Fila convertida para modo local. Resgates antigos continuam preservados.
+panel.queue.mode.converted	Convertida de uma reward Twitch · a reward histórica continua pausada
+panel.error.queue_mode_transition_pending	A fila está mudando de modo. Aguarde a confirmação da pausa na Twitch.
+panel.error.queue_mode_transition_unavailable	A fila não pode mudar de modo neste estado. Atualize o painel e confira as operações.
+panel.entry.call.awaiting_delivery	Prazo ainda não iniciado; aguardando confirmação do envio.
+panel.entry.call.no_deadline	Sem prazo automático para iniciar o atendimento.
+panel.entry.call.remaining	Prazo para iniciar atendimento: {time} restante.
+panel.entry.call.expired	Prazo encerrado; aguardando atualização do atendimento.
+panel.confirmation.title	Confirmar ação
+panel.confirmation.cancel	Cancelar
+panel.confirmation.accept	OK
+panel.queue.status.pending_local_delete_diverged	A exclusão local está pausada porque o estado da reward Twitch precisa ser verificado. Resgates e operações financeiras relacionadas continuam em recuperação; resgates posteriores da Twitch serão detectados e registrados para cancelamento. Este app não alterará a reward Twitch.
+panel.queue.confirm.retry_delete_converted_diverged	Verifique o andamento da exclusão. A fila continuará pendente até a Twitch confirmar que a reward histórica está pausada e todos os resgates atualmente conhecidos e operações financeiras relacionadas forem resolvidos. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. Esta ação não alterará a reward Twitch.
+panel.queue.status.deletion_complete	A exclusão da fila foi concluída.

@@ -14,9 +14,9 @@ Baixe o instalador na página pública de [GitHub Releases](https://github.com/g
 
 A descrição de cada release contém as mudanças para usuários das seções correspondentes à versão em `CHANGELOG.md` e `docs/pt-BR/CHANGELOG.md`. A tag e o título usam a identidade completa da versão. O workflow acionado pela tag valida versão/commit, empacota e abre um instalador em cada runner nativo e publica juntos os três arquivos e as notas bilíngues. Push comum de branch nunca cria release.
 
-**Estado das releases:** ainda não há release pública do produto. A primeira beta canônica, `v1.0.0-HHHHHHH-beta`, está planejada para depois da FND-9 e de seus critérios de aceite. Artefatos do GitHub Actions são builds temporários de engenharia/QA, não o caminho de download para usuários.
+**Estado das releases:** ainda não há release pública do produto. A data da beta não está definida. O reteste nativo Windows da FND-1, a aceitação completa da FND-9, DOC-2, DOC-3, outras mudanças priorizadas pelo proprietário e seus gates de release continuam no plano pré-release; somente o proprietário pode aprovar explicitamente a prontidão para beta. `v1.0.0-HHHHHHH-beta` é uma identidade candidata, sem release agendada. Artefatos do GitHub Actions são builds temporários de engenharia/QA, não o caminho de download para usuários.
 
-**Estado do GHCR:** o repositório-fonte é público, mas o pacote da imagem ainda estava privado em 2026-10-07 (pull anônimo retornou HTTP 403). O pacote deve ser tornado público e o pull anônimo validado antes do teste Twitch planejado com streamer após a FND-9. Até lá, iniciar o app exige uma conta autorizada a ler o pacote e um token clássico do GitHub com `read:packages`; consulte o [guia de instalação](INSTALACAO.md). Quando o pacote for público, não será necessário login no registry.
+**Estado do GHCR:** o repositório-fonte é público, mas o pacote da imagem ainda estava privado em 2026-10-07 (pull anônimo retornou HTTP 403). O pacote deve ser tornado público e o pull anônimo validado antes da distribuição pública. Até lá, iniciar o app exige uma conta autorizada a ler o pacote e um token clássico do GitHub com `read:packages`; consulte o [guia de instalação](INSTALACAO.md). Quando o pacote for público, não será necessário login no registry.
 
 ## Abrir o instalador
 

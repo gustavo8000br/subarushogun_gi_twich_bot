@@ -86,6 +86,7 @@ chat.queue.close_done	Fila fechada e recompensa pausada.
 chat.commands.validation_failed	Não foi possível validar os comandos agora. Tente novamente em instantes.
 chat.command.validation_failed	Não foi possível validar este comando. Tente novamente em instantes.
 chat.command.failed	Não foi possível concluir o comando. Consulte o painel local.
+chat.queue.mode_transition_pending	A pausa da recompensa na Twitch está pendente. Aguarde a confirmação antes de chamar alguém.
 chat.follower.required	Este comando está disponível para seguidores do canal.
 chat.follower.unknown	Não foi possível verificar se você segue o canal. Tente novamente em instantes.
 chat.follower.help_unknown	Não foi possível verificar se você segue o canal agora; comandos exclusivos para seguidores podem não aparecer.

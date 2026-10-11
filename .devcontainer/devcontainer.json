@@ -1,0 +1,38 @@
+{
+  "name": "SubaruShogun Twitch Queue Bot",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/node:2.1.1": {
+      "version": "24.20.0"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:4.1.3": {
+      "dockerDashComposeVersion": "v2",
+      "installDockerBuildx": true
+    },
+    "ghcr.io/devcontainers/features/github-cli:1.1.3": {}
+  },
+  "privileged": true,
+  "init": true,
+  "shutdownAction": "stopContainer",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Local Twitch queue panel",
+      "onAutoForward": "notify",
+      "protocol": "https",
+      "visibility": "private"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["openai.chatgpt", "ms-azuretools.vscode-docker"],
+      "settings": {
+        "editor.formatOnSave": true,
+        "files.eol": "\n",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "remoteUser": "vscode"
+}

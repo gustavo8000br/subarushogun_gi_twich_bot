@@ -1,15 +1,43 @@
 {
   "storyId": "FND-9",
   "result": "COMPLEX",
-  "total": 18,
+  "total": 23,
   "dimensions": {
-    "scope": {"score": 4, "rationale": "Mudanças entre política de escopos OAuth, ciclo da integração Twitch, assinatura EventSub, disponibilidade de comandos, estado do painel, projeção de saúde, documentação e testes."},
-    "integration": {"score": 3, "rationale": "Usa serviços Twitch OAuth, Helix, EventSub WebSocket, Twurple e comandos existentes; não propõe novo provedor externo."},
-    "infrastructure": {"score": 2, "rationale": "Não requer contêiner/serviço novo; uma flag persistida pode ser desnecessária se o modo derivar da elegibilidade. Confirmar durante o planejamento de implementação."},
-    "knowledge": {"score": 5, "rationale": "O comportamento de autorização Twitch e a separação entre elegibilidade de Pontos do Canal e EventSub do chatbot instalado exigem verificação precisa."},
-    "risk": {"score": 4, "rationale": "O código atual encerra toda a integração Twitch quando o canal é inelegível; alterar esse limite pode afetar OAuth, autorização, comandos, workers de recompensa, reconciliação e estado exibido."}
+    "scope": {
+      "score": 5,
+      "rationale": "Adiciona modos de entrada persistidos, máquina de estados de conversão unidirecional, pausa remota, drenagem de resgates, separação chat/EventSub, seleção de reward, adição manual gratuita e documentação."
+    },
+    "integration": {
+      "score": 4,
+      "rationale": "Cruza OAuth Twurple, operações Helix de propriedade/leitura/escrita, EventSub de resgates, reconciliação, repositório de filas, outbox e projeções HTTP locais; rewards do Dashboard exigem verificação autorizada."
+    },
+    "infrastructure": {
+      "score": 4,
+      "rationale": "Sem serviço novo, mas migration/restrições PostgreSQL precisam representar intenção de conversão, confirmação de pausa remota, identidade histórica da reward e drenagem concorrente segura."
+    },
+    "knowledge": {
+      "score": 5,
+      "rationale": "Documentação oficial de monetização e Helix diverge; aceite de escopos OAuth, propriedade do app, ciclo completo de reward do Dashboard e chat real ainda não foram comprovados nesta instalação."
+    },
+    "risk": {
+      "score": 5,
+      "rationale": "Fallback silencioso ou resgate do Dashboard não gerenciável pode perder eventos ou violar garantias de reembolso/consumo; preservar estados desconhecidos explícitos e não afirmar efeitos financeiros."
+    }
   },
-  "pipelinePhases": ["gather", "assess", "research", "spec", "critique_1", "revise", "critique_2", "plan"],
-  "flags": ["Revisão arquitetural necessária", "Decisões do produto pendentes", "Não implementar antes de a FND-9 ser aprovada e entrar na sequência"],
-  "status": "draft_pending_product_decisions"
+  "pipelinePhases": [
+    "gather",
+    "assess",
+    "research",
+    "spec",
+    "critique_1",
+    "revise",
+    "critique_2",
+    "plan"
+  ],
+  "flags": [
+    "Revisão arquitetural necessária",
+    "Aceite Twitch real de capacidade obrigatório antes de habilitar reward do Dashboard",
+    "Implementação autorizada e em andamento em 2026-10-07"
+  ],
+  "status": "implementation_in_progress"
 }

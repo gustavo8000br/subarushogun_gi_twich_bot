@@ -86,6 +86,7 @@ const CHAT_FALLBACKS = Object.freeze({
   'chat.queue.clear_confirm': 'Confirme em até 15 segundos com !{queue} {clear_command} {confirm_command}: {count} pessoas serão removidas; {refunds} reembolsos serão solicitados.',
   'chat.queue.clear_done': 'Fila limpa: {count} pessoas removidas; {refunds} reembolsos solicitados e pendentes de confirmação.',
   'chat.queue.change_pending': 'Alteração solicitada. A recompensa ainda aguarda confirmação da Twitch.',
+  'chat.queue.mode_transition_pending': 'A pausa da recompensa na Twitch está pendente. Aguarde a confirmação antes de chamar alguém.',
   'chat.queue.open_done': 'Fila aberta e recompensa confirmada.',
   'chat.queue.close_done': 'Fila fechada e recompensa pausada.',
   'chat.commands.validation_failed': 'Não foi possível validar os comandos agora. Tente novamente em instantes.',
@@ -385,9 +386,9 @@ export function createChatCommandHandler({ repository, domainService = repositor
         const help = renderGlobalCommandHelp({ roles: authorized.roles, locale: productLocale, policies, allowVipManagement, translate: t });
         return reply(message, authorized.followerVerificationUnknown ? `${help} ${t('chat.follower.help_unknown')}` : help);
       }
-    } catch {
+    } catch (error) {
       onError('chat_command_failed');
-      return reply(message, t('chat.command.failed'));
+      return reply(message, t(error?.code === 'QUEUE_MODE_TRANSITION_PENDING' ? 'chat.queue.mode_transition_pending' : 'chat.command.failed'));
     }
   };
 }

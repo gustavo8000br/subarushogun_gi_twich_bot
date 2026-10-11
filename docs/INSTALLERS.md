@@ -14,9 +14,9 @@ Download the installer from the public [GitHub Releases page](https://github.com
 
 Each release description contains the user-facing changes from the matching version sections in `CHANGELOG.md` and `docs/pt-BR/CHANGELOG.md`. The tag and title use the complete version identity. A tag-triggered workflow validates the tag against the source commit/version, builds and launches one installer on each native OS runner, then publishes the three installers and bilingual notes together. A normal branch push never creates a release.
 
-**Release status:** there is no public product release yet. The first canonical beta, `v1.0.0-HHHHHHH-beta`, is planned after FND-9 and its acceptance gates. GitHub Actions artifacts are temporary engineering/QA builds, not the end-user download path.
+**Release status:** there is no public product release yet. Beta timing is not scheduled. FND-1's native Windows retest, FND-9's full acceptance, DOC-2, DOC-3, further owner-prioritized changes, and their release gates remain in the pre-release plan; only the owner can explicitly approve beta readiness. `v1.0.0-HHHHHHH-beta` is a candidate identity, not a scheduled release. GitHub Actions artifacts are temporary engineering/QA builds, not the end-user download path.
 
-**GHCR status:** the source repository is public, but its image package was still private on 2026-10-07 (anonymous pull returned HTTP 403). The package must be made public and an anonymous pull verified before the planned post-FND-9 Twitch streamer test. Until then, starting the app requires an account authorized to read the package and a classic GitHub token with `read:packages`; see the [installation guide](INSTALLATION.md). Once the package is public, no registry login is needed.
+**GHCR status:** the source repository is public, but its image package was still private on 2026-10-07 (anonymous pull returned HTTP 403). The package must be made public and an anonymous pull verified before public distribution. Until then, starting the app requires an account authorized to read the package and a classic GitHub token with `read:packages`; see the [installation guide](INSTALLATION.md). Once the package is public, no registry login is needed.
 
 ## Open the installer
 

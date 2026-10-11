@@ -2,25 +2,27 @@ import { createApplicationSetupSubmitHandler } from './application-setup.mjs';
 import { resendCallNotification } from './call-notification-actions.mjs';
 import { twitchEligibilityMessage, twitchStatusLabel, twitchStatusState } from './setup-messages.mjs';
 import { formatHealthStatus } from './health-status.mjs';
+import { queueSyncTranslationKey } from './queue-sync-status.mjs';
 import { getInitialPanelPage, getOverviewNextAction, getQueueEmptyAction, selectPanelPage } from './panel-navigation.mjs';
 import { collectCommandPolicies, followerAuthorizationRequest, groupCommandPolicies, mergeCommandPolicyState, projectCommandCatalog, projectMinimumRoleAudience } from './command-catalog-view.mjs';
 import { buildOverlayWidgetPayload, countOverlayTextCodePoints } from './overlay-widget-form.mjs';
 import { resolveLocaleSelection } from './locale-picker-state.mjs';
 import { applyPanelTranslations } from './dom-localization.mjs';
 import { presentPanelError } from './panel-error-presentation.mjs';
+import { getCallDeadlinePresentation } from './call-deadline-presentation.mjs';
+import { getQueueActionState } from './queue-action-state.mjs';
+import { getQueueOnboardingTransition } from './queue-onboarding-flow.mjs';
+import { normalizeRewardCandidates } from './reward-link-dialog.mjs';
+import { requestPanelConfirmation } from './panel-confirmation.mjs';
+import { getQueueConfirmationCopy } from './queue-confirmation-copy.mjs';
+import { canRetryQueueSettingsAfterVersionBump } from './queue-settings-version.mjs';
 import { translateCatalog, translatePluralCatalog } from '../shared/browser/translate-catalog.mjs';
+import { PANEL_PLACEHOLDERS } from './panel-catalog.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const optionalLimit = (value) => String(value ?? '').trim() ? Number(value) : null;
-const state = { csrfToken: null, queues: [], setup: null, health: null, productVersion: '—', initialPageSelected: false, twitchConnected: null, productLocale: { locale: 'pt-BR', revision: 1 }, localizationCatalogs: null };
+const state = { csrfToken: null, queues: [], setup: null, health: null, productVersion: '—', initialPageSelected: false, twitchConnected: null, productLocale: { locale: 'pt-BR', revision: 1 }, localizationCatalogs: null, queueStatusSnapshots: new Map(), queueStatusInitialized: false };
 const commandRoleKeys = { everyone: 'panel.command.role.everyone', follower: 'panel.command.role.follower', subscriber: 'panel.command.role.subscriber', vip: 'panel.command.role.vip', moderator: 'panel.command.role.moderator', streamer: 'panel.command.role.streamer' };
-const panelPlaceholders = Object.freeze({
-  'panel.operation.attempts': ['count'], 'panel.reconciliation.complete': ['count'], 'panel.reconciliation.issues': ['count'],
-  'panel.queue.confirm.delete': ['title', 'count'], 'panel.queue.clear.confirm': ['title', 'count', 'refunds'],
-  'panel.queue.clear.changed': ['count'], 'panel.queue.clear.done': ['count', 'refunds'],
-  'panel.widget.card_details': ['queue', 'width', 'height', 'id'],
-  'panel.command.audience.proposed': ['roles'], 'panel.command.audience.everyone_includes': ['roles'],
-});
 let commandCatalog = null;
 let overlayWidgetsLoaded = false;
 
@@ -45,7 +47,11 @@ async function request(url, options = {}) {
   const headers = { ...(options.body ? { 'content-type': 'application/json' } : {}), ...(mutating ? { 'x-csrf-token': state.csrfToken, 'idempotency-key': idempotencyKey ?? globalThis.crypto.randomUUID() } : {}), ...options.headers };
   const response = await fetch(url, { credentials: 'same-origin', ...fetchOptions, headers });
   const payload = response.status === 204 ? null : await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(''), { code: payload?.code });
+  if (!response.ok) throw Object.assign(new Error(''), {
+    code: payload?.code,
+    referenceId: payload?.referenceId ?? response.headers.get('x-error-reference'),
+    status: response.status,
+  });
   return payload;
 }
 
@@ -60,17 +66,27 @@ function activeProductLocale() {
 
 function applyPanelCatalog() {
   const catalogs = state.localizationCatalogs?.modules?.panel?.catalogs;
-  if (catalogs) applyPanelTranslations(document, activeProductLocale(), catalogs);
+  if (catalogs) applyPanelTranslations(document, activeProductLocale(), catalogs, PANEL_PLACEHOLDERS);
 }
 
 function panelText(key, values = {}) {
   const catalogs = state.localizationCatalogs?.modules?.panel?.catalogs ?? {};
-  return translateCatalog(catalogs, activeProductLocale(), key, { values, placeholders: panelPlaceholders });
+  return translateCatalog(catalogs, activeProductLocale(), key, { values, placeholders: PANEL_PLACEHOLDERS });
 }
 
 function panelTextPlural(key, count) {
   const catalogs = state.localizationCatalogs?.modules?.panel?.catalogs ?? {};
-  return translatePluralCatalog(catalogs, activeProductLocale(), key, count, { placeholders: panelPlaceholders });
+  return translatePluralCatalog(catalogs, activeProductLocale(), key, count, { placeholders: PANEL_PLACEHOLDERS });
+}
+
+function confirmPanelAction(message) {
+  return requestPanelConfirmation({
+    dialog: $('#panel-confirmation-dialog'),
+    messageNode: $('#panel-confirmation-message'),
+    acceptButton: $('#panel-confirmation-accept'),
+    cancelButton: $('#panel-confirmation-cancel'),
+    message,
+  });
 }
 
 function commandRoleLabel(role) {
@@ -95,13 +111,7 @@ function priorityReasonLabel(reason) {
 }
 
 function queueSyncLabel(status) {
-  const key = {
-    synced: 'panel.queue.sync.synced', synced_manual: 'panel.queue.sync.manual',
-    pending_update: 'panel.queue.sync.pending', pending_open: 'panel.queue.sync.pending',
-    pending_close: 'panel.queue.sync.pending', update_unknown: 'panel.queue.sync.unknown',
-    create_unknown: 'panel.queue.sync.unknown', update_failed: 'panel.queue.sync.failed',
-  }[status];
-  return key ? panelText(key) : panelText('panel.queue.sync.not_synced');
+  return panelText(queueSyncTranslationKey(status));
 }
 
 function renderProductLocalePicker() {
@@ -154,9 +164,9 @@ async function saveProductLocale(event) {
   } catch (error) { notice.textContent = panelError(error); }
 }
 
-function toast(message) {
-  const node = $('#toast'); node.textContent = message; node.classList.add('show');
-  window.setTimeout(() => node.classList.remove('show'), 3200);
+function toast(message, tone = 'info') {
+  const node = $('#toast'); node.textContent = message; node.dataset.tone = tone; node.classList.add('show');
+  window.setTimeout(() => node.classList.remove('show'), 5000);
 }
 
 function text(tag, value, className) {
@@ -165,13 +175,67 @@ function text(tag, value, className) {
   return node;
 }
 
-function action(label, actionName, entryId, queueId) {
+function liveStatus(tag, value, className) {
+  const node = text(tag, value, className);
+  node.setAttribute('role', 'status');
+  node.setAttribute('aria-live', 'off');
+  return node;
+}
+
+function queueStatusSnapshot(queue) {
+  if (queue.lifecycleStatus === 'deleting') {
+    const localConverted = queue.queueMode === 'manual_only' && Boolean(queue.rewardId);
+    const key = localConverted && queue.remoteSyncStatus === 'diverged'
+      ? 'panel.queue.status.pending_local_delete_diverged'
+      : localConverted ? 'panel.queue.status.pending_local_delete' : 'panel.queue.status.pending_delete';
+    return { signature: `deleting:${queue.remoteSyncStatus}`, message: panelText(key), title: queue.title };
+  }
+  if (['pending_pause', 'unknown', 'failed'].includes(queue.modeTransitionStatus)) {
+    return { signature: `transition:${queue.modeTransitionStatus}`, message: panelText(`panel.queue.mode_transition.${queue.modeTransitionStatus}`), title: queue.title };
+  }
+  if (queue.queueMode === 'manual_only' && queue.rewardId && queue.modeTransitionStatus === 'confirmed') {
+    return { signature: 'converted', message: panelText('panel.queue.mode.converted'), title: queue.title };
+  }
+  return null;
+}
+
+function announceQueueStatusChanges(queues) {
+  const current = new Map();
+  const announcements = [];
+  for (const queue of queues) {
+    const snapshot = queueStatusSnapshot(queue);
+    if (!snapshot) continue;
+    current.set(queue.id, snapshot);
+    const previous = state.queueStatusSnapshots.get(queue.id);
+    if (state.queueStatusInitialized && previous?.signature !== snapshot.signature) {
+      announcements.push(`${snapshot.title}: ${snapshot.message}`);
+    }
+  }
+  if (state.queueStatusInitialized) {
+    for (const [queueId, previous] of state.queueStatusSnapshots) {
+      if (!current.has(queueId) && previous.signature.startsWith('deleting:')) {
+        announcements.push(`${previous.title}: ${panelText('panel.queue.status.deletion_complete')}`);
+      }
+    }
+  }
+  state.queueStatusSnapshots = current;
+  if (!state.queueStatusInitialized) {
+    state.queueStatusInitialized = true;
+    return;
+  }
+  if (announcements.length) $('#queue-status-announcer').textContent = announcements.join('. ');
+}
+
+function action(label, actionName, entryId, queueId, { disabled = false, title = '', describedBy = '' } = {}) {
   const button = text('button', label, 'small-action'); button.type = 'button';
   button.dataset.action = actionName; button.dataset.entryId = entryId; button.dataset.queueId = queueId;
+  button.disabled = disabled;
+  if (title) button.title = title;
+  if (describedBy) button.setAttribute('aria-describedby', describedBy);
   return button;
 }
 
-function renderEntryGroup(title, entries, queue, group) {
+function renderEntryGroup(title, entries, queue, group, actionState, callHintId) {
   const section = document.createElement('section'); section.className = 'entry-group';
   section.append(text('h3', `${title} · ${entries.length}`));
   if (!entries.length) section.append(text('div', panelText('panel.queue.empty_group'), 'entry-empty'));
@@ -180,10 +244,14 @@ function renderEntryGroup(title, entries, queue, group) {
     if (entry.position) row.append(text('span', String(entry.position).padStart(2, '0'), 'position'));
     row.append(text('span', entry.displayName || `@${entry.userLogin}`));
     if (group === 'waiting' && entry.priorityClass === 'priority') row.append(text('small', `${panelText('panel.entry.priority_badge')} (${priorityReasonLabel(entry.priorityReason)})`, 'priority-badge'));
+    if (group === 'called') {
+      const deadline = getCallDeadlinePresentation(entry);
+      row.append(text('small', panelText(deadline.key, deadline.values), `call-deadline call-deadline-${deadline.state}`));
+    }
     if (queue.uidMode === 'visible' && entry.uid && (group === 'waiting' ? queue.showUidInList : queue.showUidOnCall)) row.append(text('small', `${panelText('panel.entry.uid_label')} ${entry.uid}`));
     const buttons = document.createElement('span'); buttons.className = 'entry-buttons';
     if (group === 'waiting') {
-      buttons.append(action(panelText('panel.entry.action.call'), 'call-one', entry.id, queue.id));
+       buttons.append(action(panelText('panel.entry.action.call'), 'call-one', entry.id, queue.id, { disabled: !actionState.canCallEntries, describedBy: actionState.canCallEntries ? '' : callHintId }));
       const lane = (queue.entries ?? []).filter((item) => item.status === 'waiting' && (item.priorityClass ?? 'standard') === (entry.priorityClass ?? 'standard'));
       const lanePosition = lane.findIndex((item) => item.id === entry.id) + 1;
       const moveUp = action(panelText('panel.entry.action.move_up'), 'move-up', entry.id, queue.id); moveUp.disabled = lanePosition <= 1; buttons.append(moveUp);
@@ -198,6 +266,7 @@ function renderEntryGroup(title, entries, queue, group) {
 }
 
 function renderQueues(queues) {
+  announceQueueStatusChanges(queues);
   const container = $('#queue-list'); container.replaceChildren();
   if (!queues.length) {
     const next = getQueueEmptyAction(state.setup);
@@ -210,34 +279,69 @@ function renderQueues(queues) {
   }
   for (const queue of queues) {
     const card = document.createElement('article'); card.className = 'queue-card';
+    card.dataset.queueId = queue.id; card.tabIndex = -1;
     const head = document.createElement('div'); head.className = 'queue-card-head';
     head.append(text('span', queue.title?.slice(0, 1)?.toUpperCase() || 'Q', 'queue-symbol'));
-    const meta = document.createElement('div'); meta.className = 'queue-meta'; meta.append(text('strong', queue.title)); meta.append(text('small', `!${queue.slug} · ${Number(queue.cost).toLocaleString(activeProductLocale())} ${panelText('panel.queue.points')} · ${panelText(queue.isOpen ? 'panel.queue.status.open' : 'panel.queue.status.closed')} · ${queueSyncLabel(queue.remoteSyncStatus)}`)); head.append(meta);
+    const meta = document.createElement('div'); meta.className = 'queue-meta'; meta.append(text('strong', queue.title));
+    const manualModeQueue = queue.queueMode === 'manual_only';
+    const priceLabel = queue.queueMode === 'manual_only' ? panelText('panel.queue.mode.manual') : `${Number(queue.cost).toLocaleString(activeProductLocale())} ${panelText('panel.queue.points')}`;
+    meta.append(text('small', `!${queue.slug} · ${priceLabel} · ${panelText(queue.isOpen ? 'panel.queue.status.open' : 'panel.queue.status.closed')} · ${queueSyncLabel(queue.remoteSyncStatus)}`));
+    if (manualModeQueue && queue.rewardId) meta.append(liveStatus('small', panelText('panel.queue.mode.converted'), 'muted'));
+    head.append(meta);
     const active = queue.entries || [];
     const controls = document.createElement('div'); controls.className = 'queue-actions';
+    const actionState = getQueueActionState(queue);
+    const callHintId = `queue-call-hint-${String(queue.id).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
     if (queue.lifecycleStatus === 'deleting') {
-      controls.append(text('span', panelText('panel.queue.status.pending_delete'), 'muted'));
+      const localConvertedDeletion = queue.queueMode === 'manual_only' && Boolean(queue.rewardId);
+      const pendingStatusKey = localConvertedDeletion && queue.remoteSyncStatus === 'diverged'
+        ? 'panel.queue.status.pending_local_delete_diverged'
+        : localConvertedDeletion ? 'panel.queue.status.pending_local_delete' : 'panel.queue.status.pending_delete';
+      const pendingStatus = liveStatus('span', panelText(pendingStatusKey), 'muted');
+      // Waiting entry call buttons reference this explanation while deletion is pending.
+      pendingStatus.id = callHintId;
+      controls.append(pendingStatus);
+      if (actionState.canRetryLocalDeletion) controls.append(action(panelText('panel.queue.action.retry_local_delete'), 'delete-queue', '', queue.id));
     } else {
-      controls.append(action(panelText('panel.queue.action.delete'), 'delete-queue', '', queue.id));
+      controls.append(action(panelText('panel.queue.action.delete'), 'delete-queue', '', queue.id, {
+        disabled: !actionState.canDelete,
+        title: actionState.deleteBlockedReason ? panelText(`panel.queue.delete_blocked.${actionState.deleteBlockedReason}`) : '',
+      }));
       controls.append(action(panelText('panel.queue.action.configure'), 'edit-settings', '', queue.id));
-      if (['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) controls.append(action(panelText('panel.queue.action.edit_reward'), 'edit-reward-settings', '', queue.id));
+      if (!manualModeQueue && ['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) controls.append(action(panelText('panel.queue.action.edit_reward'), 'edit-reward-settings', '', queue.id));
     }
     if (queue.lifecycleStatus === 'deleting') {
       // Queue mutation controls stay disabled while the durable deletion workflow is pending.
     } else if (queue.isArchived) {
-      controls.append(action(panelText('panel.queue.action.unarchive'), 'unarchive-queue', '', queue.id));
-      if (active.some((entry) => entry.status === 'waiting')) controls.append(action(panelText('panel.queue.action.next'), 'call-next', '', queue.id));
+      controls.append(action(panelText('panel.queue.action.unarchive'), 'unarchive-queue', '', queue.id, { disabled: !actionState.archiveAction.enabled }));
+      controls.append(action(panelText('panel.queue.action.open'), 'open-queue', '', queue.id, { disabled: !actionState.canToggleIntake || queue.isOpen }));
+      if (active.some((entry) => entry.status === 'waiting')) controls.append(action(panelText('panel.queue.action.next'), 'call-next', '', queue.id, { disabled: !actionState.canCallEntries, describedBy: actionState.canCallEntries ? '' : callHintId }));
       controls.append(action(panelText('panel.queue.action.clear'), 'clear-queue', '', queue.id));
     } else {
-      controls.append(action(panelText('panel.queue.action.add'), 'add-entry', '', queue.id), action(panelText('panel.queue.action.next'), 'call-next', '', queue.id));
-      if (['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) controls.append(action(panelText(queue.isOpen ? 'panel.queue.action.close' : 'panel.queue.action.open'), queue.isOpen ? 'close-queue' : 'open-queue', '', queue.id), action(panelText('panel.queue.action.archive'), 'archive-queue', '', queue.id));
+      controls.append(action(panelText('panel.queue.action.add'), 'add-entry', '', queue.id, { disabled: !actionState.canAddManualEntry }), action(panelText('panel.queue.action.next'), 'call-next', '', queue.id, { disabled: !actionState.canCallEntries, describedBy: actionState.canCallEntries ? '' : callHintId }));
+      controls.append(action(panelText(queue.isOpen ? 'panel.queue.action.pause' : 'panel.queue.action.activate'), queue.isOpen ? 'close-queue' : 'open-queue', '', queue.id, { disabled: !actionState.canToggleIntake }));
+      controls.append(action(panelText('panel.queue.action.archive'), 'archive-queue', '', queue.id, { disabled: !actionState.archiveAction.enabled }));
+      if (!manualModeQueue && queue.rewardId && queue.modeTransitionStatus === 'none') controls.append(action(panelText('panel.queue.action.manual_mode'), 'manual-mode', '', queue.id));
+      if (queue.modeTransitionStatus === 'pending_pause') controls.append(liveStatus('span', panelText('panel.queue.mode_transition.pending'), 'muted'));
+      if (queue.modeTransitionStatus === 'unknown' || queue.modeTransitionStatus === 'failed') {
+        controls.append(liveStatus('span', panelText(`panel.queue.mode_transition.${queue.modeTransitionStatus}`), 'muted'));
+        controls.append(action(panelText('panel.queue.action.manual_mode_retry'), 'manual-mode-retry', '', queue.id));
+      }
       controls.append(action(panelText('panel.queue.action.clear'), 'clear-queue', '', queue.id));
     }
     if (queue.remoteSyncStatus === 'create_unknown') controls.append(action(panelText('panel.queue.action.resolve_reward'), 'resolve-reward', '', queue.id));
-    head.append(controls); card.append(head);
-    card.append(renderEntryGroup(panelText('panel.queue.group.waiting'), active.filter((entry) => entry.status === 'waiting'), queue, 'waiting'));
-    card.append(renderEntryGroup(panelText('panel.queue.group.called'), active.filter((entry) => entry.status === 'called'), queue, 'called'));
-    card.append(renderEntryGroup(panelText('panel.queue.group.in_service'), active.filter((entry) => entry.status === 'in_progress'), queue, 'in_progress'));
+    if (actionState.blockedReason && queue.lifecycleStatus !== 'deleting') {
+      const hint = liveStatus('p', panelText(`panel.queue.action_blocked.${actionState.blockedReason}`), 'queue-action-hint');
+      if (!actionState.canCallEntries) hint.id = callHintId;
+      controls.append(hint);
+    }
+    if (!actionState.canDelete && queue.lifecycleStatus !== 'deleting') {
+      controls.append(text('p', panelText(`panel.queue.delete_blocked.${actionState.deleteBlockedReason}`), 'queue-action-hint queue-delete-hint'));
+    }
+    card.append(head, controls);
+    card.append(renderEntryGroup(panelText('panel.queue.group.waiting'), active.filter((entry) => entry.status === 'waiting'), queue, 'waiting', actionState, callHintId));
+    card.append(renderEntryGroup(panelText('panel.queue.group.called'), active.filter((entry) => entry.status === 'called'), queue, 'called', actionState, callHintId));
+    card.append(renderEntryGroup(panelText('panel.queue.group.in_service'), active.filter((entry) => entry.status === 'in_progress'), queue, 'in_progress', actionState, callHintId));
     const history = document.createElement('details'); history.className = 'queue-history';
     history.append(text('summary', panelText('panel.queue.history.title')));
     const historyContent = document.createElement('div'); historyContent.className = 'history-content';
@@ -260,12 +364,99 @@ function renderQueues(queues) {
   }
 }
 
+function openQueueSettings(queue) {
+  const form = $('#queue-settings-form');
+  form.elements.namedItem('queueId').value = queue.id;
+  form.elements.namedItem('expectedVersion').value = String(queue.version);
+  form.dataset.baselineSettings = JSON.stringify({
+    callTimeoutMin: queue.callTimeoutMin ?? null, callMessage: queue.callMessage ?? '',
+    showUidInList: queue.showUidInList === true, showUidInOverlay: queue.showUidInOverlay === true,
+    showUidOnCall: queue.showUidOnCall === true, autoSwitchAccount: queue.autoSwitchAccount === true,
+    refundIfRemovedWhileCalled: queue.refundIfRemovedWhileCalled === true, refundOnNoShow: queue.refundOnNoShow === true,
+    refundIfViewerLeavesCalled: queue.refundIfViewerLeavesCalled === true,
+  });
+  form.elements.namedItem('callTimeoutMin').value = queue.callTimeoutMin ?? '';
+  form.elements.namedItem('callMessage').value = queue.callMessage ?? panelText('panel.queue_settings.call_message_default');
+  for (const name of ['showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled']) form.elements.namedItem(name).checked = queue[name] === true;
+  $('#queue-settings-notice').textContent = queue.queueMode === 'channel_points'
+    && !['synced', 'synced_manual'].includes(queue.remoteSyncStatus)
+    ? panelText(queue.remoteSyncStatus === 'diverged' ? 'panel.queue.onboarding.reward_diverged' : 'panel.queue.onboarding.reward_pending') : '';
+  $('#queue-settings-dialog').showModal();
+}
+
+async function loadRewardCandidates(queueId) {
+  const form = $('#reward-form');
+  const select = /** @type {HTMLSelectElement} */ (form.elements.namedItem('rewardId'));
+  const submit = /** @type {HTMLButtonElement} */ ($('#reward-link-submit'));
+  const notice = $('#reward-notice');
+  select.replaceChildren();
+  select.disabled = true;
+  submit.disabled = true;
+  notice.replaceChildren(text('span', panelText('panel.reward.loading_candidates')));
+  notice.dataset.state = 'info';
+  try {
+    const result = normalizeRewardCandidates(await request(`/api/queues/${queueId}/reward-candidates`));
+    for (const candidate of result.candidates) {
+      const option = text('option', `${candidate.title} · ${candidate.cost.toLocaleString(activeProductLocale())} ${panelText('panel.queue.points')}`);
+      option.value = candidate.id;
+      select.append(option);
+    }
+    select.disabled = result.candidates.length === 0;
+    submit.disabled = result.candidates.length === 0;
+    notice.replaceChildren();
+    if (!result.candidates.length) {
+      notice.dataset.state = 'warning';
+      notice.append(text('strong', panelText('panel.reward.no_candidates_title')));
+      notice.append(text('span', panelText('panel.reward.no_candidates')));
+      if (result.diagnostics) {
+        notice.append(text('span', panelText('panel.reward.candidate_counts', {
+          compatible: result.candidates.length,
+          total: result.diagnostics.managedRewardCount,
+        }), 'reward-candidate-count'));
+        const labels = {
+          title_mismatch: 'title', cost_mismatch: 'cost', prompt_mismatch: 'prompt',
+          uid_input_mismatch: 'uid', max_redemptions_per_stream_mismatch: 'stream_limit',
+          max_redemptions_per_user_per_stream_mismatch: 'viewer_limit', global_cooldown_mismatch: 'cooldown',
+          auto_fulfill_enabled: 'auto_fulfill', skip_request_queue_enabled: 'skip_queue',
+          reward_disabled: 'disabled', reward_not_paused: 'not_paused',
+        };
+        const reasons = Object.entries(result.diagnostics.mismatchCounts)
+          .filter(([key, count]) => count > 0 && labels[key])
+          .map(([key, count]) => panelText(`panel.reward.mismatch.${labels[key]}`, { count }));
+        if (reasons.length) notice.append(text('span', panelText('panel.reward.mismatch_summary', { reasons: reasons.join(' · ') }), 'reward-mismatch-summary'));
+        notice.append(text('small', panelText('panel.reward.mismatch_overlap'), 'reward-mismatch-footnote'));
+      }
+      const steps = document.createElement('ol');
+      steps.className = 'reward-next-steps';
+      for (const key of ['step.title', 'step.settings', 'step.paused']) steps.append(text('li', panelText(`panel.reward.${key}`)));
+      notice.append(steps);
+    } else {
+      notice.dataset.state = 'success';
+      notice.replaceChildren(text('strong', panelText('panel.reward.candidates_found_title')),
+        text('span', panelText('panel.reward.candidate_counts', { compatible: result.candidates.length, total: result.diagnostics?.managedRewardCount ?? result.candidates.length })));
+    }
+  } catch (error) {
+    notice.dataset.state = 'error';
+    notice.replaceChildren(text('strong', panelText('panel.reward.lookup_error_title')), text('span', panelError(error)));
+  }
+}
+
+function focusQueueOnboardingAction(queueId, actionName) {
+  const cards = /** @type {HTMLElement[]} */ ([...document.querySelectorAll('.queue-card')]);
+  const card = cards.find((candidate) => candidate.dataset.queueId === queueId);
+  const actionButton = /** @type {HTMLButtonElement|null} */ (card?.querySelector(`button[data-action="${actionName}"]`) ?? null);
+  (actionButton?.disabled ? card : actionButton)?.focus();
+}
+
 function renderRuntimeIndicators() {
   $('#runtime-version').textContent = state.productVersion;
   if (!state.health) return;
   const healthStatus = formatHealthStatus(state.health, activeProductLocale(), state.localizationCatalogs);
   $('#database-health').textContent = healthStatus.database;
   $('#twitch-api-health').textContent = healthStatus.twitch;
+  $('#twitch-integration-health').textContent = healthStatus.integration ?? '—';
+  $('#twitch-chat-health').textContent = healthStatus.chat;
+  $('#twitch-rewards-health').textContent = healthStatus.rewards;
   $('#twitch-api-ping').textContent = healthStatus.ping;
 }
 
@@ -478,12 +669,12 @@ function renderOverlayWidgets(widgets) {
     actions.append(overlayAction(panelText('panel.widget.action.edit'), () => openOverlayEditor(widget)));
     if (widget.capabilityActive) {
       actions.append(overlayAction(panelText('panel.widget.action.regenerate'), async () => {
-        if (!window.confirm(panelText('panel.widget.confirm.regenerate'))) return;
+        if (!await confirmPanelAction(panelText('panel.widget.confirm.regenerate'))) return;
         try { const result = await request(`/api/overlay-widgets/${widget.id}/regenerate`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) }); showOneTimeOverlayLink(result.capabilityUrl); await loadOverlayWidgets(); }
         catch (error) { toast(panelError(error)); }
       }));
       actions.append(overlayAction(panelText('panel.widget.action.revoke'), async () => {
-        if (!window.confirm(panelText('panel.widget.confirm.revoke'))) return;
+        if (!await confirmPanelAction(panelText('panel.widget.confirm.revoke'))) return;
         try { await request(`/api/overlay-widgets/${widget.id}/revoke`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) }); await loadOverlayWidgets(); }
         catch (error) { toast(panelError(error)); }
       }, true));
@@ -494,7 +685,7 @@ function renderOverlayWidgets(widgets) {
       }));
     }
     actions.append(overlayAction(panelText('panel.widget.action.delete'), async () => {
-      if (!window.confirm(panelText('panel.widget.confirm.delete'))) return;
+      if (!await confirmPanelAction(panelText('panel.widget.confirm.delete'))) return;
       try { await request(`/api/overlay-widgets/${widget.id}`, { method: 'DELETE', body: JSON.stringify({ expectedVersion: widget.version }) }); await loadOverlayWidgets(); }
       catch (error) { toast(panelError(error)); }
     }, true));
@@ -549,7 +740,7 @@ async function copyOverlayLink() {
   catch { input.select(); $('#overlay-link-notice').textContent = panelText('panel.widget.link.copy_fallback'); }
 }
 
-async function refresh() {
+async function refresh({ quiet = false } = {}) {
   try {
     const [apiState, setup, health] = await Promise.all([
       request('/api/state'), request('/api/setup'),
@@ -613,7 +804,7 @@ async function refresh() {
       if (operation.status === 'unknown' && operation.type.startsWith('redemption.')) {
         const button = text('button', panelText('panel.operation.action.resolve')); button.type = 'button';
         button.addEventListener('click', async () => {
-          const accepted = window.confirm(panelText('panel.operation.confirm.resolve'));
+          const accepted = await confirmPanelAction(panelText('panel.operation.confirm.resolve'));
           if (!accepted) return;
           try { await request(`/api/operations/${operation.id}/resolve-unknown`, { method: 'POST', body: '{}' }); await refresh(); }
           catch (error) { toast(panelError(error)); }
@@ -628,7 +819,7 @@ async function refresh() {
       operationList.append(row);
     }
     $('#last-refresh').textContent = `${panelText('panel.runtime.refreshed')} ${new Intl.DateTimeFormat(activeProductLocale(), { timeStyle: 'short' }).format(new Date())}`;
-  } catch (error) { toast(panelError(error)); }
+  } catch (error) { if (!quiet) toast(panelError(error)); }
 }
 
 async function boot() {
@@ -683,11 +874,38 @@ async function boot() {
     } finally { button.disabled = false; }
   });
   $('#queue-form').addEventListener('submit', async (event) => {
-    event.preventDefault(); const values = new FormData(event.currentTarget);
+    event.preventDefault(); const form = /** @type {HTMLFormElement} */ (event.currentTarget); const values = new FormData(form);
     const aliases = String(values.get('aliases') || '').split(',').map((value) => value.trim()).filter(Boolean);
-    const body = { title: values.get('title'), slug: values.get('slug'), aliases, cost: Number(values.get('cost')), rewardPrompt: values.get('rewardPrompt'), uidMode: values.get('uidMode'), callTimeoutMin: Number(values.get('callTimeoutMin')), maxRedemptionsPerStream: optionalLimit(values.get('maxRedemptionsPerStream')), maxRedemptionsPerUserPerStream: optionalLimit(values.get('maxRedemptionsPerUserPerStream')), globalCooldownSeconds: optionalLimit(values.get('globalCooldownSeconds')) };
-    try { await request('/api/queues', { method: 'POST', body: JSON.stringify(body) }); $('#queue-notice').textContent = panelText('panel.notice.queue_created'); event.currentTarget.reset(); await refresh(); }
-    catch (error) { $('#queue-notice').textContent = panelError(error); }
+    const queueMode = values.get('queueMode');
+    const body = { title: values.get('title'), slug: values.get('slug'), aliases, queueMode, callTimeoutMin: Number(values.get('callTimeoutMin')), uidMode: values.get('uidMode') };
+    if (queueMode === 'channel_points') Object.assign(body, { cost: Number(values.get('cost')), rewardPrompt: values.get('rewardPrompt'), maxRedemptionsPerStream: optionalLimit(values.get('maxRedemptionsPerStream')), maxRedemptionsPerUserPerStream: optionalLimit(values.get('maxRedemptionsPerUserPerStream')), globalCooldownSeconds: optionalLimit(values.get('globalCooldownSeconds')) });
+    try {
+      let created;
+      try { created = await request('/api/queues', { method: 'POST', body: JSON.stringify(body) }); }
+      catch (error) {
+        if (error.status >= 500 && error.referenceId) {
+          const persisted = await request('/api/queues').catch(() => null);
+          created = persisted?.find((queue) => queue.slug === body.slug && queue.title === body.title);
+        }
+        if (!created) throw error;
+      }
+      const transition = getQueueOnboardingTransition('created', created);
+      if (!transition) throw new Error('QUEUE_CREATION_RESPONSE_INVALID');
+      state.queueSetupQueueId = created.id;
+      $('#queue-notice').textContent = '';
+      form.reset();
+      await refresh({ quiet: true });
+      if (!state.queues.some((queue) => queue.id === created.id)) state.queues = [created, ...state.queues];
+      renderQueues(state.queues);
+      $('#summary-queues').textContent = String(state.queues.length);
+      showPanelPage(transition.page);
+      openQueueSettings(state.queues.find((queue) => queue.id === created.id) ?? created);
+    } catch (error) { $('#queue-notice').textContent = panelError(error); }
+  });
+  $('#queue-form [name="queueMode"]').addEventListener('change', (event) => {
+    const manual = event.currentTarget.value === 'manual_only';
+    $('#queue-reward-fields').hidden = manual;
+    $('#queue-form [name="cost"]').required = !manual;
   });
   $('#queue-settings-form').addEventListener('submit', async (event) => {
     event.preventDefault(); const form = event.currentTarget; const values = new FormData(form);
@@ -695,8 +913,29 @@ async function boot() {
     const body = { expectedVersion: Number(values.get('expectedVersion')), callTimeoutMin: timeout ? Number(timeout) : null, callMessage: values.get('callMessage') };
     for (const name of ['showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled']) body[name] = values.get(name) === 'on';
     try {
-      await request(`/api/queues/${values.get('queueId')}/settings`, { method: 'PATCH', body: JSON.stringify(body) });
-      $('#queue-settings-dialog').close(); await refresh(); toast(panelText('panel.notice.queue_settings_saved'));
+      let queue;
+      try {
+        queue = await request(`/api/queues/${values.get('queueId')}/settings`, { method: 'PATCH', body: JSON.stringify(body) });
+      } catch (error) {
+        if (error.status !== 409) throw error;
+        const latest = (await request('/api/queues')).find((item) => item.id === values.get('queueId'));
+        let baselineSettings = {};
+        try { baselineSettings = JSON.parse(form.dataset.baselineSettings ?? '{}'); } catch { /* Stale UI state will fail closed below. */ }
+        if (!canRetryQueueSettingsAfterVersionBump({ expectedVersion: body.expectedVersion, baselineSettings, latestQueue: latest ?? null })) throw error;
+        body.expectedVersion = latest.version;
+        form.elements.namedItem('expectedVersion').value = String(latest.version);
+        queue = await request(`/api/queues/${values.get('queueId')}/settings`, { method: 'PATCH', body: JSON.stringify(body) });
+      }
+      const onboarding = state.queueSetupQueueId === queue.id;
+      $('#queue-settings-dialog').close(); await refresh({ quiet: onboarding });
+      if (onboarding) {
+        state.queueSetupQueueId = null;
+        const current = state.queues.find((item) => item.id === queue.id) ?? queue;
+        const transition = getQueueOnboardingTransition('settings_saved', current);
+        showPanelPage(transition?.page ?? 'queues');
+        focusQueueOnboardingAction(queue.id, transition?.focusAction ?? 'open-queue');
+        toast(panelText(transition?.canActivate ? 'panel.queue.onboarding.activate_next' : 'panel.queue.onboarding.activate_waiting'));
+      } else toast(panelText('panel.notice.queue_settings_saved'));
     } catch (error) { $('#queue-settings-notice').textContent = panelError(error); }
   });
   $('#reward-settings-form').addEventListener('submit', async (event) => {
@@ -721,14 +960,7 @@ async function boot() {
       if (actionName === 'edit-settings') {
         const queue = state.queues.find((item) => item.id === queueId);
         if (!queue) return;
-        const form = $('#queue-settings-form');
-        form.elements.namedItem('queueId').value = queue.id;
-        form.elements.namedItem('expectedVersion').value = String(queue.version);
-        form.elements.namedItem('callTimeoutMin').value = queue.callTimeoutMin ?? '';
-        form.elements.namedItem('callMessage').value = queue.callMessage ?? panelText('panel.queue_settings.call_message_default');
-        for (const name of ['showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled']) form.elements.namedItem(name).checked = queue[name] === true;
-        $('#queue-settings-notice').textContent = '';
-        $('#queue-settings-dialog').showModal(); return;
+        openQueueSettings(queue); return;
       }
       if (actionName === 'edit-reward-settings') {
         const queue = state.queues.find((item) => item.id === queueId);
@@ -770,36 +1002,42 @@ async function boot() {
       }
       if (actionName === 'archive-queue' || actionName === 'unarchive-queue') {
         const archiving = actionName === 'archive-queue';
-        if (!window.confirm(panelText(archiving ? 'panel.queue.confirm.archive' : 'panel.queue.confirm.unarchive'))) return;
+        const queue = state.queues.find((item) => item.id === queueId);
+        if (!await confirmPanelAction(panelText(getQueueConfirmationCopy(queue, archiving ? 'archive' : 'unarchive')))) return;
         const result = await request(`/api/queues/${queueId}/${archiving ? 'archive' : 'unarchive'}`, { method: 'POST', body: '{}' });
         toast(panelText(archiving ? (result.status === 'pending' ? 'panel.queue.archive.pending' : 'panel.queue.archive.done') : 'panel.queue.unarchive.done'));
+        await refresh(); return;
+      }
+      if (actionName === 'manual-mode' || actionName === 'manual-mode-retry') {
+        const confirmationKey = actionName === 'manual-mode-retry' ? 'panel.queue.confirm.manual_mode_retry' : 'panel.queue.confirm.manual_mode';
+        if (!await confirmPanelAction(panelText(confirmationKey))) return;
+        const result = await request(`/api/queues/${queueId}/manual-mode`, { method: 'POST', body: '{}' });
+        toast(panelText(result.status === 'pending' ? 'panel.queue.mode_transition.pending' : 'panel.queue.mode_transition.done'));
         await refresh(); return;
       }
       if (actionName === 'delete-queue') {
         const queue = state.queues.find((item) => item.id === queueId);
         const activeCount = (queue?.entries ?? []).filter((entry) => ['waiting', 'called', 'in_progress'].includes(entry.status)).length;
-        const accepted = window.confirm(panelText('panel.queue.confirm.delete', { title: queue?.title ?? '', count: activeCount }));
+        const accepted = await confirmPanelAction(panelText(getQueueConfirmationCopy(queue, 'delete'), { title: queue?.title ?? '', count: activeCount }));
         if (!accepted) return;
         const result = await request(`/api/queues/${queueId}/delete`, { method: 'POST', body: JSON.stringify({ confirm: true }) });
-        toast(panelText(result.status === 'pending' ? 'panel.queue.delete.pending' : 'panel.queue.delete.done'));
+        toast(panelText(result.status === 'pending' ? 'panel.queue.delete.pending' : 'panel.queue.delete.done'), result.status === 'pending' ? 'warning' : 'success');
         await refresh(); return;
       }
       if (actionName === 'resolve-reward') {
-        const candidates = await request(`/api/queues/${queueId}/reward-candidates`);
-        if (!candidates.length) { toast(panelText('panel.reward.no_candidates')); return; }
-        const form = $('#reward-form'); const select = form.elements.namedItem('rewardId');
-        form.elements.namedItem('queueId').value = queueId; select.replaceChildren();
-        for (const candidate of candidates) {
-          const option = text('option', `${candidate.title} · ${candidate.cost} ${panelText('panel.queue.points')} · ${candidate.id}`);
-          option.value = candidate.id; select.append(option);
-        }
-        $('#reward-notice').textContent = ''; $('#reward-dialog').showModal(); return;
+        const form = $('#reward-form');
+        form.elements.namedItem('queueId').value = queueId;
+        const queue = state.queues.find((item) => item.id === queueId);
+        $('#reward-queue-summary').textContent = queue ? `${queue.title} · ${Number(queue.cost).toLocaleString(activeProductLocale())} ${panelText('panel.queue.points')}` : '';
+        $('#reward-dialog').showModal();
+        await loadRewardCandidates(queueId);
+        return;
       }
       if (actionName === 'clear-queue') {
         const preview = await request(`/api/queues/${queueId}/clear-preview`, { method: 'POST', body: '{}' });
         if (preview.status === 'empty') { toast(panelText('panel.queue.clear.empty')); return; }
         const queue = state.queues.find((item) => item.id === queueId);
-        const accepted = window.confirm(panelText('panel.queue.clear.confirm', { title: queue?.title ?? '', count: preview.count, refunds: preview.refundsRequested }));
+        const accepted = await confirmPanelAction(panelText('panel.queue.clear.confirm', { title: queue?.title ?? '', count: preview.count, refunds: preview.refundsRequested }));
         if (!accepted) return;
         const result = await request(`/api/queues/${queueId}/clear-confirm`, { method: 'POST', body: '{}' });
         if (result.status === 'confirmation_required') toast(panelText('panel.queue.clear.changed', { count: result.count }));
@@ -810,7 +1048,7 @@ async function boot() {
       else if (actionName === 'open-queue' || actionName === 'close-queue') await request(`/api/queues/${queueId}/open-state`, { method: 'POST', body: JSON.stringify({ isOpen: actionName === 'open-queue' }) });
       else await request(`/api/entries/${entryId}/transitions`, { method: 'POST', body: JSON.stringify({ to: actionName, reason: actionName === 'in_progress' ? 'service_started' : actionName === 'completed' ? 'service_completed' : 'operator_removed' }) });
       await refresh();
-    } catch (error) { toast(panelError(error)); }
+    } catch (error) { toast(panelError(error), 'error'); }
   });
   $('#entry-form').addEventListener('submit', async (event) => {
     event.preventDefault(); const values = new FormData(event.currentTarget);
@@ -822,8 +1060,16 @@ async function boot() {
     event.preventDefault(); const form = event.currentTarget; const values = new FormData(form);
     try {
       await request(`/api/queues/${values.get('queueId')}/resolve-reward`, { method: 'POST', body: JSON.stringify({ rewardId: values.get('rewardId') }) });
-      $('#reward-dialog').close(); await refresh();
-    } catch (error) { $('#reward-notice').textContent = panelError(error); }
+      $('#reward-dialog').close(); await refresh(); toast(panelText('panel.reward.link_success'), 'success');
+    } catch (error) {
+      const notice = $('#reward-notice'); notice.dataset.state = 'error';
+      notice.replaceChildren(text('strong', panelText('panel.reward.link_error_title')), text('span', panelError(error)));
+    }
+  });
+  $('#reward-dialog-close').addEventListener('click', () => $('#reward-dialog').close());
+  $('#reward-candidate-refresh').addEventListener('click', async () => {
+    const queueId = $('#reward-form').elements.namedItem('queueId').value;
+    await loadRewardCandidates(queueId);
   });
   $('#edit-account').addEventListener('click', async () => {
     const current = $('#account-label').textContent; const value = window.prompt(panelText('panel.account.prompt.current'), current);
