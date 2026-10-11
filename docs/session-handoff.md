@@ -5,22 +5,23 @@
 ## Current workspace
 
 - Repository/worktree: `/workspaces/subarushogun_gi_twich_bot`
-- Expected continuation branch: `main`. This handoff correction is on the docs-only branch `docs/fnd9-owner-acceptance-handoff`; product implementation is already merged.
+- Current documentation branch: `docs/close-fnd1-windows-acceptance`; after its PR merges, continue on `main`. Preserve the pre-existing `.aiox/project-status.yaml` modification.
 - Preserve the existing uncommitted work in this checkout; do not reset or discard it.
 
 ## Current objective
 
-Complete owner-side Windows and authorized live Twitch acceptance of the FND-9 implementation already merged to `main`. No FND-9 implementation task remains. The story is Ready for Review and issue #19 stays open until the owner records the real-operation evidence.
+Complete owner-side authorized live Twitch acceptance of the FND-9 implementation already merged to `main`. FND-1 is now closed after the owner confirmed the Windows beta installer works. No FND-9 implementation task remains; issue #19 stays open until the owner records the real-operation evidence.
 
 ## Latest increment
 
-- Latest independent @qa score is **10/10 for the technical implementation**; @architect is **10/10**, and UX's scoped static review is **10/10**. QA confirmed the absolute 100 ms assertion is gone, the normal PostgreSQL planner uses the partial index, and no technical implementation blocker remains. The user authorized PR/merge only after full implementation and QA 10/10; those conditions are met for the code. Do not mark FND-9 Done or close issue #19: owner-side Windows and live Twitch financial acceptance remains pending.
+- Latest independent @qa score is **10/10 for the technical implementation**; @architect is **10/10**, and UX's scoped static review is **10/10**. QA confirmed the absolute 100 ms assertion is gone, the normal PostgreSQL planner uses the partial index, and no technical implementation blocker remains. The user authorized PR/merge only after full implementation and QA 10/10; those conditions are met for the code. Do not mark FND-9 Done or close issue #19: the owner confirmed the beta installer works on Windows; native Windows FND-9 behavior and live Twitch financial acceptance remain pending.
 - The dangling `aria-describedby` reference during queue deletion now points to the visible pending status; contract coverage checks the target.
 - Implemented bounded tombstone polling after the prior 8.5/10 QA review: all active queues run first, followed by a maximum of 10 deleted converted queues per five-minute reconciliation cycle. A persisted UUID keyset cursor and leased PostgreSQL setting provide fair wraparound, safe restart/replay, and stale-worker protection with a migration-managed partial index and no tombstone expiry. Focused PostgreSQL/reconciliation tests pass **128/128**. A 45,000-row isolated PostgreSQL plan test naturally selected the partial index with normal planner settings; independent QA re-review of this evidence is pending.
 - Final full suite passed **106 files / 904 tests**; focused converted-deletion/pagination PostgreSQL suites passed **111/111**. `npm run build`, lint, typecheck, localization/version/port-denylist validation, OpenGrep (**0 findings**), Compose config, `prisma validate`, IDE sync check (**109/109, zero drift**), skill sync, and `git diff --check` passed. The isolated Codespaces preview was rebuilt from this tree; HTTP panel returns 200 and `/health` returns `status=ok` with Twitch intentionally unconfigured.
-- Architecture review is **10/10** after the lease cleanup fix; QA is now **10/10** for the technical implementation. The code is Ready for Review and the pre-push quality gates passed. Owner-side Windows/live Twitch acceptance remains open for story closure.
+- Architecture review is **10/10** after the lease cleanup fix; QA is now **10/10** for the technical implementation. The code is Ready for Review and the pre-push quality gates passed. The owner confirmed the beta installer works on Windows; native Windows FND-9 behavior and live Twitch acceptance remain open for story closure.
 - PR #49 merged the implementation into `main` at `111a902`; all PR checks passed, including native Windows installer smoke and full PostgreSQL/Compose tests. Main CD run `38101721579` succeeded and published the OCI `:main` image for `linux/amd64` and `linux/arm64`; the manifest was verified with digest `sha256:29d257251a55aa5f4d486118da7302fe0536f0a812fdae99c1872d423e5ec197`. PR #50 then merged the bilingual post-merge handoff update as `b00d671` (docs only); its Main CD run may republish the same product code. Do not close issue #19 or mark the story Done until owner-side acceptance is recorded.
-- Real Twitch financial acceptance and native Windows acceptance still require the owner's local test. FND-9 remains InProgress; the product stage remains alpha.
+- Real Twitch financial acceptance and native Windows FND-9 behavior still require the owner's local test. FND-9 remains InProgress; the product stage is beta.
+- FND-1 closure (2026-10-11): the owner confirmed that beta Windows installer `v0.1.0-081ea9b-beta` works. Main CD `38107336763` passed, and public GHCR amd64/arm64 pulls succeeded with an empty Docker config. The legacy `iniciar.bat` acceptance was superseded by OPS-5. Physical macOS host validation remains optional. Story and issue #3 closure are in this documentation increment; see bilingual FND-1 story and QA gate.
 
 - Added context-sensitive confirmation copy for local, reward-backed, and converted manual queues; converted queue delete now says the Twitch reward remains paused and intact.
 - Disabled panel “Next” calls while reward-to-manual conversion is pending/unknown/failed, while preserving explicit manual adds.
@@ -38,4 +39,4 @@ Complete owner-side Windows and authorized live Twitch acceptance of the FND-9 i
 1. Owner tests the `main` build on native Windows and performs authorized Twitch acceptance for real redemption cancellation, fulfillment, missed-event recovery/reconciliation, and unknown remote outcomes. Do not claim financial proof from mocks or HTTP success without expected confirmation.
 2. After owner acceptance, update both story files and the issue body/status; only then consider marking FND-9 Done. Beta/release/tag still requires its separate approval.
 
-Do not mark FND-9 Done until all acceptance criteria and gates are satisfied. Subsequent issue order is DOC-2 (#40), then DOC-3 (#48). Stage remains alpha; no release or tag is authorized by this handoff.
+Do not mark FND-9 Done until all acceptance criteria and gates are satisfied. Subsequent issue order is DOC-2 (#40), then DOC-3 (#48). Product stage is beta; release publication remains owner-triggered and prerelease-only.
