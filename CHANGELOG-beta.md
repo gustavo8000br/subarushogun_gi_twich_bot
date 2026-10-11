@@ -7,4 +7,5 @@
 - First beta stage build for owner-led evaluation of the Twitch queue bot and streamer panel.
 - Includes manual queue workflows, safe recovery for converted queues, and the Windows, macOS, and Linux installer paths.
 - All platform installers display the exact source-derived product version; denied GHCR pulls explain the public-package requirement and preserve local settings/data.
+- Windows install/start repairs a stale saved Compose image tag after a successful pull and starts the services with the exact versioned installer image.
 - The runtime identity is materialized from the exact source commit as `v0.1.0-HHHHHHH-beta`. GitHub prereleases are published only when the owner manually dispatches the release workflow.
