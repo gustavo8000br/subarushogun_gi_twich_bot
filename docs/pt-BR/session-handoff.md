@@ -5,12 +5,12 @@
 ## Workspace atual
 
 - Repositório/worktree: `/workspaces/subarushogun_gi_twich_bot`
-- Branch: `feat/fnd-9-manual-queue-modes`
+- Branch esperada para continuar: `main`. Esta correção do handoff está na branch somente documental `docs/fnd9-owner-acceptance-handoff`; a implementação do produto já foi mesclada.
 - Preserve o trabalho não commitado existente neste checkout; não faça reset nem descarte alterações.
 
 ## Objetivo atual
 
-Continuar a implementação e aceitação da FND-9. O comportamento central de filas manuais/com reward está implementado, mas a story continua InProgress e a issue GitHub #19 permanece aberta.
+Concluir os aceites do proprietário em Windows e Twitch ao vivo autorizada para a implementação FND-9 já mesclada na `main`. Não há tarefa de implementação FND-9 restante. A story está Ready for Review e a issue #19 permanece aberta até o proprietário registrar a evidência de operações reais.
 
 ## Incremento mais recente
 
@@ -19,7 +19,7 @@ Continuar a implementação e aceitação da FND-9. O comportamento central de f
 - Implementada varredura limitada de tombstones após a revisão QA anterior de 8,5/10: todas as filas ativas são processadas primeiro, seguidas por no máximo 10 filas convertidas excluídas a cada ciclo de reconciliação de cinco minutos. Cursor por UUID persistido e setting PostgreSQL com lease dão wrap justo, retomada/replay seguro e proteção contra worker obsoleto, com migration SQL para o índice parcial e sem expiração de tombstones. Testes PostgreSQL/reconciliação focados passaram **128/128**. O teste isolado com 45.000 linhas comprovou seleção natural do índice parcial pelo planner sem forçar configurações; revisão independente dessa evidência está pendente.
 - A suíte completa final passou **106 arquivos / 904 testes**; as suítes PostgreSQL focadas de exclusão convertida/paginação passaram **111/111**. `npm run build`, lint, typecheck, validações de localização/versão/denylist de portas, OpenGrep (**0 achados**), Compose, `prisma validate`, verificação sync IDE (**109/109, sem drift**), sync de skills e `git diff --check` passaram. A prévia Codespaces isolada foi reconstruída deste working tree; o painel HTTP retorna 200 e `/health` retorna `status=ok`, com Twitch intencionalmente sem configuração.
 - Revisão de arquitetura: **10/10** após a correção de liberação da lease; QA agora está em **10/10** para a implementação técnica. O código está Ready for Review e os gates pré-push passaram. Aceites Windows e Twitch ao vivo pelo proprietário continuam abertos para fechar a story.
-- A PR #49 foi mesclada na `main` em `111a902`; todos os checks passaram, incluindo smoke do instalador Windows nativo e testes completos PostgreSQL/Compose. A execução Main CD `38101721579` está construindo/publicando o artefato main; confirmar a conclusão antes de informar ao proprietário que a nova build local está pronta. Não fechar a issue #19 nem marcar a story Done até registrar os aceites locais do proprietário.
+- A PR #49 mesclou a implementação na `main` em `111a902`; todos os checks passaram, incluindo smoke do instalador Windows nativo e testes completos PostgreSQL/Compose. A execução Main CD `38101721579` terminou com sucesso e publicou a imagem OCI `:main` para `linux/amd64` e `linux/arm64`; o manifesto foi verificado com digest `sha256:29d257251a55aa5f4d486118da7302fe0536f0a812fdae99c1872d423e5ec197`. Depois, a PR #50 mesclou a atualização documental bilíngue em `b00d671` (somente docs); sua execução Main CD pode republicar o mesmo código do produto. Não fechar issue #19 nem marcar a story Done até registrar os aceites locais do proprietário.
 - O aceite financeiro Twitch real e o aceite nativo no Windows ainda dependem do teste local do proprietário. FND-9 segue InProgress; o stage continua alpha.
 
 - Adicionada confirmação contextual para filas locais, vinculadas a reward e manuais convertidas; excluir fila convertida agora informa que a reward Twitch continua pausada e intacta.
@@ -35,8 +35,7 @@ Continuar a implementação e aceitação da FND-9. O comportamento central de f
 
 ## Gates restantes da FND-9
 
-1. Confirmar a conclusão da execução Main CD `38101721579` e a disponibilidade da imagem main antes de anunciar a build local.
-2. Proprietário executa aceite nativo Windows e aceite Twitch autorizado para cancelamento/conclusão reais, recuperação/reconciliação de resgate perdido e resultados remotos desconhecidos. Não alegar prova financeira a partir de mocks nem HTTP sem confirmação esperada.
-3. Após o aceite do proprietário, atualizar ambas as stories e o corpo/status da issue; somente então considerar FND-9 Done. Beta/release/tag ainda exigem aprovação separada.
+1. Proprietário testa a build `main` no Windows nativo e executa o aceite Twitch autorizado para cancelamento/conclusão reais, recuperação/reconciliação de resgate perdido e resultados remotos desconhecidos. Não alegar prova financeira a partir de mocks nem HTTP sem confirmação esperada.
+2. Após o aceite do proprietário, atualizar ambas as stories e o corpo/status da issue; somente então considerar FND-9 Done. Beta/release/tag ainda exigem aprovação separada.
 
 Não marcar a FND-9 como Done até cumprir todos os critérios de aceite e gates. A ordem das issues seguintes é DOC-2 (#40), depois DOC-3 (#48). O stage continua alpha; este handoff não autoriza release ou tag.
