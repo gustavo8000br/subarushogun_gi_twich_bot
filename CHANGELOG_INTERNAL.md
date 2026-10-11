@@ -4,7 +4,7 @@
 
 ## FND-9 implementation in progress — 2026-10-07
 
-- **2026-10-11 — Final FND-9 implementation review:** Independent @qa scored the technical implementation **10/10** and @architect scored **10/10**. The natural PostgreSQL planner selected the migration-managed partial index; the unsupported absolute timing assertion was removed. Final local run passed **106 files / 904 tests**, lint, typecheck, Docker image build, OpenGrep (0 findings), localization/version/port validators, strict IDE sync (109/109), Compose config, and diff check. Story is Ready for Review; Windows/live Twitch acceptance remains owner-side and issue #19 stays open until it is recorded.
+- **2026-10-11 — Final FND-9 implementation review and merge:** Independent @qa scored the technical implementation **10/10** and @architect scored **10/10**. PR #49 merged to `main` as `111a902` after all PR CI checks passed, including native Windows installer smoke and the full PostgreSQL/Compose suite. Final local run passed **106 files / 904 tests**, lint, typecheck, Docker image build, OpenGrep (0 findings), localization/version/port validators, strict IDE sync (109/109), Compose config, and diff check. Story remains Ready for Review; Windows/live Twitch financial acceptance remains owner-side and issue #19 stays open.
 
 - **2026-10-11 — IDE projection sync gate:** Restored the documented `sync:ide`, `sync:ide:check`, and `sync:skills:codex` npm entry points. Ran the official IDE sync, reviewed its generated-only diff, and cleared all 5 stale Data Engineer projections; strict validation now reports 109/109 synced, no drift, no missing files. No user configuration or source agent file was overwritten.
 

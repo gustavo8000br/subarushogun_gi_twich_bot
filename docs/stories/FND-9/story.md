@@ -125,7 +125,7 @@
 - [x] Architecture review @architect: persisted queue/transition model and recovery semantics (10/10 after lease-abort cleanup).
 - [x] Database review @data-engineer: migration, uniqueness, locking, restart recovery (SQL-managed partial index approved for Prisma 6.19).
 - [x] Independent QA @qa: implementation review 10/10; no technical blocker found. Owner-side Windows/live Twitch acceptance remains open.
-- [ ] Pre-PR @devops: branch/PR flow, version/changelog consistency, and issue body/status sync on completion.
+- [x] Pre-PR @devops: PR #49 merged as `111a902`; all required CI jobs passed. Issue #19 intentionally remains open for owner-side acceptance and is not marked Done.
 
 ### Implementation evidence — 2026-10-07
 

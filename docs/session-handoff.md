@@ -19,7 +19,7 @@ Continue FND-9 implementation and acceptance. Core manual/reward queue behavior 
 - Implemented bounded tombstone polling after the prior 8.5/10 QA review: all active queues run first, followed by a maximum of 10 deleted converted queues per five-minute reconciliation cycle. A persisted UUID keyset cursor and leased PostgreSQL setting provide fair wraparound, safe restart/replay, and stale-worker protection with a migration-managed partial index and no tombstone expiry. Focused PostgreSQL/reconciliation tests pass **128/128**. A 45,000-row isolated PostgreSQL plan test naturally selected the partial index with normal planner settings; independent QA re-review of this evidence is pending.
 - Final full suite passed **106 files / 904 tests**; focused converted-deletion/pagination PostgreSQL suites passed **111/111**. `npm run build`, lint, typecheck, localization/version/port-denylist validation, OpenGrep (**0 findings**), Compose config, `prisma validate`, IDE sync check (**109/109, zero drift**), skill sync, and `git diff --check` passed. The isolated Codespaces preview was rebuilt from this tree; HTTP panel returns 200 and `/health` returns `status=ok` with Twitch intentionally unconfigured.
 - Architecture review is **10/10** after the lease cleanup fix; QA is now **10/10** for the technical implementation. The code is Ready for Review and the pre-push quality gates passed. Owner-side Windows/live Twitch acceptance remains open for story closure.
-- No commit, push, PR, or merge has yet been made in this continuation. The user authorized PR/merge after all FND-9 implementation is complete and QA reaches 10/10; reviewers confirm those technical conditions are met. Do not close issue #19 or mark the story Done until owner-side acceptance is recorded.
+- PR #49 was merged into `main` at `111a902`; all PR checks passed, including native Windows installer smoke and full PostgreSQL/Compose tests. Main CD run `38101721579` is building/publishing the main artifact; verify completion before telling the owner the new local build is ready. Do not close issue #19 or mark the story Done until owner-side acceptance is recorded.
 - Real Twitch financial acceptance and native Windows acceptance still require the owner's local test. FND-9 remains InProgress; the product stage remains alpha.
 
 - Added context-sensitive confirmation copy for local, reward-backed, and converted manual queues; converted queue delete now says the Twitch reward remains paused and intact.
@@ -35,7 +35,7 @@ Continue FND-9 implementation and acceptance. Core manual/reward queue behavior 
 
 ## Remaining FND-9 gates
 
-1. Complete @devops PR/merge flow on the implementation that passed QA **10/10** and the pre-push quality gates. Do not close issue #19 as part of that merge.
+1. Verify Main CD run `38101721579` completes and the main image is available before announcing the local build.
 2. Owner performs native Windows and authorized Twitch acceptance for real redemption cancellation, fulfillment, missed-event recovery/reconciliation, and unknown remote outcomes. Do not claim financial proof from mocks or HTTP success without expected confirmation.
 3. After owner acceptance, update both story files and the issue body/status; only then consider marking FND-9 Done. Beta/release/tag still requires its separate approval.
 

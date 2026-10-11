@@ -125,7 +125,7 @@
 - [x] Revisão @architect: modelo persistido da fila/transição e semântica de recuperação (10/10 após correção de lease em abort).
 - [x] Revisão @data-engineer: migration, unicidade, locks e recuperação após reinício (índice parcial SQL aprovado para Prisma 6.19).
 - [x] QA independente @qa: revisão da implementação 10/10; nenhum bloqueio técnico encontrado. Aceite Windows/Twitch ao vivo do proprietário continua pendente.
-- [ ] Pré-PR @devops: fluxo branch/PR, versão/changelogs e sincronização de issue ao concluir.
+- [x] Pré-PR @devops: PR #49 mesclada como `111a902`; todos os jobs CI obrigatórios passaram. A issue #19 permanece aberta intencionalmente para aceite do proprietário e não foi marcada Done.
 
 ### Evidências de implementação — 2026-10-07
 
