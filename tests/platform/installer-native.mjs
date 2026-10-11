@@ -94,8 +94,8 @@ try {
   }
   if (platform === 'windows') {
     await writeFile(join(installHome, '.env'), config.replace(/^IMAGE_TAG=.*$/m, 'IMAGE_TAG=__IMAGE_TAG__'));
-    await writeFile(inputFile, '1\n\n0\n');
-    const staleTagStart = launch('1\n\n0\n');
+    await writeFile(inputFile, '2\n1\n\n0\n');
+    const staleTagStart = launch('2\n1\n\n0\n');
     if (staleTagStart.status !== 0) throw new Error(`Windows install/start failed with a stale saved image tag:\n${staleTagStart.stdout}\n${staleTagStart.stderr}`);
     config = await readFile(join(installHome, '.env'), 'utf8');
     if (!config.includes(`IMAGE_TAG=${expectedImageTag}`)) {
