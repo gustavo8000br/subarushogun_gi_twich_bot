@@ -1,115 +1,12 @@
-# Histórico de mudanças
+# Histórico público de mudanças
 
 [English](../../CHANGELOG.md)
 
-Este arquivo destaca mudanças importantes para streamers e viewers. Detalhes técnicos e operacionais estão no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).
+As mudanças públicas para usuários são mantidas separadamente por estágio de release. Adicione cada versão somente ao arquivo do estágio correspondente e mantenha os dois idiomas equivalentes.
 
-## v0.13.1-alpha
+- [Alpha](../../CHANGELOG-alpha.md)
+- [Beta](../../CHANGELOG-beta.md)
+- [Release candidate](../../CHANGELOG-rc.md)
+- [Stable](../../CHANGELOG-stable.md)
 
-- A recuperação de rewards explica diferenças de configuração; filas confirmadas podem iniciar a exclusão durável, enquanto propriedade desconhecida continua bloqueada. `!fila ping` também pode mostrar o tempo de resposta da Twitch.
-- Novas rewards da Twitch são criadas indisponíveis e só são vinculadas após a confirmação do estado pausado seguro.
-- Erros inesperados mostram um número de referência para localizar os logs correspondentes sem exibir detalhes técnicos no painel.
-- Filas novas começam pausadas e abrem as configurações após a criação. O vínculo abre uma lista atualizável da Twitch, as configurações salvam com confirmação e a ativação aguarda confirmação.
-- Ações importantes do painel agora usam uma confirmação visual do próprio produto, no lugar da caixa nativa do navegador.
-
-## v0.13.0-alpha
-
-- As imagens publicadas da main agora vêm somente de alterações aprovadas pelos mesmos gates de qualidade, mantendo as atualizações alinhadas ao código validado.
-
-## v0.12.0-alpha
-
-- O acesso aos comandos agora segue uma hierarquia clara: seguidores, inscritos, VIPs e moderadores herdam o acesso do nível mínimo escolhido. A gestão das filas continua restrita a moderadores, e alterações de conta ficam exclusivas do streamer.
-- A lista de comandos e a ajuda no chat agora usam as mesmas regras. As escolhas antigas de permissões são redefinidas uma vez durante a atualização; filas, contas, credenciais e os demais dados salvos permanecem.
-- A página Comandos agrupa comandos configuráveis e comandos fixos para moderadores/streamer, mostra todos os cargos incluídos em cada nível e melhora o espaçamento do botão de salvar.
-
-## v0.11.0-alpha
-
-- O bot agora tenta recuperar automaticamente falhas temporárias de conexão com a Twitch e mantém o painel local disponível. A reconexão manual só é necessária quando a autorização Twitch realmente expira ou muda.
-
-## v0.10.0-alpha
-
-- Streamers podem definir um nível mínimo de audiência para cada comando; os grupos superiores recebem acesso automaticamente.
-- Comandos exclusivos para seguidores podem verificar quem segue o canal pela Twitch após o streamer ativar essa opção.
-
-## v0.9.0-alpha
-
-- O instalador agora exibe o progresso e só confirma a remoção após verificar que os containers, as redes e as imagens sem uso do produto desapareceram.
-- Comandos sem interação são opcionais para instalar, atualizar e desinstalar. Atualizações e remoções preservam dados salvos, a menos que haja uma confirmação explícita de exclusão.
-
-## v0.8.0-alpha
-
-- Um instalador por sistema reúne instalação, atualização e remoção de dados, mantém o idioma escolhido na primeira execução do Windows, verifica a arquitetura do Docker e acompanha a versão da release escolhida.
-- Atualizações preservam filas e configurações por padrão; apagar esses dados exige confirmação explícita.
-- No Linux, o instalador agora explica como executá-lo quando é aberto sem terminal interativo.
-- O guia de instalação agora diferencia o uso normal da imagem pronta dos requisitos de compilação para desenvolvimento.
-- Quando as releases do produto começarem, cada versão terá os três instaladores e notas em inglês e pt-BR na página da GitHub Release.
-
-## v0.7.2-alpha
-
-- As orientações de início, operação diária e estado do projeto agora estão mais fáceis de encontrar em guias específicos.
-
-## v0.7.0-alpha
-
-- O painel mantém visíveis a versão em execução e o estado dos serviços, e orienta o streamer sobre a próxima ação de configuração ou fila.
-- As páginas sem filas ou operações financeiras explicam o que será exibido e como continuar.
-- A navegação do painel funciona em telas estreitas e destaca visivelmente o foco do teclado.
-
-## v0.6.0-alpha
-
-- A tela de confirmação e recuperação do login Twitch agora segue o idioma selecionado para o produto.
-
-- Escolha português brasileiro, inglês, espanhol ou uma tradução comunitária completa para o painel e as mensagens do bot; a raiz dos comandos acompanha o idioma selecionado.
-
-- Escolha o idioma do produto no painel. Respostas suportadas do chat, rótulos do OBS e ferramentas locais podem usar catálogos em português brasileiro, inglês ou espanhol.
-
-## v0.5.2-alpha
-
-- O painel Twitch agora identifica claramente canais conectados que não podem usar recompensas de Pontos do Canal.
-
-## v0.5.1-alpha
-
-- Esclarece as instruções de confiança do certificado local na primeira execução em Windows, Linux e macOS.
-
-## v0.5.0-alpha
-
-- Streamers podem criar widgets independentes do OBS para exibir dados selecionados das filas ou texto personalizado na transmissão.
-- Os widgets se atualizam automaticamente e voltam a funcionar após uma reinicialização; links revogados ou substituídos deixam de exibir dados.
-- Comandos de gestão de filas, incluindo controles da conta atual, ficam restritos ao streamer e aos moderadores.
-
-## v0.4.1-alpha
-
-- O projeto agora está disponível sob a licença MIT.
-
-## v0.4.0-alpha
-
-- Streamers podem consultar todos os comandos de chat no painel e escolher quais cargos podem usar os comandos configuráveis.
-- Viewers podem pedir no chat a lista de comandos disponíveis para seu cargo; streamer e moderadores podem verificar se o bot responde.
-
-## v0.3.1-alpha
-
-- Atualizações de segurança corrigem uma vulnerabilidade reportada em dependência.
-
-## v0.3.0-alpha
-
-- Streamers podem configurar limites de resgate e intervalo das recompensas da fila no painel.
-- As posições da fila pelo chat agora respeitam as faixas prioritária e normal quando moderadores reorganizam viewers.
-
-- Páginas separadas organizam filas e conexão, mostram o estado dos serviços locais e o tempo de resposta Twitch mesmo para canais inelegíveis, permitem sincronizar novamente e retornam ao painel após conectar o canal.
-- Streamers podem consultar resultados recentes e reorganizar as pessoas que aguardam pelo painel.
-- Streamers podem marcar como prioritário quem aguarda após conferir um benefício externo; prioritários e normais são atendidos em faixas FIFO separadas.
-
-## v0.2.0-alpha
-
-- Streamers agora podem pausar, reabrir, arquivar e remover filas gerenciadas com segurança, mantendo tarefas inacabadas disponíveis para recuperação.
-- Notificações de chamada podem ser reenviadas pelo painel, e as trocas de conta ficam vinculadas à pessoa cujo atendimento está em andamento.
-- O bot acompanha reembolsos e consumos de pontos pendentes, mantendo operações interrompidas visíveis até a Twitch confirmar o resultado.
-- Ações de fila dos viewers e avisos no chat são mais confiáveis após reinicializações, e IDs de jogo ocultos são removidos quando uma fila passa para o modo oculto.
-
-## Primeira imagem alpha materializada — v0.1.0-3e0c935-alpha (2026-10-05)
-
-- A primeira versão alpha permitiu executar o bot e o painel do streamer no computador da própria pessoa, com instruções para Windows e Linux.
-- O painel apresentou a configuração da conta Twitch e as ferramentas iniciais para criar e gerenciar filas e recompensas.
-- A configuração agora explica em português quando um canal não pode usar pontos de recompensa, em vez de mostrar uma mensagem técnica.
-- O painel local e o login da Twitch usam uma conexão segura, com instruções para a configuração inicial.
-
-Esta é uma versão alpha inicial. Algumas funções de gerenciamento de filas e recuperação ainda estão sendo concluídas.
+Detalhes técnicos e operacionais continuam no [CHANGELOG_INTERNAL.md](CHANGELOG_INTERNAL.md).

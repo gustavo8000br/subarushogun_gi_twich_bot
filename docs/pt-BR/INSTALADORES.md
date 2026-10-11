@@ -12,11 +12,11 @@ Baixe o instalador na página pública de [GitHub Releases](https://github.com/g
 - macOS: `subarushogun_twich_bot_setup.command`
 - Linux: `subarushogun_twich_bot_setup.sh`
 
-A descrição de cada release contém as mudanças para usuários das seções correspondentes à versão em `CHANGELOG.md` e `docs/pt-BR/CHANGELOG.md`. A tag e o título usam a identidade completa da versão. O workflow acionado pela tag valida versão/commit, empacota e abre um instalador em cada runner nativo e publica juntos os três arquivos e as notas bilíngues. Push comum de branch nunca cria release.
+A descrição de cada release contém as mudanças para usuários das seções correspondentes à versão em `CHANGELOG-<stage>.md` e `docs/pt-BR/CHANGELOG-<stage>.md`. A tag e o título usam a identidade completa da versão. Somente o proprietário do repositório pode acionar manualmente o workflow para uma tag de versão existente; ele valida tag/commit, empacota e abre um instalador em cada runner nativo e publica juntos os três arquivos e as notas bilíngues como prerelease. Push comum de branch nunca cria release.
 
 **Estado das releases:** ainda não há release pública do produto. A data da beta não está definida. O reteste nativo Windows da FND-1, a aceitação completa da FND-9, DOC-2, DOC-3, outras mudanças priorizadas pelo proprietário e seus gates de release continuam no plano pré-release; somente o proprietário pode aprovar explicitamente a prontidão para beta. `v1.0.0-HHHHHHH-beta` é uma identidade candidata, sem release agendada. Artefatos do GitHub Actions são builds temporários de engenharia/QA, não o caminho de download para usuários.
 
-**Estado do GHCR:** o repositório-fonte é público, mas o pacote da imagem ainda estava privado em 2026-10-07 (pull anônimo retornou HTTP 403). O pacote deve ser tornado público e o pull anônimo validado antes da distribuição pública. Até lá, iniciar o app exige uma conta autorizada a ler o pacote e um token clássico do GitHub com `read:packages`; consulte o [guia de instalação](INSTALACAO.md). Quando o pacote for público, não será necessário login no registry.
+**Estado do GHCR:** o repositório-fonte é público. A visibilidade do pacote da imagem deve ser configurada como pública nas configurações do pacote no GitHub e, em seguida, um pull anônimo deve ser validado antes da distribuição pública. Até o pull anônimo funcionar, iniciar o app exige uma conta autorizada a ler o pacote e um token clássico do GitHub com `read:packages`; consulte o [guia de instalação](INSTALACAO.md). Depois de confirmar o acesso público, não será necessário login no registry.
 
 ## Abrir o instalador
 

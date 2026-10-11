@@ -1,9 +1,12 @@
 name: Publish GitHub Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing version tag to publish (must point to a commit already on main)
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -16,6 +19,7 @@ concurrency:
 jobs:
   resolve-release-image:
     name: Verify and pin the release image
+    if: ${{ github.actor == 'gustavo8000br' && github.triggering_actor == 'gustavo8000br' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -23,11 +27,24 @@ jobs:
       packages: read
     outputs:
       image_ref: ${{ steps.resolve.outputs.image_ref }}
+      source_sha: ${{ steps.source.outputs.source_sha }}
     steps:
       - name: Check out tagged source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ inputs.release_tag }}
+      - name: Resolve release source commit
+        id: source
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-[0-9a-f]{7}-(alpha|beta|rc|stable)$ ]]; then
+            echo "Release tag must match vMAJOR.MINOR.PATCH-seven-hex-STAGE." >&2
+            exit 1
+          fi
+          source_sha="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+          printf 'source_sha=%s\n' "$source_sha" >> "$GITHUB_OUTPUT"
       - name: Set up Buildx for registry manifest inspection
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Log in to GitHub Container Registry
@@ -37,8 +54,8 @@ jobs:
       - name: Resolve and verify the exact release image digest
         id: resolve
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
-          SOURCE_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
         run: |
           set -euo pipefail
           manifest="$RUNNER_TEMP/release-manifest.json"
@@ -73,7 +90,7 @@ jobs:
       - name: Check out tagged source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ inputs.release_tag }}
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -101,7 +118,7 @@ jobs:
 
   publish-release:
     name: Publish versioned release
-    needs: build-installers
+    needs: [resolve-release-image, build-installers]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -111,7 +128,7 @@ jobs:
       - name: Check out tagged source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ inputs.release_tag }}
           fetch-depth: 0
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -120,8 +137,8 @@ jobs:
       - name: Verify tag matches the source commit and release configuration
         shell: bash
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
-          SOURCE_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_SHA: ${{ needs.resolve-release-image.outputs.source_sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -173,17 +190,16 @@ jobs:
             exit 1
           fi
       - name: Create bilingual release notes from public changelogs
-        run: node apps/infra/scripts/create-release-notes.mjs --version "$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: node apps/infra/scripts/create-release-notes.mjs --version "$RELEASE_TAG" > "$RUNNER_TEMP/release-notes.md"
       - name: Publish release with the three installers
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
           stage="${RELEASE_TAG##*-}"
           release_args=("$RELEASE_TAG" release-assets/* --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md" --verify-tag)
-          if [[ "$stage" != "stable" ]]; then
-            release_args+=(--prerelease)
-          fi
-          gh release create "${release_args[@]}"
+          gh release create "${release_args[@]}" --prerelease

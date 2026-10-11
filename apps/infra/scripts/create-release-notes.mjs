@@ -13,6 +13,16 @@ export function getChangelogHeading(version) {
   return `v${match[1]}.${match[2]}.${match[3]}-${match[5]}`;
 }
 
+export function getChangelogPaths(version) {
+  const match = IDENTITY_PATTERN.exec(version);
+  if (!match) getChangelogHeading(version);
+  const stage = match[5];
+  return {
+    english: `CHANGELOG-${stage}.md`,
+    portuguese: `docs/pt-BR/CHANGELOG-${stage}.md`,
+  };
+}
+
 function findSection(changelog, heading, language) {
   const lines = changelog.split(/\r?\n/);
   const titleIndex = lines.findIndex((line) => line === `## ${heading}`);
@@ -50,9 +60,10 @@ async function main() {
   const version = versionIndex >= 0 ? process.argv[versionIndex + 1] : process.env.GITHUB_REF_NAME;
   if (!version) throw new Error('Pass --version or set GITHUB_REF_NAME to the materialized release identity.');
 
+  const paths = getChangelogPaths(version);
   const [english, portuguese] = await Promise.all([
-    readFile('CHANGELOG.md', 'utf8'),
-    readFile('docs/pt-BR/CHANGELOG.md', 'utf8'),
+    readFile(paths.english, 'utf8'),
+    readFile(paths.portuguese, 'utf8'),
   ]);
   process.stdout.write(createReleaseNotes({ version, english, portuguese }));
 }

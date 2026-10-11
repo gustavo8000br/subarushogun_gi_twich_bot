@@ -83,6 +83,14 @@ jobs:
           QUEUEBOT_PREBUILT_INSTALLER: ${{ runner.temp }}/queuebot-installer/subarushogun_twich_bot_setup.${{ matrix.extension }}
           QUEUEBOT_EXPECTED_IMAGE_TAG: main
         run: node tests/platform/installer-native.mjs
+      - name: Upload Windows installer for owner QA
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.platform == 'windows' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: fnd9-windows-installer-${{ github.sha }}
+          path: ${{ runner.temp }}/queuebot-installer/subarushogun_twich_bot_setup.bat
+          if-no-files-found: error
+          retention-days: 14
 
   tests:
     name: Vitest unit, PostgreSQL, and Compose integration

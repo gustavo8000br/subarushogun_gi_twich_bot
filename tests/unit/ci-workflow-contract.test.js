@@ -56,14 +56,26 @@ describe('GitHub Actions application CI contract', () => {
     expect(qualityWorkflow).toContain('docker compose build bot');
   });
 
-  it('keeps pinned actions and native installer smoke tests without uploading unused CI artifacts', () => {
+  it('keeps native installer smoke tests and uploads only the main Windows QA installer', () => {
     expect(qualityWorkflow).toContain("node-version: '24.20.0'");
     expect(qualityWorkflow).toContain('npm ci');
     expect(qualityWorkflow).toContain('uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10');
     expect(qualityWorkflow).toContain('uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020');
     expect(qualityWorkflow).toContain('uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069');
     expect(mainWorkflow).toContain('uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0');
-    expect(qualityWorkflow).not.toContain('actions/upload-artifact');
+    const quality = parseWorkflow(qualityWorkflow);
+    const installerSteps = quality.jobs['installer-smoke'].steps;
+    const upload = installerSteps.find((step) => step.name === 'Upload Windows installer for owner QA');
+    expect(upload).toBeDefined();
+    expect(upload.if).toContain("github.event_name == 'push'");
+    expect(upload.if).toContain("github.ref == 'refs/heads/main'");
+    expect(upload.if).toContain("matrix.platform == 'windows'");
+    expect(upload.uses).toBe('actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f');
+    expect(upload.with.name).toBe('fnd9-windows-installer-${{ github.sha }}');
+    expect(upload.with.path).toBe('${{ runner.temp }}/queuebot-installer/subarushogun_twich_bot_setup.bat');
+    expect(upload.with['if-no-files-found']).toBe('error');
+    expect(upload.with['retention-days']).toBe(14);
+    expect(installerSteps.indexOf(upload)).toBeGreaterThan(installerSteps.findIndex((step) => step.name === 'Launch the installer directly with isolated fake Docker'));
     expect(qualityWorkflow).not.toContain('docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392');
     expect(qualityWorkflow).toContain('Native ${{ matrix.platform }} installer smoke');
   });
@@ -83,19 +95,25 @@ describe('GitHub Actions application CI contract', () => {
 
   it('publishes version-tagged releases with bilingual changelog notes and one native installer per OS', () => {
     const release = parseWorkflow(releaseWorkflow);
-    expect(release.on.push.tags).toEqual(['v*']);
+    expect(Object.keys(release.on)).toEqual(['workflow_dispatch']);
+    expect(release.on.workflow_dispatch.inputs.release_tag.required).toBe(true);
     expect(release.concurrency['cancel-in-progress']).toBe(false);
     expect(release.concurrency.queue).toBe('max');
     expect(release.permissions).toEqual({ contents: 'read' });
     expect(release.jobs['build-installers'].needs).toBe('resolve-release-image');
     expect(release.jobs['build-installers'].permissions).toBeUndefined();
-    expect(release.jobs['publish-release'].needs).toBe('build-installers');
+    expect(release.jobs['publish-release'].needs).toEqual(['resolve-release-image', 'build-installers']);
     expect(release.jobs['resolve-release-image'].permissions).toEqual({ contents: 'read', packages: 'read' });
+    expect(release.jobs['resolve-release-image'].if).toContain("github.actor == 'gustavo8000br'");
+    expect(release.jobs['resolve-release-image'].if).toContain("github.triggering_actor == 'gustavo8000br'");
+    expect(release.jobs['resolve-release-image'].if).toContain("github.ref == 'refs/heads/main'");
     expect(release.jobs['publish-release'].permissions).toEqual({ actions: 'read', contents: 'write' });
     expect(releaseWorkflow).toContain('node apps/infra/scripts/create-release-notes.mjs');
     expect(releaseWorkflow).toContain('--image-tag "$RELEASE_IMAGE_REF"');
     expect(releaseWorkflow).toContain('actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333');
     expect(releaseWorkflow).toContain('gh release create');
+    expect(releaseWorkflow).toContain('--prerelease');
+    expect(releaseWorkflow).toContain('inputs.release_tag');
     expect(releaseWorkflow).toContain('contents: write');
     expect(releaseWorkflow).toContain('git merge-base --is-ancestor');
     expect(releaseWorkflow).toContain('gh run list --workflow main-cd.yml --commit');

@@ -7,14 +7,26 @@ const read = (path) => readFile(new URL(path, root), 'utf8');
 describe('foundation operator documentation contract', () => {
   it('puts each shipping changelog version above its own entries in both languages', async () => {
     const [englishPublic, englishInternal, portuguesePublic, portugueseInternal] = await Promise.all([
-      read('CHANGELOG.md'), read('CHANGELOG_INTERNAL.md'),
-      read('docs/pt-BR/CHANGELOG.md'), read('docs/pt-BR/CHANGELOG_INTERNAL.md'),
+      read('CHANGELOG-alpha.md'), read('CHANGELOG_INTERNAL.md'),
+      read('docs/pt-BR/CHANGELOG-alpha.md'), read('docs/pt-BR/CHANGELOG_INTERNAL.md'),
     ]);
 
     for (const changelog of [englishPublic, englishInternal, portuguesePublic, portugueseInternal]) {
       expect(changelog.indexOf('## v0.4.0-alpha')).toBeGreaterThanOrEqual(0);
       expect(changelog.indexOf('## v0.3.0-alpha')).toBeGreaterThan(changelog.indexOf('## v0.4.0-alpha'));
     }
+  });
+  it('provides linked public changelog files for every release stage', async () => {
+    const stages = ['alpha', 'beta', 'rc', 'stable'];
+    for (const stage of stages) {
+      const [english, portuguese] = await Promise.all([
+        read(`CHANGELOG-${stage}.md`), read(`docs/pt-BR/CHANGELOG-${stage}.md`),
+      ]);
+      expect(english).toContain(`docs/pt-BR/CHANGELOG-${stage}.md`);
+      expect(portuguese).toContain(`../../CHANGELOG-${stage}.md`);
+    }
+    expect(await read('CHANGELOG.md')).toContain('[Stable](CHANGELOG-stable.md)');
+    expect(await read('docs/pt-BR/CHANGELOG.md')).toContain('[Stable](../../CHANGELOG-stable.md)');
   });
   it('defines the owner-controlled per-PR version increment and release-stage policy in both languages', async () => {
     const [english, portuguese] = await Promise.all([
@@ -40,7 +52,7 @@ describe('foundation operator documentation contract', () => {
 
   it('keeps public changelogs concise and readable without implementation jargon in both languages', async () => {
     const [english, portuguese] = await Promise.all([
-      read('CHANGELOG.md'), read('docs/pt-BR/CHANGELOG.md'),
+      read('CHANGELOG-alpha.md'), read('docs/pt-BR/CHANGELOG-alpha.md'),
     ]);
     const technicalTerms = /advisory lock|outbox|retry-after|qemu|prisma|opengrep|ghcr|linux\/amd64|linux\/arm64|959\s*mb|musl|endpoint|ci quality gates|identidade runtime|identidade de runtime|backoff|worker durável/i;
     for (const document of [english, portuguese]) {
@@ -156,8 +168,8 @@ describe('foundation operator documentation contract', () => {
       expect(guide.toLowerCase()).not.toContain('actions → ci');
       expect(guide.toLowerCase()).toMatch(/beta timing is not scheduled|a data da beta não está definida/);
       expect(guide.toLowerCase()).toMatch(/matching version sections|seções correspondentes/);
-      expect(guide).toContain('CHANGELOG.md');
-      expect(guide).toContain('docs/pt-BR/CHANGELOG.md');
+      expect(guide).toContain('CHANGELOG-<stage>.md');
+      expect(guide).toContain('docs/pt-BR/CHANGELOG-<stage>.md');
     }
     for (const document of [englishReadme, portugueseReadme, englishInstallers, portugueseInstallers]) {
       expect(document).not.toContain('subarushogun_twich_bot_installer');
@@ -222,7 +234,7 @@ describe('foundation operator documentation contract', () => {
     }
   });
 
-  it('documents the public repository without assuming the GHCR package is public', async () => {
+  it('documents the public repository and how to verify anonymous GHCR access', async () => {
     const [englishReadme, portugueseReadme, englishContributing, portugueseContributing,
       englishInstallation, portugueseInstallation, englishInstallers, portugueseInstallers,
       englishIntegrations, portugueseIntegrations] = await Promise.all([
@@ -233,10 +245,10 @@ describe('foundation operator documentation contract', () => {
     for (const document of [englishReadme, portugueseReadme, englishContributing, portugueseContributing, englishInstallation, portugueseInstallation, englishInstallers, portugueseInstallers]) {
       expect(document.toLowerCase()).not.toMatch(/repository is private|private repository|repositório (está )?privado|repositório privado/);
     }
-    expect(englishInstallation.toLowerCase()).toContain('the ghcr image package is currently private');
-    expect(portugueseInstallation.toLowerCase()).toContain('o pacote de imagem ghcr está privado neste momento');
-    expect(englishInstallers.toLowerCase()).toContain('the package must be made public');
-    expect(portugueseInstallers.toLowerCase()).toContain('o pacote deve ser tornado público');
+    expect(englishInstallation.toLowerCase()).toContain('use an anonymous pull to confirm whether the package is public');
+    expect(portugueseInstallation.toLowerCase()).toContain('faça um pull anônimo para confirmar se o pacote é público');
+    expect(englishInstallers.toLowerCase()).toContain('anonymous pull verified');
+    expect(portugueseInstallers.toLowerCase()).toContain('pull anônimo deve ser validado');
     for (const document of [englishIntegrations, portugueseIntegrations]) {
       expect(document.toLowerCase()).toMatch(/(source repository|repositório-fonte).{0,100}(public|público)/);
       expect(document).toContain('HTTP 403');
@@ -249,14 +261,14 @@ describe('foundation operator documentation contract', () => {
     expect(english).toContain('There is no scheduled beta transition immediately after FND-9');
     expect(english).toContain("FND-1's native Windows retest");
     expect(english).toContain('the owner explicitly approves release readiness');
-    expect(english).toContain('matching version section in both `CHANGELOG.md` and `docs/pt-BR/CHANGELOG.md`');
-    expect(english).toContain('Tags and releases are created exclusively by `@devops`');
+    expect(english).toContain('Record user-facing changes under the matching version heading in the stage-specific English and pt-BR changelogs');
+    expect(english).toContain('Only the repository owner manually dispatches the release workflow');
     expect(portuguese).toContain('`v1.0.0-HHHHHHH-beta` continua como identidade candidata, sem release agendada');
     expect(portuguese).toContain('Não há promoção para beta agendada imediatamente após a FND-9');
     expect(portuguese).toContain('reteste nativo Windows da FND-1');
     expect(portuguese).toContain('o proprietário aprovar explicitamente a prontidão de release');
-    expect(portuguese).toContain('`CHANGELOG.md` e `docs/pt-BR/CHANGELOG.md`');
-    expect(portuguese).toContain('Somente `@devops` cria tags e releases');
+    expect(portuguese).toContain('changelogs em inglês e pt-BR próprios do estágio');
+    expect(portuguese).toContain('Somente o proprietário do repositório aciona manualmente o workflow de release');
   });
 
   it('separates end-user runtime estimates from developer image-build requirements in both installation guides', async () => {

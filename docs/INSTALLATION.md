@@ -10,7 +10,7 @@ This guide covers host requirements, first startup, local HTTPS trust, and Twitc
 - A supported 64-bit `amd64`/`x86_64` or `arm64`/`aarch64` host architecture. The published application image currently targets Linux `amd64` and `arm64`.
 - A current browser on the same computer that can trust a local certificate authority.
 - Internet access for GHCR image pulls and Twitch connectivity.
-- The source repository is public. The GHCR image package is separately permissioned and was still private on 2026-10-07; until its visibility changes, image pulls require a GitHub account authorized to read the package and a classic token with `read:packages`. Never put the token in project files. A public source repository alone does not grant access to a private image.
+- The source repository is public. GHCR image access is controlled separately; use an anonymous pull to confirm whether the package is public. If it is not, image pulls require an authorized GitHub account and a classic token with `read:packages`. Never put the token in project files. A public source repository alone does not grant access to a private image.
 - Node.js, PostgreSQL, Git, and a compiler are not needed on the host to run the Compose app. Node.js `24.20.0` runs in the container and is required only for development.
 
 ### Host platforms
@@ -34,7 +34,7 @@ Windows figures also reflect Docker Desktop prerequisites. Check the current [Wi
 
 ## First startup
 
-OPS-5 provides **one unified installer file per operating system**. Each file opens a menu for **Install / Start**, **Update**, or **Uninstall**; there are no separate updater or uninstaller downloads. When available, download the platform file from the public [GitHub Releases page](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases). Each release contains one installer for Windows, macOS, and Linux, with user-facing notes in English and pt-BR taken from the matching sections of both public changelogs. No public product release is available yet and beta timing is not scheduled. FND-1's native Windows retest, FND-9's full acceptance, DOC-2, DOC-3, further owner-prioritized changes, and their release gates remain in the pre-release plan; only the owner can explicitly approve beta readiness. CI artifacts are temporary engineering/QA builds, not the end-user download path. The installer includes its Compose configuration, so end users do not clone the source repository. The GHCR image package is still private and must be made public before public distribution. On Linux, run the downloaded `.sh` file from its saved location as shown under [Ubuntu/Linux](#ubuntulinux).
+OPS-5 provides **one unified installer file per operating system**. Each file opens a menu for **Install / Start**, **Update**, or **Uninstall**; there are no separate updater or uninstaller downloads. When available, download the platform file from the public [GitHub Releases page](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases). Each release contains one installer for Windows, macOS, and Linux, with user-facing notes in English and pt-BR taken from the matching sections of both public changelogs. No public product release is available yet and beta timing is not scheduled. FND-1's native Windows retest, FND-9's full acceptance, DOC-2, DOC-3, further owner-prioritized changes, and their release gates remain in the pre-release plan; only the owner can explicitly approve beta readiness. CI artifacts are temporary engineering/QA builds, not the end-user download path. The installer includes its Compose configuration, so end users do not clone the source repository. The GHCR image package must allow anonymous pulls before public distribution; verify access with an unauthenticated pull. On Linux, run the downloaded `.sh` file from its saved location as shown under [Ubuntu/Linux](#ubuntulinux).
 
 The first launch asks for the product language (pt-BR, English, or Spanish) and host port (3000 by default), then shows the exact panel and Twitch callback addresses. The product language can later be changed in the panel. If port 3000 is occupied, choose another port; the installer never changes it silently.
 
@@ -44,13 +44,13 @@ If Docker/Compose is unavailable, the installer asks before opening the official
 
 1. Install and start Docker Desktop with Linux containers. Its WSL 2 backend requires Windows prerequisites; use the current [official Windows installation guide](https://docs.docker.com/desktop/setup/install/windows-install/). Docker Desktop is not supported on Windows Server.
    In PowerShell, `wsl --version` reports the installed WSL version. If WSL is missing or needs an update, follow Microsoft's current WSL setup instructions and restart when Windows requests it.
-2. The GHCR image package is currently private even though the source repository is public. Authenticate in PowerShell with an account authorized for that package:
+2. If anonymous pulls from GHCR are not yet enabled, authenticate in PowerShell with an account authorized for the package:
 
    ```powershell
    docker login ghcr.io --username YOUR_GITHUB_USERNAME
    ```
 
-   Enter a classic GitHub token with `read:packages` at the password prompt. Do not put it in a file. Skip this step once the package is public.
+   Enter a classic GitHub token with `read:packages` at the password prompt. Do not put it in a file. Skip this step whenever an anonymous pull succeeds.
 3. Open the downloaded release file `subarushogun_twich_bot_setup.bat` (double-click or run it from Command Prompt/PowerShell). Choose **Install / Start**, the language, and port. The file is self-contained and works from paths containing spaces.
 4. The installer starts Compose, waits for health, and opens the panel. The public local CA is at `%LOCALAPPDATA%\SubaruShogun\subarushogun-gi-twitch-bot\.local\localhost-ca.crt`. To trust it for the current Windows user:
 
@@ -63,7 +63,7 @@ If Docker/Compose is unavailable, the installer asks before opening the official
 ### Ubuntu/Linux
 
 1. Install Docker Engine and the Compose plugin. Ubuntu 24.04 LTS is the Linux environment validated by this project; see Docker's [supported Linux installation procedures](https://docs.docker.com/engine/install/).
-2. The GHCR image package is currently private although this repository is public. Run `docker login ghcr.io --username YOUR_GITHUB_USERNAME` with an account authorized for the package and enter a classic GitHub token with `read:packages`. Never store the token with the installer or in `.env`. Skip this step once the package is public.
+2. If an anonymous pull from GHCR fails, run `docker login ghcr.io --username YOUR_GITHUB_USERNAME` with an account authorized for the package and enter a classic GitHub token with `read:packages`. Never store the token with the installer or in `.env`. Skip this step whenever an anonymous pull succeeds.
 3. Download `subarushogun_twich_bot_setup.sh` from the release page. If you saved it in `Downloads`, open a terminal and run:
 
    ```sh
@@ -83,7 +83,7 @@ If Docker/Compose is unavailable, the installer asks before opening the official
 ### macOS
 
 1. Install and open [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/). Docker supports the current and two previous major macOS releases and requires at least 4 GB RAM; check its current requirements before installing. This project's installer smoke test runs on a GitHub-hosted macOS runner; a physical Mac operator run is still separate acceptance.
-2. The GHCR image package is currently private although this repository is public. Authenticate with `docker login ghcr.io --username YOUR_GITHUB_USERNAME` using an account authorized for the package and a classic GitHub token with `read:packages`. Skip this step once the package is public.
+2. If an anonymous pull from GHCR fails, authenticate with `docker login ghcr.io --username YOUR_GITHUB_USERNAME` using an account authorized for the package and a classic GitHub token with `read:packages`. Skip this step whenever an anonymous pull succeeds.
 3. Open `subarushogun_twich_bot_setup.command` from the release download in Finder. If Gatekeeper blocks a downloaded unsigned command file, verify its source and use the macOS security prompt/Privacy & Security controls to allow it, or run it from Terminal with `chmod +x subarushogun_twich_bot_setup.command && ./subarushogun_twich_bot_setup.command`.
 4. Trust the local CA at `~/Library/Application Support/SubaruShogun/subarushogun-gi-twitch-bot/.local/localhost-ca.crt` in Keychain Access. The CLI trust command is:
 

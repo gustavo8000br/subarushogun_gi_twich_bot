@@ -2,6 +2,10 @@
 
 [English](../../../stories/FND-9/validation.md)
 
+## Acesso do proprietário ao instalador Windows
+
+Depois que a mudança do artefato do instalador chegar à `main`, abra a execução **Main CD** bem-sucedida do commit exato da `main` que deseja testar. Em **Artifacts**, baixe `fnd9-windows-installer-<commit-sha>` e extraia o ZIP para obter `subarushogun_twich_bot_setup.bat`. O artefato fica disponível somente para usuários GitHub com acesso ao repositório e expira após 14 dias. É uma build temporária de QA que instala a imagem validada da `main`; não é release pública nem beta. Não use o instalador de uma execução de PR para aceite.
+
 ## Ambiente de continuação Codespaces — 2026-10-08
 
 - Red: `npm test -- --run tests/integration/codespaces-contract.test.js` falhou porque `.devcontainer/devcontainer.json`, `.devcontainer/post-create.sh` e as instruções Codespaces não existiam. O contrato cobriu runtime, Docker Compose, ferramentas exigidas e os dois guias de desenvolvimento.
