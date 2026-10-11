@@ -5,17 +5,35 @@ import { dump, load } from 'js-yaml';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const options = new Map();
-for (let index = 2; index < process.argv.length; index += 2) options.set(process.argv[index], process.argv[index + 1]);
+for (let index = 2; index < process.argv.length; index += 2) {
+  const name = process.argv[index];
+  const value = process.argv[index + 1];
+  if (!['--platform', '--output', '--image-tag', '--product-version'].includes(name)) {
+    process.stderr.write(`Unknown argument: ${name}\n`);
+    process.exit(2);
+  }
+  if (!value || value.startsWith('--')) {
+    process.stderr.write(`${name} requires a value.\n`);
+    process.exit(2);
+  }
+  options.set(name, value);
+}
 const platform = options.get('--platform');
 const output = resolve(options.get('--output') ?? 'artifacts/installer');
 const imageTag = options.get('--image-tag') ?? 'main';
+const productVersion = options.get('--product-version') ?? imageTag.split('@', 1)[0];
 const validImageTag = /^(main|v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-[0-9a-f]{7}-(?:alpha|beta|rc|stable))(?:@sha256:[0-9a-f]{64})?$/;
+const validProductVersion = /^(main|v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-[0-9a-f]{7}-(?:alpha|beta|rc|stable))$/;
 if (!['linux', 'macos', 'windows'].includes(platform)) {
   process.stderr.write('Usage: node apps/infra/scripts/package-installer.mjs --platform <linux|macos|windows> --output <directory> [--image-tag <main|materialized-version[@sha256:digest]>]\n');
   process.exit(2);
 }
 if (!validImageTag.test(imageTag)) {
   process.stderr.write('Invalid image reference; use main or a materialized version identity, optionally pinned by its SHA-256 digest.\n');
+  process.exit(2);
+}
+if (!validProductVersion.test(productVersion) || (imageTag !== 'main' && productVersion !== imageTag.split('@', 1)[0])) {
+  process.stderr.write('Invalid product version; it must match the version identity in the installer image reference.\n');
   process.exit(2);
 }
 
@@ -36,7 +54,7 @@ let artifact;
 if (platform === 'windows') {
   filename = 'subarushogun_twich_bot_setup.bat';
   const source = await readFile(join(root, 'apps/infra/installer/installer.ps1'), 'utf8');
-  const powershell = source.replace('__COMPOSE_B64__', composeBase64).replaceAll('__IMAGE_TAG__', imageTag);
+  const powershell = source.replace('__COMPOSE_B64__', composeBase64).replaceAll('__IMAGE_TAG__', imageTag).replaceAll('__PRODUCT_VERSION__', productVersion);
   const encoded = Buffer.from(powershell, 'utf16le').toString('base64').match(/.{1,76}/g).join('\r\n');
   artifact = [
     '@echo off',
@@ -59,7 +77,7 @@ if (platform === 'windows') {
 } else {
   filename = platform === 'macos' ? 'subarushogun_twich_bot_setup.command' : 'subarushogun_twich_bot_setup.sh';
   const source = await readFile(join(root, 'apps/infra/installer/installer.sh'), 'utf8');
-  artifact = source.replace('__COMPOSE_B64__', composeBase64).replaceAll('__IMAGE_TAG__', imageTag);
+  artifact = source.replace('__COMPOSE_B64__', composeBase64).replaceAll('__IMAGE_TAG__', imageTag).replaceAll('__PRODUCT_VERSION__', productVersion);
 }
 
 const target = join(output, filename);

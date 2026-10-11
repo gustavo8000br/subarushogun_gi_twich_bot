@@ -5,6 +5,7 @@ set -eu
 # The packager embeds the Compose manifest so the user needs no repository clone.
 COMPOSE_B64='__COMPOSE_B64__'
 RELEASE_IMAGE_TAG='__IMAGE_TAG__'
+INSTALLER_VERSION='__PRODUCT_VERSION__'
 APP_NAME='subarushogun-gi-twitch-bot'
 PROJECT_NAME='subarushogun-gi-twitch-queue-bot'
 IMAGE='ghcr.io/gustavo8000br/subarushogun_gi_twich_bot'
@@ -42,6 +43,9 @@ msg() {
     pt-BR:header) printf '%s\n' 'SubaruShogun Twitch Queue Bot — Instalador' ;;
     en:header) printf '%s\n' 'SubaruShogun Twitch Queue Bot — Installer' ;;
     es:header) printf '%s\n' 'SubaruShogun Twitch Queue Bot — Instalador' ;;
+    pt-BR:installer_version) printf 'Versão do instalador: %s\n' "$INSTALLER_VERSION" ;;
+    en:installer_version) printf 'Installer version: %s\n' "$INSTALLER_VERSION" ;;
+    es:installer_version) printf 'Versión del instalador: %s\n' "$INSTALLER_VERSION" ;;
     pt-BR:state_installed) printf '%s\n' 'Instalação local detectada.' ;;
     en:state_installed) printf '%s\n' 'Local installation detected.' ;;
     es:state_installed) printf '%s\n' 'Instalación local detectada.' ;;
@@ -106,6 +110,12 @@ msg() {
     pt-BR:progress_pull) printf '%s\n' 'Baixando imagens. O Compose exibirá o progresso de cada serviço e camada.' ;;
     en:progress_pull) printf '%s\n' 'Downloading images. Compose will show progress for each service and layer.' ;;
     es:progress_pull) printf '%s\n' 'Descargando imágenes. Compose mostrará el progreso de cada servicio y capa.' ;;
+    pt-BR:progress_image_access) printf '%s\n' 'Verificando acesso à imagem do produto no GHCR...' ;;
+    en:progress_image_access) printf '%s\n' 'Checking access to the product image on GHCR...' ;;
+    es:progress_image_access) printf '%s\n' 'Comprobando el acceso a la imagen del producto en GHCR...' ;;
+    pt-BR:image_pull_failed) printf '%s\n' 'Não foi possível baixar a imagem do produto no GHCR. Verifique a conexão e confirme que o pacote está público. O instalador não exige login no GHCR; os dados locais foram preservados.' ;;
+    en:image_pull_failed) printf '%s\n' 'Could not download the product image from GHCR. Check your connection and confirm the package is public. This installer does not require GHCR login; local data was preserved.' ;;
+    es:image_pull_failed) printf '%s\n' 'No se pudo descargar la imagen del producto desde GHCR. Comprueba la conexión y que el paquete sea público. Este instalador no requiere iniciar sesión en GHCR; se conservaron los datos locales.' ;;
     pt-BR:progress_start) printf '%s\n' '[3/4] Criando/iniciando banco, migrations e bot...' ;;
     en:progress_start) printf '%s\n' '[3/4] Creating/starting database, migrations, and bot...' ;;
     es:progress_start) printf '%s\n' '[3/4] Creando/iniciando base de datos, migraciones y bot...' ;;
@@ -210,6 +220,13 @@ compose() {
   "$DOCKER_BIN" compose --progress plain --project-name "$PROJECT_NAME" --project-directory "$INSTALL_HOME" --file "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"
 }
 
+pull_product_image() {
+  msg progress_image_access
+  if "$DOCKER_BIN" pull "$IMAGE:$RELEASE_IMAGE_TAG"; then return 0; fi
+  msg image_pull_failed
+  return 1
+}
+
 clear_screen() {
   if [ -t 1 ] && [ -n "${TERM:-}" ] && [ "$TERM" != dumb ] && command -v clear >/dev/null 2>&1; then
     clear
@@ -218,6 +235,7 @@ clear_screen() {
 
 show_header() {
   msg header
+  msg installer_version
   if [ -f "$ENV_FILE" ] || [ -f "$COMPOSE_FILE" ]; then msg state_installed; else msg state_not_installed; fi
   printf '\n'
 }
@@ -381,6 +399,7 @@ install_or_start() {
   write_config
   msg progress_images
   if ! compose config --images; then msg failure; return 1; fi
+  pull_product_image || return 1
   msg progress_pull
   if ! compose pull; then msg failure; return 1; fi
   msg progress_start
@@ -409,6 +428,7 @@ do_update() {
       decode_compose
       msg progress_images
       if ! IMAGE_TAG="$RELEASE_IMAGE_TAG" compose config --images; then msg failure; return 1; fi
+      pull_product_image || return 1
       msg progress_pull
       if ! IMAGE_TAG="$RELEASE_IMAGE_TAG" compose pull; then msg failure; return 1; fi
       set_image_tag "$RELEASE_IMAGE_TAG" || { msg failure; return 1; }
@@ -420,6 +440,7 @@ do_update() {
         msg confirm_clean; confirm_word; IFS= read -r answer || answer=''
         [ "$answer" = "$CONFIRM_WORD" ] || return 0
       fi
+      pull_product_image || return 1
       IMAGE_TAG="$RELEASE_IMAGE_TAG" compose pull || { msg failure; return 1; }
       compose down --volumes --remove-orphans || { msg failure; return 1; }
       rm -rf "$INSTALL_HOME/.local" "$ENV_FILE"

@@ -15,6 +15,7 @@ const bin = join(fixtureRoot, 'fake docker path');
 const log = join(fixtureRoot, 'docker calls.log');
 const inputFile = join(fixtureRoot, 'installer input.txt');
 const expectedImageTag = process.env.QUEUEBOT_EXPECTED_IMAGE_TAG ?? 'main';
+  const expectedProductVersion = process.env.QUEUEBOT_EXPECTED_PRODUCT_VERSION ?? expectedImageTag.split('@', 1)[0];
 
 try {
   if (!process.env.QUEUEBOT_PREBUILT_INSTALLER) {
@@ -27,6 +28,7 @@ try {
     await writeFile(fakeDocker, [
       '@echo off',
       'echo %*>>"%QUEUEBOT_TEST_DOCKER_LOG%"',
+      'if /I "%~1"=="pull" if defined QUEUEBOT_TEST_FAIL_PRODUCT_PULL (echo Error response from daemon: unauthorized 1>&2&exit /b 1)',
       'if /I "%~1"=="info" echo x86_64',
       'if /I "%~1"=="info" exit /b 0',
       'echo %*|findstr /C:"config --images" >nul && (echo ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:main&echo postgres:17-alpine&exit /b 0)',
@@ -42,7 +44,7 @@ try {
       '',
     ].join('\r\n'));
   } else {
-    await writeFile(fakeDocker, '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\ncase "$*" in "info --format {{.Architecture}}") printf \'%s\\n\' "${QUEUEBOT_TEST_DOCKER_ARCH:-x86_64}" ;; esac\nexit 0\n');
+    await writeFile(fakeDocker, '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"\ncase "$1:$2" in pull:ghcr.io/*) if [ "${QUEUEBOT_TEST_FAIL_PRODUCT_PULL:-0}" = 1 ]; then printf \'%s\\n\' "Error response from daemon: unauthorized" >&2; exit 1; fi ;; esac\ncase "$*" in "info --format {{.Architecture}}") printf \'%s\\n\' "${QUEUEBOT_TEST_DOCKER_ARCH:-x86_64}" ;; esac\nexit 0\n');
     await chmod(fakeDocker, 0o755);
   }
   const artifact = process.env.QUEUEBOT_PREBUILT_INSTALLER ?? join(output, artifactName);
@@ -58,6 +60,7 @@ try {
     QUEUEBOT_TEST_MODE: '1',
     QUEUEBOT_TEST_INPUT_FILE: inputFile,
     QUEUEBOT_EXPECTED_IMAGE_TAG: expectedImageTag,
+    QUEUEBOT_EXPECTED_PRODUCT_VERSION: expectedProductVersion,
   };
   if (platform === 'windows') {
     const architectureProbe = spawnSync('powershell.exe', [
@@ -67,16 +70,16 @@ try {
       throw new Error(`Windows fake Docker architecture fixture failed (${architectureProbe.status}):\n${architectureProbe.stdout}\n${architectureProbe.stderr}`);
     }
   }
-  const launch = (input, installerArgs = '') => {
+  const launch = (input, installerArgs = '', launchEnv = env) => {
     if (platform === 'windows') {
       return spawnSync('powershell.exe', [
         '-NoLogo', '-NoProfile', '-Command',
         '$installerArgs = @($env:QUEUEBOT_TEST_INSTALLER_ARGS -split "\\s+" | Where-Object { $_ }); & $env:QUEUEBOT_PREBUILT_INSTALLER @installerArgs; exit $LASTEXITCODE',
       ], {
-        encoding: 'utf8', env: { ...env, QUEUEBOT_PREBUILT_INSTALLER: artifact, QUEUEBOT_TEST_INSTALLER_ARGS: installerArgs }, timeout: 30_000,
+        encoding: 'utf8', env: { ...launchEnv, QUEUEBOT_PREBUILT_INSTALLER: artifact, QUEUEBOT_TEST_INSTALLER_ARGS: installerArgs }, timeout: 30_000,
       });
     }
-    return spawnSync(artifact, installerArgs ? installerArgs.split(/\s+/) : [], { input, encoding: 'utf8', env, timeout: 30_000 });
+    return spawnSync(artifact, installerArgs ? installerArgs.split(/\s+/) : [], { input, encoding: 'utf8', env: launchEnv, timeout: 30_000 });
   };
   const result = launch('2\n1\n3100\n0\n');
   if (result.status !== 0) throw new Error(`Native installer failed (${result.status}):\n${result.stdout}\n${result.stderr}`);
@@ -104,6 +107,18 @@ try {
   }
   if (!result.stdout.includes('https://localhost:3100/callback')) {
     throw new Error(`Installer did not show the exact callback URL:\n${result.stdout}`);
+  }
+  if (!result.stdout.includes(`Installer version: ${expectedProductVersion}`)) {
+    throw new Error(`Installer did not show the exact product version:\n${result.stdout}`);
+  }
+  const savedConfigBeforeDeniedPull = await readFile(join(installHome, '.env'), 'utf8');
+  const deniedPull = launch('', '--silent install', { ...env, QUEUEBOT_TEST_FAIL_PRODUCT_PULL: '1' });
+  const deniedPullOutput = `${deniedPull.stdout}\n${deniedPull.stderr}`;
+  if (deniedPull.status !== 1 || !deniedPullOutput.includes('unauthorized') || !deniedPullOutput.includes('public') || !deniedPullOutput.includes('does not require GHCR login')) {
+    throw new Error(`Installer did not explain anonymous GHCR denial:\n${deniedPullOutput}`);
+  }
+  if (deniedPullOutput.includes('docker compose logs -f bot') || (await readFile(join(installHome, '.env'), 'utf8')) !== savedConfigBeforeDeniedPull) {
+    throw new Error(`Denied image pull produced misleading bot-log guidance or changed saved configuration:\n${deniedPullOutput}`);
   }
   if (platform === 'windows') {
     const silentUpdate = launch('', '--silent update');

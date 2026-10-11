@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $ComposeBase64 = '__COMPOSE_B64__'
 $ReleaseImageTag = '__IMAGE_TAG__'
+$InstallerVersion = '__PRODUCT_VERSION__'
 $ProjectName = 'subarushogun-gi-twitch-queue-bot'
 $ImageName = 'ghcr.io/gustavo8000br/subarushogun_gi_twich_bot'
 $Docker = if ($env:QUEUEBOT_DOCKER_BIN) { $env:QUEUEBOT_DOCKER_BIN } else { 'docker' }
@@ -11,7 +12,7 @@ $ComposeFile = Join-Path $InstallHome 'compose.yaml'
 
 $Copy = @{
   'pt-BR' = @{
-    header='SubaruShogun Twitch Queue Bot — Instalador'; stateInstalled='Instalação local detectada.'; stateMissing='Nenhuma instalação local detectada.'
+    header='SubaruShogun Twitch Queue Bot — Instalador'; installerVersion='Versão do instalador: {0}'; stateInstalled='Instalação local detectada.'; stateMissing='Nenhuma instalação local detectada.'
     menu='1) Instalar / Iniciar   2) Atualizar   3) Desinstalar   0) Sair'; choice='Escolha uma opção: '
     language='Idioma do produto: 1) Português brasileiro  2) English  3) Español'; languagePrompt='Escolha o idioma (1-3): '
     inputUnavailable='Não foi possível ler a resposta. Execute o instalador em um terminal interativo.'
@@ -30,7 +31,7 @@ $Copy = @{
     health='O painel ainda não respondeu. Verifique os logs do bot e tente novamente.'
     architectureUnavailable='Não foi possível detectar a arquitetura do Docker. Este produto requer amd64/x86_64 ou arm64/aarch64.'
     architectureUnsupported='A arquitetura Docker "{0}" não é compatível. Este produto requer amd64/x86_64 ou arm64/aarch64.'
-    progressImages='Imagens necessárias para os serviços:'; progressPull='Baixando imagens. O Compose exibirá o progresso de cada serviço e camada.'
+    progressImages='Imagens necessárias para os serviços:'; progressImageAccess='Verificando acesso à imagem do produto no GHCR...'; imagePullFailed='Não foi possível baixar a imagem do produto no GHCR. Verifique a conexão e confirme que o pacote está público. O instalador não exige login no GHCR; os dados locais foram preservados.'; progressPull='Baixando imagens. O Compose exibirá o progresso de cada serviço e camada.'
     progressStart='Criando/iniciando banco, migrations e bot...'; progressWait='Aguardando a verificação de saúde do painel...'
     inspect='Inspecionando containers, redes, imagens e volumes deste projeto...'; stop='Removendo containers e redes do projeto; o Compose mostrará cada recurso.'
     removeImages='Removendo imagens do produto que não são usadas por outros containers...'; checkVolumes='Verificando os volumes deste projeto...'
@@ -41,7 +42,7 @@ $Copy = @{
     uninstallFailed='Desinstalação incompleta. Alguns recursos podem já ter sido removidos; execute novamente para verificar e concluir.'
   }
   en = @{
-    header='SubaruShogun Twitch Queue Bot — Installer'; stateInstalled='Local installation detected.'; stateMissing='No local installation detected.'
+    header='SubaruShogun Twitch Queue Bot — Installer'; installerVersion='Installer version: {0}'; stateInstalled='Local installation detected.'; stateMissing='No local installation detected.'
     menu='1) Install / Start   2) Update   3) Uninstall   0) Exit'; choice='Choose an option: '
     language='Product language: 1) Português brasileiro  2) English  3) Español'; languagePrompt='Choose a language (1-3): '
     inputUnavailable='Input is unavailable. Run the installer from an interactive terminal.'
@@ -60,7 +61,7 @@ $Copy = @{
     health='The panel did not respond yet. Check bot logs and try again.'
     architectureUnavailable='Could not detect the Docker architecture. This product requires amd64/x86_64 or arm64/aarch64.'
     architectureUnsupported='Docker architecture "{0}" is not supported. This product requires amd64/x86_64 or arm64/aarch64.'
-    progressImages='Images required by the services:'; progressPull='Downloading images. Compose will show progress for each service and layer.'
+    progressImages='Images required by the services:'; progressImageAccess='Checking access to the product image on GHCR...'; imagePullFailed='Could not download the product image from GHCR. Check your connection and confirm the package is public. This installer does not require GHCR login; local data was preserved.'; progressPull='Downloading images. Compose will show progress for each service and layer.'
     progressStart='Creating/starting database, migrations, and bot...'; progressWait='Waiting for the panel health check...'
     inspect='Inspecting product project containers, networks, images, and volumes...'; stop='Removing project containers and networks; Compose will show each resource.'
     removeImages='Removing product images not used by other containers...'; checkVolumes='Checking product volumes...'
@@ -71,7 +72,7 @@ $Copy = @{
     uninstallFailed='Uninstall incomplete. Some resources may already be removed; run again to verify and finish.'
   }
   es = @{
-    header='SubaruShogun Twitch Queue Bot — Instalador'; stateInstalled='Instalación local detectada.'; stateMissing='No se detectó una instalación local.'
+    header='SubaruShogun Twitch Queue Bot — Instalador'; installerVersion='Versión del instalador: {0}'; stateInstalled='Instalación local detectada.'; stateMissing='No se detectó una instalación local.'
     menu='1) Instalar / Iniciar   2) Actualizar   3) Desinstalar   0) Salir'; choice='Elige una opción: '
     language='Idioma del producto: 1) Português brasileño  2) English  3) Español'; languagePrompt='Elige un idioma (1-3): '
     inputUnavailable='No se pudo leer la respuesta. Ejecuta el instalador desde un terminal interactivo.'
@@ -90,7 +91,7 @@ $Copy = @{
     health='El panel todavía no respondió. Revisa los registros del bot e inténtalo de nuevo.'
     architectureUnavailable='No se pudo detectar la arquitectura de Docker. Este producto requiere amd64/x86_64 o arm64/aarch64.'
     architectureUnsupported='La arquitectura Docker "{0}" no es compatible. Este producto requiere amd64/x86_64 o arm64/aarch64.'
-    progressImages='Imágenes necesarias para los servicios:'; progressPull='Descargando imágenes. Compose mostrará el progreso de cada servicio y capa.'
+    progressImages='Imágenes necesarias para los servicios:'; progressImageAccess='Comprobando el acceso a la imagen del producto en GHCR...'; imagePullFailed='No se pudo descargar la imagen del producto desde GHCR. Comprueba la conexión y que el paquete sea público. Este instalador no requiere iniciar sesión en GHCR; se conservaron los datos locales.'; progressPull='Descargando imágenes. Compose mostrará el progreso de cada servicio y capa.'
     progressStart='Creando/iniciando base de datos, migraciones y bot...'; progressWait='Esperando la comprobación de salud del panel...'
     inspect='Inspeccionando contenedores, redes, imágenes y volúmenes de este proyecto...'; stop='Quitando contenedores y redes del proyecto; Compose mostrará cada recurso.'
     removeImages='Quitando imágenes del producto que no usan otros contenedores...'; checkVolumes='Comprobando los volúmenes de este proyecto...'
@@ -213,6 +214,13 @@ function Invoke-Docker([string[]]$Arguments) {
   & $Docker @Arguments | ForEach-Object { Write-Host $_ }
   $exitCode=$LASTEXITCODE
   return ($exitCode -eq 0)
+}
+function Pull-ProductImage {
+  Write-Host (T 'progressImageAccess')
+  $imageReference = $ImageName + ':' + $ReleaseImageTag
+  if (Invoke-Docker @('pull',$imageReference)) { return $true }
+  Write-Host (T 'imagePullFailed')
+  return $false
 }
 function Compose([string[]]$Arguments, [string]$ImageTag = '') {
   $previousImageTag = $env:IMAGE_TAG
@@ -368,6 +376,7 @@ function Setup-Product {
   Write-Host ([string]::Format((T 'callback'),$port))
   Write-ComposeFile
   Write-Host (T 'progressImages'); if (-not (Compose @('config','--images') $ReleaseImageTag)) { Write-Host (T 'failure'); $script:OperationFailed=$true; return }
+  if (-not (Pull-ProductImage)) { $script:OperationFailed=$true; return }
   Write-Host (T 'progressPull')
   if ((Compose @('pull') $ReleaseImageTag)) { Write-Host (T 'progressStart'); if ((Compose @('up','-d')) -and (Wait-Panel $port)) { return } }
   Write-Host (T 'failure'); $script:OperationFailed=$true
@@ -383,6 +392,7 @@ function Update-Product {
   if (-not $choice -or $choice -eq '1') {
     Write-ComposeFile
      Write-Host (T 'progressImages'); if (-not (Compose @('config','--images') $ReleaseImageTag)) { Write-Host (T 'failure'); $script:OperationFailed=$true; return }
+    if (-not (Pull-ProductImage)) { $script:OperationFailed=$true; return }
     Write-Host (T 'progressPull')
     if (Compose @('pull') $ReleaseImageTag) {
       Save-ImageTag
@@ -393,6 +403,7 @@ function Update-Product {
   }
   if ($choice -ne '2') { return }
   if (-not $script:NonInteractive) { Write-Host (T 'confirm'); $answer=Read-Answer; if ($answer -cne [string]$Copy[$script:Locale].word) { return } }
+  if (-not (Pull-ProductImage)) { $script:OperationFailed=$true; return }
   if (-not (Compose @('pull') $ReleaseImageTag)) { Write-Host (T 'failure'); $script:OperationFailed=$true; return }
   if (-not (Compose @('down','--volumes','--remove-orphans'))) { Write-Host (T 'failure'); $script:OperationFailed=$true; return }
   Remove-Item -LiteralPath (Join-Path $InstallHome '.local'),$EnvFile -Recurse -Force -ErrorAction SilentlyContinue
@@ -441,6 +452,7 @@ if ($parseStatus -ne 0) { exit $parseStatus }
 if (-not (Test-Path $EnvFile) -and -not (Prompt-Language)) { exit 1 }
 Clear-InstallerScreen
 Write-Host (T 'header')
+Write-Host ([string]::Format((T 'installerVersion'),$InstallerVersion))
 if ((Test-Path $EnvFile) -or (Test-Path $ComposeFile)) { Write-Host (T 'stateInstalled') } else { Write-Host (T 'stateMissing') }
 if ($script:NonInteractive) {
   switch ($script:Action) { 'install' { Setup-Product } 'update' { Update-Product } 'uninstall' { Uninstall-Product } }

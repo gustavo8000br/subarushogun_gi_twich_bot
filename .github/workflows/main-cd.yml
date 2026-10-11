@@ -28,6 +28,7 @@ jobs:
     outputs:
       stage: ${{ steps.source.outputs.stage }}
       source_sha: ${{ steps.source.outputs.source_sha }}
+      version: ${{ steps.source.outputs.version }}
       image_ref: ${{ steps.manifest.outputs.image_ref }}
     steps:
       - name: Check out trusted main commit
@@ -46,6 +47,7 @@ jobs:
           printf 'PRODUCT_VERSION=%s\n' "$PRODUCT_VERSION" >> "$GITHUB_ENV"
           printf 'source_sha=%s\n' "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           printf 'stage=%s\n' "$(tr -d '\r\n' < .release-stage)" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\n' "$PRODUCT_VERSION" >> "$GITHUB_OUTPUT"
       - name: Log in to GitHub Container Registry
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -135,13 +137,15 @@ jobs:
       - name: Package installer pinned to verified beta image digest
         env:
           BETA_IMAGE_REF: ${{ needs.publish-image.outputs.image_ref }}
-        run: node apps/infra/scripts/package-installer.mjs --platform windows --output "${{ runner.temp }}/queuebot-beta-installer" --image-tag "$env:BETA_IMAGE_REF"
+          BETA_PRODUCT_VERSION: ${{ needs.publish-image.outputs.version }}
+        run: node apps/infra/scripts/package-installer.mjs --platform windows --output "${{ runner.temp }}/queuebot-beta-installer" --image-tag "$env:BETA_IMAGE_REF" --product-version "$env:BETA_PRODUCT_VERSION"
       - name: Launch beta installer directly with isolated fake Docker
         env:
           QUEUEBOT_PREBUILT_INSTALLER: ${{ runner.temp }}/queuebot-beta-installer/subarushogun_twich_bot_setup.bat
           QUEUEBOT_EXPECTED_IMAGE_TAG: ${{ needs.publish-image.outputs.image_ref }}
+          QUEUEBOT_EXPECTED_PRODUCT_VERSION: ${{ needs.publish-image.outputs.version }}
         run: node tests/platform/installer-native.mjs
-      - name: Upload beta Windows installer for owner QA
+      - name: Upload beta installer for owner QA
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: beta-windows-installer-${{ needs.publish-image.outputs.source_sha }}

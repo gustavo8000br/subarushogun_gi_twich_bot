@@ -8,9 +8,10 @@ import { load } from 'js-yaml';
 const root = new URL('../../', import.meta.url);
 const packager = new URL('../../apps/infra/scripts/package-installer.mjs', import.meta.url);
 
-async function packageFor(platform, output, imageTag) {
+async function packageFor(platform, output, imageTag, productVersion) {
   const args = [packager.pathname, '--platform', platform, '--output', output];
   if (imageTag) args.push('--image-tag', imageTag);
+  if (productVersion) args.push('--product-version', productVersion);
   return spawnSync(process.execPath, args, {
     cwd: root,
     encoding: 'utf8',
@@ -82,6 +83,23 @@ describe('single-file lifecycle installer', () => {
         const info = await import('node:fs/promises').then(({ stat }) => stat(join(output, expectedName)));
         expect(info.mode & 0o111).not.toBe(0);
       }
+    } finally {
+      await rm(output, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects a displayed product version that differs from the pinned image identity', async () => {
+    const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-version-mismatch-'));
+    try {
+      const result = await packageFor(
+        'linux',
+        output,
+        `v1.0.0-a1b2c3d-beta@sha256:${'a'.repeat(64)}`,
+        'v1.0.0-f4e5d6c-beta',
+      );
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain('must match the version identity');
+      await expect(readdir(output)).resolves.toEqual([]);
     } finally {
       await rm(output, { recursive: true, force: true });
     }
@@ -262,7 +280,8 @@ describe('single-file lifecycle installer', () => {
     ['windows', 'subarushogun_twich_bot_setup.bat'],
   ])('embeds the requested versioned GHCR image tag in the %s release installer', async (platform, expectedName) => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-release-'));
-    const imageTag = 'v1.0.0-a1b2c3d-beta';
+    const productVersion = 'v1.0.0-a1b2c3d-beta';
+    const imageTag = `${productVersion}@sha256:${'a'.repeat(64)}`;
     try {
       const result = await packageFor(platform, output, imageTag);
       expect(result.status, result.stderr).toBe(0);
@@ -272,8 +291,63 @@ describe('single-file lifecycle installer', () => {
         : artifact;
 
       expect(executableSource).toContain(imageTag);
+      expect(executableSource).toContain(productVersion);
+      expect(executableSource).toMatch(/(?:InstallerVersion|INSTALLER_VERSION)/);
     } finally {
       await rm(output, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    ['linux', 'subarushogun_twich_bot_setup.sh'],
+    ['macos', 'subarushogun_twich_bot_setup.command'],
+  ])('explains anonymous GHCR denial and displays the installer version on %s', async (platform, expectedName) => {
+    const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-ghcr-denied-'));
+    const home = await mkdtemp(join(tmpdir(), 'queuebot-home-ghcr-denied-'));
+    const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-ghcr-denied-'));
+    const logPath = join(bin, 'docker.log');
+    const dockerPath = join(bin, 'docker');
+    const productVersion = 'v1.0.0-a1b2c3d-beta';
+    const imageTag = `${productVersion}@sha256:${'a'.repeat(64)}`;
+    try {
+      const packageResult = await packageFor(platform, output, imageTag);
+      expect(packageResult.status, packageResult.stderr).toBe(0);
+      await writeFile(dockerPath, [
+        '#!/bin/sh',
+        'printf "%s\\n" "$*" >> "$QUEUEBOT_TEST_DOCKER_LOG"',
+        'case "$1:$2" in',
+        '  pull:ghcr.io/*) printf "%s\\n" "Error response from daemon: unauthorized" >&2; exit 1 ;;',
+        '  "info:--format") printf "%s\\n" "x86_64" ;;',
+        'esac',
+        'exit 0',
+        '',
+      ].join('\n'));
+      await chmod(dockerPath, 0o755);
+      const result = spawnSync('sh', [join(output, expectedName)], {
+        input: '2\n1\n3100\n0\n',
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          HOME: home,
+          QUEUEBOT_INSTALL_HOME: join(home, 'product'),
+          QUEUEBOT_DOCKER_BIN: dockerPath,
+          QUEUEBOT_TEST_DOCKER_LOG: logPath,
+          QUEUEBOT_TEST_MODE: '1',
+        },
+      });
+      const outputText = `${result.stdout}\n${result.stderr}`;
+      const dockerCalls = await readFile(logPath, 'utf8');
+      expect(result.status, outputText).toBe(1);
+      expect(result.stdout).toContain(`Installer version: ${productVersion}`);
+      expect(outputText).toContain('unauthorized');
+      expect(outputText).toContain('public');
+      expect(outputText).toContain('does not require GHCR login');
+      expect(outputText).not.toContain('docker compose logs -f bot');
+      expect(dockerCalls).toContain(`pull ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:${imageTag}`);
+      expect(dockerCalls).not.toMatch(/compose --progress plain .* pull/);
+      expect(await readFile(join(home, 'product', '.env'), 'utf8')).toContain('APP_PORT=3100');
+    } finally {
+      await Promise.all([output, home, bin].map((path) => rm(path, { recursive: true, force: true })));
     }
   });
 
