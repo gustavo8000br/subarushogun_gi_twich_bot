@@ -13,6 +13,7 @@
 
 ```sh
 npm ci
+npm run build
 npm run lint
 npm run typecheck
 npm test
@@ -43,7 +44,7 @@ npm run lint:web && npm run typecheck:web
 npm test -- --run tests/unit/<arquivo-de-teste>.test.js
 ```
 
-O app web vanilla é verificado diretamente; não tem etapa de build/bundler frontend. O [workflow CI do GitHub Actions](../../.github/workflows/ci.yml) roda em pull requests e chama os gates compartilhados de qualidade. A publicação de imagem da main e as releases com tag usam workflows separados; consulte o [guia CI/CD](CI-CD.md) para gatilhos, permissões, tags de imagem e recuperação.
+`npm run build` constrói a imagem implantável do bot com Docker Compose. O app web vanilla é verificado diretamente e não tem etapa separada de bundler frontend. O [workflow CI do GitHub Actions](../../.github/workflows/ci.yml) roda em pull requests e chama os gates compartilhados de qualidade. A publicação de imagem da main e as releases com tag usam workflows separados; consulte o [guia CI/CD](CI-CD.md) para gatilhos, permissões, tags de imagem e recuperação.
 
 ## Estrutura do projeto
 

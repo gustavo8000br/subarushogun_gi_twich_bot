@@ -15,7 +15,7 @@ A local-first **Twitch chat bot with a streamer control panel** for Genshin Impa
 ## Quick start
 
 1. Install Docker Engine/Desktop with Compose v2. If it is missing, the installer offers current official instructions; host installation and any required privileges stay under your control.
-2. Download the installer for your system from [GitHub Releases](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases) when the first public release is available. The first canonical beta is planned after FND-9; each release will include English and pt-BR notes from that version's changelog sections. See the [installer guide](docs/INSTALLERS.md) for current availability and GHCR access.
+2. Download the installer for your system from [GitHub Releases](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases) when the first public release is available. Beta timing is not scheduled: FND-1's native Windows retest, full FND-9 acceptance, DOC-2, DOC-3, further owner-prioritized changes, and their release gates remain in the pre-release plan. The owner must explicitly approve beta readiness. Each release will include English and pt-BR notes from that version's changelog sections. See the [installer guide](docs/INSTALLERS.md) for current availability and GHCR access.
 3. Trust this installation's local certificate as described in the [installation guide](docs/INSTALLATION.md), then open the panel address shown by the installer.
 4. Connect your Twitch app in **Conexão do canal**. The [user guide](docs/USER_GUIDE-en_US.md) covers queue setup, chat commands, OBS widgets, recovery, updates, and uninstall.
 

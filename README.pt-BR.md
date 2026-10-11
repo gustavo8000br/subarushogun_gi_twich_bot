@@ -15,7 +15,7 @@ Um **chatbot da Twitch com painel local para o streamer** organizar filas de Gen
 ## Início rápido
 
 1. Instale Docker Engine/Desktop com Compose v2. Se estiver ausente, o instalador oferece as instruções oficiais atuais; instalação do host e privilégios necessários continuam sob seu controle.
-2. Quando a primeira release pública estiver disponível, baixe o instalador do seu sistema em [GitHub Releases](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases). A primeira beta canônica está planejada para depois da FND-9; cada release incluirá notas em inglês e pt-BR das seções correspondentes nos changelogs. Consulte o [guia do instalador](docs/pt-BR/INSTALADORES.md) para saber a disponibilidade atual e o acesso ao GHCR.
+2. Quando a primeira release pública estiver disponível, baixe o instalador do seu sistema em [GitHub Releases](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases). A data da beta não está definida: o reteste nativo Windows da FND-1, a aceitação completa da FND-9, DOC-2, DOC-3, outras mudanças priorizadas pelo proprietário e seus gates de release continuam no plano pré-release. O proprietário precisa aprovar explicitamente a prontidão para beta. Cada release incluirá notas em inglês e pt-BR das seções correspondentes nos changelogs. Consulte o [guia do instalador](docs/pt-BR/INSTALADORES.md) para saber a disponibilidade atual e o acesso ao GHCR.
 3. Confie no certificado local desta instalação conforme o [guia de instalação](docs/pt-BR/INSTALACAO.md) e abra o endereço exibido pelo instalador.
 4. Conecte seu aplicativo Twitch em **Conexão do canal**. O [manual do usuário](docs/MANUAL_DE_USUARIO-pt_BR.md) explica filas, comandos, widgets OBS, recuperação, atualização e desinstalação.
 

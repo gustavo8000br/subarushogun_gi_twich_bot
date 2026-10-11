@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { validateUidInput } from '../domain/uid.mjs';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog.mjs';
@@ -30,6 +31,26 @@ async function lockCurrentAccount(tx) {
 
 async function lockScopedOperation(tx, key) {
   await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))) AS operation_lock`;
+}
+
+const convertedTombstoneCursorSettingKey = 'twitch_converted_tombstone_reconciliation_cursor';
+const convertedTombstoneCursorLockKey = 'twitch_converted_tombstone_reconciliation_cursor_lock';
+
+function parseConvertedTombstoneCursor(value, now) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+      || value.schemaVersion !== 1 || !Number.isInteger(value.revision) || value.revision < 0
+      || !(value.lastId === null || (typeof value.lastId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.lastId)))) {
+    return { schemaVersion: 1, revision: 0, lastId: null, leaseId: null, leaseUntil: null };
+  }
+  const leaseUntil = typeof value.leaseUntil === 'string' && Number.isFinite(Date.parse(value.leaseUntil)) ? value.leaseUntil : null;
+  const leaseId = typeof value.leaseId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.leaseId) ? value.leaseId : null;
+  return {
+    schemaVersion: 1,
+    revision: value.revision,
+    lastId: value.lastId,
+    leaseId: leaseUntil && leaseId && Date.parse(leaseUntil) > now.getTime() ? leaseId : null,
+    leaseUntil: leaseUntil && leaseId && Date.parse(leaseUntil) > now.getTime() ? leaseUntil : null,
+  };
 }
 
 async function withQueueTransaction(prisma, queueId, callback) {
@@ -505,9 +526,68 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue) throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
         if (queue.lifecycleStatus === 'deleted') return { status: 'deleted', queue, activeRemoved: 0, refundsRequested: 0 };
-        if (queue.lifecycleStatus === 'deleting') return { status: 'pending', queue, activeRemoved: 0, refundsRequested: 0 };
+        if (queue.lifecycleStatus === 'deleting') {
+          let refundsRequested = 0;
+          const active = await tx.entry.findMany({ where: { queueId, status: { in: activeStatuses } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+          if (!queue.rewardId || queue.queueMode !== 'manual_only') return { status: 'pending', queue, activeRemoved: 0, refundsRequested: 0 };
+          if (active.length) {
+            await lockCurrentAccount(tx);
+            const accountSetting = await tx.setting.findUnique({ where: { key: 'account_state' } });
+            let ownerEntryEnded = false;
+            for (const entry of active) {
+              const decision = decideTransition({ entry, queue, input: { to: 'removed', origin, actorId, reason: 'queue_deleted' } });
+              await tx.entry.update({ where: { id: entry.id }, data: { status: 'removed', position: null, finishedAt: clock(), terminalReason: 'queue_deleted', callDeadlineAt: null, version: { increment: 1 } } });
+              await tx.auditLog.create({ data: { queueId, entryId: entry.id, redemptionId: entry.redemptionId, event: 'entry.transitioned', actorId, origin, previousState: entry.status, nextState: 'removed', reason: 'queue_deleted', safeDetail: { policySnapshot: decision.policySnapshot, financialDecision: decision.financialDecision } } });
+              if (decision.financialDecision === 'request_cancel' && entry.redemptionId) {
+                const existing = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${entry.redemptionId}` } });
+                if (!existing) {
+                  await createCancellationIntent(tx, entry.redemptionId, entry.id);
+                  refundsRequested += 1;
+                }
+              }
+              if (entry.id === accountSetting?.value?.ownerEntryId) ownerEntryEnded = true;
+            }
+            if (ownerEntryEnded && accountSetting?.value?.ownerEntryId) {
+              const reset = { ...accountSetting.value, label: accountSetting.value.defaultLabel || 'Streamer', source: 'default', ownerEntryId: null, updatedBy: actorId };
+              await tx.setting.update({ where: { key: 'account_state' }, data: { value: reset } });
+              await tx.auditLog.create({ data: { queueId, event: 'account.auto_reset', actorId, origin, previousState: accountSetting.value.label, nextState: reset.label, reason: 'owner_entry_ended', safeDetail: { ownerEntryId: accountSetting.value.ownerEntryId } } });
+            }
+            await renumberWaitingEntries(tx, queueId);
+          }
+          const remoteStateVerified = queue.queueMode === 'manual_only'
+            && queue.modeTransitionStatus === 'confirmed'
+            && !queue.isOpen
+            && queue.remoteSyncStatus === 'local_only';
+          const remainingUnresolved = await tx.redemption.findFirst({ where: {
+            queueId,
+            OR: [
+              { remoteStatus: { notIn: ['FULFILLED', 'CANCELED'] } },
+              { syncStatus: { not: 'confirmed' } },
+            ],
+          }, select: { redemptionId: true } });
+          const remainingFinancialTask = await tx.outbox.findFirst({ where: {
+            operationType: { in: ['redemption.cancel', 'redemption.fulfill'] },
+            status: { not: 'confirmed' },
+            redemption: { queueId },
+          }, select: { id: true } });
+          const missingFinancialIntent = await tx.redemption.findFirst({ where: {
+            queueId,
+            expectedStatus: { not: null },
+            outbox: { none: { operationType: { in: ['redemption.cancel', 'redemption.fulfill'] } } },
+          }, select: { redemptionId: true } });
+          if (!remoteStateVerified || remainingUnresolved || remainingFinancialTask || missingFinancialIntent || refundsRequested > 0) {
+            await tx.auditLog.create({ data: { queueId, event: 'queue.local_deletion_requested', actorId, origin, previousState: 'deleting', nextState: 'deleting', reason: 'operator_retried_converted_queue_local_deletion', safeDetail: { historicalRewardId: queue.rewardId, activeRemoved: active.length, refundsRequested } } });
+            return { status: 'pending', queue, activeRemoved: active.length, refundsRequested };
+          }
+          const completed = await tx.queue.update({ where: { id: queueId }, data: { lifecycleStatus: 'deleted', deletedAt: clock(), isArchived: true, isOpen: false, version: { increment: 1 } } });
+          await tx.queueKey.deleteMany({ where: { queueId } });
+          await tx.auditLog.create({ data: { queueId, event: 'queue.deleted', actorId, origin, previousState: 'deleting', nextState: 'deleted', reason: 'converted_queue_locally_deleted_reward_preserved', safeDetail: { historicalRewardId: queue.rewardId, activeRemoved: 0, refundsRequested: 0 } } });
+          return { status: 'deleted', queue: completed, activeRemoved: 0, refundsRequested: 0 };
+        }
         const localOnly = queue.queueMode === 'manual_only' && queue.rewardOrigin === 'none' && queue.rewardId === null;
-        if (!localOnly && (!queue.rewardId || !['synced', 'synced_manual'].includes(queue.remoteSyncStatus))) throw repositoryError('QUEUE_REWARD_NOT_READY', 'Managed reward must be resolved and synchronized before deletion');
+        const convertedLocal = queue.queueMode === 'manual_only' && queue.remoteSyncStatus === 'local_only' && Boolean(queue.rewardId);
+        if (convertedLocal && queue.isOpen) throw repositoryError('QUEUE_REWARD_NOT_READY', 'Converted queue must be closed before local deletion');
+        if (!localOnly && !convertedLocal && (!queue.rewardId || !['synced', 'synced_manual'].includes(queue.remoteSyncStatus))) throw repositoryError('QUEUE_REWARD_NOT_READY', 'Managed reward must be resolved and synchronized before deletion');
 
         const active = await tx.entry.findMany({ where: { queueId, status: { in: activeStatuses } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
         const nextVersion = queue.version + 1;
@@ -515,7 +595,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         const needsPause = queue.isOpen;
         const next = await tx.queue.update({ where: { id: queueId }, data: {
           lifecycleStatus: localOnly ? 'deleted' : 'deleting', isArchived: true, isOpen: false,
-          remoteSyncStatus: localOnly ? 'local_only' : needsPause ? 'pending_close' : 'delete_pending',
+          remoteSyncStatus: localOnly || convertedLocal ? 'local_only' : needsPause ? 'pending_close' : 'delete_pending',
           ...(localOnly ? { deletedAt: now } : {}), version: nextVersion,
         } });
         let refundsRequested = 0;
@@ -548,6 +628,34 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           await tx.queueKey.deleteMany({ where: { queueId } });
           await tx.auditLog.create({ data: { queueId, event: 'queue.deleted', actorId, origin, previousState: queue.lifecycleStatus, nextState: 'deleted', reason: 'local_queue_deleted', safeDetail: { activeRemoved: active.length, refundsRequested } } });
           return { status: 'deleted', queue: next, activeRemoved: active.length, refundsRequested };
+        }
+        if (convertedLocal) {
+          const remoteStateVerified = queue.modeTransitionStatus === 'confirmed' && queue.remoteSyncStatus === 'local_only';
+          const unresolved = await tx.redemption.findFirst({ where: {
+            queueId,
+            OR: [
+              { remoteStatus: { notIn: ['FULFILLED', 'CANCELED'] } },
+              { syncStatus: { not: 'confirmed' } },
+            ],
+          }, select: { redemptionId: true } });
+          const unresolvedFinancialTask = await tx.outbox.findFirst({ where: {
+            operationType: { in: ['redemption.cancel', 'redemption.fulfill'] },
+            status: { not: 'confirmed' },
+            redemption: { queueId },
+          }, select: { id: true } });
+          const missingFinancialIntent = await tx.redemption.findFirst({ where: {
+            queueId,
+            expectedStatus: { not: null },
+            outbox: { none: { operationType: { in: ['redemption.cancel', 'redemption.fulfill'] } } },
+          }, select: { redemptionId: true } });
+          if (!remoteStateVerified || unresolved || unresolvedFinancialTask || missingFinancialIntent || refundsRequested > 0) {
+            await tx.auditLog.create({ data: { queueId, event: 'queue.local_deletion_requested', actorId, origin, previousState: queue.lifecycleStatus, nextState: 'deleting', reason: 'operator_requested_converted_queue_local_deletion', safeDetail: { historicalRewardId: queue.rewardId, activeRemoved: active.length, refundsRequested } } });
+            return { status: 'pending', queue: next, activeRemoved: active.length, refundsRequested };
+          }
+          const completed = await tx.queue.update({ where: { id: queueId }, data: { lifecycleStatus: 'deleted', deletedAt: now, version: { increment: 1 } } });
+          await tx.queueKey.deleteMany({ where: { queueId } });
+          await tx.auditLog.create({ data: { queueId, event: 'queue.deleted', actorId, origin, previousState: 'deleting', nextState: 'deleted', reason: 'converted_queue_locally_deleted_reward_preserved', safeDetail: { historicalRewardId: queue.rewardId, activeRemoved: active.length, refundsRequested } } });
+          return { status: 'deleted', queue: completed, activeRemoved: active.length, refundsRequested };
         }
         if (needsPause) {
           await tx.outbox.create({ data: {
@@ -854,7 +962,69 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async listManagedQueues() {
-      return prisma.queue.findMany({ where: { rewardId: { not: null }, lifecycleStatus: { not: 'deleted' } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+      return prisma.queue.findMany({
+        where: { rewardId: { not: null }, lifecycleStatus: { not: 'deleted' } },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      });
+    },
+
+    /** @param {{limit?: number, leaseMs?: number}} [options] */
+    async claimConvertedTombstoneReconciliationPage({ limit = 10, leaseMs = 15 * 60 * 1000 } = {}) {
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isInteger(leaseMs) || leaseMs < 1_000) {
+        throw repositoryError('INVALID_RECONCILIATION_PAGE', 'Tombstone reconciliation page is invalid');
+      }
+      return prisma.$transaction(async (tx) => {
+        await lockScopedOperation(tx, convertedTombstoneCursorLockKey);
+        const now = clock();
+        const setting = await tx.setting.findUnique({ where: { key: convertedTombstoneCursorSettingKey } });
+        const cursor = parseConvertedTombstoneCursor(setting?.value, now);
+        if (cursor.leaseId) return { status: 'busy', queues: [], leaseId: null, revision: cursor.revision, wrapped: false };
+        const where = {
+          rewardId: { not: null }, queueMode: 'manual_only', lifecycleStatus: 'deleted',
+          ...(cursor.lastId ? { id: { gt: cursor.lastId } } : {}),
+        };
+        let queues = await tx.queue.findMany({ where, orderBy: { id: 'asc' }, take: limit });
+        let wrapped = false;
+        if (!queues.length && cursor.lastId) {
+          queues = await tx.queue.findMany({
+            where: { rewardId: { not: null }, queueMode: 'manual_only', lifecycleStatus: 'deleted' },
+            orderBy: { id: 'asc' }, take: limit,
+          });
+          wrapped = true;
+        }
+        const leaseId = randomUUID();
+        const next = {
+          schemaVersion: 1, revision: cursor.revision + 1, lastId: wrapped ? null : cursor.lastId,
+          leaseId, leaseUntil: new Date(now.getTime() + leaseMs).toISOString(),
+        };
+        await tx.setting.upsert({
+          where: { key: convertedTombstoneCursorSettingKey },
+          create: { key: convertedTombstoneCursorSettingKey, value: next },
+          update: { value: next },
+        });
+        return { status: 'acquired', queues, leaseId, revision: next.revision, wrapped };
+      });
+    },
+
+    /** @param {{leaseId: string, lastQueueId?: string|null, complete?: boolean}} input */
+    async completeConvertedTombstoneReconciliationPage({ leaseId, lastQueueId = null, complete = true }) {
+      if (typeof leaseId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(leaseId)
+          || !(lastQueueId === null || (typeof lastQueueId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lastQueueId)))
+          || typeof complete !== 'boolean') return false;
+      return prisma.$transaction(async (tx) => {
+        await lockScopedOperation(tx, convertedTombstoneCursorLockKey);
+        const now = clock();
+        const setting = await tx.setting.findUnique({ where: { key: convertedTombstoneCursorSettingKey } });
+        const cursor = parseConvertedTombstoneCursor(setting?.value, now);
+        if (cursor.leaseId !== leaseId || !setting?.value?.leaseUntil || Date.parse(setting.value.leaseUntil) <= now.getTime()) return false;
+        const next = {
+          schemaVersion: 1, revision: cursor.revision + 1,
+          lastId: complete ? lastQueueId : cursor.lastId,
+          leaseId: null, leaseUntil: null,
+        };
+        await tx.setting.update({ where: { key: convertedTombstoneCursorSettingKey }, data: { value: next } });
+        return true;
+      });
     },
 
     async listActiveRedemptionEntries(queueId) {
@@ -891,6 +1061,33 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         await tx.auditLog.create({ data: {
           queueId, event: 'queue.remote_state_confirmed', origin: 'reconciliation',
           previousState: 'diverged', nextState: 'synced', reason: 'twitch_reward_state_verified',
+          safeDetail: { rewardId: queue.rewardId },
+        } });
+        return true;
+      });
+    },
+
+    /** @param {string} queueId @param {{expectedVersion?: number, reward?: Record<string, any>}} [options] */
+    async confirmConvertedQueueRemoteState(queueId, { expectedVersion, reward } = {}) {
+      if (!Number.isInteger(expectedVersion) || !reward || typeof reward !== 'object') return false;
+      return withQueueTransaction(prisma, queueId, async (tx) => {
+        const queue = await tx.queue.findUnique({ where: { id: queueId } });
+        if (!queue || queue.version !== expectedVersion || queue.queueMode !== 'manual_only'
+          || !queue.rewardId || queue.rewardId !== reward.id
+          || !['deleting', 'deleted'].includes(queue.lifecycleStatus)
+          || queue.modeTransitionStatus !== 'confirmed' || queue.isOpen
+          || reward.autoFulfill !== false || reward.shouldRedemptionsSkipRequestQueue !== false
+          || reward.userInputRequired !== (queue.uidMode === 'visible')
+          || reward.isEnabled !== true || reward.isPaused !== true) return false;
+        if (queue.remoteSyncStatus === 'local_only') return true;
+        const updated = await tx.queue.updateMany({
+          where: { id: queue.id, version: expectedVersion, remoteSyncStatus: 'diverged', lifecycleStatus: queue.lifecycleStatus },
+          data: { remoteSyncStatus: 'local_only', version: { increment: 1 } },
+        });
+        if (updated.count !== 1) return false;
+        await tx.auditLog.create({ data: {
+          queueId, event: 'queue.remote_state_confirmed', origin: 'reconciliation',
+          previousState: 'diverged', nextState: 'local_only', reason: 'converted_reward_pause_verified',
           safeDetail: { rewardId: queue.rewardId },
         } });
         return true;
@@ -1743,7 +1940,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         throw repositoryError('INVALID_TERMINAL_REDEMPTION', 'Redemption is not in a terminal state');
       }
       const queue = await prisma.queue.findUnique({ where: { rewardId: event.rewardId } });
-      if (!queue || queue.lifecycleStatus === 'deleted') return { status: 'unmanaged_reward' };
+      if (!queue || (queue.lifecycleStatus === 'deleted' && queue.queueMode !== 'manual_only')) return { status: 'unmanaged_reward' };
       return withQueueTransaction(prisma, queue.id, async (tx) => {
         const existing = await tx.redemption.findUnique({ where: { redemptionId: event.id } });
         if (existing) {
@@ -1829,7 +2026,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       if (status === 'FULFILLED' || status === 'CANCELED') return this.recordTerminalRedemption(event);
       if (status !== 'UNFULFILLED') return { status: 'unknown_remote_state', redemptionId: event.id };
       const queue = await prisma.queue.findUnique({ where: { rewardId: event.rewardId } });
-      if (!queue || queue.lifecycleStatus === 'deleted') return { status: 'unmanaged_reward' };
+      if (!queue || (queue.lifecycleStatus === 'deleted' && queue.queueMode !== 'manual_only')) return { status: 'unmanaged_reward' };
 
       try {
         return await withQueueTransaction(prisma, queue.id, async (tx) => {

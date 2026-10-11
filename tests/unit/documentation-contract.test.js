@@ -154,7 +154,7 @@ describe('foundation operator documentation contract', () => {
       expect(guide.toLowerCase()).toContain('fnd-9');
       expect(guide.toLowerCase()).toContain('changelog');
       expect(guide.toLowerCase()).not.toContain('actions → ci');
-      expect(guide.toLowerCase()).toMatch(/first canonical beta|primeira beta canônica/);
+      expect(guide.toLowerCase()).toMatch(/beta timing is not scheduled|a data da beta não está definida/);
       expect(guide.toLowerCase()).toMatch(/matching version sections|seções correspondentes/);
       expect(guide).toContain('CHANGELOG.md');
       expect(guide).toContain('docs/pt-BR/CHANGELOG.md');
@@ -243,14 +243,18 @@ describe('foundation operator documentation contract', () => {
     }
   });
 
-  it('documents the FND-9-gated first beta and changelog-derived bilingual release notes', async () => {
+  it('documents the owner-gated beta plan and changelog-derived bilingual release notes', async () => {
     const [english, portuguese] = await Promise.all([read('docs/VERSIONING.md'), read('docs/pt-BR/VERSIONING.md')]);
-    expect(english).toContain('first canonical public beta');
-    expect(english).toContain('after FND-9');
+    expect(english).toContain('`v1.0.0-HHHHHHH-beta` remains a candidate identity, not a scheduled release');
+    expect(english).toContain('There is no scheduled beta transition immediately after FND-9');
+    expect(english).toContain("FND-1's native Windows retest");
+    expect(english).toContain('the owner explicitly approves release readiness');
     expect(english).toContain('matching version section in both `CHANGELOG.md` and `docs/pt-BR/CHANGELOG.md`');
     expect(english).toContain('Tags and releases are created exclusively by `@devops`');
-    expect(portuguese).toContain('primeira beta pública canônica');
-    expect(portuguese).toContain('depois de concluir a FND-9');
+    expect(portuguese).toContain('`v1.0.0-HHHHHHH-beta` continua como identidade candidata, sem release agendada');
+    expect(portuguese).toContain('Não há promoção para beta agendada imediatamente após a FND-9');
+    expect(portuguese).toContain('reteste nativo Windows da FND-1');
+    expect(portuguese).toContain('o proprietário aprovar explicitamente a prontidão de release');
     expect(portuguese).toContain('`CHANGELOG.md` e `docs/pt-BR/CHANGELOG.md`');
     expect(portuguese).toContain('Somente `@devops` cria tags e releases');
   });

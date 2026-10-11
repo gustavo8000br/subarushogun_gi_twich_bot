@@ -195,7 +195,9 @@ panel.queue.empty_group	No one right now
 panel.queue.status.open	OPEN
 panel.queue.status.closed	CLOSED
 panel.queue.status.pending_delete	Deletion pending: waiting for redemption cancellations and reward confirmation.
+panel.queue.status.pending_local_delete	Local deletion pending: waiting for all known pending redemptions and related financial operations to be confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The paused reward will be preserved.
 panel.queue.action.delete	Delete queue
+panel.queue.action.retry_local_delete	Check deletion progress
 panel.queue.action.configure	Configure
 panel.queue.action.edit_reward	Edit reward
 panel.queue.action.unarchive	Unarchive
@@ -211,7 +213,7 @@ panel.queue.action.resolve_reward	Link reward
 panel.queue.action_blocked.reward_unresolved	Queue controls are paused until you link and confirm a Twitch reward. Use “Link reward” to continue.
 panel.queue.action_blocked.reward_creation_pending	Queue controls will be available after Twitch confirms reward creation.
 panel.queue.action_blocked.remote_operation_pending	Queue controls are waiting for the pending Twitch operation to finish.
-panel.queue.action_blocked.queue_mode_transition_pending	Queue controls are unavailable while the queue mode is changing.
+panel.queue.action_blocked.queue_mode_transition_pending	Calling and queue controls are paused until Twitch confirms the reward is paused. Manual entry remains available while this change is unresolved.
 panel.queue.action_blocked.queue_not_active	This queue is being deleted and cannot be changed.
 panel.queue.delete_blocked.reward_unresolved	Deletion is unavailable because the reward is unidentified. Resolve the link first to avoid deleting the wrong reward.
 panel.queue.delete_blocked.reward_creation_pending	Deletion is unavailable while Twitch confirms reward creation.
@@ -401,13 +403,18 @@ panel.priority.invalid_reason	Choose an option from 1 to 4.
 panel.priority.marked	Priority was recorded and audited. The operator verified the benefit.
 panel.priority.removed	Priority removed.
 panel.queue.confirm.archive	Archive this queue? It will disappear from discovery, while existing entries are preserved. Its reward will be paused.
+panel.queue.confirm.archive_local	Archive this local queue? It will disappear from discovery, while existing entries are preserved.
+panel.queue.confirm.archive_converted	Archive this converted manual queue? It will disappear from discovery, existing entries will be preserved, and the Twitch reward will stay paused.
 panel.queue.confirm.unarchive	Unarchive this queue? It will remain closed until you open it.
 panel.queue.archive.pending	Archive requested; waiting for Twitch confirmation.
 panel.queue.archive.done	Queue archived.
 panel.queue.unarchive.done	Queue unarchived and remains closed.
 panel.queue.confirm.delete	Delete queue “{title}” and its Twitch reward? {count} active entries will be removed and their redemptions will be cancellation requests. The reward is deleted only after every cancellation is confirmed. This may remain pending if Twitch does not confirm.
-panel.queue.delete.pending	Deletion started. The queue remains pending until Twitch confirms cancellations and reward deletion.
-panel.queue.delete.done	The queue was already deleted.
+panel.queue.confirm.delete_local	Delete local queue “{title}”? {count} active entries will be removed. This queue has no linked Twitch reward or redemption.
+panel.queue.confirm.delete_converted	Delete manual queue “{title}”? {count} active entries will be removed. Deletion will remain pending until all known redemptions and related financial operations are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.
+panel.queue.confirm.retry_delete_converted	Check whether all known pending redemptions and related financial operations are confirmed. If they are, the local queue will be deleted. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.
+panel.queue.delete.pending	Local deletion started. The queue remains pending until all known redemptions and related financial operations are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain untouched.
+panel.queue.delete.done	Queue deleted. Redemption history was preserved and the Twitch reward remains paused.
 panel.reward.no_candidates	The lookup succeeded, but no reward managed by this app, paused, and matching every queue setting was found. Actions such as delete stay blocked until ownership is confirmed. Review the differences below and refresh the list.
 panel.queue.clear.empty	The queue is already empty.
 panel.queue.clear.confirm	Clear queue “{title}”? {count} people will be removed and {refunds} refunds requested. Confirmation is valid for 15 seconds.
@@ -534,12 +541,14 @@ panel.form.mode_manual	Local, with free manual entries
 panel.queue.mode.manual	Local queue · free manual entry
 panel.queue.sync.local	local queue
 panel.queue.action.manual_mode	Use local queue
-panel.queue.action.manual_mode_retry	Retry pause
+panel.queue.action.manual_mode_retry	Retry safe pause request
 panel.queue.confirm.manual_mode	The reward will be paused on Twitch; existing redemptions and their financial operations will be preserved. The queue switches to manual only after Twitch confirms the pause. Continue?
+panel.queue.confirm.manual_mode_retry	Retry the safe pause request for this Twitch reward? The queue remains reward-backed until Twitch confirms the pause; existing redemptions and financial operations remain preserved.
 panel.queue.mode_transition.pending	Twitch pause pending; redemptions during the switch will be canceled.
-panel.queue.mode_transition.unknown	Pause state is unknown. Retry after Twitch reconnects.
-panel.queue.mode_transition.failed	The pause failed. Check the connection and retry.
+panel.queue.mode_transition.unknown	Twitch has not confirmed the pause. Reconnect, then retry; local mode starts only after confirmation.
+panel.queue.mode_transition.failed	Twitch did not confirm the pause. Check the connection, then retry; the queue remains reward-backed until confirmation.
 panel.queue.mode_transition.done	Queue switched to local mode. Existing redemptions remain preserved.
+panel.queue.mode.converted	Converted from a Twitch reward · historical reward remains paused
 panel.error.queue_mode_transition_pending	This queue is switching modes. Wait until the Twitch pause is confirmed.
 panel.error.queue_mode_transition_unavailable	This queue cannot switch modes in its current state. Refresh the panel and review its operations.
 panel.entry.call.awaiting_delivery	Deadline has not started; waiting for delivery confirmation.
@@ -549,3 +558,6 @@ panel.entry.call.expired	Deadline passed; waiting for the service status to upda
 panel.confirmation.title	Confirm action
 panel.confirmation.cancel	Cancel
 panel.confirmation.accept	OK
+panel.queue.status.pending_local_delete_diverged	Local deletion is paused because the Twitch reward state needs verification. Redemptions and related financial operations remain under recovery; later Twitch redemptions will be detected and recorded for cancellation. This app will not change the Twitch reward.
+panel.queue.confirm.retry_delete_converted_diverged	Check deletion progress. The queue will remain pending until Twitch confirms the historical reward is paused and all currently known redemptions and related financial operations are resolved. Later Twitch redemptions will still be detected and recorded for cancellation. This action will not change the Twitch reward.
+panel.queue.status.deletion_complete	Queue deletion is complete.

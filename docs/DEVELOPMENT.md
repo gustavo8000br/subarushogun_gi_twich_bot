@@ -13,6 +13,7 @@
 
 ```sh
 npm ci
+npm run build
 npm run lint
 npm run typecheck
 npm test
@@ -43,7 +44,7 @@ npm run lint:web && npm run typecheck:web
 npm test -- --run tests/unit/<test-file>.test.js
 ```
 
-The vanilla web app is checked directly; it does not have a frontend build/bundler step. GitHub Actions [CI](../.github/workflows/ci.yml) runs on pull requests and calls the shared quality gates. Main image publication and tagged releases are separate workflows; see the [CI/CD guide](CI-CD.md) for triggers, permissions, image tags, and recovery.
+`npm run build` builds the deployable bot image with Docker Compose. The vanilla web app is checked directly and does not have a separate frontend bundler step. GitHub Actions [CI](../.github/workflows/ci.yml) runs on pull requests and calls the shared quality gates. Main image publication and tagged releases are separate workflows; see the [CI/CD guide](CI-CD.md) for triggers, permissions, image tags, and recovery.
 
 ## Project layout
 

@@ -1,46 +1,42 @@
-# Development Handoff — 2026-10-06
+# Development Handoff — 2026-10-11
 
 [Português brasileiro](pt-BR/session-handoff.md)
 
 ## Current workspace
 
-- Repository/worktree: `/home/gustavo/projects/wt-ops-fnd8-spec`
-- Branch: `docs/ops-qa-fnd8-spec` (currently based on `origin/main` at `c008f07`)
-- This is the active Codex CLI/VS Code worktree. The user screenshot `Captura de tela de 2026-10-06 18-28-47.png` confirms VS Code is open on `wt-ops-fnd8-spec` and the status bar shows `docs/ops-qa-fnd8-spec*`. Do not switch to the primary checkout at `/home/gustavo/projects/subarushogun_gi_twich_bot`.
-- Changes are uncommitted. Do not discard them. The primary checkout contains separate user changes and must not be modified.
+- Repository/worktree: `/workspaces/subarushogun_gi_twich_bot`
+- Branch: `feat/fnd-9-manual-queue-modes`
+- Preserve the existing uncommitted work in this checkout; do not reset or discard it.
 
-## Current objective and stop point
+## Current objective
 
-Finish recording the FND-8 Planning Workflow (Spec Pipeline) findings and the OPS QA evidence in this worktree. The user explicitly asked to stop as soon as planning is complete so they can continue in the VS Code Codex session. Do not start FND-8 implementation, create a PR, merge, reset Docker volumes, or launch a clean Compose install in this handoff phase.
+Continue FND-9 implementation and acceptance. Core manual/reward queue behavior is implemented, but the story remains InProgress and GitHub issue #19 remains open.
 
-## OPS review results
+## Latest increment
 
-- OPS-1: independent QA PASS 9.3/10, based on GitHub Actions run `37525101710` at `c008f07` (473 tests / 69 files). QA did not rerun the suite in its review worktree. Bilingual gate files exist under `docs/qa/gates/` and `docs/pt-BR/qa/gates/`.
-- OPS-2: two UI status precedence defects were fixed test-first. Focused tests passed 12/12; web lint/typecheck passed. Independent QA re-review PASS 9.3/10. No live Twitch credentials were used. Issue #21 synchronization is pending DevOps after merge.
-- OPS-4: independent QA PASS 9.3/10 for the already merged PR #25. Bilingual QA gate records were added.
-- OPS-1/OPS-2 issue updates and closure must happen only after this branch is reviewed/merged. Do not post issue comments; update issue bodies/status.
+- Latest independent @qa score is **10/10 for the technical implementation**; @architect is **10/10**, and UX's scoped static review is **10/10**. QA confirmed the absolute 100 ms assertion is gone, the normal PostgreSQL planner uses the partial index, and no technical implementation blocker remains. The user authorized PR/merge only after full implementation and QA 10/10; those conditions are met for the code. Do not mark FND-9 Done or close issue #19: owner-side Windows and live Twitch financial acceptance remains pending.
+- The dangling `aria-describedby` reference during queue deletion now points to the visible pending status; contract coverage checks the target.
+- Implemented bounded tombstone polling after the prior 8.5/10 QA review: all active queues run first, followed by a maximum of 10 deleted converted queues per five-minute reconciliation cycle. A persisted UUID keyset cursor and leased PostgreSQL setting provide fair wraparound, safe restart/replay, and stale-worker protection with a migration-managed partial index and no tombstone expiry. Focused PostgreSQL/reconciliation tests pass **128/128**. A 45,000-row isolated PostgreSQL plan test naturally selected the partial index with normal planner settings; independent QA re-review of this evidence is pending.
+- Final full suite passed **106 files / 904 tests**; focused converted-deletion/pagination PostgreSQL suites passed **111/111**. `npm run build`, lint, typecheck, localization/version/port-denylist validation, OpenGrep (**0 findings**), Compose config, `prisma validate`, IDE sync check (**109/109, zero drift**), skill sync, and `git diff --check` passed. The isolated Codespaces preview was rebuilt from this tree; HTTP panel returns 200 and `/health` returns `status=ok` with Twitch intentionally unconfigured.
+- Architecture review is **10/10** after the lease cleanup fix; QA is now **10/10** for the technical implementation. The code is Ready for Review and the pre-push quality gates passed. Owner-side Windows/live Twitch acceptance remains open for story closure.
+- No commit, push, PR, or merge has yet been made in this continuation. The user authorized PR/merge after all FND-9 implementation is complete and QA reaches 10/10; reviewers confirm those technical conditions are met. Do not close issue #19 or mark the story Done until owner-side acceptance is recorded.
+- Real Twitch financial acceptance and native Windows acceptance still require the owner's local test. FND-9 remains InProgress; the product stage remains alpha.
 
-## FND-8 Planning status
+- Added context-sensitive confirmation copy for local, reward-backed, and converted manual queues; converted queue delete now says the Twitch reward remains paused and intact.
+- Disabled panel “Next” calls while reward-to-manual conversion is pending/unknown/failed, while preserving explicit manual adds.
+- Fixed independent-review findings: confirmed converted queues become manageable again; individual calls follow the same transition block; converted reward history is visible; retry uses clear, separate confirmation copy.
+- Updated bilingual FND-9 story evidence and file lists.
+- Previous full branch check: 106 files / 904 tests; focused recovery/index 111/111, combined focused 128/128; image build, lint, typecheck, all validators, OpenGrep (0 findings), Compose config, Prisma validation, IDE sync check (109/109), and `git diff --check`.
+- Isolated review stack `queuebot-fnd9-review-20261011` was rebuilt from the current working tree. Its product container is healthy on internal HTTPS port 3000, and private HTTP bridge port 3110 returns the panel and `/health`; use the Codespaces-forwarded private HTTP URL for this rebuilt preview. The old direct 3109 forward is no longer bound. It has dedicated DB/secrets volumes and `/tmp/fnd9-review-20261011` as its local bind directory; keep running while the owner reviews. Twitch is unconfigured in this stack.
+- Independent @qa re-review confirmed both P1 findings resolved (9/10, PASS for the reviewed scope; owner merge gate is 10/10); @ux re-review confirmed its scoped findings addressed (10/10 for scoped static review). Architecture review, full-story accessibility, and authorized financial Twitch acceptance remain open.
+- Dara identified a D-4 mismatch in converted-queue deletion. The implementation now makes it local-only, preserves the paused historical reward, and waits on durable redemption blockers before finalization. Focused PostgreSQL and panel tests pass; more blocker/race/restart coverage and full quality gates remain.
+- Independent @qa found that a pending converted local deletion had no recovery control after financial cancellations completed. The panel now exposes a localized, safe retry action for that state; it calls the existing idempotent endpoint and preserves the paused historical reward. Focused assertions are added; full gates and review remain.
+- No Twitch live financial operation was performed in this increment.
 
-- Full bilingual Spec Pipeline artifacts: `docs/stories/FND-8/` and `docs/pt-BR/stories/FND-8/`.
-- Product-approved scope: whole-product locale selection, pt-BR/en/es, editable persisted locale, one community catalog per module and locale, locale roots `!fila` / `!queue` / `!cola` with no legacy aliases, and coverage for panel/setup/callback/chat/OBS product copy/local lifecycle tools.
-- Complexity: COMPLEX 22/25. No implementation started.
-- Independent QA on specVersion 1: CONCERNS 8.1/10. The revised specVersion 2 records these gates:
-  1. High: define PostgreSQL-to-host locale authority/bridge, bootstrap, atomic panel updates, offline and partial-failure recovery.
-  2. High: choose a catalog serialization/escaping/placeholders/plural contract consumable by browser ESM, Node ESM and host tools without adding pre-Docker host runtimes. JSON is only a candidate.
-  3. Medium, owner decision: presentation policy for streamer-authored queue/reward/template/widget values after locale changes. Preservation is only a recommendation; stored data must never be silently rewritten.
-  4. Medium, owner decision: handling of existing queue slug/alias collisions with reserved roots. Detect-and-block without automatic rename is a proposal.
-  5. Low/medium, owner decision: confirm `subarushogun_twich_bot_*` family and exact lifecycle command suffixes.
-- Request/record a short independent QA re-review of specVersion 2 if continuing planning approval. Keep FND-8 implementation blocked until required gates/owner decisions are resolved.
-- Intended `v1.1.0-HHHHHHH-beta` remains an intent only; no stage promotion, release or tag is authorized here.
+## Remaining FND-9 gates
 
-## IDE and continuation
+1. Complete @devops PR/merge flow on the implementation that passed QA **10/10** and the pre-push quality gates. Do not close issue #19 as part of that merge.
+2. Owner performs native Windows and authorized Twitch acceptance for real redemption cancellation, fulfillment, missed-event recovery/reconciliation, and unknown remote outcomes. Do not claim financial proof from mocks or HTTP success without expected confirmation.
+3. After owner acceptance, update both story files and the issue body/status; only then consider marking FND-9 Done. Beta/release/tag still requires its separate approval.
 
-- The root `AGENTS.md` now applies to Codex CLI and VS Code Codex IDE, instructs both to read this handoff, and requires both to use the same exact worktree/branch.
-- To align/reopen VS Code on this worktree, run from any terminal: `code --reuse-window /home/gustavo/projects/wt-ops-fnd8-spec`.
-- Verify in the integrated terminal: `pwd`, `git rev-parse --show-toplevel`, and `git branch --show-current`.
-- The screenshot shows the Codex chat notice “Está aberto em outro aplicativo”. The conversation itself is not simultaneously available in both clients: close/release it in the other app and retry there to continue that chat, or start a new IDE chat and use this handoff. This handoff substitutes for assuming history is shared.
-
-## Pending validation
-
-The Docker daemon was upgraded during the prior pause. The current Compose stack was stopped by daemon restart. After the user resumes beyond planning, rerun required quality checks on the final branch; then follow the previously authorized project-scoped clean Compose reinstall, removing only `queuebot-fnd7` containers/volumes and preserving unrelated Docker resources. Verify `/health` and panel before reporting. Keep one-shot `bootstrap`/`migrate` containers as expected.
+Do not mark FND-9 Done until all acceptance criteria and gates are satisfied. Subsequent issue order is DOC-2 (#40), then DOC-3 (#48). Stage remains alpha; no release or tag is authorized by this handoff.

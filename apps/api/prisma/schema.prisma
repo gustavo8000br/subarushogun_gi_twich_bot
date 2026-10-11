@@ -43,6 +43,7 @@ model Queue {
   redemptions                 Redemption[]
   auditLogs                   AuditLog[]
   overlayWidgets              OverlayWidget[]
+  // The converted tombstone partial index is created in migration SQL; Prisma 6.19 cannot express partial indexes in PSL.
   @@map("queues")
 }
 

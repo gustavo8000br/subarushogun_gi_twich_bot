@@ -14,13 +14,14 @@ import { getQueueActionState } from './queue-action-state.mjs';
 import { getQueueOnboardingTransition } from './queue-onboarding-flow.mjs';
 import { normalizeRewardCandidates } from './reward-link-dialog.mjs';
 import { requestPanelConfirmation } from './panel-confirmation.mjs';
+import { getQueueConfirmationCopy } from './queue-confirmation-copy.mjs';
 import { canRetryQueueSettingsAfterVersionBump } from './queue-settings-version.mjs';
 import { translateCatalog, translatePluralCatalog } from '../shared/browser/translate-catalog.mjs';
 import { PANEL_PLACEHOLDERS } from './panel-catalog.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const optionalLimit = (value) => String(value ?? '').trim() ? Number(value) : null;
-const state = { csrfToken: null, queues: [], setup: null, health: null, productVersion: '—', initialPageSelected: false, twitchConnected: null, productLocale: { locale: 'pt-BR', revision: 1 }, localizationCatalogs: null };
+const state = { csrfToken: null, queues: [], setup: null, health: null, productVersion: '—', initialPageSelected: false, twitchConnected: null, productLocale: { locale: 'pt-BR', revision: 1 }, localizationCatalogs: null, queueStatusSnapshots: new Map(), queueStatusInitialized: false };
 const commandRoleKeys = { everyone: 'panel.command.role.everyone', follower: 'panel.command.role.follower', subscriber: 'panel.command.role.subscriber', vip: 'panel.command.role.vip', moderator: 'panel.command.role.moderator', streamer: 'panel.command.role.streamer' };
 let commandCatalog = null;
 let overlayWidgetsLoaded = false;
@@ -174,15 +175,67 @@ function text(tag, value, className) {
   return node;
 }
 
-function action(label, actionName, entryId, queueId, { disabled = false, title = '' } = {}) {
+function liveStatus(tag, value, className) {
+  const node = text(tag, value, className);
+  node.setAttribute('role', 'status');
+  node.setAttribute('aria-live', 'off');
+  return node;
+}
+
+function queueStatusSnapshot(queue) {
+  if (queue.lifecycleStatus === 'deleting') {
+    const localConverted = queue.queueMode === 'manual_only' && Boolean(queue.rewardId);
+    const key = localConverted && queue.remoteSyncStatus === 'diverged'
+      ? 'panel.queue.status.pending_local_delete_diverged'
+      : localConverted ? 'panel.queue.status.pending_local_delete' : 'panel.queue.status.pending_delete';
+    return { signature: `deleting:${queue.remoteSyncStatus}`, message: panelText(key), title: queue.title };
+  }
+  if (['pending_pause', 'unknown', 'failed'].includes(queue.modeTransitionStatus)) {
+    return { signature: `transition:${queue.modeTransitionStatus}`, message: panelText(`panel.queue.mode_transition.${queue.modeTransitionStatus}`), title: queue.title };
+  }
+  if (queue.queueMode === 'manual_only' && queue.rewardId && queue.modeTransitionStatus === 'confirmed') {
+    return { signature: 'converted', message: panelText('panel.queue.mode.converted'), title: queue.title };
+  }
+  return null;
+}
+
+function announceQueueStatusChanges(queues) {
+  const current = new Map();
+  const announcements = [];
+  for (const queue of queues) {
+    const snapshot = queueStatusSnapshot(queue);
+    if (!snapshot) continue;
+    current.set(queue.id, snapshot);
+    const previous = state.queueStatusSnapshots.get(queue.id);
+    if (state.queueStatusInitialized && previous?.signature !== snapshot.signature) {
+      announcements.push(`${snapshot.title}: ${snapshot.message}`);
+    }
+  }
+  if (state.queueStatusInitialized) {
+    for (const [queueId, previous] of state.queueStatusSnapshots) {
+      if (!current.has(queueId) && previous.signature.startsWith('deleting:')) {
+        announcements.push(`${previous.title}: ${panelText('panel.queue.status.deletion_complete')}`);
+      }
+    }
+  }
+  state.queueStatusSnapshots = current;
+  if (!state.queueStatusInitialized) {
+    state.queueStatusInitialized = true;
+    return;
+  }
+  if (announcements.length) $('#queue-status-announcer').textContent = announcements.join('. ');
+}
+
+function action(label, actionName, entryId, queueId, { disabled = false, title = '', describedBy = '' } = {}) {
   const button = text('button', label, 'small-action'); button.type = 'button';
   button.dataset.action = actionName; button.dataset.entryId = entryId; button.dataset.queueId = queueId;
   button.disabled = disabled;
   if (title) button.title = title;
+  if (describedBy) button.setAttribute('aria-describedby', describedBy);
   return button;
 }
 
-function renderEntryGroup(title, entries, queue, group) {
+function renderEntryGroup(title, entries, queue, group, actionState, callHintId) {
   const section = document.createElement('section'); section.className = 'entry-group';
   section.append(text('h3', `${title} · ${entries.length}`));
   if (!entries.length) section.append(text('div', panelText('panel.queue.empty_group'), 'entry-empty'));
@@ -198,7 +251,7 @@ function renderEntryGroup(title, entries, queue, group) {
     if (queue.uidMode === 'visible' && entry.uid && (group === 'waiting' ? queue.showUidInList : queue.showUidOnCall)) row.append(text('small', `${panelText('panel.entry.uid_label')} ${entry.uid}`));
     const buttons = document.createElement('span'); buttons.className = 'entry-buttons';
     if (group === 'waiting') {
-      buttons.append(action(panelText('panel.entry.action.call'), 'call-one', entry.id, queue.id));
+       buttons.append(action(panelText('panel.entry.action.call'), 'call-one', entry.id, queue.id, { disabled: !actionState.canCallEntries, describedBy: actionState.canCallEntries ? '' : callHintId }));
       const lane = (queue.entries ?? []).filter((item) => item.status === 'waiting' && (item.priorityClass ?? 'standard') === (entry.priorityClass ?? 'standard'));
       const lanePosition = lane.findIndex((item) => item.id === entry.id) + 1;
       const moveUp = action(panelText('panel.entry.action.move_up'), 'move-up', entry.id, queue.id); moveUp.disabled = lanePosition <= 1; buttons.append(moveUp);
@@ -213,6 +266,7 @@ function renderEntryGroup(title, entries, queue, group) {
 }
 
 function renderQueues(queues) {
+  announceQueueStatusChanges(queues);
   const container = $('#queue-list'); container.replaceChildren();
   if (!queues.length) {
     const next = getQueueEmptyAction(state.setup);
@@ -229,14 +283,25 @@ function renderQueues(queues) {
     const head = document.createElement('div'); head.className = 'queue-card-head';
     head.append(text('span', queue.title?.slice(0, 1)?.toUpperCase() || 'Q', 'queue-symbol'));
     const meta = document.createElement('div'); meta.className = 'queue-meta'; meta.append(text('strong', queue.title));
-    const priceLabel = queue.queueMode === 'manual_only' ? panelText('panel.queue.mode.manual') : `${Number(queue.cost).toLocaleString(activeProductLocale())} ${panelText('panel.queue.points')}`;
-    meta.append(text('small', `!${queue.slug} · ${priceLabel} · ${panelText(queue.isOpen ? 'panel.queue.status.open' : 'panel.queue.status.closed')} · ${queueSyncLabel(queue.remoteSyncStatus)}`)); head.append(meta);
-    const active = queue.entries || [];
     const manualModeQueue = queue.queueMode === 'manual_only';
+    const priceLabel = queue.queueMode === 'manual_only' ? panelText('panel.queue.mode.manual') : `${Number(queue.cost).toLocaleString(activeProductLocale())} ${panelText('panel.queue.points')}`;
+    meta.append(text('small', `!${queue.slug} · ${priceLabel} · ${panelText(queue.isOpen ? 'panel.queue.status.open' : 'panel.queue.status.closed')} · ${queueSyncLabel(queue.remoteSyncStatus)}`));
+    if (manualModeQueue && queue.rewardId) meta.append(liveStatus('small', panelText('panel.queue.mode.converted'), 'muted'));
+    head.append(meta);
+    const active = queue.entries || [];
     const controls = document.createElement('div'); controls.className = 'queue-actions';
     const actionState = getQueueActionState(queue);
+    const callHintId = `queue-call-hint-${String(queue.id).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
     if (queue.lifecycleStatus === 'deleting') {
-      controls.append(text('span', panelText('panel.queue.status.pending_delete'), 'muted'));
+      const localConvertedDeletion = queue.queueMode === 'manual_only' && Boolean(queue.rewardId);
+      const pendingStatusKey = localConvertedDeletion && queue.remoteSyncStatus === 'diverged'
+        ? 'panel.queue.status.pending_local_delete_diverged'
+        : localConvertedDeletion ? 'panel.queue.status.pending_local_delete' : 'panel.queue.status.pending_delete';
+      const pendingStatus = liveStatus('span', panelText(pendingStatusKey), 'muted');
+      // Waiting entry call buttons reference this explanation while deletion is pending.
+      pendingStatus.id = callHintId;
+      controls.append(pendingStatus);
+      if (actionState.canRetryLocalDeletion) controls.append(action(panelText('panel.queue.action.retry_local_delete'), 'delete-queue', '', queue.id));
     } else {
       controls.append(action(panelText('panel.queue.action.delete'), 'delete-queue', '', queue.id, {
         disabled: !actionState.canDelete,
@@ -250,32 +315,33 @@ function renderQueues(queues) {
     } else if (queue.isArchived) {
       controls.append(action(panelText('panel.queue.action.unarchive'), 'unarchive-queue', '', queue.id, { disabled: !actionState.archiveAction.enabled }));
       controls.append(action(panelText('panel.queue.action.open'), 'open-queue', '', queue.id, { disabled: !actionState.canToggleIntake || queue.isOpen }));
-      if (active.some((entry) => entry.status === 'waiting')) controls.append(action(panelText('panel.queue.action.next'), 'call-next', '', queue.id));
+      if (active.some((entry) => entry.status === 'waiting')) controls.append(action(panelText('panel.queue.action.next'), 'call-next', '', queue.id, { disabled: !actionState.canCallEntries, describedBy: actionState.canCallEntries ? '' : callHintId }));
       controls.append(action(panelText('panel.queue.action.clear'), 'clear-queue', '', queue.id));
     } else {
-      controls.append(action(panelText('panel.queue.action.add'), 'add-entry', '', queue.id), action(panelText('panel.queue.action.next'), 'call-next', '', queue.id));
+      controls.append(action(panelText('panel.queue.action.add'), 'add-entry', '', queue.id, { disabled: !actionState.canAddManualEntry }), action(panelText('panel.queue.action.next'), 'call-next', '', queue.id, { disabled: !actionState.canCallEntries, describedBy: actionState.canCallEntries ? '' : callHintId }));
       controls.append(action(panelText(queue.isOpen ? 'panel.queue.action.pause' : 'panel.queue.action.activate'), queue.isOpen ? 'close-queue' : 'open-queue', '', queue.id, { disabled: !actionState.canToggleIntake }));
       controls.append(action(panelText('panel.queue.action.archive'), 'archive-queue', '', queue.id, { disabled: !actionState.archiveAction.enabled }));
       if (!manualModeQueue && queue.rewardId && queue.modeTransitionStatus === 'none') controls.append(action(panelText('panel.queue.action.manual_mode'), 'manual-mode', '', queue.id));
-      if (queue.modeTransitionStatus === 'pending_pause') controls.append(text('span', panelText('panel.queue.mode_transition.pending'), 'muted'));
+      if (queue.modeTransitionStatus === 'pending_pause') controls.append(liveStatus('span', panelText('panel.queue.mode_transition.pending'), 'muted'));
       if (queue.modeTransitionStatus === 'unknown' || queue.modeTransitionStatus === 'failed') {
-        controls.append(text('span', panelText(`panel.queue.mode_transition.${queue.modeTransitionStatus}`), 'muted'));
+        controls.append(liveStatus('span', panelText(`panel.queue.mode_transition.${queue.modeTransitionStatus}`), 'muted'));
         controls.append(action(panelText('panel.queue.action.manual_mode_retry'), 'manual-mode-retry', '', queue.id));
       }
       controls.append(action(panelText('panel.queue.action.clear'), 'clear-queue', '', queue.id));
     }
     if (queue.remoteSyncStatus === 'create_unknown') controls.append(action(panelText('panel.queue.action.resolve_reward'), 'resolve-reward', '', queue.id));
     if (actionState.blockedReason && queue.lifecycleStatus !== 'deleting') {
-      const hint = text('p', panelText(`panel.queue.action_blocked.${actionState.blockedReason}`), 'queue-action-hint');
+      const hint = liveStatus('p', panelText(`panel.queue.action_blocked.${actionState.blockedReason}`), 'queue-action-hint');
+      if (!actionState.canCallEntries) hint.id = callHintId;
       controls.append(hint);
     }
     if (!actionState.canDelete && queue.lifecycleStatus !== 'deleting') {
       controls.append(text('p', panelText(`panel.queue.delete_blocked.${actionState.deleteBlockedReason}`), 'queue-action-hint queue-delete-hint'));
     }
     card.append(head, controls);
-    card.append(renderEntryGroup(panelText('panel.queue.group.waiting'), active.filter((entry) => entry.status === 'waiting'), queue, 'waiting'));
-    card.append(renderEntryGroup(panelText('panel.queue.group.called'), active.filter((entry) => entry.status === 'called'), queue, 'called'));
-    card.append(renderEntryGroup(panelText('panel.queue.group.in_service'), active.filter((entry) => entry.status === 'in_progress'), queue, 'in_progress'));
+    card.append(renderEntryGroup(panelText('panel.queue.group.waiting'), active.filter((entry) => entry.status === 'waiting'), queue, 'waiting', actionState, callHintId));
+    card.append(renderEntryGroup(panelText('panel.queue.group.called'), active.filter((entry) => entry.status === 'called'), queue, 'called', actionState, callHintId));
+    card.append(renderEntryGroup(panelText('panel.queue.group.in_service'), active.filter((entry) => entry.status === 'in_progress'), queue, 'in_progress', actionState, callHintId));
     const history = document.createElement('details'); history.className = 'queue-history';
     history.append(text('summary', panelText('panel.queue.history.title')));
     const historyContent = document.createElement('div'); historyContent.className = 'history-content';
@@ -936,13 +1002,15 @@ async function boot() {
       }
       if (actionName === 'archive-queue' || actionName === 'unarchive-queue') {
         const archiving = actionName === 'archive-queue';
-        if (!await confirmPanelAction(panelText(archiving ? 'panel.queue.confirm.archive' : 'panel.queue.confirm.unarchive'))) return;
+        const queue = state.queues.find((item) => item.id === queueId);
+        if (!await confirmPanelAction(panelText(getQueueConfirmationCopy(queue, archiving ? 'archive' : 'unarchive')))) return;
         const result = await request(`/api/queues/${queueId}/${archiving ? 'archive' : 'unarchive'}`, { method: 'POST', body: '{}' });
         toast(panelText(archiving ? (result.status === 'pending' ? 'panel.queue.archive.pending' : 'panel.queue.archive.done') : 'panel.queue.unarchive.done'));
         await refresh(); return;
       }
       if (actionName === 'manual-mode' || actionName === 'manual-mode-retry') {
-        if (!await confirmPanelAction(panelText('panel.queue.confirm.manual_mode'))) return;
+        const confirmationKey = actionName === 'manual-mode-retry' ? 'panel.queue.confirm.manual_mode_retry' : 'panel.queue.confirm.manual_mode';
+        if (!await confirmPanelAction(panelText(confirmationKey))) return;
         const result = await request(`/api/queues/${queueId}/manual-mode`, { method: 'POST', body: '{}' });
         toast(panelText(result.status === 'pending' ? 'panel.queue.mode_transition.pending' : 'panel.queue.mode_transition.done'));
         await refresh(); return;
@@ -950,7 +1018,7 @@ async function boot() {
       if (actionName === 'delete-queue') {
         const queue = state.queues.find((item) => item.id === queueId);
         const activeCount = (queue?.entries ?? []).filter((entry) => ['waiting', 'called', 'in_progress'].includes(entry.status)).length;
-        const accepted = await confirmPanelAction(panelText('panel.queue.confirm.delete', { title: queue?.title ?? '', count: activeCount }));
+        const accepted = await confirmPanelAction(panelText(getQueueConfirmationCopy(queue, 'delete'), { title: queue?.title ?? '', count: activeCount }));
         if (!accepted) return;
         const result = await request(`/api/queues/${queueId}/delete`, { method: 'POST', body: JSON.stringify({ confirm: true }) });
         toast(panelText(result.status === 'pending' ? 'panel.queue.delete.pending' : 'panel.queue.delete.done'), result.status === 'pending' ? 'warning' : 'success');

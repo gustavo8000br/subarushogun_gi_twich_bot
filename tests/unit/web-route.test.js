@@ -180,8 +180,9 @@ describe('local web entrypoint', () => {
     await registerWebRoutes(app, webRoot);
     const script = await app.inject({ method: 'GET', url: '/app.js' });
     expect(script.body).toContain("action(panelText('panel.queue.action.delete'), 'delete-queue'");
+    expect(script.body).toContain("action(panelText('panel.queue.action.retry_local_delete'), 'delete-queue'");
     expect(script.body).toContain('body: JSON.stringify({ confirm: true })');
-    expect(script.body).toContain("panelText('panel.queue.confirm.delete'");
+    expect(script.body).toContain("panelText(getQueueConfirmationCopy(queue, 'delete'), { title: queue?.title ?? '', count: activeCount })");
     expect(script.body).toContain("panel.queue.delete.pending");
     await app.close();
   });

@@ -172,8 +172,8 @@ describe('panel catalog contract', () => {
     for (const key of [
       'panel.queue.group.waiting', 'panel.queue.group.called', 'panel.queue.group.in_service',
       'panel.queue.empty.title', 'panel.queue.empty.hint', 'panel.queue.empty_group',
-      'panel.queue.status.open', 'panel.queue.status.closed', 'panel.queue.status.pending_delete',
-      'panel.queue.action.delete', 'panel.queue.action.configure', 'panel.queue.action.edit_reward',
+      'panel.queue.status.open', 'panel.queue.status.closed', 'panel.queue.status.pending_delete', 'panel.queue.status.pending_local_delete', 'panel.queue.status.pending_local_delete_diverged', 'panel.queue.status.deletion_complete',
+      'panel.queue.action.delete', 'panel.queue.action.retry_local_delete', 'panel.queue.action.configure', 'panel.queue.action.edit_reward',
       'panel.queue.action.unarchive', 'panel.queue.action.next', 'panel.queue.action.clear',
       'panel.queue.action.add', 'panel.queue.action.open', 'panel.queue.action.activate', 'panel.queue.action.pause',
       'panel.queue.action.archive', 'panel.queue.action.resolve_reward', 'panel.queue.history.title',
@@ -287,6 +287,8 @@ describe('panel catalog contract', () => {
 
   it('uses catalog copy for queue workflow confirmations, prompts, and outcomes', async () => {
     const app = await readFile(fileURLToPath(new URL('../../apps/web/app.js', import.meta.url)), 'utf8');
+    const queueConfirmationCopy = await readFile(fileURLToPath(new URL('../../apps/web/queue-confirmation-copy.mjs', import.meta.url)), 'utf8');
+    const queueActionState = await readFile(fileURLToPath(new URL('../../apps/web/queue-action-state.mjs', import.meta.url)), 'utf8');
     const html = await readFile(fileURLToPath(new URL('../../apps/web/index.html', import.meta.url)), 'utf8');
     for (const key of [
       'panel.queue.onboarding.reward_pending', 'panel.queue.onboarding.activate_next',
@@ -294,11 +296,28 @@ describe('panel catalog contract', () => {
       'panel.reward.loading_candidates',
       'panel.notice.queue_settings_saved', 'panel.notice.reward_update_pending',
       'panel.priority.reason_prompt', 'panel.priority.invalid_reason', 'panel.priority.marked',
-      'panel.queue.confirm.archive', 'panel.queue.confirm.unarchive', 'panel.queue.confirm.delete',
       'panel.queue.delete.pending', 'panel.reward.no_candidates', 'panel.queue.clear.confirm',
       'panel.queue.clear.changed', 'panel.queue.clear.done', 'panel.account.prompt.current',
       'panel.account.prompt.default',
     ]) expect(app).toContain(key);
+    for (const key of ['panel.queue.confirm.archive_local', 'panel.queue.confirm.archive_converted', 'panel.queue.confirm.archive', 'panel.queue.confirm.delete_local', 'panel.queue.confirm.delete_converted', 'panel.queue.confirm.retry_delete_converted', 'panel.queue.confirm.retry_delete_converted_diverged', 'panel.queue.confirm.delete']) {
+      expect(queueConfirmationCopy).toContain(key);
+    }
+    expect(app).toContain("panelText(getQueueConfirmationCopy(queue, archiving ? 'archive' : 'unarchive'))");
+    expect(app).toContain("panelText(getQueueConfirmationCopy(queue, 'delete'), { title: queue?.title ?? '', count: activeCount })");
+    expect(app).toContain('actionState.canRetryLocalDeletion');
+    expect(app).toContain("actionName === 'manual-mode-retry' ? 'panel.queue.confirm.manual_mode_retry' : 'panel.queue.confirm.manual_mode'");
+    expect(app).toContain("buttons.append(action(panelText('panel.entry.action.call'), 'call-one', entry.id, queue.id, { disabled: !actionState.canCallEntries, describedBy: actionState.canCallEntries ? '' : callHintId }))");
+    expect(app).toContain("button.setAttribute('aria-describedby', describedBy)");
+    expect(app).toContain("node.setAttribute('role', 'status')");
+    expect(app).toContain("node.setAttribute('aria-live', 'off')");
+    expect(html).toContain('id="queue-status-announcer"');
+    expect(app).toContain('if (announcements.length) $(\'#queue-status-announcer\').textContent = announcements.join(\'. \')');
+    expect(app).toContain('if (!actionState.canCallEntries) hint.id = callHintId');
+    expect(app).toContain('pendingStatus.id = callHintId');
+    expect(app).toContain("panel.queue.mode.converted");
+    expect(queueActionState).toContain("(convertedLocal && queue.modeTransitionStatus === 'confirmed')");
+    expect(queueConfirmationCopy).toContain('panel.queue.confirm.${action}');
     for (const oldCopy of ['Selecione o benefício conferido:', 'Arquivar esta fila?', 'Nenhuma operação pendente.', 'Fila salva. A criação']) {
       expect(app).not.toContain(oldCopy);
     }

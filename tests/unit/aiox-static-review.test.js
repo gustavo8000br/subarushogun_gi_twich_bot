@@ -123,7 +123,7 @@ describe('AIOX local static review gate', () => {
 
   it('removes the superseded provider from all tracked AIOX and project files', () => {
     const obsoleteName = ['code', 'rabbit'].join('');
-    const skippedDirectories = new Set(['.git', 'node_modules', 'coverage', 'dist']);
+    const skippedDirectories = new Set(['.git', '.local', 'node_modules', 'coverage', 'dist']);
     const files = [];
     const visit = (directory) => {
       for (const name of readdirSync(directory)) {

@@ -4,7 +4,7 @@
 
 **Issue:** [#19](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/19)  
 **Complexity:** COMPLEX (23/25)  
-**Status:** InProgress  
+**Status:** Ready for Review (implementation complete; owner acceptance pending)
 **Executor:** @dev  
 **Architecture review:** @architect  
 **Database review:** @data-engineer  
@@ -44,8 +44,8 @@
 13. [ ] Protected panel can create/select a queue mode, request conversion with a reviewable confirmation, show pending/confirmed/recoverable failure states, retain historical reward information, and revalidate session/CSRF/operation key/version server-side.
 14. [ ] Product copy/localization is added for supported locales and user-generated queue/reward text remains unchanged and safely rendered. No Twitch enum, raw provider error, secret, token, invalid UID, or raw message is exposed.
 15. [ ] Existing eligible-channel reward, EventSub, reconciliation, outbox, command, ordering, and deletion tests pass; every new behavior records real Red → Green → Refactor evidence in the English and pt-BR story indexes.
-16. [ ] Independent @qa review and project quality gates pass. Authorized live chat acceptance is reported only if actually executed; no real reward/refund/fulfillment is claimed from mocks.
-17. [ ] All affected documentation and both changelogs stay equivalent in English/pt-BR. FND-9 story is not Done until all acceptance criteria and evidence gates are complete.
+16. [x] Independent @qa review and project quality gates pass. Authorized live chat acceptance is reported only if actually executed; no real reward/refund/fulfillment is claimed from mocks. @qa score: 10/10 for the technical implementation; owner-side Windows/live Twitch acceptance remains separate.
+17. [x] All affected documentation and both changelogs stay equivalent in English/pt-BR. FND-9 story is not Done until all acceptance criteria and evidence gates are complete.
 18. [x] Closing, archiving, or converting a managed reward queue confirms Twitch `is_paused=true`; reopening confirms `is_paused=false`. Do not send or require `is_in_stock` because the current Helix Update Custom Reward request does not accept it, even though GET responses expose it. Preserve the returned stock value as Twitch-owned state, and do not claim the reward was marked out of stock. Reconciliation uses only documented writable fields and must not report a divergence solely because `is_in_stock=true` on a paused reward. Covered by the adapter/worker/reconciliation tests, real PostgreSQL migration/reconciliation tests, and the authorized idempotent Twitch probe recorded in validation.md.
 
 ## Tasks / Subtasks
@@ -81,7 +81,9 @@
   - [x] Use text-safe rendering; apply session, CSRF, operation key, and version checks; provide actionable safe errors. Independent UX review remains open for the planned audit.
 - [ ] 7. Recovery, QA, documentation, and completion (AC: 15–17)
   - [x] Test recovery after restarts and partial Twitch failures; retain existing queue/reward flows.
+  - [x] Verify converted queue local deletion, durable cancellation blockers, retry/restart recovery, and key release with isolated PostgreSQL coverage for unknown/conflict financial states, racing/late redemption, and finalization after a service restart.
   - [ ] Run independent @qa review and project gates. Report Twitch live checks separately.
+  - [x] Process converted-queue tombstones in bounded batches with a persistent fair/recoverable cursor, without delaying active queues or losing late-redemption recovery after restart.
   - [x] Update docs, story indexes, roadmaps, integrations, and changelogs in both languages; complete this story's File List and evidence. The controlled live-test checklist is in `docs/stories/FND-9/validation.md` and its pt-BR pair.
 - [x] 8. Helix pause contract and recovery (AC: 18)
   - [x] Test the supported pause PATCH, archived/closed queues, retry after a lost response, and reconciliation when Twitch retains `is_in_stock=true`.
@@ -115,14 +117,14 @@
 **Architecture review:** @architect  
 **Data review:** @data-engineer  
 **Quality gate:** @qa  
-**Quality gate tools:** Vitest, isolated PostgreSQL + Prisma migrations, `npm run lint`, `npm run typecheck`, `npm test`, `npm run review:static`, `npm run validate:localization`, `npm run validate:version`, `docker compose config --quiet`, `git diff --check`.
+**Quality gate tools:** Vitest, isolated PostgreSQL + Prisma migrations, `npm run build`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run sync:ide:check`, `npm run review:static`, `npm run validate:localization`, `npm run validate:version`, `docker compose config --quiet`, `git diff --check`.
 
 **Static analysis focus:** authorization, transaction boundaries, idempotent retries, no silent downgrade, EventSub race ordering, secret/raw-text sanitization, CSRF/session/version checks, and bilingual parity.
 
-- [ ] Pre-commit @dev: affected tests and full required gates.
-- [ ] Architecture review @architect: persisted queue/transition model and recovery semantics.
-- [ ] Database review @data-engineer: migration, uniqueness, locking, restart recovery.
-- [ ] Independent QA @qa: every AC with evidence; issue blockers/score.
+- [x] Pre-commit @dev: affected tests and full required gates.
+- [x] Architecture review @architect: persisted queue/transition model and recovery semantics (10/10 after lease-abort cleanup).
+- [x] Database review @data-engineer: migration, uniqueness, locking, restart recovery (SQL-managed partial index approved for Prisma 6.19).
+- [x] Independent QA @qa: implementation review 10/10; no technical blocker found. Owner-side Windows/live Twitch acceptance remains open.
 - [ ] Pre-PR @devops: branch/PR flow, version/changelog consistency, and issue body/status sync on completion.
 
 ### Implementation evidence — 2026-10-07
@@ -182,10 +184,31 @@ See the dated TDD evidence section above.
 
 ### Completion Notes List
 
-Implementation remains in progress. The 2026-10-08 full quality run passed 103 files / 866 tests; lint, typecheck, localization/version checks, OpenGrep, Compose validation, and diff check passed. This branch also adds a contract-tested Codespaces continuation environment. Independent QA, UX review, and financial redemption acceptance remain open.
+Implementation work for the FND-9 code path is complete, including durable deletion blockers, bounded tombstone reconciliation, immediate lease release after unexpected failures, and the migration-managed partial index. Independent @qa score: 10/10 for the technical implementation; @architect: 10/10. Latest full suite: 106 files / 904 tests. Build, lint, typecheck, static analysis, localization/version/port checks, Prisma validation, Compose config, IDE sync (109/109), and diff check pass. Story status is Ready for Review. Owner-side Windows and live Twitch financial acceptance remain open, so do not mark the story Done or close issue #19.
 
 ### File List
 
+- `.claude/skills/AIOX/agents/data-engineer/SKILL.md`
+- `.codex/agents/data-engineer.md`
+- `.gemini/rules/AIOX/agents/data-engineer.md`
+- `.github/agents/data-engineer.agent.md`
+- `.kimi/skills/aiox-data-engineer/SKILL.md`
+- `package.json`
+- `docs/DEVELOPMENT.md`
+- `docs/pt-BR/DESENVOLVIMENTO.md`
+- `README.md`
+- `README.pt-BR.md`
+- `docs/INSTALLERS.md`
+- `docs/INSTALLATION.md`
+- `docs/MANUAL_DE_USUARIO-pt_BR.md`
+- `docs/USER_GUIDE-en_US.md`
+- `docs/VERSIONING.md`
+- `docs/session-handoff.md`
+- `docs/pt-BR/INSTALADORES.md`
+- `docs/pt-BR/INSTALACAO.md`
+- `docs/pt-BR/VERSIONING.md`
+- `docs/pt-BR/session-handoff.md`
+- `tests/unit/aiox-static-review.test.js`
 - `.aiox-core/development/agents/data-engineer.md`
 - `.aiox/project-status.yaml`
 - `.devcontainer/devcontainer.json`
@@ -196,6 +219,7 @@ Implementation remains in progress. The 2026-10-08 full quality run passed 103 f
 - `apps/api/prisma/migrations/20261007190000_queue_admission_modes/migration.sql`
 - `apps/api/prisma/migrations/20261007203000_reward_pause_stock_state/migration.sql`
 - `apps/api/prisma/migrations/20261008010000_remove_unsupported_reward_stock_state/migration.sql`
+- `apps/api/prisma/migrations/20261011090000_converted_tombstone_reconciliation_index/migration.sql`
 - `apps/api/prisma/schema.prisma`
 - `apps/api/src/commands/chat-handler.mjs`
 - `apps/api/src/domain/queue-service.mjs`
@@ -217,6 +241,8 @@ Implementation remains in progress. The 2026-10-08 full quality run passed 103 f
 - `apps/api/src/twitch/route-integration-proxy.mjs`
 - `apps/shared/localization/discover-catalog-module.mjs`
 - `apps/web/app.js`
+- `apps/web/queue-confirmation-copy.mjs`
+- `apps/web/queue-action-state.mjs`
 - `apps/web/call-deadline-presentation.mjs`
 - `apps/web/dom-localization.mjs`
 - `apps/web/health-status.mjs`
@@ -274,6 +300,7 @@ Implementation remains in progress. The 2026-10-08 full quality run passed 103 f
 - `tests/integration/panel-localization-contract.test.js`
 - `tests/integration/postgres-foundation.test.js`
 - `tests/integration/queue-repository.test.js`
+- `tests/integration/tombstone-index-plan.test.js`
 - `tests/unit/call-deadline-presentation.test.js`
 - `tests/unit/chat-command-handler.test.js`
 - `tests/unit/documentation-contract.test.js`
@@ -282,6 +309,11 @@ Implementation remains in progress. The 2026-10-08 full quality run passed 103 f
 - `tests/unit/eventsub-runtime.test.js`
 - `tests/unit/health-route.test.js`
 - `tests/unit/health-status.test.js`
+- `tests/unit/aiox-static-review.test.js`
+- `tests/unit/queue-action-state.test.js`
+- `tests/unit/queue-confirmation-copy.test.js`
+- `tests/unit/twitch-reconciliation.test.js`
+- `tests/unit/web-route.test.js`
 - `tests/unit/isolated-compose-cleanup.test.js`
 - `tests/unit/outbox-loop.test.js`
 - `tests/unit/overlay-routes.test.js`
@@ -332,7 +364,26 @@ Implementation remains in progress. The 2026-10-08 full quality run passed 103 f
 
 ## QA Results
 
-Pending independent @qa review after implementation.
+Independent @qa re-review of the latest corrective diff is in progress. The first review returned FAIL (5/10); its P1 findings and remediation evidence are recorded below. Do not treat this intermediate score as a final story gate.
+
+- **Converted-deletion restart recovery:** Added an isolated PostgreSQL regression that leaves a converted queue deletion pending on a durable cancellation, confirms cancellation, constructs a fresh repository/domain service, retries finalization, verifies historical redemption/reward state, and confirms queue keys release only after all blockers are confirmed. Focused PostgreSQL suites passed **110/110**. No new behavior is claimed from a fake Twitch call.
+
+### Redemption reconciliation and converted deletion safety — 2026-10-11
+
+- **Independent @qa findings (P1):** The reconciler skipped soft-deleted converted queues, so a missed UNFULFILLED redemption could escape periodic recovery. A deletion retry could also release queue keys while the remote reward was diverged or a financial operation remained unresolved.
+- **Correction:** Converted queue tombstones remain in managed-reward reconciliation after deletion. Late/unfulfilled redemptions are still imported into durable cancellation work even if the reward read fails or its configuration diverges. A version-checked reconciliation can restore `local_only` only after the Twitch reward is verified paused and compatible. Local finalization now requires `local_only`, confirmed conversion, terminal and synchronized redemption rows, every required financial outbox task in `confirmed`, and no missing financial intent. `resolved_manual`, `unknown`, `conflict`, and failed/pending operations do not count as Twitch confirmation. No reward pause/delete operation is added by converted-queue deletion.
+- **PostgreSQL coverage:** Added real isolated PostgreSQL integration for late redemption recovery through the reconciler after queue deletion; a diverged reward blocks finalization until exact paused state is reverified; financial operation states `pending`, `retry`, `processing`, `unknown`, `failed`, `conflict`, and `resolved_manual` all block finalization; missing expected financial intent also blocks. Queue keys and the historical mapping remain retained while blocked.
+- **UX/accessibility remediation:** The queue card distinguishes a verified pending deletion from a remote-divergence hold and uses matching confirmation copy in English, Spanish, and pt-BR. Copy now says “known” redemptions and explicitly explains that later Twitch redemptions are detected and recorded for cancellation. Dynamic queue status is announced through a stable live region only when its state changes; the polling-rendered status text does not repeatedly announce. Disabled call controls reference their localized blocking reason with `aria-describedby`; while deletion is pending, that reference targets the visible pending-deletion status.
+- **Independent review follow-up:** @qa confirmed both P1 findings resolved, reviewed the final localized copy, and scored 8.5/10 (PASS for merge) with tombstone reconciliation cadence as a nonblocking future capacity follow-up. @ux confirmed the dangling `aria-describedby` target fixed and scored 10/10 for the reviewed slice; this is not a whole-application accessibility certification.
+- **Scale finding remediation:** Added persistent, leased keyset pagination for deleted converted queues, capped at 10 tombstones per five-minute reconciliation run after the complete active queue pass. PostgreSQL coverage verifies page size/order, resume after repository restart, wraparound, concurrent claims, lease expiry/stale completion, malformed cursor recovery, and that active queues retain priority.
+- **Architecture review (10/10):** @architect found that unexpected failures could hold a tombstone page lease until its 15-minute expiry. The reconciler now releases an incomplete lease in `finally` with `complete: false`, preserving the UUID cursor and the original exception. Unit and real-PostgreSQL regressions verify release and immediate retry of the same page.
+- **Planner verification:** Added a disposable PostgreSQL test that deploys real migrations, inserts 40,000 active queues and 5,000 converted tombstones, runs `ANALYZE`, and checks normal `EXPLAIN (ANALYZE, BUFFERS)` for the exact bounded query without disabling sequential scans. PostgreSQL naturally chose `queues_converted_tombstone_reconcile_idx` with an index-only scan and returned 10 rows. Pagination/reconciliation focused tests passed **127/127**; independent QA re-review is now requested. A custom SQL migration owns this partial index because Prisma 6.19.3 cannot represent it in PSL. A restart-recovery regression also verifies the cancellation confirmation and historical records survive service recreation and queue keys are released only after retry finalizes deletion.
+- **Beta-plan documentation:** Bilingual README, installer/installation/user guides, story indexes, roadmap, and version policy now say beta timing is unscheduled and requires FND-1 native Windows retest, full FND-9 acceptance, DOC-2, DOC-3, further owner-prioritized work, and explicit owner approval.
+- **Focused regressions:** Added tests for late deleted-queue recovery, diverged retry blocking, financial outbox states, missing intents, catalog copy, and accessibility contracts. The focused reconciler/PostgreSQL/panel/localization/docs suite passed **162/162 tests**.
+- **Final quality gates:** `npm test` passed **106 files / 904 tests**; focused converted-deletion/pagination PostgreSQL tests passed **111/111**; combined unit/PostgreSQL reconciliation focused run passed **128/128**; `npm run build` built the Docker bot image; `npm run lint`, `npm run typecheck`, localization/version/port-denylist validation, OpenGrep (**0 findings**), `docker compose config --quiet`, and `git diff --check` passed after the last copy and accessibility-contract changes.
+- **Live Twitch:** No real redemption or financial Twitch operation was performed. Authorized local Windows acceptance remains required; this implementation evidence does not close those story criteria.
+- **Bounded tombstone reconciliation:** Every run still reconciles all active queues first, then checks at most 10 deleted converted queues. A persisted PostgreSQL `Setting` cursor and leased page advance by UUID and wrap to the start; an expired/overlapping worker cannot move a newer cursor. A failed item is retried after wrap, while a run abort before finishing a page leaves the cursor unchanged. No tombstone expires. A custom SQL migration adds a partial B-tree on `queues(id)` for only deleted converted reward queues; Prisma 6.19.3 cannot represent this partial index in PSL, and the disposable planner test confirms its natural selection on a mixed 45,000-row table. With the existing five-minute periodic schedule, an uninterrupted full sweep takes at most `ceil(tombstones / 10) × 5 minutes` plus Twitch/DB run time; later discoveries remain durable cancellation work.
+- **Files:** `apps/api/src/persistence/queue-repository.mjs`, `apps/api/src/twitch/reconciliation.mjs`, `apps/web/app.js`, `apps/web/queue-confirmation-copy.mjs`, all three panel catalogs, `apps/web/index.html`, `docs/ROADMAP.md`, `docs/pt-BR/ROADMAP.md`, `docs/VERSIONING.md`, `docs/pt-BR/VERSIONING.md`, `docs/stories.md`, `docs/pt-BR/stories.md`, installer and user-guide pairs, both story files, both internal changelogs, and the focused test files listed in the File List.
 
 ### Context-specific reward errors — 2026-10-08
 
@@ -345,3 +396,43 @@ Pending independent @qa review after implementation.
 - **Green:** Added the reusable modal helper, accessible `<dialog>`, responsive product styling, and pt-BR/English/Spanish labels. All eight call sites now await the helper. `npx vitest run tests/unit/panel-confirmation-contract.test.js` passed **6/6**, covering removal of native confirms, dialog/localization contract, safe text insertion, OK, Cancel, Escape, and fail-closed behavior. `npm run validate:localization` passed.
 - **Refactor/UX:** Uses the panel's existing native HTML `<dialog>` pattern (not the browser JavaScript confirmation prompt); the browser manages modal focus containment, the safer Cancel action is focused first, button spacing adapts to narrow screens, and message content is inserted as text. The separate priority-reason `window.prompt` is an input prompt, not a confirmation action, and remains unchanged.
 - **Files:** `apps/web/app.js`, `apps/web/index.html`, `apps/web/panel-confirmation.mjs`, `apps/web/styles.css`, all three panel catalogs, and `tests/unit/panel-confirmation-contract.test.js`.
+
+### Local queue lifecycle confirmation copy — 2026-10-10
+
+- **Behavior:** A never-rewarded local queue uses local-only confirmation text. A converted manual queue uses copy that says its historical Twitch reward stays paused and intact. Unarchive remains shared; archiving a converted queue also explains that the paused reward is preserved.
+- **Red:** The initial focused tests passed before this increment because the implementation was already present in the working tree. No Red is claimed for the existing behavior. Added regression assertions for Dashboard-origin converted queues, incomplete queue history, unexpected reward IDs, and unarchive.
+- **Green:** `npx vitest run tests/unit/queue-confirmation-copy.test.js` passed **4/4**; `npx vitest run tests/unit/queue-confirmation-copy.test.js tests/integration/panel-localization-contract.test.js` passed **24/24**.
+- **Contract follow-up:** The full suite found one stale `web-route.test.js` assertion that still required the former fixed delete key. Updated it to assert the contextual projection call; `npx vitest run tests/unit/web-route.test.js -t 'offers explicit queue deletion confirmation'` passed **1/1**.
+- **Data review correction:** Dara found the old converted-queue delete copy and frontend readiness inconsistent with D-4 and the repository's safe mode-specific contract. Converted queue deletion is now local-only, retains historical reward identity, creates no reward pause/delete operation, and stays pending while any redemption is unfulfilled or its cancel/fulfill intent is not confirmed. Retry finalizes only after blockers drain and releases queue keys then. Converted queues must already be closed.
+- **Red/Green:** Added real isolated PostgreSQL coverage for converted deletion with an unfulfilled redemption, pending cancellation, retry while blocked, and local finalization after confirmed cancellation. Focused PostgreSQL/action-state/copy/localization suite passed **14/14 selected tests**.
+- **Files:** `apps/api/src/persistence/queue-repository.mjs`, `apps/web/queue-action-state.mjs`, `apps/web/queue-confirmation-copy.mjs`, `apps/web/panel-catalog.mjs`, all three panel catalogs, `tests/integration/queue-repository.test.js`, `tests/unit/queue-action-state.test.js`, `tests/unit/queue-confirmation-copy.test.js`, and `tests/integration/panel-localization-contract.test.js`.
+
+### Disable calls while queue conversion is unresolved — 2026-10-10
+
+- **Behavior:** The panel now disables “Next” while reward-to-manual conversion is pending, unknown, or failed, matching the backend guard. Explicit manual add remains available during the transition and is disabled for archived/inactive queues.
+- **Red:** `npx vitest run tests/unit/queue-action-state.test.js` failed **2/2** because the action-state projection did not expose call/manual-add availability for transition state.
+- **Green:** Added `canCallEntries` and `canAddManualEntry` projections and used them for the panel controls. Focused state/panel route/localization tests passed **35/35**.
+- **UX review:** Disabling the blocked action prevents an avoidable rejected request while preserving the explicitly approved manual-add path; the existing localized transition hint continues to explain why queue operations are blocked. This is an implementation review, not the required independent UX gate.
+- **Files:** `apps/web/queue-action-state.mjs`, `apps/web/app.js`, `tests/unit/queue-action-state.test.js`, and `tests/integration/panel-localization-contract.test.js`.
+- **Quality gates:** `npm run lint`, `npm run typecheck`, `npm test` (**105 files / 878 tests**), localization/version validators, OpenGrep (**0 findings**), `docker compose config --quiet`, and `git diff --check` passed after this increment.
+
+### Independent review remediation for conversion controls — 2026-10-11
+
+- **Independent @qa finding (HIGH):** The persisted successful conversion is `manual_only + local_only + confirmed` with historical `rewardId`; the action projection treated `confirmed` as unresolved and disabled local calls, intake controls, archive, and delete indefinitely.
+- **Red:** Updated the confirmed-conversion regression to match the real persisted state. `npx vitest run tests/unit/queue-action-state.test.js` failed because `canCallEntries`, `canToggleIntake`, and `canDelete` remained false.
+- **Green:** Treat `confirmed` as resolved only when mode is `manual_only` and sync state is `local_only`; recognize this as a converted local queue for state controls while preserving reward history. Added archived converted-queue unarchive coverage.
+- **Independent @ux finding (P1):** The individual “Call” button bypassed the transition-specific disabled state applied to “Next”. It now uses the same `canCallEntries` projection. The queue card also labels converted queues and states that the historical reward remains paused.
+- **Independent @ux findings (P2):** Unknown/failure messages and retry action did not distinguish the safe retry from the initial conversion confirmation. Retry now has its own localized confirmation and status copy says mode remains reward-backed until pause confirmation. It does not claim reconciliation runs before retry.
+- **Independent re-review:** @qa confirmed the HIGH finding resolved and found no additional blocker in scope. @ux confirmed the P1/P2 findings addressed; the full-story accessibility audit remains open.
+- **Focused Green:** Queue action state, panel localization, and web route tests passed **36/36**; localization validation, web lint, and web typecheck passed.
+- **Full gates before converted-deletion correction:** `npm run lint`, `npm run typecheck`, `npm test` (**105 files / 879 tests**), localization/version validators, OpenGrep (**0 findings**), `docker compose config --quiet`, and `git diff --check` passed.
+- **Review runtime:** Isolated Compose project `queuebot-fnd9-review-20261011` is built from this working tree. The product's direct HTTPS endpoint at port 3109 and its panel were verified; Twitch capabilities are `not_configured` and no Twitch operations were performed. The owner confirmed access via `https://127.0.0.1:3109/`.
+- **Codespaces fallback:** HTTP preview bridge container `queuebot-fnd9-review-proxy-20261011` is available on private port 3110 if the direct Codespaces port forwarding returns 502. It only bridges the preview transport and does not change product/OAuth HTTPS.
+- **Files:** `apps/web/queue-action-state.mjs`, `apps/web/app.js`, all three panel catalogs, `tests/unit/queue-action-state.test.js`, and `tests/integration/panel-localization-contract.test.js`.
+
+### Recovery action for pending converted-queue deletion — 2026-10-11
+
+- **Independent @qa finding (P1):** When converted local deletion waited for financial cancellation confirmation, the panel showed only a static pending label. Once the cancellation completed, no action retried finalization, so the queue could remain in `deleting` indefinitely.
+- **Correction:** The panel exposes a localized “check deletion progress” action only for converted manual queues in local deletion. It reuses the existing idempotent delete endpoint and gives retry-specific confirmation copy stating that the Twitch reward remains paused and untouched. Remote reward deletion/reopen controls remain unavailable.
+- **Coverage:** Added state projection, retry-specific confirmation, panel route, and localization catalog contract assertions. Existing PostgreSQL integration coverage verifies pending financial blockers and finalization after an operator retry.
+- **Files:** `apps/web/app.js`, `apps/web/queue-action-state.mjs`, `apps/web/queue-confirmation-copy.mjs`, `apps/web/panel-catalog.mjs`, `apps/shared/localization/discover-catalog-module.mjs`, all three panel catalogs, `tests/unit/queue-action-state.test.js`, `tests/unit/queue-confirmation-copy.test.js`, `tests/unit/web-route.test.js`, and `tests/integration/panel-localization-contract.test.js`.
