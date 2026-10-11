@@ -93,27 +93,40 @@ describe('GitHub Actions application CI contract', () => {
     expect(mainWorkflow).toContain("steps.source-current.outputs.current == 'true'");
   });
 
-  it('publishes version-tagged releases with bilingual changelog notes and one native installer per OS', () => {
+  it('creates the release tag on demand and auto-publishes rc/stable after main merges', () => {
     const release = parseWorkflow(releaseWorkflow);
-    expect(Object.keys(release.on)).toEqual(['workflow_dispatch']);
-    expect(release.on.workflow_dispatch.inputs.release_tag.required).toBe(true);
+    expect(Object.keys(release.on)).toEqual(['push', 'workflow_dispatch']);
+    expect(release.on.push.branches).toEqual(['main']);
+    expect(release.on.workflow_dispatch).toEqual({});
     expect(release.concurrency['cancel-in-progress']).toBe(false);
     expect(release.concurrency.queue).toBe('max');
     expect(release.permissions).toEqual({ contents: 'read' });
-    expect(release.jobs['build-installers'].needs).toBe('resolve-release-image');
+    expect(release.jobs['prepare-release'].if).toContain("github.event_name == 'push'");
+    expect(release.jobs['prepare-release'].if).toContain("github.actor == 'gustavo8000br'");
+    expect(release.jobs['prepare-release'].if).toContain("github.triggering_actor == 'gustavo8000br'");
+    expect(release.jobs['prepare-release'].if).toContain("github.ref == 'refs/heads/main'");
+    expect(release.jobs['prepare-release'].outputs.release_tag).toBe('${{ steps.source.outputs.release_tag }}');
+    expect(release.jobs['verify-public-image'].needs).toEqual(['prepare-release']);
+    expect(release.jobs['verify-public-image'].permissions).toEqual({});
+    expect(release.jobs['resolve-release-image'].needs).toEqual(['prepare-release', 'verify-public-image']);
+    expect(release.jobs['build-installers'].needs).toEqual(['prepare-release', 'resolve-release-image']);
     expect(release.jobs['build-installers'].permissions).toBeUndefined();
-    expect(release.jobs['publish-release'].needs).toEqual(['resolve-release-image', 'build-installers']);
-    expect(release.jobs['resolve-release-image'].permissions).toEqual({ contents: 'read', packages: 'read' });
-    expect(release.jobs['resolve-release-image'].if).toContain("github.actor == 'gustavo8000br'");
-    expect(release.jobs['resolve-release-image'].if).toContain("github.triggering_actor == 'gustavo8000br'");
-    expect(release.jobs['resolve-release-image'].if).toContain("github.ref == 'refs/heads/main'");
+    expect(release.jobs['publish-release'].needs).toEqual(['prepare-release', 'resolve-release-image', 'build-installers']);
+    expect(release.jobs['resolve-release-image'].if).toContain("needs.prepare-release.outputs.should_release == 'true'");
     expect(release.jobs['publish-release'].permissions).toEqual({ actions: 'read', contents: 'write' });
     expect(releaseWorkflow).toContain('node apps/infra/scripts/create-release-notes.mjs');
     expect(releaseWorkflow).toContain('--image-tag "$RELEASE_IMAGE_REF"');
     expect(releaseWorkflow).toContain('actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333');
     expect(releaseWorkflow).toContain('gh release create');
     expect(releaseWorkflow).toContain('--prerelease');
-    expect(releaseWorkflow).toContain('inputs.release_tag');
+    expect(releaseWorkflow).toContain('release_tag="v${base_version}-${short_sha}-${stage}"');
+    expect(releaseWorkflow).toContain('"$stage" != "rc" && "$stage" != "stable"');
+    expect(releaseWorkflow).toContain('docker pull --platform linux/amd64 "$IMAGE"');
+    expect(releaseWorkflow).toContain('Create the version tag from the verified main commit');
+    expect(releaseWorkflow).toContain('git tag -a "$RELEASE_TAG" "$SOURCE_SHA"');
+    expect(releaseWorkflow).toContain('git push origin "refs/tags/$RELEASE_TAG"');
+    expect(releaseWorkflow).not.toContain('inputs.release_tag');
+    expect(releaseWorkflow).not.toContain('docker login ghcr.io');
     expect(releaseWorkflow).toContain('contents: write');
     expect(releaseWorkflow).toContain('git merge-base --is-ancestor');
     expect(releaseWorkflow).toContain('gh run list --workflow main-cd.yml --commit');
@@ -124,10 +137,13 @@ describe('GitHub Actions application CI contract', () => {
     expect(releaseWorkflow).not.toContain('docker buildx build');
     expect(releaseWorkflow).not.toContain('packages: write');
     expect(releaseWorkflow).toContain('docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069');
-    expect(releaseWorkflow).toContain('Resolve and verify the exact release image digest');
+    expect(releaseWorkflow).toContain('Resolve and verify the exact public release image digest');
     expect(releaseWorkflow).toContain('--image-tag "$RELEASE_IMAGE_REF"');
     expect(release.jobs['resolve-release-image'].outputs.image_ref).toBe('${{ steps.resolve.outputs.image_ref }}');
     expect(releaseWorkflow).toContain('sha256sum "$manifest"');
+    const publishSteps = release.jobs['publish-release'].steps;
+    expect(publishSteps.findIndex((step) => step.name === 'Create the version tag from the verified main commit'))
+      .toBeGreaterThan(publishSteps.findIndex((step) => step.name === 'Check exactly one installer for each supported desktop OS'));
   });
 
   it('verifies the pinned OpenGrep release signature before scanning', () => {

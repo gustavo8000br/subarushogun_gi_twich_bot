@@ -1,7 +1,26 @@
+import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import { createReleaseNotes, getChangelogHeading, getChangelogPaths } from '../../apps/infra/scripts/create-release-notes.mjs';
 
 describe('release notes from bilingual public changelogs', () => {
+  it('ties the owner-selected first beta identity to both public changelog sections', async () => {
+    const [packageJson, stage, version, english, portuguese] = await Promise.all([
+      readFile(new URL('../../package.json', import.meta.url), 'utf8').then(JSON.parse),
+      readFile(new URL('../../.release-stage', import.meta.url), 'utf8'),
+      readFile(new URL('../../VERSION', import.meta.url), 'utf8'),
+      readFile(new URL('../../CHANGELOG-beta.md', import.meta.url), 'utf8'),
+      readFile(new URL('../../docs/pt-BR/CHANGELOG-beta.md', import.meta.url), 'utf8'),
+    ]);
+
+    expect(packageJson.version).toBe('0.1.0');
+    expect(stage.trim()).toBe('beta');
+    expect(version.trim()).toBe('v0.1.0-0000000-beta');
+    expect(english).toContain('## v0.1.0-beta');
+    expect(portuguese).toContain('## v0.1.0-beta');
+    expect(english).not.toMatch(/anonymous|authentication|login/i);
+    expect(portuguese).not.toMatch(/anônim|autenticaç|login/i);
+  });
+
   it('maps a materialized runtime identity to its matching bilingual changelog sections', () => {
     const english = '# Changelog\n\n## v1.0.0-beta\n\n- Queue improvements.\n\n## v0.9.0-alpha\n\n- Older change.\n';
     const portuguese = '# Histórico\n\n## v1.0.0-beta\n\n- Melhorias nas filas.\n\n## v0.9.0-alpha\n\n- Mudança antiga.\n';
