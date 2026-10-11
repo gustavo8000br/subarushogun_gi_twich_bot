@@ -56,14 +56,26 @@ describe('GitHub Actions application CI contract', () => {
     expect(qualityWorkflow).toContain('docker compose build bot');
   });
 
-  it('keeps pinned actions and native installer smoke tests without uploading unused CI artifacts', () => {
+  it('keeps native installer smoke tests and uploads only the main Windows QA installer', () => {
     expect(qualityWorkflow).toContain("node-version: '24.20.0'");
     expect(qualityWorkflow).toContain('npm ci');
     expect(qualityWorkflow).toContain('uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10');
     expect(qualityWorkflow).toContain('uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020');
     expect(qualityWorkflow).toContain('uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069');
     expect(mainWorkflow).toContain('uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0');
-    expect(qualityWorkflow).not.toContain('actions/upload-artifact');
+    const quality = parseWorkflow(qualityWorkflow);
+    const installerSteps = quality.jobs['installer-smoke'].steps;
+    const upload = installerSteps.find((step) => step.name === 'Upload Windows installer for owner QA');
+    expect(upload).toBeDefined();
+    expect(upload.if).toContain("github.event_name == 'push'");
+    expect(upload.if).toContain("github.ref == 'refs/heads/main'");
+    expect(upload.if).toContain("matrix.platform == 'windows'");
+    expect(upload.uses).toBe('actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f');
+    expect(upload.with.name).toBe('fnd9-windows-installer-${{ github.sha }}');
+    expect(upload.with.path).toBe('${{ runner.temp }}/queuebot-installer/subarushogun_twich_bot_setup.bat');
+    expect(upload.with['if-no-files-found']).toBe('error');
+    expect(upload.with['retention-days']).toBe(14);
+    expect(installerSteps.indexOf(upload)).toBeGreaterThan(installerSteps.findIndex((step) => step.name === 'Launch the installer directly with isolated fake Docker'));
     expect(qualityWorkflow).not.toContain('docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392');
     expect(qualityWorkflow).toContain('Native ${{ matrix.platform }} installer smoke');
   });
