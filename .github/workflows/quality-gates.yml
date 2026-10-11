@@ -91,7 +91,6 @@ jobs:
           path: ${{ runner.temp }}/queuebot-installer/subarushogun_twich_bot_setup.bat
           if-no-files-found: error
           retention-days: 14
-
   tests:
     name: Vitest unit, PostgreSQL, and Compose integration
     runs-on: ubuntu-24.04

@@ -91,6 +91,22 @@ describe('GitHub Actions application CI contract', () => {
     expect(publish.concurrency['cancel-in-progress']).toBe(false);
     expect(mainWorkflow).toContain('CURRENT_MAIN_SHA');
     expect(mainWorkflow).toContain("steps.source-current.outputs.current == 'true'");
+    expect(publish.outputs.stage).toBe('${{ steps.source.outputs.stage }}');
+    expect(publish.outputs.source_sha).toBe('${{ steps.source.outputs.source_sha }}');
+    expect(publish.outputs.image_ref).toBe('${{ steps.manifest.outputs.image_ref }}');
+    const manifestStep = publish.steps.find((step) => step.name === 'Publish and verify versioned multi-platform manifest');
+    expect(manifestStep.run).toContain('sha256sum');
+    expect(manifestStep.run).toContain("printf 'image_ref=%s@%s\\n' \"$PRODUCT_VERSION\" \"$digest\"");
+    const betaInstaller = main.jobs['beta-windows-installer'];
+    expect(betaInstaller.needs).toEqual(['publish-image']);
+    expect(betaInstaller.if).toBe("needs.publish-image.outputs.stage == 'beta'");
+    expect(betaInstaller['runs-on']).toBe('windows-latest');
+    const betaSteps = betaInstaller.steps;
+    expect(betaSteps.find((step) => step.name === 'Package installer pinned to verified beta image digest').run).toContain('--image-tag "$env:BETA_IMAGE_REF"');
+    expect(betaSteps.find((step) => step.name === 'Launch beta installer directly with isolated fake Docker').env.QUEUEBOT_EXPECTED_IMAGE_TAG).toBe('${{ needs.publish-image.outputs.image_ref }}');
+    const betaUpload = betaSteps.find((step) => step.name === 'Upload beta Windows installer for owner QA');
+    expect(betaUpload.with.name).toBe('beta-windows-installer-${{ needs.publish-image.outputs.source_sha }}');
+    expect(betaUpload.with['retention-days']).toBe(14);
   });
 
   it('creates the release tag on demand and auto-publishes rc/stable after main merges', () => {
