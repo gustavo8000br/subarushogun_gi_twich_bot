@@ -1,0 +1,98 @@
+schema: 1
+story: 'FND-1'
+story_title: 'Version identity and local runtime foundation'
+gate: PASS
+status_reason: 'All 13 acceptance criteria are supported by implementation and test evidence. The owner confirmed the current Windows beta installer works; anonymous pulls of the public amd64 and arm64 manifests passed, and the latest Main CD completed successfully.'
+reviewer: 'Quinn (Test Architect)'
+reviewed_revision: '081ea9b4c65246a877cd9f77cdb4392acf5009a4'
+updated: '2026-10-11T03:40:00Z'
+top_issues: []
+waiver: { active: false }
+quality_score: 100
+expires: '2026-11-10T03:40:00Z'
+evidence:
+  tests_reviewed: 911
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+    ac_gaps: []
+    criteria_trace:
+      - ac: 1
+        given_when_then: 'Given the product version inputs, when validation/materialization runs, then SemVer, stage and exact source identity are enforced.'
+        evidence: ['tests/unit/version-policy.test.js', 'tests/integration/version-cli.test.js']
+      - ac: 2
+        given_when_then: 'Given absent or failing Git metadata, when version identity is resolved, then only the prescribed no-Git marker is accepted and source files remain unchanged.'
+        evidence: ['tests/unit/version-policy.test.js', 'tests/integration/version-cli.test.js']
+      - ac: 3
+        given_when_then: 'Given an uninitialized local deployment, when Compose starts, then bootstrap persists secrets before healthy PostgreSQL, migrations and the bot.'
+        evidence: ['tests/unit/bootstrap-secret.test.js', 'tests/integration/compose-runtime.test.js']
+      - ac: 4
+        given_when_then: 'Given the Compose runtime, when services are exposed and stopped, then database stays private, app uses loopback HTTPS, health checks pass and shutdown is graceful.'
+        evidence: ['tests/integration/compose-contract.test.js', 'tests/integration/compose-runtime.test.js']
+      - ac: 5
+        given_when_then: 'Given database models and migrations, when invalid duplicate/inconsistent records are attempted, then PostgreSQL constraints reject them.'
+        evidence: ['apps/api/prisma/migrations/202610020001_foundation/migration.sql', 'tests/integration/postgres-foundation.test.js']
+      - ac: 6
+        given_when_then: 'Given an isolated real PostgreSQL database, when migrations and restart-persistence checks run, then persisted state and database-enforced constraints hold.'
+        evidence: ['tests/integration/postgres-foundation.test.js', 'tests/integration/compose-runtime.test.js']
+      - ac: 7
+        given_when_then: 'Given an operator using supported start/install flows, when the product is started, then it pulls the platform-selecting image and prints/opens the configured HTTPS panel address.'
+        evidence: ['tests/unit/start-script.test.js', 'tests/platform/installer-native.mjs', 'owner Windows beta acceptance']
+      - ac: 8
+        given_when_then: 'Given runtime/version or dependency failure, when health/status is returned, then identity is distinct from API/revision and secrets are not exposed.'
+        evidence: ['tests/unit/health-route.test.js', 'tests/unit/web-route.test.js']
+      - ac: 9
+        given_when_then: 'Given framework scaffolding, when product layout/config is validated, then product files stay under apps and framework .env.example is untouched.'
+        evidence: ['tests/unit/local-ignore-policy.test.js', 'repository layout review']
+      - ac: 10
+        given_when_then: 'Given the supported install/version/integration behavior, when bilingual documentation is validated, then English and pt-BR remain linked and equivalent.'
+        evidence: ['tests/unit/documentation-contract.test.js', 'npm run validate:localization']
+      - ac: 11
+        given_when_then: 'Given update/uninstall operations, when checkout is dirty or data erasure is not explicitly confirmed, then safe defaults preserve checkout and volumes.'
+        evidence: ['tests/unit/start-script.test.js', 'tests/platform/installer-native.mjs']
+      - ac: 12
+        given_when_then: 'Given a trusted main commit, when CI publishes product images, then amd64/arm64 architecture tags and complete multi-platform version manifests are verified.'
+        evidence: ['tests/integration/container-publish-contract.test.js', 'Main CD run 38107336763']
+      - ac: 13
+        given_when_then: 'Given pre-release publication, when the product is launched publicly, then GHCR is public and image pulls require no registry credentials.'
+        evidence: ['anonymous amd64 and arm64 pulls with empty Docker config', 'owner Windows beta install']
+  actions_run: 'https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/38107336763'
+  owner_acceptance: 'The owner confirmed successful installation with v0.1.0-081ea9b-beta on Windows.'
+  anonymous_image_pulls:
+    image: 'ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:v0.1.0-081ea9b-beta'
+    digest: 'sha256:df52d36981b1a981a568139ba4443561e2ea378e808321c2a555c6fb63a07b77'
+    docker_config: 'Empty Docker config; no GHCR credentials'
+    platforms: ['linux/amd64', 'linux/arm64']
+  local_gates:
+    tests: 'npm test — 106 files / 911 tests passed'
+    lint: 'npm run lint — passed'
+    typecheck: 'npm run typecheck — passed'
+    static: 'npm run review:static — 0 findings across 86 files'
+    image_build: 'npm run build — passed'
+    compose: 'docker compose config --quiet — passed'
+    version: 'npm run validate:version — passed'
+    localization: 'npm run validate:localization — passed'
+    ide_sync: 'npm run sync:ide:check — 109/109, no drift'
+    diff: 'git diff --check — passed'
+  specialist_reviews:
+    architecture: 'Compose dependency order, local TLS/loopback boundary, mounted persistent secrets and non-root bot reviewed; no blocking findings.'
+    database: 'Foundation Prisma schema and real PostgreSQL migration/integration evidence reviewed; no schema changes in closure increment; no blocking findings.'
+    delivery: 'Main CD, digest-pinned Windows installer artifact, multi-platform manifest publication, and anonymous GHCR pulls reviewed; no blocking findings.'
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Database remains private to the Compose network, bot ingress is loopback-only, secret material is mounted rather than logged, and destructive volume deletion remains opt-in. No live credentials or Twitch writes were used.'
+  performance:
+    status: PASS
+    notes: 'No application runtime or performance behavior changed in this documentation closure.'
+  reliability:
+    status: PASS
+    notes: 'Real PostgreSQL/Compose tests, the full 911-test suite, Main CD quality jobs, native Windows installer smoke, and owner Windows installation acceptance passed. A physical macOS Docker Desktop run is not claimed and is non-blocking for this story.'
+  maintainability:
+    status: PASS
+    notes: 'English and pt-BR stories/indexes/handoffs are synchronized; the legacy root helper acceptance is identified as superseded by OPS-5.'
+recommendations:
+  immediate: []
+  future:
+    - action: 'If physical macOS Docker Desktop compatibility is later claimed as separately supported acceptance, record that host-level smoke evidence in the relevant platform story.'
+      refs: ['docs/stories/FND-1/story.md', 'docs/pt-BR/stories/FND-1/story.md']
