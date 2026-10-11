@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-5/story.md)
 
-**Status:** Done — corrective implementation, all local/native CI gates, and independent QA are complete. Prior PR #36 QA and native Actions remain historical baseline evidence only. No physical host uninstall is claimed.
+**Status:** Ready for Review — owner feedback follow-up for displayed product version and GHCR pull diagnostics implemented and independently reviewed; anonymous GHCR access remains blocked by package visibility. Prior corrective implementation remains complete. Prior PR #36 QA and native Actions remain historical baseline evidence only. No physical host uninstall is claimed.
 **Planning source:** product owner request on 2026-10-06.
 **GitHub issue:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30), reopened on 2026-10-07 for the corrective increment after PR #36.
 
@@ -47,7 +47,7 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 6. Uninstall offers keep-data or erase-all. Keep-data removes product containers, managed program files, and app images not used by other containers, but preserves database/secrets volumes and local CA. Erase-all requires typed, localized confirmation and removes only this product's resources/data; the downloaded installer file remains under user control.
 7. Both uninstall outcomes explicitly state that Docker and other host dependencies remain installed and must be removed manually through their vendors if desired. No installer action removes or updates shared host dependencies during product uninstall.
 8. No path silently chooses another host port, silently elevates, changes virtualization features, accepts license terms, runs unchecked downloaded code, or deletes unrelated Compose projects/resources.
-9. Actions tests the real installer artifact on native Windows, macOS, and Linux runners and uploads exactly one artifact per supported target OS from reviewed sources without committing generated artifacts. These CI artifacts are not the user download path.
+9. Actions tests the real installer artifact on native Windows, macOS, and Linux runners without committing generated artifacts. For beta owner testing, Main CD uploads one Windows installer artifact only after the matching versioned image is published and verified by digest. The release workflow publishes one directly openable installer per supported OS; CI artifacts are not the public user download path.
 10. Tests cover direct launch/menu choice, locale/port configuration, path spaces, cancellation, installed/missing dependencies, consent/elevation/restart boundaries, failed network/image/migration/health paths, preservation vs deletion scope, localized confirmation, and explicit manual-dependency-removal guidance.
 11. A pushed version tag triggers a release workflow that validates the tag against the package base version, `.release-stage`, and exact seven-character SHA of the tagged commit; it builds and tests all three native installers; and it publishes them only after every platform job succeeds.
 12. Release notes contain the matching user-facing changelog sections in English and pt-BR, and the workflow fails if either section is absent. Internal changelogs are not published.
@@ -56,10 +56,15 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 15. Uninstall removes this product's Compose containers/networks and unused product images, retains named volumes for the keep-data choice, and removes product-owned volumes only after the localized erase confirmation. It verifies that unused product images are absent, retains images used by another container, and never runs a global prune.
 16. Linux/macOS and Windows installers show localized progress for install, update, and uninstall; clear the terminal only when interactive; distinguish “no installation found” from successful removal; and verify the selected volume policy before reporting completion.
 17. Each platform supports unattended `install`, `update`, and `uninstall` actions. Install accepts optional locale/port; update and uninstall preserve data by default; erasing requires both `--erase-data` and `--confirm-erase`. Invalid/contradictory flags exit before Docker mutation. Unattended mode retains visible progress/errors and does not launch a browser.
+18. Windows, macOS, and Linux installers show the exact materialized product version before the lifecycle menu; the display excludes any OCI digest and matches the version in the pinned image reference.
+19. Before Compose pulls, installers probe the versioned GHCR product image. A rejected/unavailable pull gives localized network/public-package guidance, does not direct users to bot logs before startup, and leaves saved settings and product data intact.
 
 ## Implementation and validation record
 
-- **Platform artifacts:** `.bat` for Windows embeds the PowerShell implementation; `.command` for macOS and `.sh` for Linux embed the POSIX implementation. `package-installer.mjs` embeds the Compose manifest and strips build/repository-relative mounts. GitHub Actions packages and directly launches the platform artifact on its native runner, then uploads exactly one artifact per OS.
+- **Owner feedback — version display and GHCR access diagnosis (Red / Green):** tests first failed for all three packaged platforms because no exact product version was displayed; Linux/macOS pull-denial tests also showed the installer continuing into Compose without explaining GHCR `unauthorized`. Green — the packager derives/validates a readable version separately from the optional OCI digest, all platform installers display it before the menu, and a product-image preflight reports localized network/public-package guidance before any Compose pull. Regression tests assert configuration preservation and that bot-log guidance is absent for pre-start registry failures. Native Windows Actions validation is part of the current PR gate.
+- **Independent QA of owner-feedback delta:** 10/10; no residual findings after aligning the smoke-test image tag, beta artifact publication order, and bilingual validation guidance. Anonymous pull from GHCR remains externally blocked by package visibility and is not reported as passed.
+
+- **Platform artifacts:** `.bat` for Windows embeds the PowerShell implementation; `.command` for macOS and `.sh` for Linux embed the POSIX implementation. `package-installer.mjs` embeds the Compose manifest and strips build/repository-relative mounts. GitHub Actions packages and directly launches each platform artifact on its native runner. For beta owner testing, Main CD uploads one Windows artifact after image publication; the release workflow publishes all three platform installers.
 - **Operator guidance:** Docker is detected, and the installer asks before opening official vendor installation instructions. It does not silently elevate or change WSL/virtualization. Install/update/uninstall steps are in the bilingual installer guide. Existing separate lifecycle wrappers and their tests were removed after the replacement artifact and contracts existed.
 - **Data paths:** normal update retains database/secrets volumes and user settings. Clean update pulls the image before deleting any data, requires `APAGAR` / `DELETE` / `ELIMINAR`, then asks language/port again. Uninstall keeps data by default option or erases only product-owned data after the same localized confirmation. Shared Docker/host dependencies and the downloaded installer remain untouched.
 - **Red → Green — destructive update recovery:** `npm test -- --run tests/integration/unified-installer.test.js -t 'cannot download its image'` first failed because an image-pull failure occurred after the saved `.env` had changed from port 3100 to 3200 and locale `en` to `pt-BR`. Green — move `compose pull` before `compose down --volumes`, then start with the already-pulled image. The focused command passed and the saved configuration/local CA remained intact on pull failure.
@@ -114,7 +119,10 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 - `.aiox/project-status.yaml`
 - `.github/workflows/ci.yml`
 - `.github/workflows/release.yml`
+- `.github/workflows/main-cd.yml`
+- `.github/workflows/quality-gates.yml`
 - `CHANGELOG.md`
+- `CHANGELOG-beta.md`
 - `CHANGELOG_INTERNAL.md`
 - `README.md`
 - `README.pt-BR.md`
@@ -142,6 +150,7 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 - `docs/integrations.md`
 - `docs/planning-validation.md`
 - `docs/pt-BR/CHANGELOG.md`
+- `docs/pt-BR/CHANGELOG-beta.md`
 - `docs/pt-BR/CHANGELOG_INTERNAL.md`
 - `docs/pt-BR/CONTRIBUICAO.md`
 - `docs/pt-BR/INSTALACAO.md`
@@ -169,6 +178,8 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 - `docs/stories/FND-8/spec/plan.json`
 - `docs/stories/FND-8/spec/requirements.json`
 - `docs/stories/FND-8/spec/spec.md`
+- `docs/stories/FND-9/validation.md`
+- `docs/pt-BR/stories/FND-9/validation.md`
 - `docs/stories/FND-8/story.md`
 - `docs/stories/OPS-5/spec/research.json`
 - `docs/stories/OPS-5/spec/spec.md`
@@ -351,6 +362,9 @@ No QA-owned code refactor was needed. All test-harness and PowerShell probe corr
 - [x] Verify all 17 acceptance criteria against implementation tests, release workflow contracts, bilingual docs, and native artifact CI.
 - [x] Verify full local suite: 86 files / 677 tests; lint, typecheck, OpenGrep (0 findings), version/localization/port validators, Compose config, Linux direct launch, shell/Node syntax, and diff check pass.
 - [x] Verify the final Windows/macOS/Linux native artifact matrix and uploads in Actions run 37651571138.
+- [x] Verify new criteria 18–19 with Red/Green regressions: exact displayed version matches immutable image identity and GHCR pull denial exits with localized guidance while retaining saved state.
+- [x] Verify beta QA artifact is uploaded only after its matching image digest is published; contract tests reject mutable/mismatched identities and premature artifact publication.
+- [x] Verify current local quality gates: 106 files / 910 tests, lint, typecheck, version/localization validators, OpenGrep (0 findings), Docker build, Linux native harness, actionlint, and diff check.
 - [ ] Record physical Windows/macOS host lifecycle smoke tests when the owner performs them; current native runner uses isolated fake Docker.
 
 ### Security Review

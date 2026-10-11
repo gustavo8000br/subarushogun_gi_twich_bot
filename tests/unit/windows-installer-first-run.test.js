@@ -21,6 +21,17 @@ describe('Windows installer first-run language prompt', () => {
     expect(installer).toContain('Docker architecture "{0}" is not supported');
   });
 
+  it('prints the embedded product version and preflights GHCR before Compose image pulls', () => {
+    expect(installer).toContain("$InstallerVersion = '__PRODUCT_VERSION__'");
+    expect(installer).toContain("installerVersion='Installer version: {0}'");
+    expect(installer).toContain("Write-Host ([string]::Format((T 'installerVersion'),$InstallerVersion))");
+    expect(installer).toContain('function Pull-ProductImage');
+    expect(installer).toContain("Invoke-Docker @('pull',$imageReference)");
+    expect(installer).toContain('confirm the package is public');
+    expect(installer).toContain('does not require GHCR login');
+    expect(installer).toContain("if (-not (Pull-ProductImage)) { $script:OperationFailed=$true; return }");
+  });
+
   it('captures the Docker architecture command exit code before selecting its output', () => {
     expect(installer).toContain("$architectureOutput = @(& $Docker info --format '{{.Architecture}}' 2>$null)");
     expect(installer).toContain('$architectureExitCode = $LASTEXITCODE');

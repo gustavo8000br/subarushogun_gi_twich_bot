@@ -56,7 +56,7 @@ describe('GitHub Actions application CI contract', () => {
     expect(qualityWorkflow).toContain('docker compose build bot');
   });
 
-  it('keeps native installer smoke tests and uploads only the main Windows QA installer', () => {
+  it('tests installers natively and uploads the immutable beta Windows installer after image publication', () => {
     expect(qualityWorkflow).toContain("node-version: '24.20.0'");
     expect(qualityWorkflow).toContain('npm ci');
     expect(qualityWorkflow).toContain('uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10');
@@ -65,19 +65,27 @@ describe('GitHub Actions application CI contract', () => {
     expect(mainWorkflow).toContain('uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0');
     const quality = parseWorkflow(qualityWorkflow);
     const installerSteps = quality.jobs['installer-smoke'].steps;
-    const upload = installerSteps.find((step) => step.name === 'Upload Windows installer for owner QA');
+    const installerVersion = installerSteps.find((step) => step.name === 'Materialize product version for the installer');
+    expect(installerVersion.run).toContain('materialize-version.mjs');
+    expect(installerVersion.run).toContain('INSTALLER_VERSION');
+    const packageInstaller = installerSteps.find((step) => step.name === 'Package one installer file for this operating system').run;
+    expect(packageInstaller).toContain('--image-tag "${{ steps.installer-version.outputs.version }}"');
+    expect(packageInstaller).toContain('--product-version "${{ steps.installer-version.outputs.version }}"');
+    const nativeSmoke = installerSteps.find((step) => step.name === 'Launch the installer directly with isolated fake Docker');
+    expect(nativeSmoke.env.QUEUEBOT_EXPECTED_IMAGE_TAG).toBe('${{ steps.installer-version.outputs.version }}');
+    expect(nativeSmoke.env.QUEUEBOT_EXPECTED_PRODUCT_VERSION).toBe('${{ steps.installer-version.outputs.version }}');
+    expect(installerSteps.some((step) => step.name === 'Upload Windows installer for owner QA')).toBe(false);
+    expect(qualityWorkflow).toContain('Native ${{ matrix.platform }} installer smoke');
+    const betaInstaller = parseWorkflow(mainWorkflow).jobs['beta-windows-installer'];
+    const upload = betaInstaller.steps.find((step) => step.name === 'Upload beta installer for owner QA');
     expect(upload).toBeDefined();
-    expect(upload.if).toContain("github.event_name == 'push'");
-    expect(upload.if).toContain("github.ref == 'refs/heads/main'");
-    expect(upload.if).toContain("matrix.platform == 'windows'");
     expect(upload.uses).toBe('actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f');
-    expect(upload.with.name).toBe('fnd9-windows-installer-${{ github.sha }}');
-    expect(upload.with.path).toBe('${{ runner.temp }}/queuebot-installer/subarushogun_twich_bot_setup.bat');
+    expect(upload.with.name).toBe('beta-windows-installer-${{ needs.publish-image.outputs.source_sha }}');
+    expect(upload.with.path).toBe('${{ runner.temp }}/queuebot-beta-installer/subarushogun_twich_bot_setup.bat');
     expect(upload.with['if-no-files-found']).toBe('error');
     expect(upload.with['retention-days']).toBe(14);
-    expect(installerSteps.indexOf(upload)).toBeGreaterThan(installerSteps.findIndex((step) => step.name === 'Launch the installer directly with isolated fake Docker'));
+    expect(betaInstaller.steps.indexOf(upload)).toBeGreaterThan(betaInstaller.steps.findIndex((step) => step.name === 'Launch beta installer directly with isolated fake Docker'));
     expect(qualityWorkflow).not.toContain('docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392');
-    expect(qualityWorkflow).toContain('Native ${{ matrix.platform }} installer smoke');
   });
 
   it('publishes only on main after the shared gate, with a non-cancelable serialized publish job', () => {
@@ -93,6 +101,7 @@ describe('GitHub Actions application CI contract', () => {
     expect(mainWorkflow).toContain("steps.source-current.outputs.current == 'true'");
     expect(publish.outputs.stage).toBe('${{ steps.source.outputs.stage }}');
     expect(publish.outputs.source_sha).toBe('${{ steps.source.outputs.source_sha }}');
+    expect(publish.outputs.version).toBe('${{ steps.source.outputs.version }}');
     expect(publish.outputs.image_ref).toBe('${{ steps.manifest.outputs.image_ref }}');
     const manifestStep = publish.steps.find((step) => step.name === 'Publish and verify versioned multi-platform manifest');
     expect(manifestStep.run).toContain('sha256sum');
@@ -103,10 +112,12 @@ describe('GitHub Actions application CI contract', () => {
     expect(betaInstaller['runs-on']).toBe('windows-latest');
     const betaSteps = betaInstaller.steps;
     expect(betaSteps.find((step) => step.name === 'Package installer pinned to verified beta image digest').run).toContain('--image-tag "$env:BETA_IMAGE_REF"');
+    expect(betaSteps.find((step) => step.name === 'Package installer pinned to verified beta image digest').run).toContain('--product-version "$env:BETA_PRODUCT_VERSION"');
     expect(betaSteps.find((step) => step.name === 'Launch beta installer directly with isolated fake Docker').env.QUEUEBOT_EXPECTED_IMAGE_TAG).toBe('${{ needs.publish-image.outputs.image_ref }}');
-    const betaUpload = betaSteps.find((step) => step.name === 'Upload beta Windows installer for owner QA');
+    const betaUpload = betaSteps.find((step) => step.name === 'Upload beta installer for owner QA');
     expect(betaUpload.with.name).toBe('beta-windows-installer-${{ needs.publish-image.outputs.source_sha }}');
     expect(betaUpload.with['retention-days']).toBe(14);
+    expect(main.jobs['beta-windows-installer'].needs).toContain('publish-image');
   });
 
   it('creates the release tag on demand and auto-publishes rc/stable after main merges', () => {

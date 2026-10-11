@@ -4,7 +4,7 @@
 
 ## Acesso do proprietário ao instalador Windows
 
-Depois que a mudança do artefato do instalador chegar à `main`, abra a execução **Main CD** bem-sucedida do commit exato da `main` que deseja testar. Em **Artifacts**, baixe `fnd9-windows-installer-<commit-sha>` e extraia o ZIP para obter `subarushogun_twich_bot_setup.bat`. O artefato fica disponível somente para usuários GitHub com acesso ao repositório e expira após 14 dias. É uma build temporária de QA que instala a imagem validada da `main`; não é release pública nem beta. Não use o instalador de uma execução de PR para aceite.
+Depois que a mudança do artefato do instalador chegar à `main`, abra a execução **Main CD** bem-sucedida do commit exato da `main` que deseja testar. Aguarde a publicação da imagem e a conclusão do job do instalador beta. Em **Artifacts**, baixe `beta-windows-installer-<commit-sha>` e extraia o ZIP para obter `subarushogun_twich_bot_setup.bat`. O artefato fica disponível somente para usuários GitHub com acesso ao repositório e expira após 14 dias. Ele instala a imagem beta publicada e fixada por digest; não é uma release pública do GitHub. Não use o instalador de uma execução de PR para aceite.
 
 ## Ambiente de continuação Codespaces — 2026-10-08
 

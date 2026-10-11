@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-5/story.md)
 
-**Status:** Done — implementação corretiva, gates locais/nativos e QA independente concluídos. QA e Actions anteriores da PR #36 continuam apenas como linha de base histórica. Não alegamos desinstalação física no host.
+**Status:** Ready for Review — complemento solicitado pelo proprietário implementado e revisado independentemente para exibir a versão do produto e diagnosticar pulls no GHCR; acesso anônimo ao GHCR continua bloqueado pela visibilidade do pacote. A implementação corretiva anterior continua concluída. QA e Actions anteriores da PR #36 continuam apenas como linha de base histórica. Não alegamos desinstalação física no host.
 **Origem do planejamento:** solicitação do proprietário em 2026-10-06.
 **Issue GitHub:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30), reaberta em 2026-10-07 para o incremento corretivo após a PR #36.
 
@@ -47,7 +47,7 @@ A instalação de dependências não pode ser garantida como silenciosa ou total
 6. Desinstalação oferece manter dados ou apagar tudo. Manter remove containers, arquivos de aplicação e imagens sem uso por outros containers, mas preserva volumes de banco/segredos e CA local. Apagar tudo exige confirmação localizada digitada e remove somente recursos/dados deste produto; o instalador baixado permanece sob controle do usuário.
 7. Ambas as opções informam que Docker e demais dependências do host continuam instalados e precisam ser removidos manualmente pelo fornecedor se desejado. A desinstalação do produto não remove dependências compartilhadas.
 8. Nenhum fluxo escolhe outra porta, eleva privilégios, altera virtualização, aceita termos, executa código baixado sem verificação ou apaga recursos de outros projetos Compose silenciosamente.
-9. A matriz Actions testa o artefato real em runners nativos Windows, macOS e Linux e envia exatamente um artefato por sistema suportado, gerado de fontes revisadas sem criar commits. Esses artefatos de CI não são o caminho de download do usuário.
+9. A matriz Actions testa o artefato real em runners nativos Windows, macOS e Linux sem criar commits. Para o teste beta do proprietário, Main CD envia um instalador Windows somente depois que a imagem versionada correspondente é publicada e verificada por digest. O workflow de release publica um instalador diretamente abrível por sistema suportado; artefatos de CI não são o caminho público de download.
 10. Testes cobrem abertura direta/menu, idioma/porta, caminhos com espaços, cancelamento, dependências presentes/ausentes, consentimento/elevação/reinicialização, falhas de rede/imagem/migration/health, escopo de preservação/exclusão, confirmação localizada e orientação para remoção manual das dependências.
 11. Uma tag de versão enviada aciona workflow que valida a tag contra a versão base do pacote, `.release-stage` e SHA exato de sete caracteres do commit; ele empacota/testa os três instaladores nativos e só publica após sucesso de todas as plataformas.
 12. As notas da release incluem as seções de changelog correspondentes em inglês e pt-BR; o workflow falha se qualquer uma estiver ausente. Changelogs internos não são publicados.
@@ -56,10 +56,15 @@ A instalação de dependências não pode ser garantida como silenciosa ou total
 15. A desinstalação remove containers/redes Compose do produto e imagens não usadas, mantém volumes nomeados quando dados são preservados e remove volumes somente após confirmação localizada. Verifica que imagens sem uso desapareceram, mantém imagens usadas por outros containers e nunca executa prune global.
 16. Instaladores Linux/macOS e Windows exibem progresso localizado para instalar, atualizar e desinstalar; limpam o terminal somente quando interativo; diferenciam “instalação não encontrada” de remoção concluída; e verificam a política de volumes escolhida antes de informar conclusão.
 17. Cada plataforma aceita ações sem interação `install`, `update` e `uninstall`. A instalação aceita locale/porta opcionais; atualização e desinstalação preservam dados por padrão; apagar exige as duas flags `--erase-data` e `--confirm-erase`. Flags inválidas/contraditórias encerram antes de alterar Docker. O modo sem interação mantém progresso/erros visíveis e não abre navegador.
+18. Os instaladores Windows, macOS e Linux mostram a versão materializada exata do produto antes do menu de ciclo de vida; a exibição não inclui digest OCI e corresponde à versão da referência de imagem fixada.
+19. Antes dos pulls do Compose, os instaladores verificam a imagem de produto versionada no GHCR. Pull recusado/indisponível apresenta orientação localizada sobre rede/pacote público, não encaminha para logs do bot antes da inicialização e preserva configurações salvas e dados do produto.
 
 ## Registro de implementação e validação
 
-- **Artefatos por sistema:** `.bat` no Windows incorpora a implementação PowerShell; `.command` no macOS e `.sh` no Linux incorporam a implementação POSIX. `package-installer.mjs` embute o manifesto Compose e remove build/montagens relativas ao repositório. O GitHub Actions empacota e executa diretamente o artefato em runner nativo e envia exatamente um artefato por sistema.
+- **Feedback do proprietário — exibição de versão e diagnóstico de acesso ao GHCR (Red / Green):** os testes falharam primeiro nas três plataformas porque nenhuma versão exata era exibida; os testes de pull negado em Linux/macOS também mostraram o instalador continuar para o Compose sem explicar `unauthorized` no GHCR. Green — o empacotador deriva/valida a versão legível separadamente do digest OCI opcional, todos os instaladores a exibem antes do menu e um preflight da imagem de produto fornece orientação localizada de rede/pacote público antes do pull Compose. Testes de regressão verificam a preservação da configuração e a ausência de orientação para logs do bot antes do start. A validação nativa Windows no Actions faz parte do gate da PR atual.
+- **QA independente do complemento solicitado pelo proprietário:** 10/10; sem achados residuais após alinhar a tag de imagem do smoke test, a ordem de publicação do artefato beta e as orientações bilíngues de validação. O pull anônimo do GHCR continua bloqueado externamente pela visibilidade do pacote e não é declarado como aprovado.
+
+- **Artefatos por sistema:** `.bat` no Windows incorpora a implementação PowerShell; `.command` no macOS e `.sh` no Linux incorporam a implementação POSIX. `package-installer.mjs` embute o manifesto Compose e remove build/montagens relativas ao repositório. O GitHub Actions empacota e executa diretamente cada artefato em runner nativo. Para o teste beta do proprietário, Main CD envia um artefato Windows depois da publicação da imagem; o workflow de release publica os três instaladores de plataforma.
 - **Orientação ao operador:** o instalador detecta Docker e pede autorização antes de abrir instruções oficiais do fornecedor. Não eleva privilégios nem muda WSL/virtualização silenciosamente. O guia bilíngue do instalador explica download, abertura, opções e dados. Os wrappers separados antigos e testes foram removidos depois que artefato substituto e contratos existiam.
 - **Dados:** atualização normal preserva volumes de banco/segredos e configurações. Atualização limpa baixa a imagem antes de apagar dados, exige `APAGAR` / `DELETE` / `ELIMINAR` e então pergunta idioma/porta. A desinstalação permite manter dados ou remover somente dados do produto após a mesma confirmação localizada. Dependências compartilhadas do Docker/host e o instalador baixado permanecem intactos.
 - **Red → Green — recuperação de atualização destrutiva:** `npm test -- --run tests/integration/unified-installer.test.js -t 'cannot download its image'` falhou primeiro porque a falha de download ocorria após o `.env` salvo mudar da porta 3100 para 3200 e do locale `en` para `pt-BR`. Green — mover `compose pull` para antes de `compose down --volumes` e iniciar usando a imagem já baixada. O comando focado passou e a configuração/certificado local foram preservados na falha de pull.
@@ -110,7 +115,10 @@ A instalação de dependências não pode ser garantida como silenciosa ou total
 - `.aiox/project-status.yaml`
 - `.github/workflows/ci.yml`
 - `.github/workflows/release.yml`
+- `.github/workflows/main-cd.yml`
+- `.github/workflows/quality-gates.yml`
 - `CHANGELOG.md`
+- `CHANGELOG-beta.md`
 - `CHANGELOG_INTERNAL.md`
 - `README.md`
 - `README.pt-BR.md`
@@ -138,6 +146,7 @@ A instalação de dependências não pode ser garantida como silenciosa ou total
 - `docs/integrations.md`
 - `docs/planning-validation.md`
 - `docs/pt-BR/CHANGELOG.md`
+- `docs/pt-BR/CHANGELOG-beta.md`
 - `docs/pt-BR/CHANGELOG_INTERNAL.md`
 - `docs/pt-BR/CONTRIBUICAO.md`
 - `docs/pt-BR/INSTALACAO.md`
@@ -165,6 +174,8 @@ A instalação de dependências não pode ser garantida como silenciosa ou total
 - `docs/stories/FND-8/spec/plan.json`
 - `docs/stories/FND-8/spec/requirements.json`
 - `docs/stories/FND-8/spec/spec.md`
+- `docs/stories/FND-9/validation.md`
+- `docs/pt-BR/stories/FND-9/validation.md`
 - `docs/stories/FND-8/story.md`
 - `docs/stories/OPS-5/spec/research.json`
 - `docs/stories/OPS-5/spec/spec.md`
@@ -351,6 +362,9 @@ Não foi necessária refatoração de código pelo QA. As correções do harness
 - [x] Verificados os 17 critérios contra testes, contratos do workflow de release, documentação bilíngue e CI nativo dos artefatos.
 - [x] Suíte local completa: 86 arquivos / 677 testes; lint, typecheck, OpenGrep (0 achados), validadores de versão/localização/portas, Compose, execução direta Linux, sintaxe shell/Node e diff passaram.
 - [x] Verificada a matriz nativa Windows/macOS/Linux e envio de artefatos na execução Actions 37651571138.
+- [x] Verificados os novos critérios 18–19 com regressões Red/Green: a versão exibida corresponde à identidade imutável da imagem e falha de pull no GHCR encerra com orientação localizada preservando estado salvo.
+- [x] Verificado que o artefato beta de QA só é enviado após publicar o digest da imagem correspondente; contratos rejeitam identidade móvel/divergente e envio antecipado.
+- [x] Gates locais atuais: 106 arquivos / 910 testes, lint, typecheck, validadores de versão/localização, OpenGrep (0 achados), build Docker, harness Linux nativo, actionlint e diff passaram.
 - [ ] Registrar testes físicos de ciclo de vida nos hosts Windows/macOS quando o proprietário os executar; o runner nativo usa Docker falso isolado.
 
 ### Revisão de segurança

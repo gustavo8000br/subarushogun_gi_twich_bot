@@ -76,21 +76,20 @@ jobs:
           cache: npm
       - name: Install locked packager dependencies
         run: npm ci
+      - name: Materialize product version for the installer
+        id: installer-version
+        shell: bash
+        run: |
+          node apps/infra/scripts/materialize-version.mjs --root "$GITHUB_WORKSPACE" --output "$RUNNER_TEMP/INSTALLER_VERSION"
+          printf 'version=%s\n' "$(cat "$RUNNER_TEMP/INSTALLER_VERSION")" >> "$GITHUB_OUTPUT"
       - name: Package one installer file for this operating system
-        run: node apps/infra/scripts/package-installer.mjs --platform ${{ matrix.platform }} --output "${{ runner.temp }}/queuebot-installer"
+        run: node apps/infra/scripts/package-installer.mjs --platform ${{ matrix.platform }} --output "${{ runner.temp }}/queuebot-installer" --image-tag "${{ steps.installer-version.outputs.version }}" --product-version "${{ steps.installer-version.outputs.version }}"
       - name: Launch the installer directly with isolated fake Docker
         env:
           QUEUEBOT_PREBUILT_INSTALLER: ${{ runner.temp }}/queuebot-installer/subarushogun_twich_bot_setup.${{ matrix.extension }}
-          QUEUEBOT_EXPECTED_IMAGE_TAG: main
+          QUEUEBOT_EXPECTED_IMAGE_TAG: ${{ steps.installer-version.outputs.version }}
+          QUEUEBOT_EXPECTED_PRODUCT_VERSION: ${{ steps.installer-version.outputs.version }}
         run: node tests/platform/installer-native.mjs
-      - name: Upload Windows installer for owner QA
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.platform == 'windows' }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: fnd9-windows-installer-${{ github.sha }}
-          path: ${{ runner.temp }}/queuebot-installer/subarushogun_twich_bot_setup.bat
-          if-no-files-found: error
-          retention-days: 14
   tests:
     name: Vitest unit, PostgreSQL, and Compose integration
     runs-on: ubuntu-24.04
