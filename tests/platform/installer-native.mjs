@@ -28,6 +28,7 @@ try {
     await writeFile(fakeDocker, [
       '@echo off',
       'echo %*>>"%QUEUEBOT_TEST_DOCKER_LOG%"',
+      'echo %*|findstr /C:" up -d" >nul && echo UP_IMAGE_TAG=%IMAGE_TAG%>>"%QUEUEBOT_TEST_DOCKER_LOG%"',
       'if /I "%~1"=="pull" if defined QUEUEBOT_TEST_FAIL_PRODUCT_PULL (echo Error response from daemon: unauthorized 1>&2&exit /b 1)',
       'if /I "%~1"=="info" echo x86_64',
       'if /I "%~1"=="info" exit /b 0',
@@ -102,7 +103,7 @@ try {
       throw new Error(`Starting an existing installation did not repair its stale image tag:\n${config}`);
     }
     const startCalls = await readFile(log, 'utf8');
-    if (!startCalls.split(/\r?\n/).some((line) => /compose .* up -d/.test(line) && line.includes(expectedImageTag))) {
+    if (!startCalls.includes(`UP_IMAGE_TAG=${expectedImageTag}`)) {
       throw new Error(`Windows Compose startup did not explicitly use release image tag ${expectedImageTag}:\n${startCalls}`);
     }
   }
