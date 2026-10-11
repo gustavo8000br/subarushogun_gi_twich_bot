@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-5/story.md)
 
-**Status:** Em andamento — regressão de inicialização beta no Windows reportada pelo proprietário corrigida; runner nativo Windows e nova revisão independente QA pendentes. Implementação/QA anteriores do complemento são somente linha de base histórica. Não alegamos desinstalação física no host.
+**Status:** Done — regressão de inicialização beta no Windows reportada pelo proprietário corrigida; runner nativo Windows passou e o gate QA formal aprovou com 10/10. Não alegamos desinstalação física no host.
 **Origem do planejamento:** solicitação do proprietário em 2026-10-06.
 **Issue GitHub:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30), reaberta em 2026-10-07 para o incremento corretivo após a PR #36.
 
@@ -259,6 +259,8 @@ Substituir Docker Compose, remover Docker ao desinstalar o produto, provisionar 
 | 2026-10-07 | Adicionado contrato CLI multiplataforma sem interação, flags de exclusão explícitas seguras e comandos de operação bilíngues; teste de fogo real de instalação/atualização Compose no Linux passou. Execução PowerShell nativa Windows e novo QA continuam pendentes | @aiox-dev + @aiox-master |
 | 2026-10-07 | Matriz nativa Windows/macOS/Linux passou na execução Actions 37651571138; gates locais passam com 677 testes. Status atualizado de Pronta para revisão → Em revisão para o QA corretivo independente | @aiox-dev |
 | 2026-10-07 | Gate QA PASS (0.9.0) — Status: Em revisão → Done; 17 critérios de aceite verificados com 677 testes e CI nativo Windows/macOS/Linux | @qa |
+| 2026-10-11 | Corrigida a tag Compose antiga reportada pelo proprietário; matriz nativa completa passou e a implementação está pronta para nova revisão QA formal | @aiox-dev |
+| 2026-10-11 | 0.9.1 — Gate QA PASS; status: InReview → Done. Recuperação da tag antiga Windows e evidências completas de qualidade verificadas | @qa |
 
 ## Resultados de QA
 
@@ -403,3 +405,15 @@ Não foram feitos testes físicos Windows/macOS nem operações Twitch de escrit
 ### Transição de ciclo de vida
 
 PASS: Em revisão → Done (0.9.0). O @devops pode sincronizar a issue #30 e mesclar a PR #37 depois que o gate QA for commitado.
+
+### Avaliação técnica focada — tag Compose antiga no Windows — 2026-10-11
+
+Revisado por: Quinn (Test Architect)
+
+Escopo: somente a regressão de inicialização reportada pelo proprietário. O gate de toda a story acima é histórico. A implementação e as evidências deste delta recebem **10/10**, sem achados técnicos. Revisão formal do gate concluída contra o head atual da PR. A validação física Windows continua com o proprietário e não é declarada como aprovada.
+
+Evidências: regressão Red no contrato do instalador Windows; `npm test` com 106 arquivos / 911 testes; testes focados do instalador/integração 41/41; lint, typecheck, validadores de localização/versão/portas e diff passaram; smoke Linux nativo passou; Actions 38106995475 passou todos os jobs obrigatórios, incluindo correção e inicialização da tag antiga no Windows nativo, instaladores Linux/macOS, integração PostgreSQL/Compose e build da imagem.
+
+Gate: PASS → `docs/qa/gates/OPS-5-windows-stale-compose-tag.yml`
+
+Nota: 10/10. Nenhum achado bloqueante ou de severidade média neste incremento corretivo.

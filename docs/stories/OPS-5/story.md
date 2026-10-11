@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-5/story.md)
 
-**Status:** In Progress — owner-reported Windows beta startup regression corrected; native Windows runner and independent QA re-review pending. Previous owner-feedback implementation and QA are historical baseline evidence only. No physical host uninstall is claimed.
+**Status:** Done — owner-reported Windows beta startup regression corrected; native Windows runner passed and the formal QA gate passed 10/10. No physical host uninstall is claimed.
 **Planning source:** product owner request on 2026-10-06.
 **GitHub issue:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30), reopened on 2026-10-07 for the corrective increment after PR #36.
 
@@ -261,6 +261,8 @@ Replacing Docker Compose, removing Docker as part of product uninstall, silently
 | 2026-10-07 | Added unattended cross-platform CLI contract, safe explicit erase flags, and bilingual operator commands; real Linux Compose install/update fire test passed. Native Windows PowerShell execution and new QA remain pending | @aiox-dev + @aiox-master |
 | 2026-10-07 | Native Windows/macOS/Linux matrix passed in Actions run 37651571138; local gates pass with 677 tests. Status transitioned Ready for Review → InReview for independent corrective QA | @aiox-dev |
 | 2026-10-07 | QA Gate PASS (0.9.0) — Status: InReview → Done; all 17 acceptance criteria verified against 677 tests and native Windows/macOS/Linux CI | @qa |
+| 2026-10-11 | Fixed owner-reported stale Windows Compose image tag; full native matrix passed and implementation is ready for formal QA re-review | @aiox-dev |
+| 2026-10-11 | 0.9.1 — QA Gate PASS; Status: InReview → Done. Windows stale-tag recovery and full quality evidence verified | @qa |
 
 ## QA Results
 
@@ -401,3 +403,15 @@ Physical Windows/macOS host acceptance and Twitch write operations were not perf
 ### Lifecycle Transition
 
 PASS: InReview → Done (0.9.0). @devops can now synchronize issue #30 and merge PR #37 after the QA gate is committed.
+
+### Focused technical assessment — stale Windows Compose image tag — 2026-10-11
+
+Reviewed By: Quinn (Test Architect)
+
+Scope: owner-reported startup regression only. The previous whole-story gate above is historical. The implementation and validation evidence for this delta score **10/10**, with no technical findings. Formal gate review completed against the current PR head. Physical Windows host validation remains with the owner and is not claimed as passed.
+
+Evidence: Red regression in the Windows installer contract; `npm test` 106 files / 911 tests; focused installer/integration tests 41/41; lint, typecheck, localization/version/port validation and diff check passed; Linux native artifact smoke passed; Actions run 38106995475 passed all required jobs, including native Windows stale-tag repair and startup, Linux/macOS installers, PostgreSQL/Compose integration, and image build.
+
+Gate: PASS → `docs/qa/gates/OPS-5-windows-stale-compose-tag.yml`
+
+Score: 10/10. No blocking or medium-severity findings for this corrective increment.
