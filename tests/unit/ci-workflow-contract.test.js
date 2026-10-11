@@ -95,19 +95,23 @@ describe('GitHub Actions application CI contract', () => {
 
   it('publishes version-tagged releases with bilingual changelog notes and one native installer per OS', () => {
     const release = parseWorkflow(releaseWorkflow);
-    expect(release.on.push.tags).toEqual(['v*']);
+    expect(Object.keys(release.on)).toEqual(['workflow_dispatch']);
+    expect(release.on.workflow_dispatch.inputs.release_tag.required).toBe(true);
     expect(release.concurrency['cancel-in-progress']).toBe(false);
     expect(release.concurrency.queue).toBe('max');
     expect(release.permissions).toEqual({ contents: 'read' });
     expect(release.jobs['build-installers'].needs).toBe('resolve-release-image');
     expect(release.jobs['build-installers'].permissions).toBeUndefined();
-    expect(release.jobs['publish-release'].needs).toBe('build-installers');
+    expect(release.jobs['publish-release'].needs).toEqual(['resolve-release-image', 'build-installers']);
     expect(release.jobs['resolve-release-image'].permissions).toEqual({ contents: 'read', packages: 'read' });
+    expect(release.jobs['resolve-release-image'].if).toContain("github.actor == 'gustavo8000br'");
     expect(release.jobs['publish-release'].permissions).toEqual({ actions: 'read', contents: 'write' });
     expect(releaseWorkflow).toContain('node apps/infra/scripts/create-release-notes.mjs');
     expect(releaseWorkflow).toContain('--image-tag "$RELEASE_IMAGE_REF"');
     expect(releaseWorkflow).toContain('actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333');
     expect(releaseWorkflow).toContain('gh release create');
+    expect(releaseWorkflow).toContain('--prerelease');
+    expect(releaseWorkflow).toContain('inputs.release_tag');
     expect(releaseWorkflow).toContain('contents: write');
     expect(releaseWorkflow).toContain('git merge-base --is-ancestor');
     expect(releaseWorkflow).toContain('gh run list --workflow main-cd.yml --commit');
