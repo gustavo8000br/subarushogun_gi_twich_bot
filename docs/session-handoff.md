@@ -5,7 +5,7 @@
 ## Current workspace
 
 - Repository/worktree: `/workspaces/subarushogun_gi_twich_bot`
-- Current working branch: `docs/fnd9-owner-acceptance-handoff` (documentation-only follow-up; the implementation is already merged to `main`)
+- Expected continuation branch: `main`. This handoff correction is on the docs-only branch `docs/fnd9-owner-acceptance-handoff`; product implementation is already merged.
 - Preserve the existing uncommitted work in this checkout; do not reset or discard it.
 
 ## Current objective

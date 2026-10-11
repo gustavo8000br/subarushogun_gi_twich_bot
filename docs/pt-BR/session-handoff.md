@@ -5,7 +5,7 @@
 ## Workspace atual
 
 - Repositório/worktree: `/workspaces/subarushogun_gi_twich_bot`
-- Branch de trabalho atual: `docs/fnd9-owner-acceptance-handoff` (continuação somente documental; a implementação já foi mesclada na `main`)
+- Branch esperada para continuar: `main`. Esta correção do handoff está na branch somente documental `docs/fnd9-owner-acceptance-handoff`; a implementação do produto já foi mesclada.
 - Preserve o trabalho não commitado existente neste checkout; não faça reset nem descarte alterações.
 
 ## Objetivo atual
