@@ -378,7 +378,11 @@ function Setup-Product {
   Write-Host (T 'progressImages'); if (-not (Compose @('config','--images') $ReleaseImageTag)) { Write-Host (T 'failure'); $script:OperationFailed=$true; return }
   if (-not (Pull-ProductImage)) { $script:OperationFailed=$true; return }
   Write-Host (T 'progressPull')
-  if ((Compose @('pull') $ReleaseImageTag)) { Write-Host (T 'progressStart'); if ((Compose @('up','-d')) -and (Wait-Panel $port)) { return } }
+  if ((Compose @('pull') $ReleaseImageTag)) {
+    Save-ImageTag
+    Write-Host (T 'progressStart')
+    if ((Compose @('up','-d') $ReleaseImageTag) -and (Wait-Panel $port)) { return }
+  }
   Write-Host (T 'failure'); $script:OperationFailed=$true
 }
 function Update-Product {

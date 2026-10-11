@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-5/story.md)
 
-**Status:** Ready for Review — complemento solicitado pelo proprietário implementado e revisado independentemente para exibir a versão do produto e diagnosticar pulls no GHCR; acesso anônimo ao GHCR continua bloqueado pela visibilidade do pacote. A implementação corretiva anterior continua concluída. QA e Actions anteriores da PR #36 continuam apenas como linha de base histórica. Não alegamos desinstalação física no host.
+**Status:** Em andamento — regressão de inicialização beta no Windows reportada pelo proprietário corrigida; runner nativo Windows e nova revisão independente QA pendentes. Implementação/QA anteriores do complemento são somente linha de base histórica. Não alegamos desinstalação física no host.
 **Origem do planejamento:** solicitação do proprietário em 2026-10-06.
 **Issue GitHub:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30), reaberta em 2026-10-07 para o incremento corretivo após a PR #36.
 
@@ -90,9 +90,12 @@ A instalação de dependências não pode ser garantida como silenciosa ou total
 
 - **Arquitetura Docker e idioma inicial do instalador — Red / Green (2026-10-07):** `npm test -- --run tests/integration/unified-installer.test.js -t 'checks the Docker daemon architecture'` falhou primeiro porque o instalador não consultava `docker info --format '{{.Architecture}}'` e continuava ao pull/up do Compose para um daemon incompatível. Uma asserção separada do prompt inicial falhou em Red porque o shell mostrava as chaves internas `language` e `language_prompt` antes da escolha do idioma. Green — consultar a arquitetura do daemon, aceitar `amd64`/`x86_64` e `arm64`/`aarch64`, parar antes do Compose em arquiteturas desconhecidas e usar os textos pt-BR até o operador escolher um idioma. Isso segue a referência Docker [`docker system info`](https://docs.docker.com/reference/cli/docker/system/info/) consultada em 2026-10-07. Testes focados de arquitetura, locale inicial, falha de migration/inicialização e painel não saudável em atualização passaram; o harness nativo de execução direta Linux também passou.
 
+- **Tag Compose antiga no Windows — Red / Green, runner nativo pendente (2026-10-11):** a saída de instalação beta enviada pelo proprietário mostrou que o preflight da imagem fixada por digest e o pull do Compose passaram, mas `compose up` leu o literal `__IMAGE_TAG__` de um `.env` antigo e falhou. Red — `tests/unit/windows-installer-first-run.test.js` falhou porque `Setup-Product` não persistia a tag da release após um pull bem-sucedido nem a passava ao iniciar o Compose. Green — instalar/iniciar agora salva a tag exata somente após pull bem-sucedido e a fornece explicitamente a `compose up`; o harness nativo Windows corrompe um `.env` existente com `__IMAGE_TAG__` e verifica correção e tag de inicialização. Testes unitários/de integração focados passaram localmente; Actions Windows nativo, gates completos, QA independente e novo instalador publicado para teste do proprietário ainda estão pendentes.
+
 ### Status de aceite
 
 - [x] Um artefato diretamente abrível é empacotado por sistema; nenhum arquivo de ciclo de vida antigo é necessário.
+- [ ] Runner nativo do artefato Windows verifica a correção de `IMAGE_TAG=__IMAGE_TAG__` antigo e confirma que o Compose inicia com a tag exata do instalador.
 - [x] Instalar/iniciar, atualizar, desinstalar, idioma, porta, callback, caminhos com espaços, confirmação localizada destrutiva, preservação e orientação para Docker ausente têm testes de implementação.
 - [x] Testes de arquitetura do daemon Docker permitem `amd64`/`x86_64` e `arm64`/`aarch64`, rejeitam valores incompatíveis antes do Compose e verificam um prompt inicial de idioma legível. Testes controlados na fronteira do CLI comprovam que falhas de inicialização/migration e um painel não saudável após atualização preservam a configuração salva e não solicitam a remoção de volumes.
 - [x] Falha ao baixar a imagem em atualização limpa comprovadamente preserva configurações e dados do produto.
@@ -111,6 +114,14 @@ A instalação de dependências não pode ser garantida como silenciosa ou total
 - [ ] Antes do teste Twitch planejado com streamer após a FND-9, tornar público o pacote GHCR e verificar um pull anônimo; o repositório-fonte é público, mas o pacote de imagem ainda estava privado em 2026-10-07.
 
 ## Lista de arquivos
+
+- `CHANGELOG-beta.md`
+- `docs/pt-BR/CHANGELOG-beta.md`
+- `docs/stories/OPS-5/story.md`
+- `docs/pt-BR/stories/OPS-5/story.md`
+- `tests/platform/installer-native.mjs`
+- `tests/unit/windows-installer-first-run.test.js`
+- `apps/infra/installer/installer.ps1`
 
 - `.aiox/project-status.yaml`
 - `.github/workflows/ci.yml`

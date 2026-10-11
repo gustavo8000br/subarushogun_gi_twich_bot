@@ -32,6 +32,14 @@ describe('Windows installer first-run language prompt', () => {
     expect(installer).toContain("if (-not (Pull-ProductImage)) { $script:OperationFailed=$true; return }");
   });
 
+  it('repairs a stale saved IMAGE_TAG and explicitly starts Compose with the installer release tag', () => {
+    const startSetup = installer.indexOf('function Setup-Product');
+    const endSetup = installer.indexOf('function Update-Product', startSetup);
+    const setup = installer.slice(startSetup, endSetup);
+    expect(setup).toContain("Save-ImageTag");
+    expect(setup).toContain("Compose @('up','-d') $ReleaseImageTag");
+  });
+
   it('captures the Docker architecture command exit code before selecting its output', () => {
     expect(installer).toContain("$architectureOutput = @(& $Docker info --format '{{.Architecture}}' 2>$null)");
     expect(installer).toContain('$architectureExitCode = $LASTEXITCODE');

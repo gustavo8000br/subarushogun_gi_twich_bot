@@ -92,7 +92,23 @@ try {
   if (!config.includes('APP_PORT=3100') || !config.includes('PRODUCT_INITIAL_LOCALE=en') || !config.includes(`IMAGE_TAG=${expectedImageTag}`)) {
     throw new Error(`Installer did not save the chosen language/port:\n${config}`);
   }
-  await writeFile(join(installHome, '.env'), config.replace(/^IMAGE_TAG=.*$/m, 'IMAGE_TAG=main'));
+  if (platform === 'windows') {
+    await writeFile(join(installHome, '.env'), config.replace(/^IMAGE_TAG=.*$/m, 'IMAGE_TAG=__IMAGE_TAG__'));
+    await writeFile(inputFile, '1\n\n0\n');
+    const staleTagStart = launch('1\n\n0\n');
+    if (staleTagStart.status !== 0) throw new Error(`Windows install/start failed with a stale saved image tag:\n${staleTagStart.stdout}\n${staleTagStart.stderr}`);
+    config = await readFile(join(installHome, '.env'), 'utf8');
+    if (!config.includes(`IMAGE_TAG=${expectedImageTag}`)) {
+      throw new Error(`Starting an existing installation did not repair its stale image tag:\n${config}`);
+    }
+    const startCalls = await readFile(log, 'utf8');
+    if (!startCalls.split(/\r?\n/).some((line) => /compose .* up -d/.test(line) && line.includes(expectedImageTag))) {
+      throw new Error(`Windows Compose startup did not explicitly use release image tag ${expectedImageTag}:\n${startCalls}`);
+    }
+  }
+  if (platform !== 'windows') {
+    await writeFile(join(installHome, '.env'), config.replace(/^IMAGE_TAG=.*$/m, 'IMAGE_TAG=main'));
+  }
   await writeFile(inputFile, '2\n1\n0\n');
   const updateResult = launch('2\n1\n0\n');
   if (updateResult.status !== 0) throw new Error(`Native version update failed (${updateResult.status}):\n${updateResult.stdout}\n${updateResult.stderr}`);

@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-5/story.md)
 
-**Status:** Ready for Review — owner feedback follow-up for displayed product version and GHCR pull diagnostics implemented and independently reviewed; anonymous GHCR access remains blocked by package visibility. Prior corrective implementation remains complete. Prior PR #36 QA and native Actions remain historical baseline evidence only. No physical host uninstall is claimed.
+**Status:** In Progress — owner-reported Windows beta startup regression corrected; native Windows runner and independent QA re-review pending. Previous owner-feedback implementation and QA are historical baseline evidence only. No physical host uninstall is claimed.
 **Planning source:** product owner request on 2026-10-06.
 **GitHub issue:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30), reopened on 2026-10-07 for the corrective increment after PR #36.
 
@@ -103,6 +103,7 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 - [x] Old lifecycle wrappers and tests are deleted; user-facing guides point to the single installer.
 - [x] Full repository quality gates and OpenGrep pass on the current tree: `npm test` (86 files / 677 tests), lint, typecheck, OpenGrep (0 findings), localization, port denylist, version, Compose config, workflow YAML parsing, and diff check. The last production dependency audit recorded earlier in this story found 0 vulnerabilities.
 - [x] Linux native artifact direct-launch check passes from a path containing spaces; the generated `.sh` selected locale/port, displayed the callback, invoked Compose, and exits cleanly when first-run input is unavailable.
+- [ ] Native Windows artifact runner verifies repair of a stale `IMAGE_TAG=__IMAGE_TAG__` and confirms Compose startup uses the exact installer release tag.
 - [x] Public source-repository access and GHCR image-package access are documented separately in English and pt-BR; anonymous GHCR access was checked and denied while the package remains private.
 - **Earlier extracted-artifact instructions — historical Red / Green, superseded:** the operator ran `sh ./subarushogun_twich_bot_setup.sh` from the repository root and received `cannot open ... No such file`; at that time the packaged file existed only in a downloaded CI archive. The resulting documentation contract was fixed by explaining the extraction directory. The current delivery plan uses standalone files attached to GitHub Releases, so users open the downloaded `.sh` directly from its saved location; the earlier CI archive instruction is not current guidance.
 - [x] Historical native Windows, macOS, and Linux Actions passed in [run 37637847991](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/runs/37637847991).
@@ -114,6 +115,8 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 - [x] Physical Windows/macOS acceptance is not claimed; actual host Docker lifecycle and dependency-install runs remain operator follow-up and are not a prerequisite for the native-runner CI criterion.
 - [ ] Before the planned post-FND-9 Twitch streamer acceptance, make the GHCR package public and verify an anonymous pull; the source repository is public, but the image package was still private on 2026-10-07.
 
+- **Windows stale Compose image tag — Red / Green, native runner pending (2026-10-11):** owner-provided Windows beta install output showed that the digest-pinned image preflight and Compose pull succeeded, but `compose up` resolved literal `__IMAGE_TAG__` from an old `.env` and failed. Red — `tests/unit/windows-installer-first-run.test.js` failed because `Setup-Product` neither persisted the release tag after a successful pull nor passed it to Compose startup. Green — install/start now saves the exact release tag only after pull success and explicitly supplies it to `compose up`; the Windows native artifact harness corrupts an existing `.env` with `__IMAGE_TAG__` and checks both repair and startup tag. Focused unit/integration tests pass locally; native Windows Actions, full gates, independent QA, and a newly published owner-test installer remain pending.
+
 ## File List
 
 - `.aiox/project-status.yaml`
@@ -121,6 +124,12 @@ Dependency installation cannot be guaranteed as silent or fully automatic across
 - `.github/workflows/release.yml`
 - `.github/workflows/main-cd.yml`
 - `.github/workflows/quality-gates.yml`
+- `CHANGELOG-beta.md`
+- `docs/pt-BR/CHANGELOG-beta.md`
+- `docs/stories/OPS-5/story.md`
+- `docs/pt-BR/stories/OPS-5/story.md`
+- `tests/platform/installer-native.mjs`
+- `tests/unit/windows-installer-first-run.test.js`
 - `CHANGELOG.md`
 - `CHANGELOG-beta.md`
 - `CHANGELOG_INTERNAL.md`
