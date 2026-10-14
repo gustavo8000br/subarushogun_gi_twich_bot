@@ -11,14 +11,16 @@ function createRepository() {
 }
 
 describe('OBS widget capability service', () => {
-  it('issues a high-entropy secret only in the HTTPS URL fragment and persists only its SHA-256 hash', async () => {
+  it('issues a high-entropy secret in the HTTPS URL fragment with a non-secret widget key and stores only its SHA-256 hash', async () => {
     const repository = createRepository();
     const service = createOverlayWidgetService({ repository, origin: 'https://localhost:3000', tokenFactory: () => 'x'.repeat(43) });
     const result = await service.create({ sourceType: 'account_label' });
     const secret = new URL(result.capabilityUrl).hash.slice(1);
-    expect(result.capabilityUrl).toBe(`https://localhost:3000/overlay.html#${secret}`);
+    expect(result.capabilityUrl).toContain(`https://localhost:3000/overlay.html?ref=`);
+    expect(result.capabilityUrl).toContain(`#${secret}`);
     expect(secret).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(new URL(result.capabilityUrl).search).toBe('');
+    expect(new URL(result.capabilityUrl).searchParams.get('ref')).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    expect(new URL(result.capabilityUrl).search).not.toContain(secret);
     expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({
       capabilityHash: createHash('sha256').update(secret).digest('hex'),
     }));
@@ -32,6 +34,7 @@ describe('OBS widget capability service', () => {
     const second = await service.regenerate({ id: 'widget-1', expectedVersion: 1 });
     expect(first.capabilityUrl).toContain('a'.repeat(43));
     expect(second.capabilityUrl).toContain('b'.repeat(43));
+    expect(new URL(first.capabilityUrl).searchParams.get('ref')).not.toBe(new URL(second.capabilityUrl).searchParams.get('ref'));
     expect(repository.rotateCapability).toHaveBeenCalledWith(expect.objectContaining({
       id: 'widget-1', expectedVersion: 1,
       capabilityHash: createHash('sha256').update('b'.repeat(43)).digest('hex'),
