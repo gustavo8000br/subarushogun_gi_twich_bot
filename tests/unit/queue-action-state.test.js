@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { getQueueActionState, getQueueVisibilityAction } from '../../apps/web/queue-action-state.mjs';
 
 describe('queue action visibility and safety', () => {
+  it('offers cancellation while a managed reward deletion is pending', () => {
+    expect(getQueueActionState({
+      queueMode: 'channel_points', rewardOrigin: 'bot_created', rewardId: 'reward-1',
+      remoteSyncStatus: 'delete_pending', lifecycleStatus: 'deleting', isArchived: true, isOpen: false,
+    }).canCancelQueueDeletion).toBe(true);
+  });
+
   it('blocks calls while reward-to-manual pause is unresolved but keeps explicit adds available', () => {
     expect(getQueueActionState({ queueMode: 'channel_points', rewardId: 'reward-1', remoteSyncStatus: 'synced', modeTransitionStatus: 'pending_pause', isOpen: false, isArchived: false }))
       .toMatchObject({ canCallEntries: false, canAddManualEntry: true });

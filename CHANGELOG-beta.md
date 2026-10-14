@@ -2,6 +2,12 @@
 
 [All public changelogs](CHANGELOG.md) · [Português brasileiro](docs/pt-BR/CHANGELOG-beta.md)
 
+## v0.2.0-beta
+
+- Streamers can cancel a pending reward-backed queue deletion after the app verifies that the exact managed Twitch reward still exists and is paused. The queue and financial history remain recoverable, and a later deletion safely resumes the same intent.
+- The operations page now distinguishes Twitch synchronization from Channel Points refunds to viewers and redemption fulfillment.
+- Local deletion confirmation stays blocked while cancellation is being verified, preserving a safe way to resume the operation.
+
 ## v0.1.2-beta
 
 - Deleting a reward-backed queue after a completed service now preserves the pending Twitch fulfillment and waits for confirmation before deleting the reward.

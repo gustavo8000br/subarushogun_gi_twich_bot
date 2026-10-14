@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { validateUidInput } from '../domain/uid.mjs';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog.mjs';
+import { matchesManagedRewardState } from '../twitch/reward-state.mjs';
 
 /** @typedef {Record<string, any>} PrismaClientLike */
 
@@ -97,6 +98,35 @@ async function renumberWaitingEntries(tx, queueId) {
     where: { id },
     data: { position: index + 1 },
   })));
+}
+
+async function enqueueRewardDeleteIntent(tx, queueId, now) {
+  const idempotencyKey = `queue:${queueId}:reward.delete`;
+  const previous = await tx.outbox.findUnique({ where: { idempotencyKey } });
+  if (previous?.status === 'cancelled' && previous.lastError === 'queue_deletion_cancelled_by_operator') {
+    const payload = previous.payload && typeof previous.payload === 'object' && !Array.isArray(previous.payload) ? previous.payload : {};
+    await tx.outbox.update({ where: { id: previous.id }, data: {
+      status: 'pending', nextAttemptAt: now, lastError: null, leaseToken: null, leaseUntil: null,
+      payload: {
+        ...payload,
+        previousCancelledAttempt: {
+          requestMayHaveReachedTwitch: payload.requestMayHaveReachedTwitch === true,
+          safeToDelete: payload.safeToDelete === true,
+          attempts: previous.attempts,
+          cancelledAt: now.toISOString(),
+        },
+        requestMayHaveReachedTwitch: false,
+        safeToDelete: false,
+      },
+    } });
+    return;
+  }
+  if (previous) throw repositoryError('QUEUE_DELETION_NOT_READY', 'Queue deletion has an existing unresolved operation');
+  await tx.outbox.create({ data: {
+    operationType: 'reward.delete', entityType: 'queue', entityId: queueId,
+    idempotencyKey,
+    payload: { requestMayHaveReachedTwitch: false, safeToDelete: false },
+  } });
 }
 
 function isSafeReason(reason) {
@@ -579,6 +609,9 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           throw repositoryError('QUEUE_LOCAL_ARCHIVE_UNAVAILABLE', 'Queue cannot be archived locally in its current state');
         }
         const rewardTasks = await tx.outbox.findMany({ where: { entityId: queueId, operationType: { in: rewardOperationTypes } } });
+        if (rewardTasks.some(({ operationType, status }) => operationType === 'reward.delete' && status === 'cancel_verification')) {
+          throw repositoryError('QUEUE_DELETION_CANCELLATION_IN_PROGRESS', 'Queue deletion cancellation is verifying the Twitch reward');
+        }
         if (rewardTasks.some(({ status }) => status === 'processing')) {
           throw repositoryError('QUEUE_REWARD_OPERATION_PROCESSING', 'A Twitch reward operation is still processing');
         }
@@ -772,14 +805,88 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
             payload: { isOpen: false, queueVersion: nextVersion, deleteAfterConfirm: true, requestMayHaveReachedTwitch: false },
           } });
         } else {
-          await tx.outbox.create({ data: {
-            operationType: 'reward.delete', entityType: 'queue', entityId: queueId,
-            idempotencyKey: `queue:${queueId}:reward.delete`,
-            payload: { requestMayHaveReachedTwitch: false, safeToDelete: false },
-          } });
+          await enqueueRewardDeleteIntent(tx, queueId, now);
         }
         await tx.auditLog.create({ data: { queueId, event: 'queue.deletion_requested', actorId, origin, previousState: queue.lifecycleStatus, nextState: 'deleting', reason: 'operator_requested_queue_deletion', safeDetail: { rewardId: queue.rewardId, activeRemoved: active.length, refundsRequested } } });
         return { status: 'pending', queue: next, activeRemoved: active.length, refundsRequested };
+      });
+    },
+
+    async beginQueueDeletionCancellation({ queueId, actorId = null, origin = 'panel' }) {
+      return withQueueTransaction(prisma, queueId, async (tx) => {
+        await tx.$queryRaw`SELECT id FROM outbox WHERE entity_id = ${queueId} AND operation_type LIKE 'reward.%' ORDER BY id FOR UPDATE`;
+        const queue = await tx.queue.findUnique({ where: { id: queueId } });
+        if (!queue) throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
+        if (queue.lifecycleStatus !== 'deleting' || queue.queueMode !== 'channel_points' || !queue.rewardId) {
+          throw repositoryError('QUEUE_DELETION_NOT_PENDING', 'Managed queue deletion is not pending');
+        }
+        const rewardTasks = await tx.outbox.findMany({ where: { entityId: queueId, operationType: { in: rewardOperationTypes } } });
+        if (rewardTasks.some(({ status }) => status === 'processing')) {
+          throw repositoryError('QUEUE_REWARD_OPERATION_PROCESSING', 'A Twitch reward operation is still processing');
+        }
+        const deletion = rewardTasks.find(({ operationType }) => operationType === 'reward.delete');
+        if (!deletion) throw repositoryError('QUEUE_DELETION_NOT_PENDING', 'Queue deletion operation was not found');
+        if (deletion.status === 'confirmed') return { status: 'already_deleted', queue };
+        if (deletion.status === 'cancel_verification') {
+          return { status: 'verification_required', operationId: deletion.id, queueId, rewardId: queue.rewardId, expectedVersion: queue.version, queue };
+        }
+        if (!['pending', 'retry', 'unknown', 'failed', 'conflict'].includes(deletion.status)) {
+          throw repositoryError('QUEUE_DELETION_NOT_PENDING', 'Queue deletion cannot be cancelled in its current state');
+        }
+        await tx.outbox.update({ where: { id: deletion.id }, data: { status: 'cancel_verification', leaseToken: null, leaseUntil: null } });
+        await tx.auditLog.create({ data: {
+          queueId, event: 'queue.deletion_cancel_verification_requested', actorId, origin,
+          previousState: deletion.status, nextState: 'cancel_verification', reason: 'operator_requested_queue_deletion_cancellation',
+          safeDetail: { rewardId: queue.rewardId, operationId: deletion.id, requestMayHaveReachedTwitch: deletion.payload?.requestMayHaveReachedTwitch === true, safeToDelete: deletion.payload?.safeToDelete === true },
+        } });
+        return { status: 'verification_required', operationId: deletion.id, queueId, rewardId: queue.rewardId, expectedVersion: queue.version, queue };
+      });
+    },
+
+    async failQueueDeletionCancellation({ queueId, operationId, errorCode }) {
+      return withQueueTransaction(prisma, queueId, async (tx) => {
+        await tx.$queryRaw`SELECT id FROM outbox WHERE entity_id = ${queueId} AND operation_type LIKE 'reward.%' ORDER BY id FOR UPDATE`;
+        const task = await tx.outbox.findFirst({ where: { id: operationId, entityId: queueId, operationType: 'reward.delete', status: 'cancel_verification' } });
+        const queue = await tx.queue.findUnique({ where: { id: queueId } });
+        if (!task || !queue || queue.lifecycleStatus !== 'deleting') return { status: 'not_cancelled', queue: queue ?? null };
+        await tx.outbox.update({ where: { id: task.id }, data: { status: 'unknown', lastError: errorCode, leaseToken: null, leaseUntil: null } });
+        if (errorCode === 'queue_delete_reward_diverged') {
+          await tx.queue.updateMany({ where: { id: queueId, lifecycleStatus: 'deleting' }, data: { remoteSyncStatus: 'diverged', version: { increment: 1 } } });
+        }
+        const updatedQueue = await tx.queue.findUnique({ where: { id: queueId } });
+        await tx.auditLog.create({ data: {
+          queueId, event: 'queue.deletion_cancellation_not_confirmed', origin: 'panel',
+          previousState: 'cancel_verification', nextState: 'unknown', reason: errorCode,
+          safeDetail: { rewardId: queue.rewardId, operationId: task.id },
+        } });
+        return { status: 'not_cancelled', reason: errorCode, queue: updatedQueue };
+      });
+    },
+
+    async confirmQueueDeletionCancellation({ queueId, operationId, expectedVersion, reward }) {
+      return withQueueTransaction(prisma, queueId, async (tx) => {
+        await tx.$queryRaw`SELECT id FROM outbox WHERE entity_id = ${queueId} AND operation_type LIKE 'reward.%' ORDER BY id FOR UPDATE`;
+        const queue = await tx.queue.findUnique({ where: { id: queueId } });
+        const task = await tx.outbox.findFirst({ where: { id: operationId, entityId: queueId, operationType: 'reward.delete', status: 'cancel_verification' } });
+        if (!queue || !task || queue.lifecycleStatus !== 'deleting') throw repositoryError('QUEUE_DELETION_CANCELLATION_STALE', 'Queue deletion changed during cancellation verification');
+        if (queue.version !== expectedVersion) throw repositoryError('QUEUE_DELETION_CANCELLATION_STALE', 'Queue changed during cancellation verification');
+        if (!matchesManagedRewardState(reward, queue) || reward.isPaused !== true) throw repositoryError('QUEUE_DELETION_CANCELLATION_UNVERIFIED', 'Twitch reward does not match the paused managed queue');
+        const otherProcessing = await tx.outbox.findFirst({ where: { entityId: queueId, operationType: { in: rewardOperationTypes }, status: 'processing' }, select: { id: true } });
+        if (otherProcessing) throw repositoryError('QUEUE_REWARD_OPERATION_PROCESSING', 'A Twitch reward operation is still processing');
+        const changedTask = await tx.outbox.updateMany({ where: { id: task.id, status: 'cancel_verification' }, data: {
+          status: 'cancelled', lastError: 'queue_deletion_cancelled_by_operator', leaseToken: null, leaseUntil: null,
+        } });
+        if (changedTask.count !== 1) throw repositoryError('QUEUE_DELETION_CANCELLATION_STALE', 'Queue deletion changed during cancellation verification');
+        const changedQueue = await tx.queue.updateMany({ where: { id: queueId, lifecycleStatus: 'deleting', version: expectedVersion }, data: {
+          lifecycleStatus: 'active', isArchived: true, isOpen: false, remoteSyncStatus: 'synced', version: { increment: 1 },
+        } });
+        if (changedQueue.count !== 1) throw repositoryError('QUEUE_DELETION_CANCELLATION_STALE', 'Queue changed during cancellation verification');
+        const updatedQueue = await tx.queue.findUnique({ where: { id: queueId } });
+        await tx.auditLog.create({ data: {
+          queueId, event: 'queue.deletion_cancelled', origin: 'panel', previousState: 'deleting', nextState: 'active_closed_archived', reason: 'operator_cancelled_queue_deletion_after_reward_verification',
+          safeDetail: { rewardId: queue.rewardId, operationId: task.id, remoteSyncStatus: 'synced', isPaused: true },
+        } });
+        return { status: 'cancelled', queue: updatedQueue };
       });
     },
 

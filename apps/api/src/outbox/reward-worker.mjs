@@ -1,3 +1,5 @@
+import { matchesManagedRewardState } from '../twitch/reward-state.mjs';
+
 const maxRetryMs = 60 * 60 * 1000;
 
 function httpStatus(error) {
@@ -74,21 +76,6 @@ function safeError(error, fallback) {
 function isPermanentFailure(error) {
   const status = httpStatus(error);
   return Number.isInteger(status) && status >= 400 && status < 500 && status !== 429;
-}
-
-function matchesManagedRewardState(reward, queue) {
-  return reward?.id === queue.rewardId
-    && reward.title === queue.title
-    && reward.cost === queue.cost
-    && (reward.prompt ?? '') === (queue.rewardPrompt ?? '')
-    && reward.userInputRequired === (queue.uidMode === 'visible')
-    && (reward.maxRedemptionsPerStream ?? null) === (queue.maxRedemptionsPerStream ?? null)
-    && (reward.maxRedemptionsPerUserPerStream ?? null) === (queue.maxRedemptionsPerUserPerStream ?? null)
-    && (reward.globalCooldown ?? null) === (queue.globalCooldownSeconds ?? null)
-    && reward.autoFulfill === false
-    && reward.shouldRedemptionsSkipRequestQueue === false
-    && reward.isEnabled === true
-    && typeof reward.isPaused === 'boolean';
 }
 
 function matchesRewardConfiguration(reward, configuration, rewardId) {

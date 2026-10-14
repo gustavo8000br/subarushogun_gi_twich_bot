@@ -2,6 +2,12 @@
 
 [Todos os changelogs públicos](CHANGELOG.md) · [English](../../CHANGELOG-beta.md)
 
+## v0.2.0-beta
+
+- Streamers podem cancelar a exclusão pendente de uma fila vinculada a reward depois que o app verifica que a reward exata, gerenciada pela Twitch, ainda existe e está pausada. A fila e o histórico financeiro permanecem recuperáveis, e uma exclusão posterior retoma com segurança a mesma intenção.
+- A página de operações agora distingue a sincronização com a Twitch da devolução de Pontos do Canal aos espectadores e da confirmação de resgates.
+- A confirmação de exclusão local fica bloqueada enquanto o cancelamento estiver verificando a reward, preservando uma forma segura de retomar a operação.
+
 ## v0.1.2-beta
 
 - Ao excluir uma fila vinculada a reward após concluir um atendimento, a conclusão pendente na Twitch agora é preservada e a exclusão da reward aguarda a confirmação.

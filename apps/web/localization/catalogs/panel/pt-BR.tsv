@@ -8,7 +8,7 @@ panel.navigation.label	Navegação principal
 panel.navigation.overview	Visão geral
 panel.navigation.queues	Filas e atendimentos
 panel.navigation.new_queue	Nova fila
-panel.navigation.operations	Operações financeiras
+panel.navigation.operations	Sincronização com a Twitch e devolução de pontos
 panel.navigation.commands	Comandos do chat
 panel.navigation.widgets	Widgets do OBS
 panel.navigation.settings	Configurações
@@ -64,8 +64,8 @@ panel.new_queue.eyebrow	CONFIGURE SUA LIVE
 panel.new_queue.title	Nova fila
 panel.new_queue.description	Escolha entre uma fila com Pontos do Canal e uma fila local com entradas manuais.
 panel.operations.eyebrow	PONTOS E RECUPERAÇÃO
-panel.operations.title	Operações financeiras
-panel.operations.description	Acompanhe pedidos de reembolso e consumo até a confirmação da Twitch.
+panel.operations.title	Sincronização com a Twitch e devolução de pontos
+panel.operations.description	Acompanhe separadamente a comunicação com a Twitch e a devolução de Pontos do Canal aos espectadores, além da confirmação de resgates.
 panel.commands.eyebrow	CHAT DA LIVE
 panel.commands.title	Comandos disponíveis
 panel.commands.description	Defina um nível mínimo da audiência. Cargos superiores herdam acesso; comandos fixos de gestão ficam bloqueados.
@@ -195,8 +195,9 @@ panel.queue.empty_group	Ninguém no momento
 panel.queue.status.open	ABERTA
 panel.queue.status.closed	FECHADA
 panel.queue.status.pending_delete	Exclusão pendente: aguardando confirmação dos cancelamentos e da recompensa.
-panel.queue.status.pending_local_delete	Exclusão local pendente: aguardando confirmação de todos os resgates conhecidos e operações financeiras relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward pausada será preservada.
+panel.queue.status.pending_local_delete	Exclusão local pendente: aguardando confirmação de todos os resgates conhecidos, da comunicação com a Twitch e das devoluções de pontos relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward pausada será preservada.
 panel.queue.action.delete	Excluir fila
+panel.queue.action.cancel_delete	Cancelar exclusão
 panel.queue.action.retry_local_delete	Verificar andamento da exclusão
 panel.queue.action.configure	Configurar
 panel.queue.action.edit_reward	Editar recompensa
@@ -363,12 +364,12 @@ panel.commands.unavailable	O catálogo de comandos ainda não está disponível.
 panel.command.roles_for	Cargos que podem usar
 panel.settings.current_default	Padrão atual
 panel.operations.empty	Nenhuma operação pendente.
-panel.operations.empty_hint	Pedidos de reembolso e consumo aparecem aqui até a Twitch confirmar ou indicar um conflito. Um resultado desconhecido continua disponível para revisão.
-panel.operation.type.refund	REEMBOLSO
-panel.operation.type.fulfillment	CONSUMO
-panel.operation.type.reward_update	ATUALIZAÇÃO DE RECOMPENSA
-panel.operation.type.queue_delete	EXCLUSÃO DE FILA
-panel.operation.type.other	OPERAÇÃO
+panel.operations.empty_hint	Solicitações de sincronização com a Twitch, devoluções de pontos e confirmações de resgate aparecem aqui até cada resultado ser confirmado ou precisar de revisão.
+panel.operation.type.refund	DEVOLUÇÃO DE PONTOS
+panel.operation.type.fulfillment	CONFIRMAÇÃO DE RESGATE
+panel.operation.type.reward_update	SINCRONIZAÇÃO DE RECOMPENSA
+panel.operation.type.queue_delete	EXCLUSÃO DE RECOMPENSA TWITCH
+panel.operation.type.other	OPERAÇÃO TWITCH
 panel.operation.status.pending	Pendente
 panel.operation.status.retry	Nova tentativa agendada
 panel.operation.status.processing	Em andamento
@@ -378,12 +379,15 @@ panel.operation.status.failed	Falha · requer revisão
 panel.operation.status.confirmed	Confirmada pela Twitch
 panel.operation.status.resolved_manual	Resolvida manualmente · Twitch não confirmou
 panel.operation.status.cancelled	Cancelada
+panel.operation.status.cancel_verification	Verificando se a exclusão pode ser cancelada
 panel.operation.attempts.one	{count} tentativa
 panel.operation.attempts.many	{count} tentativas
 panel.operation.attempts.other	{count} tentativas
 panel.operation.action.resolve	Registrar resolução manual
 panel.operation.action.retry	Reconciliar / tentar novamente
+panel.operation.action.continue_delete	Continuar exclusão
 panel.operation.confirm.resolve	O estado dos pontos não pôde ser confirmado pela Twitch. Registrar que você revisou e encerrou o acompanhamento automático? Isso não confirma reembolso nem consumo e não haverá novas tentativas automáticas.
+panel.operation.confirm.continue_delete	Tentar continuar a exclusão desta fila e da reward Twitch? O app verificará novamente os resgates pendentes, a comunicação com a Twitch e as devoluções de pontos. Se o estado da reward e todas as devoluções necessárias forem confirmados, ela poderá ser excluída sem possibilidade de restauração. Escolha Cancelar exclusão na fila para mantê-la para depois.
 panel.reconciliation.running	Sincronização em andamento…
 panel.reconciliation.complete.one	Sincronização concluída. {count} resgate importado.
 panel.reconciliation.complete.many	Sincronização concluída. {count} resgates importados.
@@ -416,10 +420,16 @@ panel.queue.archive_local.unavailable	A fila não pode mais ser excluída localm
 panel.queue.confirm.unarchive	Mostrar esta fila para viewers? Ela continuará pausada até você ativá-la.
 panel.queue.unarchive.done	Fila mostrada para viewers e continua pausada até você ativá-la.
 panel.queue.confirm.delete	Excluir a fila “{title}” e sua recompensa Twitch? {count} entradas ativas serão removidas e seus resgates terão cancelamento solicitado. A recompensa só será excluída depois da confirmação de todos os cancelamentos. A operação pode ficar pendente se a Twitch não confirmar.
+panel.queue.confirm.cancel_delete	Cancelar a exclusão de “{title}” e manter a fila para depois? O app verificará se a reward exata da Twitch ainda existe e está pausada. A fila continuará fechada e oculta dos espectadores. Os registros de resgate e os pedidos de devolução de pontos existentes continuarão sem alteração. Se a Twitch não confirmar o estado da reward, a exclusão continuará pendente.
+panel.queue.delete.cancelled	Exclusão cancelada. A reward foi confirmada como existente e pausada; a fila continua fechada e oculta. Os registros de resgate e os pedidos de devolução de pontos foram preservados. Você pode solicitar a exclusão novamente depois.
+panel.queue.delete.cancel.already_deleted	A Twitch já confirmou que a reward foi excluída. Não é possível restaurar a fila cancelando esta operação.
+panel.queue.delete.cancel.reward_absent	O cancelamento não foi confirmado porque a Twitch não encontrou mais esta reward. A fila continua em recuperação de exclusão.
+panel.queue.delete.cancel.reward_diverged	O cancelamento não foi confirmado porque a reward da Twitch não corresponde à configuração pausada da fila. A fila continua em recuperação de exclusão.
+panel.queue.delete.cancel.unverified	A Twitch não conseguiu confirmar o estado da reward, então a exclusão não foi cancelada. A fila continua em recuperação; tente cancelar novamente depois.
 panel.queue.confirm.delete_local	Excluir a fila local “{title}”? {count} entradas ativas serão removidas. Não há reward ou resgate Twitch vinculado a esta fila.
-panel.queue.confirm.delete_converted	Excluir a fila manual “{title}”? {count} entradas ativas serão removidas. A exclusão ficará pendente até a confirmação de todos os resgates conhecidos e operações financeiras relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá pausada e intacta.
-panel.queue.confirm.retry_delete_converted	Verifique se todos os resgates conhecidos pendentes e as operações financeiras relacionadas foram confirmados. Se sim, a fila local será excluída. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá pausada e intacta.
-panel.queue.delete.pending	Exclusão local iniciada. A fila ficará pendente até a confirmação de todos os resgates conhecidos e operações financeiras relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá intacta.
+panel.queue.confirm.delete_converted	Excluir a fila manual “{title}”? {count} entradas ativas serão removidas. A exclusão ficará pendente até a confirmação de todos os resgates conhecidos, das solicitações de sincronização com a Twitch e das devoluções de pontos relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá pausada e intacta.
+panel.queue.confirm.retry_delete_converted	Verifique se todos os resgates conhecidos pendentes e as solicitações de sincronização com a Twitch e as devoluções de pontos relacionadas foram confirmados. Se sim, a fila local será excluída. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá pausada e intacta.
+panel.queue.delete.pending	Exclusão local iniciada. A fila ficará pendente até a confirmação de todos os resgates conhecidos, das solicitações de sincronização com a Twitch e das devoluções de pontos relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá intacta.
 panel.queue.delete.done	Fila excluída. O histórico dos resgates foi preservado e a reward Twitch continua pausada.
 panel.reward.no_candidates	A consulta funcionou, mas nenhuma recompensa gerenciável por este app, pausada e com todos os dados compatíveis foi localizada. Sem confirmar a propriedade, ações remotas como excluir ficam bloqueadas. Confira as diferenças abaixo e atualize a lista.
 panel.queue.clear.empty	A fila já está vazia.
@@ -548,8 +558,8 @@ panel.queue.mode.manual	Fila local · entrada manual gratuita
 panel.queue.sync.local	fila local
 panel.queue.action.manual_mode	Usar fila local
 panel.queue.action.manual_mode_retry	Repetir solicitação segura de pausa
-panel.queue.confirm.manual_mode	A recompensa será pausada na Twitch; os resgates existentes e suas operações financeiras serão preservados. A fila só muda para manual após a confirmação da Twitch. Continuar?
-panel.queue.confirm.manual_mode_retry	Repetir a solicitação segura para pausar esta reward Twitch? A fila continua vinculada à reward até a Twitch confirmar a pausa; os resgates e as operações financeiras existentes serão preservados.
+panel.queue.confirm.manual_mode	A recompensa será pausada na Twitch; os registros de resgate e os pedidos de devolução de pontos existentes serão preservados. A fila só muda para manual após a confirmação da Twitch. Continuar?
+panel.queue.confirm.manual_mode_retry	Repetir a solicitação segura para pausar esta reward Twitch? A fila continua vinculada à reward até a Twitch confirmar a pausa; os registros de resgate e os pedidos de devolução de pontos existentes serão preservados.
 panel.queue.mode_transition.pending	Pausa Twitch pendente; resgates durante a troca serão cancelados.
 panel.queue.mode_transition.unknown	A Twitch ainda não confirmou a pausa. Reconecte e tente novamente; o modo local só começa após a confirmação.
 panel.queue.mode_transition.failed	A Twitch não confirmou a pausa. Revise a conexão e tente novamente; a fila continua vinculada à reward até a confirmação.
@@ -564,6 +574,6 @@ panel.entry.call.expired	Prazo encerrado; aguardando atualização do atendiment
 panel.confirmation.title	Confirmar ação
 panel.confirmation.cancel	Cancelar
 panel.confirmation.accept	OK
-panel.queue.status.pending_local_delete_diverged	A exclusão local está pausada porque o estado da reward Twitch precisa ser verificado. Resgates e operações financeiras relacionadas continuam em recuperação; resgates posteriores da Twitch serão detectados e registrados para cancelamento. Este app não alterará a reward Twitch.
-panel.queue.confirm.retry_delete_converted_diverged	Verifique o andamento da exclusão. A fila continuará pendente até a Twitch confirmar que a reward histórica está pausada e todos os resgates atualmente conhecidos e operações financeiras relacionadas forem resolvidos. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. Esta ação não alterará a reward Twitch.
+panel.queue.status.pending_local_delete_diverged	A exclusão local está pausada porque o estado da reward Twitch precisa ser verificado. Resgates, comunicação com a Twitch e devoluções de pontos relacionadas continuam em recuperação; resgates posteriores da Twitch serão detectados e registrados para cancelamento. Este app não alterará a reward Twitch.
+panel.queue.confirm.retry_delete_converted_diverged	Verifique o andamento da exclusão. A fila continuará pendente até a Twitch confirmar que a reward histórica está pausada e todos os resgates atualmente conhecidos, as solicitações de sincronização com a Twitch e as devoluções de pontos relacionadas forem resolvidos. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. Esta ação não alterará a reward Twitch.
 panel.queue.status.deletion_complete	A exclusão da fila foi concluída.
