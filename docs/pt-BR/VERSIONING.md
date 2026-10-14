@@ -12,7 +12,7 @@ Toda PR de distribuição recebe sua versão escolhida antes do merge. Registre 
 
 ## Plano atual de release
 
-A versão base atual do produto é `0.13.1`, `.release-stage` é `alpha` e a identidade não materializada do checkout é `v0.13.1-0000000-alpha`. OPS-8, OPS-9 e OPS-10 foram concluídas; o reteste nativo Windows da FND-1, a aceitação completa da FND-9, DOC-2, DOC-3 e outras mudanças priorizadas pelo proprietário continuam no plano pré-release. Não há promoção para beta agendada imediatamente após a FND-9. Mantenha o estágio `alpha` até essas mudanças importantes e seus gates de aceite serem concluídos e o proprietário aprovar explicitamente a prontidão de release. `v1.0.0-HHHHHHH-beta` continua como identidade candidata, sem release agendada; não promova o estágio, altere para `1.0.0`, crie tag nem publique release antes dos gates atualizados.
+O alvo atual de distribuição é a versão base do produto `0.1.1`; `.release-stage` continua em `beta` e a identidade não materializada do checkout é `v0.1.1-0000000-beta`. Este patch registra a correção de recarga do widget de conta atual do OBS da OPS-13. A QA automatizada passou com 10/10 e a mudança foi mesclada, mas o aceite do proprietário em OBS/CEF nativo ainda está pendente: o proprietário precisa instalar a build, regenerar a URL de capacidade do widget e confirmar que o overlay continua após recarregar a fonte do navegador. Mantenha a OPS-13 aberta até confirmar esse teste. A publicação da release beta continua sendo acionada manualmente pelo proprietário; este incremento de versão não cria tag Git nem GitHub Release.
 
 ## Conteúdo das GitHub Releases
 

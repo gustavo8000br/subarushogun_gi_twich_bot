@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createReleaseNotes, getChangelogHeading, getChangelogPaths } from '../../apps/infra/scripts/create-release-notes.mjs';
 
 describe('release notes from bilingual public changelogs', () => {
-  it('ties the owner-selected first beta identity to both public changelog sections', async () => {
+  it('ties the current beta target to the first bilingual changelog section', async () => {
     const [packageJson, stage, version, english, portuguese] = await Promise.all([
       readFile(new URL('../../package.json', import.meta.url), 'utf8').then(JSON.parse),
       readFile(new URL('../../.release-stage', import.meta.url), 'utf8'),
@@ -12,11 +12,17 @@ describe('release notes from bilingual public changelogs', () => {
       readFile(new URL('../../docs/pt-BR/CHANGELOG-beta.md', import.meta.url), 'utf8'),
     ]);
 
-    expect(packageJson.version).toBe('0.1.0');
+    expect(packageJson.version).toBe('0.1.1');
     expect(stage.trim()).toBe('beta');
-    expect(version.trim()).toBe('v0.1.0-0000000-beta');
+    expect(version.trim()).toBe('v0.1.1-0000000-beta');
+    expect(english).toContain('## v0.1.1-beta');
+    expect(portuguese).toContain('## v0.1.1-beta');
+    expect(english.indexOf('## v0.1.1-beta')).toBeLessThan(english.indexOf('## v0.1.0-beta'));
+    expect(portuguese.indexOf('## v0.1.1-beta')).toBeLessThan(portuguese.indexOf('## v0.1.0-beta'));
     expect(english).toContain('## v0.1.0-beta');
     expect(portuguese).toContain('## v0.1.0-beta');
+    expect(english.split('## v0.1.0-beta')[1]).not.toContain('OBS browser sources retain their active widget capability');
+    expect(portuguese.split('## v0.1.0-beta')[1]).not.toContain('Fontes de navegador do OBS mantêm a capacidade ativa do widget');
     expect(english).not.toMatch(/anonymous|authentication|login/i);
     expect(portuguese).not.toMatch(/anônim|autenticaç|login/i);
   });
