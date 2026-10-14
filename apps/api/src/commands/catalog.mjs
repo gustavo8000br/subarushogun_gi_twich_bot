@@ -11,6 +11,7 @@ export const CHAT_COMMANDS = [
   { key: 'queue:comandos', scope: 'queue', command: 'comandos', syntax: '!<fila> comandos', description: 'Ver comandos disponíveis para seu cargo.', access: configurable() },
   { key: 'queue:posicao', scope: 'queue', command: 'posicao', syntax: '!<fila> posicao', description: 'Consultar sua posição ou estado na fila.', access: configurable() },
   { key: 'queue:sair', scope: 'queue', command: 'sair', syntax: '!<fila> sair', description: 'Sair da própria entrada ativa.', access: configurable() },
+  { key: 'queue:presente', scope: 'queue', command: 'presente', syntax: '!<fila> presente', description: 'Confirmar presença depois de ser chamado.', access: fixed('everyone') },
   { key: 'queue:add', scope: 'queue', command: 'add', syntax: '!<fila> add <usuario> [UID]', description: 'Adicionar manualmente uma pessoa.', access: fixed('moderator') },
   { key: 'queue:remover', scope: 'queue', command: 'remover', syntax: '!<fila> remover <usuario>', description: 'Remover uma pessoa da fila.', access: fixed('moderator') },
   { key: 'queue:proximo', scope: 'queue', command: 'proximo', syntax: '!<fila> proximo [1-10]', description: 'Chamar as próximas pessoas.', access: fixed('moderator') },

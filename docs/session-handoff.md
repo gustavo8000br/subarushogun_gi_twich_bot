@@ -1,18 +1,23 @@
-# Development Handoff — 2026-10-11
+# Development Handoff — 2026-10-14
 
 [Português brasileiro](pt-BR/session-handoff.md)
 
 ## Current workspace
 
 - Repository/worktree: `/workspaces/subarushogun_gi_twich_bot`
-- Current documentation branch: `docs/close-fnd1-windows-acceptance`; after its PR merges, continue on `main`. Preserve the pre-existing `.aiox/project-status.yaml` modification.
+- Current implementation branch: `fix/issue-57-queue-regressions`. Preserve the pre-existing `.aiox/project-status.yaml` modification.
 - Preserve the existing uncommitted work in this checkout; do not reset or discard it.
 
 ## Current objective
 
-Complete owner-side authorized live Twitch acceptance of the FND-9 implementation already merged to `main`. FND-1 is now closed after the owner confirmed the Windows beta installer works. No FND-9 implementation task remains; issue #19 stays open until the owner records the real-operation evidence.
+OPS-11 / issue #57 implementation and independent QA gate are complete. AC 1–6 have bilingual evidence; QA PASS is 10/10. No merge, issue closure, or external repository operation was performed in this QA task. The FND-9 owner-side acceptance gates below are separate and remain open.
 
 ## Latest increment
+- Panel follow-up: removed the normal Hide/Archive control and obsolete archive copy from the three panel catalogs. Legacy `isArchived` queues have a Show-to-viewers recovery control that leaves the queue paused; Delete and Configure remain separate controls. Uncertain remote-sync deletion remains a distinct two-confirmation “Delete from panel anyway” action.
+
+- OPS-11 is Done after independent QA PASS **10/10**. Chromium 156 Headless runtime passed 13/13 keyboard and computed accessibility-tree checks covering both confirmation steps; post-fix lint, typecheck, and 80 focused tests passed. The complete suite passed 106 files / 960 tests; static review had 0 findings; localization, version, port-denylist, and diff checks passed. Natural `EXPLAIN (ANALYZE, BUFFERS)` on migrated disposable PostgreSQL with 45,000 synthetic queues and 5,000 reward tombstones selected `queues_pkey`; no partial-index widening was justified. Independent scores: QA **10/10**, Architecture **9/10** (no blocking finding), UX **10/10** for the scoped dialog review. No real screen-reader session or live Twitch financial operation is claimed. QA gate: `docs/qa/gates/OPS-11-queue-regressions.yml`.
+- The new local panel deletion keeps exact `remoteSyncStatus`, including `pending_*`; deleted queues are excluded from the active panel projection and confirmation copy labels remote state as historical/unverified. Repeated confirmed absence is idempotent. Terminal confirmed redemptions with stale `expectedStatus` are excluded from unresolved lookups, and duplicate status fetches are suppressed.
+- No PR, merge, issue update, or live Twitch financial operation was performed. `.aiox/project-status.yaml` is clean now; an earlier AIOX greeting had overwritten a pre-existing local edit whose original contents were not captured, so its recovery cannot be verified. Do not run greeting/status scripts or edit that file.
 
 - Latest independent @qa score is **10/10 for the technical implementation**; @architect is **10/10**, and UX's scoped static review is **10/10**. QA confirmed the absolute 100 ms assertion is gone, the normal PostgreSQL planner uses the partial index, and no technical implementation blocker remains. The user authorized PR/merge only after full implementation and QA 10/10; those conditions are met for the code. Do not mark FND-9 Done or close issue #19: the owner confirmed the beta installer works on Windows; native Windows FND-9 behavior and live Twitch financial acceptance remain pending.
 - The dangling `aria-describedby` reference during queue deletion now points to the visible pending status; contract coverage checks the target.
@@ -33,6 +38,8 @@ Complete owner-side authorized live Twitch acceptance of the FND-9 implementatio
 - Dara identified a D-4 mismatch in converted-queue deletion. The implementation now makes it local-only, preserves the paused historical reward, and waits on durable redemption blockers before finalization. Focused PostgreSQL and panel tests pass; more blocker/race/restart coverage and full quality gates remain.
 - Independent @qa found that a pending converted local deletion had no recovery control after financial cancellations completed. The panel now exposes a localized, safe retry action for that state; it calls the existing idempotent endpoint and preserves the paused historical reward. Focused assertions are added; full gates and review remain.
 - No Twitch live financial operation was performed in this increment.
+- Worktree bootstrap: product and AIOX dependencies are installed separately per worktree. Before activating AIOX in any new worktree, run `npm ci`, `npm ci --prefix .aiox-core`, `npm run sync:skills:codex`, and `npm run sync:ide:check`. Current AIOX Core version: **5.4.1**. This session completed both installs and refreshed Codex skill projections (12 skills); IDE sync validates 109/109 files. npm reported 3 high-severity findings in AIOX Core dependencies; do not upgrade them without a scoped review.
+- Historical pre-implementation issue #57 notes below are superseded by the OPS-11 Done record above. The bilingual story and QA gate artifact are the current acceptance/evidence sources.
 
 ## Remaining FND-9 gates
 

@@ -28,9 +28,12 @@ export function projectCommandCatalog(input) {
 
 export function collectCommandPolicies(commands, cards) {
   const policies = {};
+  const commandCards = cards.flatMap((candidate) => candidate?.dataset?.commandKey
+    ? [candidate]
+    : Array.from(candidate?.querySelectorAll?.('.command-policy-card') ?? []));
   for (const command of commands) {
     if (command.access?.kind !== 'configurable') continue;
-    const card = cards.find((candidate) => candidate.dataset.commandKey === command.key);
+    const card = commandCards.find((candidate) => candidate.dataset.commandKey === command.key);
     const selector = card?.querySelector?.('select[data-policy-select]');
     if (selector?.dataset?.dirty !== 'true' || !command.minimumRoles?.includes(selector.value)) continue;
     policies[command.key] = { minimumRole: selector.value };

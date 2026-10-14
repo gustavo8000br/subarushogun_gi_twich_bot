@@ -3,7 +3,6 @@ export const PANEL_PLACEHOLDERS = Object.freeze({
   'panel.queue.confirm.delete': ['title', 'count'], 'panel.queue.confirm.delete_local': ['title', 'count'],
   'panel.queue.confirm.delete_converted': ['title', 'count'],
   'panel.queue.confirm.retry_delete_converted': [],
-  'panel.queue.confirm.archive_converted': [],
   'panel.queue.clear.confirm': ['title', 'count', 'refunds'],
   'panel.queue.clear.changed': ['count'], 'panel.queue.clear.done': ['count', 'refunds'],
   'panel.widget.card_details': ['queue', 'width', 'height', 'id'],

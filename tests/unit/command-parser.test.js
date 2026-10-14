@@ -17,6 +17,7 @@ describe('pure pt-BR chat command parser', () => {
   it.each([
     ['!abismo posicao', 'posicao'],
     ['!abismo posição', 'posicao'],
+    ['!abismo presente', 'presente'],
     ['!abismo proximo', 'proximo'],
     ['!abismo próximo', 'proximo'],
     ['!abismo atender @user', 'atender'],
@@ -25,6 +26,14 @@ describe('pure pt-BR chat command parser', () => {
     ['!abismo add @login 123456789', 'add'],
   ])('normalizes supported command syntax: %s', (text, command) => {
     expect(parseChatCommand(text)).toMatchObject({ kind: 'command', command });
+  });
+
+  it.each([
+    ['!abismo present', 'en'],
+    ['!abismo presente', 'es'],
+  ])('parses the localized presence response command: %s', (text, locale) => {
+    expect(parseChatCommand(text, { locale, labels: { 'queue.presente': locale === 'en' ? 'present' : 'presente' } }))
+      .toMatchObject({ kind: 'command', scope: 'queue', command: 'presente', queueKey: 'abismo', args: [] });
   });
 
   it('parses queue command discovery separately from queue execution commands', () => {

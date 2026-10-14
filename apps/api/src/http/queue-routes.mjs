@@ -626,6 +626,51 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.archive', error, message: 'Não foi possível arquivar a fila neste estado. Verifique a sincronização da recompensa.' });
     }
   });
+  app.post('/api/queues/:queueId/archive-local/challenge', async (request, reply) => {
+    /** @type {any} */
+    const localRequest = request;
+    /** @type {{ expectedVersion?: number }} */
+    const body = request.body && typeof request.body === 'object' ? request.body : {};
+    if (!Number.isInteger(body.expectedVersion) || body.expectedVersion < 1) return reply.code(400).send({ code: 'INVALID_LOCAL_ARCHIVE_CHALLENGE', error: 'A confirmação local está inválida. Atualize o painel e tente novamente.' });
+    try {
+      const result = await repository.beginLocalQueueArchive({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, expectedVersion: body.expectedVersion });
+      return reply.code(200).send(result);
+    } catch (error) {
+      const code = error?.code;
+      if (['QUEUE_NOT_FOUND', 'QUEUE_REWARD_UNRESOLVED', 'QUEUE_LOCAL_ARCHIVE_UNAVAILABLE', 'STALE_QUEUE_VERSION'].includes(code)) {
+        return reply.code(code === 'QUEUE_NOT_FOUND' ? 404 : 409).send({ code, error: code === 'QUEUE_REWARD_UNRESOLVED'
+          ? 'A recompensa ainda está sendo identificada. Resolva a sincronização antes de arquivar.'
+          : 'A fila mudou ou não está disponível para arquivamento local. Atualize o painel e tente novamente.' });
+      }
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.archive_local_challenge', error, message: 'Não foi possível iniciar o arquivamento local.' });
+    }
+  });
+  app.post('/api/queues/:queueId/archive-local/confirm', async (request, reply) => {
+    /** @type {any} */
+    const localRequest = request;
+    /** @type {{ challengeId?: string, expectedVersion?: number, remoteSyncStatus?: string }} */
+    const body = request.body && typeof request.body === 'object' ? request.body : {};
+    if (typeof body.challengeId !== 'string' || !Number.isInteger(body.expectedVersion) || body.expectedVersion < 1 || typeof body.remoteSyncStatus !== 'string') {
+      return reply.code(400).send({ code: 'INVALID_LOCAL_ARCHIVE_CHALLENGE', error: 'A confirmação local está inválida. Recomece as duas confirmações.' });
+    }
+    try {
+      const result = await repository.confirmLocalQueueArchive({
+        queueId: localRequest.params.queueId, actorId: localRequest.localSession.id,
+        challengeId: body.challengeId, expectedVersion: body.expectedVersion, remoteSyncStatus: body.remoteSyncStatus,
+      });
+      return reply.send({ status: result.status, queue: queueDto(result.queue, { operator: true }) });
+    } catch (error) {
+      const code = error?.code;
+      const conflictCodes = ['QUEUE_NOT_FOUND', 'QUEUE_REWARD_UNRESOLVED', 'QUEUE_LOCAL_ARCHIVE_UNAVAILABLE', 'STALE_QUEUE_VERSION', 'LOCAL_ARCHIVE_CHALLENGE_EXPIRED', 'QUEUE_REWARD_OPERATION_PROCESSING'];
+      if (conflictCodes.includes(code)) return reply.code(code === 'QUEUE_NOT_FOUND' ? 404 : 409).send({ code, error: code === 'QUEUE_REWARD_OPERATION_PROCESSING'
+        ? 'Uma operação da recompensa ainda está em processamento. Aguarde e tente novamente.'
+        : code === 'QUEUE_REWARD_UNRESOLVED'
+          ? 'A recompensa ainda está sendo identificada. Resolva a sincronização antes de arquivar.'
+          : 'A fila ou a confirmação mudou/expirou. Atualize o painel e reinicie as duas confirmações.' });
+      if (code === 'INVALID_LOCAL_ARCHIVE_CHALLENGE') return reply.code(400).send({ code, error: 'A confirmação local está inválida. Recomece as duas confirmações.' });
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.archive_local_confirm', error, message: 'Não foi possível concluir o arquivamento local.' });
+    }
+  });
   app.post('/api/queues/:queueId/unarchive', async (request, reply) => {
     /** @type {any} */
     const localRequest = request;

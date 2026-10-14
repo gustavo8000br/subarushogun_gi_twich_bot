@@ -2,27 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { getQueueConfirmationCopy } from '../../apps/web/queue-confirmation-copy.mjs';
 
 describe('queue confirmation copy', () => {
-  it('uses local-only wording for a queue that has never had a Twitch reward', () => {
-    const queue = { queueMode: 'manual_only', rewardOrigin: 'none', rewardId: null };
-    expect(getQueueConfirmationCopy(queue, 'archive')).toBe('panel.queue.confirm.archive_local');
-    expect(getQueueConfirmationCopy(queue, 'delete')).toBe('panel.queue.confirm.delete_local');
-  });
-
-  it('keeps remote deletion wording only for reward-backed queues', () => {
-    expect(getQueueConfirmationCopy({ queueMode: 'channel_points', rewardId: 'reward-1' }, 'archive')).toBe('panel.queue.confirm.archive');
-    expect(getQueueConfirmationCopy({ queueMode: 'manual_only', rewardOrigin: 'bot_created', rewardId: 'reward-1', remoteSyncStatus: 'local_only' }, 'delete')).toBe('panel.queue.confirm.delete_converted');
-    expect(getQueueConfirmationCopy({ queueMode: 'manual_only', rewardOrigin: 'bot_created', rewardId: 'reward-1', remoteSyncStatus: 'local_only', lifecycleStatus: 'deleting' }, 'delete')).toBe('panel.queue.confirm.retry_delete_converted');
-    expect(getQueueConfirmationCopy({ queueMode: 'manual_only', rewardOrigin: 'bot_created', rewardId: 'reward-1', remoteSyncStatus: 'diverged', lifecycleStatus: 'deleting' }, 'delete')).toBe('panel.queue.confirm.retry_delete_converted_diverged');
-    expect(getQueueConfirmationCopy({ queueMode: 'channel_points', rewardOrigin: 'bot_created', rewardId: 'reward-1' }, 'delete')).toBe('panel.queue.confirm.delete');
-    expect(getQueueConfirmationCopy({ queueMode: 'manual_only', rewardOrigin: 'dashboard_existing', rewardId: 'reward-2' }, 'archive')).toBe('panel.queue.confirm.archive');
-  });
-
-  it('uses the established wording when queue history is incomplete', () => {
-    expect(getQueueConfirmationCopy(undefined, 'archive')).toBe('panel.queue.confirm.archive');
-    expect(getQueueConfirmationCopy({ queueMode: 'manual_only', rewardOrigin: 'none', rewardId: 'unexpected-id' }, 'delete')).toBe('panel.queue.confirm.delete');
-  });
-
   it('keeps unarchive wording independent of reward history', () => {
     expect(getQueueConfirmationCopy({ queueMode: 'manual_only', rewardOrigin: 'none', rewardId: null }, 'unarchive')).toBe('panel.queue.confirm.unarchive');
+  });
+
+  it('uses two distinct confirmations for local-only recovery', () => {
+    expect(getQueueConfirmationCopy({}, 'archive-local-first')).toBe('panel.queue.confirm.archive_local_uncertain_first');
+    expect(getQueueConfirmationCopy({}, 'archive-local-final')).toBe('panel.queue.confirm.archive_local_uncertain_final');
+  });
+
+  it('provides distinct localized accept labels and retry feedback for local-only recovery', () => {
+    expect(getQueueConfirmationCopy({}, 'archive-local-first-accept')).toBe('panel.queue.action.archive_local_review');
+    expect(getQueueConfirmationCopy({}, 'archive-local-final-accept')).toBe('panel.queue.action.archive_local_anyway');
+    expect(getQueueConfirmationCopy({}, 'archive-local-processing')).toBe('panel.queue.archive_local.processing');
+    expect(getQueueConfirmationCopy({}, 'archive-local-expired')).toBe('panel.queue.archive_local.expired');
+    expect(getQueueConfirmationCopy({}, 'archive-local-stale')).toBe('panel.queue.archive_local.stale');
+    expect(getQueueConfirmationCopy({}, 'archive-local-unavailable')).toBe('panel.queue.archive_local.unavailable');
   });
 });

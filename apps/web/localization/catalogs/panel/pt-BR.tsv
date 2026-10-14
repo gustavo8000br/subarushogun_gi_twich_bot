@@ -200,7 +200,7 @@ panel.queue.action.delete	Excluir fila
 panel.queue.action.retry_local_delete	Verificar andamento da exclusão
 panel.queue.action.configure	Configurar
 panel.queue.action.edit_reward	Editar recompensa
-panel.queue.action.unarchive	Desarquivar
+panel.queue.action.unarchive	Mostrar esta fila para viewers
 panel.queue.action.next	Próximo
 panel.queue.action.clear	Limpar fila
 panel.queue.action.add	Adicionar
@@ -208,7 +208,6 @@ panel.queue.action.open	Abrir
 panel.queue.action.close	Fechar
 panel.queue.action.activate	Ativar fila
 panel.queue.action.pause	Pausar fila
-panel.queue.action.archive	Arquivar
 panel.queue.action.resolve_reward	Vincular recompensa
 panel.queue.action_blocked.reward_unresolved	Os controles estão pausados até vincular e confirmar uma recompensa da Twitch. Use “Vincular recompensa” para continuar.
 panel.queue.action_blocked.reward_creation_pending	Os controles serão liberados quando a Twitch confirmar a criação da recompensa.
@@ -405,13 +404,17 @@ panel.priority.reason_prompt	Selecione o benefício conferido: 1 inscrição, 2 
 panel.priority.invalid_reason	Selecione uma opção de 1 a 4.
 panel.priority.marked	Prioridade registrada e auditada. A conferência foi feita pelo operador.
 panel.priority.removed	Prioridade removida.
-panel.queue.confirm.archive	Arquivar esta fila? Ela deixará de aparecer na descoberta, mas as entradas existentes serão preservadas. A recompensa será pausada.
-panel.queue.confirm.archive_local	Arquivar esta fila local? Ela deixará de aparecer na descoberta, mas as entradas existentes serão preservadas.
-panel.queue.confirm.archive_converted	Arquivar esta fila manual convertida? Ela deixará de aparecer na descoberta, as entradas existentes serão preservadas e a reward Twitch permanecerá pausada.
-panel.queue.confirm.unarchive	Desarquivar esta fila? Ela continuará fechada até você abri-la.
-panel.queue.archive.pending	Arquivamento solicitado; aguardando confirmação da Twitch.
-panel.queue.archive.done	Fila arquivada.
-panel.queue.unarchive.done	Fila desarquivada e continua fechada.
+panel.queue.action.archive_local_anyway	Excluir do painel mesmo assim
+panel.queue.action.archive_local_review	Continuar para a confirmação final da exclusão
+panel.queue.confirm.archive_local_uncertain_first	Isto removerá a fila apenas deste aplicativo; não excluirá a recompensa da Twitch. A recompensa ainda pode existir, e as entradas ativas e os registros financeiros serão preservados. O status atual de sincronização da Twitch será mantido como histórico e não verificado; isso não significa que uma operação continue em execução. Continuar para revisar a confirmação final da exclusão?
+panel.queue.confirm.archive_local_uncertain_final	Confirmação final: excluir esta fila do painel mesmo assim? Isto remove apenas a fila local; não exclui a recompensa da Twitch, que ainda pode existir e receber resgates. O histórico da fila e os registros financeiros serão preservados. O status remoto continuará histórico e não verificado, sem indicar que a sincronização ainda está em execução.
+panel.queue.archive_local.done	Fila removida do painel. O status da recompensa Twitch e o histórico foram preservados.
+panel.queue.archive_local.processing	Uma operação da recompensa Twitch ainda está em processamento. Aguarde e tente remover a fila do painel novamente.
+panel.queue.archive_local.expired	A confirmação expirou. Inicie novamente as duas etapas de confirmação da exclusão.
+panel.queue.archive_local.stale	A fila mudou depois que a confirmação começou. Atualize o painel e reinicie as duas etapas da exclusão.
+panel.queue.archive_local.unavailable	A fila não pode mais ser excluída localmente neste estado. Atualize o painel e confira a sincronização.
+panel.queue.confirm.unarchive	Mostrar esta fila para viewers? Ela continuará pausada até você ativá-la.
+panel.queue.unarchive.done	Fila mostrada para viewers e continua pausada até você ativá-la.
 panel.queue.confirm.delete	Excluir a fila “{title}” e sua recompensa Twitch? {count} entradas ativas serão removidas e seus resgates terão cancelamento solicitado. A recompensa só será excluída depois da confirmação de todos os cancelamentos. A operação pode ficar pendente se a Twitch não confirmar.
 panel.queue.confirm.delete_local	Excluir a fila local “{title}”? {count} entradas ativas serão removidas. Não há reward ou resgate Twitch vinculado a esta fila.
 panel.queue.confirm.delete_converted	Excluir a fila manual “{title}”? {count} entradas ativas serão removidas. A exclusão ficará pendente até a confirmação de todos os resgates conhecidos e operações financeiras relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá pausada e intacta.

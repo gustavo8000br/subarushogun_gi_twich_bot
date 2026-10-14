@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -226,6 +226,8 @@ describe('PostgreSQL queue repository', () => {
   it('releases an aborted reconciliation lease without advancing its PostgreSQL cursor', async () => {
     const queueId = '00000000-0000-4000-8000-000000000099';
     await createConvertedTombstone(queueId);
+    const active = await repository.createQueue({ slug: `recon-fail-${randomUUID().slice(0, 7)}`, title: 'Reconciliation fail', cost: 1 });
+    await prisma.queue.update({ where: { id: active.id }, data: { rewardId: `managed-${randomUUID()}`, remoteSyncStatus: 'unknown' } });
     await prisma.setting.upsert({
       where: { key: tombstoneCursorKey },
       create: { key: tombstoneCursorKey, value: { schemaVersion: 1, revision: 0, lastId: '00000000-0000-4000-8000-000000000098', leaseId: null, leaseUntil: null } },
@@ -233,8 +235,8 @@ describe('PostgreSQL queue repository', () => {
     });
     const failingRepository = {
       ...repository,
-      listManagedQueues: async () => [],
-      markQueueRemoteDivergence: async () => { throw new Error('audit database unavailable'); },
+      listManagedQueues: async () => (await repository.listManagedQueues()).filter(({ id }) => id === active.id),
+      markQueueRemoteUnknown: async () => { throw new Error('audit database unavailable'); },
     };
     const failingReconciler = createTwitchReconciler({
       repository: failingRepository,
@@ -271,6 +273,36 @@ describe('PostgreSQL queue repository', () => {
     await prisma.$executeRawUnsafe('DROP INDEX "queues_converted_tombstone_reconcile_idx"');
     expect(await prisma.$queryRaw`SELECT 1 FROM pg_class WHERE relname = 'queues_converted_tombstone_reconcile_idx'`).toHaveLength(0);
     await prisma.$executeRawUnsafe(`CREATE INDEX "queues_converted_tombstone_reconcile_idx" ON "queues" ("id") WHERE "reward_id" IS NOT NULL AND "queue_mode" = 'manual_only' AND "lifecycle_status" = 'deleted'`);
+  });
+
+  it('records the natural planner choice for all-mode tombstone paging on representative disposable data', async () => {
+    const cursor = '80000000-0000-0000-0000-000000000000';
+    const scanSql = `SELECT id FROM queues WHERE reward_id IS NOT NULL AND lifecycle_status = 'deleted' AND id > '${cursor}'::uuid ORDER BY id ASC LIMIT 10`;
+    try {
+      await prisma.$executeRaw`DELETE FROM queues WHERE slug LIKE 'ops11-explain-%'`;
+      await prisma.$executeRaw`
+        INSERT INTO queues (id, slug, title, cost, lifecycle_status, remote_sync_status, reward_id, queue_mode, reward_origin, mode_transition_status, deleted_at, is_archived, is_open)
+        SELECT md5('ops11-explain-' || series)::uuid, 'ops11-explain-' || series, 'Planner evidence', 1,
+          CASE WHEN series <= 5000 THEN 'deleted' ELSE 'active' END,
+          CASE WHEN series <= 5000 THEN 'unknown' ELSE 'synced' END,
+          CASE WHEN series <= 40000 THEN 'ops11-explain-reward-' || series ELSE NULL END,
+          CASE WHEN series <= 5000 AND series % 5 = 0 THEN 'manual_only' ELSE 'channel_points' END,
+          CASE WHEN series <= 5000 AND series % 5 = 0 THEN 'bot_created' ELSE 'legacy_unknown' END,
+          'none', CASE WHEN series <= 5000 THEN CURRENT_TIMESTAMP ELSE NULL END,
+          series <= 5000, false
+        FROM generate_series(1, 45000) AS series
+      `;
+      await prisma.$executeRaw`ANALYZE queues`;
+      const explain = await prisma.$queryRawUnsafe(`EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${scanSql}`);
+      const plan = explain[0]['QUERY PLAN'][0].Plan;
+      const flatten = (plan) => [plan, ...(plan.Plans ?? []).flatMap((child) => flatten(child))];
+      const planNodes = flatten(plan).map(({ 'Node Type': nodeType, 'Index Name': indexName }) => `${nodeType}${indexName ? ` (${indexName})` : ''}`);
+      expect(planNodes.join(' ')).toContain('queues_pkey');
+      expect(plan['Actual Rows']).toBe(10);
+      if (process.env.OPS11_EXPLAIN === '1') process.stdout.write(`${JSON.stringify({ rows: 45000, tombstones: 5000, query: scanSql, plan }, null, 2)}\n`);
+    } finally {
+      await prisma.$executeRaw`DELETE FROM queues WHERE slug LIKE 'ops11-explain-%'`;
+    }
   });
 
   it('deletes a never-rewarded local queue while preserving entry history and requesting no points operation', async () => {
@@ -998,6 +1030,139 @@ describe('PostgreSQL queue repository', () => {
     ]);
   });
 
+  it('acknowledges presence only for the called owner and persists an idempotent marker without advancing the entry', async () => {
+    const queue = await repository.createQueue({ slug: `present-${randomUUID().slice(0, 8)}`, title: 'Presence', cost: 1 });
+    const viewer = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `present-${randomUUID()}`, userLogin: 'present', displayName: 'Present Viewer' });
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: viewer.entry.id, actorId: 'operator' });
+    const deadline = new Date(Date.now() + 60_000);
+    await prisma.entry.update({ where: { id: viewer.entry.id }, data: { callNotifiedAt: new Date(), callDeadlineAt: deadline } });
+
+    await expect(repository.acknowledgeCallPresence({ queueId: queue.id, twitchUserId: 'different-viewer' })).resolves.toMatchObject({ status: 'not_called' });
+    const acknowledged = await repository.acknowledgeCallPresence({ queueId: queue.id, twitchUserId: viewer.entry.twitchUserId });
+    const replayed = await repository.acknowledgeCallPresence({ queueId: queue.id, twitchUserId: viewer.entry.twitchUserId });
+
+    expect(acknowledged).toMatchObject({ status: 'acknowledged', entry: { id: viewer.entry.id, status: 'called', callDeadlineAt: null, callAcknowledgedAt: expect.any(Date) } });
+    expect(replayed).toMatchObject({ status: 'already_acknowledged', entry: { id: viewer.entry.id, status: 'called', callDeadlineAt: null } });
+    expect(await prisma.entry.findUnique({ where: { id: viewer.entry.id } })).toMatchObject({ status: 'called', callAcknowledgedAt: acknowledged.entry.callAcknowledgedAt, callDeadlineAt: null });
+    expect(await prisma.auditLog.count({ where: { entryId: viewer.entry.id, event: 'entry.call_presence_acknowledged' } })).toBe(1);
+
+    const restartedRepository = createQueueRepository(prisma);
+    await expect(restartedRepository.acknowledgeCallPresence({ queueId: queue.id, twitchUserId: viewer.entry.twitchUserId }))
+      .resolves.toMatchObject({ status: 'already_acknowledged', entry: { callAcknowledgedAt: acknowledged.entry.callAcknowledgedAt } });
+  });
+
+  it('does not let a late confirmed call notification recreate a deadline after presence was acknowledged', async () => {
+    const queue = await repository.createQueue({ slug: `present-late-${randomUUID().slice(0, 8)}`, title: 'Presence late', cost: 1 });
+    const viewer = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `present-late-${randomUUID()}`, userLogin: 'late', displayName: 'Late Viewer' });
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: viewer.entry.id, actorId: 'operator' });
+    await repository.acknowledgeCallPresence({ queueId: queue.id, twitchUserId: viewer.entry.twitchUserId });
+
+    await expect(repository.recordCallNotificationResult({ entryId: viewer.entry.id, sent: true, timeoutMin: 10 })).resolves.toBeNull();
+    expect(await prisma.entry.findUnique({ where: { id: viewer.entry.id } })).toMatchObject({ status: 'called', callAcknowledgedAt: expect.any(Date), callDeadlineAt: null, callNotifiedAt: null });
+  });
+
+  it('serializes concurrent presence and late notification results so acknowledgment suppresses the deadline', async () => {
+    const queue = await repository.createQueue({ slug: `presence-notify-${randomUUID().slice(0, 6)}`, title: 'Presence notification race', cost: 1 });
+    const viewer = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `present-notify-${randomUUID()}`, userLogin: 'notify', displayName: 'Notify Viewer' });
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: viewer.entry.id, actorId: 'operator' });
+
+    const [presence] = await Promise.all([
+      repository.acknowledgeCallPresence({ queueId: queue.id, twitchUserId: viewer.entry.twitchUserId }),
+      repository.recordCallNotificationResult({ entryId: viewer.entry.id, sent: true, timeoutMin: 10 }),
+    ]);
+
+    expect(presence.status).toBe('acknowledged');
+    expect(await prisma.entry.findUnique({ where: { id: viewer.entry.id } })).toMatchObject({ status: 'called', callAcknowledgedAt: expect.any(Date), callDeadlineAt: null });
+  });
+
+  it('revalidates an expired timeout candidate after presence wins the queue lock', async () => {
+    const queue = await repository.createQueue({ slug: `present-timeout-${randomUUID().slice(0, 8)}`, title: 'Presence timeout', cost: 1, refundOnNoShow: true });
+    const viewer = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `present-timeout-${randomUUID()}`, userLogin: 'timeout', displayName: 'Timeout Viewer' });
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: viewer.entry.id, actorId: 'operator' });
+    const deadline = new Date(Date.now() - 120_000);
+    await prisma.entry.update({ where: { id: viewer.entry.id }, data: { callNotifiedAt: new Date(deadline.getTime() - 60_000), callDeadlineAt: deadline } });
+    const cutoff = new Date();
+    const staleCandidates = await repository.listExpiredCalledEntries(cutoff);
+    expect(staleCandidates.some(({ id }) => id === viewer.entry.id)).toBe(true);
+
+    await repository.acknowledgeCallPresence({ queueId: queue.id, twitchUserId: viewer.entry.twitchUserId });
+    const timeout = await queueService.transitionEntry({ entryId: viewer.entry.id, to: 'no_show', origin: 'timer', reason: 'call_timeout', deadlineCutoff: cutoff });
+
+    expect(timeout).toBeNull();
+    expect(await repository.listExpiredCalledEntries(cutoff)).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: viewer.entry.id })]));
+    expect(await prisma.entry.findUnique({ where: { id: viewer.entry.id } })).toMatchObject({ status: 'called', callAcknowledgedAt: expect.any(Date), callDeadlineAt: null });
+    expect(await prisma.outbox.count({ where: { entryId: viewer.entry.id, operationType: 'redemption.cancel' } })).toBe(0);
+  });
+
+  it('allows only one persisted outcome when presence competes concurrently with an expired timeout', async () => {
+    const queue = await repository.createQueue({ slug: `presence-race-${randomUUID().slice(0, 8)}`, title: 'Presence timeout race', cost: 1, refundOnNoShow: true });
+    const viewer = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `presence-race-${randomUUID()}`, userLogin: 'race', displayName: 'Race Viewer' });
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: viewer.entry.id, actorId: 'operator' });
+    const deadline = new Date(Date.now() - 120_000);
+    await prisma.entry.update({ where: { id: viewer.entry.id }, data: { callNotifiedAt: new Date(deadline.getTime() - 60_000), callDeadlineAt: deadline } });
+    const cutoff = new Date();
+
+    const [presence, timeout] = await Promise.all([
+      repository.acknowledgeCallPresence({ queueId: queue.id, twitchUserId: viewer.entry.twitchUserId }),
+      queueService.transitionEntry({ entryId: viewer.entry.id, to: 'no_show', origin: 'timer', reason: 'call_timeout', deadlineCutoff: cutoff }),
+    ]);
+    const stored = await prisma.entry.findUnique({ where: { id: viewer.entry.id } });
+
+    if (stored.status === 'called') {
+      expect(presence.status).toBe('acknowledged');
+      expect(timeout).toBeNull();
+      expect(stored).toMatchObject({ callAcknowledgedAt: expect.any(Date), callDeadlineAt: null });
+      expect(await prisma.outbox.count({ where: { entryId: viewer.entry.id, operationType: 'redemption.cancel' } })).toBe(0);
+    } else {
+      expect(stored.status).toBe('no_show');
+      expect(presence.status).toBe('not_called');
+      expect(timeout).toMatchObject({ status: 'no_show' });
+      expect(stored.callAcknowledgedAt).toBeNull();
+      expect(await prisma.auditLog.count({ where: { entryId: viewer.entry.id, event: 'entry.transitioned', nextState: 'no_show' } })).toBe(1);
+    }
+  });
+
+  it('cancels a pending chat call during claim when presence was acknowledged first', async () => {
+    const queue = await repository.createQueue({ slug: `present-outbox-${randomUUID().slice(0, 8)}`, title: 'Presence outbox', cost: 1 });
+    const viewer = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `present-outbox-${randomUUID()}`, userLogin: 'outbox', displayName: 'Outbox Viewer' });
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: viewer.entry.id, actorId: 'operator' });
+    await repository.enqueueCallNotification({ queueId: queue.id, entryId: viewer.entry.id });
+    const task = await prisma.outbox.findUnique({ where: { idempotencyKey: `chat.call:${viewer.entry.id}` } });
+    await prisma.outbox.update({ where: { id: task.id }, data: { nextAttemptAt: new Date(0) } });
+    await repository.acknowledgeCallPresence({ queueId: queue.id, twitchUserId: viewer.entry.twitchUserId });
+
+    const now = new Date();
+    const eligibleBeforeClaim = await prisma.outbox.findMany({
+      where: { operationType: 'chat.call', OR: [
+        { status: { in: ['pending', 'retry'] }, nextAttemptAt: { lte: now } },
+        { status: 'processing', leaseUntil: { lte: now } },
+      ] },
+      orderBy: [{ nextAttemptAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+      select: { id: true, status: true, attempts: true, leaseToken: true, leaseUntil: true },
+    });
+    const claimed = await repository.claimNextChatNotification({ now });
+    expect(claimed?.id).not.toBe(task.id);
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'cancelled', attempts: 0, lastError: 'call_presence_acknowledged' });
+    if (claimed) {
+      const previous = eligibleBeforeClaim.find(({ id }) => id === claimed.id);
+      expect(previous).toBeDefined();
+      await prisma.outbox.update({ where: { id: claimed.id }, data: {
+        status: previous.status, attempts: previous.attempts, leaseToken: previous.leaseToken, leaseUntil: previous.leaseUntil,
+      } });
+    }
+  });
+
+  it('clears prior presence and notification timestamps when an entry is called again', async () => {
+    const queue = await repository.createQueue({ slug: `present-reset-${randomUUID().slice(0, 8)}`, title: 'Presence reset', cost: 1 });
+    const viewer = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `present-reset-${randomUUID()}`, userLogin: 'reset', displayName: 'Reset Viewer' });
+    const oldTimestamp = new Date(Date.now() - 120_000);
+    await prisma.entry.update({ where: { id: viewer.entry.id }, data: { callAcknowledgedAt: oldTimestamp, callNotifiedAt: oldTimestamp, callDeadlineAt: oldTimestamp } });
+
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: viewer.entry.id, actorId: 'operator' });
+
+    expect(await prisma.entry.findUnique({ where: { id: viewer.entry.id } })).toMatchObject({ status: 'called', callAcknowledgedAt: null, callNotifiedAt: null, callDeadlineAt: null });
+  });
+
   it('resolves a viewer entry strictly by Twitch identity and moves only waiting entries', async () => {
     const queue = await repository.createQueue({ slug: `viewer-ops-${randomUUID().slice(0, 8)}`, title: 'Viewer ops', cost: 1 });
     const first = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `v-${randomUUID()}`, userLogin: 'first', displayName: 'First' });
@@ -1048,6 +1213,51 @@ describe('PostgreSQL queue repository', () => {
     await queueService.transitionEntry({ entryId: owner.entry.id, to: 'in_progress', origin: 'panel', actorId: 'operator', reason: 'service_started' });
     await queueService.transitionEntry({ entryId: owner.entry.id, to: 'completed', origin: 'panel', actorId: 'operator', reason: 'service_completed' });
     expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Streamer', source: 'default', ownerEntryId: null });
+  });
+
+  it('switches account and updates the overlay after an individual call when enabled', async () => {
+    await repository.resetCurrentAccount('operator');
+    const queue = await repository.createQueue({ slug: `as-${randomUUID().slice(0, 8)}`, title: 'Account specific', cost: 1, autoSwitchAccount: true });
+    const viewer = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `specific-${randomUUID()}`, userLogin: 'specific', displayName: 'Specific Viewer' });
+
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: viewer.entry.id, actorId: 'operator' });
+
+    expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Specific Viewer', source: 'queue_auto', ownerEntryId: viewer.entry.id });
+    await expect(repository.getOverlaySourceValue({ sourceType: 'account_label' })).resolves.toBe('Specific Viewer');
+    await repository.resetCurrentAccount('operator');
+  });
+
+  it('keeps the current account unchanged after an individual call when auto-switch is disabled', async () => {
+    await repository.resetCurrentAccount('operator');
+    await repository.setCurrentAccount('Manual Account', 'operator');
+    const queue = await repository.createQueue({ slug: `aso-${randomUUID().slice(0, 8)}`, title: 'Account specific off', cost: 1, autoSwitchAccount: false });
+    const viewer = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `specific-off-${randomUUID()}`, userLogin: 'specific_off', displayName: 'Specific Viewer' });
+
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: viewer.entry.id, actorId: 'operator' });
+
+    expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Manual Account', source: 'manual', ownerEntryId: null });
+    await repository.resetCurrentAccount('operator');
+  });
+
+  it('persists changed command policies and returns them with the incremented revision on reload', async () => {
+    const prior = await prisma.setting.findUnique({ where: { key: 'chat_command_policies' } });
+    const current = await repository.getCommandPolicyState();
+    try {
+      const saved = await repository.updateCommandPolicies({
+        expectedVersion: current.version,
+        policies: { 'queue:lista': { minimumRole: 'subscriber' } },
+        actorId: 'policy-regression-test',
+      });
+
+      expect(saved).toMatchObject({ version: current.version + 1, policies: { 'queue:lista': { minimumRole: 'subscriber' } } });
+      await expect(repository.getCommandPolicyState()).resolves.toMatchObject({
+        version: current.version + 1,
+        policies: { 'queue:lista': { minimumRole: 'subscriber' } },
+      });
+    } finally {
+      if (prior) await prisma.setting.upsert({ where: { key: prior.key }, create: prior, update: { value: prior.value } });
+      else await prisma.setting.deleteMany({ where: { key: 'chat_command_policies' } });
+    }
   });
 
   it('does not switch current account for a group call with only one available viewer', async () => {
@@ -1281,6 +1491,276 @@ describe('PostgreSQL queue repository', () => {
     const replacement = await repository.createQueue({ slug, title: 'Replacement', cost: 1 });
     expect(replacement.id).not.toBe(queue.id);
     expect(await prisma.redemption.findUnique({ where: { redemptionId } })).toMatchObject({ queueId: queue.id, remoteStatus: 'CANCELED' });
+  });
+
+  it('archives an uncertain managed reward locally with a one-use challenge and preserves history and finance', async () => {
+    const slug = `archive-uncertain-${randomUUID().slice(0, 6)}`;
+    const queue = await repository.createQueue({ slug, aliases: [`alias-${slug.slice(-6)}`], title: 'Uncertain archive', cost: 2 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'unknown' } });
+    const added = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `viewer-${randomUUID()}`, userLogin: 'archiver', displayName: 'Archiver' });
+    const redemptionId = `archive-redemption-${randomUUID()}`;
+    await prisma.redemption.create({ data: { redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: added.entry.twitchUserId, queueId: queue.id, redeemedAt: new Date(), remoteStatus: 'UNFULFILLED', expectedStatus: 'CANCELED', syncStatus: 'unknown' } });
+    const financeTask = await prisma.outbox.create({ data: { operationType: 'redemption.cancel', entityType: 'redemption', entityId: redemptionId, idempotencyKey: `financial:${redemptionId}`, payload: {}, redemptionId, status: 'unknown' } });
+    const notSentRewardTask = await prisma.outbox.create({ data: { operationType: 'reward.update', entityType: 'queue', entityId: queue.id, idempotencyKey: `archive-safe:${queue.id}`, payload: { requestMayHaveReachedTwitch: false }, status: 'pending' } });
+    const possiblySentRewardTask = await prisma.outbox.create({ data: { operationType: 'reward.set_open', entityType: 'queue', entityId: queue.id, idempotencyKey: `archive-unknown:${queue.id}`, payload: { requestMayHaveReachedTwitch: true }, status: 'retry' } });
+    const expectedVersion = (await prisma.queue.findUnique({ where: { id: queue.id } })).version;
+
+    const challenge = await repository.beginLocalQueueArchive({ queueId: queue.id, actorId: 'operator-local-archive', expectedVersion });
+    expect(challenge).toMatchObject({ status: 'challenge_issued', challengeId: expect.any(String), expectedVersion, remoteSyncStatus: 'unknown' });
+    const storedChallenge = await prisma.processedOperation.findUnique({ where: { operationKey: `queue.local_archive.challenge:${createHash('sha256').update(challenge.challengeId).digest('hex')}` } });
+    expect(JSON.stringify(storedChallenge)).not.toContain(challenge.challengeId);
+    const confirmInput = { queueId: queue.id, actorId: 'operator-local-archive', challengeId: challenge.challengeId, expectedVersion: challenge.expectedVersion, remoteSyncStatus: challenge.remoteSyncStatus };
+    const result = await repository.confirmLocalQueueArchive(confirmInput);
+
+    expect(result).toMatchObject({ status: 'archived', queue: { id: queue.id, slug, rewardId, lifecycleStatus: 'deleted', isArchived: true, isOpen: false, remoteSyncStatus: 'unknown' } });
+    expect(await prisma.queueKey.findMany({ where: { queueId: queue.id }, orderBy: { key: 'asc' } })).toHaveLength(2);
+    expect(await prisma.entry.findUnique({ where: { id: added.entry.id } })).toMatchObject({ status: 'waiting', queueId: queue.id });
+    expect(await prisma.redemption.findUnique({ where: { redemptionId } })).toMatchObject({ queueId: queue.id, expectedStatus: 'CANCELED', syncStatus: 'unknown' });
+    expect(await prisma.outbox.findUnique({ where: { id: financeTask.id } })).toMatchObject({ status: 'unknown' });
+    expect(await prisma.outbox.findUnique({ where: { id: notSentRewardTask.id } })).toMatchObject({ status: 'cancelled', lastError: 'queue_archived_locally' });
+    expect(await prisma.outbox.findUnique({ where: { id: possiblySentRewardTask.id } })).toMatchObject({ status: 'unknown', lastError: 'local_archive_request_outcome_unknown' });
+    expect(await prisma.outbox.count({ where: { entityId: queue.id, operationType: 'reward.delete' } })).toBe(0);
+    expect(await prisma.auditLog.findFirst({ where: { queueId: queue.id, event: 'queue.local_only_archived' } })).toMatchObject({ reason: 'operator_local_archive_after_sync_uncertain', safeDetail: { observedVersion: expectedVersion, remoteSyncStatus: 'unknown' } });
+    await expect(repository.confirmLocalQueueArchive(confirmInput)).resolves.toMatchObject({ status: 'archived', queue: { remoteSyncStatus: 'unknown' } });
+  });
+
+  it('preserves the exact pending remote status when locally archiving a known reward', async () => {
+    const queue = await repository.createQueue({ slug: `pending-arch-${randomUUID().slice(0, 8)}`, title: 'Pending status archive', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'pending_update' } });
+    const rewardTask = await prisma.outbox.create({ data: { operationType: 'reward.update', entityType: 'queue', entityId: queue.id, idempotencyKey: `pending-archive:${queue.id}`, payload: { requestMayHaveReachedTwitch: false }, status: 'pending' } });
+    const version = (await prisma.queue.findUnique({ where: { id: queue.id } })).version;
+    const challenge = await repository.beginLocalQueueArchive({ queueId: queue.id, actorId: 'operator-local-archive', expectedVersion: version });
+
+    const result = await repository.confirmLocalQueueArchive({ queueId: queue.id, actorId: 'operator-local-archive', challengeId: challenge.challengeId, expectedVersion: version, remoteSyncStatus: 'pending_update' });
+
+    expect(result.queue).toMatchObject({ lifecycleStatus: 'deleted', rewardId, remoteSyncStatus: 'pending_update' });
+    expect(await prisma.outbox.findUnique({ where: { id: rewardTask.id } })).toMatchObject({ status: 'cancelled' });
+  });
+
+  it('blocks local archive for a processing reward operation even when its lease expired and does not consume the challenge', async () => {
+    const queue = await repository.createQueue({ slug: `archive-busy-${randomUUID().slice(0, 8)}`, title: 'Archive busy', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_pending' } });
+    const task = await prisma.outbox.create({ data: { operationType: 'reward.delete', entityType: 'queue', entityId: queue.id, idempotencyKey: `archive-processing:${queue.id}`, payload: { requestMayHaveReachedTwitch: true }, status: 'processing', leaseUntil: new Date(Date.now() - 1000), leaseToken: randomUUID() } });
+    const expectedVersion = (await prisma.queue.findUnique({ where: { id: queue.id } })).version;
+    const challenge = await repository.beginLocalQueueArchive({ queueId: queue.id, actorId: 'operator-local-archive', expectedVersion });
+
+    const confirmInput = { queueId: queue.id, actorId: 'operator-local-archive', challengeId: challenge.challengeId, expectedVersion: challenge.expectedVersion, remoteSyncStatus: challenge.remoteSyncStatus };
+    await expect(repository.confirmLocalQueueArchive(confirmInput))
+      .rejects.toMatchObject({ code: 'QUEUE_REWARD_OPERATION_PROCESSING' });
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ lifecycleStatus: 'deleting', remoteSyncStatus: 'delete_pending' });
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'processing' });
+    await prisma.outbox.update({ where: { id: task.id }, data: { status: 'unknown', leaseUntil: null, leaseToken: null } });
+    await expect(repository.confirmLocalQueueArchive(confirmInput)).resolves.toMatchObject({ status: 'archived', queue: { remoteSyncStatus: 'delete_pending' } });
+  });
+
+  it('rejects expired stale challenges and refuses unresolved reward creation without an ID', async () => {
+    const queue = await repository.createQueue({ slug: `archive-stale-${randomUUID().slice(0, 8)}`, title: 'Archive stale', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, remoteSyncStatus: 'failed' } });
+    const challenge = await repository.beginLocalQueueArchive({ queueId: queue.id, actorId: 'operator-local-archive', expectedVersion: queue.version });
+    await prisma.queue.update({ where: { id: queue.id }, data: { title: 'Changed after challenge', version: { increment: 1 } } });
+    await expect(repository.confirmLocalQueueArchive({ queueId: queue.id, actorId: 'operator-local-archive', challengeId: challenge.challengeId, expectedVersion: challenge.expectedVersion, remoteSyncStatus: challenge.remoteSyncStatus })).rejects.toMatchObject({ code: 'STALE_QUEUE_VERSION' });
+
+    const unresolved = await repository.createQueue({ slug: `archive-create-${randomUUID().slice(0, 8)}`, title: 'Unresolved create', cost: 1 });
+    await prisma.queue.update({ where: { id: unresolved.id }, data: { remoteSyncStatus: 'create_unknown' } });
+    await expect(repository.beginLocalQueueArchive({ queueId: unresolved.id, actorId: 'operator-local-archive', expectedVersion: unresolved.version })).rejects.toMatchObject({ code: 'QUEUE_REWARD_UNRESOLVED' });
+  });
+
+  it('serializes local archive against a racing reward-operation claim under the queue lock', async () => {
+    const queue = await repository.createQueue({ slug: `clmr-${randomUUID().slice(0, 8)}`, title: 'Archive claim race', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'unknown' } });
+    const task = await prisma.outbox.create({ data: { operationType: 'reward.update', entityType: 'queue', entityId: queue.id, idempotencyKey: `archive-race-task:${queue.id}`, payload: { requestMayHaveReachedTwitch: false }, status: 'pending' } });
+    const version = (await prisma.queue.findUnique({ where: { id: queue.id } })).version;
+    const challenge = await repository.beginLocalQueueArchive({ queueId: queue.id, actorId: 'operator-local-archive', expectedVersion: version });
+    const input = { queueId: queue.id, actorId: 'operator-local-archive', challengeId: challenge.challengeId, expectedVersion: version, remoteSyncStatus: 'unknown' };
+
+    const [archiveAttempt, claimAttempt] = await Promise.allSettled([
+      repository.confirmLocalQueueArchive(input),
+      repository.claimNextRewardOperation(),
+    ]);
+    const currentQueue = await prisma.queue.findUnique({ where: { id: queue.id } });
+    const currentTask = await prisma.outbox.findUnique({ where: { id: task.id } });
+    if (currentQueue.lifecycleStatus === 'deleted') {
+      expect(archiveAttempt.status).toBe('fulfilled');
+      expect(currentTask.status).toBe('cancelled');
+      expect(claimAttempt.status === 'rejected' || claimAttempt.value === null || claimAttempt.value?.id !== task.id).toBe(true);
+    } else {
+      expect(archiveAttempt.status).toBe('rejected');
+      expect(archiveAttempt.reason).toMatchObject({ code: 'QUEUE_REWARD_OPERATION_PROCESSING' });
+      expect(claimAttempt.status).toBe('fulfilled');
+      expect(claimAttempt.value?.id).toBe(task.id);
+      expect(currentTask.status).toBe('processing');
+    }
+  });
+
+  it('serializes reward completion against archive and rejects the stale challenge', async () => {
+    const queue = await repository.createQueue({ slug: `arcomp-${randomUUID().slice(0, 8)}`, title: 'Archive completion race', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    const leaseToken = randomUUID();
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'pending_update' } });
+    const task = await prisma.outbox.create({ data: { operationType: 'reward.update', entityType: 'queue', entityId: queue.id, idempotencyKey: `archive-completion:${queue.id}`, payload: {}, status: 'processing', leaseToken, leaseUntil: new Date(Date.now() + 30_000) } });
+    const version = (await prisma.queue.findUnique({ where: { id: queue.id } })).version;
+    const challenge = await repository.beginLocalQueueArchive({ queueId: queue.id, actorId: 'operator-local-archive', expectedVersion: version });
+
+    const [completion, archiveAttempt] = await Promise.allSettled([
+      repository.confirmRewardUpdated(task.id, leaseToken),
+      repository.confirmLocalQueueArchive({ queueId: queue.id, actorId: 'operator-local-archive', challengeId: challenge.challengeId, expectedVersion: version, remoteSyncStatus: 'pending_update' }),
+    ]);
+
+    expect(completion).toMatchObject({ status: 'fulfilled', value: true });
+    expect(archiveAttempt.status).toBe('rejected');
+    expect(['QUEUE_REWARD_OPERATION_PROCESSING', 'STALE_QUEUE_VERSION']).toContain(archiveAttempt.reason.code);
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ lifecycleStatus: 'active', remoteSyncStatus: 'synced' });
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'confirmed' });
+  });
+
+  it('holds archive finalization while reward completion waits on the shared queue lock', async () => {
+    const queue = await repository.createQueue({ slug: `arhold-${randomUUID().slice(0, 8)}`, title: 'Archive held completion', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    const leaseToken = randomUUID();
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'pending_update' } });
+    const task = await prisma.outbox.create({ data: { operationType: 'reward.update', entityType: 'queue', entityId: queue.id, idempotencyKey: `archive-held:${queue.id}`, payload: {}, status: 'processing', leaseToken, leaseUntil: new Date(Date.now() + 30_000) } });
+    const version = (await prisma.queue.findUnique({ where: { id: queue.id } })).version;
+    const challenge = await repository.beginLocalQueueArchive({ queueId: queue.id, actorId: 'operator-local-archive', expectedVersion: version });
+    let notifyReached;
+    let releaseRead;
+    const reachedOutboxRead = new Promise((resolve) => { notifyReached = resolve; });
+    const holdOutboxRead = new Promise((resolve) => { releaseRead = resolve; });
+    let held = false;
+    const delayedPrisma = new Proxy(prisma, {
+      get(target, property) {
+        if (property === '$transaction') {
+          return (callback, options) => target.$transaction((tx) => callback(new Proxy(tx, {
+            get(txTarget, txProperty) {
+              if (txProperty !== 'outbox') return Reflect.get(txTarget, txProperty, txTarget);
+              const delegate = Reflect.get(txTarget, txProperty, txTarget);
+              return new Proxy(delegate, {
+                get(delegateTarget, method) {
+                  if (method === 'findMany') return async (args) => {
+                    if (!held && args?.where?.entityId === queue.id && args?.where?.operationType?.in?.includes('reward.update')) {
+                      held = true;
+                      notifyReached();
+                      await holdOutboxRead;
+                    }
+                    return delegateTarget.findMany(args);
+                  };
+                  const value = Reflect.get(delegateTarget, method, delegateTarget);
+                  return typeof value === 'function' ? value.bind(delegateTarget) : value;
+                },
+              });
+            },
+          })), options);
+        }
+        return Reflect.get(target, property, target);
+      },
+    });
+    const delayedRepository = createQueueRepository(delayedPrisma);
+    const archiveAttempt = delayedRepository.confirmLocalQueueArchive({ queueId: queue.id, actorId: 'operator-local-archive', challengeId: challenge.challengeId, expectedVersion: version, remoteSyncStatus: 'pending_update' });
+    await reachedOutboxRead;
+    const completion = repository.confirmRewardUpdated(task.id, leaseToken);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ version, lifecycleStatus: 'active', remoteSyncStatus: 'pending_update' });
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'processing' });
+    releaseRead();
+
+    const [archiveResult, completionResult] = await Promise.allSettled([archiveAttempt, completion]);
+    expect(archiveResult.status).toBe('rejected');
+    expect(archiveResult.reason.code).toBe('QUEUE_REWARD_OPERATION_PROCESSING');
+    expect(completionResult).toMatchObject({ status: 'fulfilled', value: true });
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ lifecycleStatus: 'active', remoteSyncStatus: 'synced' });
+  });
+
+  it('retires a reward-backed queue only after exact reward absence at the observed version', async () => {
+    const queue = await repository.createQueue({ slug: `absence-${randomUUID().slice(0, 8)}`, title: 'Exact absence', cost: 1 });
+    const keysBefore = await prisma.queueKey.findMany({ where: { queueId: queue.id }, orderBy: { key: 'asc' } });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'unknown' } });
+    const version = (await prisma.queue.findUnique({ where: { id: queue.id } })).version;
+
+    await expect(repository.retireQueueForConfirmedRewardAbsence({ queueId: queue.id, expectedVersion: version, rewardId: `other-${rewardId}` })).resolves.toBe(false);
+    expect(await repository.retireQueueForConfirmedRewardAbsence({ queueId: queue.id, expectedVersion: version, rewardId })).toMatchObject({ lifecycleStatus: 'deleted', rewardId, remoteSyncStatus: 'deleted' });
+    const retired = await prisma.queue.findUnique({ where: { id: queue.id } });
+    expect(retired).toMatchObject({ slug: queue.slug, rewardId, lifecycleStatus: 'deleted', remoteSyncStatus: 'deleted' });
+    expect(await prisma.queueKey.findMany({ where: { queueId: queue.id }, orderBy: { key: 'asc' } })).toEqual(keysBefore);
+    const auditCount = await prisma.auditLog.count({ where: { queueId: queue.id, event: 'queue.reward_absence_confirmed' } });
+    expect(await repository.retireQueueForConfirmedRewardAbsence({ queueId: queue.id, expectedVersion: retired.version, rewardId })).toMatchObject({ id: queue.id, version: retired.version, deletedAt: retired.deletedAt });
+    expect(await prisma.auditLog.count({ where: { queueId: queue.id, event: 'queue.reward_absence_confirmed' } })).toBe(auditCount);
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ version: retired.version, deletedAt: retired.deletedAt });
+  });
+
+  it('does not retire a reward as absent while a reward operation is processing', async () => {
+    const queue = await repository.createQueue({ slug: `absence-busy-${randomUUID().slice(0, 8)}`, title: 'Absence busy', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'unknown' } });
+    await prisma.outbox.create({ data: { operationType: 'reward.create', entityType: 'queue', entityId: queue.id, idempotencyKey: `absence-busy:${queue.id}`, payload: {}, status: 'processing', leaseToken: randomUUID(), leaseUntil: new Date() } });
+    const version = (await prisma.queue.findUnique({ where: { id: queue.id } })).version;
+
+    await expect(repository.retireQueueForConfirmedRewardAbsence({ queueId: queue.id, expectedVersion: version, rewardId })).resolves.toBe(false);
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ lifecycleStatus: 'active', remoteSyncStatus: 'unknown' });
+  });
+
+  it('ignores stale reconciliation writes and never changes a local tombstone remote status', async () => {
+    const queue = await repository.createQueue({ slug: `stale-tombstone-${randomUUID().slice(0, 8)}`, title: 'Stale tombstone', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, remoteSyncStatus: 'unknown' } });
+    const observedVersion = (await prisma.queue.findUnique({ where: { id: queue.id } })).version;
+    await prisma.queue.update({ where: { id: queue.id }, data: { lifecycleStatus: 'deleted', deletedAt: new Date(), isArchived: true, isOpen: false, version: { increment: 1 } } });
+
+    await expect(repository.markQueueRemoteDivergence(queue.id, 'twitch_reward_state_mismatch', observedVersion)).resolves.toBe(false);
+    await expect(repository.markQueueRemoteUnknown(queue.id, 'twitch_reward_lookup_failed', observedVersion)).resolves.toBe(false);
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ lifecycleStatus: 'deleted', remoteSyncStatus: 'unknown' });
+  });
+
+  it('claims no reward mutation for a reward-backed tombstone', async () => {
+    const queue = await repository.createQueue({ slug: `archive-claim-${randomUUID().slice(0, 8)}`, title: 'Archive claim', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, lifecycleStatus: 'deleted', deletedAt: new Date(), isArchived: true, isOpen: false, remoteSyncStatus: 'unknown' } });
+    const task = await prisma.outbox.create({ data: { operationType: 'reward.update', entityType: 'queue', entityId: queue.id, idempotencyKey: `archive-claim-task:${queue.id}`, payload: {}, status: 'pending' } });
+    const claimed = await repository.claimNextRewardOperation();
+    expect(claimed?.id).not.toBe(task.id);
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'cancelled' });
+  });
+
+  it('pages every reward-backed tombstone mode and imports financial redemptions for channel-points tombstones', async () => {
+    const queue = await repository.createQueue({ slug: `archive-ingest-${randomUUID().slice(0, 8)}`, title: 'Archive ingest', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, lifecycleStatus: 'deleted', deletedAt: new Date(), isArchived: true, isOpen: false, remoteSyncStatus: 'unknown' } });
+    await prisma.setting.upsert({ where: { key: 'twitch_converted_tombstone_reconciliation_cursor' }, create: { key: 'twitch_converted_tombstone_reconciliation_cursor', value: { schemaVersion: 1, revision: 0, lastId: null, leaseId: null, leaseUntil: null } }, update: { value: { schemaVersion: 1, revision: 0, lastId: null, leaseId: null, leaseUntil: null } } });
+    const page = await repository.claimConvertedTombstoneReconciliationPage({ limit: 100 });
+    expect(page.queues.some(({ id }) => id === queue.id)).toBe(true);
+    await repository.completeConvertedTombstoneReconciliationPage({ leaseId: page.leaseId, lastQueueId: page.queues.at(-1)?.id });
+
+    const imported = await repository.importRedemption({ id: `late-${randomUUID()}`, broadcasterId: 'broadcaster-1', rewardId, userId: 'late-viewer', redeemedAt: new Date(), status: 'UNFULFILLED', userInput: '' });
+    expect(imported.status).toBe('cancellation_pending');
+    const redemption = await prisma.redemption.findFirst({ where: { queueId: queue.id, userId: 'late-viewer' } });
+    expect(redemption).toMatchObject({ expectedStatus: 'CANCELED', syncStatus: 'pending' });
+    expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${redemption.redemptionId}` } })).toMatchObject({ operationType: 'redemption.cancel', status: 'pending' });
+  });
+
+  it('lists unresolved tombstone finance but excludes terminal confirmed records with stale expected status', async () => {
+    const queue = await repository.createQueue({ slug: `unresolved-${randomUUID().slice(0, 8)}`, title: 'Unresolved finance', cost: 1 });
+    const records = [
+      { id: 'terminal-confirmed', remoteStatus: 'CANCELED', syncStatus: 'confirmed', expectedStatus: 'CANCELED', taskStatus: 'confirmed' },
+      { id: 'unknown', remoteStatus: 'UNFULFILLED', syncStatus: 'unknown', expectedStatus: 'CANCELED', taskStatus: 'retry' },
+      { id: 'pending', remoteStatus: 'UNFULFILLED', syncStatus: 'pending', expectedStatus: 'CANCELED', taskStatus: 'pending' },
+      { id: 'conflicting', remoteStatus: 'FULFILLED', syncStatus: 'pending', expectedStatus: 'CANCELED', taskStatus: 'conflict' },
+    ];
+    for (const record of records) {
+      const redemptionId = `unresolved-${record.id}-${randomUUID()}`;
+      await prisma.redemption.create({ data: {
+        redemptionId, broadcasterId: 'broadcaster-1', rewardId: 'reward-1', userId: `viewer-${record.id}`,
+        queueId: queue.id, redeemedAt: new Date(), remoteStatus: record.remoteStatus,
+        syncStatus: record.syncStatus, expectedStatus: record.expectedStatus,
+      } });
+      await prisma.outbox.create({ data: {
+        operationType: 'redemption.cancel', entityType: 'redemption', entityId: redemptionId,
+        redemptionId, idempotencyKey: `financial:${redemptionId}`, payload: {}, status: record.taskStatus,
+      } });
+      record.redemptionId = redemptionId;
+    }
+
+    const unresolved = await repository.listUnresolvedRedemptions(queue.id);
+    expect(unresolved.map(({ redemptionId }) => redemptionId).sort()).toEqual(records.slice(1).map(({ redemptionId }) => redemptionId).sort());
   });
 
   it('serializes competing duplicate adds to one active entry per queue', async () => {

@@ -6,11 +6,12 @@ describe('chat notification persistence contract', () => {
   it('reports a sent call with notification timestamp and deadline only after confirmed delivery', async () => {
     const now = new Date('2026-10-03T12:00:00Z');
     const tx = {
+      $queryRaw: vi.fn(async () => [{ locked: 1 }]),
       outbox: { create: vi.fn(async () => ({ id: 'task-1' })) },
-      entry: { findUnique: vi.fn(async () => ({ id: 'entry-1', queueId: 'queue-1', status: 'called', callNotifiedAt: null, callDeadlineAt: null, queue: { callTimeoutMin: 10 } })), update: vi.fn(async ({ data }) => data) },
+      entry: { findUnique: vi.fn(async () => ({ id: 'entry-1', queueId: 'queue-1', status: 'called', callNotifiedAt: null, callDeadlineAt: null, callAcknowledgedAt: null, queue: { callTimeoutMin: 10 } })), update: vi.fn(async ({ data }) => data) },
       auditLog: { create: vi.fn(async () => undefined) },
     };
-    const prisma = { $transaction: async (callback) => callback(tx), outbox: { findFirst: vi.fn(), updateMany: vi.fn() }, entry: { findMany: vi.fn(async () => []) } };
+    const prisma = { $transaction: async (callback) => callback(tx), outbox: { findFirst: vi.fn(), updateMany: vi.fn() }, entry: { findUnique: vi.fn(async () => ({ queueId: 'queue-1' })), findMany: vi.fn(async () => []) } };
     const repository = createQueueRepository(prisma, { clock: () => now });
     expect(await repository.enqueueCallNotification({ entryId: 'entry-1', queueId: 'queue-1', message: 'Call message' })).toMatchObject({ id: 'task-1' });
     expect(JSON.stringify(tx.outbox.create.mock.calls[0][0])).not.toContain('Call message');
@@ -19,19 +20,26 @@ describe('chat notification persistence contract', () => {
   });
 
   it('claims one pending chat task with lease and ignores stale entries at processing time', async () => {
+    const candidate = { id: 'task-1', entryId: 'entry-1' };
+    const entry = { id: 'entry-1', queueId: 'queue-1', status: 'removed', callAcknowledgedAt: null, queue: { uidMode: 'hidden' } };
+    const tx = {
+      $queryRaw: vi.fn(async () => [{ locked: 1 }]),
+      outbox: { findFirst: vi.fn(async () => ({ ...candidate, status: 'pending' })), update: vi.fn(async ({ data }) => data) },
+      entry: { findUnique: vi.fn(async () => entry) },
+    };
     const prisma = {
-      $queryRaw: vi.fn(async () => [{ id: 'task-1', entryId: 'entry-1', status: 'processing', leaseToken: 'lease', entry: { id: 'entry-1', status: 'removed', queue: { uidMode: 'hidden' } } }]),
-      outbox: { updateMany: vi.fn(async () => ({ count: 1 })) },
-      entry: { findUnique: vi.fn(async () => ({ id: 'entry-1', status: 'removed', queue: { uidMode: 'hidden' } })) },
+      $transaction: vi.fn(async (callback) => callback(tx)),
+      outbox: { findMany: vi.fn(async () => [candidate]), updateMany: vi.fn(async () => ({ count: 1 })) },
+      entry: { findUnique: vi.fn(async () => ({ queueId: 'queue-1' })) },
     };
     const repository = createQueueRepository(prisma);
     const task = await repository.claimNextChatNotification();
-    expect(task).toMatchObject({ id: 'task-1', leaseToken: 'lease', entry: null });
-    expect(prisma.outbox.updateMany.mock.calls[0][0]).toMatchObject({ where: { id: 'task-1' }, data: { status: 'cancelled', lastError: 'entry_not_called' } });
+    expect(task).toBeNull();
+    expect(tx.outbox.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'task-1' }, data: { status: 'cancelled', lastError: 'entry_not_called', leaseToken: null, leaseUntil: null } }));
   });
 
   it('persists no-show policy and cancellation intent through the domain service', async () => {
-    const expired = { id: 'entry-1', queueId: 'queue-1', status: 'called', source: 'redemption', version: 1, callDeadlineAt: new Date('2026-10-03T11:59:00Z') };
+    const expired = { id: 'entry-1', queueId: 'queue-1', status: 'called', source: 'redemption', version: 1, callAcknowledgedAt: null, callDeadlineAt: new Date('2026-10-03T11:59:00Z') };
     const queue = { refundOnNoShow: true, refundIfRemovedWhileCalled: true, refundIfViewerLeavesCalled: false };
     const tx = {
       $queryRaw: vi.fn(async () => [{ id: 'queue-1' }]),
@@ -45,7 +53,7 @@ describe('chat notification persistence contract', () => {
     const prisma = { $transaction: async (callback) => callback(tx), entry: { findUnique: vi.fn(async () => ({ queueId: 'queue-1' })) } };
     const repository = createQueueRepository(prisma, { clock: () => new Date('2026-10-03T12:00:00Z') });
     const domainService = createQueueDomainService({ repository });
-    expect(await domainService.transitionEntry({ entryId: 'entry-1', to: 'no_show', origin: 'timer', reason: 'call_timeout' }))
+    expect(await domainService.transitionEntry({ entryId: 'entry-1', to: 'no_show', origin: 'timer', reason: 'call_timeout', deadlineCutoff: new Date('2026-10-03T12:00:00Z') }))
       .toMatchObject({ status: 'no_show', financialDecision: 'request_cancel' });
   });
 });

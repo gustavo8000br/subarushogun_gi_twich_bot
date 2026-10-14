@@ -88,3 +88,6 @@ chat.queue.mode_transition_pending	The Twitch reward pause is pending. Wait for 
 chat.follower.required	This command is available to channel followers.
 chat.follower.unknown	We could not verify whether you follow this channel. Please try again shortly.
 chat.follower.help_unknown	We could not verify your follower status; follower-only commands may be missing from this list.
+chat.command.queue.presente	present
+chat.queue.presence_confirmed	{user}, presence confirmed. Wait for the streamer to start your service.
+chat.queue.presence_not_called	You have no call awaiting confirmation in this queue.

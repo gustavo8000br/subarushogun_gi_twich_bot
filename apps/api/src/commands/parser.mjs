@@ -14,9 +14,9 @@ const globalActionLabels = Object.freeze({
 });
 const accountResetLabels = Object.freeze({ 'pt-BR': 'reset', en: 'reset', es: 'restablecer' });
 const queueLabels = Object.freeze({
-  'pt-BR': { lista: 'lista', comandos: 'comandos', posicao: 'posicao', sair: 'sair', add: 'add', remover: 'remover', proximo: 'proximo', atender: 'atender', concluir: 'concluir', mover: 'mover', abrir: 'abrir', fechar: 'fechar', limpar: 'limpar', confirmar: 'confirmar' },
-  en: { lista: 'list', comandos: 'commands', posicao: 'position', sair: 'leave', add: 'add', remover: 'remove', proximo: 'next', atender: 'serve', concluir: 'complete', mover: 'move', abrir: 'open', fechar: 'close', limpar: 'clear', confirmar: 'confirm' },
-  es: { lista: 'lista', comandos: 'comandos', posicao: 'posicion', sair: 'salir', add: 'agregar', remover: 'quitar', proximo: 'siguiente', atender: 'atender', concluir: 'completar', mover: 'mover', abrir: 'abrir', fechar: 'cerrar', limpar: 'limpiar', confirmar: 'confirmar' },
+  'pt-BR': { lista: 'lista', comandos: 'comandos', posicao: 'posicao', sair: 'sair', presente: 'presente', add: 'add', remover: 'remover', proximo: 'proximo', atender: 'atender', concluir: 'concluir', mover: 'mover', abrir: 'abrir', fechar: 'fechar', limpar: 'limpar', confirmar: 'confirmar' },
+  en: { lista: 'list', comandos: 'commands', posicao: 'position', sair: 'leave', presente: 'present', add: 'add', remover: 'remove', proximo: 'next', atender: 'serve', concluir: 'complete', mover: 'move', abrir: 'open', fechar: 'close', limpar: 'clear', confirmar: 'confirm' },
+  es: { lista: 'lista', comandos: 'comandos', posicao: 'posicion', sair: 'salir', presente: 'presente', add: 'agregar', remover: 'quitar', proximo: 'siguiente', atender: 'atender', concluir: 'completar', mover: 'mover', abrir: 'abrir', fechar: 'cerrar', limpar: 'limpiar', confirmar: 'confirmar' },
 });
 
 function normalizeCommand(value) {

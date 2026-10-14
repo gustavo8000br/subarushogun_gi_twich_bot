@@ -10,7 +10,7 @@ import { resolveLocaleSelection } from './locale-picker-state.mjs';
 import { applyPanelTranslations } from './dom-localization.mjs';
 import { presentPanelError } from './panel-error-presentation.mjs';
 import { getCallDeadlinePresentation } from './call-deadline-presentation.mjs';
-import { getQueueActionState } from './queue-action-state.mjs';
+import { getQueueActionState, getQueueVisibilityAction } from './queue-action-state.mjs';
 import { getQueueOnboardingTransition } from './queue-onboarding-flow.mjs';
 import { normalizeRewardCandidates } from './reward-link-dialog.mjs';
 import { requestPanelConfirmation } from './panel-confirmation.mjs';
@@ -79,14 +79,29 @@ function panelTextPlural(key, count) {
   return translatePluralCatalog(catalogs, activeProductLocale(), key, count, { placeholders: PANEL_PLACEHOLDERS });
 }
 
-function confirmPanelAction(message) {
+function confirmPanelAction(message, { acceptLabelKey = 'panel.confirmation.accept', cancelLabelKey = 'panel.confirmation.cancel' } = {}) {
   return requestPanelConfirmation({
     dialog: $('#panel-confirmation-dialog'),
     messageNode: $('#panel-confirmation-message'),
     acceptButton: $('#panel-confirmation-accept'),
     cancelButton: $('#panel-confirmation-cancel'),
     message,
+    acceptLabel: panelText(acceptLabelKey),
+    cancelLabel: panelText(cancelLabelKey),
   });
+}
+
+function localPanelDeletionError(error) {
+  const actionByCode = {
+    QUEUE_REWARD_OPERATION_PROCESSING: 'archive-local-processing',
+    LOCAL_ARCHIVE_CHALLENGE_EXPIRED: 'archive-local-expired',
+    STALE_QUEUE_VERSION: 'archive-local-stale',
+    QUEUE_LOCAL_ARCHIVE_UNAVAILABLE: 'archive-local-unavailable',
+    QUEUE_REWARD_UNRESOLVED: 'archive-local-unavailable',
+    QUEUE_NOT_FOUND: 'archive-local-unavailable',
+  };
+  const action = actionByCode[error?.code];
+  return action ? panelText(getQueueConfirmationCopy(undefined, action)) : panelError(error);
 }
 
 function commandRoleLabel(role) {
@@ -291,6 +306,7 @@ function renderQueues(queues) {
     const active = queue.entries || [];
     const controls = document.createElement('div'); controls.className = 'queue-actions';
     const actionState = getQueueActionState(queue);
+    const visibilityAction = getQueueVisibilityAction(queue, actionState);
     const callHintId = `queue-call-hint-${String(queue.id).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
     if (queue.lifecycleStatus === 'deleting') {
       const localConvertedDeletion = queue.queueMode === 'manual_only' && Boolean(queue.rewardId);
@@ -302,25 +318,23 @@ function renderQueues(queues) {
       pendingStatus.id = callHintId;
       controls.append(pendingStatus);
       if (actionState.canRetryLocalDeletion) controls.append(action(panelText('panel.queue.action.retry_local_delete'), 'delete-queue', '', queue.id));
+      if (actionState.canDeleteFromPanelAnyway) controls.append(action(panelText('panel.queue.action.archive_local_anyway'), 'delete-from-panel-anyway', '', queue.id));
     } else {
       controls.append(action(panelText('panel.queue.action.delete'), 'delete-queue', '', queue.id, {
         disabled: !actionState.canDelete,
         title: actionState.deleteBlockedReason ? panelText(`panel.queue.delete_blocked.${actionState.deleteBlockedReason}`) : '',
       }));
       controls.append(action(panelText('panel.queue.action.configure'), 'edit-settings', '', queue.id));
+      if (actionState.canDeleteFromPanelAnyway) controls.append(action(panelText('panel.queue.action.archive_local_anyway'), 'delete-from-panel-anyway', '', queue.id));
       if (!manualModeQueue && ['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) controls.append(action(panelText('panel.queue.action.edit_reward'), 'edit-reward-settings', '', queue.id));
     }
     if (queue.lifecycleStatus === 'deleting') {
       // Queue mutation controls stay disabled while the durable deletion workflow is pending.
     } else if (queue.isArchived) {
-      controls.append(action(panelText('panel.queue.action.unarchive'), 'unarchive-queue', '', queue.id, { disabled: !actionState.archiveAction.enabled }));
-      controls.append(action(panelText('panel.queue.action.open'), 'open-queue', '', queue.id, { disabled: !actionState.canToggleIntake || queue.isOpen }));
-      if (active.some((entry) => entry.status === 'waiting')) controls.append(action(panelText('panel.queue.action.next'), 'call-next', '', queue.id, { disabled: !actionState.canCallEntries, describedBy: actionState.canCallEntries ? '' : callHintId }));
-      controls.append(action(panelText('panel.queue.action.clear'), 'clear-queue', '', queue.id));
+      if (visibilityAction) controls.append(action(panelText(visibilityAction.key), visibilityAction.action, '', queue.id, { disabled: visibilityAction.disabled }));
     } else {
       controls.append(action(panelText('panel.queue.action.add'), 'add-entry', '', queue.id, { disabled: !actionState.canAddManualEntry }), action(panelText('panel.queue.action.next'), 'call-next', '', queue.id, { disabled: !actionState.canCallEntries, describedBy: actionState.canCallEntries ? '' : callHintId }));
       controls.append(action(panelText(queue.isOpen ? 'panel.queue.action.pause' : 'panel.queue.action.activate'), queue.isOpen ? 'close-queue' : 'open-queue', '', queue.id, { disabled: !actionState.canToggleIntake }));
-      controls.append(action(panelText('panel.queue.action.archive'), 'archive-queue', '', queue.id, { disabled: !actionState.archiveAction.enabled }));
       if (!manualModeQueue && queue.rewardId && queue.modeTransitionStatus === 'none') controls.append(action(panelText('panel.queue.action.manual_mode'), 'manual-mode', '', queue.id));
       if (queue.modeTransitionStatus === 'pending_pause') controls.append(liveStatus('span', panelText('panel.queue.mode_transition.pending'), 'muted'));
       if (queue.modeTransitionStatus === 'unknown' || queue.modeTransitionStatus === 'failed') {
@@ -1000,12 +1014,12 @@ async function boot() {
         toast(panelText(priority ? 'panel.priority.marked' : 'panel.priority.removed'));
         await refresh(); return;
       }
-      if (actionName === 'archive-queue' || actionName === 'unarchive-queue') {
-        const archiving = actionName === 'archive-queue';
+      if (actionName === 'unarchive-queue') {
         const queue = state.queues.find((item) => item.id === queueId);
-        if (!await confirmPanelAction(panelText(getQueueConfirmationCopy(queue, archiving ? 'archive' : 'unarchive')))) return;
-        const result = await request(`/api/queues/${queueId}/${archiving ? 'archive' : 'unarchive'}`, { method: 'POST', body: '{}' });
-        toast(panelText(archiving ? (result.status === 'pending' ? 'panel.queue.archive.pending' : 'panel.queue.archive.done') : 'panel.queue.unarchive.done'));
+        if (!queue || !getQueueActionState(queue).canShowToViewers) return;
+        if (!await confirmPanelAction(panelText(getQueueConfirmationCopy(queue, 'unarchive')))) return;
+        await request(`/api/queues/${queueId}/unarchive`, { method: 'POST', body: '{}' });
+        toast(panelText('panel.queue.unarchive.done'));
         await refresh(); return;
       }
       if (actionName === 'manual-mode' || actionName === 'manual-mode-retry') {
@@ -1023,6 +1037,33 @@ async function boot() {
         const result = await request(`/api/queues/${queueId}/delete`, { method: 'POST', body: JSON.stringify({ confirm: true }) });
         toast(panelText(result.status === 'pending' ? 'panel.queue.delete.pending' : 'panel.queue.delete.done'), result.status === 'pending' ? 'warning' : 'success');
         await refresh(); return;
+      }
+      if (actionName === 'delete-from-panel-anyway') {
+        const queue = state.queues.find((item) => item.id === queueId);
+        if (!queue || !getQueueActionState(queue).canDeleteFromPanelAnyway) return;
+        try {
+          if (!await confirmPanelAction(panelText(getQueueConfirmationCopy(queue, 'archive-local-first'), { title: queue.title ?? '' }), {
+            acceptLabelKey: getQueueConfirmationCopy(queue, 'archive-local-first-accept'),
+          })) return;
+          const challenge = await request(`/api/queues/${queueId}/archive-local/challenge`, {
+            method: 'POST', body: JSON.stringify({ expectedVersion: queue.version }),
+          });
+          if (!await confirmPanelAction(panelText(getQueueConfirmationCopy(queue, 'archive-local-final'), { title: queue.title ?? '' }), {
+            acceptLabelKey: getQueueConfirmationCopy(queue, 'archive-local-final-accept'),
+          })) return;
+          await request(`/api/queues/${queueId}/archive-local/confirm`, {
+            method: 'POST', body: JSON.stringify({
+              challengeId: challenge.challengeId,
+              expectedVersion: challenge.expectedVersion,
+              remoteSyncStatus: challenge.remoteSyncStatus,
+            }),
+          });
+          toast(panelText('panel.queue.archive_local.done'));
+          await refresh(); return;
+        } catch (error) {
+          toast(localPanelDeletionError(error), 'error');
+          return;
+        }
       }
       if (actionName === 'resolve-reward') {
         const form = $('#reward-form');

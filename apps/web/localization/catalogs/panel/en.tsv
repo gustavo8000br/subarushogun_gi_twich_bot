@@ -200,7 +200,7 @@ panel.queue.action.delete	Delete queue
 panel.queue.action.retry_local_delete	Check deletion progress
 panel.queue.action.configure	Configure
 panel.queue.action.edit_reward	Edit reward
-panel.queue.action.unarchive	Unarchive
+panel.queue.action.unarchive	Show to viewers
 panel.queue.action.next	Next
 panel.queue.action.clear	Clear queue
 panel.queue.action.add	Add
@@ -208,7 +208,6 @@ panel.queue.action.open	Open
 panel.queue.action.close	Close
 panel.queue.action.activate	Activate queue
 panel.queue.action.pause	Pause queue
-panel.queue.action.archive	Archive
 panel.queue.action.resolve_reward	Link reward
 panel.queue.action_blocked.reward_unresolved	Queue controls are paused until you link and confirm a Twitch reward. Use “Link reward” to continue.
 panel.queue.action_blocked.reward_creation_pending	Queue controls will be available after Twitch confirms reward creation.
@@ -402,13 +401,17 @@ panel.priority.reason_prompt	Select the verified benefit: 1 subscription, 2 Bits
 panel.priority.invalid_reason	Choose an option from 1 to 4.
 panel.priority.marked	Priority was recorded and audited. The operator verified the benefit.
 panel.priority.removed	Priority removed.
-panel.queue.confirm.archive	Archive this queue? It will disappear from discovery, while existing entries are preserved. Its reward will be paused.
-panel.queue.confirm.archive_local	Archive this local queue? It will disappear from discovery, while existing entries are preserved.
-panel.queue.confirm.archive_converted	Archive this converted manual queue? It will disappear from discovery, existing entries will be preserved, and the Twitch reward will stay paused.
-panel.queue.confirm.unarchive	Unarchive this queue? It will remain closed until you open it.
-panel.queue.archive.pending	Archive requested; waiting for Twitch confirmation.
-panel.queue.archive.done	Queue archived.
-panel.queue.unarchive.done	Queue unarchived and remains closed.
+panel.queue.action.archive_local_anyway	Delete from panel anyway
+panel.queue.action.archive_local_review	Continue to final deletion confirmation
+panel.queue.confirm.archive_local_uncertain_first	This will remove the queue from this app only; it will not delete the Twitch reward. The reward may still exist, and active entries and financial records will be preserved. The current Twitch sync status will be retained as historical and unverified; it does not mean an operation is still running. Continue to review the final deletion confirmation?
+panel.queue.confirm.archive_local_uncertain_final	Final confirmation: delete this queue from this panel anyway? This removes only the local queue; it will not delete the Twitch reward, which may still exist and receive redemptions. The queue history and financial records will be preserved. The remote sync status will remain historical and unverified, not an indication that sync is still running.
+panel.queue.archive_local.done	Queue removed from the panel. Twitch reward status and history were preserved.
+panel.queue.archive_local.processing	A Twitch reward operation is still processing. Wait for it to finish, then retry removing the queue from the panel.
+panel.queue.archive_local.expired	The confirmation expired. Start both deletion confirmation steps again.
+panel.queue.archive_local.stale	The queue changed after confirmation began. Refresh the panel and start both deletion steps again.
+panel.queue.archive_local.unavailable	The queue is no longer eligible for local deletion. Refresh the panel and review its sync status.
+panel.queue.confirm.unarchive	Show this queue to viewers? It will remain paused until you activate it.
+panel.queue.unarchive.done	Queue shown to viewers and remains paused until you activate it.
 panel.queue.confirm.delete	Delete queue “{title}” and its Twitch reward? {count} active entries will be removed and their redemptions will be cancellation requests. The reward is deleted only after every cancellation is confirmed. This may remain pending if Twitch does not confirm.
 panel.queue.confirm.delete_local	Delete local queue “{title}”? {count} active entries will be removed. This queue has no linked Twitch reward or redemption.
 panel.queue.confirm.delete_converted	Delete manual queue “{title}”? {count} active entries will be removed. Deletion will remain pending until all known redemptions and related financial operations are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.

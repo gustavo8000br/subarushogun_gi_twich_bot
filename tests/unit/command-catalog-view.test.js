@@ -33,6 +33,20 @@ describe('command catalog view contract', () => {
     expect(collectCommandPolicies(catalog, cards)).toEqual({ 'queue:lista': { minimumRole: 'vip' } });
   });
 
+  it('collects dirty policies from cards nested inside the rendered command sections', () => {
+    const catalog = projectCommandCatalog({
+      version: 8, configurableRoles: ['everyone', 'follower', 'subscriber', 'vip', 'moderator'],
+      commands: [{ key: 'queue:lista', access: { kind: 'configurable', minimumRole: 'everyone' }, policy: { minimumRole: 'subscriber' } }],
+    });
+    const card = {
+      dataset: { commandKey: 'queue:lista' },
+      querySelector: () => ({ value: 'vip', dataset: { dirty: 'true' } }),
+    };
+    const section = { querySelectorAll: (selector) => selector === '.command-policy-card' ? [card] : [] };
+
+    expect(collectCommandPolicies(catalog, [section])).toEqual({ 'queue:lista': { minimumRole: 'vip' } });
+  });
+
   it('requests follower authorization for saved follower thresholds only', () => {
     const request = followerAuthorizationRequest({ version: 9, followerScopeReady: false, commands: [
       { key: 'queue:lista', access: { kind: 'configurable' }, policy: { minimumRole: 'follower' } },

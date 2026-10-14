@@ -15,7 +15,8 @@ export function createTwitchReconciler({ repository, twitch, processor, broadcas
           if (tombstoneIds.has(queue.id)) result.tombstonesScanned += 1;
           const historicalManualQueue = queue.queueMode === 'manual_only'
             && ['deleting', 'deleted'].includes(queue.lifecycleStatus);
-          if (!queue.rewardId || (queue.lifecycleStatus === 'deleted' && queue.queueMode !== 'manual_only')) continue;
+          const historicalTombstone = queue.lifecycleStatus === 'deleted';
+          if (!queue.rewardId) continue;
           let reward;
           let rewardVerificationFailed = false;
           try {
@@ -24,30 +25,40 @@ export function createTwitchReconciler({ repository, twitch, processor, broadcas
             rewardVerificationFailed = true;
             result.status = 'partial';
             result.issues.push({ queueId: queue.id, code: 'reward_verification_failed' });
-            await repository.markQueueRemoteDivergence(queue.id, 'reward_verification_failed');
+            if (!historicalTombstone) await repository.markQueueRemoteUnknown?.(queue.id, 'reward_verification_failed', queue.version);
+          }
+          if (reward === undefined && !rewardVerificationFailed) {
+            rewardVerificationFailed = true;
+            result.status = 'partial';
+            result.issues.push({ queueId: queue.id, code: 'reward_verification_failed' });
+            if (!historicalTombstone) await repository.markQueueRemoteUnknown?.(queue.id, 'reward_verification_failed', queue.version);
           }
           if (!reward) {
             if (!rewardVerificationFailed) {
-              result.status = 'partial';
-              result.issues.push({ queueId: queue.id, code: 'reward_missing' });
-              if (queue.remoteSyncStatus !== 'diverged') await repository.markQueueRemoteDivergence(queue.id, 'reward_missing');
+              const retired = await repository.retireQueueForConfirmedRewardAbsence?.({ queueId: queue.id, expectedVersion: queue.version, rewardId: queue.rewardId });
+              if (retired) result.issues.push({ queueId: queue.id, code: 'reward_confirmed_absent' });
+              else {
+                result.status = 'partial';
+                result.issues.push({ queueId: queue.id, code: 'queue_state_changed_during_reward_absence_check' });
+              }
             }
+            if (!historicalTombstone) continue;
           }
           let rewardMatches = false;
           if (reward) {
             const shouldBePaused = queue.queueMode === 'manual_only' || (queue.modeTransitionStatus && queue.modeTransitionStatus !== 'none')
               || !queue.isOpen || queue.isArchived || queue.lifecycleStatus !== 'active';
-            rewardMatches = reward.id === queue.rewardId && reward.autoFulfill === false
+            rewardMatches = historicalTombstone ? reward.id === queue.rewardId : reward.id === queue.rewardId && reward.autoFulfill === false
               && reward.shouldRedemptionsSkipRequestQueue === false
               && reward.userInputRequired === (queue.uidMode === 'visible')
               && reward.isEnabled === true && reward.isPaused === shouldBePaused;
-            if (!rewardMatches) {
+            if (!rewardMatches && !historicalTombstone) {
               result.status = 'partial';
               result.issues.push({ queueId: queue.id, code: 'reward_configuration_mismatch' });
-              if (queue.remoteSyncStatus !== 'diverged') await repository.markQueueRemoteDivergence(queue.id, 'reward_configuration_mismatch');
+              if (queue.remoteSyncStatus !== 'diverged') await repository.markQueueRemoteDivergence(queue.id, 'reward_configuration_mismatch', queue.version);
             }
           }
-          if (rewardMatches && queue.remoteSyncStatus === 'diverged') {
+          if (rewardMatches && !historicalTombstone && queue.remoteSyncStatus === 'diverged') {
             const confirmConvertedState = historicalManualQueue && repository.confirmConvertedQueueRemoteState;
             const confirmRemoteState = confirmConvertedState
               ? repository.confirmConvertedQueueRemoteState(queue.id, { expectedVersion: queue.version, reward })
@@ -60,23 +71,26 @@ export function createTwitchReconciler({ repository, twitch, processor, broadcas
               if (!historicalManualQueue) continue;
             }
           }
-          if (rewardMatches && queue.modeTransitionStatus && queue.modeTransitionStatus !== 'none' && reward.isPaused === true
+          if (rewardMatches && !historicalTombstone && queue.modeTransitionStatus && queue.modeTransitionStatus !== 'none' && reward.isPaused === true
               && typeof repository.confirmManualModeFromReconciliation === 'function') {
             await repository.confirmManualModeFromReconciliation(queue.id);
           }
 
-          if (!rewardMatches && !historicalManualQueue) continue;
+          if (!rewardMatches && !historicalManualQueue && !historicalTombstone) continue;
 
-          let redemptions;
-          try {
-            redemptions = await twitch.listUnfulfilledRedemptions(queue.rewardId);
-          } catch {
-            result.status = 'partial';
-            result.issues.push({ queueId: queue.id, code: 'reconciliation_failed' });
-            await repository.markQueueRemoteDivergence(queue.id, 'reconciliation_failed');
-            continue;
+          let redemptions = [];
+          if (reward) {
+            try {
+              redemptions = await twitch.listUnfulfilledRedemptions(queue.rewardId);
+            } catch {
+              result.status = 'partial';
+              result.issues.push({ queueId: queue.id, code: 'reconciliation_failed' });
+              if (!historicalTombstone) await repository.markQueueRemoteUnknown?.(queue.id, 'reconciliation_failed', queue.version);
+              continue;
+            }
           }
           const seen = new Set();
+          const statusChecked = new Set();
           const ordered = [...redemptions].sort((left, right) => {
             const timeDelta = new Date(left.redeemedAt).getTime() - new Date(right.redeemedAt).getTime();
             return timeDelta || String(left.id).localeCompare(String(right.id));
@@ -97,6 +111,38 @@ export function createTwitchReconciler({ repository, twitch, processor, broadcas
             }
           }
 
+          if (historicalTombstone && repository.listUnresolvedRedemptions) {
+            let unresolved;
+            try { unresolved = await repository.listUnresolvedRedemptions(queue.id); }
+            catch {
+              result.status = 'partial';
+              result.issues.push({ queueId: queue.id, code: 'unresolved_redemptions_query_failed' });
+              continue;
+            }
+            for (const redemption of unresolved) {
+              if (seen.has(redemption.redemptionId) || statusChecked.has(redemption.redemptionId)) continue;
+              statusChecked.add(redemption.redemptionId);
+              try {
+                const remoteStatus = await twitch.getRedemptionStatus(redemption.redemptionId, queue.rewardId);
+                if (remoteStatus === 'FULFILLED' || remoteStatus === 'CANCELED') {
+                  await processor.onRedemptionUpdate({
+                    id: redemption.redemptionId, broadcasterId: redemption.broadcasterId,
+                    rewardId: queue.rewardId, userId: redemption.userId,
+                    userLogin: redemption.entry?.userLogin, displayName: redemption.entry?.displayName,
+                    status: remoteStatus,
+                  });
+                  result.externalTransitions += 1;
+                }
+              } catch (error) {
+                if (error.status === 404 || error.code === 'REDEMPTION_NOT_FOUND') await repository.markRedemptionUnknown(redemption.redemptionId, 'remote_history_unavailable');
+                else {
+                  result.status = 'partial';
+                  result.issues.push({ queueId: queue.id, redemptionId: redemption.redemptionId, code: 'redemption_verification_failed' });
+                }
+              }
+            }
+          }
+
           let activeEntries;
           try {
             activeEntries = await repository.listActiveRedemptionEntries(queue.id);
@@ -106,7 +152,8 @@ export function createTwitchReconciler({ repository, twitch, processor, broadcas
             continue;
           }
           for (const entry of activeEntries) {
-            if (!entry.redemptionId || seen.has(entry.redemptionId)) continue;
+            if (!entry.redemptionId || seen.has(entry.redemptionId) || statusChecked.has(entry.redemptionId)) continue;
+            statusChecked.add(entry.redemptionId);
             try {
               const remoteStatus = await twitch.getRedemptionStatus(entry.redemptionId, queue.rewardId);
               if (remoteStatus === 'FULFILLED' || remoteStatus === 'CANCELED') {

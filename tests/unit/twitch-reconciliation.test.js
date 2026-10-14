@@ -8,6 +8,8 @@ function dependencies(overrides = {}) {
     completeConvertedTombstoneReconciliationPage: vi.fn(async () => true),
     listActiveRedemptionEntries: vi.fn(async () => []),
     markQueueRemoteDivergence: vi.fn(async () => undefined),
+    markQueueRemoteUnknown: vi.fn(async () => undefined),
+    retireQueueForConfirmedRewardAbsence: vi.fn(async () => ({ id: 'queue-1', lifecycleStatus: 'deleted', remoteSyncStatus: 'deleted' })),
     confirmConvertedQueueRemoteState: vi.fn(async () => true),
     markRedemptionUnknown: vi.fn(async () => undefined),
     ...overrides.repository,
@@ -106,12 +108,91 @@ describe('Twitch recovery reconciliation', () => {
     expect(repository.markRedemptionUnknown).not.toHaveBeenCalled();
   });
 
-  it('keeps missing rewards visible and does not silently recreate them', async () => {
+  it('retires a queue only after an authoritative exact reward lookup confirms it is absent', async () => {
     const { reconciler, repository, twitch } = dependencies({ twitch: { getReward: vi.fn(async () => null) } });
     const result = await reconciler.run();
-    expect(result.status).toBe('partial');
-    expect(repository.markQueueRemoteDivergence).toHaveBeenCalledWith('queue-1', 'reward_missing');
+    expect(result.status).toBe('complete');
+    expect(repository.retireQueueForConfirmedRewardAbsence).toHaveBeenCalledWith({ queueId: 'queue-1', expectedVersion: undefined, rewardId: 'reward-1' });
+    expect(repository.markQueueRemoteDivergence).not.toHaveBeenCalled();
     expect(twitch.listUnfulfilledRedemptions).not.toHaveBeenCalled();
+  });
+
+  it('treats an incomplete undefined reward lookup as unknown rather than absence', async () => {
+    const { reconciler, repository } = dependencies({ twitch: { getReward: vi.fn(async () => undefined) } });
+    await expect(reconciler.run()).resolves.toMatchObject({ status: 'partial', issues: [{ code: 'reward_verification_failed' }] });
+    expect(repository.markQueueRemoteUnknown).toHaveBeenCalledWith('queue-1', 'reward_verification_failed', undefined);
+    expect(repository.retireQueueForConfirmedRewardAbsence).not.toHaveBeenCalled();
+  });
+
+  it('keeps a failed reward lookup unknown and does not retire the queue', async () => {
+    const { reconciler, repository } = dependencies({ twitch: { getReward: vi.fn(async () => { throw new Error('network unavailable'); }) } });
+    await expect(reconciler.run()).resolves.toMatchObject({ status: 'partial', issues: [{ code: 'reward_verification_failed' }] });
+    expect(repository.markQueueRemoteUnknown).toHaveBeenCalledWith('queue-1', 'reward_verification_failed', undefined);
+    expect(repository.retireQueueForConfirmedRewardAbsence).not.toHaveBeenCalled();
+  });
+
+  it.each([401, 403, 429, 500, undefined])('does not interpret Twitch lookup error %s as reward absence', async (status) => {
+    const error = Object.assign(new Error('private Twitch detail'), status ? { status } : {});
+    const { reconciler, repository } = dependencies({ twitch: { getReward: vi.fn(async () => { throw error; }) } });
+
+    await expect(reconciler.run()).resolves.toMatchObject({ status: 'partial', issues: [{ code: 'reward_verification_failed' }] });
+
+    expect(repository.retireQueueForConfirmedRewardAbsence).not.toHaveBeenCalled();
+    expect(repository.markQueueRemoteUnknown).toHaveBeenCalledWith('queue-1', 'reward_verification_failed', undefined);
+  });
+
+  it('reconciles unresolved terminal financial work for channel-points tombstones', async () => {
+    const tombstone = { id: 'queue-1', version: 7, queueMode: 'channel_points', rewardId: 'reward-1', isOpen: false, isArchived: true, lifecycleStatus: 'deleted', uidMode: 'hidden', remoteSyncStatus: 'unknown' };
+    const { reconciler, repository, processor } = dependencies({
+      repository: {
+        listManagedQueues: vi.fn(async () => []),
+        claimConvertedTombstoneReconciliationPage: vi.fn(async () => ({ status: 'acquired', leaseId: '10000000-0000-4000-8000-000000000001', queues: [tombstone] })),
+        listUnresolvedRedemptions: vi.fn(async () => [{ redemptionId: 'terminal-pending', broadcasterId: 'broadcaster-1', rewardId: 'reward-1', userId: 'viewer-1', syncStatus: 'unknown', expectedStatus: 'CANCELED', entry: { status: 'removed', userLogin: 'viewer', displayName: 'Viewer' } }]),
+      },
+      twitch: { getReward: vi.fn(async () => ({ id: 'reward-1' })), getRedemptionStatus: vi.fn(async () => 'CANCELED') },
+    });
+    const result = await reconciler.run();
+    expect(result.externalTransitions).toBe(1);
+    expect(processor.onRedemptionUpdate).toHaveBeenCalledWith(expect.objectContaining({ id: 'terminal-pending', status: 'CANCELED' }));
+    expect(repository.markQueueRemoteDivergence).not.toHaveBeenCalled();
+  });
+
+  it('checks a tombstone redemption once when unresolved finance and active-entry recovery overlap', async () => {
+    const tombstone = { id: 'queue-1', version: 7, queueMode: 'channel_points', rewardId: 'reward-1', isOpen: false, isArchived: true, lifecycleStatus: 'deleted', uidMode: 'hidden', remoteSyncStatus: 'unknown' };
+    const { reconciler, twitch } = dependencies({
+      repository: {
+        listManagedQueues: vi.fn(async () => []),
+        claimConvertedTombstoneReconciliationPage: vi.fn(async () => ({ status: 'acquired', leaseId: '10000000-0000-4000-8000-000000000001', queues: [tombstone] })),
+        listUnresolvedRedemptions: vi.fn(async () => [{ redemptionId: 'overlapping-record', broadcasterId: 'broadcaster-1', rewardId: 'reward-1', userId: 'viewer-1', syncStatus: 'unknown', entry: { id: 'entry-1', status: 'called', userLogin: 'viewer', displayName: 'Viewer' } }]),
+        listActiveRedemptionEntries: vi.fn(async () => [{ id: 'entry-1', redemptionId: 'overlapping-record', twitchUserId: 'viewer-1', userLogin: 'viewer', displayName: 'Viewer' }]),
+      },
+    });
+
+    await reconciler.run();
+
+    expect(twitch.getRedemptionStatus).toHaveBeenCalledTimes(1);
+    expect(twitch.getRedemptionStatus).toHaveBeenCalledWith('overlapping-record', 'reward-1');
+  });
+
+  it('keeps reconciling known financial records after exact reward absence on a tombstone', async () => {
+    const tombstone = { id: 'queue-1', version: 9, queueMode: 'channel_points', rewardId: 'reward-1', isOpen: false, isArchived: true, lifecycleStatus: 'deleted', uidMode: 'hidden', remoteSyncStatus: 'unknown' };
+    const { reconciler, repository, twitch, processor } = dependencies({
+      repository: {
+        listManagedQueues: vi.fn(async () => []),
+        claimConvertedTombstoneReconciliationPage: vi.fn(async () => ({ status: 'acquired', leaseId: '10000000-0000-4000-8000-000000000001', queues: [tombstone] })),
+        listUnresolvedRedemptions: vi.fn(async () => [{ redemptionId: 'terminal-unavailable', broadcasterId: 'broadcaster-1', rewardId: 'reward-1', userId: 'viewer-1', syncStatus: 'unknown', expectedStatus: 'CANCELED', entry: { status: 'removed', userLogin: 'viewer', displayName: 'Viewer' } }]),
+      },
+      twitch: { getReward: vi.fn(async () => null), getRedemptionStatus: vi.fn(async () => { throw Object.assign(new Error('missing'), { status: 404 }); }) },
+    });
+
+    const result = await reconciler.run();
+
+    expect(repository.retireQueueForConfirmedRewardAbsence).toHaveBeenCalledWith({ queueId: 'queue-1', expectedVersion: 9, rewardId: 'reward-1' });
+    expect(repository.listUnresolvedRedemptions).toHaveBeenCalledWith('queue-1');
+    expect(twitch.getRedemptionStatus).toHaveBeenCalledWith('terminal-unavailable', 'reward-1');
+    expect(repository.markRedemptionUnknown).toHaveBeenCalledWith('terminal-unavailable', 'remote_history_unavailable');
+    expect(processor.onRedemptionUpdate).not.toHaveBeenCalled();
+    expect(result.status).toBe('complete');
   });
 
   it('keeps reconciling redemptions for deleted converted queues when the reward state diverges', async () => {
@@ -127,7 +208,7 @@ describe('Twitch recovery reconciliation', () => {
       },
     });
 
-    await expect(reconciler.run()).resolves.toMatchObject({ status: 'partial', queues: 1 });
+    await expect(reconciler.run()).resolves.toMatchObject({ status: 'complete', queues: 1 });
     expect(twitch.listUnfulfilledRedemptions).toHaveBeenCalledWith('reward-1');
     expect(processor.onRedemptionAdd).toHaveBeenCalledWith(expect.objectContaining({ id: 'late-redemption', rewardId: 'reward-1', status: 'UNFULFILLED' }));
     expect(repository.confirmConvertedQueueRemoteState).not.toHaveBeenCalled();
@@ -166,9 +247,9 @@ describe('Twitch recovery reconciliation', () => {
     const tombstone = { id: 'queue-tombstone', queueMode: 'manual_only', modeTransitionStatus: 'confirmed', rewardId: 'reward-tombstone', isOpen: false, isArchived: true, lifecycleStatus: 'deleted', uidMode: 'hidden' };
     const { reconciler, repository } = dependencies({
       repository: {
-        listManagedQueues: vi.fn(async () => []),
+        listManagedQueues: vi.fn(async () => [{ id: 'queue-active', version: 1, queueMode: 'channel_points', rewardId: 'reward-active', isOpen: true, isArchived: false, lifecycleStatus: 'active', uidMode: 'hidden' }]),
         claimConvertedTombstoneReconciliationPage: vi.fn(async () => ({ status: 'acquired', leaseId: '10000000-0000-4000-8000-000000000001', queues: [tombstone] })),
-        markQueueRemoteDivergence: vi.fn(async () => { throw new Error('database unavailable'); }),
+        markQueueRemoteUnknown: vi.fn(async () => { throw new Error('database unavailable'); }),
       },
       twitch: { getReward: vi.fn(async () => { throw new Error('network failure'); }) },
     });
@@ -214,7 +295,7 @@ describe('Twitch recovery reconciliation', () => {
     } });
     const result = await reconciler.run();
     expect(result.status).toBe('partial');
-    expect(repository.markQueueRemoteDivergence).toHaveBeenCalledWith('queue-1', 'reward_configuration_mismatch');
+    expect(repository.markQueueRemoteDivergence).toHaveBeenCalledWith('queue-1', 'reward_configuration_mismatch', undefined);
     expect(twitch.listUnfulfilledRedemptions).not.toHaveBeenCalled();
   });
 
@@ -225,6 +306,6 @@ describe('Twitch recovery reconciliation', () => {
     const result = await reconciler.run();
     expect(result.status).toBe('partial');
     expect(repository.markRedemptionUnknown).not.toHaveBeenCalled();
-    expect(repository.markQueueRemoteDivergence).toHaveBeenCalledWith('queue-1', 'reconciliation_failed');
+    expect(repository.markQueueRemoteUnknown).toHaveBeenCalledWith('queue-1', 'reconciliation_failed', undefined);
   });
 });
