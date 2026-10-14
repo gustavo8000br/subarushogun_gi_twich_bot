@@ -1636,6 +1636,24 @@ describe('PostgreSQL queue repository', () => {
     await expect(repository.beginLocalQueueArchive({ queueId: unresolved.id, actorId: 'operator-local-archive', expectedVersion: unresolved.version })).rejects.toMatchObject({ code: 'QUEUE_REWARD_UNRESOLVED' });
   });
 
+  it('reports a stale challenge when reward synchronization makes the queue ineligible for local archive', async () => {
+    const queue = await repository.createQueue({ slug: `arst-${randomUUID().slice(0, 8)}`, title: 'Archive stale sync', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, remoteSyncStatus: 'pending_update' } });
+    const version = (await prisma.queue.findUnique({ where: { id: queue.id } })).version;
+    const challenge = await repository.beginLocalQueueArchive({ queueId: queue.id, actorId: 'operator-local-archive', expectedVersion: version });
+
+    await prisma.queue.update({ where: { id: queue.id }, data: { remoteSyncStatus: 'synced', version: { increment: 1 } } });
+
+    await expect(repository.confirmLocalQueueArchive({
+      queueId: queue.id,
+      actorId: 'operator-local-archive',
+      challengeId: challenge.challengeId,
+      expectedVersion: challenge.expectedVersion,
+      remoteSyncStatus: challenge.remoteSyncStatus,
+    })).rejects.toMatchObject({ code: 'STALE_QUEUE_VERSION' });
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ lifecycleStatus: 'active', remoteSyncStatus: 'synced' });
+  });
+
   it('serializes local archive against a racing reward-operation claim under the queue lock', async () => {
     const queue = await repository.createQueue({ slug: `clmr-${randomUUID().slice(0, 8)}`, title: 'Archive claim race', cost: 1 });
     const rewardId = `managed-${randomUUID()}`;
