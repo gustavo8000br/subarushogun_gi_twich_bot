@@ -2,6 +2,10 @@
 
 [All public changelogs](CHANGELOG.md) · [Português brasileiro](docs/pt-BR/CHANGELOG-beta.md)
 
+## v0.1.2-beta
+
+- Deleting a reward-backed queue after a completed service now preserves the pending Twitch fulfillment and waits for confirmation before deleting the reward.
+
 ## v0.1.1-beta
 
 - OBS browser sources retain their active widget capability after reload, so the current-account overlay can reconnect without a black screen; revocation still disables the widget.
