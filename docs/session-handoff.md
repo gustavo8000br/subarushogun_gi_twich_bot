@@ -5,14 +5,16 @@
 ## Current workspace
 
 - Repository/worktree: `/workspaces/subarushogun_gi_twich_bot`
-- Current branch: `docs/ops-12-rc-installer-ux`.
-- Working tree changes in this increment are the bilingual OPS-12 planning story/index and this handoff update.
+- Current branch: `fix/ops-13-account-reset-overlay` based on `main` at `342f634`.
+- Working tree contains the OPS-13 OBS capability reload fix, focused tests, bilingual story/index/changelog updates, and this handoff update.
 
 ## Current objective
 
-Record OPS-12 / issue #60: installer UX planning for RC, with an accessible progress bar as a confirmed requirement. `.release-stage` is `beta`; the story is intentionally deferred and no UX planning or implementation should start before RC. The issue is open; bilingual story files are in `docs/stories/OPS-12/` and `docs/pt-BR/stories/OPS-12/`.
+Fix OPS-13: preserve active OBS widget capability across browser-source reload so the current-account widget does not become a black screen. The owner confirmed the panel account changes, the widget source is `Conta atual`, and OBS reload shows a black screen. The reset command returns the configured default label; the owner expected `Streamer`, so this is documented as configurable default behavior, not an implementation defect. Bilingual story files are in `docs/stories/OPS-13/` and `docs/pt-BR/stories/OPS-13/`.
 
 ## Latest increment
+- OPS-13 TDD first observed three renderer/service failures; independent QA identified a possible old/new capability collision if OBS pages share session storage, and the expanded regression set reported five failures before the fix. GREEN currently passes the focused renderer/service suite (17 tests). E2E reloads the existing OBS browser page to exercise the reported lifecycle; it has not been run because OBS/browser runtime is unavailable in this Codespace. Independent QA re-review passed **10/10** for automated OPS-13 scope and is recorded in `docs/qa/gates/OPS-13-overlay-capability-reload.yml`; native OBS/CEF acceptance remains pending with the owner. New capability links include a random non-secret per-capability reference in the query; the secret remains in the fragment and is removed on page initialization. Existing OBS links need regeneration after installing this fix.
+- AIOX greeting scripts were inadvertently run despite the prior handoff instruction. They modified `.aiox/project-status.yaml`; the checkout was verified clean before the scripts, so the generated change was restored to that exact clean state. Do not run greeting/status scripts or edit this file.
 - OPS-12 / issue #60 created and indexed in English and pt-BR. Current stage gate remains beta; the full AIOX planning workflow and `$aiox-ux-design-expert` visual planning are reserved for RC.
 - Panel follow-up: removed the normal Hide/Archive control and obsolete archive copy from the three panel catalogs. Legacy `isArchived` queues have a Show-to-viewers recovery control that leaves the queue paused; Delete and Configure remain separate controls. Uncertain remote-sync deletion remains a distinct two-confirmation “Delete from panel anyway” action.
 

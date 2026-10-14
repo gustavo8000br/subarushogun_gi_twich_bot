@@ -5,14 +5,16 @@
 ## Workspace atual
 
 - Repositório/worktree: `/workspaces/subarushogun_gi_twich_bot`
-- Branch atual: `docs/ops-12-rc-installer-ux`.
-- As alterações deste incremento são a story/índice bilíngues da OPS-12 e esta atualização do handoff.
+- Branch atual: `fix/ops-13-account-reset-overlay`, baseada na `main` em `342f634`.
+- O working tree contém a correção OPS-13 de recarga da capacidade OBS, testes focados, atualizações bilíngues de story/índice/changelog e este handoff.
 
 ## Objetivo atual
 
-Registrar OPS-12 / issue #60: planejamento da UX do instalador para RC, com barra de progresso acessível como requisito confirmado. `.release-stage` é `beta`; a story está intencionalmente adiada e nenhum planejamento de UX ou implementação deve começar antes do RC. A issue está aberta; os arquivos bilíngues ficam em `docs/stories/OPS-12/` e `docs/pt-BR/stories/OPS-12/`.
+Corrigir OPS-13: preservar a capacidade ativa do widget OBS após recarregar a fonte de navegador para que o widget de conta atual não vire uma tela preta. O proprietário confirmou que a conta muda no painel, a fonte do widget é `Conta atual` e recarregar o OBS mostra uma tela preta. O comando de reset retorna o rótulo padrão configurado; o proprietário esperava `Streamer`, então isso está documentado como comportamento do padrão configurável, não como defeito de implementação. As stories bilíngues ficam em `docs/stories/OPS-13/` e `docs/pt-BR/stories/OPS-13/`.
 
 ## Incremento mais recente
+- OPS-13 TDD observou inicialmente três falhas nos testes de renderer/serviço; a QA independente identificou uma possível colisão entre capacidades antigas e novas se páginas OBS compartilharem o session storage, e a suíte de regressão expandida apresentou cinco falhas antes da correção. O GREEN atualmente passa na suíte focada de renderer/serviço (17 testes). O E2E recarrega a página OBS existente para exercitar o ciclo de vida relatado; ainda não foi executado porque o runtime OBS/navegador não está disponível neste Codespace. A re-revisão independente QA passou com **10/10** no escopo automatizado da OPS-13 e está registrada em `docs/qa/gates/OPS-13-overlay-capability-reload.yml`; o aceite OBS/CEF nativo continua pendente com o proprietário. Novos links de capacidade incluem uma referência aleatória não secreta por capacidade na query; o segredo continua no fragmento e é removido ao inicializar a página. Links OBS existentes precisam ser regenerados após instalar esta correção.
+- Scripts de saudação AIOX foram executados por engano apesar da instrução anterior do handoff. Eles alteraram `.aiox/project-status.yaml`; o checkout foi verificado limpo antes dos scripts, então a mudança gerada foi restaurada exatamente ao estado limpo anterior. Não execute scripts de saudação/status nem edite esse arquivo.
 - OPS-12 / issue #60 criada e indexada em inglês e pt-BR. O gate do estágio continua beta; o workflow AIOX completo e o planejamento visual por `$aiox-ux-design-expert` ficam reservados para o RC.
 - Follow-up do painel: removidos o controle normal Ocultar/Arquivar e os textos obsoletos de arquivamento dos três catálogos. Filas legadas `isArchived` têm recuperação Mostrar para viewers, que mantém a fila pausada; Excluir e Configurar continuam como controles separados. A exclusão com sync remoto incerto segue como ação distinta “Excluir do painel mesmo assim”, com duas confirmações.
 

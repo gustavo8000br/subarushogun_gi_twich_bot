@@ -80,13 +80,22 @@ export function mountOverlayWidget({
   fetch: fetcher = globalThis.fetch,
   location = globalThis.location,
   history = globalThis.history,
+  sessionStorage = globalThis.sessionStorage,
   setInterval: schedule = globalThis.setInterval,
   clearInterval: cancel = globalThis.clearInterval,
 }) {
   const widget = document.getElementById('overlay-widget');
   const value = document.getElementById('overlay-value');
   const status = document.getElementById('overlay-status');
-  const token = String(location.hash ?? '').slice(1);
+  const query = new globalThis.URLSearchParams(String(location.search ?? ''));
+  const capabilityRef = query.get('ref');
+  const storageKey = typeof capabilityRef === 'string' && /^[A-Za-z0-9_-]{22}$/.test(capabilityRef)
+    ? `overlay-capability:${capabilityRef}`
+    : null;
+  let token = String(location.hash ?? '').slice(1);
+  if (!tokenPattern.test(token) && storageKey) {
+    try { token = sessionStorage?.getItem(storageKey) ?? ''; } catch { token = ''; }
+  }
   let active = tokenPattern.test(token);
   let lastValue = null;
   let inFlight = false;
@@ -95,6 +104,9 @@ export function mountOverlayWidget({
   function setProductLocale(locale) {
     if (typeof locale !== 'string') return;
     try { document.documentElement.lang = Intl.getCanonicalLocales(locale)[0]; } catch { /* Ignore invalid catalog locale identifiers. */ }
+  }
+  if (active && storageKey && String(location.hash ?? '')) {
+    try { sessionStorage?.setItem(storageKey, token); } catch { /* Keep the first load functional if browser storage is unavailable. */ }
   }
   if (String(location.hash ?? '')) history.replaceState(null, '', `${location.pathname}${location.search}`);
   if (!active) status.textContent = localized('overlay.status.unavailable', 'Fonte indisponível');
@@ -120,6 +132,9 @@ export function mountOverlayWidget({
       });
       if (response.status === 401 || response.status === 403 || response.status === 404) {
         clearForRevocation();
+        if (storageKey) {
+          try { sessionStorage?.removeItem(storageKey); } catch { /* Ignore storage cleanup failures after server-side revocation. */ }
+        }
         return;
       }
       if (!response.ok) {

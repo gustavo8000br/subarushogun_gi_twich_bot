@@ -37,7 +37,7 @@ function withoutCapabilityHash(widget) {
 /** @param {{repository: Record<string, any>, origin: string, tokenFactory?: () => string}} options */
 export function createOverlayWidgetService({ repository, origin, tokenFactory = () => randomBytes(32).toString('base64url') }) {
   const safeOrigin = validateOrigin(origin);
-  const createUrl = (token) => `${safeOrigin}/overlay.html#${token}`;
+  const createUrl = (token) => `${safeOrigin}/overlay.html?ref=${randomBytes(16).toString('base64url')}#${token}`;
   return {
     async create(configuration) {
       const token = issueToken(tokenFactory);

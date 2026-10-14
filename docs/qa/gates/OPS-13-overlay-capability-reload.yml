@@ -1,0 +1,27 @@
+schema: 1
+story: OPS-13
+gate: PASS
+score: 10/10
+status_reason: 'Automated OPS-13 acceptance criteria pass with independent QA review and full reported quality gates. Native OBS/CEF reload acceptance remains pending with the owner.'
+reviewer: Quinn
+reviewed_revision: 'working-code-sha256:4ac8788bad2b72b661f67dcb5c9964757e3a633c658dc2309e4a53504b5b165b'
+updated: '2026-10-14T20:57:53Z'
+top_issues: []
+waiver: { active: false }
+evidence:
+  focused_tests: '17/17 overlay renderer and capability service tests passed'
+  account_projection: 'PostgreSQL integration: 1/1 automatic account switch and overlay projection test passed'
+  full_suite: 'Rerun with --maxWorkers=4: 106 files / 965 tests passed'
+  postgres_isolated_rerun: 'PostgreSQL tests that failed during parallel execution passed 13/13 when rerun in isolation'
+  lint: 'npm run lint passed'
+  typecheck: 'npm run typecheck passed'
+  production_build: 'npm run build passed'
+  static_review: 'npm run review:static; 0 findings'
+  localization: 'npm run validate:localization passed'
+  version: 'npm run validate:version passed'
+  port_denylist: 'npm run validate:port-denylist; 0 findings'
+  ide_sync: 'npm run sync:ide:check; 109/109, no drift'
+  architecture_and_security: 'Independent QA re-review confirmed per-capability storage isolation, secret remains in the URL fragment only until initialization, no secret in URL parameters/request path, and capability revocation cleanup'
+limitations:
+  - 'Native OBS/CEF browser-source reload was not executed in Codespaces; owner runtime acceptance remains pending.'
+  - 'Existing OBS capability URLs must be regenerated after installing this fix.'

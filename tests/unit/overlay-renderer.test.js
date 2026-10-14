@@ -38,6 +38,124 @@ describe('OBS overlay renderer', () => {
     expect(document.elements.value.textContent).toBe('Olá');
   });
 
+  it('retains the capability for a browser-source reload without exposing it in the URL', async () => {
+    const document = createDocument();
+    const values = new Map();
+    const sessionStorage = {
+      getItem: vi.fn((key) => values.get(key) ?? null),
+      setItem: vi.fn((key, value) => values.set(key, value)),
+      removeItem: vi.fn((key) => values.delete(key)),
+    };
+    const token = 'r'.repeat(43);
+    const fetch = vi.fn(async () => response(200, { sourceType: 'account_label', value: 'Viewer', fallbackText: '', style: {} }));
+    const reference = 'a'.repeat(22);
+    const location = { hash: `#${token}`, pathname: '/overlay.html', search: `?ref=${reference}` };
+    const history = { replaceState: vi.fn() };
+
+    const firstLoad = mountOverlayWidget({ document, fetch, location, history, sessionStorage });
+    await firstLoad.pollNow();
+    expect(sessionStorage.setItem).toHaveBeenCalledWith(`overlay-capability:${reference}`, token);
+    expect(history.replaceState).toHaveBeenCalledWith(null, '', `/overlay.html?ref=${reference}`);
+
+    const reloaded = mountOverlayWidget({
+      document: createDocument(), fetch,
+      location: { hash: '', pathname: '/overlay.html', search: `?ref=${reference}` },
+      history, sessionStorage,
+    });
+    await reloaded.pollNow();
+    expect(fetch).toHaveBeenLastCalledWith('/overlay/api/widget', expect.objectContaining({
+      headers: { authorization: `Bearer ${token}` }, cache: 'no-store',
+    }));
+    expect(reloaded).toBeDefined();
+    firstLoad.destroy();
+    reloaded.destroy();
+  });
+
+  it('renders a newly projected current account on the next poll', async () => {
+    const document = createDocument();
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(response(200, { sourceType: 'account_label', value: 'First Viewer', fallbackText: '', style: {} }))
+      .mockResolvedValueOnce(response(200, { sourceType: 'account_label', value: 'Second Viewer', fallbackText: '', style: {} }));
+    const renderer = mountOverlayWidget({
+      document, fetch,
+      location: { hash: `#${'t'.repeat(43)}`, pathname: '/overlay.html', search: `?ref=${'b'.repeat(22)}` },
+      history: { replaceState() {} }, sessionStorage: { setItem() {}, getItem() { return null; }, removeItem() {} },
+    });
+
+    await renderer.pollNow();
+    expect(document.elements.value.textContent).toBe('First Viewer');
+    await renderer.pollNow();
+    expect(document.elements.value.textContent).toBe('Second Viewer');
+    renderer.destroy();
+  });
+
+  it('clears the retained capability after the server rejects it on reload', async () => {
+    const rejectedReference = 'c'.repeat(22);
+    const values = new Map([[`overlay-capability:${rejectedReference}`, 's'.repeat(43)]]);
+    const sessionStorage = {
+      getItem: vi.fn((key) => values.get(key) ?? null),
+      setItem: vi.fn((key, value) => values.set(key, value)),
+      removeItem: vi.fn((key) => values.delete(key)),
+    };
+    const document = createDocument();
+    const fetch = vi.fn(async () => response(404, { error: 'unavailable' }));
+    const renderer = mountOverlayWidget({
+      document, fetch,
+      location: { hash: '', pathname: '/overlay.html', search: `?ref=${rejectedReference}` },
+      history: { replaceState() {} }, sessionStorage,
+    });
+
+    await renderer.pollNow();
+
+    expect(document.elements.status.textContent).toBe('Fonte indisponível');
+    expect(values.has(`overlay-capability:${rejectedReference}`)).toBe(false);
+    renderer.destroy();
+  });
+
+  it('isolates rotated capability references when OBS sources share session storage', async () => {
+    const values = new Map();
+    const sessionStorage = {
+      getItem: vi.fn((key) => values.get(key) ?? null),
+      setItem: vi.fn((key, value) => values.set(key, value)),
+      removeItem: vi.fn((key) => values.delete(key)),
+    };
+    const oldToken = 'o'.repeat(43);
+    const newToken = 'n'.repeat(43);
+    const oldReference = 'o'.repeat(22);
+    const newReference = 'n'.repeat(22);
+    const oldFetch = vi.fn(async () => response(404, { error: 'revoked' }));
+    const oldSource = mountOverlayWidget({
+      document: createDocument(), fetch: oldFetch,
+      location: { hash: `#${oldToken}`, pathname: '/overlay.html', search: `?ref=${oldReference}` },
+      history: { replaceState() {} }, sessionStorage,
+    });
+
+    const newFetch = vi.fn(async () => response(200, { sourceType: 'account_label', value: 'Current', fallbackText: '', style: {} }));
+    const newSource = mountOverlayWidget({
+      document: createDocument(), fetch: newFetch,
+      location: { hash: `#${newToken}`, pathname: '/overlay.html', search: `?ref=${newReference}` },
+      history: { replaceState() {} }, sessionStorage,
+    });
+    await newSource.pollNow();
+    await oldSource.pollNow();
+
+    expect(values.get(`overlay-capability:${newReference}`)).toBe(newToken);
+    expect(values.has(`overlay-capability:${oldReference}`)).toBe(false);
+    const newReload = mountOverlayWidget({
+      document: createDocument(), fetch: newFetch,
+      location: { hash: '', pathname: '/overlay.html', search: `?ref=${newReference}` },
+      history: { replaceState() {} }, sessionStorage,
+    });
+    await newReload.pollNow();
+    expect(newFetch).toHaveBeenLastCalledWith('/overlay/api/widget', expect.objectContaining({
+      headers: { authorization: `Bearer ${newToken}` },
+    }));
+
+    oldSource.destroy();
+    newSource.destroy();
+    newReload.destroy();
+  });
+
   it('renders remote values as inert text and applies only constrained style properties', async () => {
     const document = createDocument();
     const fetch = vi.fn(async () => response(200, { sourceType: 'fixed_text', value: '<img src=x onerror=alert(1)>', fallbackText: '', style: { textColor: '#12ABEF', fontSize: 48, fontFamily: 'Arial, sans-serif', effect: 'shadow', shadowOffsetX: 2, shadowOffsetY: 3, shadowBlur: 4, arbitraryCss: 'url(https://evil.test)' } }));

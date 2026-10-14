@@ -175,8 +175,10 @@ async function waitForOverlayState(page, predicate, timeoutMs, message) {
   const deadline = Date.now() + timeoutMs;
   let state;
   while (Date.now() < deadline) {
-    state = await overlayState(page);
-    if (predicate(state)) return state;
+    try {
+      state = await overlayState(page);
+      if (predicate(state)) return state;
+    } catch { /* A reload temporarily destroys the page execution context. */ }
     await delay(100);
   }
   assert.fail(`${message}: ${JSON.stringify(state)}`);
@@ -218,14 +220,8 @@ async function verifyRecoveryAndRotation(obs, widget, assigned, inputNames, sess
     Object.assign(session, await apiSession());
     await waitForOverlayState(source, (state) => state.value === widget.expected && state.status === '' && !state.stale, 15_000, 'OBS must recover and clear the stale marker when the bot returns');
 
-    for (const { page } of assigned.values()) page.close();
-    await obs.request('RemoveInput', { inputName: inputNames[0] });
-    inputNames[0] = `FND7 ${runId} 0 reload`;
-    await obs.request('CreateInput', { sceneName: 'Scene', inputName: inputNames[0], inputKind: 'browser_source', inputSettings: { url: widget.capabilityUrl, width: 640, height: 100, shutdown: false, webpage_control_level: 0 }, sceneItemEnabled: true });
-    const reloadedPages = await waitForAllPages(widget.expectedValues, baselineIds, 10_000);
-    assigned.clear();
-    for (const [index, page] of reloadedPages) assigned.set(index, page);
-    await waitForOverlayState(assigned.get(0).page, (state) => state.value === widget.expected && state.status === '' && state.hashLength === 0 && !state.stale, 10_000, 'reloaded OBS Browser Source must fetch current data again');
+    await assigned.get(0).page.evaluate('location.reload()');
+    await waitForOverlayState(assigned.get(0).page, (state) => state.value === widget.expected && state.status === '' && state.hashLength === 0 && !state.stale, 10_000, 'reloaded OBS Browser Source must recover its capability and fetch current data again');
 
     const rotated = await mutate(session, widget, 'POST', `/api/overlay-widgets/${widget.id}/regenerate`, { expectedVersion: widget.version });
     widget.version = rotated.widget.version;
