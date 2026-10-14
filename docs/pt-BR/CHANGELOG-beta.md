@@ -2,6 +2,10 @@
 
 [Todos os changelogs públicos](CHANGELOG.md) · [English](../../CHANGELOG-beta.md)
 
+## v0.1.2-beta
+
+- Ao excluir uma fila vinculada a reward após concluir um atendimento, a conclusão pendente na Twitch agora é preservada e a exclusão da reward aguarda a confirmação.
+
 ## v0.1.1-beta
 
 - Fontes de navegador do OBS mantêm a capacidade ativa do widget após recarregar, permitindo que o overlay de conta atual reconecte sem tela preta; a revogação continua desabilitando o widget.

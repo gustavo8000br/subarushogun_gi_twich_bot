@@ -1533,14 +1533,12 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
     async recordQueueDeletionRedemptions({ queueId, redemptions }) {
       let recorded = 0;
-      let conflicts = 0;
       for (let offset = 0; offset < redemptions.length; offset += 50) {
         const batch = redemptions.slice(offset, offset + 50);
         const result = await withQueueTransaction(prisma, queueId, async (tx) => {
           const queue = await tx.queue.findUnique({ where: { id: queueId } });
           if (!queue || queue.lifecycleStatus !== 'deleting' || !queue.rewardId) throw repositoryError('QUEUE_DELETION_NOT_PENDING', 'Queue deletion is not pending');
           let batchRecorded = 0;
-          let batchConflicts = 0;
           for (const item of batch) {
             if (item.rewardId !== queue.rewardId || typeof item.id !== 'string' || !item.id || typeof item.userId !== 'string' || !item.userId || !(item.redeemedAt instanceof Date)) continue;
             const redemption = await tx.redemption.findUnique({ where: { redemptionId: item.id } });
@@ -1558,10 +1556,9 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
               continue;
             }
             const existingTask = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${item.id}` } });
-            if (existingTask?.operationType === 'redemption.fulfill' && existingTask.status !== 'confirmed') {
-              await tx.outbox.update({ where: { id: existingTask.id }, data: { status: 'conflict', lastError: 'queue_delete_conflicts_with_fulfillment', leaseToken: null, leaseUntil: null } });
-              await tx.auditLog.create({ data: { queueId, redemptionId: item.id, event: 'queue.deletion_financial_conflict', origin: 'system', previousState: existingTask.status, nextState: 'conflict', reason: 'fulfillment_intent_exists', safeDetail: {} } });
-              batchConflicts += 1;
+            if (existingTask?.operationType === 'redemption.fulfill') {
+              // Completed service owns the durable financial intent. A stale UNFULFILLED
+              // Twitch read must not turn fulfillment into cancellation or revoke its lease.
               continue;
             }
             if (redemption.remoteStatus !== 'UNFULFILLED') continue;
@@ -1576,12 +1573,11 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
               await tx.redemption.update({ where: { redemptionId: item.id }, data: { expectedStatus: 'CANCELED', syncStatus: 'pending', rejectionReason: 'queue_deleting' } });
             }
           }
-          return { recorded: batchRecorded, conflicts: batchConflicts };
+          return { recorded: batchRecorded };
         });
         recorded += result.recorded;
-        conflicts += result.conflicts;
       }
-      return { status: conflicts ? 'conflict' : 'recorded', recorded, conflicts };
+      return { status: 'recorded', recorded, conflicts: 0 };
     },
 
     async getQueueDeletionBlockers(queueId) {

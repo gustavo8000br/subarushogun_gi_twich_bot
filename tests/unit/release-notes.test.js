@@ -12,13 +12,19 @@ describe('release notes from bilingual public changelogs', () => {
       readFile(new URL('../../docs/pt-BR/CHANGELOG-beta.md', import.meta.url), 'utf8'),
     ]);
 
-    expect(packageJson.version).toBe('0.1.1');
+    expect(packageJson.version).toBe('0.1.2');
     expect(stage.trim()).toBe('beta');
-    expect(version.trim()).toBe('v0.1.1-0000000-beta');
+    expect(version.trim()).toBe('v0.1.2-0000000-beta');
+    expect(english).toContain('## v0.1.2-beta');
+    expect(portuguese).toContain('## v0.1.2-beta');
+    expect(english.indexOf('## v0.1.2-beta')).toBeLessThan(english.indexOf('## v0.1.1-beta'));
+    expect(english.indexOf('## v0.1.1-beta')).toBeLessThan(english.indexOf('## v0.1.0-beta'));
+    expect(english.split('## v0.1.2-beta')[1].split('## ')[0]).toContain('preserves the pending Twitch fulfillment');
+    expect(portuguese.indexOf('## v0.1.2-beta')).toBeLessThan(portuguese.indexOf('## v0.1.1-beta'));
+    expect(portuguese.indexOf('## v0.1.1-beta')).toBeLessThan(portuguese.indexOf('## v0.1.0-beta'));
+    expect(portuguese.split('## v0.1.2-beta')[1].split('## ')[0]).toContain('a conclusão pendente na Twitch agora é preservada');
     expect(english).toContain('## v0.1.1-beta');
     expect(portuguese).toContain('## v0.1.1-beta');
-    expect(english.indexOf('## v0.1.1-beta')).toBeLessThan(english.indexOf('## v0.1.0-beta'));
-    expect(portuguese.indexOf('## v0.1.1-beta')).toBeLessThan(portuguese.indexOf('## v0.1.0-beta'));
     expect(english).toContain('## v0.1.0-beta');
     expect(portuguese).toContain('## v0.1.0-beta');
     expect(english.split('## v0.1.0-beta')[1]).not.toContain('OBS browser sources retain their active widget capability');

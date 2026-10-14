@@ -12,7 +12,7 @@ Toda PR de distribuição recebe sua versão escolhida antes do merge. Registre 
 
 ## Plano atual de release
 
-O alvo atual de distribuição é a versão base do produto `0.1.1`; `.release-stage` continua em `beta` e a identidade não materializada do checkout é `v0.1.1-0000000-beta`. Este patch registra a correção de recarga do widget de conta atual do OBS da OPS-13. A QA automatizada passou com 10/10 e a mudança foi mesclada, mas o aceite do proprietário em OBS/CEF nativo ainda está pendente: o proprietário precisa instalar a build, regenerar a URL de capacidade do widget e confirmar que o overlay continua após recarregar a fonte do navegador. Mantenha a OPS-13 aberta até confirmar esse teste. A publicação da release beta continua sendo acionada manualmente pelo proprietário; este incremento de versão não cria tag Git nem GitHub Release.
+O alvo atual de distribuição é a versão base do produto `0.1.2`; `.release-stage` continua em `beta` e a identidade não materializada do checkout é `v0.1.2-0000000-beta`. Este patch corrige o tratamento de resgates Twitch concluídos durante a exclusão de filas vinculadas a rewards: preserva a intenção durável de conclusão e aguarda confirmação remota antes de excluir a reward. QA independente passou com 10/10 para esta regressão. O proprietário deve testar esta build localmente, incluindo um ciclo autorizado de resgate Twitch; testes automatizados não comprovam operação financeira ao vivo. A publicação da release beta continua sendo acionada manualmente pelo proprietário; este incremento de versão não cria tag Git nem GitHub Release.
 
 ## Conteúdo das GitHub Releases
 
