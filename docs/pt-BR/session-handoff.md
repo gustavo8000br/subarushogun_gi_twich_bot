@@ -5,14 +5,15 @@
 ## Workspace atual
 
 - Repositório/worktree: `/workspaces/subarushogun_gi_twich_bot`
-- Branch de implementação atual: `fix/issue-57-queue-regressions`. Preservar a modificação preexistente em `.aiox/project-status.yaml`.
-- Preserve o trabalho não commitado existente neste checkout; não faça reset nem descarte alterações.
+- Branch atual: `docs/ops-12-rc-installer-ux`.
+- As alterações deste incremento são a story/índice bilíngues da OPS-12 e esta atualização do handoff.
 
 ## Objetivo atual
 
-Implementação e gate independente de QA da OPS-11 / issue #57 concluídos. AC 1–6 têm evidências bilíngues; QA PASS 10/10. Nenhum merge, fechamento de issue ou operação externa de repositório foi realizado nesta tarefa de QA. Os aceites locais da FND-9 abaixo são separados e continuam pendentes.
+Registrar OPS-12 / issue #60: planejamento da UX do instalador para RC, com barra de progresso acessível como requisito confirmado. `.release-stage` é `beta`; a story está intencionalmente adiada e nenhum planejamento de UX ou implementação deve começar antes do RC. A issue está aberta; os arquivos bilíngues ficam em `docs/stories/OPS-12/` e `docs/pt-BR/stories/OPS-12/`.
 
 ## Incremento mais recente
+- OPS-12 / issue #60 criada e indexada em inglês e pt-BR. O gate do estágio continua beta; o workflow AIOX completo e o planejamento visual por `$aiox-ux-design-expert` ficam reservados para o RC.
 - Follow-up do painel: removidos o controle normal Ocultar/Arquivar e os textos obsoletos de arquivamento dos três catálogos. Filas legadas `isArchived` têm recuperação Mostrar para viewers, que mantém a fila pausada; Excluir e Configurar continuam como controles separados. A exclusão com sync remoto incerto segue como ação distinta “Excluir do painel mesmo assim”, com duas confirmações.
 
 - OPS-11 está Done após QA independente PASS **10/10**. Runtime Chromium 156 Headless passou 13/13 verificações de teclado e árvore de acessibilidade computada cobrindo as duas confirmações; lint, typecheck e 80 testes focados passaram após a correção. A suíte completa passou em 106 arquivos / 960 testes; revisão estática teve 0 achados; localização, versão, port-denylist e diff check passaram. `EXPLAIN (ANALYZE, BUFFERS)` natural em PostgreSQL descartável migrado com 45.000 filas sintéticas e 5.000 tombstones de reward escolheu `queues_pkey`; não houve justificativa para ampliar o índice parcial. Scores independentes: QA **10/10**, Arquitetura **9/10** (sem achado bloqueador), UX **10/10** para a revisão delimitada dos diálogos. Não se alega sessão real com leitor de tela nem operação financeira Twitch ao vivo. Gate QA: `docs/qa/gates/OPS-11-queue-regressions.yml`.

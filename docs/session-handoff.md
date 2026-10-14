@@ -5,14 +5,15 @@
 ## Current workspace
 
 - Repository/worktree: `/workspaces/subarushogun_gi_twich_bot`
-- Current implementation branch: `fix/issue-57-queue-regressions`. Preserve the pre-existing `.aiox/project-status.yaml` modification.
-- Preserve the existing uncommitted work in this checkout; do not reset or discard it.
+- Current branch: `docs/ops-12-rc-installer-ux`.
+- Working tree changes in this increment are the bilingual OPS-12 planning story/index and this handoff update.
 
 ## Current objective
 
-OPS-11 / issue #57 implementation and independent QA gate are complete. AC 1–6 have bilingual evidence; QA PASS is 10/10. No merge, issue closure, or external repository operation was performed in this QA task. The FND-9 owner-side acceptance gates below are separate and remain open.
+Record OPS-12 / issue #60: installer UX planning for RC, with an accessible progress bar as a confirmed requirement. `.release-stage` is `beta`; the story is intentionally deferred and no UX planning or implementation should start before RC. The issue is open; bilingual story files are in `docs/stories/OPS-12/` and `docs/pt-BR/stories/OPS-12/`.
 
 ## Latest increment
+- OPS-12 / issue #60 created and indexed in English and pt-BR. Current stage gate remains beta; the full AIOX planning workflow and `$aiox-ux-design-expert` visual planning are reserved for RC.
 - Panel follow-up: removed the normal Hide/Archive control and obsolete archive copy from the three panel catalogs. Legacy `isArchived` queues have a Show-to-viewers recovery control that leaves the queue paused; Delete and Configure remain separate controls. Uncertain remote-sync deletion remains a distinct two-confirmation “Delete from panel anyway” action.
 
 - OPS-11 is Done after independent QA PASS **10/10**. Chromium 156 Headless runtime passed 13/13 keyboard and computed accessibility-tree checks covering both confirmation steps; post-fix lint, typecheck, and 80 focused tests passed. The complete suite passed 106 files / 960 tests; static review had 0 findings; localization, version, port-denylist, and diff checks passed. Natural `EXPLAIN (ANALYZE, BUFFERS)` on migrated disposable PostgreSQL with 45,000 synthetic queues and 5,000 reward tombstones selected `queues_pkey`; no partial-index widening was justified. Independent scores: QA **10/10**, Architecture **9/10** (no blocking finding), UX **10/10** for the scoped dialog review. No real screen-reader session or live Twitch financial operation is claimed. QA gate: `docs/qa/gates/OPS-11-queue-regressions.yml`.
