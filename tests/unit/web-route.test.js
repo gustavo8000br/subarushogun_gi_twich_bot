@@ -146,8 +146,11 @@ describe('local web entrypoint', () => {
     expect(script.statusCode).toBe(200);
     expect(script.body).toContain("action(panelText('panel.entry.action.resend'), 'resend-call'");
     expect(script.body).toContain("actionName === 'resend-call'");
-    expect(script.body).toContain("action(panelText('panel.queue.action.unarchive'), 'unarchive-queue'");
-    expect(script.body).toContain("action(panelText('panel.queue.action.archive'), 'archive-queue'");
+    expect(script.body).toContain('getQueueVisibilityAction(queue, actionState)');
+    expect(script.body).toContain("actionName === 'unarchive-queue'");
+    expect(script.body).not.toContain("action(panelText('panel.queue.action.archive'), 'archive-queue'");
+    expect(script.body).not.toContain("actionName === 'archive-queue'");
+    expect(script.body).not.toContain("actionState.archiveAction");
     await app.close();
   });
 

@@ -16,9 +16,10 @@ export function createCallTimeoutLoop({
       inFlight = (async () => {
         let expired = 0;
         try {
-          const candidates = await repository.listExpiredCalledEntries(new Date(clock().getTime() - graceMs));
+          const deadlineCutoff = new Date(clock().getTime() - graceMs);
+          const candidates = await repository.listExpiredCalledEntries(deadlineCutoff);
           for (const entry of candidates) {
-            const result = await domainService.transitionEntry({ entryId: entry.id, to: 'no_show', origin: 'timer', reason: 'call_timeout' });
+            const result = await domainService.transitionEntry({ entryId: entry.id, to: 'no_show', origin: 'timer', reason: 'call_timeout', deadlineCutoff });
             if (result) expired += 1;
           }
         } catch {

@@ -1,18 +1,23 @@
-# Handoff de desenvolvimento — 2026-10-11
+# Handoff de desenvolvimento — 2026-10-14
 
 [English](../session-handoff.md)
 
 ## Workspace atual
 
 - Repositório/worktree: `/workspaces/subarushogun_gi_twich_bot`
-- Branch documental atual: `docs/close-fnd1-windows-acceptance`; após o merge da PR, continuar na `main`. Preservar a modificação preexistente em `.aiox/project-status.yaml`.
+- Branch de implementação atual: `fix/issue-57-queue-regressions`. Preservar a modificação preexistente em `.aiox/project-status.yaml`.
 - Preserve o trabalho não commitado existente neste checkout; não faça reset nem descarte alterações.
 
 ## Objetivo atual
 
-Concluir o aceite ao vivo autorizado da Twitch pelo proprietário para a implementação FND-9 já mesclada na `main`. A FND-1 está encerrada após o proprietário confirmar que o instalador beta Windows funciona. Não há tarefa de implementação FND-9 restante; a issue #19 permanece aberta até o proprietário registrar evidência das operações reais.
+Implementação e gate independente de QA da OPS-11 / issue #57 concluídos. AC 1–6 têm evidências bilíngues; QA PASS 10/10. Nenhum merge, fechamento de issue ou operação externa de repositório foi realizado nesta tarefa de QA. Os aceites locais da FND-9 abaixo são separados e continuam pendentes.
 
 ## Incremento mais recente
+- Follow-up do painel: removidos o controle normal Ocultar/Arquivar e os textos obsoletos de arquivamento dos três catálogos. Filas legadas `isArchived` têm recuperação Mostrar para viewers, que mantém a fila pausada; Excluir e Configurar continuam como controles separados. A exclusão com sync remoto incerto segue como ação distinta “Excluir do painel mesmo assim”, com duas confirmações.
+
+- OPS-11 está Done após QA independente PASS **10/10**. Runtime Chromium 156 Headless passou 13/13 verificações de teclado e árvore de acessibilidade computada cobrindo as duas confirmações; lint, typecheck e 80 testes focados passaram após a correção. A suíte completa passou em 106 arquivos / 960 testes; revisão estática teve 0 achados; localização, versão, port-denylist e diff check passaram. `EXPLAIN (ANALYZE, BUFFERS)` natural em PostgreSQL descartável migrado com 45.000 filas sintéticas e 5.000 tombstones de reward escolheu `queues_pkey`; não houve justificativa para ampliar o índice parcial. Scores independentes: QA **10/10**, Arquitetura **9/10** (sem achado bloqueador), UX **10/10** para a revisão delimitada dos diálogos. Não se alega sessão real com leitor de tela nem operação financeira Twitch ao vivo. Gate QA: `docs/qa/gates/OPS-11-queue-regressions.yml`.
+- A exclusão local do painel preserva o `remoteSyncStatus` exato, inclusive `pending_*`; filas excluídas não entram na projeção ativa do painel e o texto de confirmação identifica o status remoto como histórico/não verificado. Repetir ausência confirmada é idempotente. Resgates terminais confirmados com `expectedStatus` antigo são excluídos da busca de não resolvidos, e consultas duplicadas de status são evitadas.
+- Nenhuma PR, merge, atualização de issue ou operação financeira Twitch ao vivo foi realizada. `.aiox/project-status.yaml` está limpo agora; uma saudação anterior do AIOX sobrescreveu uma edição local preexistente cujo conteúdo original não foi capturado, então não é possível verificar sua recuperação. Não execute scripts de saudação/status nem edite esse arquivo.
 
 - Score independente @qa mais recente: **10/10 para a implementação técnica**; @architect: **10/10**, e a revisão estática focada de UX: **10/10**. QA confirmou que a asserção absoluta de 100 ms foi removida, o planner PostgreSQL normal usa o índice parcial e não há bloqueio técnico de implementação. O proprietário autorizou PR/merge somente após implementação completa e QA 10/10; essas condições estão cumpridas para o código. Não marcar FND-9 Done nem fechar a issue #19: o proprietário confirmou que o instalador beta funciona em Windows; o comportamento operacional da FND-9 em Windows e o aceite financeiro Twitch ao vivo continuam pendentes.
 - A referência `aria-describedby` inválida durante exclusão agora aponta para o status pendente visível; o contrato possui cobertura.
@@ -33,6 +38,8 @@ Concluir o aceite ao vivo autorizado da Twitch pelo proprietário para a impleme
 - Dara identificou divergência da exclusão convertida com D-4. A implementação agora é somente local, preserva a reward histórica pausada e aguarda bloqueios financeiros duráveis de resgates antes de finalizar. Testes PostgreSQL e de painel focados passaram; ainda faltam cobertura de outros bloqueios/corridas/reinício e gates completos.
 - A revisão independente @qa encontrou falta de recuperação quando uma exclusão local convertida ficava pendente após cancelamentos financeiros. O painel agora oferece uma nova tentativa localizada e segura nesse estado; ela chama o endpoint idempotente existente e preserva a reward histórica pausada. Asserções focadas foram adicionadas; gates completos e revisão ainda faltam.
 - Nenhuma operação financeira Twitch ao vivo foi executada neste incremento.
+- Bootstrap de worktree: as dependências do produto e do AIOX são instaladas separadamente em cada worktree. Antes de ativar agentes AIOX em uma nova worktree, execute `npm ci`, `npm ci --prefix .aiox-core`, `npm run sync:skills:codex` e `npm run sync:ide:check`. Versão atual do AIOX Core: **5.4.1**. Nesta sessão, as duas instalações foram concluídas e as projeções Codex das skills foram regeneradas (12 skills); o sync da IDE valida 109/109 arquivos. O npm reportou 3 vulnerabilidades altas nas dependências do AIOX Core; não as atualize sem revisão específica.
+- As notas históricas pré-implementação da issue #57 abaixo foram substituídas pelo registro OPS-11 Done acima. A story bilíngue e o artefato do gate QA são as fontes atuais de critérios e evidências.
 
 ## Gates restantes da FND-9
 

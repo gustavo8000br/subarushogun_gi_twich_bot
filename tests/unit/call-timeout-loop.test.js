@@ -13,7 +13,7 @@ describe('call timeout recovery loop', () => {
     recovered = true;
     expect(await loop.tick()).toBe(1);
     expect(repository.listExpiredCalledEntries).toHaveBeenCalledWith(new Date('2026-10-03T12:00:00Z'));
-    expect(domainService.transitionEntry).toHaveBeenCalledWith({ entryId: 'entry-1', to: 'no_show', origin: 'timer', reason: 'call_timeout' });
+    expect(domainService.transitionEntry).toHaveBeenCalledWith({ entryId: 'entry-1', to: 'no_show', origin: 'timer', reason: 'call_timeout', deadlineCutoff: new Date('2026-10-03T12:00:00Z') });
     await loop.stop();
   });
 });

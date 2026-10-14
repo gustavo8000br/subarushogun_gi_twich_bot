@@ -90,3 +90,6 @@ chat.queue.mode_transition_pending	La pausa de la recompensa en Twitch está pen
 chat.follower.required	Este comando está disponible para quienes siguen el canal.
 chat.follower.unknown	No pudimos verificar si sigues este canal. Inténtalo de nuevo pronto.
 chat.follower.help_unknown	No pudimos verificar si sigues el canal; puede que falten comandos exclusivos para seguidores.
+chat.command.queue.presente	presente
+chat.queue.presence_confirmed	{user}, presencia confirmada. Espera a que el streamer inicie tu atención.
+chat.queue.presence_not_called	No tienes una llamada pendiente de confirmación en esta cola.

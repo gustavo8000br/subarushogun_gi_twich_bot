@@ -75,6 +75,7 @@ model Entry {
   calledAt          DateTime?   @map("called_at") @db.Timestamptz(3)
   callNotifiedAt    DateTime?   @map("call_notified_at") @db.Timestamptz(3)
   callDeadlineAt    DateTime?   @map("call_deadline_at") @db.Timestamptz(3)
+  callAcknowledgedAt DateTime?  @map("call_acknowledged_at") @db.Timestamptz(3)
   startedAt         DateTime?   @map("started_at") @db.Timestamptz(3)
   finishedAt        DateTime?   @map("finished_at") @db.Timestamptz(3)
   terminalReason    String?     @map("terminal_reason")

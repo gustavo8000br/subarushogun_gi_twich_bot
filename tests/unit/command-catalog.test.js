@@ -8,6 +8,7 @@ describe('canonical chat command access contract', () => {
     for (const key of ['queue:add', 'queue:remover', 'queue:proximo', 'queue:atender', 'queue:concluir', 'queue:mover', 'queue:abrir', 'queue:fechar', 'queue:limpar', 'global:queue:ping']) {
       expect(CHAT_COMMANDS.find((command) => command.key === key).access).toEqual({ kind: 'fixed', minimumRole: 'moderator' });
     }
+    expect(CHAT_COMMANDS.find((command) => command.key === 'queue:presente').access).toEqual({ kind: 'fixed', minimumRole: 'everyone' });
     for (const key of ['global:conta:set', 'global:conta:reset']) {
       expect(CHAT_COMMANDS.find((command) => command.key === key).access).toEqual({ kind: 'fixed', minimumRole: 'streamer' });
     }

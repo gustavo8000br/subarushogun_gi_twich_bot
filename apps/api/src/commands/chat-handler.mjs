@@ -17,6 +17,7 @@ const CHAT_FALLBACKS = Object.freeze({
   'chat.command.queue.lista': 'lista',
   'chat.command.queue.comandos': 'comandos',
   'chat.command.queue.posicao': 'posicao',
+  'chat.command.queue.presente': 'presente',
   'chat.command.queue.sair': 'sair',
   'chat.command.queue.add': 'add',
   'chat.command.queue.remover': 'remover',
@@ -48,6 +49,8 @@ const CHAT_FALLBACKS = Object.freeze({
   'chat.ping.response': 'Pong 🏓 Bot ativo · {version} · Twitch: {latency}',
   'chat.queue.position': '@{user}, você está na posição {position}.',
   'chat.queue.viewer_called': '@{user}, você foi chamado.',
+  'chat.queue.presence_confirmed': '@{user}, presença confirmada. Aguarde o streamer iniciar seu atendimento.',
+  'chat.queue.presence_not_called': 'Você não tem uma chamada aguardando confirmação nesta fila.',
   'chat.queue.viewer_in_progress': '@{user}, você está em atendimento.',
   'chat.queue.state.open': 'aberta',
   'chat.queue.state.closed': 'fechada',
@@ -101,6 +104,7 @@ const CHAT_PLACEHOLDERS = Object.freeze({
   'chat.ping.response': ['version', 'latency'],
   'chat.queue.position': ['user', 'position'],
   'chat.queue.viewer_called': ['user'],
+  'chat.queue.presence_confirmed': ['user'],
   'chat.queue.viewer_in_progress': ['user'],
   'chat.queue.more': ['count'],
   'chat.queue.called_many': ['count'],
@@ -178,6 +182,13 @@ export function createChatCommandHandler({ repository, domainService = repositor
         return reply(message, entry.status === 'waiting'
           ? t('chat.queue.position', { user: message.userLogin, position: entry.position })
           : t(entry.status === 'called' ? 'chat.queue.viewer_called' : 'chat.queue.viewer_in_progress', { user: message.userLogin }));
+      }
+      case 'presente': {
+        const result = await domainService.acknowledgeCallPresence({ queueId: queue.id, twitchUserId: message.userId, actorId: message.userId });
+        if (result?.status === 'acknowledged' || result?.status === 'already_acknowledged') {
+          return reply(message, t('chat.queue.presence_confirmed', { user: message.userLogin }));
+        }
+        return reply(message, t('chat.queue.presence_not_called'));
       }
       case 'sair': {
         const entry = await ownEntry();

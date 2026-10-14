@@ -169,20 +169,22 @@ describe('panel catalog contract', () => {
 
   it('uses catalog-owned copy for queue and entry presentation', async () => {
     const app = await readFile(fileURLToPath(new URL('../../apps/web/app.js', import.meta.url)), 'utf8');
+    const queueActionState = await readFile(fileURLToPath(new URL('../../apps/web/queue-action-state.mjs', import.meta.url)), 'utf8');
     for (const key of [
       'panel.queue.group.waiting', 'panel.queue.group.called', 'panel.queue.group.in_service',
       'panel.queue.empty.title', 'panel.queue.empty.hint', 'panel.queue.empty_group',
       'panel.queue.status.open', 'panel.queue.status.closed', 'panel.queue.status.pending_delete', 'panel.queue.status.pending_local_delete', 'panel.queue.status.pending_local_delete_diverged', 'panel.queue.status.deletion_complete',
       'panel.queue.action.delete', 'panel.queue.action.retry_local_delete', 'panel.queue.action.configure', 'panel.queue.action.edit_reward',
-      'panel.queue.action.unarchive', 'panel.queue.action.next', 'panel.queue.action.clear',
-      'panel.queue.action.add', 'panel.queue.action.open', 'panel.queue.action.activate', 'panel.queue.action.pause',
-      'panel.queue.action.archive', 'panel.queue.action.resolve_reward', 'panel.queue.history.title',
+      'panel.queue.action.next', 'panel.queue.action.clear',
+      'panel.queue.action.add', 'panel.queue.action.activate', 'panel.queue.action.pause',
+      'panel.queue.action.resolve_reward', 'panel.queue.history.title',
       'panel.queue.history.empty', 'panel.queue.history.date_unavailable',
       'panel.entry.action.call', 'panel.entry.action.move_up', 'panel.entry.action.move_down',
       'panel.entry.action.remove_priority', 'panel.entry.action.mark_priority',
       'panel.entry.action.attend', 'panel.entry.action.complete', 'panel.entry.action.resend',
       'panel.entry.action.remove', 'panel.entry.priority_badge', 'panel.entry.uid_label',
     ]) expect(app).toContain(key);
+    expect(queueActionState).toContain("key: 'panel.queue.action.unarchive'");
   });
 
   it('explains why a reward with a matching title may still be unavailable for recovery', async () => {
@@ -300,10 +302,10 @@ describe('panel catalog contract', () => {
       'panel.queue.clear.changed', 'panel.queue.clear.done', 'panel.account.prompt.current',
       'panel.account.prompt.default',
     ]) expect(app).toContain(key);
-    for (const key of ['panel.queue.confirm.archive_local', 'panel.queue.confirm.archive_converted', 'panel.queue.confirm.archive', 'panel.queue.confirm.delete_local', 'panel.queue.confirm.delete_converted', 'panel.queue.confirm.retry_delete_converted', 'panel.queue.confirm.retry_delete_converted_diverged', 'panel.queue.confirm.delete']) {
+    for (const key of ['panel.queue.confirm.delete_local', 'panel.queue.confirm.delete_converted', 'panel.queue.confirm.retry_delete_converted', 'panel.queue.confirm.retry_delete_converted_diverged', 'panel.queue.confirm.delete']) {
       expect(queueConfirmationCopy).toContain(key);
     }
-    expect(app).toContain("panelText(getQueueConfirmationCopy(queue, archiving ? 'archive' : 'unarchive'))");
+    expect(app).toContain("panelText(getQueueConfirmationCopy(queue, 'unarchive'))");
     expect(app).toContain("panelText(getQueueConfirmationCopy(queue, 'delete'), { title: queue?.title ?? '', count: activeCount })");
     expect(app).toContain('actionState.canRetryLocalDeletion');
     expect(app).toContain("actionName === 'manual-mode-retry' ? 'panel.queue.confirm.manual_mode_retry' : 'panel.queue.confirm.manual_mode'");

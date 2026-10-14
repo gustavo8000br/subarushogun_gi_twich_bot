@@ -1,9 +1,9 @@
 import { decideEntryTransition } from './entry-transitions.mjs';
 
-/** @typedef {{entryId: string, to: string, origin?: string, actorId?: string|null, reason: string}} TransitionInput */
+/** @typedef {{entryId: string, to: string, origin?: string, actorId?: string|null, reason: string, deadlineCutoff?: Date}} TransitionInput */
 /** @typedef {{status: string, source: string}} EntrySnapshot */
 /** @typedef {{refundIfRemovedWhileCalled?: boolean, refundOnNoShow?: boolean, refundIfViewerLeavesCalled?: boolean}} QueuePolicySnapshot */
-/** @typedef {{repository: {applyEntryTransition: (args: {input: TransitionInput, decideTransition: (context: {entry: EntrySnapshot, queue: QueuePolicySnapshot, input: TransitionInput}) => object}) => Promise<object>, callNext?: (input: object) => Promise<Array<object>>, callSpecificEntry?: (input: object) => Promise<object>, clearActiveEntries?: (input: object) => Promise<object>, requestQueueDeletion?: (input: object) => Promise<object>}}} Dependencies */
+/** @typedef {{repository: {applyEntryTransition: (args: {input: TransitionInput, decideTransition: (context: {entry: EntrySnapshot, queue: QueuePolicySnapshot, input: TransitionInput}) => object}) => Promise<object>, callNext?: (input: object) => Promise<Array<object>>, callSpecificEntry?: (input: object) => Promise<object>, acknowledgeCallPresence?: (input: {queueId: string, twitchUserId: string, actorId?: string|null}) => Promise<object>, clearActiveEntries?: (input: object) => Promise<object>, requestQueueDeletion?: (input: object) => Promise<object>}}} Dependencies */
 
 function decideTransition({ entry, queue, input }) {
   return decideEntryTransition({
@@ -44,6 +44,10 @@ export function createQueueDomainService({ repository }) {
       if (!repository.callSpecificEntry) throw new Error('Queue calling is unavailable');
       return repository.callSpecificEntry({ ...input, decideTransition });
     },
+    acknowledgeCallPresence(input) {
+      if (!repository.acknowledgeCallPresence) throw new Error('Call presence acknowledgment is unavailable');
+      return repository.acknowledgeCallPresence(input);
+    },
     /** @param {{queueId: string, snapshot: Array<object>, actorId?: string|null, origin?: string}} input */
     clearActiveEntries(input) {
       if (!repository.clearActiveEntries) throw new Error('Queue clearing is unavailable');
@@ -63,6 +67,7 @@ export function createQueueDomainServiceProxy({ getService }) {
     transitionEntry: (input) => getService().transitionEntry(input),
     callNext: (input) => getService().callNext(input),
     callSpecificEntry: (input) => getService().callSpecificEntry(input),
+    acknowledgeCallPresence: (input) => getService().acknowledgeCallPresence(input),
     clearActiveEntries: (input) => getService().clearActiveEntries(input),
     deleteQueue: (input) => getService().deleteQueue(input),
   };

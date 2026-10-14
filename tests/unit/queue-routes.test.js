@@ -738,6 +738,23 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('issues and consumes a separate protected local-archive challenge with version and remote-status binding', async () => {
+    const h = await createHarness();
+    h.repository.beginLocalQueueArchive = vi.fn(async () => ({ status: 'challenge_issued', challengeId: '10000000-0000-4000-8000-000000000001', expectedVersion: 4, remoteSyncStatus: 'unknown', expiresAt: new Date('2026-10-14T18:30:00Z') }));
+    h.repository.confirmLocalQueueArchive = vi.fn(async () => ({ status: 'archived', queue: { id: 'queue-id', slug: 'abismo', rewardId: 'reward-1', lifecycleStatus: 'deleted', isArchived: true, isOpen: false, remoteSyncStatus: 'unknown', version: 5 } }));
+    const denied = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive-local/challenge', headers: h.sessionHeaders, payload: { expectedVersion: 4 } });
+    expect(denied.statusCode).toBe(403);
+    expect(h.repository.beginLocalQueueArchive).not.toHaveBeenCalled();
+    const challenge = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive-local/challenge', headers: h.headers, payload: { expectedVersion: 4 } });
+    expect(challenge.statusCode).toBe(200);
+    expect(challenge.json()).toMatchObject({ status: 'challenge_issued', challengeId: '10000000-0000-4000-8000-000000000001', expectedVersion: 4, remoteSyncStatus: 'unknown' });
+    const confirmed = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive-local/confirm', headers: h.headers, payload: { challengeId: challenge.json().challengeId, expectedVersion: 4, remoteSyncStatus: 'unknown' } });
+    expect(confirmed.statusCode).toBe(200);
+    expect(confirmed.json()).toMatchObject({ status: 'archived', queue: { lifecycleStatus: 'deleted', remoteSyncStatus: 'unknown' } });
+    expect(h.repository.confirmLocalQueueArchive).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], challengeId: challenge.json().challengeId, expectedVersion: 4, remoteSyncStatus: 'unknown' });
+    await h.app.close();
+  });
+
   it('requires CSRF and calls the domain service to request queue deletion', async () => {
     const domainService = { deleteQueue: vi.fn(async () => ({ status: 'pending', activeRemoved: 2, refundsRequested: 1, queue: { id: 'queue-id', isArchived: true, isOpen: false, lifecycleStatus: 'deleting' } })) };
     const h = await createHarness({ domainService });

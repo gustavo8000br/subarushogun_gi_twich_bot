@@ -278,6 +278,44 @@ describe('Twitch chat command handler', () => {
     expect(h.repository.transitionEntry).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['pt-BR', 'presente', 'Presença confirmada.'],
+    ['en', 'present', 'Presence confirmed.'],
+    ['es', 'presente', 'Presencia confirmada.'],
+  ])('lets a called viewer acknowledge presence in %s without starting service', async (locale, command, response) => {
+    const h = setup();
+    const userId = `presence-${locale}`;
+    h.repository.getProductLocale = vi.fn(async () => ({ locale, revision: 1 }));
+    h.domainService.acknowledgeCallPresence = vi.fn(async () => ({ status: 'acknowledged' }));
+    h.handler = createChatCommandHandler({
+      repository: h.repository, domainService: h.domainService, twitch: h.twitch, settings: h.settings,
+      broadcasterId: 'broadcaster-1',
+      getChatCatalogs: async () => ({
+        'pt-BR': { 'chat.queue.presence_confirmed': 'Presença confirmada.' },
+        en: { 'chat.command.queue.presente': 'present', 'chat.queue.presence_confirmed': 'Presence confirmed.' },
+        es: { 'chat.command.queue.presente': 'presente', 'chat.queue.presence_confirmed': 'Presencia confirmada.' },
+      }),
+    });
+
+    await h.handler({ id: `presence-command-${locale}`, text: `!abismo ${command}`, userId, userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
+
+    expect(h.domainService.acknowledgeCallPresence).toHaveBeenCalledWith({ queueId: 'queue-1', twitchUserId: userId, actorId: userId });
+    expect(h.domainService.transitionEntry).not.toHaveBeenCalled();
+    expect(h.domainService.callNext).not.toHaveBeenCalled();
+    expect(h.twitch.sendChatMessage).toHaveBeenCalledWith(response);
+  });
+
+  it('does not advance an entry when the sender has no call awaiting a presence response', async () => {
+    const h = setup();
+    h.domainService.acknowledgeCallPresence = vi.fn(async () => ({ status: 'not_called' }));
+
+    await h.handler({ id: 'presence-not-called', text: '!abismo presente', userId: 'not-called-user', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
+
+    expect(h.domainService.transitionEntry).not.toHaveBeenCalled();
+    expect(h.domainService.callNext).not.toHaveBeenCalled();
+    expect(h.twitch.sendChatMessage).toHaveBeenCalledWith('Você não tem uma chamada aguardando confirmação nesta fila.');
+  });
+
   it('deduplicates message IDs and ignores Shared Chat messages from another source channel', async () => {
     const h = setup();
     const message = { id: 'message-4', text: '!fila conta', userId: 'viewer-1', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] };

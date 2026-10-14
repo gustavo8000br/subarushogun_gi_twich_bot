@@ -11,6 +11,7 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'chat.ping.response': Object.freeze(['version', 'latency']),
     'chat.queue.position': Object.freeze(['user', 'position']),
     'chat.queue.viewer_called': Object.freeze(['user']),
+    'chat.queue.presence_confirmed': Object.freeze(['user']),
     'chat.queue.viewer_in_progress': Object.freeze(['user']),
     'chat.queue.more': Object.freeze(['count']),
     'chat.queue.called_many': Object.freeze(['count']),

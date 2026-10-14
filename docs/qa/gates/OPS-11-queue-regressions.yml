@@ -1,0 +1,28 @@
+schema: 1
+story: OPS-11
+gate: PASS
+score: 10/10
+status_reason: 'AC 1–6 are covered by regression and PostgreSQL evidence, full quality gates, independent reviews, and 13 passing Chromium runtime checks for the two-step confirmation dialog. No blocking findings remain; no live screen-reader or Twitch financial session is claimed.'
+reviewer: Quinn
+reviewed_revision: 'working-tree:fix/issue-57-queue-regressions (uncommitted QA snapshot)'
+updated: '2026-10-14T19:03:35Z'
+top_issues: []
+waiver: { active: false }
+evidence:
+  browser: 'Chromium 156 Headless; node /tmp/ops11-ux-browser/run.mjs; 13/13 checks passed'
+  focused_tests: '80/80; npm run lint and npm run typecheck passed after the focus-trap fix'
+  full_suite: 'npm test rerun on the final working tree; 106 files / 961 tests passed'
+  production_build: 'npm run build; Docker Compose bot image built successfully'
+  lint: 'npm run lint passed'
+  typecheck: 'npm run typecheck passed'
+  dependency_audit: 'npm audit --omit=dev --audit-level=high; 0 vulnerabilities'
+  static_review: 'npm run review:static; 0 findings'
+  localization: 'npm run validate:localization passed'
+  version: 'npm run validate:version passed'
+  postgres_plan: 'AC 5 natural queues_pkey plan evidence is recorded in the bilingual story'
+independent_reviews:
+  architecture: '9/10; no blocking finding'
+  ux: '10/10 for the scoped dialog semantics/accessibility review'
+limitations:
+  - 'No real screen-reader session was performed.'
+  - 'No live Twitch financial operation was performed.'

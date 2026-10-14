@@ -9,3 +9,6 @@
 - All platform installers display the exact source-derived product version; denied GHCR pulls explain the public-package requirement and preserve local settings/data.
 - Windows install/start repairs a stale saved Compose image tag after a successful pull and starts the services with the exact versioned installer image.
 - The runtime identity is materialized from the exact source commit as `v0.1.0-HHHHHHH-beta`. GitHub prereleases are published only when the owner manually dispatches the release workflow.
+- Queue operation now refreshes the current account and overlay after individual calls, saves edited command permissions reliably, and lets called viewers acknowledge presence without starting service.
+- Removed Hide/Archive from normal queue controls; legacy hidden queues can be shown to viewers and stay paused until separately activated.
+- When Twitch synchronization is uncertain, streamers can explicitly delete the queue from this panel after two confirmations. This does not delete the Twitch reward; remote uncertainty and financial history are preserved. Reconciliation also recovers removed rewards and late redemptions without treating lookup failures as proof of deletion.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getQueueActionState } from '../../apps/web/queue-action-state.mjs';
+import { getQueueActionState, getQueueVisibilityAction } from '../../apps/web/queue-action-state.mjs';
 
 describe('queue action visibility and safety', () => {
   it('blocks calls while reward-to-manual pause is unresolved but keeps explicit adds available', () => {
@@ -15,8 +15,22 @@ describe('queue action visibility and safety', () => {
   });
 
   it('allows archived converted queues to be restored without reopening the reward', () => {
-    expect(getQueueActionState({ queueMode: 'manual_only', rewardOrigin: 'bot_created', rewardId: 'reward-1', remoteSyncStatus: 'local_only', modeTransitionStatus: 'confirmed', isOpen: false, isArchived: true }))
-      .toMatchObject({ canCallEntries: true, canAddManualEntry: false, canToggleIntake: true, canDelete: true, archiveAction: { enabled: true, action: 'unarchive-queue' } });
+    const queue = { queueMode: 'manual_only', rewardOrigin: 'bot_created', rewardId: 'reward-1', remoteSyncStatus: 'local_only', modeTransitionStatus: 'confirmed', isOpen: false, isArchived: true };
+    const actionState = getQueueActionState(queue);
+    expect(actionState).toMatchObject({ canCallEntries: true, canAddManualEntry: false, canToggleIntake: true, canDelete: true, canShowToViewers: true });
+    expect(getQueueVisibilityAction(queue, actionState)).toEqual({ key: 'panel.queue.action.unarchive', action: 'unarchive-queue', disabled: false });
+  });
+
+  it('does not expose legacy visibility recovery while an archived queue is open', () => {
+    const queue = { queueMode: 'manual_only', rewardOrigin: 'none', rewardId: null, remoteSyncStatus: 'local_only', isOpen: true, isArchived: true };
+    const actionState = getQueueActionState(queue);
+    expect(actionState.canShowToViewers).toBe(false);
+    expect(getQueueVisibilityAction(queue, actionState)).toEqual({ key: 'panel.queue.action.unarchive', action: 'unarchive-queue', disabled: true });
+  });
+
+  it('exposes no hide action for a normal active queue', () => {
+    const queue = { queueMode: 'manual_only', rewardOrigin: 'none', rewardId: null, remoteSyncStatus: 'local_only', isOpen: false, isArchived: false };
+    expect(getQueueVisibilityAction(queue, getQueueActionState(queue))).toBeNull();
   });
 
   it('allows local deletion of a closed converted queue without enabling remote reward lifecycle', () => {
@@ -33,33 +47,43 @@ describe('queue action visibility and safety', () => {
     expect(getQueueActionState({ queueMode: 'manual_only', rewardOrigin: 'bot_created', rewardId: 'reward-1', remoteSyncStatus: 'diverged', lifecycleStatus: 'deleting' }).canRetryLocalDeletion).toBe(true);
   });
 
-  it('shows recovery as the next action and disables remote actions while reward creation is unknown', () => {
-    expect(getQueueActionState({ queueMode: 'channel_points', rewardId: null, remoteSyncStatus: 'create_unknown', modeTransitionStatus: 'none', isOpen: false, isArchived: false }))
-      .toEqual({ canToggleIntake: false, canCallEntries: true, canAddManualEntry: true, archiveAction: { visible: true, enabled: false, action: 'archive-queue' }, canDelete: false, canRetryLocalDeletion: false, deleteBlockedReason: 'reward_unresolved', resolveReward: true, blockedReason: 'reward_unresolved' });
+  it('offers a separate local-only recovery for uncertain reward sync states, including stuck deletion', () => {
+    for (const remoteSyncStatus of ['pending', 'pending_create', 'create_unknown', 'create_failed', 'pending_open', 'pending_close', 'open_unknown', 'close_unknown', 'open_failed', 'close_failed', 'pending_update', 'update_unknown', 'update_failed', 'pending_delete', 'delete_pending', 'delete_unknown', 'delete_failed', 'failed', 'unknown', 'diverged']) {
+      expect(getQueueActionState({ queueMode: 'channel_points', rewardId: 'reward-1', remoteSyncStatus, lifecycleStatus: 'active' }).canDeleteFromPanelAnyway).toBe(true);
+      expect(getQueueActionState({ queueMode: 'channel_points', rewardId: 'reward-1', remoteSyncStatus, lifecycleStatus: 'deleting' }).canDeleteFromPanelAnyway).toBe(true);
+    }
+    expect(getQueueActionState({ queueMode: 'channel_points', rewardId: null, remoteSyncStatus: 'create_unknown', lifecycleStatus: 'active' }).canDeleteFromPanelAnyway).toBe(false);
+    expect(getQueueActionState({ queueMode: 'channel_points', rewardId: 'reward-1', remoteSyncStatus: 'unknown', lifecycleStatus: 'deleted' }).canDeleteFromPanelAnyway).toBe(false);
   });
 
-  it('enables open, pause, archive and delete only after the managed reward is synchronized', () => {
+  it('shows recovery as the next action and disables remote actions while reward creation is unknown', () => {
+    expect(getQueueActionState({ queueMode: 'channel_points', rewardId: null, remoteSyncStatus: 'create_unknown', modeTransitionStatus: 'none', isOpen: false, isArchived: false }))
+      .toEqual({ canToggleIntake: false, canCallEntries: true, canAddManualEntry: true, canShowToViewers: false, canDelete: false, canRetryLocalDeletion: false, canDeleteFromPanelAnyway: false, deleteBlockedReason: 'reward_unresolved', resolveReward: true, blockedReason: 'reward_unresolved' });
+  });
+
+  it('enables open, pause and delete only after the managed reward is synchronized', () => {
     const queue = { queueMode: 'channel_points', rewardId: 'reward-1', remoteSyncStatus: 'synced', modeTransitionStatus: 'none', isOpen: true, isArchived: false };
     expect(getQueueActionState(queue)).toEqual({
       canToggleIntake: true,
       canCallEntries: true,
       canAddManualEntry: true,
-      archiveAction: { visible: true, enabled: true, action: 'archive-queue' },
+      canShowToViewers: false,
       canDelete: true,
       canRetryLocalDeletion: false,
+      canDeleteFromPanelAnyway: false,
       deleteBlockedReason: null,
       resolveReward: false,
       blockedReason: null,
     });
   });
 
-  it('keeps unarchive visible but disabled until the remote pause is confirmed', () => {
-    expect(getQueueActionState({ queueMode: 'channel_points', rewardId: 'reward-1', remoteSyncStatus: 'pending_close', modeTransitionStatus: 'none', isOpen: false, isArchived: true }))
-      .toEqual({ canToggleIntake: false, canCallEntries: true, canAddManualEntry: false, archiveAction: { visible: true, enabled: false, action: 'unarchive-queue' }, canDelete: false, canRetryLocalDeletion: false, deleteBlockedReason: 'remote_operation_pending', resolveReward: false, blockedReason: 'remote_operation_pending' });
+  it('disables legacy show-to-viewers recovery until the remote pause is confirmed', () => {
+    expect(getQueueActionState({ queueMode: 'channel_points', rewardId: 'reward-1', remoteSyncStatus: 'pending_close', lifecycleStatus: 'active', modeTransitionStatus: 'none', isOpen: false, isArchived: true }))
+      .toEqual({ canToggleIntake: false, canCallEntries: true, canAddManualEntry: false, canShowToViewers: false, canDelete: false, canRetryLocalDeletion: false, canDeleteFromPanelAnyway: true, deleteBlockedReason: 'remote_operation_pending', resolveReward: false, blockedReason: 'remote_operation_pending' });
   });
 
   it('keeps all local queue state actions available without Twitch reward ownership', () => {
     expect(getQueueActionState({ queueMode: 'manual_only', rewardOrigin: 'none', rewardId: null, remoteSyncStatus: 'local_only', modeTransitionStatus: 'none', isOpen: false, isArchived: true }))
-      .toEqual({ canToggleIntake: true, canCallEntries: true, canAddManualEntry: false, archiveAction: { visible: true, enabled: true, action: 'unarchive-queue' }, canDelete: true, canRetryLocalDeletion: false, deleteBlockedReason: null, resolveReward: false, blockedReason: null });
+      .toEqual({ canToggleIntake: true, canCallEntries: true, canAddManualEntry: false, canShowToViewers: true, canDelete: true, canRetryLocalDeletion: false, canDeleteFromPanelAnyway: false, deleteBlockedReason: null, resolveReward: false, blockedReason: null });
   });
 });
