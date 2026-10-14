@@ -257,17 +257,17 @@ describe('foundation operator documentation contract', () => {
 
   it('documents the owner-gated beta plan and changelog-derived bilingual release notes', async () => {
     const [english, portuguese] = await Promise.all([read('docs/VERSIONING.md'), read('docs/pt-BR/VERSIONING.md')]);
-    expect(english).toContain('The current shipping target is product base version `0.1.2`');
-    expect(english).toContain('the unmaterialized checkout identity is `v0.1.2-0000000-beta`');
-    expect(english).toContain('The owner must test this build locally, including an authorized Twitch redemption lifecycle');
-    expect(english).toContain('preserves the durable fulfillment intent and waits for remote confirmation before deleting the reward');
+    expect(english).toContain('The current shipping target is product base version `0.2.0`');
+    expect(english).toContain('the unmaterialized checkout identity is `v0.2.0-0000000-beta`');
+    expect(english).toContain('The owner must test this build locally, including the recovery flow');
+    expect(english).toContain('after the exact managed Twitch reward is verified to exist and remain paused');
     expect(english).toContain('does not create a Git tag or GitHub Release');
     expect(english).toContain('Record user-facing changes under the matching version heading in the stage-specific English and pt-BR changelogs');
     expect(english).toContain('Only the repository owner manually dispatches the release workflow');
-    expect(portuguese).toContain('O alvo atual de distribuição é a versão base do produto `0.1.2`');
-    expect(portuguese).toContain('a identidade não materializada do checkout é `v0.1.2-0000000-beta`');
-    expect(portuguese).toContain('preserva a intenção durável de conclusão e aguarda confirmação remota antes de excluir a reward');
-    expect(portuguese).toContain('O proprietário deve testar esta build localmente, incluindo um ciclo autorizado de resgate Twitch');
+    expect(portuguese).toContain('O alvo atual de distribuição é a versão base do produto `0.2.0`');
+    expect(portuguese).toContain('a identidade não materializada do checkout é `v0.2.0-0000000-beta`');
+    expect(portuguese).toContain('confirma que a reward exata, gerenciada pela Twitch, existe e continua pausada');
+    expect(portuguese).toContain('O proprietário deve testar esta build localmente, incluindo o fluxo de recuperação');
     expect(portuguese).toContain('não cria tag Git nem GitHub Release');
     expect(portuguese).toContain('changelogs em inglês e pt-BR próprios do estágio');
     expect(portuguese).toContain('Somente o proprietário do repositório aciona manualmente o workflow de release');

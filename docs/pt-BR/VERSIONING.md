@@ -12,7 +12,7 @@ Toda PR de distribuição recebe sua versão escolhida antes do merge. Registre 
 
 ## Plano atual de release
 
-O alvo atual de distribuição é a versão base do produto `0.1.2`; `.release-stage` continua em `beta` e a identidade não materializada do checkout é `v0.1.2-0000000-beta`. Este patch corrige o tratamento de resgates Twitch concluídos durante a exclusão de filas vinculadas a rewards: preserva a intenção durável de conclusão e aguarda confirmação remota antes de excluir a reward. QA independente passou com 10/10 para esta regressão. O proprietário deve testar esta build localmente, incluindo um ciclo autorizado de resgate Twitch; testes automatizados não comprovam operação financeira ao vivo. A publicação da release beta continua sendo acionada manualmente pelo proprietário; este incremento de versão não cria tag Git nem GitHub Release.
+O alvo atual de distribuição é a versão base do produto `0.2.0`; `.release-stage` continua em `beta` e a identidade não materializada do checkout é `v0.2.0-0000000-beta`. Esta funcionalidade permite que o streamer cancele uma exclusão pendente de fila vinculada a reward depois que o app confirma que a reward exata, gerenciada pela Twitch, existe e continua pausada. Ela preserva as entradas e o histórico financeiro da fila e permite tentar a exclusão novamente com segurança. O proprietário deve testar esta build localmente, incluindo o fluxo de recuperação; testes automatizados não comprovam operações Twitch ao vivo. A publicação da release beta continua sendo acionada manualmente pelo proprietário; este incremento de versão não cria tag Git nem GitHub Release.
 
 ## Conteúdo das GitHub Releases
 

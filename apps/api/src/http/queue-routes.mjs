@@ -661,9 +661,11 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       return reply.send({ status: result.status, queue: queueDto(result.queue, { operator: true }) });
     } catch (error) {
       const code = error?.code;
-      const conflictCodes = ['QUEUE_NOT_FOUND', 'QUEUE_REWARD_UNRESOLVED', 'QUEUE_LOCAL_ARCHIVE_UNAVAILABLE', 'STALE_QUEUE_VERSION', 'LOCAL_ARCHIVE_CHALLENGE_EXPIRED', 'QUEUE_REWARD_OPERATION_PROCESSING'];
+      const conflictCodes = ['QUEUE_NOT_FOUND', 'QUEUE_REWARD_UNRESOLVED', 'QUEUE_LOCAL_ARCHIVE_UNAVAILABLE', 'STALE_QUEUE_VERSION', 'LOCAL_ARCHIVE_CHALLENGE_EXPIRED', 'QUEUE_REWARD_OPERATION_PROCESSING', 'QUEUE_DELETION_CANCELLATION_IN_PROGRESS'];
       if (conflictCodes.includes(code)) return reply.code(code === 'QUEUE_NOT_FOUND' ? 404 : 409).send({ code, error: code === 'QUEUE_REWARD_OPERATION_PROCESSING'
         ? 'Uma operação da recompensa ainda está em processamento. Aguarde e tente novamente.'
+        : code === 'QUEUE_DELETION_CANCELLATION_IN_PROGRESS'
+          ? 'O cancelamento da exclusão ainda está verificando a recompensa na Twitch. Aguarde e tente novamente.'
         : code === 'QUEUE_REWARD_UNRESOLVED'
           ? 'A recompensa ainda está sendo identificada. Resolva a sincronização antes de arquivar.'
           : 'A fila ou a confirmação mudou/expirou. Atualize o painel e reinicie as duas confirmações.' });
@@ -698,6 +700,23 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       const referenceId = reportDiagnostic({ source: 'http.queue.delete', error });
       reply.header('x-error-reference', referenceId);
       return reply.code(503).send({ code: 'QUEUE_DELETE_UNAVAILABLE', error: 'A exclusão não pôde ser iniciada.', referenceId });
+    }
+  });
+  app.post('/api/queues/:queueId/delete/cancel', async (request, reply) => {
+    /** @type {any} */
+    const localRequest = request;
+    const body = /** @type {Record<string, any>} */ (request.body && typeof request.body === 'object' ? request.body : {});
+    if (body.confirm !== true) return reply.code(400).send({ code: 'QUEUE_DELETE_CANCEL_CONFIRMATION_REQUIRED', error: 'Confirme explicitamente o cancelamento da exclusão.' });
+    try {
+      const result = await domainService.cancelQueueDeletion({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
+      return { status: result.status, reason: result.reason, ...(result.queue ? { queue: queueDto(result.queue, { operator: true }) } : {}) };
+    } catch (error) {
+      const code = error?.code;
+      if (code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code, error: 'Fila não encontrada.' });
+      if (['QUEUE_DELETION_NOT_PENDING', 'QUEUE_REWARD_OPERATION_PROCESSING', 'QUEUE_DELETION_CANCELLATION_STALE', 'QUEUE_DELETION_CANCELLATION_UNVERIFIED'].includes(code)) {
+        return reply.code(409).send({ code, error: 'Não foi possível cancelar a exclusão neste estado. Atualize o painel e revise a operação da reward.' });
+      }
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.delete_cancel', error, message: 'Não foi possível verificar o cancelamento da exclusão.' });
     }
   });
   app.post('/api/account', async (request, reply) => {

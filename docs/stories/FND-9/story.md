@@ -47,6 +47,7 @@
 16. [x] Independent @qa review and project quality gates pass for the current scope, including the completed-service fulfillment/deletion regression. Current scoped @qa review: 10/10 PASS. Authorized live chat acceptance is reported only if actually executed; no real reward/refund/fulfillment is claimed from mocks.
 17. [x] All affected documentation and both changelogs stay equivalent in English/pt-BR. FND-9 story is not Done until all acceptance criteria and evidence gates are complete.
 18. [x] Closing, archiving, or converting a managed reward queue confirms Twitch `is_paused=true`; reopening confirms `is_paused=false`. Do not send or require `is_in_stock` because the current Helix Update Custom Reward request does not accept it, even though GET responses expose it. Preserve the returned stock value as Twitch-owned state, and do not claim the reward was marked out of stock. Reconciliation uses only documented writable fields and must not report a divergence solely because `is_in_stock=true` on a paused reward. Covered by the adapter/worker/reconciliation tests, real PostgreSQL migration/reconciliation tests, and the authorized idempotent Twitch probe recorded in validation.md.
+19. [ ] While a managed reward queue deletion is pending, the streamer can cancel that deletion for a later attempt. Before restoring the queue, the app must verify outside the database transaction that the exact managed Twitch reward still exists, matches its configured identity, and is paused. Under the queue/outbox locks, cancel only the reward-deletion intent and restore the queue as active, archived, and closed. Preserve every entry, redemption, financial outbox intent/status/lease, deletion payload evidence, and confirmed operation; do not undo confirmed operations. If the reward is absent, diverged, unverifiable, the deletion is already confirmed, or any reward mutation is processing, do not claim cancellation or reactivate the queue; keep it in recoverable deletion state with a localized reason. A later explicit deletion request must safely reuse the canceled deletion intent without duplicate remote effects. PostgreSQL tests use real migrations and cover races/restarts.
 
 ## Tasks / Subtasks
 
@@ -89,6 +90,11 @@
 - [x] 8. Helix pause contract and recovery (AC: 18)
   - [x] Test the supported pause PATCH, archived/closed queues, retry after a lost response, and reconciliation when Twitch retains `is_in_stock=true`.
   - [x] Remove the unsupported stock write/snapshot; verify pause through the installed Twurple auth provider and official Helix fields.
+- [ ] 9. Safely cancel a pending managed reward deletion (AC: 11, 12, 13, 14, 19)
+  - [x] Add real PostgreSQL cases for outbox locking, an in-flight operation, financial conflict preservation, remote verification success/absence/divergence, restart during verification, and a later deletion request reusing the canceled intent; cover transient verification failure at the domain boundary.
+  - [x] Implement two-phase cancel verification: reserve the outbox operation under the queue lock, read the exact Twitch reward outside the transaction, then atomically cancel only the reward deletion and restore the queue closed/archived after observing a matching paused reward.
+  - [x] Add the protected panel action, safe localized confirmation/result copy, operation-state handling, and bilingual story/changelog updates.
+  - [x] Run required gates and independent @qa re-review of the cancellation/local-delete race. @qa: 10/10 PASS for the corrective finding; full suite and local quality gates passed. Do not perform a live financial operation; owner acceptance remains separate.
 
 ## Dev Notes
 
@@ -153,6 +159,11 @@ TDD evidence recorded during the active branch `feat/fnd-9-manual-queue-modes`:
 - **Full suite and quality gates (2026-10-07, after call-deadline panel presentation and conversion coverage):** `npm test -- --run` — **89 files / 765 tests passed**. `npm run lint`, `npm run typecheck`, `npm run validate:localization`, `npm run validate:version`, `npm run review:static` (**0 findings / 73 JS files**), `docker compose config --quiet`, and `git diff --check` passed. Independent QA, UX review, authorized live Twitch acceptance, and remote lifecycle proof remain pending; this does not close FND-9.
 - **Completed redemption fulfillment during queue deletion (2026-10-14):** Red: `npm test -- --run tests/integration/queue-repository.test.js -t 'preserves completed-service fulfillment while deletion sees the redemption still unfulfilled remotely'` reproduced the defect against isolated PostgreSQL with real migrations: after panel `Concluir` wrote `redemption.fulfill=pending`, recording Twitch's stale `UNFULFILLED` result changed the operation to `conflict`. Green: deletion reconciliation now leaves an existing `redemption.fulfill` intent and lease untouched, never creates a contradictory cancellation, and lets the existing blocker/retry path wait for confirmation. The end-to-end repository regression plus `pending`, `retry`, `processing`, `unknown`, `failed`, and `conflict` state cases passed **7/7** on PostgreSQL. Refactor removed the now-unreachable conflict counter while preserving the worker result shape. `npm test -- --run tests/integration/queue-repository.test.js` passed **141/141**; `npm test -- --run tests/unit/reward-outbox-worker.test.js` passed **29/29**. Full suite `npm test -- --run` passed **106 files / 972 tests**; `npm run build`, `npm run lint`, `npm run typecheck`, `npm run review:static` (**0 findings / 86 JS files**), `npm run validate:localization`, `npm run validate:version`, `npm run validate:port-denylist`, `npm run sync:ide:check` (**109/109**), `docker compose config --quiet`, and `git diff --check` passed. The isolated `tombstone-index-plan` test passed standalone after its first full-suite attempt collided with another Docker operation. Independent @qa review: **10/10 PASS** for this regression. No live Twitch or active product database was accessed; FND-9 owner-side Windows/live financial acceptance remains open.
 - **Stale local-archive challenge after reward synchronization (2026-10-14):** Independent QA identified missing coverage when successful synchronization changes the queue to an ineligible `synced` state after a local-archive challenge was issued. Added a real PostgreSQL regression asserting the challenge is rejected as `STALE_QUEUE_VERSION` and the active queue remains intact; the focused test passed **1/1**.
+- **Cancel pending managed reward deletion (2026-10-14):** Red: panel state, domain, route, and PostgreSQL regressions initially failed because cancellation and the `cancel_verification` outbox state did not exist. Green adds a protected cancel action that reserves the deletion intent under queue/outbox locks, reads the exact Twitch reward outside PostgreSQL, and restores the queue only when the reward is unchanged and paused. PostgreSQL tests preserve conflicting fulfillment, reject cancellation during an active reward lease, resume verification after a simulated service restart without worker claim/manual retry, retain evidence when the reward is absent/diverged, and reuse the canceled intent for a later explicit deletion. The rollback regression converts `cancel_verification` to `unknown` and preserves the original payload evidence. Unit tests cover transient Twitch verification failure and route/session protections. A claim from an unrelated test queue initially invalidated an overbroad assertion; the corrected assertion checks that the cancellation intent retains no lease. Full PostgreSQL repository suite passed **147/147**, including rollback coverage. Full project suite and independent QA remain pending; no live Twitch mutation or active product database was used.
+- **Cancellation/local-delete race (2026-10-14):** Independent QA found local deletion could tombstone a queue while Twitch reward verification was in progress, leaving `cancel_verification` without a normal recovery path. Confirmation now returns HTTP 409 before changing queue/task/audit state and leaves the one-use challenge issued. A real PostgreSQL regression verifies state/payload preservation and that cancellation can resume. Focused test passed **1/1**; the complete PostgreSQL suite and independent QA re-review are pending.
+- **Operations terminology (2026-10-14):** Updated the panel and deletion/recovery messages to distinguish Twitch synchronization, Channel Points refunds to viewers, and redemption fulfillment. English, Spanish, and pt-BR catalog validation passed. Focused panel/localization/docs/route tests passed **95/95**.
+- **Final verification after corrective race fix and terminology update:** `npm test -- --run` passed **106 files / 983 tests**; lint, typecheck, localization validation, version validation (`v0.2.0-0000000-beta`), and `git diff --check` passed. Independent QA re-review scored the cancellation/local-delete race correction **10/10 PASS**. No live Twitch financial operation was executed.
+- Final verification for this increment: `npm test -- --run` passed **106 files / 982 tests**; `npm run build`, lint, typecheck, static review (**0 findings / 87 JS files**), localization/version/port-denylist validation, strict IDE sync (**109/109**), Compose config, and `git diff --check` passed. Independent @qa review remains pending.
 - **Queue creation regression verification (2026-10-07):** After adding the route-shaped key-bundle regression tests and making the rollback assertion order-independent, `npm test -- --run` passed **89 files / 767 tests**. `npm run lint`, `npm run typecheck`, `npm run review:static` (**0 findings / 73 JS files**), `npm run validate:localization`, `npm run validate:version`, `docker compose config --quiet`, and `git diff --check` all passed. Active Compose was not restarted; post-fix browser and live Twitch acceptance remain pending.
 - **Twitch runtime adapter and safe diagnostics (2026-10-07):** Red: `npm test -- --run tests/unit/twitch-integration.test.js -t 'exposes the active Twitch adapter'` failed because `integration.twitch` was undefined after initialization, leaving chat and reward workers idle despite a healthy API probe. Green exposed the active adapter through a getter; the focused regression passed. Diagnostics Red tests reproduced unexpected queue errors classified as 400, raw Fastify error details in responses, and missing correlation for worker failures. Green added generic localized responses with `referenceId` and structured diagnostics without raw messages/stacks/payloads/secrets. Focused command `npm test -- --run tests/unit/safe-http-error-handler.test.js tests/unit/error-diagnostics.test.js tests/unit/outbox-loop.test.js tests/unit/queue-routes.test.js tests/unit/twitch-integration.test.js tests/unit/panel-error-presentation.test.js` passed 73 tests in 6 files. The authorized browser queue/outbox task was preserved; full gates and Docker runtime verification continue.
 - **Twurple logger sanitization (2026-10-07):** The installed `@twurple/eventsub-ws` 8.2.0 declarations document the `logger.custom` override. Red: `npx vitest run tests/unit/eventsub-runtime.test.js -t 'replaces Twurple EventSub raw logs with correlated safe diagnostics'` failed with `Cannot read properties of undefined (reading 'custom')` when the EventSub logger was not configured. Green injects a safe logger, routes errors through the shared reporter, and writes only the reference ID/fixed warning code; raw SDK messages are discarded. Green rerun passed 1 test. Type/lint required documenting the second optional listener-factory argument while preserving existing one-argument test factories. This sanitizes logs; it does not itself prove EventSub subscription activation.
@@ -189,9 +200,42 @@ See the dated TDD evidence section above.
 
 ### Completion Notes List
 
-The previously merged FND-9 implementation has independent @qa and @architect scores of 10/10. The 2026-10-14 critical fulfillment/deletion regression is fixed, covered by seven real PostgreSQL cases, and independently reviewed at @qa 10/10; the full suite has 106 files / 972 passing tests, and current local project gates pass. Story status is Ready for Review; owner-side Windows/live Twitch financial acceptance remains open; do not mark the story Done or close issue #19.
+The previously merged FND-9 implementation has independent @qa and @architect scores of 10/10. The 2026-10-14 fulfillment/deletion regression and cancellation/local-delete race are fixed and covered by real PostgreSQL cases; the latter correction received an independent @qa score of 10/10. Current full suite: 106 files / 983 tests passed. Lint, typecheck, static analysis, build, port denylist, localization/version validators, and IDE sync pass. Story status is Ready for Review; owner-side Windows/live Twitch financial acceptance remains open; do not mark the story Done or close issue #19.
 
 ### File List
+
+- `apps/api/prisma/migrations/20261014230000_outbox_deletion_cancel_verification/migration.sql`
+- `apps/api/prisma/migrations/20261014230000_outbox_deletion_cancel_verification/rollback.sql`
+- `apps/shared/localization/discover-catalog-module.mjs`
+- `apps/web/panel-catalog.mjs`
+- `apps/api/src/twitch/reward-state.mjs`
+- `apps/api/src/domain/queue-service.mjs`
+- `apps/api/src/http/queue-routes.mjs`
+- `apps/api/src/outbox/reward-worker.mjs`
+- `apps/api/src/persistence/queue-repository.mjs`
+- `apps/api/src/runtime.mjs`
+- `apps/web/app.js`
+- `apps/web/queue-action-state.mjs`
+- `apps/web/queue-confirmation-copy.mjs`
+- `apps/web/localization/catalogs/panel/en.tsv`
+- `apps/web/localization/catalogs/panel/es.tsv`
+- `apps/web/localization/catalogs/panel/pt-BR.tsv`
+- `tests/integration/queue-repository.test.js`
+- `tests/unit/queue-action-state.test.js`
+- `tests/unit/queue-domain-service.test.js`
+- `tests/unit/queue-routes.test.js`
+- `tests/unit/panel-confirmation-contract.test.js`
+- `tests/unit/release-notes.test.js`
+- `tests/unit/documentation-contract.test.js`
+- `package.json`
+- `package-lock.json`
+- `VERSION`
+- `CHANGELOG-beta.md`
+- `docs/pt-BR/CHANGELOG-beta.md`
+- `docs/VERSIONING.md`
+- `docs/pt-BR/VERSIONING.md`
+- `docs/stories/FND-9/story.md`
+- `docs/pt-BR/stories/FND-9/story.md`
 
 - `tests/unit/release-notes.test.js`
 - `docs/pt-BR/CHANGELOG-beta.md`

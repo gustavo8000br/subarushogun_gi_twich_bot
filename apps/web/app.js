@@ -317,6 +317,7 @@ function renderQueues(queues) {
       // Waiting entry call buttons reference this explanation while deletion is pending.
       pendingStatus.id = callHintId;
       controls.append(pendingStatus);
+      if (actionState.canCancelQueueDeletion) controls.append(action(panelText('panel.queue.action.cancel_delete'), 'cancel-delete-queue', '', queue.id));
       if (actionState.canRetryLocalDeletion) controls.append(action(panelText('panel.queue.action.retry_local_delete'), 'delete-queue', '', queue.id));
       if (actionState.canDeleteFromPanelAnyway) controls.append(action(panelText('panel.queue.action.archive_local_anyway'), 'delete-from-panel-anyway', '', queue.id));
     } else {
@@ -826,8 +827,12 @@ async function refresh({ quiet = false } = {}) {
         row.append(button);
       }
       if (['unknown', 'conflict', 'failed'].includes(operation.status)) {
-        const button = text('button', panelText('panel.operation.action.retry')); button.type = 'button';
-        button.addEventListener('click', async () => { try { await request(`/api/operations/${operation.id}/retry`, { method: 'POST', body: '{}' }); await refresh(); } catch (error) { toast(panelError(error)); } });
+        const isQueueDeletion = operation.type === 'reward.delete';
+        const button = text('button', panelText(isQueueDeletion ? 'panel.operation.action.continue_delete' : 'panel.operation.action.retry')); button.type = 'button';
+        button.addEventListener('click', async () => {
+          if (isQueueDeletion && !await confirmPanelAction(panelText('panel.operation.confirm.continue_delete'), { acceptLabelKey: 'panel.operation.action.continue_delete' })) return;
+          try { await request(`/api/operations/${operation.id}/retry`, { method: 'POST', body: '{}' }); await refresh(); } catch (error) { toast(panelError(error)); }
+        });
         row.append(button);
       }
       operationList.append(row);
@@ -1037,6 +1042,30 @@ async function boot() {
         const result = await request(`/api/queues/${queueId}/delete`, { method: 'POST', body: JSON.stringify({ confirm: true }) });
         toast(panelText(result.status === 'pending' ? 'panel.queue.delete.pending' : 'panel.queue.delete.done'), result.status === 'pending' ? 'warning' : 'success');
         await refresh(); return;
+      }
+      if (actionName === 'cancel-delete-queue') {
+        const queue = state.queues.find((item) => item.id === queueId);
+        if (!queue || !getQueueActionState(queue).canCancelQueueDeletion) return;
+        if (!await confirmPanelAction(panelText(getQueueConfirmationCopy(queue, 'cancel-delete'), { title: queue.title ?? '' }), {
+          acceptLabelKey: 'panel.queue.action.cancel_delete',
+        })) return;
+        try {
+          const result = await request(`/api/queues/${queueId}/delete/cancel`, { method: 'POST', body: JSON.stringify({ confirm: true }) });
+          const messageKey = result.status === 'cancelled'
+            ? 'panel.queue.delete.cancelled'
+            : result.status === 'already_deleted'
+              ? 'panel.queue.delete.cancel.already_deleted'
+              : result.reason === 'queue_delete_reward_absent'
+                ? 'panel.queue.delete.cancel.reward_absent'
+                : result.reason === 'queue_delete_reward_diverged'
+                  ? 'panel.queue.delete.cancel.reward_diverged'
+                  : 'panel.queue.delete.cancel.unverified';
+          toast(panelText(messageKey), result.status === 'cancelled' ? 'success' : 'warning');
+          await refresh(); return;
+        } catch (error) {
+          toast(panelError(error), 'error');
+          return;
+        }
       }
       if (actionName === 'delete-from-panel-anyway') {
         const queue = state.queues.find((item) => item.id === queueId);

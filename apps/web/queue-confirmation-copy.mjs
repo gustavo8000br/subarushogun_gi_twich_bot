@@ -1,5 +1,6 @@
-/** @param {Record<string, any> | undefined} queue @param {'unarchive'|'delete'|'archive-local-first'|'archive-local-final'|'archive-local-first-accept'|'archive-local-final-accept'|'archive-local-processing'|'archive-local-expired'|'archive-local-stale'|'archive-local-unavailable'} action */
+/** @param {Record<string, any> | undefined} queue @param {'unarchive'|'delete'|'cancel-delete'|'archive-local-first'|'archive-local-final'|'archive-local-first-accept'|'archive-local-final-accept'|'archive-local-processing'|'archive-local-expired'|'archive-local-stale'|'archive-local-unavailable'} action */
 export function getQueueConfirmationCopy(queue, action) {
+  if (action === 'cancel-delete') return 'panel.queue.confirm.cancel_delete';
   if (action === 'archive-local-first') return 'panel.queue.confirm.archive_local_uncertain_first';
   if (action === 'archive-local-final') return 'panel.queue.confirm.archive_local_uncertain_final';
   if (action === 'archive-local-first-accept') return 'panel.queue.action.archive_local_review';

@@ -30,6 +30,10 @@ export function getQueueActionState(queue) {
   const canDelete = active && transitionReady && (localDeleteReady || remoteReady);
   const deleteBlockedReason = canDelete ? null : blockedReason ?? 'remote_operation_pending';
   const canRetryLocalDeletion = queue.lifecycleStatus === 'deleting' && queue.queueMode === 'manual_only' && Boolean(queue.rewardId);
+  const canCancelQueueDeletion = queue.lifecycleStatus === 'deleting'
+    && queue.queueMode === 'channel_points'
+    && Boolean(queue.rewardId)
+    && ['delete_pending', 'delete_unknown', 'delete_failed', 'diverged'].includes(queue.remoteSyncStatus);
   const canDeleteFromPanelAnyway = ['active', 'deleting'].includes(queue.lifecycleStatus)
     && Boolean(queue.rewardId)
     && UNCERTAIN_REWARD_DELETE_STATES.has(queue.remoteSyncStatus);
@@ -40,6 +44,7 @@ export function getQueueActionState(queue) {
     canShowToViewers,
     canDelete,
     canRetryLocalDeletion,
+    ...(canCancelQueueDeletion ? { canCancelQueueDeletion: true } : {}),
     canDeleteFromPanelAnyway,
     deleteBlockedReason,
     resolveReward: active && queue.remoteSyncStatus === 'create_unknown',

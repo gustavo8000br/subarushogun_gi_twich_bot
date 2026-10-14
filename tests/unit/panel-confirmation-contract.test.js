@@ -31,7 +31,7 @@ describe('panel confirmation dialog contract', () => {
 
   it('does not use browser-native confirmation prompts for product actions', () => {
     expect(app).not.toMatch(/window\.confirm\s*\(/);
-    expect(app.match(/await confirmPanelAction\(/g)).toHaveLength(10);
+    expect(app.match(/await confirmPanelAction\(/g)).toHaveLength(12);
   });
 
   it('requires two separate confirmations before deleting locally when reward sync is uncertain', () => {

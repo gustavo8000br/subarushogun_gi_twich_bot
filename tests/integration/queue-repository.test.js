@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -1538,6 +1539,101 @@ describe('PostgreSQL queue repository', () => {
     expect(await prisma.outbox.findFirst({ where: { operationType: 'reward.delete', entityId: queue.id } })).toMatchObject({ status: 'pending' });
   });
 
+  it('cancels a verified paused reward deletion, preserves finance state, and safely reuses the intent later', async () => {
+    const queue = await repository.createQueue({ slug: `delete-cancel-${randomUUID().slice(0, 8)}`, title: 'Cancel deletion', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: {
+      rewardId, rewardOrigin: 'bot_created', lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_pending',
+    } });
+    const redemptionId = `delete-cancel-r-${randomUUID()}`;
+    await prisma.redemption.create({ data: {
+      redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: `viewer-${randomUUID()}`, queueId: queue.id,
+      redeemedAt: new Date(), remoteStatus: 'UNFULFILLED', expectedStatus: 'FULFILLED', syncStatus: 'conflict',
+    } });
+    const financial = await prisma.outbox.create({ data: {
+      operationType: 'redemption.fulfill', entityType: 'redemption', entityId: redemptionId,
+      idempotencyKey: `financial:${redemptionId}`, payload: { preserve: 'exact' }, redemptionId, status: 'conflict', lastError: 'remote_state_conflict',
+    } });
+    const originalPayload = { safeToDelete: true, requestMayHaveReachedTwitch: true, marker: 'attempt-evidence' };
+    const deletion = await prisma.outbox.create({ data: {
+      operationType: 'reward.delete', entityType: 'queue', entityId: queue.id,
+      idempotencyKey: `queue:${queue.id}:reward.delete`, payload: originalPayload, status: 'unknown', lastError: 'queue_deletion_financial_conflict',
+    } });
+    const twitchReward = {
+      id: rewardId, title: queue.title, cost: queue.cost, prompt: queue.rewardPrompt ?? '', isPaused: true, isEnabled: true,
+      userInputRequired: queue.uidMode === 'visible', autoFulfill: false, shouldRedemptionsSkipRequestQueue: false,
+      maxRedemptionsPerStream: queue.maxRedemptionsPerStream ?? null,
+      maxRedemptionsPerUserPerStream: queue.maxRedemptionsPerUserPerStream ?? null, globalCooldown: queue.globalCooldownSeconds ?? null,
+    };
+    const cancelService = createQueueDomainService({ repository, getTwitch: () => ({ getReward: async () => twitchReward }) });
+
+    // Simulate a process restart after reserving the two-phase remote verification.
+    const reserved = await repository.beginQueueDeletionCancellation({ queueId: queue.id, actorId: 'operator-cancel' });
+    expect(reserved).toMatchObject({ status: 'verification_required', operationId: deletion.id });
+    await repository.claimNextRewardOperation();
+    expect(await prisma.outbox.findUnique({ where: { id: deletion.id } })).toMatchObject({ status: 'cancel_verification', leaseToken: null, leaseUntil: null });
+    expect(await repository.retryOutboxManually(deletion.id)).toMatchObject({ count: 0 });
+
+    const cancelled = await cancelService.cancelQueueDeletion({ queueId: queue.id, actorId: 'operator-cancel' });
+
+    expect(cancelled).toMatchObject({ status: 'cancelled', queue: { lifecycleStatus: 'active', isArchived: true, isOpen: false, remoteSyncStatus: 'synced' } });
+    expect(await prisma.outbox.findUnique({ where: { id: deletion.id } })).toMatchObject({ status: 'cancelled', payload: originalPayload, lastError: 'queue_deletion_cancelled_by_operator' });
+    expect(await prisma.outbox.findUnique({ where: { id: financial.id } })).toMatchObject({ status: 'conflict', payload: { preserve: 'exact' }, lastError: 'remote_state_conflict' });
+    expect(await prisma.redemption.findUnique({ where: { redemptionId } })).toMatchObject({ remoteStatus: 'UNFULFILLED', expectedStatus: 'FULFILLED', syncStatus: 'conflict' });
+
+    const laterDelete = await queueService.deleteQueue({ queueId: queue.id, actorId: 'operator-delete-later' });
+    const reused = await prisma.outbox.findUnique({ where: { id: deletion.id } });
+    expect(laterDelete).toMatchObject({ status: 'pending', queue: { lifecycleStatus: 'deleting' } });
+    expect(reused.status).toBe('pending');
+    expect(reused.payload).toMatchObject({ requestMayHaveReachedTwitch: false, safeToDelete: false, previousCancelledAttempt: { requestMayHaveReachedTwitch: true, safeToDelete: true, attempts: 0 } });
+    expect(await prisma.outbox.count({ where: { operationType: 'reward.delete', entityId: queue.id } })).toBe(1);
+    expect(await prisma.outbox.findUnique({ where: { id: financial.id } })).toMatchObject({ status: 'conflict' });
+  });
+
+  it('will not reserve cancellation while a reward mutation has an active worker lease', async () => {
+    const queue = await repository.createQueue({ slug: `del-busy-${randomUUID().slice(0, 8)}`, title: 'Busy deletion', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_pending' } });
+    const task = await prisma.outbox.create({ data: {
+      operationType: 'reward.delete', entityType: 'queue', entityId: queue.id,
+      idempotencyKey: `queue:${queue.id}:reward.delete`, payload: {}, status: 'processing', leaseToken: randomUUID(), leaseUntil: new Date(Date.now() + 60_000),
+    } });
+
+    await expect(repository.beginQueueDeletionCancellation({ queueId: queue.id, actorId: 'operator-cancel' }))
+      .rejects.toMatchObject({ code: 'QUEUE_REWARD_OPERATION_PROCESSING' });
+
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'processing' });
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ lifecycleStatus: 'deleting' });
+  });
+
+  it.each([
+    ['absent reward', null, 'queue_delete_reward_absent'],
+    ['diverged reward', { title: 'A different Twitch reward' }, 'queue_delete_reward_diverged'],
+  ])('keeps deletion recoverable when cancellation verification finds an %s', async (_caseName, rewardOverride, reason) => {
+    const queue = await repository.createQueue({ slug: `del-verify-${randomUUID().slice(0, 8)}`, title: 'Verification deletion', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: {
+      rewardId, rewardOrigin: 'bot_created', lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_unknown',
+    } });
+    const deletion = await prisma.outbox.create({ data: {
+      operationType: 'reward.delete', entityType: 'queue', entityId: queue.id,
+      idempotencyKey: `queue:${queue.id}:reward.delete`, payload: { requestMayHaveReachedTwitch: true, safeToDelete: true }, status: 'unknown',
+    } });
+    const reward = rewardOverride === null ? null : {
+      id: rewardId, title: queue.title, cost: queue.cost, prompt: queue.rewardPrompt ?? '', isPaused: true, isEnabled: true,
+      userInputRequired: queue.uidMode === 'visible', autoFulfill: false, shouldRedemptionsSkipRequestQueue: false,
+      maxRedemptionsPerStream: queue.maxRedemptionsPerStream ?? null,
+      maxRedemptionsPerUserPerStream: queue.maxRedemptionsPerUserPerStream ?? null, globalCooldown: queue.globalCooldownSeconds ?? null,
+      ...rewardOverride,
+    };
+    const cancelService = createQueueDomainService({ repository, getTwitch: () => ({ getReward: async () => reward }) });
+
+    await expect(cancelService.cancelQueueDeletion({ queueId: queue.id, actorId: 'operator-cancel' }))
+      .resolves.toMatchObject({ status: 'not_cancelled', reason });
+
+    expect(await prisma.outbox.findUnique({ where: { id: deletion.id } })).toMatchObject({ status: 'unknown', lastError: reason, payload: { requestMayHaveReachedTwitch: true, safeToDelete: true } });
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ lifecycleStatus: 'deleting', isOpen: false });
+  });
+
   it('prevents reward deletion while any redemption cancellation is unconfirmed and releases keys only after confirmation', async () => {
     const slug = `delete-safe-${randomUUID().slice(0, 8)}`;
     const queue = await repository.createQueue({ slug, aliases: [`safe-${slug.slice(-6)}`], title: 'Delete safe', cost: 1 });
@@ -1622,6 +1718,26 @@ describe('PostgreSQL queue repository', () => {
     expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'processing' });
     await prisma.outbox.update({ where: { id: task.id }, data: { status: 'unknown', leaseUntil: null, leaseToken: null } });
     await expect(repository.confirmLocalQueueArchive(confirmInput)).resolves.toMatchObject({ status: 'archived', queue: { remoteSyncStatus: 'delete_pending' } });
+  });
+
+  it('blocks local archive while queue deletion cancellation verifies Twitch and leaves the challenge resumable', async () => {
+    const queue = await repository.createQueue({ slug: `arc-cancel-${randomUUID().slice(0, 8)}`, title: 'Archive cancellation verification', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_pending' } });
+    const payload = { safeToDelete: true, requestMayHaveReachedTwitch: true, previousCancelledAttempt: { attempt: 1 } };
+    const task = await prisma.outbox.create({ data: { operationType: 'reward.delete', entityType: 'queue', entityId: queue.id, idempotencyKey: `archive-cancel-verifying:${queue.id}`, payload, status: 'cancel_verification', leaseToken: null, leaseUntil: null } });
+    const version = (await prisma.queue.findUnique({ where: { id: queue.id } })).version;
+    const challenge = await repository.beginLocalQueueArchive({ queueId: queue.id, actorId: 'operator-local-archive', expectedVersion: version });
+    const confirmInput = { queueId: queue.id, actorId: 'operator-local-archive', challengeId: challenge.challengeId, expectedVersion: version, remoteSyncStatus: 'delete_pending' };
+
+    await expect(repository.confirmLocalQueueArchive(confirmInput)).rejects.toMatchObject({ code: 'QUEUE_DELETION_CANCELLATION_IN_PROGRESS' });
+
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ lifecycleStatus: 'deleting', remoteSyncStatus: 'delete_pending', version, deletedAt: null });
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'cancel_verification', payload, leaseToken: null, leaseUntil: null });
+    expect(await prisma.auditLog.count({ where: { queueId: queue.id, event: 'queue.local_only_archived' } })).toBe(0);
+    const challengeRecord = await prisma.processedOperation.findUnique({ where: { operationKey: `queue.local_archive.challenge:${createHash('sha256').update(challenge.challengeId).digest('hex')}` } });
+    expect(challengeRecord.result).toMatchObject({ state: 'issued' });
+
+    await expect(repository.beginQueueDeletionCancellation({ queueId: queue.id, actorId: 'operator-cancel' })).resolves.toMatchObject({ status: 'verification_required', operationId: task.id });
   });
 
   it('rejects expired stale challenges and refuses unresolved reward creation without an ID', async () => {
@@ -2447,5 +2563,25 @@ describe('PostgreSQL queue repository', () => {
     expect(await prisma.entry.findUnique({ where: { id: added.entry.id } })).toMatchObject({
       status: expect.stringMatching(/^(completed|removed)$/), position: null,
     });
+  });
+
+  it('rolls back cancel verification to unknown while preserving payload evidence', async () => {
+    const queue = await repository.createQueue({ slug: `rollback-cancel-${randomUUID().slice(0, 8)}`, title: 'Rollback cancel', cost: 1 });
+    const task = await prisma.outbox.create({ data: {
+      operationType: 'reward.delete', entityType: 'queue', entityId: queue.id,
+      idempotencyKey: `queue:${queue.id}:reward.delete`, status: 'cancel_verification',
+      payload: { requestMayHaveReachedTwitch: true, safeToDelete: true, marker: 'preserve' },
+      leaseToken: randomUUID(), leaseUntil: new Date(Date.now() + 60_000),
+    } });
+    const rollback = await readFile(new URL('../../apps/api/prisma/migrations/20261014230000_outbox_deletion_cancel_verification/rollback.sql', import.meta.url), 'utf8');
+    const statements = rollback.split('\n').filter((line) => !line.trim().startsWith('--')).join('\n').split(';').map((statement) => statement.trim()).filter(Boolean);
+
+    for (const statement of statements) await prisma.$executeRawUnsafe(statement);
+
+    expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({
+      status: 'unknown', lastError: 'queue_deletion_cancel_verification_rolled_back',
+      payload: { requestMayHaveReachedTwitch: true, safeToDelete: true, marker: 'preserve' }, leaseToken: null, leaseUntil: null,
+    });
+    await expect(prisma.outbox.update({ where: { id: task.id }, data: { status: 'cancel_verification' } })).rejects.toThrow();
   });
 });

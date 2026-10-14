@@ -47,6 +47,7 @@
 16. [x] Revisão independente @qa e gates do projeto passam para o escopo atual, incluindo a regressão de exclusão após atendimento concluído. Revisão atual @qa: PASS 10/10. Aceite de chat Twitch ao vivo só é informado se executado; mocks não comprovam reward/reembolso/consumo real.
 17. [x] Toda documentação afetada e ambos os changelogs seguem equivalentes em inglês/pt-BR. FND-9 não fica Done até todos os critérios e gates de evidência serem concluídos.
 18. [x] Fechar, arquivar ou converter uma fila de recompensa gerenciada confirma `is_paused=true` na Twitch; reabrir confirma `is_paused=false`. Não enviar nem exigir `is_in_stock`, pois o corpo atual de Update Custom Reward da Helix não aceita esse campo, embora as respostas GET o exponham. Preservar o valor retornado como estado controlado pela Twitch e não afirmar que a recompensa foi marcada como esgotada. A reconciliação usa somente campos graváveis documentados e não deve indicar divergência apenas porque `is_in_stock=true` em uma recompensa pausada. Coberto pelos testes do adapter/worker/reconciliação, testes de migration/reconciliação no PostgreSQL real e consulta autorizada idempotente descrita em validation.md.
+19. [ ] Enquanto a exclusão de uma fila vinculada a reward estiver pendente, o streamer pode cancelar essa exclusão para tentar novamente em outro momento. Antes de restaurar a fila, o app deve verificar fora da transação do banco se a reward exata da Twitch ainda existe, corresponde à identidade configurada e está pausada. Sob os locks da fila/outbox, cancelar somente a intenção de exclusão da reward e restaurar a fila como ativa, arquivada e fechada. Preservar todas as entradas, resgates, intenções/status/leases financeiros, evidências do payload de exclusão e operações confirmadas; não desfazer operações confirmadas. Se a reward estiver ausente, divergente, não puder ser verificada, a exclusão já estiver confirmada ou qualquer mutação de reward estiver em processamento, não afirmar cancelamento nem reativar a fila; mantê-la em estado recuperável de exclusão com motivo localizado. Um pedido explícito posterior de exclusão deve reutilizar com segurança a intenção cancelada sem efeitos remotos duplicados. Testes PostgreSQL usam migrations reais e cobrem corridas/reinícios.
 
 ## Tarefas / subtarefas
 
@@ -89,6 +90,11 @@
 - [x] 8. Contrato Helix de pausa e recuperação (AC: 18)
   - [x] Testar o PATCH de pausa suportado, filas arquivadas/fechadas, retry após resposta perdida e reconciliação quando a Twitch mantém `is_in_stock=true`.
   - [x] Remover gravação/snapshot de estoque não suportados; confirmar pausa pelo provider Twurple instalado e pelos campos oficiais da Helix.
+- [ ] 9. Cancelar com segurança uma exclusão pendente de reward gerenciada (AC: 11, 12, 13, 14, 19)
+  - [x] Adicionar casos PostgreSQL reais (Red) para locks da outbox, operação em andamento, preservação de conflito financeiro, sucesso/ausência/divergência da verificação remota, reinício durante verificação e novo pedido de exclusão reutilizando a intenção cancelada; cobrir falha transitória de verificação no limite do domínio.
+  - [x] Implementar verificação de cancelamento em duas fases: reservar a operação da outbox sob lock da fila, consultar a reward exata da Twitch fora da transação e, após observar reward compatível e pausada, cancelar atomicamente apenas a exclusão da reward e restaurar a fila fechada/arquivada.
+  - [x] Adicionar ação protegida no painel, confirmação/resultados localizados seguros, tratamento dos estados da operação e atualizações bilíngues da story/changelog.
+  - [x] Executar os gates exigidos e re-revisão @qa independente da corrida entre cancelamento e exclusão local. @qa: 10/10 PASS para o achado corretivo; suíte completa e gates locais passaram. Não executar operação financeira ao vivo; aceite do proprietário permanece separado.
 
 ## Notas de desenvolvimento
 
@@ -189,9 +195,42 @@ Consulte as evidências TDD datadas acima.
 
 ### Notas de conclusão
 
-A implementação anteriormente mesclada da FND-9 recebeu scores independentes @qa e @architect de 10/10. A regressão crítica de conclusão/exclusão de 2026-10-14 foi corrigida, coberta por sete casos reais de PostgreSQL e revisada independentemente por @qa com 10/10; a suíte completa teve 106 arquivos / 972 testes aprovados e os gates locais atuais passaram. Status da story: Ready for Review; os aceites Windows/financeiro Twitch ao vivo pelo proprietário continuam pendentes; não marcar Done nem fechar issue #19.
+A implementação anteriormente mesclada da FND-9 recebeu scores independentes @qa e @architect de 10/10. A regressão de conclusão/exclusão e a corrida cancelar/excluir local de 2026-10-14 foram corrigidas e cobertas por casos reais de PostgreSQL; a última correção recebeu 10/10 na re-revisão independente @qa. Suíte completa atual: 106 arquivos / 983 testes aprovados. Lint, typecheck, revisão estática, build, denylist de portas, validadores de localização/versão e sync IDE passaram. Status da story: Ready for Review; os aceites Windows/financeiro Twitch ao vivo pelo proprietário continuam pendentes; não marcar Done nem fechar issue #19.
 
 ### Lista de arquivos
+
+- `apps/api/prisma/migrations/20261014230000_outbox_deletion_cancel_verification/migration.sql`
+- `apps/api/prisma/migrations/20261014230000_outbox_deletion_cancel_verification/rollback.sql`
+- `apps/shared/localization/discover-catalog-module.mjs`
+- `apps/web/panel-catalog.mjs`
+- `apps/api/src/twitch/reward-state.mjs`
+- `apps/api/src/domain/queue-service.mjs`
+- `apps/api/src/http/queue-routes.mjs`
+- `apps/api/src/outbox/reward-worker.mjs`
+- `apps/api/src/persistence/queue-repository.mjs`
+- `apps/api/src/runtime.mjs`
+- `apps/web/app.js`
+- `apps/web/queue-action-state.mjs`
+- `apps/web/queue-confirmation-copy.mjs`
+- `apps/web/localization/catalogs/panel/en.tsv`
+- `apps/web/localization/catalogs/panel/es.tsv`
+- `apps/web/localization/catalogs/panel/pt-BR.tsv`
+- `tests/integration/queue-repository.test.js`
+- `tests/unit/queue-action-state.test.js`
+- `tests/unit/queue-domain-service.test.js`
+- `tests/unit/queue-routes.test.js`
+- `tests/unit/panel-confirmation-contract.test.js`
+- `tests/unit/release-notes.test.js`
+- `tests/unit/documentation-contract.test.js`
+- `package.json`
+- `package-lock.json`
+- `VERSION`
+- `CHANGELOG-beta.md`
+- `docs/pt-BR/CHANGELOG-beta.md`
+- `docs/VERSIONING.md`
+- `docs/pt-BR/VERSIONING.md`
+- `docs/stories/FND-9/story.md`
+- `docs/pt-BR/stories/FND-9/story.md`
 
 - `tests/unit/release-notes.test.js`
 - `docs/pt-BR/CHANGELOG-beta.md`
@@ -384,6 +423,11 @@ A reavaliação independente @qa do diff corretivo mais recente está em andamen
 - **Correção do achado de escala:** Adicionada paginação persistente por chave com lease para filas convertidas excluídas, limitada a 10 tombstones por ciclo de reconciliação de cinco minutos, depois do processamento completo das filas ativas. Cobertura PostgreSQL verifica tamanho/ordem dos lotes, retomada após reinício do repositório, wraparound, claims concorrentes, expiração de lease/conclusão obsoleta, recuperação de cursor malformado e prioridade das filas ativas.
 - **Revisão de arquitetura (10/10):** @architect identificou que uma falha inesperada podia manter a lease da página de tombstones até expirar em 15 minutos. O reconciliador agora libera uma lease incompleta em `finally` com `complete: false`, preservando o cursor UUID e a exceção original. Regressões unitária e PostgreSQL real verificam a liberação e a repetição imediata da mesma página.
 - **Verificação do planner:** Adicionado teste PostgreSQL descartável que aplica migrations reais, insere 40.000 filas ativas e 5.000 tombstones convertidos, executa `ANALYZE` e verifica o `EXPLAIN (ANALYZE, BUFFERS)` normal da consulta limitada, sem desabilitar sequential scans. O PostgreSQL escolheu naturalmente `queues_converted_tombstone_reconcile_idx` com `Index Only Scan` e retornou 10 linhas. Os testes focados de paginação/reconciliação passaram **127/127**; foi solicitada nova revisão independente de QA. Uma migration SQL customizada gerencia o índice parcial porque Prisma 6.19.3 não representa essa sintaxe no PSL. Uma regressão de recuperação após reinício também verifica que a confirmação do cancelamento e os registros históricos sobrevivem à recriação do serviço e que as chaves só são liberadas depois que a nova tentativa finaliza a exclusão.
+- **Cancelamento de exclusão pendente de reward gerenciada (2026-10-14):** Red: regressões de estado do painel, domínio, rota e PostgreSQL falharam porque o cancelamento e o estado de outbox `cancel_verification` não existiam. Green adiciona ação protegida que reserva a intenção de exclusão sob locks da fila/outbox, consulta a reward exata da Twitch fora do PostgreSQL e só restaura a fila quando a reward permanece igual e pausada. Testes PostgreSQL preservam conflito de conclusão, recusam cancelamento com lease de reward ativa, retomam a verificação após reinício simulado sem claim pelo worker/retry manual, mantêm evidência se reward estiver ausente/divergente e reutilizam a intenção cancelada numa exclusão explícita posterior. O teste de rollback converte `cancel_verification` para `unknown` e preserva a evidência original do payload. Testes unitários cobrem falha transitória da verificação e proteções da rota/sessão. Um claim de outra fila inicialmente invalidou uma asserção ampla; a asserção corrigida verifica que a intenção de cancelamento continua sem lease. A suíte PostgreSQL completa do repositório passou **147/147**, incluindo o rollback. Suíte completa do projeto e QA independente continuam pendentes; não houve mutação Twitch ao vivo nem acesso ao banco ativo.
+- **Corrida entre cancelar e excluir localmente (2026-10-14):** A QA independente encontrou que a exclusão local podia tornar a fila tombstone enquanto a verificação da reward na Twitch ainda estava em andamento, deixando `cancel_verification` sem caminho normal de recuperação. A confirmação agora retorna HTTP 409 antes de alterar fila, operação ou auditoria, mantendo o challenge de uso único emitido. Uma regressão em PostgreSQL real verifica a preservação do estado/payload e que o cancelamento pode ser retomado. Teste focado passou **1/1**; a suíte PostgreSQL completa e a nova revisão independente de QA estão pendentes.
+- **Nomenclatura das operações (2026-10-14):** O painel e as mensagens de exclusão/recuperação agora distinguem sincronização com a Twitch, devolução de Pontos do Canal aos espectadores e confirmação de resgates. A validação dos catálogos em inglês, espanhol e pt-BR passou. Testes focados de painel/localização/documentação/rotas passaram **95/95**.
+- **Verificação final após corrigir a corrida e atualizar os termos:** `npm test -- --run` passou **106 arquivos / 983 testes**; lint, typecheck, validação de localização, versão (`v0.2.0-0000000-beta`) e `git diff --check` passaram. A nova revisão independente de QA pontuou a correção da corrida cancelar/excluir local em **10/10 PASS**. Nenhuma operação financeira Twitch real foi executada.
+- Verificação final deste incremento: `npm test -- --run` passou **106 arquivos / 982 testes**; `npm run build`, lint, typecheck, revisão estática (**0 achados / 87 arquivos JS**), validações de localização/versão/denylist de portas, sync IDE estrito (**109/109**), configuração Compose e `git diff --check` passaram. Revisão independente @qa pendente.
 - **Documentação do plano beta:** README, guias de instalador/instalação/usuário, índices de stories, roadmap e política de versão bilíngues agora dizem que a beta não tem data e depende do reteste nativo Windows da FND-1, aceitação completa da FND-9, DOC-2, DOC-3, outras prioridades do proprietário e aprovação explícita do proprietário.
 - **Regressões focadas:** Adicionados testes para recuperação de fila excluída com evento atrasado, bloqueio de retry em divergência, estados da outbox financeira, intenções ausentes, cópia dos catálogos e contratos de acessibilidade. A suíte focada de reconciliação/PostgreSQL/painel/localização/documentação passou **162/162 testes**.
 - **Gates finais de qualidade:** `npm test` passou **106 arquivos / 904 testes**; os testes PostgreSQL focados de exclusão convertida/paginação passaram **111/111**; a suíte focada combinada unitária/PostgreSQL passou **128/128**; `npm run build` construiu a imagem Docker do bot; `npm run lint`, `npm run typecheck`, validadores de localização/versão/denylist de portas, OpenGrep (**0 achados**), `docker compose config --quiet` e `git diff --check` passaram após a última alteração de copy e contrato de acessibilidade.

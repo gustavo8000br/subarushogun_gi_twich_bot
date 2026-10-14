@@ -8,7 +8,7 @@ panel.navigation.label	Navegación principal
 panel.navigation.overview	Vista general
 panel.navigation.queues	Colas y atención
 panel.navigation.new_queue	Nueva cola
-panel.navigation.operations	Operaciones financieras
+panel.navigation.operations	Sincronización con Twitch y devolución de puntos
 panel.navigation.commands	Comandos del chat
 panel.navigation.widgets	Widgets de OBS
 panel.navigation.settings	Configuración
@@ -64,8 +64,8 @@ panel.new_queue.eyebrow	CONFIGURA TU TRANSMISIÓN
 panel.new_queue.title	Nueva cola
 panel.new_queue.description	Elige entre una cola con Puntos del canal y una cola local con entradas manuales.
 panel.operations.eyebrow	PUNTOS Y RECUPERACIÓN
-panel.operations.title	Operaciones financieras
-panel.operations.description	Sigue las solicitudes de reembolso y consumo hasta que Twitch las confirme.
+panel.operations.title	Sincronización con Twitch y devolución de puntos
+panel.operations.description	Consulta por separado la comunicación con Twitch y la devolución de puntos del canal a los espectadores, además de la confirmación de canjes.
 panel.commands.eyebrow	CHAT EN VIVO
 panel.commands.title	Comandos disponibles
 panel.commands.description	Define un nivel mínimo de audiencia. Los cargos superiores heredan el acceso; los comandos fijos de gestión quedan bloqueados.
@@ -195,8 +195,9 @@ panel.queue.empty_group	Nadie por ahora
 panel.queue.status.open	ABIERTA
 panel.queue.status.closed	CERRADA
 panel.queue.status.pending_delete	Eliminación pendiente: esperando la confirmación de cancelaciones y de la recompensa.
-panel.queue.status.pending_local_delete	Eliminación local pendiente: esperando la confirmación de todos los canjes conocidos y las operaciones financieras relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa pausada se conservará.
+panel.queue.status.pending_local_delete	Eliminación local pendiente: esperando la confirmación de todos los canjes conocidos, la comunicación con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa pausada se conservará.
 panel.queue.action.delete	Eliminar cola
+panel.queue.action.cancel_delete	Cancelar eliminación
 panel.queue.action.retry_local_delete	Comprobar eliminación
 panel.queue.action.configure	Configurar
 panel.queue.action.edit_reward	Editar recompensa
@@ -363,12 +364,12 @@ panel.commands.unavailable	El catálogo de comandos todavía no está disponible
 panel.command.roles_for	Cargos que pueden usar
 panel.settings.current_default	Predeterminado actual
 panel.operations.empty	No hay operaciones pendientes.
-panel.operations.empty_hint	Las solicitudes de reembolso y consumo aparecen aquí hasta que Twitch las confirme o indique un conflicto. Los resultados desconocidos quedan disponibles para revisar.
-panel.operation.type.refund	REEMBOLSO
-panel.operation.type.fulfillment	CONSUMO
-panel.operation.type.reward_update	ACTUALIZACIÓN DE RECOMPENSA
-panel.operation.type.queue_delete	ELIMINACIÓN DE COLA
-panel.operation.type.other	OPERACIÓN
+panel.operations.empty_hint	Las solicitudes de sincronización con Twitch, devoluciones de puntos y confirmaciones de canje aparecen aquí hasta que cada resultado se confirme o requiera revisión.
+panel.operation.type.refund	DEVOLUCIÓN DE PUNTOS
+panel.operation.type.fulfillment	CONFIRMACIÓN DE CANJE
+panel.operation.type.reward_update	SINCRONIZACIÓN DE RECOMPENSA
+panel.operation.type.queue_delete	ELIMINACIÓN DE RECOMPENSA TWITCH
+panel.operation.type.other	OPERACIÓN TWITCH
 panel.operation.status.pending	Pendiente
 panel.operation.status.retry	Nuevo intento programado
 panel.operation.status.processing	En curso
@@ -378,12 +379,15 @@ panel.operation.status.failed	Falló · requiere revisión
 panel.operation.status.confirmed	Confirmada por Twitch
 panel.operation.status.resolved_manual	Resuelta manualmente · Twitch no confirmó
 panel.operation.status.cancelled	Cancelada
+panel.operation.status.cancel_verification	Comprobando si se puede cancelar la eliminación
 panel.operation.attempts.one	{count} intento
 panel.operation.attempts.many	{count} intentos
 panel.operation.attempts.other	{count} intentos
 panel.operation.action.resolve	Registrar resolución manual
 panel.operation.action.retry	Conciliar / reintentar
+panel.operation.action.continue_delete	Continuar eliminación
 panel.operation.confirm.resolve	Twitch no pudo confirmar el estado de los puntos. ¿Registrar que lo revisaste y detuviste el seguimiento automático? Esto no confirma un reembolso ni el consumo, y no habrá más intentos automáticos.
+panel.operation.confirm.continue_delete	¿Intentar continuar la eliminación de esta cola y su recompensa de Twitch? La aplicación volverá a comprobar los canjes pendientes, la comunicación con Twitch y las devoluciones de puntos. Si se confirman el estado de la recompensa y todas las devoluciones necesarias, la recompensa podría eliminarse y no se podrá restaurar. Elige Cancelar eliminación en la cola para conservarla para más adelante.
 panel.reconciliation.running	Sincronización en curso…
 panel.reconciliation.complete.one	Sincronización completada. Se importó {count} canje.
 panel.reconciliation.complete.many	Sincronización completada. Se importaron {count} canjes.
@@ -416,10 +420,16 @@ panel.queue.archive_local.unavailable	La cola ya no se puede eliminar localmente
 panel.queue.confirm.unarchive	¿Mostrar esta cola a los espectadores? Permanecerá pausada hasta que la actives.
 panel.queue.unarchive.done	Cola visible para los espectadores y permanece pausada hasta que la actives.
 panel.queue.confirm.delete	¿Eliminar la cola “{title}” y su recompensa de Twitch? Se quitarán {count} entradas activas y se solicitará cancelar sus canjes. La recompensa solo se eliminará cuando se confirmen todas las cancelaciones. Puede quedar pendiente si Twitch no confirma.
+panel.queue.confirm.cancel_delete	¿Cancelar la eliminación de “{title}” y conservar la cola para más adelante? La aplicación verificará que la recompensa exacta de Twitch aún exista y esté pausada. La cola permanecerá cerrada y oculta para los espectadores. Las operaciones de canje y financieras existentes seguirán sin cambios. Si Twitch no confirma el estado de la recompensa, la eliminación seguirá pendiente.
+panel.queue.delete.cancelled	Eliminación cancelada. Se verificó que la recompensa existe y está pausada; la cola permanece cerrada y oculta. Se conservaron los registros de canje y las solicitudes de devolución de puntos. Puedes solicitar la eliminación más adelante.
+panel.queue.delete.cancel.already_deleted	Twitch ya confirmó que se eliminó la recompensa. No se puede restaurar la cola cancelando esta operación.
+panel.queue.delete.cancel.reward_absent	No se confirmó la cancelación porque Twitch ya no encuentra esta recompensa. La cola permanece en recuperación de eliminación.
+panel.queue.delete.cancel.reward_diverged	No se confirmó la cancelación porque la recompensa de Twitch no coincide con la configuración pausada de la cola. La cola permanece en recuperación de eliminación.
+panel.queue.delete.cancel.unverified	Twitch no pudo confirmar el estado de la recompensa, así que no se canceló la eliminación. La cola permanece en recuperación; vuelve a intentar cancelar más adelante.
 panel.queue.confirm.delete_local	¿Eliminar la cola local “{title}”? Se quitarán {count} entradas activas. Esta cola no tiene recompensas ni canjes de Twitch vinculados.
-panel.queue.confirm.delete_converted	¿Eliminar la cola manual “{title}”? Se quitarán {count} entradas activas. La eliminación seguirá pendiente hasta confirmar todos los canjes conocidos y las operaciones financieras relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
-panel.queue.confirm.retry_delete_converted	Comprueba si se confirmaron todos los canjes conocidos pendientes y las operaciones financieras relacionadas. Si es así, se eliminará la cola local. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
-panel.queue.delete.pending	Se inició la eliminación local. La cola seguirá pendiente hasta que se confirmen todos los canjes conocidos y las operaciones financieras relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá intacta.
+panel.queue.confirm.delete_converted	¿Eliminar la cola manual “{title}”? Se quitarán {count} entradas activas. La eliminación seguirá pendiente hasta confirmar todos los canjes conocidos y la comunicación con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
+panel.queue.confirm.retry_delete_converted	Comprueba si se confirmaron todos los canjes conocidos pendientes y la comunicación con Twitch y las devoluciones de puntos relacionadas. Si es así, se eliminará la cola local. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
+panel.queue.delete.pending	Se inició la eliminación local. La cola seguirá pendiente hasta que se confirmen todos los canjes conocidos, las solicitudes de sincronización con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá intacta.
 panel.queue.delete.done	Cola eliminada. Se conservó el historial de canjes y la recompensa de Twitch sigue pausada.
 panel.reward.no_candidates	La consulta se completó, pero no se encontró una recompensa administrable por esta aplicación, pausada y compatible con todos los ajustes de la cola. Las acciones remotas, como eliminar, siguen bloqueadas hasta confirmar la propiedad. Revisa las diferencias y actualiza la lista.
 panel.queue.clear.empty	La cola ya está vacía.
@@ -548,8 +558,8 @@ panel.queue.mode.manual	Cola local · entrada manual gratuita
 panel.queue.sync.local	cola local
 panel.queue.action.manual_mode	Usar cola local
 panel.queue.action.manual_mode_retry	Reintentar solicitud de pausa segura
-panel.queue.confirm.manual_mode	La recompensa se pausará en Twitch; se conservarán los canjes existentes y sus operaciones financieras. La cola solo cambiará a modo manual después de que Twitch confirme la pausa. ¿Continuar?
-panel.queue.confirm.manual_mode_retry	¿Reintentar la solicitud segura de pausa de esta recompensa Twitch? La cola seguirá vinculada a la recompensa hasta que Twitch confirme la pausa; se conservarán los canjes y operaciones financieras existentes.
+panel.queue.confirm.manual_mode	La recompensa se pausará en Twitch; se conservarán los canjes existentes y sus solicitudes de devolución de puntos. La cola solo cambiará a modo manual después de que Twitch confirme la pausa. ¿Continuar?
+panel.queue.confirm.manual_mode_retry	¿Reintentar la solicitud segura de pausa de esta recompensa Twitch? La cola seguirá vinculada a la recompensa hasta que Twitch confirme la pausa; se conservarán los canjes y solicitudes de devolución de puntos existentes.
 panel.queue.mode_transition.pending	Pausa de Twitch pendiente; los canjes durante el cambio se cancelarán.
 panel.queue.mode_transition.unknown	Twitch aún no confirmó la pausa. Reconéctate y reintenta; el modo local solo se activa tras la confirmación.
 panel.queue.mode_transition.failed	Twitch no confirmó la pausa. Revisa la conexión y reintenta; la cola sigue vinculada a la recompensa hasta confirmarla.
@@ -564,6 +574,6 @@ panel.entry.call.expired	El plazo terminó; esperando la actualización de la at
 panel.confirmation.title	Confirmar acción
 panel.confirmation.cancel	Cancelar
 panel.confirmation.accept	Aceptar
-panel.queue.status.pending_local_delete_diverged	La eliminación local está pausada porque hay que verificar el estado de la recompensa de Twitch. Los canjes y las operaciones financieras relacionadas siguen en recuperación; los canjes posteriores de Twitch se detectarán y registrarán para su cancelación. Esta aplicación no cambiará la recompensa.
-panel.queue.confirm.retry_delete_converted_diverged	Comprueba el progreso de la eliminación. La cola seguirá pendiente hasta que Twitch confirme que la recompensa histórica está pausada y se resuelvan todos los canjes conocidos y las operaciones financieras relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. Esta acción no cambiará la recompensa de Twitch.
+panel.queue.status.pending_local_delete_diverged	La eliminación local está pausada porque hay que verificar el estado de la recompensa de Twitch. Los canjes y la comunicación con Twitch y las devoluciones de puntos relacionadas siguen en recuperación; los canjes posteriores de Twitch se detectarán y registrarán para su cancelación. Esta aplicación no cambiará la recompensa.
+panel.queue.confirm.retry_delete_converted_diverged	Comprueba el progreso de la eliminación. La cola seguirá pendiente hasta que Twitch confirme que la recompensa histórica está pausada y se resuelvan todos los canjes conocidos y la comunicación con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. Esta acción no cambiará la recompensa de Twitch.
 panel.queue.status.deletion_complete	La eliminación de la cola ha finalizado.

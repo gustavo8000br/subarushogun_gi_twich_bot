@@ -771,6 +771,22 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('requires CSRF and explicit confirmation to cancel a pending reward queue deletion', async () => {
+    const domainService = { cancelQueueDeletion: vi.fn(async () => ({ status: 'cancelled', queue: { id: 'queue-id', lifecycleStatus: 'active', isArchived: true, isOpen: false, remoteSyncStatus: 'synced' } })) };
+    const h = await createHarness({ domainService });
+    const denied = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete/cancel', headers: h.sessionHeaders, payload: { confirm: true } });
+    expect(denied.statusCode).toBe(403);
+    expect(domainService.cancelQueueDeletion).not.toHaveBeenCalled();
+    const missingConfirmation = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete/cancel', headers: h.headers, payload: {} });
+    expect(missingConfirmation.statusCode).toBe(400);
+    expect(domainService.cancelQueueDeletion).not.toHaveBeenCalled();
+    const accepted = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete/cancel', headers: h.headers, payload: { confirm: true } });
+    expect(accepted.statusCode).toBe(200);
+    expect(accepted.json()).toMatchObject({ status: 'cancelled', queue: { lifecycleStatus: 'active', isArchived: true, isOpen: false } });
+    expect(domainService.cancelQueueDeletion).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' });
+    await h.app.close();
+  });
+
   it('returns a stable safe error code when confirmed reward state blocks queue deletion', async () => {
     const domainService = { deleteQueue: vi.fn(async () => { throw Object.assign(new Error('private database detail'), { code: 'QUEUE_REWARD_NOT_READY' }); }) };
     const h = await createHarness({ domainService });
