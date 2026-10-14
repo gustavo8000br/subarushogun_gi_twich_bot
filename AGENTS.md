@@ -24,6 +24,10 @@ Ao retomar uma sessao de desenvolvimento, leia primeiro o handoff ativo em `docs
 5. Documentacao e obrigatoria: atualize os documentos afetados em ingles e pt-BR no mesmo incremento; uma story ou PR nao esta concluida sem ambas as versoes equivalentes e verificadas
 <!-- AIOX-MANAGED-END: core -->
 
+## Ordenação dos changelogs por estágio
+
+- Em cada changelog de estágio, mantenha a seção da versão mais recente primeiro, imediatamente após o título e a linha explicativa/de links. As versões anteriores vêm em ordem decrescente; os changelogs em inglês e pt-BR devem permanecer equivalentes.
+
 ## Autoridade e sequência oficial dos papéis AIOX
 
 `$aiox-master` (Orion) é a persona principal e o orquestrador de todo o desenvolvimento. Não substitua o Master ao coordenar o trabalho. Ative especialistas AIOX somente para as responsabilidades correspondentes; a implementação pertence ao `$aiox-dev`, e a validação independente de qualidade, coerência e concisão pertence ao `$aiox-qa`.

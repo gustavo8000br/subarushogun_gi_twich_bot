@@ -12,7 +12,7 @@ Every shipping PR receives its selected version before merge. Record user-facing
 
 ## Current release plan
 
-The current product base version is `0.13.1`, `.release-stage` is `alpha`, and the unmaterialized checkout identity is `v0.13.1-0000000-alpha`. OPS-8, OPS-9, and OPS-10 are complete; FND-1's native Windows retest, FND-9's full acceptance, DOC-2, DOC-3, and further owner-prioritized changes remain in the pre-release plan. There is no scheduled beta transition immediately after FND-9. Keep the stage at `alpha` until these important changes and their acceptance gates are complete and the owner explicitly approves release readiness. `v1.0.0-HHHHHHH-beta` remains a candidate identity, not a scheduled release; do not promote the stage, change to `1.0.0`, create a tag, or publish a release before the updated gates are satisfied.
+The current shipping target is product base version `0.1.1`; `.release-stage` remains `beta`, and the unmaterialized checkout identity is `v0.1.1-0000000-beta`. This patch records the OPS-13 OBS current-account widget reload fix. Automated QA passed 10/10 and the change is merged, but owner-side native OBS/CEF acceptance is still pending: the owner must install the build, regenerate the widget capability URL, and confirm that the overlay survives a browser-source reload. Keep OPS-13 open until that test is confirmed. Beta release publication remains manually triggered by the owner; this version bump does not create a Git tag or GitHub Release.
 
 ## GitHub release contents
 
