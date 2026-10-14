@@ -571,12 +571,12 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         await tx.$queryRaw`SELECT id FROM outbox WHERE entity_id = ${queueId} AND operation_type LIKE 'reward.%' ORDER BY id FOR UPDATE`;
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue) throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
+        if (queue.version !== challenge.expectedVersion || queue.version !== expectedVersion || queue.remoteSyncStatus !== challenge.remoteSyncStatus) {
+          throw repositoryError('STALE_QUEUE_VERSION', 'Queue changed since confirmation began');
+        }
         if (queue.remoteSyncStatus === 'create_unknown' && !queue.rewardId) throw repositoryError('QUEUE_REWARD_UNRESOLVED', 'The uncertain reward creation must be recovered first');
         if (!['active', 'deleting'].includes(queue.lifecycleStatus) || !queue.rewardId || !localArchiveRemoteStatuses.includes(queue.remoteSyncStatus)) {
           throw repositoryError('QUEUE_LOCAL_ARCHIVE_UNAVAILABLE', 'Queue cannot be archived locally in its current state');
-        }
-        if (queue.version !== challenge.expectedVersion || queue.version !== expectedVersion || queue.remoteSyncStatus !== challenge.remoteSyncStatus) {
-          throw repositoryError('STALE_QUEUE_VERSION', 'Queue changed since confirmation began');
         }
         const rewardTasks = await tx.outbox.findMany({ where: { entityId: queueId, operationType: { in: rewardOperationTypes } } });
         if (rewardTasks.some(({ status }) => status === 'processing')) {
