@@ -2,6 +2,10 @@
 
 [All public changelogs](CHANGELOG.md) · [Português brasileiro](docs/pt-BR/CHANGELOG-beta.md)
 
+## v0.2.1-beta
+
+- Fixed the final local queue deletion confirmation so the queue title and full warning are displayed instead of an unavailable-text fallback.
+
 ## v0.2.0-beta
 
 - Streamers can cancel a pending reward-backed queue deletion after the app verifies that the exact managed Twitch reward still exists and is paused. The queue and financial history remain recoverable, and a later deletion safely resumes the same intent.

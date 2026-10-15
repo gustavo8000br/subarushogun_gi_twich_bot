@@ -12,9 +12,13 @@ describe('release notes from bilingual public changelogs', () => {
       readFile(new URL('../../docs/pt-BR/CHANGELOG-beta.md', import.meta.url), 'utf8'),
     ]);
 
-    expect(packageJson.version).toBe('0.2.0');
+    expect(packageJson.version).toBe('0.2.1');
     expect(stage.trim()).toBe('beta');
-    expect(version.trim()).toBe('v0.2.0-0000000-beta');
+    expect(version.trim()).toBe('v0.2.1-0000000-beta');
+    expect(english).toContain('## v0.2.1-beta');
+    expect(portuguese).toContain('## v0.2.1-beta');
+    expect(english.indexOf('## v0.2.1-beta')).toBeLessThan(english.indexOf('## v0.2.0-beta'));
+    expect(portuguese.indexOf('## v0.2.1-beta')).toBeLessThan(portuguese.indexOf('## v0.2.0-beta'));
     expect(english).toContain('## v0.2.0-beta');
     expect(portuguese).toContain('## v0.2.0-beta');
     expect(english.indexOf('## v0.2.0-beta')).toBeLessThan(english.indexOf('## v0.1.2-beta'));

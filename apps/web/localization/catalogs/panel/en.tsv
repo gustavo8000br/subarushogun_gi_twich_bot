@@ -408,7 +408,7 @@ panel.priority.removed	Priority removed.
 panel.queue.action.archive_local_anyway	Delete from panel anyway
 panel.queue.action.archive_local_review	Continue to final deletion confirmation
 panel.queue.confirm.archive_local_uncertain_first	This will remove the queue from this app only; it will not delete the Twitch reward. The reward may still exist, and active entries and financial records will be preserved. The current Twitch sync status will be retained as historical and unverified; it does not mean an operation is still running. Continue to review the final deletion confirmation?
-panel.queue.confirm.archive_local_uncertain_final	Final confirmation: delete this queue from this panel anyway? This removes only the local queue; it will not delete the Twitch reward, which may still exist and receive redemptions. The queue history and financial records will be preserved. The remote sync status will remain historical and unverified, not an indication that sync is still running.
+panel.queue.confirm.archive_local_uncertain_final	Final confirmation: delete queue “{title}” from this panel anyway? This removes only the local queue; it will not delete the Twitch reward, which may still exist and receive redemptions. The queue history and financial records will be preserved. The remote sync status will remain historical and unverified, not an indication that sync is still running.
 panel.queue.archive_local.done	Queue removed from the panel. Twitch reward status and history were preserved.
 panel.queue.archive_local.processing	A Twitch reward operation is still processing. Wait for it to finish, then retry removing the queue from the panel.
 panel.queue.archive_local.expired	The confirmation expired. Start both deletion confirmation steps again.
