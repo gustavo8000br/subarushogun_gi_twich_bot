@@ -106,23 +106,33 @@ export function createTwitchApiAdapter({ api, broadcasterId, authProvider }) {
     async getChannelEligibility() {
       const user = await api.users.getUserById(broadcasterId);
       const broadcasterType = String(user?.broadcasterType ?? '').toLowerCase() || 'unknown';
+      const login = typeof user?.name === 'string' && user.name.trim()
+        ? user.name.trim().toLowerCase().slice(0, 25)
+        : null;
+      const displayName = typeof user?.displayName === 'string' && user.displayName.trim()
+        ? user.displayName.trim().slice(0, 100)
+        : login;
+      const channelIdentity = login || displayName
+        ? { ...(login ? { login } : {}), ...(displayName ? { displayName } : {}) }
+        : null;
+      const identityProjection = channelIdentity ? { channelIdentity } : {};
       let rewards;
       try {
         rewards = await api.channelPoints.getCustomRewards(broadcasterId, false);
       } catch (error) {
         const status = error?.statusCode ?? error?.status;
         if (status === 401) {
-          return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'access_token_invalid' };
+          return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'access_token_invalid', ...identityProjection };
         }
         if (status === 403) {
-          return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'channel_ineligible' };
+          return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'channel_ineligible', ...identityProjection };
         }
-        return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'channel_points_unavailable' };
+        return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'channel_points_unavailable', ...identityProjection };
       }
       const rewardCount = rewards.length;
       return {
         eligible: true, broadcasterType, channelPointsAvailable: true, rewardCount, rewardLimit: 50,
-        nearRewardLimit: rewardCount >= 45,
+        nearRewardLimit: rewardCount >= 45, ...identityProjection,
       };
     },
     async getRedemptionStatus(redemptionId, rewardId) {

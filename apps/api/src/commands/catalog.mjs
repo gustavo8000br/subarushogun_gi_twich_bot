@@ -1,7 +1,7 @@
 /** @typedef {'streamer'|'moderator'|'vip'|'subscriber'|'follower'|'viewer'} ChatRole */
 
 /** @param {string} [minimumRole] @returns {{kind:'configurable',minimumRole:string}} */
-const configurable = (minimumRole = 'everyone') => ({ kind: 'configurable', minimumRole });
+const configurable = (minimumRole = 'follower') => ({ kind: 'configurable', minimumRole });
 /** @param {string} minimumRole @returns {{kind:'fixed',minimumRole:string}} */
 const fixed = (minimumRole) => ({ kind: 'fixed', minimumRole });
 

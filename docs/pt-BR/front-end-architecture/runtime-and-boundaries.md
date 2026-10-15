@@ -9,3 +9,7 @@ Usar `trailingSlash: true` na exportação de produção: caminhos canônicos do
 A URL exata e o contrato de autorização do overlay estão em gate arquitetural: OPS-13/#57 propõe uma projeção local sem capability endereçada por widget ID, enquanto os critérios OPS-13 existentes preservam o fluxo de token capability. Resolver o conflito com `$aiox-architect` antes de migrar ou fazer cutover do overlay. Manter #57 aberta até o aceite OBS/CEF nativo.
 
 Catálogos TSV first-party permanecem na imagem do produto. Catálogos comunitários completos ficam em `.local/community-catalogs` no host, montados como bind distinto somente leitura em `/app/.local/community-catalogs`; a descoberta valida e combina as duas raízes para painel, setup, chat e overlay. O cache atual de catálogos do overlay tem TTL de cinco segundos. Consulte a [OPS-15](../../stories/OPS-15/story.md) para a migração em fases e os gates de evidência.
+
+A resposta local de `GET /health` pode incluir `last_reconciliation_at` anulável, derivado da memória do processo atual da integração Twitch. Não é persistido e volta a nulo ao reiniciar a API até a próxima conciliação concluída.
+
+No desenvolvimento no host, a API grava a projeção de bootstrap do locale do produto em `.local/dev/product-locale.state`; o launcher respeita `PRODUCT_LOCALE_PROJECTION_FILE` configurado explicitamente. Assim, a projeção dev fica na worktree em vez de usar o caminho `/app/.local`, válido somente no container.

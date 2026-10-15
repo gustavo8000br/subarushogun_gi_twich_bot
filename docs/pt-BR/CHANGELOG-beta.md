@@ -4,6 +4,11 @@
 
 ## v0.2.0-beta
 
+- Entradas diretas nas operações Twitch e nos widgets OBS agora aguardam a sessão local e o snapshot do painel antes de consultar dados protegidos. Filas novas começam com entrada manual local quando a Twitch está desconectada e oferecem um link direto para a configuração da conexão.
+- A página Next.js de comandos do chat agora permite ao streamer alterar a audiência mínima dos comandos configuráveis. Políticas novas ou sem override usam seguidores; políticas salvas explicitamente são preservadas, e comandos fixos de moderadores/streamer continuam somente leitura.
+- A visão geral do Next.js agora mostra a saúde da API do bot e das dependências, a conta atual, a contagem exata de operações não resolvidas e a última conciliação desta execução da API; oferece atualização manual e automática enquanto a página está visível e preserva os últimos dados de saúde quando a atualização falha.
+- A visão geral do Next.js diferencia a saúde dos serviços por cores: verde para funcional, amarelo para parcial/em andamento/desconhecido e vermelho para indisponível ou não configurado, com legenda localizada explícita. Em telas estreitas, a conciliação fica abaixo do título de saúde; a navegação móvel ganha uma barra roxa fina que indica rolagem horizontal.
+- O painel local Next.js agora identifica o canal Twitch conectado e informa claramente quando o segredo do aplicativo ainda não foi salvo. A troca de idioma valida a resposta da API e reconcilia com o estado persistido após uma resposta incerta.
 - Streamers podem cancelar a exclusão pendente de uma fila vinculada a reward depois que o app verifica que a reward exata, gerenciada pela Twitch, ainda existe e está pausada. A fila e o histórico financeiro permanecem recuperáveis, e uma exclusão posterior retoma com segurança a mesma intenção.
 - A página de operações agora distingue a sincronização com a Twitch da devolução de Pontos do Canal aos espectadores e da confirmação de resgates.
 - A confirmação de exclusão local fica bloqueada enquanto o cancelamento estiver verificando a reward, preservando uma forma segura de retomar a operação.

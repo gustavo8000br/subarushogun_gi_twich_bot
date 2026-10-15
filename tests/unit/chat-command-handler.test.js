@@ -17,7 +17,7 @@ function setup({ getTwitchHealth } = {}) {
     listEntriesByStatus: vi.fn(async () => [{ id: 'entry-1', version: 1, status: 'waiting', source: 'redemption', redemptionId: 'redemption-1' }, { id: 'entry-2', version: 1, status: 'called', source: 'manual', redemptionId: null }]),
     clearActiveEntries: vi.fn(async ({ snapshot }) => ({ status: 'cleared', count: snapshot.length, refundsRequested: 1 })),
   };
-  const twitch = { sendChatMessage: vi.fn(async () => ({ sent: true })), getUserByLogin: vi.fn(async () => ({ id: 'viewer-1', login: 'viewer', displayName: 'Viewer' })) };
+  const twitch = { sendChatMessage: vi.fn(async () => ({ sent: true })), getUserByLogin: vi.fn(async () => ({ id: 'viewer-1', login: 'viewer', displayName: 'Viewer' })), checkFollower: vi.fn(async () => 'follower') };
   const settings = { getAccount: vi.fn(async () => ({ label: 'Streamer' })), setAccount: vi.fn(async (label) => ({ label })), resetAccount: vi.fn(async () => ({ label: 'Streamer' })) };
   const domainService = {
     transitionEntry: vi.fn(async ({ to }) => ({ id: 'entry-1', status: to, financialDecision: 'no_operation' })),
@@ -46,7 +46,7 @@ describe('Twitch chat command handler', () => {
     expect(unknown.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringMatching(/não foi possível verificar|não foi poss[ií]vel verificar/i));
   });
 
-  it('does not query Twitch for subscriber inheritance and marks follower-dependent help as unverifiable when needed', async () => {
+  it('does not query Twitch for subscriber inheritance and fails closed for follower help when status is unknown', async () => {
     const subscriber = setup();
     subscriber.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { minimumRole: 'follower' } }));
     subscriber.twitch.checkFollower = vi.fn();
@@ -58,7 +58,7 @@ describe('Twitch chat command handler', () => {
     help.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { minimumRole: 'follower' } }));
     help.twitch.checkFollower = vi.fn(async () => 'unknown');
     await help.handler({ id: 'follower-help-unknown', text: '!fila comandos', userId: 'help-1', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
-    expect(help.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringMatching(/não foi possível verificar|não foi poss[ií]vel verificar/i));
+    expect(help.twitch.sendChatMessage).not.toHaveBeenCalled();
     expect(help.twitch.sendChatMessage).not.toHaveBeenCalledWith(expect.stringContaining('!<fila> lista'));
   });
 

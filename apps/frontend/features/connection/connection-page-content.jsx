@@ -100,7 +100,7 @@ export function ConnectionPageView({ setup = {}, locale = 'pt-BR', t, request, o
 
       <section className="connection-health" aria-labelledby="connection-status-title">
         <div className="connection-health-heading">
-          <div><p className="eyebrow">{t('panel.connection.authorized_eyebrow')}</p><h2 id="connection-status-title">{currentSetup.connected ? t('panel.connection.connected_fallback') : t('panel.connection.channel_not_connected')}</h2></div>
+          <div><p className="eyebrow">{t('panel.connection.authorized_eyebrow')}</p><h2 id="connection-status-title">{currentSetup.connected ? currentSetup.eligibility?.channelIdentity?.displayName || currentSetup.eligibility?.channelIdentity?.login || t('panel.connection.connected_fallback') : t('panel.connection.channel_not_connected')}</h2></div>
           <span className={`connection-state is-${status}`}>{twitchStatusLabel(currentSetup, locale)}</span>
         </div>
         <p className="connection-health-copy">{twitchEligibilityMessage(currentSetup, locale)}</p>

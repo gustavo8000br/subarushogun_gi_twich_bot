@@ -213,13 +213,14 @@ describe('Twurple Helix adapter', () => {
   it('confirms Channel Points API access and counts every channel reward', async () => {
     const getCustomRewards = vi.fn(async () => Array.from({ length: 46 }, (_, index) => ({ id: `reward-${index}` })));
     const adapter = createTwitchApiAdapter({ api: {
-      users: { getUserById: vi.fn(async () => ({ broadcasterType: 'affiliate' })) },
+      users: { getUserById: vi.fn(async () => ({ broadcasterType: 'affiliate', name: 'channel_login', displayName: 'Channel Display' })) },
       channelPoints: { getCustomRewards },
     }, broadcasterId: 'channel-1' });
 
     await expect(adapter.getChannelEligibility()).resolves.toEqual({
       eligible: true, broadcasterType: 'affiliate', channelPointsAvailable: true,
       rewardCount: 46, rewardLimit: 50, nearRewardLimit: true,
+      channelIdentity: { login: 'channel_login', displayName: 'Channel Display' },
     });
     expect(getCustomRewards).toHaveBeenCalledWith('channel-1', false);
   });

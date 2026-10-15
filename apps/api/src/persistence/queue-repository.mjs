@@ -7,6 +7,9 @@ import { matchesManagedRewardState } from '../twitch/reward-state.mjs';
 /** @typedef {Record<string, any>} PrismaClientLike */
 
 const activeStatuses = ['waiting', 'called', 'in_progress'];
+const unresolvedFinancialStatuses = ['pending', 'retry', 'processing', 'unknown', 'conflict', 'failed'];
+const unresolvedDeletionStatuses = [...unresolvedFinancialStatuses, 'cancel_verification'];
+const reviewableFinancialStatuses = ['unknown', 'conflict', 'failed'];
 
 function repositoryError(code, message) {
   return Object.assign(new Error(message), { code });
@@ -329,6 +332,29 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           : {}),
       }));
       return [...financialOperations, ...safeDeletionOperations, ...rewardUpdates].sort((first, second) => second.updatedAt.getTime() - first.updatedAt.getTime() || second.id.localeCompare(first.id));
+    },
+    async getFinancialOperationSummary() {
+      const deletingQueues = await prisma.queue.findMany({ where: { lifecycleStatus: 'deleting' }, select: { id: true } });
+      const [redemptions, deletions, rewardUpdates] = await Promise.all([
+        prisma.outbox.groupBy({
+          by: ['status'], where: { operationType: { in: ['redemption.cancel', 'redemption.fulfill'] }, status: { in: unresolvedFinancialStatuses } },
+          _count: { _all: true },
+        }),
+        deletingQueues.length ? prisma.outbox.groupBy({
+          by: ['status'], where: { operationType: { in: ['reward.set_open', 'reward.delete'] }, entityId: { in: deletingQueues.map(({ id }) => id) }, status: { in: unresolvedDeletionStatuses } },
+          _count: { _all: true },
+        }) : Promise.resolve([]),
+        prisma.outbox.groupBy({
+          by: ['status'], where: { operationType: 'reward.update', status: { in: unresolvedFinancialStatuses } },
+          _count: { _all: true },
+        }),
+      ]);
+      return [...redemptions, ...deletions, ...rewardUpdates].reduce((summary, group) => {
+        const count = group._count._all;
+        summary.total += count;
+        if (reviewableFinancialStatuses.includes(group.status)) summary.needsReview += count;
+        return summary;
+      }, { total: 0, needsReview: 0 });
     },
     async getCurrentAccount() {
       const setting = await prisma.setting.findUnique({ where: { key: 'account_state' } });

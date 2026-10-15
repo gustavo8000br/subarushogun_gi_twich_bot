@@ -139,7 +139,8 @@ describe('local queue and setup API', () => {
     const response = await h.app.inject({ method: 'GET', url: '/api/command-catalog', headers: h.sessionHeaders });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ schemaVersion: 3, version: 7, commands: expect.arrayContaining([
-      expect.objectContaining({ key: 'queue:lista', policy: { minimumRole: 'subscriber', kind: 'configurable' }, access: { kind: 'configurable', minimumRole: 'everyone' }, configurable: true }),
+      expect.objectContaining({ key: 'queue:lista', policy: { minimumRole: 'subscriber', kind: 'configurable' }, policyOverridden: true, access: { kind: 'configurable', minimumRole: 'follower' }, configurable: true }),
+      expect.objectContaining({ key: 'queue:posicao', policy: { minimumRole: 'follower', kind: 'configurable' }, policyOverridden: false, access: { kind: 'configurable', minimumRole: 'follower' }, configurable: true }),
       expect.objectContaining({ key: 'queue:add', policy: { minimumRole: 'moderator', kind: 'fixed' }, access: { kind: 'fixed', minimumRole: 'moderator' }, configurable: false }),
       expect.objectContaining({ key: 'global:conta:set', policy: { minimumRole: 'streamer', kind: 'fixed' }, access: { kind: 'fixed', minimumRole: 'streamer' }, configurable: false }),
       expect.objectContaining({ key: 'global:queue:ping', policy: { minimumRole: 'moderator', kind: 'fixed' }, configurable: false }),
@@ -172,7 +173,19 @@ describe('local queue and setup API', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ authorizationUrl: 'https://id.twitch.tv/oauth2/authorize?state=opaque' });
     expect(h.integrations.beginFollowerAuthorization).toHaveBeenCalledWith({
-      sessionId: expect.any(String), expectedVersion: 9, policies: payload.policies,
+      sessionId: expect.any(String), expectedVersion: 9, policies: payload.policies, scopeOnly: false,
+    });
+    expect(h.repository.updateCommandPolicies).not.toHaveBeenCalled();
+  });
+
+  it('starts session-bound follower scope consent without policy overrides', async () => {
+    const h = await createHarness();
+    h.integrations.beginFollowerAuthorization = vi.fn(async () => ({ url: 'https://id.twitch.tv/oauth2/authorize?state=opaque' }));
+    const response = await h.app.inject({ method: 'POST', url: '/api/command-policies/follower-authorization', headers: h.headers,
+      payload: { expectedVersion: 9, policies: {}, scopeOnly: true } });
+    expect(response.statusCode).toBe(200);
+    expect(h.integrations.beginFollowerAuthorization).toHaveBeenCalledWith({
+      sessionId: expect.any(String), expectedVersion: 9, policies: {}, scopeOnly: true,
     });
     expect(h.repository.updateCommandPolicies).not.toHaveBeenCalled();
   });
@@ -249,6 +262,27 @@ describe('local queue and setup API', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ callbackUrl: 'https://localhost:3000/callback', clientId: 'client-id', secretConfigured: true, connected: false, broadcasterId: null, scopes: [], status: 'not_configured', chatStatus: 'connected', rewardStatus: 'unsupported', eligibility: { eligible: false, broadcasterType: 'unknown', channelPointsAvailable: false, rewardCount: 46, rewardLimit: 50, nearRewardLimit: true } });
     expect(response.body).not.toContain('must-not-leak');
+    await h.app.close();
+  });
+
+  it('projects connected channel identity but omits Twitch IDs and private credentials', async () => {
+    const h = await createHarness();
+    h.integrations.getSetupState = vi.fn(async () => ({
+      connected: true, broadcasterId: 'private-broadcaster-id', clientId: 'client-id', secretConfigured: true,
+      scopes: ['user:read:email'], status: 'connected', chatStatus: 'connected', rewardStatus: 'available',
+      eligibility: {
+        eligible: true, broadcasterType: 'affiliate', channelPointsAvailable: true,
+        channelIdentity: { login: 'channel_login', displayName: 'Channel Display', id: 'private-profile-id' },
+        privateToken: 'private-token',
+      },
+      clientSecret: 'private-secret',
+    }));
+    const response = await h.app.inject({ method: 'GET', url: '/api/setup', headers: h.sessionHeaders });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ connected: true, eligibility: { channelIdentity: { login: 'channel_login', displayName: 'Channel Display' } } });
+    for (const secret of ['private-profile-id', 'private-token', 'private-secret']) {
+      expect(response.body).not.toContain(secret);
+    }
     await h.app.close();
   });
 
@@ -622,6 +656,7 @@ describe('local queue and setup API', () => {
 
   it('allowlists pending operation fields in the state response', async () => {
     const h = await createHarness();
+    h.repository.getFinancialOperationSummary = vi.fn(async () => ({ total: 8, needsReview: 2, diagnostic: 'private' }));
     h.repository.listFinancialOperations = vi.fn(async () => [{
       id: 'task-id', operationType: 'reward.set_open', entityId: 'queue-id', status: 'unknown', attempts: 2,
       requiresDeleteConfirmation: true, payload: { token: 'private' }, lastError: 'internal_error', secret: 'private',
@@ -633,6 +668,7 @@ describe('local queue and setup API', () => {
       id: 'task-id', type: 'reward.set_open', entityId: 'queue-id', status: 'unknown', attempts: 2,
       requiresDeleteConfirmation: true, nextAttemptAt: null,
     }]);
+    expect(response.json().unresolved_operation_summary).toEqual({ total: 8, needsReview: 2 });
     expect(response.body).not.toContain('private');
     expect(response.body).not.toContain('internal_error');
     await h.app.close();

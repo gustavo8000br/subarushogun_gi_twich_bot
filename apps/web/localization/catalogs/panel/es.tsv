@@ -17,6 +17,10 @@ panel.sidebar.local_note	El panel y los datos permanecen en este equipo.
 panel.section.local	LOCAL
 panel.migration.note	La estructura del panel está en migración. Las demás pantallas se habilitarán cuando cada flujo supere la validación de paridad.
 panel.health.label	Estado de la instalación
+panel.health.legend.label	Leyenda del estado de salud
+panel.health.legend.functional	Funcional
+panel.health.legend.partial	Parcial, en curso o desconocido
+panel.health.legend.nonfunctional	No disponible o sin configurar
 panel.health.database	Base de datos
 panel.health.twitch_api	API de Twitch
 panel.health.twitch_integration	Integración de Twitch
@@ -89,6 +93,19 @@ panel.widgets.description	Cada widget muestra un dato en OBS mediante una conexi
 panel.settings.eyebrow	PREFERENCIAS
 panel.settings.title	Configuración
 panel.settings.description	Ajusta las etiquetas de cuenta usadas durante las atenciones.
+panel.settings.current_section_title	Durante la atención
+panel.settings.default_section_title	Después de restablecer
+panel.settings.default_eyebrow	CUENTA PREDETERMINADA
+panel.settings.current_label	Etiqueta de la cuenta actual
+panel.settings.default_help	Se usa cuando el cambio automático de cuenta está desactivado o se restablece la cuenta actual.
+panel.settings.save	Guardar
+panel.settings.saving	Guardando…
+panel.settings.cancel	Cancelar
+panel.settings.unsaved	Cambios sin guardar
+panel.settings.no_changes	Toda la configuración está guardada.
+panel.settings.saved	Se guardó la etiqueta de cuenta.
+panel.settings.saved_refresh_failed	Se guardó, pero el panel no se pudo actualizar. Recarga para comprobar los valores actuales.
+panel.settings.invalid	Escribe una etiqueta no vacía de hasta 60 caracteres.
 panel.connection.eyebrow	TWITCH
 panel.connection.title	Conexión del canal
 panel.connection.description	El asistente aparece durante la configuración o cuando hace falta reconectar.
@@ -184,7 +201,7 @@ panel.credentials.client_id	Client ID
 panel.credentials.client_secret	Client Secret
 panel.credentials.client_id_placeholder	Tu Client ID
 panel.credentials.secret_configured	El Secret está configurado. Para sustituirlo, introduce uno nuevo y valídalo antes de guardarlo.
-panel.credentials.secret_empty	El Secret se guarda localmente y no volverá a mostrarse.
+panel.credentials.secret_empty	Aún no se ha guardado el secreto de la aplicación.
 panel.credentials.validate_save	Validar y guardar aplicación
 panel.widget.editor_eyebrow	CONFIGURACIÓN DEL WIDGET
 panel.widget.source_label	Qué mostrar
@@ -196,6 +213,7 @@ panel.widget.obs_help	En OBS: añade una fuente Browser, pega la URL, ajusta las
 panel.widget.close	Cerrar
 panel.locale.incomplete	El idioma guardado está incompleto. El portugués brasileño está activo temporalmente.
 panel.locale.updated	Idioma del producto actualizado.
+panel.locale.saving	Guardando idioma…
 panel.connection.channel_connected	Canal conectado
 panel.connection.channel_not_connected	Twitch todavía no está conectada
 panel.connection.channel_disconnected	Canal desconectado
@@ -300,7 +318,9 @@ panel.command.threshold.select	Elige un nivel mínimo
 panel.command.threshold.help	El grupo elegido y los cargos superiores heredan el acceso.
 panel.command.audience.proposed	Después de guardar: {roles}.
 panel.command.audience.everyone_includes	Todos (incluye {roles})
-panel.command.follower_scope_required	El acceso de seguidores requiere autorización Twitch adicional. Al guardar, Twitch pedirá consentimiento.
+panel.command.follower_scope_required	Requiere el permiso de Twitch para consultar seguidores.
+panel.command.follower_consent_only	Esto autoriza únicamente las consultas de seguidores en Twitch. No cambiará los permisos guardados de los comandos.
+panel.command.follower_authorize	Autorizar acceso de seguidores
 panel.command.no_changes	No hay cambios de permisos para guardar.
 panel.widget.source.account	Cuenta actual
 panel.widget.source.queue_name	Nombre de una cola
@@ -363,7 +383,9 @@ panel.widget.link_eyebrow	ENLACE DE UN SOLO USO
 panel.widget.copy_now	Cópialo ahora
 panel.widget.local_widget_url	URL local del widget
 panel.command.description.queue_lista	Ver personas en espera, llamadas y en atención.
+panel.command.description.queue_presente	Confirmar tu presencia después de recibir una llamada.
 panel.command.syntax.queue_lista	!<cola> [lista]
+panel.command.syntax.queue_presente	!<cola> presente
 panel.command.description.queue_comandos	Ver los comandos disponibles para tu cargo.
 panel.command.syntax.queue_comandos	!<cola> comandos
 panel.command.description.queue_posicao	Consultar tu posición o estado en la cola.
@@ -576,7 +598,10 @@ panel.widget.auto	automático
 panel.queue_settings.call_message_default	{user}, ¡es tu turno!
 panel.command.follower_scope_lost	Hay comandos configurados para seguidores, pero el permiso de Twitch no está disponible. Vuelve a autorizar para restaurarlo.
 panel.command.follower_reauthorize	Volver a autorizar acceso de seguidores
-panel.health.twitch_chat	Chat de Twitch
+panel.commands.revision	Revisión del catálogo {version}
+panel.commands.empty	No hay comandos de chat registrados.
+panel.commands.cancel	Descartar cambios
+panel.health.twitch_chat	Chat/EventSub de Twitch
 panel.health.twitch_rewards	Recompensas de puntos del canal
 panel.health.chat.connected	Conectado
 panel.health.chat.not_configured	No configurado
@@ -627,6 +652,8 @@ panel.form.command_hint	El comando del chat usa este nombre después de !. Se su
 panel.form.aliases_hint	Nombres de comando alternativos opcionales, separados por comas.
 panel.form.mode_channel_points_hint	Los espectadores canjean una recompensa de Twitch para entrar. El bot crea y administra la recompensa.
 panel.form.mode_manual_hint	La cola permanece local. El streamer añade espectadores desde la página de colas.
+panel.form.twitch_setup_required	Twitch no está conectada. La cola manual funciona localmente; conecta Twitch para crear una recompensa de Puntos del canal.
+panel.form.twitch_setup_link	Configurar conexión de Twitch
 panel.form.cancel	Cancelar
 panel.overview.next_empty_title	Crea tu primera cola
 panel.overview.next_empty_description	Elige Puntos del canal o una cola local para empezar a recibir espectadores.
@@ -636,6 +663,23 @@ panel.overview.next_queues_description	Administra la disponibilidad y continúa 
 panel.overview.next_queues_action	Abrir colas
 panel.overview.next_unavailable_title	Comprobando datos locales
 panel.overview.next_unavailable_description	La siguiente acción aparecerá cuando el panel local termine de cargar.
+panel.overview.context_label	Contexto de la operación
+panel.overview.current_account	Cuenta actual
+panel.overview.pending_operations	Operaciones sin resolver
+panel.overview.needs_review	{count} requieren revisión
+panel.overview.refresh	Actualizar resumen
+panel.overview.refreshing	Actualizando resumen…
+panel.overview.refreshed	Resumen actualizado.
+panel.overview.refresh_failed	No se pudo actualizar el resumen. Los últimos datos cargados siguen visibles.
+panel.overview.last_updated	Última actualización a las {time}
+panel.overview.last_reconciliation	Última conciliación con Twitch (en esta ejecución)
+panel.overview.reconciliation_not_run	Aún no se ejecutó en esta ejecución
+panel.health.bot	API del bot
+panel.health.bot.connected	Disponible
+panel.health.bot.unavailable	No disponible
+panel.health.bot.unknown	Estado desconocido
+panel.health.database.unknown	Estado desconocido
+panel.health.ping_ms	{ms} ms
 panel.queue_settings.section_attendance	Llamada y atención
 panel.queue_settings.section_privacy	Privacidad del UID del espectador
 panel.queue_settings.section_points	Cuenta y políticas de puntos
@@ -645,3 +689,40 @@ panel.credentials.validating	Validando credenciales…
 panel.credentials.saved	Las credenciales de la aplicación se validaron y guardaron.
 panel.connection.saved_refresh_failed	Las credenciales se guardaron, pero no se pudo actualizar la conexión. Recarga para comprobar el estado.
 panel.health.twitch.eligibility_unknown	Comprobando elegibilidad
+panel.widgets.loading	Cargando widgets…
+panel.widgets.load_failed	No se pudieron cargar los widgets. No se modificaron los guardados.
+panel.widgets.refresh	Intentar de nuevo
+panel.widget.saving	Guardando…
+panel.widget.link.title	Copia este enlace en OBS
+panel.widget.preview.queue	Nombre de la fila
+panel.widget.preview.position	Posición original
+panel.widget.style.text_color	Color del texto
+panel.widget.style.background_color	Color de fondo
+panel.widget.style.background_opacity	Opacidad del fondo (%)
+panel.widget.style.font_family	Familia tipográfica
+panel.widget.style.font_size	Tamaño de fuente (px)
+panel.widget.style.font_weight	Grosor de fuente
+panel.widget.style.alignment	Alineación del texto
+panel.widget.style.effect	Efecto del texto
+panel.widget.style.outline_width	Grosor del contorno (px)
+panel.widget.style.shadow_blur	Desenfoque de sombra (px)
+panel.widget.style.shadow_x	Desplazamiento X de sombra (px)
+panel.widget.style.shadow_y	Desplazamiento Y de sombra (px)
+panel.widget.style.width	Ancho (px o auto)
+panel.widget.style.height	Alto (px o auto)
+panel.widget.style.margin_top	Margen superior (px)
+panel.widget.style.margin_right	Margen derecho (px)
+panel.widget.style.margin_bottom	Margen inferior (px)
+panel.widget.style.margin_left	Margen izquierdo (px)
+panel.widget.style.overflow	Desbordamiento del texto
+panel.dialog.confirm_action	CONFIRMAR ACCIÓN
+panel.widget.notice.saved	Widget guardado.
+panel.widget.notice.created	Widget creado.
+panel.widget.notice.revoked	Enlace del widget revocado.
+panel.widget.notice.deleted	Widget eliminado.
+panel.widget.notice.conflict	Este widget cambió. Revisa el borrador y vuelve a cargar antes de guardar.
+panel.widget.notice.error	No se pudo completar. Inténtalo de nuevo.
+panel.widget.link.close_loses	Al cerrar, el enlace se borrará de la pantalla. Si lo pierdes, genera otro.
+panel.widget.cancel	Cancelar
+panel.dialog.confirm	Confirmar
+panel.dialog.cancel	Cancelar

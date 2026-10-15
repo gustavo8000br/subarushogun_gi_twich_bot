@@ -3,7 +3,8 @@ import { renderGlobalCommandHelp, renderQueueCommandHelp, renderPingResponse } f
 
 describe('role-aware chat command help and ping copy', () => {
   it('shows all default viewer commands globally without disclosing management or ping commands', () => {
-    const help = renderGlobalCommandHelp({ roles: ['viewer'], policies: {}, allowVipManagement: false });
+    const policies = Object.fromEntries(['queue:lista', 'queue:comandos', 'queue:posicao', 'queue:sair', 'global:filas', 'global:conta:read', 'global:queue:comandos'].map((key) => [key, { minimumRole: 'everyone' }]));
+    const help = renderGlobalCommandHelp({ roles: ['viewer'], policies, allowVipManagement: false });
     expect(help).toContain('!fila comandos');
     expect(help).toContain('!<fila>');
     expect(help).not.toContain('!queue ping');
@@ -15,7 +16,8 @@ describe('role-aware chat command help and ping copy', () => {
     ['en', '!queue commands', ['!fila comandos', '!cola comandos', '!queue comandos']],
     ['es', '!cola comandos', ['!fila comandos', '!queue commands', '!cola commands']],
   ])('renders the global namespace using only the selected locale root: %s', (locale, expected, forbidden) => {
-    const help = renderGlobalCommandHelp({ roles: ['viewer'], locale });
+    const policies = Object.fromEntries(['queue:lista', 'queue:comandos', 'queue:posicao', 'queue:sair', 'global:filas', 'global:conta:read', 'global:queue:comandos'].map((key) => [key, { minimumRole: 'everyone' }]));
+    const help = renderGlobalCommandHelp({ roles: ['viewer'], locale, policies });
     expect(help).toContain(expected);
     for (const syntax of forbidden) expect(help).not.toContain(syntax);
   });

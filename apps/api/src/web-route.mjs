@@ -7,7 +7,9 @@ import { resolve } from 'node:path';
  * @param {string} webRoot
  * @param {string} [sharedBrowserRoot]
  */
-export async function registerWebRoutes(app, webRoot, sharedBrowserRoot) {
+export async function registerWebRoutes(app, webRoot, sharedBrowserRoot, { apiOnly = false } = {}) {
+  if (apiOnly) return;
+
   await app.register(fastifyStatic, {
     root: resolve(webRoot),
     prefix: '/',

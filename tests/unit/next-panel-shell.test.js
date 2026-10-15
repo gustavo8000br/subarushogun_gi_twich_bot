@@ -58,11 +58,23 @@ describe('Next panel shell', () => {
     expect(markup).toContain('href="/operations/"');
     expect(markup).toContain('href="/connection/"');
     expect(markup).toContain('href="/new-queue/"');
-    expect(markup).toContain('aria-disabled="true"');
+    expect(markup).toContain('href="/widgets/"');
+    expect(markup).toContain('href="/commands/"');
+    expect(markup).not.toContain('aria-disabled="true"');
     expect(markup).toContain('Pular para o conteúdo principal');
     expect(markup.match(/<main\b/g)).toHaveLength(1);
     expect(markup).toContain('Verificando dados locais');
     expect(markup).not.toContain('Twitch queue manager');
+  });
+
+  it('does not mount protected route content until the local session and snapshot are ready', () => {
+    const markup = renderToStaticMarkup(React.createElement(PanelShell, {
+      fallbackCatalog: { 'pt-BR': catalog },
+      activePage: 'operations',
+      children: React.createElement('p', null, 'Protected operations content'),
+    }));
+    expect(markup).toContain('Verificando…');
+    expect(markup).not.toContain('Protected operations content');
   });
 
   it('renders the loaded queue counts from the operator projection', () => {

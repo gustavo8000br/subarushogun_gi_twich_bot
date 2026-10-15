@@ -87,6 +87,7 @@ const healthRoute = registerHealthRoute(app, {
   getTwitchStatus: () => runtime?.twitchStatus ?? 'connecting',
   getTwitchChatStatus: () => runtime?.integration?.chatStatus ?? 'not_configured',
   getTwitchRewardStatus: () => runtime?.integration?.rewardStatus ?? 'unknown',
+  getLastReconciliationAt: () => runtime?.integration?.lastReconciliationAt ?? null,
   probeTwitchApi: () => runtime?.integration?.probeTwitchApi?.() ?? false,
 });
 twitchHealthBridge.attach(healthRoute.getTwitchHealth);
@@ -117,6 +118,7 @@ await registerWebRoutes(
   app,
   fileURLToPath(new URL('../../web/', import.meta.url)),
   fileURLToPath(new URL('../../shared/browser/', import.meta.url)),
+  { apiOnly: process.env.API_ONLY === 'true' },
 );
 
 runtime = await createApplicationRuntime({ app, pool, prisma, repository, credentialRepository, reportDiagnostic, onError: () => undefined,

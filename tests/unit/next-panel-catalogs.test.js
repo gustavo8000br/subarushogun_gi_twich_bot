@@ -1,7 +1,22 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { parseTsvCatalog } from '../../apps/shared/localization/tsv-catalog.mjs';
 import { normalizeCatalogBundle, translatePanel } from '../../apps/frontend/lib/i18n/panel-catalogs.mjs';
 
 describe('Next runtime panel catalogs', () => {
+  it('explains partial, in-progress, and unknown health states in all shipped locales', () => {
+    const expected = {
+      en: 'Partial, in progress, or unknown',
+      es: 'Parcial, en curso o desconocido',
+      'pt-BR': 'Parcial, em andamento ou desconhecido',
+    };
+    const actual = Object.fromEntries(Object.entries({ en: 'en', es: 'es', 'pt-BR': 'pt-BR' }).map(([locale, file]) => {
+      const catalog = parseTsvCatalog(readFileSync(new URL(`../../apps/web/localization/catalogs/panel/${file}.tsv`, import.meta.url), 'utf8'));
+      return [locale, catalog['panel.health.legend.partial']];
+    }));
+    expect(actual).toEqual(expected);
+  });
+
   it('accepts every complete runtime locale and translates from the selected module', () => {
     const bundle = normalizeCatalogBundle({
       locales: ['pt-BR', 'en', 'es'],

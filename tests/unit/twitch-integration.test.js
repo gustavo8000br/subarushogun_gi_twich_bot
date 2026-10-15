@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTwitchIntegration } from '../../apps/api/src/twitch/integration.mjs';
+import { createCredentialFingerprint } from '../../apps/api/src/twitch/credential-fingerprint.mjs';
 
 function harness({ credential = { clientId: 'client-1', broadcasterId: 'channel-1', accessToken: 'access-token', refreshToken: 'refresh-token' }, eligible = true } = {}) {
   const listener = { stop: vi.fn() };
@@ -57,6 +58,18 @@ describe('Twitch integration lifecycle', () => {
 
     await integration.stop();
     expect(integration.twitch).toBeNull();
+  });
+
+  it('tracks the last completed reconciliation timestamp in memory for runtime health', async () => {
+    const h = harness();
+    const integration = await h.integrationPromise;
+    await integration.ready;
+    h.reconciler.run.mockResolvedValue({ status: 'complete', finishedAt: '2026-10-15T18:00:00.000Z' });
+
+    expect(integration.lastReconciliationAt).toBeNull();
+    await h.callbacks.onReady();
+    expect(integration.lastReconciliationAt).toBe('2026-10-15T18:00:00.000Z');
+    await integration.stop();
   });
 
   it('retries transient authentication startup failures and cancels retries on stop', async () => {
@@ -251,8 +264,11 @@ describe('Twitch integration lifecycle', () => {
 
   it('starts a session-bound follower authorization without saving staged policy before callback', async () => {
     const oauthStateStore = { issue: vi.fn(() => ({ state: 'opaque-state', url: 'https://id.twitch.tv/oauth2/authorize?state=opaque-state' })) };
+    const authRecord = { id: 'credential-1', clientId: 'client-1', clientSecret: 'secret', broadcasterId: 'channel-1',
+      accessToken: 'access-1', refreshToken: 'refresh-1', scopes: ['user:read:chat'], authStatus: 'connected',
+      updatedAt: new Date('2026-10-15T12:00:00.000Z') };
     const credentialRepository = {
-      getAuthRecord: vi.fn(async () => ({ clientId: 'client-1', clientSecret: 'secret', broadcasterId: 'channel-1' })),
+      getAuthRecord: vi.fn(async () => authRecord),
       getPublicStatus: vi.fn(async () => ({})),
     };
     const integration = await createTwitchIntegration({ credentialRepository, oauthStateStore, redirectUri: 'https://localhost:3000/callback' });
@@ -261,15 +277,41 @@ describe('Twitch integration lifecycle', () => {
       .resolves.toEqual({ state: 'opaque-state', url: 'https://id.twitch.tv/oauth2/authorize?state=opaque-state' });
     expect(oauthStateStore.issue).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: 'session-1', clientId: 'client-1', redirectUri: 'https://localhost:3000/callback',
-      scopes: ['moderator:read:followers'], context: expect.objectContaining({ kind: 'follower_policy', expectedVersion: 4 }),
+      scopes: ['moderator:read:followers'], context: expect.objectContaining({
+        kind: 'follower_policy', expectedVersion: 4,
+        expectedCredentialFingerprint: createCredentialFingerprint(authRecord),
+      }),
     }));
+    const authorizationState = oauthStateStore.issue.mock.calls[0][0];
+    expect(JSON.stringify(authorizationState)).not.toContain('secret');
+    expect(JSON.stringify(authorizationState)).not.toContain('access-1');
     expect(credentialRepository.storeTokens).toBeUndefined();
     integration.stop();
   });
 
+  it('captures the current credential generation for regular OAuth reconnects too', async () => {
+    const authRecord = { id: 'credential-regular', clientId: 'client-1', clientSecret: 'private-secret', broadcasterId: 'channel-1',
+      accessToken: 'private-access', refreshToken: 'private-refresh', scopes: ['user:read:chat'], authStatus: 'connected',
+      updatedAt: new Date('2026-10-15T12:00:00.000Z') };
+    const oauthStateStore = { issue: vi.fn(() => ({ state: 'regular-state', url: 'https://id.twitch.tv/oauth2/authorize' })) };
+    const credentialRepository = { getAuthRecord: vi.fn(async () => authRecord) };
+    const integration = await createTwitchIntegration({ credentialRepository, oauthStateStore });
+
+    await integration.beginAuthorization('session-1');
+
+    expect(oauthStateStore.issue).toHaveBeenCalledWith(expect.objectContaining({
+      context: { kind: 'account_authorization', expectedCredentialFingerprint: createCredentialFingerprint(authRecord) },
+    }));
+    expect(JSON.stringify(oauthStateStore.issue.mock.calls[0][0])).not.toContain('private-secret');
+    expect(JSON.stringify(oauthStateStore.issue.mock.calls[0][0])).not.toContain('private-access');
+    integration.stop();
+  });
+
   it('commits the staged follower policy with OAuth tokens only after validated callback', async () => {
+    const authRecord = { id: 'credential-1', clientId: 'client-1', clientSecret: 'secret', broadcasterId: null,
+      accessToken: null, refreshToken: null, scopes: [], authStatus: 'pending', updatedAt: new Date('2026-10-15T12:00:00.000Z') };
     const credentialRepository = {
-      getAuthRecord: vi.fn(async () => ({ clientId: 'client-1', clientSecret: 'secret', broadcasterId: null })),
+      getAuthRecord: vi.fn(async () => authRecord),
       getPublicStatus: vi.fn(async () => ({})),
       assertCanBind: vi.fn(async () => undefined),
       storeTokens: vi.fn(async (tokens) => { await tokens.commitAdditional({ tx: 'same-transaction' }); }),
@@ -278,7 +320,8 @@ describe('Twitch integration lifecycle', () => {
     const oauthStateStore = {
       take: vi.fn(() => ({ clientId: 'client-1', redirectUri: 'https://localhost:3000/callback',
         scopes: ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'moderator:read:followers'],
-        context: { kind: 'follower_policy', expectedVersion: 4, policies: { 'queue:lista': { minimumRole: 'follower' } } } })),
+        context: { kind: 'follower_policy', expectedVersion: 4, policies: { 'queue:lista': { minimumRole: 'follower' } },
+          expectedCredentialFingerprint: createCredentialFingerprint(authRecord) } })),
     };
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ access_token: 'access', refresh_token: 'refresh', expires_in: 3600 }) }));
     const integration = await createTwitchIntegration({ credentialRepository, repository, oauthStateStore, fetchImpl,
@@ -289,10 +332,67 @@ describe('Twitch integration lifecycle', () => {
     expect(credentialRepository.storeTokens).toHaveBeenCalledWith(expect.objectContaining({
       clientId: 'client-1', broadcasterId: 'channel-1', accessToken: 'access', refreshToken: 'refresh',
       authorizationContext: expect.objectContaining({ kind: 'follower_policy' }),
+      expectedCredentialFingerprint: createCredentialFingerprint(authRecord),
       commitAdditional: expect.any(Function),
     }));
     expect(repository.updateCommandPoliciesInTransaction).toHaveBeenCalledWith({ tx: 'same-transaction' }, expect.objectContaining({
       expectedVersion: 4, actorId: 'session-1', origin: 'oauth_follower_consent',
+    }));
+    integration.stop();
+  });
+
+  it('stores exact scopes from scope-only OAuth without writing command policy or audit changes', async () => {
+    const authRecord = { id: 'credential-scope', clientId: 'client-1', clientSecret: 'secret', broadcasterId: null,
+      accessToken: null, refreshToken: null, scopes: [], authStatus: 'pending', updatedAt: new Date('2026-10-15T12:00:00.000Z') };
+    const credentialRepository = {
+      getAuthRecord: vi.fn(async () => authRecord),
+      assertCanBind: vi.fn(async () => undefined),
+      storeTokens: vi.fn(async () => undefined),
+    };
+    const repository = { updateCommandPoliciesInTransaction: vi.fn() };
+    const oauthStateStore = { take: vi.fn(() => ({
+      clientId: 'client-1', redirectUri: 'https://localhost:3000/callback',
+      scopes: ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'moderator:read:followers'],
+      context: { kind: 'follower_scope', expectedCredentialFingerprint: createCredentialFingerprint(authRecord) },
+    })) };
+    const integration = await createTwitchIntegration({ credentialRepository, repository, oauthStateStore,
+      fetchImpl: vi.fn(async () => ({ ok: true, json: async () => ({ access_token: 'access', refresh_token: 'refresh', expires_in: 3600 }) })),
+      validateOAuthToken: async () => ({ clientId: 'client-1', userId: 'channel-1', login: 'channel', displayName: 'Channel',
+        scopes: ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'moderator:read:followers'] }),
+    });
+
+    await integration.completeAuthorization({ sessionId: 'session-1', state: 'state', code: 'code' });
+
+    expect(credentialRepository.storeTokens).toHaveBeenCalledWith(expect.objectContaining({
+      scopes: ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'moderator:read:followers'],
+      expectedCredentialFingerprint: createCredentialFingerprint(authRecord),
+      commitAdditional: undefined,
+    }));
+    expect(repository.updateCommandPoliciesInTransaction).not.toHaveBeenCalled();
+    integration.stop();
+  });
+
+  it('preserves the safe stale-credential conflict from the token repository', async () => {
+    const authRecord = { id: 'credential-stale', clientId: 'client-1', clientSecret: 'secret', broadcasterId: null,
+      accessToken: null, refreshToken: null, scopes: [], authStatus: 'pending', updatedAt: new Date('2026-10-15T12:00:00.000Z') };
+    const credentialRepository = {
+      getAuthRecord: vi.fn(async () => authRecord),
+      assertCanBind: vi.fn(async () => undefined),
+      storeTokens: vi.fn(async () => { throw Object.assign(new Error('stale OAuth credential'), { code: 'OAUTH_CREDENTIAL_STALE' }); }),
+    };
+    const oauthStateStore = { take: vi.fn(() => ({
+      clientId: 'client-1', redirectUri: 'https://localhost:3000/callback', scopes: [],
+      context: { kind: 'account_authorization', expectedCredentialFingerprint: createCredentialFingerprint(authRecord) },
+    })) };
+    const integration = await createTwitchIntegration({ credentialRepository, oauthStateStore,
+      fetchImpl: vi.fn(async () => ({ ok: true, json: async () => ({ access_token: 'access', refresh_token: 'refresh', expires_in: 3600 }) })),
+      validateOAuthToken: async () => ({ clientId: 'client-1', userId: 'channel-1', login: 'channel', displayName: 'Channel', scopes: [] }),
+    });
+
+    await expect(integration.completeAuthorization({ sessionId: 'session-1', state: 'state', code: 'code' }))
+      .rejects.toMatchObject({ code: 'OAUTH_CREDENTIAL_STALE' });
+    expect(credentialRepository.storeTokens).toHaveBeenCalledWith(expect.objectContaining({
+      expectedCredentialFingerprint: createCredentialFingerprint(authRecord),
     }));
     integration.stop();
   });

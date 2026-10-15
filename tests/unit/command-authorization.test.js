@@ -16,10 +16,11 @@ const check = (message, command, settings = {}) => authorizeCommand({
 
 describe('command authorization', () => {
   it('allows viewers to list and query only through their own message identity', () => {
-    expect(check(localMessage(), parsed('lista'))).toMatchObject({ allowed: true, role: 'viewer', actorId: 'viewer-1' });
-    expect(check(localMessage(), parsed('posicao'))).toMatchObject({ allowed: true, role: 'viewer', actorId: 'viewer-1' });
-    expect(check(localMessage(), parsed('sair'))).toMatchObject({ allowed: true, role: 'viewer', actorId: 'viewer-1' });
-    expect(check(localMessage(), parsed('sair', ['other-user']))).toMatchObject({ allowed: false, reason: 'viewer_identity_required' });
+    const everyone = { policies: { 'queue:lista': { minimumRole: 'everyone' }, 'queue:posicao': { minimumRole: 'everyone' }, 'queue:sair': { minimumRole: 'everyone' } } };
+    expect(check(localMessage(), parsed('lista'), everyone)).toMatchObject({ allowed: true, role: 'viewer', actorId: 'viewer-1' });
+    expect(check(localMessage(), parsed('posicao'), everyone)).toMatchObject({ allowed: true, role: 'viewer', actorId: 'viewer-1' });
+    expect(check(localMessage(), parsed('sair'), everyone)).toMatchObject({ allowed: true, role: 'viewer', actorId: 'viewer-1' });
+    expect(check(localMessage(), parsed('sair', ['other-user']), { policies: { 'queue:sair': { minimumRole: 'everyone' } } })).toMatchObject({ allowed: false, reason: 'viewer_identity_required' });
   });
 
   it('recognizes streamer by broadcaster user ID and moderator by current trusted badge', () => {
@@ -63,7 +64,7 @@ describe('command authorization', () => {
   });
 
   it('allows account query to viewers and restricts account changes to the streamer', () => {
-    expect(check(localMessage(), { scope: 'global', command: 'conta', args: [] }))
+    expect(check(localMessage(), { scope: 'global', command: 'conta', args: [] }, { policies: { 'global:conta:read': { minimumRole: 'everyone' } } }))
       .toMatchObject({ allowed: true, role: 'viewer' });
     expect(check(localMessage(), { scope: 'global', command: 'conta', args: ['reset'] }))
       .toMatchObject({ allowed: false, role: 'viewer' });
@@ -71,6 +72,12 @@ describe('command authorization', () => {
       .toMatchObject({ allowed: false, role: 'moderator', reason: 'streamer_only' });
     expect(check(localMessage({ userId: 'broadcaster-1' }), { scope: 'global', command: 'conta', args: ['reset'] }))
       .toMatchObject({ allowed: true, role: 'streamer' });
+  });
+
+  it('requires follower for configurable commands without a saved policy', () => {
+    expect(check(localMessage(), parsed('lista'))).toMatchObject({ allowed: false, reason: 'role_not_allowed' });
+    expect(authorizeCommand({ broadcasterId: 'broadcaster-1', message: localMessage(), command: parsed('lista'), isFollower: true }))
+      .toMatchObject({ allowed: true, role: 'follower', roles: ['follower'] });
   });
 
   it('does not let a manager use viewer self-service commands against another identity', () => {

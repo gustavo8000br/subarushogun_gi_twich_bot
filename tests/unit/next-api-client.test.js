@@ -49,6 +49,16 @@ describe('Next same-origin API client', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it('allows only the same-origin health endpoint outside the API namespace', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(response({ status: 'ok' }));
+    const api = createApiClient({ fetchImpl });
+
+    await expect(api.request('/health')).resolves.toEqual({ status: 'ok' });
+    expect(fetchImpl).toHaveBeenCalledWith('/health', expect.objectContaining({ credentials: 'same-origin' }));
+    await expect(api.request('/other')).rejects.toThrow('same-origin');
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
   it('returns null for no-content responses', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(response(null, { status: 204 }));
     expect(await createApiClient({ fetchImpl }).request('/api/health')).toBeNull();

@@ -83,6 +83,16 @@ function setupDto(value, publicBaseUrl) {
     ...(Number.isInteger(source.eligibility.rewardLimit) ? { rewardLimit: source.eligibility.rewardLimit } : {}),
     ...(typeof source.eligibility.nearRewardLimit === 'boolean' ? { nearRewardLimit: source.eligibility.nearRewardLimit } : {}),
     ...(typeof source.eligibility.reason === 'string' ? { reason: source.eligibility.reason } : {}),
+    ...(source.connected === true && source.eligibility.channelIdentity && typeof source.eligibility.channelIdentity === 'object' ? {
+      channelIdentity: {
+        ...(typeof source.eligibility.channelIdentity.login === 'string' && /^[a-z0-9_]{1,25}$/.test(source.eligibility.channelIdentity.login)
+          ? { login: source.eligibility.channelIdentity.login } : {}),
+        ...(typeof source.eligibility.channelIdentity.displayName === 'string'
+          && source.eligibility.channelIdentity.displayName.trim().length > 0
+          && source.eligibility.channelIdentity.displayName.length <= 100
+          ? { displayName: source.eligibility.channelIdentity.displayName.trim() } : {}),
+      },
+    } : {}),
   } : null;
   return {
     callbackUrl: `${publicBaseUrl}/callback`,
@@ -142,6 +152,13 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   app.get('/api/setup', async () => setupDto(await integrations.getSetupState?.(), publicBaseUrl));
   app.get('/api/state', async () => {
     const state = await repository.getLocalState?.() ?? {};
+    const unresolvedOperationSummary = await repository.getFinancialOperationSummary?.();
+    const safeUnresolvedOperationSummary = unresolvedOperationSummary
+      && Number.isSafeInteger(unresolvedOperationSummary.total) && unresolvedOperationSummary.total >= 0
+      && Number.isSafeInteger(unresolvedOperationSummary.needsReview) && unresolvedOperationSummary.needsReview >= 0
+      && unresolvedOperationSummary.needsReview <= unresolvedOperationSummary.total
+      ? { total: unresolvedOperationSummary.total, needsReview: unresolvedOperationSummary.needsReview }
+      : null;
     return {
       product_version: state.productVersion ?? productVersion,
       api_contract_version: '1', revision: state.revision ?? 1,
@@ -153,6 +170,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       },
       queues: (await repository.listQueueProjection?.() ?? []).map((queue) => queueDto(queue)),
       pending_operations: (await repository.listFinancialOperations?.() ?? []).map(operationDto),
+      unresolved_operation_summary: safeUnresolvedOperationSummary,
     };
   });
   app.get('/api/command-catalog', async (_request, reply) => {
@@ -170,6 +188,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
           key: definition.key, scope: definition.scope, syntax: definition.syntax,
           description: definition.description,
           policy: resolveCommandPolicy(definition, state.policies),
+          policyOverridden: definition.access.kind === 'configurable' && Object.hasOwn(state.policies ?? {}, definition.key),
           access: definition.access,
           configurable: definition.access.kind === 'configurable',
         })),
@@ -182,13 +201,15 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const localRequest = /** @type {any} */ (request);
     const body = localRequest.body && typeof localRequest.body === 'object' && !Array.isArray(localRequest.body) ? localRequest.body : {};
     const policies = body.policies;
+    const scopeOnly = body.scopeOnly === true;
     if (!Number.isInteger(body.expectedVersion) || body.expectedVersion < 1
-      || !policies || typeof policies !== 'object' || Array.isArray(policies) || !Object.keys(policies).length
-      || Object.keys(body).some((key) => !['expectedVersion', 'policies'].includes(key))) {
+      || (scopeOnly ? (policies !== undefined && (!policies || typeof policies !== 'object' || Array.isArray(policies) || Object.keys(policies).length > 0))
+        : (!policies || typeof policies !== 'object' || Array.isArray(policies) || !Object.keys(policies).length))
+      || Object.keys(body).some((key) => !['expectedVersion', 'policies', 'scopeOnly'].includes(key))) {
       return reply.code(400).send({ error: 'Atualize o catálogo e informe permissões válidas.' });
     }
     let hasFollowerThreshold = false;
-    for (const [key, policy] of Object.entries(policies)) {
+    for (const [key, policy] of Object.entries(policies ?? {})) {
       const definition = CHAT_COMMANDS.find((entry) => entry.key === key);
       if (!definition || definition.access.kind !== 'configurable' || !policy || typeof policy !== 'object' || Array.isArray(policy)
         || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
@@ -197,14 +218,15 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       }
       if (policy.minimumRole === 'follower') hasFollowerThreshold = true;
     }
-    if (!hasFollowerThreshold) return reply.code(400).send({ error: 'Selecione ao menos um comando com nível de seguidor.' });
+    if (!scopeOnly && !hasFollowerThreshold) return reply.code(400).send({ error: 'Selecione ao menos um comando com nível de seguidor.' });
     if (typeof integrations.beginFollowerAuthorization !== 'function') return reply.code(503).send({ error: 'A autorização Twitch adicional não está disponível.' });
     let result;
     try {
       result = await integrations.beginFollowerAuthorization({
         sessionId: localRequest.localSession?.id,
         expectedVersion: body.expectedVersion,
-        policies,
+        policies: policies ?? {},
+        scopeOnly,
       });
     } catch {
       return reply.code(503).send({ error: 'Não foi possível iniciar a autorização adicional da Twitch.' });

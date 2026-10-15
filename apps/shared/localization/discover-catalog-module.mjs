@@ -27,8 +27,12 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'lifecycle.uninstall.confirm_prompt': Object.freeze(['word']),
   }),
   panel: Object.freeze({
+    'panel.overview.last_updated': Object.freeze(['time']),
+    'panel.overview.needs_review': Object.freeze(['count']),
+    'panel.health.ping_ms': Object.freeze(['ms']),
     'panel.command.audience.everyone_includes': Object.freeze(['roles']),
     'panel.command.audience.proposed': Object.freeze(['roles']),
+    'panel.commands.revision': Object.freeze(['version']),
     'panel.queue_settings.call_placeholders': Object.freeze(['user', 'queue', 'position', 'uid', 'account']),
     'panel.queue.confirm.delete_local': Object.freeze(['title', 'count']),
     'panel.queue.confirm.delete_converted': Object.freeze(['title', 'count']),
