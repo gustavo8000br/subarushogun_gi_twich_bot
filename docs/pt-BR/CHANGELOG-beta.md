@@ -2,6 +2,10 @@
 
 [Todos os changelogs públicos](CHANGELOG.md) · [English](../../CHANGELOG-beta.md)
 
+## v0.2.1-beta
+
+- Corrigida a confirmação final de exclusão local da fila para exibir o nome da fila e o aviso completo, em vez do texto de indisponibilidade.
+
 ## v0.2.0-beta
 
 - Streamers podem cancelar a exclusão pendente de uma fila vinculada a reward depois que o app verifica que a reward exata, gerenciada pela Twitch, ainda existe e está pausada. A fila e o histórico financeiro permanecem recuperáveis, e uma exclusão posterior retoma com segurança a mesma intenção.

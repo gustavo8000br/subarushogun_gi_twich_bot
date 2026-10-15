@@ -39,6 +39,7 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'panel.reconciliation.issues': Object.freeze(['count']),
     'panel.queue.confirm.delete': Object.freeze(['title', 'count']),
     'panel.queue.confirm.cancel_delete': Object.freeze(['title']),
+    'panel.queue.confirm.archive_local_uncertain_final': Object.freeze(['title']),
     'panel.queue.clear.confirm': Object.freeze(['title', 'count', 'refunds']),
     'panel.queue.clear.changed': Object.freeze(['count']),
     'panel.queue.clear.done': Object.freeze(['count', 'refunds']),

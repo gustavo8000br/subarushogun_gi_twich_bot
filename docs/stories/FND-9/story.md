@@ -200,7 +200,7 @@ See the dated TDD evidence section above.
 
 ### Completion Notes List
 
-The previously merged FND-9 implementation has independent @qa and @architect scores of 10/10. The 2026-10-14 fulfillment/deletion regression and cancellation/local-delete race are fixed and covered by real PostgreSQL cases; the latter correction received an independent @qa score of 10/10. Current full suite: 106 files / 983 tests passed. Lint, typecheck, static analysis, build, port denylist, localization/version validators, and IDE sync pass. Story status is Ready for Review; owner-side Windows/live Twitch financial acceptance remains open; do not mark the story Done or close issue #19.
+The previously merged FND-9 implementation has independent @qa and @architect scores of 10/10. The 2026-10-14 fulfillment/deletion regression and cancellation/local-delete race are fixed and covered by real PostgreSQL cases; the latter correction received an independent @qa score of 10/10. Current full suite: 106 files / 986 tests passed. Lint, typecheck, signature-verified static analysis (0 findings), production image build, port denylist, localization/version validators, and IDE sync pass. The final local deletion dialog correction received independent @qa PASS 10/10. Story status is Ready for Review; owner-side Windows/live Twitch financial acceptance remains open; do not mark the story Done or close issue #19.
 
 ### File List
 
@@ -236,6 +236,13 @@ The previously merged FND-9 implementation has independent @qa and @architect sc
 - `docs/pt-BR/VERSIONING.md`
 - `docs/stories/FND-9/story.md`
 - `docs/pt-BR/stories/FND-9/story.md`
+- `apps/web/localization/catalogs/panel/en.tsv`
+- `apps/web/localization/catalogs/panel/es.tsv`
+- `apps/web/localization/catalogs/panel/pt-BR.tsv`
+- `tests/unit/panel-catalog-placeholders.test.js`
+- `CHANGELOG_INTERNAL.md` and `docs/pt-BR/CHANGELOG_INTERNAL.md`
+- `docs/session-handoff.md` and `docs/pt-BR/session-handoff.md`
+- `docs/stories/FND-9/validation.md` and `docs/pt-BR/stories/FND-9/validation.md`
 
 - `tests/unit/release-notes.test.js`
 - `docs/pt-BR/CHANGELOG-beta.md`
@@ -490,3 +497,12 @@ Independent @qa re-review of the latest corrective diff is in progress. The firs
 - **Correction:** The panel exposes a localized “check deletion progress” action only for converted manual queues in local deletion. It reuses the existing idempotent delete endpoint and gives retry-specific confirmation copy stating that the Twitch reward remains paused and untouched. Remote reward deletion/reopen controls remain unavailable.
 - **Coverage:** Added state projection, retry-specific confirmation, panel route, and localization catalog contract assertions. Existing PostgreSQL integration coverage verifies pending financial blockers and finalization after an operator retry.
 - **Files:** `apps/web/app.js`, `apps/web/queue-action-state.mjs`, `apps/web/queue-confirmation-copy.mjs`, `apps/web/panel-catalog.mjs`, `apps/shared/localization/discover-catalog-module.mjs`, all three panel catalogs, `tests/unit/queue-action-state.test.js`, `tests/unit/queue-confirmation-copy.test.js`, `tests/unit/web-route.test.js`, and `tests/integration/panel-localization-contract.test.js`.
+
+### Final local deletion dialog interpolation — 2026-10-14
+
+- **Red:** Added a regression for the final local deletion confirmation with a queue title. `npm test -- --run tests/unit/panel-catalog-placeholders.test.js` failed because the placeholder allowlist rejected `title`, rendering the generic unavailable text.
+- **Green:** Added `title` to the allowlist for `panel.queue.confirm.archive_local_uncertain_final`. The focused panel placeholder/confirmation/copy suite passed **18/18** and localization validation passed for all three languages.
+- **Files:** `apps/web/panel-catalog.mjs`, `tests/unit/panel-catalog-placeholders.test.js`, and the English/pt-BR beta changelogs.
+- **Remote fulfillment:** The reported redemption remains `unknown` in the owner's Twitch instance. Automated code and isolated tests cannot prove or diagnose the live API result; retain that acceptance as pending until the owner provides the product version and sanitized operation diagnostics.
+- **Full regression after the version bump:** The first full run exposed an outdated versioning documentation contract (`0.2.0`); its assertions were updated to match the current bilingual `0.2.1` release plan. The full suite then passed **106 files / 986 tests**. `npm run lint`, `npm run typecheck`, `npm run sync:ide:check` (109/109), localization/version/port-denylist validation, `docker compose config --quiet`, and `git diff --check` passed. The production Docker image build passed locally; it was not published. No live Twitch operation was run.
+- **Independent QA:** Quinn re-reviewed the diff and scored this correction **10/10 PASS**. OpenGrep 1.30.0 was signature-verified and reported **0 findings across 87 JavaScript files**. Story remains Ready for Review pending owner-side Windows and Twitch acceptance; this branch has not been merged or released.

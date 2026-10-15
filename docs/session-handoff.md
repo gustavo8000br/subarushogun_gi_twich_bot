@@ -5,15 +5,21 @@
 ## Current workspace
 
 - Repository/worktree: `/workspaces/fnd9-fulfilled-delete`
-- The FND-9 deletion cancellation and terminology changes merged to `main` in PR #67, commit `44484f5e4c35be1aba939eccfd3e254eaa1cad6b`. After this handoff update merges, return this checkout to `main`.
+- Current branch: `fix/fnd9-final-delete-confirmation`, based on `main` at `845a58f`. It fixes the unavailable-text fallback in the final local queue deletion dialog. Preserve untracked `.aiox/project-status-3e3351d9.yaml`; do not run greeting/status scripts or edit it.
 - Separate worktree `/workspaces/subarushogun_gi_twich_bot` remains on `feat/ops-14-localized-queue-chat-messages`; preserve its unrelated OPS-14/UX changes.
 - Product and AIOX dependencies are installed in this worktree; IDE projection validation passed 109/109. Preserve untracked `.aiox/project-status-3e3351d9.yaml`; do not run greeting/status scripts or edit it.
 
 ## Current objective
 
-The implementation is merged and beta distribution is ready. The owner should install the Windows artifact and test the FND-9 deletion cancellation/recovery behavior and the operations-page terminology. Keep issue #19 and FND-9 at Ready for Review until owner-side Windows and authorized live Twitch acceptance is recorded. Do not perform live Twitch financial operations on the owner's behalf.
+Finish validation and independent QA for the local deletion confirmation fix, then prepare a `0.2.1-beta` main build. Separately investigate the owner's live redemption fulfillment that remains `unknown`; this requires sanitized diagnostics from the owner runtime. Do not perform live Twitch financial operations or access the active product database. Keep FND-9 and issue #19 open until owner acceptance is recorded.
 
 ## Latest increment
+
+- Local final-deletion confirmation now allows and displays the queue title in all three languages. Red reproduced the unavailable fallback; the resumed full suite passed **106 files / 986 tests** after updating one stale `0.2.0` versioning contract to match `0.2.1`. Lint, typecheck, strict IDE sync (109/109), localization/version/port-denylist validation, Compose config, production image build and `git diff --check` passed. Signature-verified OpenGrep reported 0 findings across 87 JS files. Independent QA scored this correction **10/10 PASS**. The locally built image was not published.
+- The owner's redemption `56dec18c-e2cf-4f3e-8319-4781827592ed` still shows `unknown` after two attempts and Twitch still shows it unfulfilled. The main-branch fix preserves the durable fulfillment intent during deletion but cannot prove a live Twitch fulfillment. Request the running product version and sanitized operation diagnostics to identify the remote failure.
+- Current patch target is `v0.2.1-0000000-beta`. No PR, merge, published build artifact or release exists for this branch yet. After the Codespace stopped, the isolated `/workspaces/fnd9-next-panel` database remained healthy; its `npm run dev` instance was restarted, found no pending migrations, and Next/API both returned HTTP 200. Keep that instance running for the owner preview.
+
+### Previous merged delivery
 
 - PR #67: https://github.com/gustavo8000br/subarushogun_gi_twich_bot/pull/67 — merged by squash. Independent QA scored the cancellation/local-delete race correction **10/10 PASS**.
 - The panel now distinguishes Twitch synchronization, Channel Points refunds to viewers, and redemption fulfillment in English, Spanish, and pt-BR. Deletion confirmation is blocked while Twitch reward verification for cancellation is in progress, preserving the queue, outbox evidence, and challenge for recovery.
