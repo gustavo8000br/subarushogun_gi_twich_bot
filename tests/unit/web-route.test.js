@@ -12,6 +12,22 @@ afterEach(async () => {
 });
 
 describe('local web entrypoint', () => {
+  it('leaves the API port without browser UI routes in API-only mode', async () => {
+    const app = Fastify({ logger: false });
+    applications.push(app);
+    app.get('/health', async () => ({ status: 'ok' }));
+    await registerWebRoutes(app, webRoot, sharedRoot, { apiOnly: true });
+
+    const root = await app.inject({ method: 'GET', url: '/' });
+    const vanillaAsset = await app.inject({ method: 'GET', url: '/app.js' });
+    const health = await app.inject({ method: 'GET', url: '/health' });
+
+    expect(root.statusCode).toBe(404);
+    expect(vanillaAsset.statusCode).toBe(404);
+    expect(health.statusCode).toBe(200);
+    expect(health.json()).toEqual({ status: 'ok' });
+  });
+
   it('serves only shared localization ESM from the browser module prefix', async () => {
     const app = Fastify({ logger: false });
     applications.push(app);

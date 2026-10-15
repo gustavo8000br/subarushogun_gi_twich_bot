@@ -7,7 +7,7 @@ describe('combined local development runtime config', () => {
     expect(config.api.args).toEqual(['apps/api/src/server.mjs']);
     expect(config.api.env.APP_HOST).toBe('127.0.0.1');
     expect(config.api.env.TLS_KEY_FILE).toBe('/repo/.local/dev-tls/localhost.key');
-    expect(config.frontend.args.at(-1)).toBe('3100');
+    expect(config.frontend.args.at(-1)).toBe('3000');
     expect(config.api.env.APP_PORT).toBe('3109');
     expect(config.frontend.env.FASTIFY_DEV_ORIGIN).toBe('https://localhost:3109');
   });
@@ -27,6 +27,12 @@ describe('combined local development runtime config', () => {
   it('uses the isolated development database URL by default', () => {
     const config = buildDevRuntimeConfig({}, '/repo');
     expect(config.api.env.DATABASE_URL).toBe('postgresql://queuebot:dev-only@127.0.0.1:55432/queuebot?schema=public');
+    expect(config.api.env.PRODUCT_LOCALE_PROJECTION_FILE).toBe('/repo/.local/dev/product-locale.state');
+  });
+
+  it('respects an explicit development product locale projection path', () => {
+    const config = buildDevRuntimeConfig({ PRODUCT_LOCALE_PROJECTION_FILE: '/tmp/product-locale.state' }, '/repo');
+    expect(config.api.env.PRODUCT_LOCALE_PROJECTION_FILE).toBe('/tmp/product-locale.state');
   });
 
   it('allows an explicit external development database URL', () => {
@@ -40,6 +46,6 @@ describe('combined local development runtime config', () => {
       CODESPACE_NAME: 'example',
       GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: 'app.github.dev',
     }, '/repo');
-    expect(config.api.env.PANEL_DEV_ORIGIN).toBe('https://example-3100.app.github.dev');
+    expect(config.api.env.PANEL_DEV_ORIGIN).toBe('https://example-3000.app.github.dev');
   });
 });

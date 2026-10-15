@@ -1,10 +1,10 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '../../lib/api/client.mjs';
 import { normalizeCatalogBundle, translatePanel } from '../../lib/i18n/panel-catalogs.mjs';
 import { persistProductLocale } from '../../lib/i18n/persist-product-locale.mjs';
-import { loadPanelSnapshot } from './load-panel-snapshot.mjs';
+import { loadPanelRuntimeSnapshot, loadPanelSnapshot } from './load-panel-snapshot.mjs';
 import { summarizeQueues } from '../overview/queue-summary.mjs';
 import { loadQueueProjection, requestQueueOpenState } from '../queues/queue-lifecycle.mjs';
 import { getManualQueueEntryFailureKey, getQueueEntryActionFeedback, performQueueEntryActionWithRefresh } from '../queues/queue-entry-actions.mjs';
@@ -19,18 +19,24 @@ export function PanelProvider({ children, fallbackCatalog }) {
   const [localeState, setLocaleState] = useState({ locale: 'pt-BR', revision: 1 });
   const [runtimeState, setRuntimeState] = useState(null);
   const [setupState, setSetupState] = useState(null);
+  const [healthState, setHealthState] = useState(null);
   const [queueProjection, setQueueProjection] = useState([]);
   const [queueSummary, setQueueSummary] = useState({ queues: 0, waiting: 0, inService: 0 });
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState('');
+  const [localeNotice, setLocaleNotice] = useState(null);
   const [saving, setSaving] = useState(false);
   const [queueAction, setQueueAction] = useState(null);
   const [queueCreation, setQueueCreation] = useState(null);
   const [queueSettingsAction, setQueueSettingsAction] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshNotice, setRefreshNotice] = useState(null);
+  const [lastRefreshAt, setLastRefreshAt] = useState(null);
+  const refreshInFlight = useRef(false);
 
   useEffect(() => {
     let alive = true;
-    apiClient.initializeSession().then(() => loadPanelSnapshot(apiClient.request)).then(({ bundle, state, setup, queues }) => {
+    apiClient.initializeSession().then(() => loadPanelSnapshot(apiClient.request)).then(({ bundle, state, setup, queues, health }) => {
       if (!alive) return;
       const normalized = normalizeCatalogBundle(bundle);
       setCatalogs(normalized.catalogs);
@@ -38,9 +44,11 @@ export function PanelProvider({ children, fallbackCatalog }) {
       setLocaleState(state.product_locale ?? { locale: 'pt-BR', revision: 1 });
       setRuntimeState(state);
       setSetupState(setup);
+      setHealthState(health);
       setQueueProjection(queues);
       setQueueSummary(summarizeQueues(queues));
       setStatus('ready');
+      setLastRefreshAt(Date.now());
     }).catch(() => {
       if (alive) {
         setStatus('unavailable');
@@ -50,6 +58,33 @@ export function PanelProvider({ children, fallbackCatalog }) {
     return () => { alive = false; };
   }, []);
 
+  const refreshOverview = useCallback(async ({ quiet = false } = {}) => {
+    if (refreshInFlight.current || status !== 'ready') return false;
+    refreshInFlight.current = true;
+    if (!quiet) setRefreshing(true);
+    if (!quiet) setRefreshNotice(null);
+    try {
+      const snapshot = await loadPanelRuntimeSnapshot(apiClient.request);
+      setRuntimeState(snapshot.state);
+      setSetupState(snapshot.setup);
+      setHealthState(snapshot.health);
+      setQueueProjection(snapshot.queues);
+      setQueueSummary(summarizeQueues(snapshot.queues));
+      if (snapshot.state.product_locale && locales.includes(snapshot.state.product_locale.locale)
+        && Number.isInteger(snapshot.state.product_locale.revision)) setLocaleState(snapshot.state.product_locale);
+      setLastRefreshAt(Date.now());
+      if (!quiet) setRefreshNotice({ status: 'success' });
+      else setRefreshNotice(null);
+      return true;
+    } catch {
+      setRefreshNotice({ status: 'error' });
+      return false;
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
+  }, [locales, status]);
+
   const t = useCallback((key, options) => translatePanel(catalogs, localeState.locale, key, options), [catalogs, localeState.locale]);
   useEffect(() => {
     if (typeof document !== 'undefined') document.documentElement.lang = localeState.locale;
@@ -58,17 +93,38 @@ export function PanelProvider({ children, fallbackCatalog }) {
     if (!locales.includes(locale) || locale === localeState.locale || saving) return;
     setSaving(true);
     setError('');
+    setLocaleNotice(null);
     try {
       const saved = await persistProductLocale({ request: apiClient.request, locale, current: localeState });
       setLocaleState(saved);
+      setLocaleNotice({ key: 'panel.locale.updated', tone: 'success' });
     } catch (requestError) {
-      setError(requestError?.code === 'PRODUCT_LOCALE_VERSION_CONFLICT'
-        ? 'panel.error.locale_conflict'
-        : 'panel.error.generic');
+      let current = null;
+      try {
+        const state = await apiClient.request('/api/state');
+        const persisted = state?.product_locale;
+        if (persisted && locales.includes(persisted.locale)
+          && Number.isInteger(persisted.revision) && persisted.revision >= 1) {
+          current = persisted;
+          setLocaleState(persisted);
+        }
+      } catch { /* Keep the current selection when the persisted state cannot be read. */ }
+
+      if (current?.locale === locale && current.revision > localeState.revision) {
+        setLocaleNotice({ key: 'panel.locale.updated', tone: 'success' });
+      } else {
+        const changedElsewhere = current && (current.locale !== localeState.locale || current.revision !== localeState.revision);
+        setLocaleNotice({
+          key: requestError?.code === 'PRODUCT_LOCALE_VERSION_CONFLICT' || changedElsewhere
+            ? 'panel.error.locale_conflict'
+            : 'panel.error.generic',
+          tone: 'error',
+        });
+      }
     } finally {
       setSaving(false);
     }
-  }, [locales, localeState, saving, t]);
+  }, [locales, localeState, saving]);
 
   const toggleQueueIntake = useCallback(async (queueId, isOpen) => {
     if (saving) return;
@@ -219,7 +275,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
     }
   }, [saving, queueProjection]);
 
-  const value = useMemo(() => ({ catalogs, locales, localeState, runtimeState, setupState, queueProjection, queueSummary, status, error, saving, queueAction, queueCreation, queueSettingsAction, t, changeLocale, toggleQueueIntake, runQueueEntryAction, addManualQueueEntry, createQueue, saveQueueSettings }), [catalogs, locales, localeState, runtimeState, setupState, queueProjection, queueSummary, status, error, saving, queueAction, queueCreation, queueSettingsAction, t, changeLocale, toggleQueueIntake, runQueueEntryAction, addManualQueueEntry, createQueue, saveQueueSettings]);
+  const value = useMemo(() => ({ catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, addManualQueueEntry, createQueue, saveQueueSettings }), [catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, addManualQueueEntry, createQueue, saveQueueSettings]);
   return <PanelContext.Provider value={value}>{children}</PanelContext.Provider>;
 }
 

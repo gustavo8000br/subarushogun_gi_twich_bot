@@ -1,4 +1,6 @@
 export const PANEL_PLACEHOLDERS = Object.freeze({
+  'panel.overview.last_updated': ['time'], 'panel.overview.needs_review': ['count'],
+  'panel.health.ping_ms': ['ms'],
   'panel.operation.attempts': ['count'], 'panel.reconciliation.complete': ['count'], 'panel.reconciliation.issues': ['count'],
   'panel.queue.confirm.delete': ['title', 'count'], 'panel.queue.confirm.delete_local': ['title', 'count'],
   'panel.queue.confirm.cancel_delete': ['title'],
@@ -12,7 +14,7 @@ export const PANEL_PLACEHOLDERS = Object.freeze({
   'panel.queue.clear.confirm': ['title', 'count', 'refunds'],
   'panel.queue.clear.changed': ['count'], 'panel.queue.clear.done': ['count', 'refunds'],
   'panel.widget.card_details': ['queue', 'width', 'height', 'id'],
-  'panel.command.audience.proposed': ['roles'], 'panel.command.audience.everyone_includes': ['roles'],
+  'panel.command.audience.proposed': ['roles'], 'panel.command.audience.everyone_includes': ['roles'], 'panel.commands.revision': ['version'],
   'panel.entry.call.remaining': ['time'],
   'panel.queue_settings.call_message_default': ['user'],
   'panel.queue_settings.call_placeholders': ['user', 'queue', 'position', 'uid', 'account'],

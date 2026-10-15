@@ -10,7 +10,9 @@ export function createApiClient({ fetchImpl = globalThis.fetch, createIdempotenc
   let csrfToken = null;
 
   async function request(path, options = {}) {
-    if (typeof path !== 'string' || !path.startsWith('/api/')) throw new TypeError('API paths must be same-origin /api routes');
+    if (typeof path !== 'string' || !(path.startsWith('/api/') || path === '/health')) {
+      throw new TypeError('API paths must be same-origin /api routes or /health');
+    }
     const method = (options.method ?? 'GET').toUpperCase();
     const mutating = !['GET', 'HEAD', 'OPTIONS'].includes(method);
     const headers = new globalThis.Headers(options.headers ?? {});

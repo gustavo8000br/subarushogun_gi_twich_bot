@@ -7,10 +7,11 @@ export function projectMinimumRoleAudience(minimumRole) {
 
 export function groupCommandPolicies(commands) {
   const groups = [
-    { key: 'configurable', commands: [] }, { key: 'moderator', commands: [] }, { key: 'streamer', commands: [] },
+    { key: 'configurable', commands: [] }, { key: 'moderator', commands: [] }, { key: 'streamer', commands: [] }, { key: 'fixed', commands: [] },
   ];
   for (const command of commands) {
-    const group = command.access?.kind === 'configurable' ? 'configurable' : command.access?.minimumRole;
+    const group = command.access?.kind === 'configurable' ? 'configurable'
+      : command.access?.minimumRole === 'moderator' || command.access?.minimumRole === 'streamer' ? command.access.minimumRole : 'fixed';
     groups.find((candidate) => candidate.key === group)?.commands.push(command);
   }
   return groups.filter(({ commands: items }) => items.length > 0);
@@ -55,8 +56,5 @@ export function mergeCommandPolicyState(catalog, result) {
 
 export function followerAuthorizationRequest(catalog) {
   if (!catalog || catalog.followerScopeReady || !Number.isInteger(catalog.version)) return null;
-  const policies = Object.fromEntries((catalog.commands ?? [])
-    .filter((command) => command.access?.kind === 'configurable' && command.policy?.minimumRole === 'follower')
-    .map((command) => [command.key, { minimumRole: 'follower' }]));
-  return Object.keys(policies).length ? { expectedVersion: catalog.version, policies } : null;
+  return { expectedVersion: catalog.version, policies: {}, scopeOnly: true };
 }

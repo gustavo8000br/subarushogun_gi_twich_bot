@@ -17,6 +17,10 @@ panel.sidebar.local_note	The panel and data stay on this computer.
 panel.section.local	LOCAL
 panel.migration.note	The panel structure is being migrated. Other screens will be enabled as each flow passes parity validation.
 panel.health.label	Installation health
+panel.health.legend.label	Health status legend
+panel.health.legend.functional	Functional
+panel.health.legend.partial	Partial, in progress, or unknown
+panel.health.legend.nonfunctional	Unavailable or not configured
 panel.health.database	Database
 panel.health.twitch_api	Twitch API
 panel.health.twitch_integration	Twitch integration
@@ -89,6 +93,19 @@ panel.widgets.description	Each widget shows one data point in OBS through a loca
 panel.settings.eyebrow	PREFERENCES
 panel.settings.title	Settings
 panel.settings.description	Adjust the account labels used during service.
+panel.settings.current_section_title	During service
+panel.settings.default_section_title	After reset
+panel.settings.default_eyebrow	DEFAULT ACCOUNT
+panel.settings.current_label	Current account label
+panel.settings.default_help	Used when automatic account switching is off or the current account is reset.
+panel.settings.save	Save
+panel.settings.saving	Saving…
+panel.settings.cancel	Cancel
+panel.settings.unsaved	Unsaved changes
+panel.settings.no_changes	All settings are saved.
+panel.settings.saved	Account label saved.
+panel.settings.saved_refresh_failed	Saved, but the panel could not refresh. Reload to verify the current values.
+panel.settings.invalid	Enter a non-empty label of up to 60 characters.
 panel.connection.eyebrow	TWITCH
 panel.connection.title	Channel connection
 panel.connection.description	The assistant appears during setup or when reconnection is needed.
@@ -184,7 +201,7 @@ panel.credentials.client_id	Client ID
 panel.credentials.client_secret	Client Secret
 panel.credentials.client_id_placeholder	Your Client ID
 panel.credentials.secret_configured	Secret is set. To replace it, enter a new Secret and validate it before saving.
-panel.credentials.secret_empty	The Secret is stored locally and will not be shown again.
+panel.credentials.secret_empty	No application secret has been saved yet.
 panel.credentials.validate_save	Validate and save app
 panel.widget.editor_eyebrow	WIDGET SETTINGS
 panel.widget.source_label	What to display
@@ -196,6 +213,7 @@ panel.widget.obs_help	In OBS: add a Browser source, paste the URL, set its dimen
 panel.widget.close	Close
 panel.locale.incomplete	The saved language is incomplete. Brazilian Portuguese is active temporarily.
 panel.locale.updated	Product language updated.
+panel.locale.saving	Saving language…
 panel.connection.channel_connected	Channel connected
 panel.connection.channel_not_connected	Twitch is not connected yet
 panel.connection.channel_disconnected	Channel disconnected
@@ -300,7 +318,9 @@ panel.command.threshold.select	Choose a minimum audience
 panel.command.threshold.help	The selected audience and higher roles inherit access.
 panel.command.audience.proposed	After saving: {roles}.
 panel.command.audience.everyone_includes	Everyone (including {roles})
-panel.command.follower_scope_required	Follower access needs additional Twitch authorization. Saving will open Twitch consent.
+panel.command.follower_scope_required	Requires Twitch follower permission.
+panel.command.follower_consent_only	This authorizes Twitch follower lookups only. It will not change saved command permissions.
+panel.command.follower_authorize	Authorize follower access
 panel.command.no_changes	No permission changes to save.
 panel.widget.source.account	Current account
 panel.widget.source.queue_name	Queue name
@@ -363,7 +383,9 @@ panel.widget.link_eyebrow	ONE-TIME LINK
 panel.widget.copy_now	Copy now
 panel.widget.local_widget_url	Local widget URL
 panel.command.description.queue_lista	View people waiting, called, and in service.
+panel.command.description.queue_presente	Confirm your presence after being called.
 panel.command.syntax.queue_lista	!<queue> [list]
+panel.command.syntax.queue_presente	!<queue> present
 panel.command.description.queue_comandos	View commands available to your role.
 panel.command.syntax.queue_comandos	!<queue> commands
 panel.command.description.queue_posicao	Check your position or status in the queue.
@@ -573,7 +595,10 @@ panel.widget.auto	auto
 panel.queue_settings.call_message_default	{user}, it’s your turn!
 panel.command.follower_scope_lost	Follower access is configured, but Twitch follower permission is unavailable. Reauthorize to restore it.
 panel.command.follower_reauthorize	Reauthorize follower access
-panel.health.twitch_chat	Twitch chat
+panel.commands.revision	Catalog revision {version}
+panel.commands.empty	No chat commands are registered.
+panel.commands.cancel	Discard changes
+panel.health.twitch_chat	Twitch chat / EventSub
 panel.health.twitch_rewards	Channel Points rewards
 panel.health.chat.connected	Connected
 panel.health.chat.not_configured	Not configured
@@ -624,6 +649,8 @@ panel.form.command_hint	The chat command uses this name after !. It is suggested
 panel.form.aliases_hint	Optional alternate command names, separated by commas.
 panel.form.mode_channel_points_hint	Viewers redeem a Twitch reward to enter. The bot creates and manages the reward.
 panel.form.mode_manual_hint	The queue stays local. The streamer adds viewers from the queue page.
+panel.form.twitch_setup_required	Twitch is not connected. The manual queue works locally; connect Twitch to create a Channel Points reward.
+panel.form.twitch_setup_link	Set up Twitch connection
 panel.form.cancel	Cancel
 panel.overview.next_empty_title	Create your first queue
 panel.overview.next_empty_description	Choose Channel Points or a local queue to begin accepting viewers.
@@ -633,6 +660,23 @@ panel.overview.next_queues_description	Manage queue availability and continue vi
 panel.overview.next_queues_action	Open queues
 panel.overview.next_unavailable_title	Checking local data
 panel.overview.next_unavailable_description	The next action will appear after the local panel finishes loading.
+panel.overview.context_label	Operation context
+panel.overview.current_account	Current account
+panel.overview.pending_operations	Unresolved operations
+panel.overview.needs_review	{count} need review
+panel.overview.refresh	Refresh overview
+panel.overview.refreshing	Refreshing overview…
+panel.overview.refreshed	Overview updated.
+panel.overview.refresh_failed	Could not refresh the overview. The last loaded data remains visible.
+panel.overview.last_updated	Last updated at {time}
+panel.overview.last_reconciliation	Last Twitch reconciliation (this run)
+panel.overview.reconciliation_not_run	Not run in this run
+panel.health.bot	Bot API
+panel.health.bot.connected	Available
+panel.health.bot.unavailable	Unavailable
+panel.health.bot.unknown	Unknown state
+panel.health.database.unknown	Unknown state
+panel.health.ping_ms	{ms} ms
 panel.queue_settings.section_attendance	Call and attendance
 panel.queue_settings.section_privacy	Viewer UID privacy
 panel.queue_settings.section_points	Account and points policies
@@ -642,3 +686,40 @@ panel.credentials.validating	Validating credentials…
 panel.credentials.saved	App credentials validated and saved.
 panel.connection.saved_refresh_failed	Credentials were saved, but connection details could not be refreshed. Reload to verify the status.
 panel.health.twitch.eligibility_unknown	Checking eligibility
+panel.widgets.loading	Loading widgets…
+panel.widgets.load_failed	Could not load widgets. Your saved widgets were not changed.
+panel.widgets.refresh	Try again
+panel.widget.saving	Saving…
+panel.widget.link.title	Copy this link to OBS
+panel.widget.preview.queue	Queue name
+panel.widget.preview.position	Called person position
+panel.widget.style.text_color	Text color
+panel.widget.style.background_color	Background color
+panel.widget.style.background_opacity	Background opacity (%)
+panel.widget.style.font_family	Font family
+panel.widget.style.font_size	Font size (px)
+panel.widget.style.font_weight	Font weight
+panel.widget.style.alignment	Text alignment
+panel.widget.style.effect	Text effect
+panel.widget.style.outline_width	Outline width (px)
+panel.widget.style.shadow_blur	Shadow blur (px)
+panel.widget.style.shadow_x	Shadow offset X (px)
+panel.widget.style.shadow_y	Shadow offset Y (px)
+panel.widget.style.width	Width (px or auto)
+panel.widget.style.height	Height (px or auto)
+panel.widget.style.margin_top	Top margin (px)
+panel.widget.style.margin_right	Right margin (px)
+panel.widget.style.margin_bottom	Bottom margin (px)
+panel.widget.style.margin_left	Left margin (px)
+panel.widget.style.overflow	Text overflow
+panel.dialog.confirm_action	CONFIRM ACTION
+panel.widget.notice.saved	Widget saved.
+panel.widget.notice.created	Widget created.
+panel.widget.notice.revoked	Widget link revoked.
+panel.widget.notice.deleted	Widget deleted.
+panel.widget.notice.conflict	This widget changed. Review your draft and reload before saving.
+panel.widget.notice.error	Could not complete. Try again.
+panel.widget.link.close_loses	Closing clears this link from the screen. If you lose it, generate another one.
+panel.widget.cancel	Cancel
+panel.dialog.confirm	Confirm
+panel.dialog.cancel	Cancel

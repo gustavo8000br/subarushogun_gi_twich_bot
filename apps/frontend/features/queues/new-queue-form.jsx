@@ -8,8 +8,8 @@ function suggestSlug(value) {
 }
 
 /** @param {{t: (key:string, options?:object)=>string, saving:boolean, feedback: any, onCreate:(values:Record<string, unknown>)=>Promise<boolean>}} props */
-export default function NewQueueForm({ t, saving, feedback, onCreate }) {
-  const [queueMode, setQueueMode] = useState('channel_points');
+export default function NewQueueForm({ t, saving, feedback, twitchConnected = false, onCreate }) {
+  const [queueMode, setQueueMode] = useState(twitchConnected ? 'channel_points' : 'manual_only');
   const [slug, setSlug] = useState('');
   const [slugEdited, setSlugEdited] = useState(false);
 
@@ -20,7 +20,7 @@ export default function NewQueueForm({ t, saving, feedback, onCreate }) {
     const created = await onCreate(values);
     if (created) {
       form.reset();
-      setQueueMode('channel_points');
+      setQueueMode(twitchConnected ? 'channel_points' : 'manual_only');
       setSlug('');
       setSlugEdited(false);
     }
@@ -53,6 +53,7 @@ export default function NewQueueForm({ t, saving, feedback, onCreate }) {
             <option value="channel_points">{t('panel.form.mode_channel_points')}</option>
             <option value="manual_only">{t('panel.form.mode_manual')}</option>
           </select><small className="form-hint">{t(queueMode === 'channel_points' ? 'panel.form.mode_channel_points_hint' : 'panel.form.mode_manual_hint')}</small></label>
+          {!twitchConnected ? <p className="form-hint form-field-wide queue-twitch-setup-hint" role="note">{t('panel.form.twitch_setup_required')} <a href="/connection/">{t('panel.form.twitch_setup_link')}</a></p> : null}
         </fieldset>
 
         {queueMode === 'channel_points' ? <fieldset className="form-section queue-create-reward-fields">

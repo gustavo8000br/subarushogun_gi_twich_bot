@@ -35,12 +35,13 @@ const t = (key) => ({
   'panel.form.aliases_hint': 'Nomes alternativos',
   'panel.form.mode_channel_points_hint': 'Resgate na Twitch',
   'panel.form.mode_manual_hint': 'Entrada local',
+  'panel.form.twitch_setup_required': 'Conecte a Twitch para configurar recompensas. A fila manual funciona sem conexão.',
   'panel.form.cancel': 'Cancelar',
 }[key] ?? key);
 
 describe('Next queue creation form', () => {
   it('renders existing creation fields and Twitch limit guidance', () => {
-    const markup = renderToStaticMarkup(React.createElement(NewQueueForm, { t, saving: false, feedback: null, onCreate: async () => true }));
+    const markup = renderToStaticMarkup(React.createElement(NewQueueForm, { t, saving: false, feedback: null, twitchConnected: true, onCreate: async () => true }));
     for (const name of ['title', 'slug', 'aliases', 'queueMode', 'cost', 'maxRedemptionsPerStream', 'maxRedemptionsPerUserPerStream', 'globalCooldownSeconds', 'rewardPrompt', 'uidMode', 'callTimeoutMin']) {
       expect(markup).toContain(`name="${name}"`);
     }
@@ -51,6 +52,21 @@ describe('Next queue creation form', () => {
     expect(markup).toContain('Identificação da fila');
     expect(markup).toContain('Resgate na Twitch');
     expect(markup).toContain('href="/queues/"');
+  });
+
+  it('defaults to a local manual queue and points to Twitch setup while disconnected', () => {
+    const markup = renderToStaticMarkup(React.createElement(NewQueueForm, { t, saving: false, feedback: null, twitchConnected: false, onCreate: async () => true }));
+    expect(markup).toMatch(/<option value="manual_only" selected="">Local, entradas manuais<\/option>/);
+    expect(markup).not.toContain('name="cost"');
+    expect(markup).toContain('Conecte a Twitch para configurar recompensas. A fila manual funciona sem conexão.');
+    expect(markup).toContain('href="/connection/"');
+  });
+
+  it('defaults to Channel Points when Twitch is connected', () => {
+    const markup = renderToStaticMarkup(React.createElement(NewQueueForm, { t, saving: false, feedback: null, twitchConnected: true, onCreate: async () => true }));
+    expect(markup).toMatch(/<option value="channel_points" selected="">Pontos do Canal<\/option>/);
+    expect(markup).toContain('name="cost"');
+    expect(markup).not.toContain('href="/connection/"');
   });
 
   it('shows pending synchronization feedback and links to queue status', () => {

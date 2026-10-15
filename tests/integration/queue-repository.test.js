@@ -9,6 +9,7 @@ import { createQueueDomainService } from '../../apps/api/src/domain/queue-servic
 import { normalizeQueueKeys } from '../../apps/api/src/domain/queue-keys.mjs';
 import { createQueueRepository } from '../../apps/api/src/persistence/queue-repository.mjs';
 import { createTwitchCredentialRepository } from '../../apps/api/src/persistence/twitch-credential-repository.mjs';
+import { createCredentialFingerprint } from '../../apps/api/src/twitch/credential-fingerprint.mjs';
 import { createTwitchRedemptionProcessor } from '../../apps/api/src/twitch/redemption-processor.mjs';
 import { createTwitchReconciler } from '../../apps/api/src/twitch/reconciliation.mjs';
 
@@ -1529,6 +1530,26 @@ describe('PostgreSQL queue repository', () => {
     expect(operations.some(({ id }) => id === deletion.id)).toBe(true);
   });
 
+  it('counts unresolved financial outbox work beyond the 200-row history window', async () => {
+    const suffix = randomUUID();
+    const before = await repository.getFinancialOperationSummary();
+    const oldUnresolved = await prisma.outbox.create({ data: {
+      operationType: 'redemption.fulfill', entityType: 'redemption', entityId: `old-${suffix}`,
+      idempotencyKey: `old-unresolved:${suffix}`, payload: {}, status: 'unknown',
+      createdAt: new Date(Date.now() - 120_000), updatedAt: new Date(Date.now() - 120_000),
+    } });
+    await prisma.outbox.createMany({ data: Array.from({ length: 205 }, (_, index) => ({
+      operationType: 'redemption.cancel', entityType: 'redemption', entityId: `terminal-${suffix}-${index}`,
+      idempotencyKey: `terminal:${suffix}:${index}`, payload: {}, status: 'confirmed',
+    })) });
+
+    const history = await repository.listFinancialOperations();
+    const summary = await repository.getFinancialOperationSummary();
+
+    expect(history.some(({ id }) => id === oldUnresolved.id)).toBe(false);
+    expect(summary).toEqual({ total: before.total + 1, needsReview: before.needsReview + 1 });
+  });
+
   it('projects deletion-pause intent as a safe confirmation flag without exposing outbox payload', async () => {
     const queue = await repository.createQueue({ slug: `delete-intent-${randomUUID().slice(0, 8)}`, title: 'Delete intent', cost: 1 });
     await prisma.queue.update({ where: { id: queue.id }, data: { lifecycleStatus: 'deleting' } });
@@ -2385,6 +2406,96 @@ describe('PostgreSQL queue repository', () => {
       else await prisma.oAuthCredential.update({ where: { clientId }, data: {
         broadcasterId: priorCredential.broadcasterId, accessToken: null, refreshToken: null,
         scopes: priorCredential.scopes, tokenExpiresAt: priorCredential.tokenExpiresAt, authStatus: priorCredential.authStatus,
+      } });
+    }
+  });
+
+  it('stores scope-only consent exactly and rejects stale OAuth callbacks without changing policy state', async () => {
+    const priorCredential = await credentialRepository.getAuthRecord();
+    const createdCredentialForTest = !priorCredential;
+    const clientId = priorCredential?.clientId ?? `oauth-scope-${randomUUID()}`;
+    const broadcasterId = priorCredential?.broadcasterId ?? 'scope-test-channel';
+    const policyRecordBefore = await prisma.setting.findUnique({ where: { key: 'chat_command_policies' } });
+    const policyStateBefore = await repository.getCommandPolicyState();
+    const policyAuditsBefore = await prisma.auditLog.count({ where: { event: 'command.policies_updated' } });
+    try {
+      if (!priorCredential) await credentialRepository.saveValidatedApplication({ clientId, clientSecret: 'scope-test-secret' });
+      const generationBeforeConsent = await credentialRepository.getAuthRecord();
+      const expectedCredentialFingerprint = createCredentialFingerprint(generationBeforeConsent);
+      const grantedScopes = ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'moderator:read:followers'];
+
+      await credentialRepository.storeTokens({
+        clientId, broadcasterId, accessToken: 'scope-consent-access', refreshToken: 'scope-consent-refresh',
+        scopes: grantedScopes, expiresIn: 3600, obtainmentTimestamp: Date.now(), expectedCredentialFingerprint,
+      });
+
+      const afterConsent = await credentialRepository.getAuthRecord();
+      expect(afterConsent).toMatchObject({
+        accessToken: 'scope-consent-access', refreshToken: 'scope-consent-refresh', scopes: grantedScopes,
+      });
+      expect(await repository.getCommandPolicyState()).toEqual(policyStateBefore);
+      expect(await prisma.setting.findUnique({ where: { key: 'chat_command_policies' } })).toEqual(policyRecordBefore);
+      expect(await prisma.auditLog.count({ where: { event: 'command.policies_updated' } })).toBe(policyAuditsBefore);
+
+      await expect(credentialRepository.storeTokens({
+        clientId, broadcasterId, accessToken: 'stale-policy-access', refreshToken: 'stale-policy-refresh',
+        scopes: ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat'],
+        expiresIn: 3600, obtainmentTimestamp: Date.now(), expectedCredentialFingerprint,
+        commitAdditional: (tx) => repository.updateCommandPoliciesInTransaction(tx, {
+          expectedVersion: policyStateBefore.version,
+          policies: { 'queue:lista': { minimumRole: 'subscriber' } },
+          actorId: 'stale-oauth-callback', origin: 'oauth_follower_consent',
+        }),
+      })).rejects.toMatchObject({ code: 'OAUTH_CREDENTIAL_STALE' });
+
+      const afterStaleCallback = await credentialRepository.getAuthRecord();
+      expect(afterStaleCallback).toMatchObject({
+        accessToken: 'scope-consent-access', refreshToken: 'scope-consent-refresh', scopes: grantedScopes,
+      });
+      expect(await repository.getCommandPolicyState()).toEqual(policyStateBefore);
+      expect(await prisma.auditLog.count({ where: { event: 'command.policies_updated' } })).toBe(policyAuditsBefore);
+    } finally {
+      if (policyRecordBefore) await prisma.setting.upsert({ where: { key: policyRecordBefore.key }, create: policyRecordBefore, update: { value: policyRecordBefore.value } });
+      else await prisma.setting.deleteMany({ where: { key: 'chat_command_policies' } });
+      if (createdCredentialForTest) await prisma.oAuthCredential.deleteMany({ where: { clientId } });
+      else await prisma.oAuthCredential.update({ where: { clientId }, data: {
+        clientSecret: priorCredential.clientSecret, broadcasterId: priorCredential.broadcasterId,
+        accessToken: priorCredential.accessToken, refreshToken: priorCredential.refreshToken,
+        scopes: priorCredential.scopes, tokenExpiresAt: priorCredential.tokenExpiresAt,
+        authStatus: priorCredential.authStatus, updatedAt: priorCredential.updatedAt,
+      } });
+    }
+  });
+
+  it('allows only one of two concurrent callbacks based on the same credential snapshot', async () => {
+    const priorCredential = await credentialRepository.getAuthRecord();
+    const createdCredentialForTest = !priorCredential;
+    const clientId = priorCredential?.clientId ?? `oauth-cas-${randomUUID()}`;
+    const broadcasterId = priorCredential?.broadcasterId ?? 'oauth-cas-channel';
+    try {
+      if (!priorCredential) await credentialRepository.saveValidatedApplication({ clientId, clientSecret: 'oauth-cas-secret' });
+      const initialRecord = await credentialRepository.getAuthRecord();
+      const expectedCredentialFingerprint = createCredentialFingerprint(initialRecord);
+      const attempts = [
+        { accessToken: 'oauth-cas-first', refreshToken: 'oauth-cas-first-refresh', scopes: ['user:read:chat'] },
+        { accessToken: 'oauth-cas-second', refreshToken: 'oauth-cas-second-refresh', scopes: ['user:write:chat', 'moderator:read:followers'] },
+      ];
+      const outcomes = await Promise.allSettled(attempts.map((tokens) => credentialRepository.storeTokens({
+        clientId, broadcasterId, ...tokens, expiresIn: 3600, obtainmentTimestamp: Date.now(), expectedCredentialFingerprint,
+      })));
+
+      expect(outcomes.filter(({ status }) => status === 'fulfilled')).toHaveLength(1);
+      expect(outcomes.filter(({ status, reason }) => status === 'rejected' && reason?.code === 'OAUTH_CREDENTIAL_STALE')).toHaveLength(1);
+      const current = await credentialRepository.getAuthRecord();
+      const winner = attempts.find(({ accessToken }) => accessToken === current.accessToken);
+      expect(winner).toBeDefined();
+      expect(current.scopes).toEqual(winner.scopes);
+    } finally {
+      if (createdCredentialForTest) await prisma.oAuthCredential.deleteMany({ where: { clientId } });
+      else await prisma.oAuthCredential.update({ where: { clientId }, data: {
+        broadcasterId: priorCredential.broadcasterId, accessToken: priorCredential.accessToken, refreshToken: priorCredential.refreshToken,
+        scopes: priorCredential.scopes, tokenExpiresAt: priorCredential.tokenExpiresAt, authStatus: priorCredential.authStatus,
+        updatedAt: priorCredential.updatedAt,
       } });
     }
   });

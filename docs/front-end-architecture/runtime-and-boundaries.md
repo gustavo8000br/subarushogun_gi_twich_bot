@@ -9,3 +9,7 @@ Use `trailingSlash: true` for production export: canonical panel paths such as `
 The exact overlay URL and authorization contract are an open architecture gate: OPS-13/#57 proposes a capability-free local projection addressed by widget ID, while existing OPS-13 criteria preserve the token capability flow. Resolve this conflict with `$aiox-architect` before migrating or cutting over the overlay. Keep #57 open until native OBS/CEF acceptance.
 
 First-party TSV catalogs remain in the product image. Complete community catalogs live under host `.local/community-catalogs`, mounted into `/app/.local/community-catalogs` read-only with a distinct Compose bind; catalog discovery validates and merges both roots for panel, setup, chat and overlay. The overlay's current catalog cache has a five-second TTL. See [OPS-15](../stories/OPS-15/story.md) for the staged migration and evidence gates.
+
+The local `GET /health` response may include nullable `last_reconciliation_at`, derived from the current Twitch integration process memory. It is not persisted and resets to null on API restart until the next completed reconciliation.
+
+For host development, the API writes the product-locale bootstrap projection under `.local/dev/product-locale.state`; the launcher honors an explicitly configured `PRODUCT_LOCALE_PROJECTION_FILE`. This keeps the development projection in the worktree instead of using the container-only `/app/.local` default.

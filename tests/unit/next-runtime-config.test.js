@@ -15,7 +15,7 @@ describe('Next runtime routing configuration', () => {
       NODE_ENV: 'development',
       CODESPACE_NAME: 'example',
       GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: 'app.github.dev',
-    }).allowedDevOrigins).toEqual(['127.0.0.1', 'example-3100.app.github.dev']);
+    }).allowedDevOrigins).toEqual(['127.0.0.1', 'example-3000.app.github.dev']);
   });
 
   it('does not enable development host exceptions in the production export', () => {

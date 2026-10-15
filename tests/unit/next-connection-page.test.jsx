@@ -18,7 +18,7 @@ const COPY = {
   'panel.credentials.client_secret': 'Client Secret',
   'panel.credentials.client_id_placeholder': 'Your Client ID',
   'panel.credentials.secret_configured': 'Secret is configured and is never shown.',
-  'panel.credentials.secret_empty': 'Secret is stored locally and never shown again.',
+  'panel.credentials.secret_empty': 'No application secret has been saved yet.',
   'panel.credentials.validate_save': 'Validate and save app',
   'panel.connection.connect': 'Connect to Twitch',
   'panel.connection.reconnect': 'Reconnect to Twitch',
@@ -112,13 +112,18 @@ describe('Next Twitch connection page', () => {
   });
 
   it('shows the authorized channel health and keeps reconnect available', () => {
-    renderView({ setup: { ...baseSetup, secretConfigured: true, connected: true, broadcasterId: 'private-id', status: 'connected', chatStatus: 'connected', rewardStatus: 'available', eligibility: { eligible: true, broadcasterType: 'affiliate', channelPointsAvailable: true } } });
-    expect(screen.getByRole('heading', { name: 'Channel connected' })).toBeTruthy();
+    renderView({ setup: { ...baseSetup, secretConfigured: true, connected: true, broadcasterId: 'private-id', status: 'connected', chatStatus: 'connected', rewardStatus: 'available', eligibility: { eligible: true, broadcasterType: 'affiliate', channelPointsAvailable: true, channelIdentity: { displayName: 'Channel Display', login: 'channel_login' } } } });
+    expect(screen.getByRole('heading', { name: 'Channel Display' })).toBeTruthy();
     expect(screen.getByText('Chat connected')).toBeTruthy();
     expect(screen.getByText('Rewards available')).toBeTruthy();
     expect(document.body.textContent).not.toContain('private-id');
     expect(screen.getByRole('button', { name: 'Reconnect to Twitch' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Reconcile now' })).toBeTruthy();
+  });
+
+  it('clarifies that no client secret exists before one is saved', () => {
+    renderView();
+    expect(screen.getByText('No application secret has been saved yet.')).toBeTruthy();
   });
 
   it('uses the existing reconciliation API and reports its result', async () => {

@@ -1,3 +1,5 @@
+import { createCredentialFingerprint } from '../twitch/credential-fingerprint.mjs';
+
 /** @param {Record<string, any>} prisma */
 export function createTwitchCredentialRepository(prisma) {
   function locked() {
@@ -58,11 +60,15 @@ export function createTwitchCredentialRepository(prisma) {
       });
     },
 
-    async storeTokens({ clientId, broadcasterId, accessToken, refreshToken, scopes, expiresIn, obtainmentTimestamp = Date.now(), commitAdditional }) {
+    async storeTokens({ clientId, broadcasterId, accessToken, refreshToken, scopes, expiresIn, obtainmentTimestamp = Date.now(), commitAdditional, expectedCredentialFingerprint }) {
       return prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(hashtextextended('twitch-credentials', 0))) AS credential_lock`;
         const record = await tx.oAuthCredential.findUnique({ where: { clientId } });
         if (!record) throw Object.assign(new Error('Twitch application is not configured'), { code: 'TWITCH_APP_NOT_CONFIGURED' });
+        if (typeof expectedCredentialFingerprint === 'string'
+          && createCredentialFingerprint(record) !== expectedCredentialFingerprint) {
+          throw Object.assign(new Error('Twitch authorization is based on an outdated credential'), { code: 'OAUTH_CREDENTIAL_STALE' });
+        }
         if (record.broadcasterId && record.broadcasterId !== broadcasterId && await hasProductData(tx)) throw locked();
         const tokenExpiresAt = Number.isFinite(expiresIn)
           ? new Date(obtainmentTimestamp + expiresIn * 1000)

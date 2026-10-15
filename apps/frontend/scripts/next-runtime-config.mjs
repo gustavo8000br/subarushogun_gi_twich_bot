@@ -1,7 +1,7 @@
 import { buildDevProxyRules } from './dev-proxy-config.mjs';
 
 export function buildNextConfig(env = process.env) {
-  const devPort = env.NEXT_DEV_PORT ?? '3100';
+  const devPort = env.NEXT_DEV_PORT ?? '3000';
   const codespacesHost = env.CODESPACE_NAME && env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN
     ? `${env.CODESPACE_NAME}-${devPort}.${env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
     : null;

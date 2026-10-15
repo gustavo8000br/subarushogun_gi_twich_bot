@@ -4,6 +4,11 @@
 
 ## v0.2.0-beta
 
+- Direct visits to Twitch operations and OBS widgets now wait for the local session and panel snapshot before requesting protected data. New queues default to local manual entry while Twitch is disconnected and link directly to connection setup.
+- The Next.js chat commands page now lets streamers change the minimum audience for configurable commands. New and implicit policies default to followers; explicit saved policies remain intact, and fixed moderator/streamer commands stay read-only.
+- The Next.js overview now shows bot/API and dependency health, the current account, an exact unresolved-operation total, and the last reconciliation in the current API run; it offers manual and automatic refresh while the page is visible and preserves the last health data when a refresh fails.
+- The Next.js overview distinguishes service health with green for functional, yellow for partial/in-progress/unknown, and red for unavailable or unconfigured states, with an explicit localized legend. Narrow screens stack the reconciliation detail below the health heading, and mobile navigation uses a thin purple scrollbar to signal horizontal scrolling.
+- The Next.js local panel now identifies the connected Twitch channel and clearly distinguishes an unsaved application secret. Language changes verify the API response and reconcile from persisted state after an uncertain response.
 - Streamers can cancel a pending reward-backed queue deletion after the app verifies that the exact managed Twitch reward still exists and is paused. The queue and financial history remain recoverable, and a later deletion safely resumes the same intent.
 - The operations page now distinguishes Twitch synchronization from Channel Points refunds to viewers and redemption fulfillment.
 - Local deletion confirmation stays blocked while cancellation is being verified, preserving a safe way to resume the operation.

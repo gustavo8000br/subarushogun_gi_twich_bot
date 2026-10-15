@@ -2,8 +2,9 @@ import { resolve } from 'node:path';
 
 export function buildDevRuntimeConfig(env = process.env, repositoryRoot = process.cwd()) {
   const certDirectory = resolve(repositoryRoot, env.DEV_TLS_DIRECTORY ?? '.local/dev-tls');
+  const productLocaleProjectionFile = resolve(repositoryRoot, env.PRODUCT_LOCALE_PROJECTION_FILE ?? '.local/dev/product-locale.state');
   const appPort = env.APP_PORT ?? '3109';
-  const nextDevPort = env.NEXT_DEV_PORT ?? '3100';
+  const nextDevPort = env.NEXT_DEV_PORT ?? '3000';
   const codespacesOrigin = env.CODESPACE_NAME && env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN
     ? `https://${env.CODESPACE_NAME}-${nextDevPort}.${env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
     : undefined;
@@ -14,6 +15,8 @@ export function buildDevRuntimeConfig(env = process.env, repositoryRoot = proces
     NODE_ENV: 'development',
     APP_PORT: appPort,
     APP_HOST: env.APP_HOST ?? '127.0.0.1',
+    API_ONLY: 'true',
+    PRODUCT_LOCALE_PROJECTION_FILE: productLocaleProjectionFile,
     ...(codespacesOrigin ? { PANEL_DEV_ORIGIN: codespacesOrigin } : {}),
     TLS_KEY_FILE: env.TLS_KEY_FILE ?? resolve(certDirectory, 'localhost.key'),
     TLS_CERT_FILE: env.TLS_CERT_FILE ?? resolve(certDirectory, 'localhost.crt'),
