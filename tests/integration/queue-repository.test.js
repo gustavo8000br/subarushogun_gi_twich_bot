@@ -1529,6 +1529,21 @@ describe('PostgreSQL queue repository', () => {
     expect(operations.some(({ id }) => id === deletion.id)).toBe(true);
   });
 
+  it('projects deletion-pause intent as a safe confirmation flag without exposing outbox payload', async () => {
+    const queue = await repository.createQueue({ slug: `delete-intent-${randomUUID().slice(0, 8)}`, title: 'Delete intent', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { lifecycleStatus: 'deleting' } });
+    const task = await prisma.outbox.create({ data: {
+      operationType: 'reward.set_open', entityType: 'queue', entityId: queue.id,
+      idempotencyKey: `queue:${queue.id}:delete-pause`, payload: { isOpen: false, deleteAfterConfirm: true, internalNote: 'must not leak' }, status: 'unknown',
+    } });
+
+    const operations = await repository.listFinancialOperations();
+    const operation = operations.find(({ id }) => id === task.id);
+
+    expect(operation).toMatchObject({ requiresDeleteConfirmation: true, operationType: 'reward.set_open' });
+    expect(operation).not.toHaveProperty('payload');
+  });
+
   it('starts reward deletion directly only when the managed reward is already confirmed paused', async () => {
     const queue = await repository.createQueue({ slug: `delete-closed-${randomUUID().slice(0, 8)}`, title: 'Delete closed', cost: 1 });
     await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, remoteSyncStatus: 'synced', isOpen: false } });

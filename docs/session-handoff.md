@@ -1,15 +1,82 @@
-# Development Handoff — 2026-10-14
+# Development Handoff — 2026-10-15
 
 [Português brasileiro](pt-BR/session-handoff.md)
 
-## Current workspace
+### Pause point — development snapshot requested (2026-10-15)
+
+- The owner asked to stop for now and preserve all work on the development branch because Codespaces persistence is uncertain. Active branch: `feat/ops-15-next-panel`; it currently points at `845a58f` and has no implementation commits yet. Save this working tree as a WIP snapshot; do not PR or merge.
+- The `/connection/` Next route is implemented, but independent QA scored this slice **8/10 CONCERNS**: channel identity is not available in the current API projection; the initial empty-secret copy incorrectly says the secret is stored; and the route-specific endpoint/translation inventory is missing. Focused route tests passed **7/7**. UX scoped score is **10/10** for the mocked responsive/browser review; this is separate from QA and does not close OPS-15.
+- The owner reported that changing language in the Next panel does not work. Investigation identified that save failures are not surfaced while the panel is loaded. A new component interaction test was started for successful persistence and visible failure, but was not run or completed; resume with this reproduction/fix before claiming locale behavior works.
+- The command-permission rule is confirmed: configurable commands default to follower and can be changed per command; commands fixed to streamer/moderators remain locked and unchanged.
+- `npm run review:static` could not run because OpenGrep is absent. The pinned installer requires `cosign`, also absent; do not bypass signature verification. No claim of current static-scan success.
+- Do not run the greeting/status generator or stage `.aiox/project-status-43a81ec8.yaml`. Preserve the active dev services and `.next`; no host Next build/export.
+
+### Latest increment — Next Operations route completed and reviewed (2026-10-15)
+
+- The Next `/operations/` route is implemented with separate Twitch synchronization, viewer Channel Points refunds, and redemption fulfillment groups; localized states/actions; safe operation DTOs; guarded reconciliation/retry/manual-resolution/deletion flows; and explicit unknown-versus-confirmed messaging.
+- Scoped scores: UX **10/10** for Operations, mobile shell, dialogs, and mocked populated states; independent QA **10/10 PASS**, no outstanding findings. These scores apply only to this increment, not full OPS-15 parity. Browser checks covered 390×844, 768×900, and 1440×900; axe found zero WCAG 2.1 A/AA violations. All final API paths were intercepted/aborted; no Twitch mutation or database seeding occurred.
+- Verification: focused tests **87/87**; full suite excluding the host static-export test **127 files / 1,121 tests**; isolated static-export integration **1/1** including `/operations/`; `docker compose build bot`, lint, typecheck, localization/version/port-denylist checks, dev Compose config, OpenGrep 1.30.0 (**126 files / 0 findings**), and `git diff --check` passed.
+- Preserve the active dev instance (Next 3000, Fastify HTTPS 3109, isolated PostgreSQL 55432) and `.next`; do not run a host export/build against its output. This remains a development preview, not a released image.
+- OPS-15 remains In Progress. Remaining migration surfaces include setup/Twitch connection, overview parity, settings/account/permissions, widget management, full overlay content and native OBS/CEF checks, legacy-test audit, rollback rehearsal, and final architecture/DevOps gates. Do not cut over or classify FND-9 as legacy; its acceptance remains separate.
+
+## Active resumed worktree — OPS-15
+
+### Latest verification (2026-10-15)
+
+- The AIOX UX expert rechecked all four implemented routes in Chromium at 390×844, 768×900, and 1440×900. Current scoped UX score is **10/10** for the reviewed corrections and default/empty states: axe found zero WCAG 2.1 A/AA violations, titles and one main landmark were present, no horizontal overflow/page errors occurred, and keyboard skip-link/focus checks passed. The initial static score was 6/10. Populated queue/settings and overlay-content states were not browser-rendered; this score does not close OPS-15 parity. See the bilingual OPS-15 UX audit.
+- Fixed the latest browser findings: New Queue action bar is in normal flow at every width, the brand link relies on its visible accessible name, and the overlay has one `<main>`. Focused tests passed **8/8**; the full suite excluding `tests/integration/next-static-export.test.js` passed **125 files / 1,101 tests** because the active Next instance owns `.next`. Lint, typecheck, localization, version, port-denylist, and diff-check passed.
+- Independent QA re-review scored these three final corrections **10/10 PASS**, with no findings. Both UX and QA scores are scoped to the reviewed corrections; neither represents full OPS-15 completion.
+- The UX reviewer started/preserves an isolated `npm run dev` session (Next 3000, Fastify HTTPS 3109, dev PostgreSQL 55432) for this browser review. Preserve these processes and `.next`; do not run a host export/build that clears its output.
+
+- FND-9 is not classified as legacy. After Next reaches parity, analyze which FND-9 implementation parts and tests have become obsolete; preserve required behavior and owner acceptance, and do not close FND-9/#19 based on the UI migration alone.
+- Independent QA re-review: **10/10 PASS** for both the corrected attendance/action slice and the manual-entry slice, separately scoped. Neither score is an overall OPS-15 score. Browser confirmation remains pending.
+- Full suite after the manual-entry slice: **122 files / 1,065 tests passed**. Lint, typecheck, OpenGrep, localization, version, port denylist, Compose config, production build and `git diff --check` passed.
+- Next parity increment: queue list has a collapsible manual-admission form for validated Twitch login, optional 9-digit UID, and operator-verified priority reason. It uses the existing API, preserves successful creation if only the projection refresh fails, and displays localized neutral feedback when admission fails. Focused queue tests passed **36/36**. Independent QA scored this slice **10/10 PASS**.
+- Fixed a full-suite race in the AIOX static source walker: generated `.next` and `out` directories are now excluded, with a regression test. The earlier run raced against the static-export integration removing `.next/lock`; the full rerun passed.
+- The prior session reported the dev instance stopped. The owner has since restarted and kept it alive for Codespaces; current verification confirms Next on 3000, Fastify HTTPS on 3109, and development PostgreSQL on 55432. Preserve all of them.
+
+- Repository/worktree: `/workspaces/fnd9-next-panel`; branch: `feat/ops-15-next-panel`.
+- Local recovery branch `legacy` remains fixed at `845a58f0fbe3fbb7d78f9f56cf1ab24bec32b19a`. Do not move, rewrite, or delete it. The story scopes this pointer as local-only; there is no remote `legacy` branch.
+- OPS-15 is tracked in [GitHub issue #69](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/69), created before implementation with the approved scope and acceptance criteria. The owner authorized implementation after planning review; story status is In Progress.
+- Planning reviews: UX **9.5/10** (findings closed), architecture **9.5/10 PASS**, independent QA **10/10 PASS**. These scores cover planning only. Earlier scoped implementation concerns for hydration/status and queue-entry actions have been addressed; browser confirmation remains pending. Related #57 and #65 remain open; completed #7 is a compatibility baseline. Preserve vanilla assets until parity gates authorize cutover.
+- The vanilla panel surface and its implementation-specific tests from FND-9 may be legacy candidates, but its queue-deletion behavior and owner acceptance remain required. Map those behaviors to Next and perform the planned bilingual test audit after parity; do not mark FND-9 done or close #19 based on the UI migration.
+- Dependencies are installed and IDE/skills sync passed. Preserve untracked `.aiox/project-status-43a81ec8.yaml`; do not run greeting/status scripts or edit project-status files.
+
+### Latest update — queue entry actions and stopped dev instance
+
+- The owner stopped the `npm run dev` instance. Process/port inspection found no Next/Fastify dev process on 3000, 3100, or 3109, so the host static-export check can run safely.
+- Fixed all three findings from the independent review of the Next queue action slice: the queue list reuses the legacy shared sync-status mapper, disables “Next” when nobody is waiting, and localizes viewer-specific accessible names. An API `count: 0` race now displays an informational empty-queue result instead of success.
+- Added canonical placeholder interpolation to the Next panel translator. Added explicit Docker frontend-build inputs for the shared panel placeholder and queue-sync modules after the first image build exposed their omission.
+- TDD: the first focused assertions failed 5/5 target cases; a separate runtime-catalog assertion exposed missing placeholder wiring; a Compose contract assertion failed for the missing Docker copies. Green focused queue/catalog tests passed **19/19**, localization validation passed for all three locales, and the Compose input contract passed **1/1**. The corrected Docker image build passed. Full suite now passes **122 files / 1,047 tests**; independent QA re-review is pending.
+- QA re-review scored the corrected slice **8.5/10 CONCERNS** because a successful mutation followed by a failed queue refresh was shown as a failed action. This is now fixed: mutation response is retained, stale projection is reported with localized reload guidance, and call-next rejects counts above one. The new targeted RED had 3 failures; GREEN queue tests passed **19/19**, localization passed. Run full gates and obtain the next independent score.
+- QA score is pending for the corrected slice. The earlier **8/10 CONCERNS** score applies only to the code before these corrections; planning QA remains **10/10**.
+
+### Latest report — data loaded; suppress browser-extension hydration mismatch
+
+- The owner confirms the panel is launched with `npm run dev`; Compose is only used for the isolated development PostgreSQL service and automated build/integration checks, not as the panel runtime.
+- The owner's latest screenshot shows the dashboard loaded, database connected, and queue counts populated as zero; this confirms the UI reached its empty state. The isolated dev database has no queues and contains no data from the owner's Windows installation. Twitch API is unconfigured in this dev environment.
+- The owner reported React hydration mismatch on the root `<html>` showing `data-qb-installed` and `suppresshydrationwarning`, neither of which exists in the app source. Both Next root layouts now set `suppressHydrationWarning` at that root only, with a regression test. Browser-console confirmation after refresh remains pending.
+- The Codespaces forwarded-origin fix is also present: runtime derives the exact Codespaces host, configures Next `allowedDevOrigins`, and allows that exact HTTPS origin in Fastify only in development. Source-level coverage passes, but forwarded browser acceptance still requires a refresh in the owner's running `npm run dev` process.
+- Queue page now includes Next/call, attend, complete, remove, and resend-call actions mapped to existing Fastify routes. Actions validate the API result and reload the operator queue projection; archived/deleting queues do not expose mutation controls. The hydration/status slice previously received scoped QA **9/10 CONCERNS**; independent QA of these new entry actions is pending.
+- Previous evidence: `npm test -- --exclude tests/integration/next-static-export.test.js` — **121 files / 1,041 tests passed**; isolated Compose runtime/build **3/3**; lint, typecheck, localization, version, port denylist, static scan (117 source files / 0 findings), and diff check passed. At that point the host static-export test was excluded while the owner's Next dev process served port 3000. The instance is now stopped; see latest update above. Browser console confirmation after refresh remains pending. Planning QA: **10/10**.
+
+### OPS-15 implementation progress
+
+- The Next.js shell loads runtime catalogs, initializes the local session before protected reads, and requests both `/api/state` and operator-protected `/api/queues`. It validates the queue projection and shows localized queue, waiting, and in-service counts only after valid data arrives. The dedicated overlay route now mounts the existing read-only renderer in an isolated client entry; URL capability, polling, fragment removal and revocation behavior remain unchanged. Docker builds the static output and `/overlay.html` alias. Fastify still serves the vanilla production root, and feature parity/cutover are incomplete.
+- Previous foundation gate: **118 files / 1,016 tests passed**, including the host static-export integration after replacing a stale translated-text chunk marker with stable panel/overlay code markers. The isolated Docker image build generated separate panel and overlay bundles. See the latest scoped QA result above; it is not a full OPS-15 acceptance score.
+- Architecture gate remains open before overlay migration: #57's widget-ID projection without a capability and the existing capability URL contract must be reconciled explicitly. Issue #57 remains open.
+- Owner-requested legacy-test audit is now an OPS-15 criterion and issue #69 requirement. Perform it only after all Next surfaces achieve behavioral parity and before legacy cutover/removal. Inventory each vanilla-panel test, retain behavior assertions, and remove/replace legacy-specific assertions only after equivalent Next behavior passes. No legacy tests have been removed in the current foundation slice; record decisions in a bilingual audit artifact.
+- `npm run dev` starts an isolated Docker PostgreSQL from `compose.dev.yaml` when `DATABASE_URL` is empty, waits for health, snapshots to `.local/dev-db/backups/`, applies Prisma migrations, then starts Fastify on `127.0.0.1:3109` and Next at `0.0.0.0:3100`. Real isolated startup applied all 13 migrations; a second run found no pending migrations. `/health` returned `status=ok` and `database=connected`; the frontend returned HTTP 200. The worktree-specific Compose project uses port 55432 on loopback, generated secret `.local/dev-db/password`, and its own named volume. `npm run dev:db:start` and `npm run dev:db:stop` manage only that DB; stop preserves data. An explicit `DATABASE_URL` bypasses Docker and automatic migrations. `.env.product.local` keeps `DATABASE_URL` blank by design: root `.env` belongs to AIOX, and the runtime injects the managed DB URL from the local secret. Lint/typecheck/Compose config/diff checks passed; suite excluding static export passed 117 files/1,020 tests because the live Next process owns `.next`. At that earlier stage, implementation QA had not run; see the latest QA result above. Production Fastify/static-serving path is unchanged.
+- Issue #65 remains open for localized chat and durable delivery; #7 remains the completed widget compatibility baseline. No issue is obsolete because of this migration.
+
+## Previous FND-9 workspace
 
 - Repository/worktree: `/workspaces/fnd9-fulfilled-delete`
 - The FND-9 deletion cancellation and terminology changes merged to `main` in PR #67, commit `44484f5e4c35be1aba939eccfd3e254eaa1cad6b`. After this handoff update merges, return this checkout to `main`.
 - Separate worktree `/workspaces/subarushogun_gi_twich_bot` remains on `feat/ops-14-localized-queue-chat-messages`; preserve its unrelated OPS-14/UX changes.
 - Product and AIOX dependencies are installed in this worktree; IDE projection validation passed 109/109. Preserve untracked `.aiox/project-status-3e3351d9.yaml`; do not run greeting/status scripts or edit it.
 
-## Current objective
+## Previous FND-9 objective
 
 The implementation is merged and beta distribution is ready. The owner should install the Windows artifact and test the FND-9 deletion cancellation/recovery behavior and the operations-page terminology. Keep issue #19 and FND-9 at Ready for Review until owner-side Windows and authorized live Twitch acceptance is recorded. Do not perform live Twitch financial operations on the owner's behalf.
 

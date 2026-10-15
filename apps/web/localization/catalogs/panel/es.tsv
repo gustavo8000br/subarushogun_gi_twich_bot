@@ -14,6 +14,8 @@ panel.navigation.widgets	Widgets de OBS
 panel.navigation.settings	Configuración
 panel.navigation.connection	Conexión de Twitch
 panel.sidebar.local_note	El panel y los datos permanecen en este equipo.
+panel.section.local	LOCAL
+panel.migration.note	La estructura del panel está en migración. Las demás pantallas se habilitarán cuando cada flujo supere la validación de paridad.
 panel.health.label	Estado de la instalación
 panel.health.database	Base de datos
 panel.health.twitch_api	API de Twitch
@@ -66,6 +68,18 @@ panel.new_queue.description	Elige entre una cola con Puntos del canal y una cola
 panel.operations.eyebrow	PUNTOS Y RECUPERACIÓN
 panel.operations.title	Sincronización con Twitch y devolución de puntos
 panel.operations.description	Consulta por separado la comunicación con Twitch y la devolución de puntos del canal a los espectadores, además de la confirmación de canjes.
+panel.operations.group.twitch_sync	Comunicación con Twitch
+panel.operations.group.points_refund	Devolución de Puntos del Canal
+panel.operations.group.redemption_fulfillment	Confirmación de canje
+panel.operations.loading	Cargando operaciones…
+panel.operations.refresh	Actualizar
+panel.operations.refreshing	Actualizando…
+panel.operations.refresh_failed	No se pudieron actualizar las operaciones. Los últimos resultados cargados siguen visibles.
+panel.operations.action_retry_pending	Se solicitó un nuevo intento. Twitch aún no confirmó el resultado.
+panel.operations.action_manual_resolution	Se registró la resolución manual. Esto no confirma el resultado con Twitch.
+panel.operations.action_refresh_failed	La acción fue aceptada, pero no se pudo actualizar la lista. Recarga antes de volver a intentarlo.
+panel.operations.action_failed	No se pudo completar esta acción. Actualiza las operaciones y revisa su estado actual.
+panel.operations.reconcile_failed	No se pudo conciliar con Twitch. Comprueba la conexión y revisa las operaciones.
 panel.commands.eyebrow	CHAT EN VIVO
 panel.commands.title	Comandos disponibles
 panel.commands.description	Define un nivel mínimo de audiencia. Los cargos superiores heredan el acceso; los comandos fijos de gestión quedan bloqueados.
@@ -85,6 +99,7 @@ panel.locale.title	Idioma del panel
 panel.locale.description	El idioma seleccionado también se usa en los mensajes del bot. Los catálogos comunitarios completos aparecen automáticamente.
 panel.locale.available	Idioma disponible
 panel.error.generic	No se pudo completar la acción. Inténtalo de nuevo.
+panel.error.local_load	No se pudo conectar con la API local. Comprueba que el servicio esté activo y actualiza la página.
 panel.error.reference	Referencia: {id}
 panel.error.locale_conflict	El idioma cambió en otra solicitud. Actualiza la página.
 panel.form.queue_name	Nombre de la cola
@@ -92,6 +107,10 @@ panel.form.create_queue	Crear cola
 panel.widget.appearance	Apariencia
 panel.widget.save	Guardar widget
 panel.entry.add	Añadir a la cola
+panel.entry.added	Se añadió a la persona a la cola.
+panel.entry.error.invalid	Comprueba el usuario de Twitch, el UID y el beneficio verificado.
+panel.entry.error.unavailable	No se pudo añadir la entrada. Actualiza el panel e inténtalo de nuevo.
+panel.entry.error.failed	No se pudo añadir a la persona. Actualiza el panel y comprueba la cola y el usuario.
 panel.form.command	Comando
 panel.form.command_placeholder	abismo
 panel.form.aliases	Alias
@@ -209,6 +228,22 @@ panel.queue.action.open	Abrir
 panel.queue.action.close	Cerrar
 panel.queue.action.activate	Activar cola
 panel.queue.action.pause	Pausar cola
+panel.queue.action_result.saving	Guardando…
+panel.queue.action_result.confirmed	Se actualizó el estado de la cola.
+panel.queue.action_result.pending	Solicitud guardada. Esperando la confirmación de Twitch.
+panel.queue.action_result.failed	No se pudo actualizar el estado de la cola. Inténtalo de nuevo.
+panel.queue.action_result.no_waiting	No hay personas esperando en esta cola.
+panel.queue.creation_result.created_local	Cola local creada. Está pausada hasta que la actives.
+panel.queue.creation_result.created_remote	Cola creada y recompensa de Twitch sincronizada.
+panel.queue.creation_result.pending	Cola guardada. La creación de la recompensa de Twitch espera confirmación; revisa su estado antes de intentarlo de nuevo.
+panel.queue.creation_result.review	La cola existe, pero debes revisar la sincronización con Twitch antes de activarla.
+panel.queue.creation_result.recovered	Se encontró una cola coincidente tras una respuesta interrumpida. No se creó otra; revisa su estado.
+panel.queue.creation_result.refresh_failed	La cola se creó, pero no se pudo actualizar la lista. Abre las colas y recarga antes de intentarlo de nuevo.
+panel.queue.creation_result.open_queues	Abrir colas
+panel.queue.creation_result.uncertain	No se pudo confirmar el resultado. No vuelvas a enviarlo todavía; abre las colas y recarga para comprobar si se creó.
+panel.queue.creation_result.key_conflict	Ese comando o uno de sus alias ya está en uso. Elige otro e inténtalo de nuevo.
+panel.queue.entry_action_result.saved	La acción de atención se registró en el panel.
+panel.queue.entry_action_result.refresh_failed	La acción se registró, pero no se pudo actualizar la cola. Recarga la página para ver su estado actual.
 panel.queue.action.resolve_reward	Vincular recompensa
 panel.queue.action_blocked.reward_unresolved	Los controles están pausados hasta vincular y confirmar una recompensa de Twitch. Usa «Vincular recompensa» para continuar.
 panel.queue.action_blocked.reward_creation_pending	Los controles estarán disponibles cuando Twitch confirme la creación de la recompensa.
@@ -224,14 +259,19 @@ panel.queue.history.title	Historial reciente
 panel.queue.history.empty	Todavía no hay atenciones finalizadas.
 panel.queue.history.date_unavailable	Fecha no disponible
 panel.entry.action.call	llamar
+panel.entry.action.call_aria	Llamar a {user}
 panel.entry.action.move_up	Mover ↑
 panel.entry.action.move_down	Mover ↓
 panel.entry.action.remove_priority	Quitar prioridad
 panel.entry.action.mark_priority	Marcar como prioritaria
 panel.entry.action.attend	atender
+panel.entry.action.attend_aria	Atender a {user}
 panel.entry.action.complete	finalizar
+panel.entry.action.complete_aria	Finalizar la atención de {user}
 panel.entry.action.resend	Reenviar llamada
+panel.entry.action.resend_aria	Reenviar la llamada a {user}
 panel.entry.action.remove	quitar
+panel.entry.action.remove_aria	Quitar a {user} de la cola
 panel.entry.priority_badge	Prioritaria · verificada por el operador
 panel.entry.uid_label	UID
 panel.queue.points	puntos
@@ -386,7 +426,7 @@ panel.operation.attempts.other	{count} intentos
 panel.operation.action.resolve	Registrar resolución manual
 panel.operation.action.retry	Conciliar / reintentar
 panel.operation.action.continue_delete	Continuar eliminación
-panel.operation.confirm.resolve	Twitch no pudo confirmar el estado de los puntos. ¿Registrar que lo revisaste y detuviste el seguimiento automático? Esto no confirma un reembolso ni el consumo, y no habrá más intentos automáticos.
+panel.operation.confirm.resolve	Twitch aún no confirmó esta operación de canje. ¿Registrar que la revisaste y detener el seguimiento automático? Esto no confirma un reembolso ni el consumo, y no habrá más intentos automáticos.
 panel.operation.confirm.continue_delete	¿Intentar continuar la eliminación de esta cola y su recompensa de Twitch? La aplicación volverá a comprobar los canjes pendientes, la comunicación con Twitch y las devoluciones de puntos. Si se confirman el estado de la recompensa y todas las devoluciones necesarias, la recompensa podría eliminarse y no se podrá restaurar. Elige Cancelar eliminación en la cola para conservarla para más adelante.
 panel.reconciliation.running	Sincronización en curso…
 panel.reconciliation.complete.one	Sincronización completada. Se importó {count} canje.
@@ -401,6 +441,7 @@ panel.entry.status.no_show	Ausente
 panel.commands.saved	Se actualizaron los permisos de comandos.
 panel.notice.queue_created	Cola guardada. La creación de la recompensa de Twitch está pendiente; consulta su estado abajo.
 panel.notice.queue_settings_saved	Se guardó la configuración de la cola.
+panel.queue.settings_result.refresh_failed	La configuración se guardó, pero no se pudo actualizar la lista. Recarga la página para comprobar los valores actuales.
 panel.notice.reward_update_pending	Cambio solicitado. La cola mostrará la sincronización pendiente hasta que Twitch la confirme.
 panel.notice.call_already_queued	La llamada ya está en la cola de envío.
 panel.notice.call_resent	Se solicitó reenviar la llamada. Se conservó el plazo de ausencia.
@@ -577,3 +618,30 @@ panel.confirmation.accept	Aceptar
 panel.queue.status.pending_local_delete_diverged	La eliminación local está pausada porque hay que verificar el estado de la recompensa de Twitch. Los canjes y la comunicación con Twitch y las devoluciones de puntos relacionadas siguen en recuperación; los canjes posteriores de Twitch se detectarán y registrarán para su cancelación. Esta aplicación no cambiará la recompensa.
 panel.queue.confirm.retry_delete_converted_diverged	Comprueba el progreso de la eliminación. La cola seguirá pendiente hasta que Twitch confirme que la recompensa histórica está pausada y se resuelvan todos los canjes conocidos y la comunicación con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. Esta acción no cambiará la recompensa de Twitch.
 panel.queue.status.deletion_complete	La eliminación de la cola ha finalizado.
+panel.accessibility.skip_to_content	Saltar al contenido principal
+panel.form.section_identity	Identidad de la cola
+panel.form.section_entry	Cómo se unen los espectadores
+panel.form.section_reward	Recompensa de puntos del canal
+panel.form.section_handling	Privacidad y atención
+panel.form.command_hint	El comando del chat usa este nombre después de !. Se sugiere a partir del nombre de la cola.
+panel.form.aliases_hint	Nombres de comando alternativos opcionales, separados por comas.
+panel.form.mode_channel_points_hint	Los espectadores canjean una recompensa de Twitch para entrar. El bot crea y administra la recompensa.
+panel.form.mode_manual_hint	La cola permanece local. El streamer añade espectadores desde la página de colas.
+panel.form.cancel	Cancelar
+panel.overview.next_empty_title	Crea tu primera cola
+panel.overview.next_empty_description	Elige Puntos del canal o una cola local para empezar a recibir espectadores.
+panel.overview.next_empty_action	Crear una cola
+panel.overview.next_queues_title	Revisa tus colas
+panel.overview.next_queues_description	Administra la disponibilidad y continúa la atención desde la vista de colas activas.
+panel.overview.next_queues_action	Abrir colas
+panel.overview.next_unavailable_title	Comprobando datos locales
+panel.overview.next_unavailable_description	La siguiente acción aparecerá cuando el panel local termine de cargar.
+panel.queue_settings.section_attendance	Llamada y atención
+panel.queue_settings.section_privacy	Privacidad del UID del espectador
+panel.queue_settings.section_points	Cuenta y políticas de puntos
+panel.queue_settings.unsaved	Cambios sin guardar
+panel.queue_settings.no_changes	Todos los ajustes están guardados.
+panel.credentials.validating	Validando credenciales…
+panel.credentials.saved	Las credenciales de la aplicación se validaron y guardaron.
+panel.connection.saved_refresh_failed	Las credenciales se guardaron, pero no se pudo actualizar la conexión. Recarga para comprobar el estado.
+panel.health.twitch.eligibility_unknown	Comprobando elegibilidad

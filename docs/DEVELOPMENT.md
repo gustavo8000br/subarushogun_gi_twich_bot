@@ -37,6 +37,21 @@ The prepared image includes the tools needed for the existing project gates. The
 
 ### Focused checks
 
+#### Next.js and Fastify development
+
+```sh
+npm run dev
+```
+
+This starts an isolated development PostgreSQL service through Docker, creates a local snapshot before checking/applying migrations, starts Fastify on `127.0.0.1:${APP_PORT:-3109}`, and starts Next.js at `http://localhost:3100`. In Codespaces, forward port `3100` to preview the frontend. During development, Next proxies `/api/*`, `/overlay/api/*`, `/health`, and `/callback` to local Fastify and maps `/overlay.html` to the Next overlay route. The dev configuration allows `127.0.0.1` and the exact Codespaces forwarded panel hostname through Next's `allowedDevOrigins`, and passes Fastify the matching HTTPS origin for local session and CSRF validation. Restart `npm run dev` after changing the development origin or Next config. On first run, the launcher creates the ignored product-specific `.env.product.local` from `.env.product.example` without replacing an existing file. Leave `DATABASE_URL` empty to use the managed database. It uses host port `55432`, binds only to `127.0.0.1`, stores data in `next_dev_postgres_data` in a Compose project uniquely named for the worktree, and stores its password at `.local/dev-db/password`; pre-migration snapshots go to `.local/dev-db/backups/`. These resources are separate from services and volumes in `compose.yaml`. Stop the database and preserve its data with `npm run dev:db:stop`; start only the database with `npm run dev:db:start`. Do not run `docker compose down -v` for this dev project unless you intend to delete its data. The product-specific file is separate from the AIOX `.env` and `.env.example`. If you set `DATABASE_URL`, the launcher uses that external instance without starting Docker or running migrations; use only a disposable development database. Set `APP_PORT` and `FASTIFY_DEV_ORIGIN` together if the API should use another port (for example, `3110` and `https://localhost:3110`). Production still serves the static Next export from Fastify; the dev proxy is not part of that export. Use `npm run build:frontend` to generate the static export.
+
+```sh
+npm run dev:db:start
+npm run dev
+# when finished:
+npm run dev:db:stop
+```
+
 ```sh
 npm run lint:api && npm run typecheck:api
 npm run lint:infra && npm run typecheck:infra
@@ -44,14 +59,15 @@ npm run lint:web && npm run typecheck:web
 npm test -- --run tests/unit/<test-file>.test.js
 ```
 
-`npm run build` builds the deployable bot image with Docker Compose. The vanilla web app is checked directly and does not have a separate frontend bundler step. GitHub Actions [CI](../.github/workflows/ci.yml) runs on pull requests and calls the shared quality gates. Main image publication and tagged releases are separate workflows; see the [CI/CD guide](CI-CD.md) for triggers, permissions, image tags, and recovery.
+`npm run build` builds the deployable bot image with Docker Compose. `npm run build:frontend` builds the static Next.js export independently. GitHub Actions [CI](../.github/workflows/ci.yml) runs on pull requests and calls the shared quality gates. Main image publication and tagged releases are separate workflows; see the [CI/CD guide](CI-CD.md) for triggers, permissions, image tags, and recovery.
 
 ## Project layout
 
 ```text
 apps/api/    Fastify API, domain, Prisma schema and migrations
 apps/infra/  Compose and operational scripts
-apps/web/    Static browser panel and localization catalogs
+apps/frontend/ Next.js App Router panel and OBS overlay
+apps/web/      Existing static browser panel and localization catalogs (kept during migration)
 tests/       Unit, integration, and browser acceptance tests
 docs/        Stories and focused user/developer references
 ```

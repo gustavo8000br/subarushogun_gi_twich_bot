@@ -15,5 +15,10 @@
   "include": [
     "apps/**/*.js",
     "apps/**/*.mjs"
+  ],
+  "exclude": [
+    "node_modules",
+    "apps/frontend/.next",
+    "apps/frontend/out"
   ]
 }

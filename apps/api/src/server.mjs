@@ -75,7 +75,12 @@ const buildChatHandler = (broadcasterId) => createChatCommandHandler({
 });
 let chatHandler = currentCredential?.broadcasterId ? buildChatHandler(currentCredential.broadcasterId) : null;
 
-registerLocalSession(app, { port });
+registerLocalSession(app, {
+  port,
+  ...(process.env.NODE_ENV === 'development' && process.env.PANEL_DEV_ORIGIN
+    ? { developmentOrigin: process.env.PANEL_DEV_ORIGIN }
+    : {}),
+});
 const healthRoute = registerHealthRoute(app, {
   pool,
   productVersion,

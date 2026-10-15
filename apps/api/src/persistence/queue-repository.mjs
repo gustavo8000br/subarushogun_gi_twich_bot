@@ -313,7 +313,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         }),
         deletingQueues.length ? prisma.outbox.findMany({
           where: { operationType: { in: ['reward.set_open', 'reward.delete'] }, entityId: { in: deletingQueues.map(({ id }) => id) } },
-          select: { id: true, operationType: true, entityId: true, redemptionId: true, status: true, attempts: true, nextAttemptAt: true, lastError: true, createdAt: true, updatedAt: true },
+          select: { id: true, operationType: true, entityId: true, redemptionId: true, status: true, attempts: true, nextAttemptAt: true, lastError: true, payload: true, createdAt: true, updatedAt: true },
           orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
         }) : Promise.resolve([]),
         prisma.outbox.findMany({
@@ -322,7 +322,13 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
         }),
       ]);
-      return [...financialOperations, ...deletionOperations, ...rewardUpdates].sort((first, second) => second.updatedAt.getTime() - first.updatedAt.getTime() || second.id.localeCompare(first.id));
+      const safeDeletionOperations = deletionOperations.map(({ payload, ...operation }) => ({
+        ...operation,
+        ...(operation.operationType === 'reward.set_open' && payload?.deleteAfterConfirm === true
+          ? { requiresDeleteConfirmation: true }
+          : {}),
+      }));
+      return [...financialOperations, ...safeDeletionOperations, ...rewardUpdates].sort((first, second) => second.updatedAt.getTime() - first.updatedAt.getTime() || second.id.localeCompare(first.id));
     },
     async getCurrentAccount() {
       const setting = await prisma.setting.findUnique({ where: { key: 'account_state' } });

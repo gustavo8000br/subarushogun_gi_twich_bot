@@ -37,6 +37,21 @@ O ambiente preparado inclui as ferramentas usadas pelos gates existentes do proj
 
 ### Verificações focadas
 
+#### Desenvolvimento do Next.js e Fastify
+
+```sh
+npm run dev
+```
+
+Inicia um PostgreSQL de desenvolvimento isolado via Docker, cria um snapshot local antes de verificar/aplicar migrations, inicia Fastify em `127.0.0.1:${APP_PORT:-3109}` e o Next.js em `http://localhost:3100`. No Codespaces, encaminhe a porta `3100` para visualizar o frontend. Durante o desenvolvimento, o Next encaminha `/api/*`, `/overlay/api/*`, `/health` e `/callback` para o Fastify local e mapeia `/overlay.html` para a rota Next do overlay. A configuração dev permite `127.0.0.1` e o hostname exato do painel encaminhado pelo Codespaces em `allowedDevOrigins` do Next, e informa ao Fastify a origem HTTPS correspondente para validar a sessão local e o CSRF. Reinicie `npm run dev` depois de alterar a origem de desenvolvimento ou a configuração Next. Na primeira execução, o launcher cria `.env.product.local`, ignorado pelo Git, a partir de `.env.product.example`, sem substituir um arquivo existente. Deixe `DATABASE_URL` vazia para usar o banco gerenciado pelo launcher. Ele usa a porta host `55432`, bind somente em `127.0.0.1`, volume Docker `next_dev_postgres_data` dentro de um projeto Compose nomeado unicamente para a worktree e senha em `.local/dev-db/password`; o snapshot pré-migration fica em `.local/dev-db/backups/`. Esses dados são separados dos serviços e volumes de `compose.yaml`. Para parar o banco e preservar os dados, use `npm run dev:db:stop`; para subir apenas o banco, use `npm run dev:db:start`. Nunca use `docker compose down -v` nesse projeto dev, a menos que queira apagar manualmente os dados. O arquivo de env do produto é separado do `.env` e `.env.example` do AIOX. Se preencher `DATABASE_URL`, o launcher usa essa instância externa sem subir Docker nem executar migrations; use apenas um banco descartável de desenvolvimento. Defina `APP_PORT` e `FASTIFY_DEV_ORIGIN` juntos se a API usar outra porta (por exemplo, `3110` e `https://localhost:3110`). Em produção, o Fastify serve a exportação estática do Next; o proxy de desenvolvimento não faz parte dessa exportação. Use `npm run build:frontend` para gerar a exportação estática.
+
+```sh
+npm run dev:db:start
+npm run dev
+# depois de terminar de desenvolver:
+npm run dev:db:stop
+```
+
 ```sh
 npm run lint:api && npm run typecheck:api
 npm run lint:infra && npm run typecheck:infra
@@ -44,14 +59,15 @@ npm run lint:web && npm run typecheck:web
 npm test -- --run tests/unit/<arquivo-de-teste>.test.js
 ```
 
-`npm run build` constrói a imagem implantável do bot com Docker Compose. O app web vanilla é verificado diretamente e não tem etapa separada de bundler frontend. O [workflow CI do GitHub Actions](../../.github/workflows/ci.yml) roda em pull requests e chama os gates compartilhados de qualidade. A publicação de imagem da main e as releases com tag usam workflows separados; consulte o [guia CI/CD](CI-CD.md) para gatilhos, permissões, tags de imagem e recuperação.
+`npm run build` constrói a imagem implantável do bot com Docker Compose. `npm run build:frontend` constrói a exportação estática Next.js de forma independente. O [workflow CI do GitHub Actions](../../.github/workflows/ci.yml) roda em pull requests e chama os gates compartilhados de qualidade. A publicação de imagem da main e as releases com tag usam workflows separados; consulte o [guia CI/CD](CI-CD.md) para gatilhos, permissões, tags de imagem e recuperação.
 
 ## Estrutura do projeto
 
 ```text
 apps/api/    API Fastify, domínio, schema e migrations Prisma
 apps/infra/  Compose e scripts operacionais
-apps/web/    Painel estático e catálogos de localização
+apps/frontend/ App Router Next.js do painel e do overlay OBS
+apps/web/      Painel estático atual e catálogos (mantidos durante a migração)
 tests/       Testes unitários, integração e aceite de navegador
 docs/        Stories e guias específicos de usuário/desenvolvimento
 ```

@@ -5,6 +5,8 @@
 runtime-secrets
 .local
 node_modules
+**/.next
+apps/frontend/out
 coverage
 data
 backups
