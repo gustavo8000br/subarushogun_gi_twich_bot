@@ -22,5 +22,7 @@ describe('AIOX OpenGrep quality-gate contract', () => {
     expect(scannerTemplate).toContain('id: no-unsafe-html-sink');
     expect(scannerTemplate).not.toContain('auto_review:');
     expect(packageJson.scripts['review:static']).toContain('--error');
+    expect(packageJson.scripts['review:static']).toContain('--exclude=apps/frontend/.next');
+    expect(packageJson.scripts['review:static']).toContain('--exclude=apps/frontend/out');
   });
 });

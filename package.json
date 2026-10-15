@@ -12,10 +12,14 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "build": "docker compose build bot",
+    "dev": "node apps/frontend/scripts/dev-server.mjs",
+    "dev:db:start": "node apps/frontend/scripts/dev-database-command.mjs start",
+    "dev:db:stop": "node apps/frontend/scripts/dev-database-command.mjs stop",
     "sync:ide": "node .aiox-core/infrastructure/scripts/ide-sync/index.js sync",
     "sync:ide:check": "node .aiox-core/infrastructure/scripts/ide-sync/index.js validate --strict",
     "sync:skills:codex": "node .aiox-core/infrastructure/scripts/codex-skills-sync/index.js",
     "test:e2e:overlay": "node tests/e2e/overlay-browser.mjs",
+    "build:frontend": "next build apps/frontend && node apps/frontend/scripts/create-overlay-alias.mjs",
     "validate:version": "node apps/infra/scripts/validate-version.mjs",
     "validate:port-denylist": "node apps/infra/scripts/validate-port-denylist.mjs",
     "validate:localization": "node apps/infra/scripts/validate-localization.mjs",
@@ -30,7 +34,7 @@
     "typecheck:api": "tsc --noEmit -p tsconfig.api.json",
     "typecheck:infra": "tsc --noEmit -p tsconfig.infra.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
-    "review:static": "opengrep scan --config .opengrep/rules.yml --no-git-ignore --error apps"
+    "review:static": "opengrep scan --config .opengrep/rules.yml --no-git-ignore --error --exclude=apps/frontend/.next --exclude=apps/frontend/out apps"
   },
   "dependencies": {
     "@fastify/static": "10.1.5",
@@ -41,12 +45,20 @@
     "@twurple/eventsub-ws": "8.2.0",
     "fastify": "5.12.5",
     "js-yaml": "5.4.3",
-    "pg": "8.23.1"
+    "next": "16.4.1",
+    "pg": "8.23.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "24.13.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "eslint": "10.12.0",
+    "jsdom": "^30.1.2",
+    "playwright-core": "^1.64.1",
     "prisma": "6.19.3",
     "typescript": "7.0.2",
     "vitest": "5.0.3"

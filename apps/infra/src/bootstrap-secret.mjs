@@ -96,7 +96,9 @@ export async function ensureLocalTlsCertificate({ directory, exportDirectory, ac
     await chown(directory, 0, accessGid);
   }
   const exportedCertificatePath = join(exportDirectory, 'localhost-ca.crt');
-  await copyFile(paths.caCertificatePath, exportedCertificatePath);
-  await chmod(exportedCertificatePath, 0o644);
+  if (paths.caCertificatePath !== exportedCertificatePath) {
+    await copyFile(paths.caCertificatePath, exportedCertificatePath);
+    await chmod(exportedCertificatePath, 0o644);
+  }
   return { ...paths, exportedCertificatePath };
 }

@@ -1,0 +1,328 @@
+# OPS-15 — Refactor the local panel and OBS overlay into modular Next.js static frontend
+
+[Português brasileiro](../../pt-BR/stories/OPS-15/story.md)
+
+**Status:** In Progress — implementation authorized after planning gates. UX review: 9.5/10, findings closed. Architecture review: 9.5/10 PASS for planning; build/runtime evidence remains an implementation gate. Planning QA: 10/10 PASS.
+**Priority:** High — full browser-frontend migration.
+**Issue:** [#69](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/69), created by `$aiox-devops` before implementation.
+**Executor:** `$aiox-dev` after story and architecture approval.
+**Quality gates:** `$aiox-architect` reviews runtime/build boundaries and module structure; `$aiox-ux-design-expert` reviews visual and interaction parity; `$aiox-qa` independently validates the coverage matrix and implementation evidence. `$aiox-devops` reviews CI/container and rollback readiness.
+**Complexity:** Complex — cross-cutting frontend, localization, security, bundling, Docker, and OBS/CEF compatibility.
+**Planning QA:** Initial independent review returned CONCERNS, 7.5/10. After the story, architecture documentation and indexes were aligned, independent planning QA returned PASS, 10/10. This is not implementation QA.
+**Dependency status:** FND-9 implementation is merged, but its Ready for Review / owner acceptance remains pending. OPS-15 must preserve its existing behavior and cannot close or supersede FND-9 acceptance.
+
+## Story
+
+As a streamer operating the bot locally,
+I want all browser interfaces organized into a modular Next.js frontend,
+so that the panel and OBS overlay can grow through clear feature and component boundaries while preserving their current behavior and local security.
+
+## Scope and decisions
+
+- Refactor all existing browser-facing panel flows and the OBS overlay renderer. The migration is staged by user-visible surface; it is not a partial panel prototype.
+- Use Next.js App Router with `output: 'export'`. Fastify remains the local HTTPS server and serves the exported static assets from the same origin as the existing API. Do not add a Next.js production server, public hosting, a new public production port, or a production API proxy. The development command may start Fastify and Next together and use a dev-only loopback proxy.
+- Configure `trailingSlash: true`: panel routes use canonical slash URLs (`/queues/`) and export to `out/queues/index.html`, which Fastify serves through its `index.html` handling. The `/overlay/` App Router page exports to `out/overlay/index.html`; the static build copies that document to the literal `out/overlay.html` artifact. Fastify serves that exact file for `/overlay.html?ref=...#token`; no redirect, URL rewrite, or SPA fallback is used. Test generated asset URLs from both the nested panel documents and the overlay alias.
+- Preserve the exact pre-existing `GET /overlay.html?ref=...#token` URL and the current OBS capability contract. Panel and overlay are separate route/layout/bundle entries; the overlay must not download the operator-panel application bundle.
+- Keep the OAuth callback as an explicit dynamic Fastify route. The static frontend must not shadow `/callback`, `/api/*`, `/health`, or `/overlay/api/*` routes.
+- Owner direction (2026-10-15): because the panel/OBS surface is intended for this computer at `127.0.0.1`, evaluate removing the overlay URL bearer capability. Keep panel CSRF protection for mutations. The current overlay API still uses the capability; resolve the OPS-13/#57 architecture conflict and loopback security checks before changing that contract.
+- Use the reviewed feature-first structure: `app/`, `features/`, `components/ui/`, `lib/api/`, `lib/i18n/`, and `styles/`. Keep browser code in JavaScript ESM with JSDoc to preserve the current product requirement. Next's necessary build, transpilation, and bundling pipeline is the documented exception to the existing no-bundler constraint; it does not imply TypeScript adoption.
+- Keep `/api/localization/catalogs` as the runtime source of validated catalog bundles, including complete community catalogs installed after the frontend image was built. Use first-party catalogs from the image and a separate host-managed `.local/community-catalogs` directory mounted read-only into the bot (`${LOCAL_COMMUNITY_CATALOG_DIRECTORY:-./.local/community-catalogs}` -> `/app/.local/community-catalogs`, Compose long syntax with `type: bind`, `read_only: true`, and nested `bind.create_host_path: false`); merge and validate both roots for panel, setup, chat and overlay consumers. The unified installers create the directory, and the packaged Compose configuration must retain the mount. Panel/setup/chat observe a catalog on the next lookup; overlay catalog cache may delay observation by up to the existing five-second cache TTL. Read and update the persisted product locale through the existing local API. Do not replace runtime catalog discovery with build-time-only locale bundles or Next route-based i18n.
+- Follow the existing visual direction in [FND-6 UX research](../FND-6/ux-research.md), [OPS-6 UX research](../OPS-6/ux-research.md), and [FND-7 UX refinement](../FND-7/ux-refinement.md): dark local surfaces, restrained purple actions/focus, system fonts, readable operational labels, reusable control/state patterns, and the established overlay-editor preview. Do not introduce external fonts, scripts, images, or telemetry.
+- This is a presentation/build migration. It adds no domain rules and does not change backend API semantics, authorization, Twitch operations, queue lifecycle, finance/outbox behavior, or database schema.
+- The local-only branch `legacy` already points to baseline `845a58f` and is a fixed Git recovery pointer, not a runtime fallback. This story does not create a remote `legacy` branch. Keep the local pointer unchanged. Before production cutover, record a rollback rehearsal from that revision in an isolated Compose project without touching active product volumes.
+
+## Existing contracts to preserve
+
+- Fastify remains the only runtime HTTP server. Compose continues to publish the product only on loopback. Existing same-origin local session and API paths remain in place.
+- `apps/api/src/http/local-session.mjs` remains authoritative for Host/Origin, session-cookie, API-session, and CSRF protections. The development launcher may allow only the exact HTTPS Codespaces origin for the forwarded Next port; production and unrelated origins retain the localhost-only rule. Mutations keep current idempotency keys, expected revisions, route authorization, and request schemas.
+- The UI consumes allowlisted API projections. It does not import Prisma, duplicate domain transitions, contact Twitch directly, or expose raw exceptions, secrets, tokens, UIDs outside the current privacy policy, or untrusted HTML.
+- The existing bounded polling behavior and its focus/context handling remain in effect. This story does not introduce a panel WebSocket.
+- Existing overlay URLs, capability references and fragment-secret handling remain compatible. `GET /overlay.html`, overlay API paths, revocation, reload behavior, and current-account projection remain supported in OBS/CEF.
+
+## Screen/action/state/test parity matrix
+
+The matrix is the migration inventory. Before deleting the legacy frontend, developers must attach one or more test IDs to each row and record parity results. The implementation may split rows into smaller modules, but it must not omit them.
+
+| Surface | Existing actions and information | Existing endpoint(s) and locale/catalog | States covered | Required evidence |
+| --- | --- | --- | --- | --- |
+| Setup and Twitch connection | Exact callback guidance, credential entry/validation, save/replace, connect/reconnect, channel identity and eligibility; OAuth success/decline remains handled by Fastify callback | Capture actual existing setup/OAuth endpoints from Fastify route contracts; catalog keys/locales used by each view | First run, validating, invalid credentials, connecting, connected, ineligible/limited capability, disconnected, callback success/decline/error | Component/route contracts and browser tests; verify callback/session remain Fastify-owned. Endpoint/locale inventory is a required implementation artifact; add no endpoints |
+| Overview and runtime health | Product/API version, database/bot/chat/EventSub/reward health, last reconciliation, current account, queue summaries, unresolved operation summary and manual refresh | Capture existing health, overview and refresh endpoints from API route contracts; record locale/catalog keys | Loading, ready, degraded, partial, stale, unavailable, error | API projection contract and browser tests for every endpoint/locale mapping; verify refresh preserves focus and operator context |
+| Queue list and lifecycle | List/open queue details, create and configure queues, activate, pause, delete with current confirmation flow, and existing filters/actions | Capture existing queue list/detail/create/configure/lifecycle endpoints; record locale/catalog keys | Loading, empty, active/open, paused/closed, conversion/deletion pending, unknown/failed sync, stale data, error | Feature tests and route/browser contracts for every action; endpoint/locale map checked against current routes; no invented lifecycle state or domain rule |
+| Queue detail and attendance | Waiting/called/in-service/history groups; manual add, call/next, start, complete, remove, move/reorder, clear, call retry and existing attendance controls | Capture existing queue-entry and attendance action endpoints; record locale/catalog keys | Empty/waiting, called, acknowledged, in service, terminal/history, timeout, action pending, stale revision, forbidden action, error | Component/domain-contract tests plus browser tests for each action and current availability; endpoint/locale map checked against current routes; backend remains authoritative |
+| Twitch and points operations | Distinguish Twitch communication/synchronization from viewer point refunds and redemption fulfillment; inspect attempts/status and use existing retry, reconciliation or manual-resolution actions | Capture existing operation/reconciliation endpoints; record locale/catalog keys for communication versus viewer-points wording | Pending, confirmed, unknown, failed, conflict, retryable, reconciling, partial reconciliation | Contract and browser tests confirm labels, actions, endpoint/locale mapping and result states; no UI may infer remote confirmation |
+| Settings, account, commands and locale | Current/default account and reset; existing queue/product settings; permission editing; persisted product language; save/dirty-state behavior. Configurable command minimum role defaults to follower; streamer can change each configurable command threshold for everyone invoking it. Commands fixed to streamer/moderators remain locked and unchanged. | Capture existing settings, account, permissions and locale endpoints; record locale/catalog keys | Loaded, unchanged, dirty, saving, saved, conflict, invalid/unavailable catalog, error | Tests for exact PATCH payload/revision and endpoint mapping, persisted locale/catalog selection, follower default, fixed-role lock, permission change/reload, and reset display |
+| Widget management | Existing list/create/edit, source selection, styling, preview, one-time capability link copy, regenerate/revoke/delete | Capture existing widget and capability endpoints; record locale/catalog keys | Empty, loading, validation, saving, created, copied once, revoked, conflict, error | Form/service contracts and browser tests for every endpoint/locale mapping; preserve one-time-secret contract and current capabilities |
+| OBS overlay at `/overlay.html?ref=...#token` | Each existing widget source and presentation; current account, queue fields, fixed text, local widget styles, status/polling | Capture existing `/overlay/api/*` endpoints and per-source catalog keys; no panel session | Initial load, loading, no value/fallback, current/stale value, transient API failure/recovery, revoked/rotated capability, reload, unload | Dedicated overlay bundle tests and `tests/e2e/overlay-browser.mjs`; cover fragment removal, per-ref sessionStorage, bearer without panel session, 401/403/404 clearing, stale retention, unload/reload, revoke/rotate, eight sources and ten changes within existing 2-second FND-7 budget; verify no panel bundle and record native OBS/CEF evidence |
+| Shared dialogs, notices and navigation | Existing confirmation dialogs, form notices, operation feedback, page navigation, language switch, keyboard/focus behavior | Existing UI routes/actions only; map catalog keys/locales per shared component | Open/closed, submitting, cancellation, success, pending, failure, stale/conflict | Browser tests for keyboard operation, focus, accessible names/status, localized copy, safe text rendering and existing contrast criteria; preserve FND-7's WCAG AA target for the widget editor without expanding it globally |
+
+## Acceptance criteria
+
+1. **Complete migration and parity:** Every surface, action, and state in the parity matrix is implemented in the new frontend. Each matrix row links to named tests and an executed parity record. No legacy screen or overlay behavior is silently dropped. `$aiox-ux-design-expert` confirms the reviewed visual/interaction inventory is represented; this review does not substitute for QA.
+
+2. **Feature-oriented structure:** The code follows the reviewed boundaries under `app/`, `features/`, `components/ui/`, `lib/api/`, `lib/i18n/`, and `styles/`. Route/layout composition stays separate from feature behavior; API, localization, and shared UI logic are not duplicated per page. Browser source remains JavaScript ESM with JSDoc; JSX modules use an explicit TypeScript `jsx` checking configuration and ESLint JSX parser support. TypeScript application source is not introduced by this story.
+
+3. **Static export and exact server routes:** A production build emits only static assets with `trailingSlash: true`: each canonical panel route `/x/` exports to `out/x/index.html`, and the `/overlay/` page exports to `out/overlay/index.html`, copied postbuild to `out/overlay.html`. Fastify serves only `out/` with `index.html`, `redirect: false`, and no SPA fallback; direct refresh on `/x/` and `GET /overlay.html?ref=...` return the expected HTML with 200 and no `Location`. All assets referenced by the overlay alias load successfully. `/callback`, `/api/*`, `/health`, and `/overlay/api/*` reach existing Fastify handlers; an unknown API route does not return fallback HTML. Validate build and serving against a disposable PostgreSQL instance in isolated Compose. There is no Next server process, public deployment, new public port, cross-origin API, or reverse proxy.
+
+4. **Separate entry points and bundles:** The panel and overlay have separate layouts and browser entry bundles. A production-manifest/build check proves that loading `/overlay.html` does not load the operator-panel application bundle. The overlay bundle contains only the modules needed by OBS rendering and its existing API contract.
+
+5. **Runtime i18n parity:** The panel loads `/api/localization/catalogs` at runtime and accepts the complete validated locale set returned by Fastify. The backend merges first-party image catalogs with complete community catalogs under `.local/community-catalogs`, mounted read-only and installed after image build; panel, setup, chat and overlay discover the new locale without frontend rebuild or API restart. Overlay discovery is visible within the current five-second catalog cache TTL. Community catalogs are validated against first-party keys/placeholders; invalid files or collisions cannot replace valid first-party content. The Compose generated by each of the three installers retains the mount, and its host directory exists. The panel reads and changes persisted locale through the existing protected API and respects revision conflicts. English, Spanish, and pt-BR keys/placeholders/plurals are complete and safe; static text does not replace catalog-owned product copy with unlocalized literals.
+
+6. **Security/API parity:** Existing Host/Origin, HTTPS, session cookie, local-session initialization, CSRF, authorization, idempotency, and expected-revision behavior remain unchanged and covered by regression tests. The browser uses same-origin API calls and explicit API projections only. It does not call Twitch, import Prisma, weaken UID filtering, persist credentials in frontend state/storage, expose secrets, render untrusted HTML, or display raw exceptions.
+
+7. **Product behavior and visual parity:** Existing polling cadence/semantics, user flows, pending-versus-confirmed remote state, focus preservation, destructive confirmation steps, permission saves, queue/account updates, operation recovery, and widgets continue to behave according to the current approved backend contracts. Reuse the documented FND-6/OPS-6/FND-7 visual direction and preserve existing keyboard, focus and contrast behavior. FND-7's WCAG AA target remains in force for the widget editor controls and chrome; do not extend it to all panel surfaces or silently change a streamer-configured overlay output style. No new business/domain rule is introduced.
+
+8. **OBS/CEF compatibility:** The exact pre-existing `/overlay.html?ref=...#token` URL works without redirect/rewrite in browser E2E and native OBS/CEF. Tests cover fragment removal, per-ref `sessionStorage`, bearer capability without a panel session, clearing on 401/403/404, stale projection retention, unload/reload, revoke/rotate, eight simultaneous sources and ten changes within the existing FND-7 2-second budget. Preserve current-account refresh, fallback and supported widget rendering. Record platform and OBS/CEF versions. Do not claim unrun native runtime checks; pending owner/native acceptance prevents story completion.
+
+9. **Safe staged rollout and rollback:** Each migration phase passes focused tests before the next surface is cut over. The local-only `legacy` branch remains fixed at `845a58f` as a Git recovery pointer, not a runtime fallback; no remote branch is included in this story. Before deleting vanilla assets or changing production Docker static roots, rehearse a rollback build from that baseline in isolated Compose with the same local URL/API contract while leaving active DB/secrets volumes untouched. Document cutover/rollback commands and tested revision hashes.
+
+10. **TDD and project gates:** New/changed behavior is tested first; each phase records exact Red, Green, and Refactor commands/results. Final implementation passes `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm run review:static`, `npm run validate:localization`, `npm run validate:version`, `npm run validate:port-denylist`, `docker compose config --quiet`, and `git diff --check`; run additional browser/OBS checks from the matrix. `$aiox-qa` independently maps all AC to evidence and records the final score. No passing score or test is claimed before execution.
+
+11. **Documentation and story completion:** Update affected English/pt-BR frontend architecture, security/runtime constraints, story index, implementation File List, TDD evidence, and handoff in the same increment. Keep language versions semantically equivalent. Update README, integration guide, and the beta changelog only where the migrated workflow or product-facing instructions change. Do not mark Done while UX/architecture/QA gates or required OBS/CEF acceptance remain unresolved.
+12. **Legacy test audit after parity:** After every Next.js surface reaches behavioral parity, audit tests tied to the vanilla panel before cutover/removal. Preserve behavioral contracts; replace or remove assertions specific to legacy markup/implementation only after equivalent Next.js behavioral coverage passes. Record each test disposition and evidence in a bilingual audit artifact.
+13. **UX review before UI creation:** Before creating a new route, feature module, or shared UI component, record and approve its user task, hierarchy, relevant loading/empty/error/pending/confirmed/stale states, responsive and keyboard behavior, localized content, reusable primitives, and applicable accessibility criteria. The bilingual code audit records the initial **6/10** and browser review **10/10** for reviewed corrections/default-empty states at 390×844, 768×900, and 1440×900. Populated queue/settings and overlay states remain unreviewed in browser; this does not close the full OPS-15 UX gate.
+
+## Tasks / subtasks (TDD migration phases)
+
+- [ ] **0. Baseline and review gates**
+  - [x] `$aiox-architect` confirms the static-export serving layout, route precedence, Fastify static root, Docker build/copy boundaries, module boundaries, and the documented bundler exception (planning review PASS, 9.5/10).
+  - [x] `$aiox-ux-design-expert` validates the complete screen/action/state inventory and current design/interaction requirements before visual implementation (review 9.5/10; findings closed).
+  - [x] `$aiox-ux-design-expert` audits all current Next routes/modules/components before more page creation; findings and reusable pre-creation design gate are in bilingual `ux-code-audit.md` (initial score 6/10; browser re-review 10/10 for reviewed corrections/default-empty states; populated states remain unreviewed).
+  - [x] `$aiox-qa` reviews matrix testability and security/OBS failure scenarios independently (planning QA PASS, 10/10).
+- [x] Create issue #69 with the approved decisions, acceptance criteria, phases and planning scores before implementation.
+  - [x] Verify the local `legacy` pointer is exactly `845a58f0fbe3fbb7d78f9f56cf1ab24bec32b19a`; preserve it unchanged.
+  - [ ] Capture baseline outputs/screens and tests for every matrix row.
+- [ ] **1. Build/export and serving foundation**
+  - [x] Add failing static export/route/bundle/asset/Fastify precedence contracts and a Docker build-stage contract for the Next export.
+  - [x] Configure a minimal static Next build with separate panel/overlay entries and literal `out/overlay.html` alias while keeping legacy entrypoints available.
+  - [x] Build the production image and verify the static export is packaged; do not change the active Fastify web root.
+- [x] Add `npm run dev` orchestration for Fastify and Next, with API loopback binding, coordinated shutdown, an isolated development CA, and a separate Docker PostgreSQL project for local development.
+  - [ ] Verify runtime serving in isolated Compose with disposable PostgreSQL without changing active data volumes.
+- [ ] **2. Shared application shell, API client and i18n runtime**
+  - [x] Add test-first assertions for revision-checked locale persistence and loading the protected operator queue projection; invalid queue responses fail instead of appearing empty.
+  - [ ] Add browser/component tests for the full FND-6/OPS-6/FND-7 visual patterns and accessibility targets, plus persisted locale behavior through the runtime API.
+  - [x] Build the first local-first shell, accessible navigation state, runtime API client, catalog fallback/normalization, persisted language picker, and overview counts in the agreed feature folders.
+  - [ ] Add a complete community catalog under `.local/community-catalogs` after image build; prove `/api/localization/catalogs`, chat, setup and overlay discover it without frontend rebuild or API restart. Verify packaged Compose keeps the read-only mount, plus localized fallback/plurals/placeholders and no unsafe raw API content.
+- [ ] **3. Setup, overview and queue workflows**
+  - [ ] Migrate setup/reconnect, overview/health, queue list/detail and all current lifecycle/attendance actions in bounded slices.
+  - [x] Queue lifecycle slice: Next/call a viewer, start attendance, complete, remove, and resend a call using existing API contracts, with localized panel feedback.
+  - [ ] For each slice, record Red → Green → Refactor and matrix row/test references; retain Fastify as domain/API authority.
+  - [ ] Verify pending/unknown/conflict/deletion/confirmation states against existing route contracts and real persisted API fixtures where applicable.
+- [ ] **4. Recovery, settings, commands and widget management**
+  - [ ] Migrate Twitch/points operations, account/settings, permission editor, product locale and widget management with their current API contracts.
+  - [ ] Add regressions for dirty form detection, revision conflicts, save/reload, confirmation semantics, one-time capability display and safe retry/reconcile flows.
+  - [ ] Verify locale, permissions and queue/account state after fresh API reloads, not only optimistic component state.
+- [ ] **5. Dedicated OBS overlay entry**
+  - [ ] Migrate each overlay source/presentation into a separate layout and browser entry; preserve exact `/overlay.html` and capability URL/API contracts.
+  - [ ] Update and run overlay browser E2E for exact URL, fragment removal, per-ref storage, bearer capability without panel session, 401/403/404 clearing, stale retention, unload/reload, rotation/revocation, eight sources, ten changes within two seconds, current-account polling, fallbacks and panel-bundle exclusion.
+  - [ ] Record native OBS/CEF smoke or clearly leave owner/platform acceptance pending.
+- [ ] **6. Cutover, rollback and legacy removal**
+  - [ ] Run the full matrix and all gates before changing production static roots.
+  - [ ] Keep `legacy` fixed at `845a58f`; rehearse isolated rollback from that Git pointer without product volumes; verify exact local panel/overlay paths and API availability.
+  - [ ] After Next parity is complete and before cutover/removal, inventory legacy-panel tests, classify behavioral contracts versus vanilla implementation assertions, map each behavioral contract to passing Next coverage, and record keep/replace/remove decisions in the bilingual test-audit artifact. Do not remove behavioral coverage.
+  - [ ] Only after parity and QA pass, switch Fastify/Docker static assets to Next output and remove the obsolete vanilla shell/scripts while retaining shared/domain modules still consumed elsewhere.
+- [ ] **7. Documentation, QA and handoff**
+  - [ ] Update the bilingual architecture/runtime/security docs, parity evidence, indexes, file list, changelog (if user-facing behavior changed), and handoff.
+  - [ ] `$aiox-qa` independently validates security, route/export behavior, complete matrix coverage, i18n, bundle separation and browser evidence; record score and any unrun native acceptance separately.
+  - [ ] Do not mark Done until every mandatory AC and review is complete.
+
+## Dev notes
+
+- The existing UI currently uses static HTML/CSS/JavaScript served by `@fastify/static`, feature/helper ESM modules, TSV catalogs, and API-driven localization. Existing tests include DOM/contract coverage and `tests/e2e/overlay-browser.mjs`; preserve or replace their intent with equivalent behavior tests rather than simply deleting contracts tied to the old markup.
+- The static route mapping follows the official Next.js export model: with `trailingSlash: true`, `/x/` exports to `out/x/index.html`; the `/overlay/` document receives a postbuild literal alias at `out/overlay.html`. This alias and all referenced `/_next/` assets must be verified against the pinned Next.js version and the actual `@fastify/static` configuration before cutover.
+- `.local` is already mounted into the bot by Compose and created by the unified installers. Add a distinct long-syntax read-only bind (`type: bind`, source `${LOCAL_COMMUNITY_CATALOG_DIRECTORY:-./.local/community-catalogs}`, target `/app/.local/community-catalogs`, `read_only: true`, `bind: { create_host_path: false }`); have all three installers explicitly create the source folder. Do not make the entire `.local` mount read-only because the locale projection and certificate/bootstrap flow use it. Verify that `package-installer.mjs` retains the variable-based bind in all three generated installer Compose files and test the packaged config on Windows, macOS and Linux. The current overlay catalog cache TTL is five seconds; regression tests should confirm discovery within that bound without API restart.
+- Static export must be validated against the installed Next.js version and official documentation during implementation. Do not assume server components can perform request-time work, Next rewrites/proxy, server actions, or request-cookie access at runtime in the exported site.
+- The local `legacy` branch is already fixed at `845a58f`; preserve it solely as a Git recovery pointer. Do not commit migration changes to it, rewrite/move/delete it, or use it as a runtime fallback or with active DB/secret volumes.
+- Keep all React/Next route modules thin. Feature components consume typed-by-contract JSDoc API functions and present server responses; they do not recreate queue, finance, OAuth, or authorization decisions.
+- UI text, dates, number formatting, placeholders, and plurals are locale-sensitive. Technical identifiers and persisted state keys retain their existing canonical values.
+- Production-like serving/build tests use an isolated disposable PostgreSQL instance; never access active product volumes. No Twitch live point/reward operation is required or authorized by this presentation-only migration.
+
+## Testing plan
+
+- **Unit/component:** feature state and presentation, API client request construction/error mapping, i18n provider/fallback/plural/placeholders, safe text, confirmation and focus semantics.
+- **Contract/integration:** existing protected endpoints, Host/Origin/CSRF/session, idempotency/revision conflicts, local catalog discovery, locale persistence, page-route precedence, response projection safety, and Compose static-root wiring. Use existing test doubles for UI boundaries; no database guarantee is changed or inferred.
+- **Browser E2E:** first-run and reconnect, queue lifecycle/detail, permission edits/reload, operation states, widget lifecycle and `/overlay.html` behavior; verify route refresh and same-origin API calls.
+- **Build/artifact:** verify clean `next build` static output, route artifact map, asset URLs/cache behavior, independent panel/overlay entry bundles, production Docker inclusion, and explicit Fastify precedence for `/callback`, `/api/*`, `/health`, `/overlay/api/*`.
+- **Native runtime:** run documented OBS/CEF smoke on an available host and record exact platform versions. If unavailable, keep that criterion pending; do not substitute Chromium-only evidence.
+- **Required repository gates:** as in AC 10, plus targeted feature tests after each slice and `npm run test:e2e:overlay`.
+
+## Risks and mitigations
+
+| Risk | Mitigation/evidence |
+| --- | --- |
+| A big-bang rewrite loses behavior across many complex screens | Migrate in bounded feature slices; retain legacy until the full parity matrix and browser tests pass; remove it only at cutover. |
+| Static export route fallback intercepts Fastify API or OAuth requests | Explicit route ordering/contracts for `/callback`, `/api/*`, `/health`, and `/overlay/api/*`; production Compose integration check. |
+| Operator-panel JavaScript increases OBS startup/memory cost | Separate Next layout and entry bundle; assert overlay HTML references only overlay assets and test in OBS/CEF. |
+| Build-time i18n drops catalogs added after image build | Keep `/api/localization/catalogs` as runtime catalog source and test community locale discovery after static build. |
+| New component structure re-creates a monolith or duplicates domain decisions | Feature-first module boundaries, shared API/i18n/UI libraries, thin route composition, architect review and static analysis. |
+| Incomplete rollback can overwrite or lose persisted local data | Use local `legacy` branch as frontend-only reference; rehearse isolated build/route rollback and verify active DB/secrets volumes are untouched. |
+| Existing OBS URL, fragment, reload or capability semantics regress | Exact `/overlay.html` and capability contract tests; browser E2E; record native CEF acceptance separately. |
+| Community catalogs are only discovered after restart | Add a complete catalog after frontend build and verify the running `/api/localization/catalogs` route discovers it without rebuild or API restart. |
+
+## Documentation and file list
+
+### First implementation increment — TDD evidence
+
+- **Development server command:** Red: `npm test -- --run tests/unit/next-frontend-config.test.js` failed because the root `dev` script was absent. Green: added `npm run dev` to serve `apps/frontend` with Next hot reload on `0.0.0.0:3100`, separate from the default local Compose port; documented the command and Codespaces forwarding in both development guides. The owner started the preview on port 3100; `curl -I http://127.0.0.1:3100/` returned HTTP 200. A second start correctly reported `EADDRINUSE`; the owner's instance was left running.
+- **Combined local API/frontend development:** Added Fastify as a child process of `npm run dev`, bound to loopback (default port 3109), with coordinated shutdown alongside Next (3100). On first run it creates ignored `.env.product.local` from `.env.product.example` without overwriting user files. If `DATABASE_URL` is empty, it starts only the dedicated `compose.dev.yaml` PostgreSQL service under a worktree-specific Compose project, waits for health, writes a custom-format snapshot to `.local/dev-db/backups/`, and applies Prisma migrations; it then starts API and Next. The dev DB binds to `127.0.0.1:55432` by default and uses an isolated named volume plus a generated 0600 password at `.local/dev-db/password`; neither resources nor secrets overlap production `compose.yaml`. `npm run dev:db:start` and `npm run dev:db:stop` manage only that project, and stop preserves the volume. If `DATABASE_URL` is explicit, Docker provisioning and automatic migrations are skipped. The product env remains separate from AIOX `.env`/`.env.example`; TLS remains isolated under `.local/dev-tls`. Next's dev-only proxy targets Fastify. `createDatabaseUrl` retains the production Compose secret-file path and accepts `DATABASE_URL` for host development. RED: secret/isolation/snapshot-order tests failed before their implementation; GREEN focused DB/bootstrap tests passed 9/9; the combined focused group passed 16/16. A real isolated PostgreSQL boot applied all 13 migrations, and a second boot reported no pending migrations. `/health` returned `status=ok` with `database=connected`, and Next returned HTTP 200. Full suite excluding the static-export integration passed 117 files/1,020 tests; the export test was skipped while the active Next dev server owned `.next`. Lint, typecheck, Compose config and `git diff --check` passed. `.env` remains blank by design: the root env belongs to AIOX, and the runtime injects the managed DB URL from the local secret file.
+- **Static review:** Initial OpenGrep scanned generated `.next`/`out` artifacts because the gate disables Git ignore rules, producing 50 findings and timeouts in Next-generated code. Added explicit excludes for only those generated output directories, covered by `tests/unit/opengrep-quality-gate.test.js`; rerun analyzed 95 source files with 0 findings (121 generated files skipped).
+- **Current checks after dev command and scan-scope changes:** focused contracts passed 3/3; `npm run lint`, `npm run typecheck`, OpenGrep (95 files/0 findings), localization, version, port denylist (1,024 files/0 findings), Compose config and `git diff --check` passed. Full suite most recently passed 108 files/986 tests before these two additional assertions; it was not rerun to avoid touching `.next` while the owner's Next dev server is active. Implementation QA remains pending.
+- **Deferred legacy test audit:** per owner instruction, audit vanilla-panel tests only after Next behavioral parity is complete and before legacy cutover/removal. Preserve all behavioral checks until equivalent Next coverage passes. No legacy tests were removed or reclassified in this foundation increment.
+
+### Shared shell and data projection increment — TDD evidence
+
+- **RED → GREEN, locale persistence:** added `tests/unit/next-locale-persistence.test.js` first; the focused run failed because `persist-product-locale.mjs` did not exist. Implemented the helper and connected the provider. The Green run passed the expected `PATCH /api/localization/locale` payload with the currently persisted `expectedRevision`, no-op unchanged locale, and invalid revision rejection.
+- **RED → GREEN, queue projection and container inputs:** added protected snapshot/queue-summary contracts, then extended `tests/integration/compose-contract.test.js` for the frontend build inputs. The Compose build first failed because `frontend-build` lacked `apps/shared` and the first-party catalogs; after adding explicit copies, the focused contract passed and `docker compose build bot` completed with static panel/overlay routes.
+- **Queue data path:** Fastify's `GET /api/state` intentionally removes operator-only UID fields. The Next shell now initializes `/api/session`, then loads runtime catalogs, `/api/state`, and protected operator `GET /api/queues`. Tests reject malformed queue projections and verify queue/waiting/in-service summary rendering. Existing API route tests cover operator projection and UID filtering.
+- **Checks:** `npm test -- --exclude tests/integration/next-static-export.test.js` — 113 files / 1,002 tests passed; follow-up focused shell/snapshot tests passed 5/5. `npm run lint`, `npm run typecheck`, localization, version, port denylist (1,024 files / 0 findings), Compose config, OpenGrep (104 source files / 0 findings), Docker image build, and `git diff --check` passed. The owner's Next preview returned HTTP 200 and rendered localized shell/navigation. The static-export test is deferred while that live dev process owns `.next`; QA remains pending.
+- **Overlay capability direction:** owner prefers evaluating a token-free OBS URL under the strict `127.0.0.1` scope; no overlay API/security contract has changed. OPS-13/#57 remains the architecture gate before phase 5.
+- **Legacy test audit:** still deferred until all Next surfaces reach behavioral parity and before vanilla cutover/removal. No legacy tests were removed.
+
+- **RED — missing frontend:** `npm test -- --run tests/integration/next-static-export.test.js` — 1 failed because Next/React and the static build script were absent.
+- **RED — missing Docker integration:** `npm test -- --run tests/integration/compose-contract.test.js -t 'builds the Next static export'` — 1 failed because no dedicated frontend build stage or exported artifact copy existed.
+- **RED — bundle separation:** after the first static scaffold, the export test failed because server-only route entries emitted the same scripts; separate client entry components were required.
+- **GREEN:** `npm test -- --run tests/integration/next-static-export.test.js tests/integration/compose-contract.test.js` — 12 passed, including export paths, exact overlay alias, route-specific client chunks, root-relative assets, Fastify route precedence and Docker stage contract.
+- **Static checks:** focused ESLint and `npm run typecheck:web` passed.
+- **Image build:** `docker compose build bot` passed with Next.js 16.4.1 on the existing Node 24 Alpine build, and the built image contained matching `overlay/index.html` and `overlay.html` files plus exported client assets. Runtime still serves the legacy root; production Compose route acceptance remains open.
+- **Scope:** planning QA remains 10/10; implementation has not yet received independent QA. No active service or product volume was started or changed.
+
+### Dedicated Next overlay entry increment — TDD evidence
+
+- **RED → GREEN, overlay document:** added `tests/unit/next-overlay-root.test.js` first; it failed because the Next route rendered only a placeholder heading. Replaced it with the existing overlay DOM/accessibility contract and mounted the established read-only renderer from a client effect, including immediate polling and cleanup on page hide/unmount.
+- **Capability and runtime behavior:** kept the existing `/overlay.html?ref=…#token` behavior and `/overlay/api/widget` request, including fragment removal, per-reference session storage, bearer header, no-referrer policy, revocation clearing, stale-value handling, and polling. The renderer/API security contract was not changed; the #57 architecture discussion remains open. OBS native CEF acceptance is still pending.
+- **RED → GREEN, production build input:** the isolated Docker build exposed that the frontend stage did not copy `apps/web/overlay-renderer.mjs`. Added a failing Compose contract for that explicit input, then copied the module into the frontend build stage; the contract and `docker compose build bot` passed, producing static `/overlay/` and `/overlay.html` output.
+- **Checks:** overlay root + renderer tests passed 14/14; the focused Compose build-input contract passed 1/1; `npm run lint` and `npm run typecheck` passed. `npm test -- --exclude tests/integration/next-static-export.test.js` passed 113 files / 1,002 tests. The isolated Docker image build passed. Inspection of its exported pages confirmed one route-specific entry chunk each: the overlay chunk contains `/overlay/api/widget` and no panel-shell marker. The host static-export test was attempted while the owner's dev server was active and failed to locate the panel chunk; the preview still returned HTTP 200. OBS/CEF browser E2E was not run. Do not rerun that host build while it shares `.next`; revalidate static export in isolation.
+- **QA:** planning QA remains 10/10. Independent implementation QA is pending; no implementation score is claimed.
+
+### Codespaces data loading and queue lifecycle increment — TDD evidence
+
+- **RED → GREEN, forwarded origin and Next dev host:** an HTTP probe without `Origin` returned 200 through Next, while a browser-like probe with the forwarded HTTPS origin returned 403 `Origem inválida.`. The Codespaces host was also blocked by Next before client hydration. Regression tests were added first; `npm run dev` now passes the exact forwarded origin to Fastify only in development, and `allowedDevOrigins` permits `127.0.0.1` plus the exact forwarded panel hostname. The session middleware accepts only the configured forwarded origin and rejects a different one; production has no dev-origin exception.
+- **RED → GREEN, queue lifecycle controls:** added API contract tests for activation/pause, pending Twitch acknowledgement and refreshed queue projection before implementation. The Next queue page now uses the existing `getQueueActionState` domain helper, disables actions when queue state is unresolved, refreshes `/api/queues` after the request, and displays pending separately from confirmed. New labels are localized in English, Spanish and pt-BR.
+- **Build boundary:** the Compose build caught that the new shared queue-action helper was not copied into the isolated Next build stage. Added the explicit Dockerfile copy; the isolated Compose runtime/build now passes 3/3.
+- **Current runtime evidence:** the owner's latest screenshot shows the Next panel loaded, database connected, and zero queues in the isolated local development database. This database has no data from the Windows installation. Earlier source-level probes of `/api/session`, catalogs, `/api/state`, and `/api/queues` returned 200 with a manually supplied session cookie; forwarded-browser acceptance remains to be reconfirmed after refreshing the current `npm run dev` instance.
+- **RED → GREEN, extension-injected hydration attributes:** the reported React mismatch showed `data-qb-installed` and `suppresshydrationwarning` added only to the server-rendered root `<html>`, with no matching source in the application. Added a regression test for both Next root layouts, then set React's `suppressHydrationWarning` only on those root elements. The test passed; browser-console confirmation after the owner's dev-server refresh remains pending.
+- **RED → GREEN, unresolved queue sync status:** independent review found that the API can return statuses such as `close_unknown` when the requested local state already matches. Added a regression that failed while the client accepted that arbitrary status; `requestQueueOpenState` now accepts only `confirmed` and `pending`, routing unknown/failed states through the existing failure feedback. Scoped QA re-review scored **9/10 CONCERNS** with this issue resolved; browser refresh/console confirmation remains pending.
+- **RED → GREEN, queue attendance actions:** added tests first for Next, selected call, attend, complete, remove, resend, and mismatched API results. The new queue action adapter maps only to the existing Fastify routes and verifies response status before the UI refreshes the protected queue projection. The Next queue page now exposes these actions by entry status and renders localized feedback; it keeps deletion-pending and archived queues non-mutating. Focused suite passed 18/18.
+- **Checks:** the latest suite excluding the host static-export test (which shares `.next` with the owner's running Next server) passed 121 files / 1,041 tests. The isolated Compose runtime suite passed 3/3 and built the production static export. `npm run lint`, `npm run typecheck`, OpenGrep 1.30.0 (117 files / 0 findings), localization, version, port-denylist and `git diff --check` passed. The scoped hydration/status review is 9/10 CONCERNS; independent QA of the newly added entry-action slice is pending. Planning QA remains 10/10.
+
+### Queue action feedback and accessibility follow-up — TDD evidence
+
+- **RED:** Added queue-list regressions for the complete shared sync-status vocabulary, disabling `Next` when no viewers wait, and viewer-specific accessible names. Added action-feedback regressions for an API `count: 0` result. The focused run failed 5 assertions; a catalog-runtime regression then exposed that `translatePanel` did not pass the documented placeholder allowlist and failed separately.
+- **GREEN:** The list now uses the existing `queueSyncTranslationKey` mapping, disables `Next` for an empty waiting group, and gives call/attend/complete/resend/remove controls localized viewer-specific accessible names. `translatePanel` now uses the canonical placeholder allowlist; count zero shows localized queue-empty feedback instead of the success message. The focused queue/catalog suite passed **19/19**, and localization validation passed in English, Spanish and pt-BR.
+- **Build boundary RED → GREEN:** The first production build failed because the isolated Docker frontend stage lacked `apps/web/panel-catalog.mjs` and `apps/web/queue-sync-status.mjs`. Added failing Compose-contract assertions, copied both explicit shared modules into the frontend build stage, and the targeted Compose contract passed **1/1**. The subsequent full-suite/build result is recorded in the active handoff after completion.
+- **Files:** `apps/frontend/features/queues/queue-list.jsx`, `queue-entry-actions.mjs`, `apps/frontend/features/panel-shell/panel-provider.jsx`, `apps/frontend/lib/i18n/panel-catalogs.mjs`, `apps/web/panel-catalog.mjs`, `apps/web/queue-sync-status.mjs`, `apps/shared/localization/discover-catalog-module.mjs`, Dockerfile, all three panel catalogs, and `tests/unit/next-queue-list.test.js`, `next-queue-entry-actions.test.js`, `next-panel-catalogs.test.js`, `tests/integration/compose-contract.test.js`.
+- **QA:** Independent re-review is in progress. The previous 8/10 concerns score applies to the pre-fix slice; no new score is claimed yet.
+
+### Accepted mutation with stale queue projection — TDD evidence
+
+- **RED:** Independent QA found that a successful entry-action POST and failed `/api/queues` refresh shared one `try/catch`, so a committed transition (including completion/fulfillment intent) was reported as failed. Added regressions for retained mutation outcome, stale-projection feedback, and a `call-next` result exceeding the requested count of one; 3 targeted assertions failed before the fix.
+- **GREEN:** Mutation and projection outcomes are now handled separately. An accepted mutation with a failed refresh retains its result and displays localized warning feedback telling the operator to reload; a `count: 0` no-op keeps its empty-queue information. `call-next` accepts only `count` 0 or 1. The focused queue tests passed **19/19** and localization validation passed in all three locales.
+- **QA:** A new independent review of this corrective diff is pending; the preceding score **8.5/10 CONCERNS** applies to the code before this correction.
+
+### Manual queue admission in Next — TDD evidence
+
+- **RED:** Added regressions for the existing manual-entry POST contract, invalid login rejection without a request, accepted creation retained after a failed queue refresh, saved feedback, form validation/audited priority inputs, and hiding controls for deleting/archived queues. The first focused run had **3 failures** because the adapter lacked manual admission and its success feedback.
+- **GREEN:** Added a validated `add-manual` adapter using `POST /api/queues/:queueId/manual-entries`, localized outcome feedback, refresh-preserving mutation handling, and an accessible collapsible form wired to the provider. Login, optional nine-digit UID, priority checkbox, and benefit category follow the existing vanilla/API contract; no API or domain behavior changed. Focused tests passed **36/36**.
+- **QA correction:** Independent review found that mapping HTTP 404/409 to viewer-specific messages could misstate queue or authorization failures. Those statuses now use neutral localized feedback; exact catalog copy is asserted for English, Spanish, and pt-BR. Independent QA re-review scored the manual-admission slice **10/10 PASS**. This is not an overall OPS-15 score; browser confirmation remains pending.
+- **Generated-test race:** The full suite exposed a race between the AIOX static source walker and static-export integration over generated `.next/lock`. The walker now excludes `.next` and `out`, with a regression test covering both directories.
+- **Checks:** Full suite passed **122 files / 1,065 tests**; lint, typecheck, localization, version, port denylist, OpenGrep (117 source files / 0 findings), Compose config, `git diff --check`, and Docker image build passed.
+
+### UX code-audit corrections — TDD evidence
+
+- **Review:** Uma audited current Next panel/overlay routes, features, shared shell, API/i18n helpers and styles against FND-6, OPS-6, FND-7 and OPS-15. Initial static UX score **6/10**. Browser re-review scored **10/10** for reviewed corrections and default/empty states at 390×844, 768×900, and 1440×900; populated queue/settings and overlay states remain outside that score. See bilingual `ux-code-audit.md`.
+- **Changes:** Removed nested `main` landmarks and added a localized skip link; grouped New Queue fields, explained entry modes and optional limits, suggested an editable chat command from the title, and added cancel/nearby outcome feedback; grouped queue settings and surfaced unsaved/no-change state; increased live queue text/targets; made overview next action depend on current queue data.
+- **Validation:** Browser re-review found no axe WCAG 2.1 A/AA violations across four routes, horizontal overflow, page errors, missing titles, or duplicate main landmarks; keyboard skip-link/focus behavior passed. Focused shell/overlay/New Queue tests passed **8/8**; independent QA scored the final correction slice **10/10 PASS**. The suite excluding the static-export integration passed **125 files / 1,101 tests**. Lint, typecheck, localization, version, port denylist and diff check passed. Populated states and full OPS-15 parity remain pending.
+- **Files:** bilingual OPS-15 UX audit, OPS-15 story/handoff in both languages, Next panel route wrappers/shell, New Queue and queue settings forms, panel styles, all three panel catalogs, associated unit tests, and queue settings input validation.
+
+### Operations route — TDD evidence
+
+- **UX gate:** Before implementation, the bilingual screen model recorded Uma's approved hierarchy and states for Twitch synchronization, viewer Channel Points refunds, and redemption fulfillment. It also specified responsive/keyboard behavior, truthful unknown status, and explicit confirmations for manual resolution and continued reward deletion.
+- **RED → GREEN:** Added operation-domain and page tests first for projection validation, action eligibility, unknown-versus-confirmed status, manual-resolution result validation, retry-pending semantics, refresh failure after an accepted mutation, confirmation cancellation/acceptance, empty state, and navigation. Focused coverage is **16/16**.
+- **Implementation:** Added `/operations/` using existing `/api/operations`, `/retry`, and `/resolve-unknown` contracts. The view groups operations by meaning, displays safe identifiers/status/attempt count, localizes user-facing copy in English, Spanish, and pt-BR, polls only while visible, and retains loaded rows if refresh fails. Uncertain/destructive actions require a localized native dialog; manual resolution explicitly states that it is not Twitch confirmation. Static-export/Fastify route coverage includes `/operations/`.
+- **Review and checks:** UX browser re-review scored **10/10** for Operations, mobile shell, dialogs, and mocked populated states at 390×844/768×900/1440×900; axe found zero A/AA violations and all API paths were intercepted/aborted. Independent QA scored the slice **10/10 PASS**, no remaining findings. Focused tests passed **87/87** locally; the suite excluding the host static-export test passed **127 files / 1,121 tests**. The static-export integration passed **1/1** in an isolated copy and verified `/operations/` export/serving. `docker compose build bot`, `npm run lint`, `npm run typecheck`, localization/version/port-denylist validation, dev Compose config, OpenGrep 1.30.0 (126 files/0 findings), and `git diff --check` passed. No Twitch mutations or database seeding were performed. These scores and checks cover the Operations increment only; overall OPS-15 parity and required OBS/CEF acceptance remain open.
+- **Files:** `apps/frontend/app/(panel)/operations/page.jsx`, `apps/frontend/features/operations/{operations.mjs,operations-page-content.jsx}`, panel navigation/styles, three panel catalogs, `tests/unit/next-operations.test.js`, `tests/unit/next-operations-page.test.jsx`, `tests/unit/next-panel-shell.test.js`, `tests/integration/next-static-export.test.js`, and bilingual screen-model documentation.
+
+### File list — UX audit increment
+
+- `docs/stories/OPS-15/ux-code-audit.md` and `docs/pt-BR/stories/OPS-15/ux-code-audit.md`
+- `apps/frontend/app/(panel)/{page,queues/page,new-queue/page}.jsx`
+- `apps/frontend/features/panel-shell/panel-shell.jsx`
+- `apps/frontend/features/queues/{new-queue-form,queue-settings-form,queue-settings}.mjs`
+- `apps/frontend/styles/panel.css`
+- `apps/web/localization/catalogs/panel/{en,es,pt-BR}.tsv`
+- `tests/unit/next-queue-creation-form.test.js` and `tests/unit/next-panel-shell.test.js`
+- OPS-15 story and session handoff in English and pt-BR
+- `apps/frontend/app/(overlay)/overlay/page.jsx`, `apps/frontend/features/panel-shell/panel-shell.jsx`, and `tests/unit/next-overlay-root.test.js` — remove the duplicate overlay landmark and cover the single-main contract
+- Bilingual OPS-15 UX audit — browser findings, corrections, score, and review limits
+
+### Planning draft files
+
+- [x] `docs/stories/OPS-15/story.md`
+- [x] `docs/pt-BR/stories/OPS-15/story.md`
+- [x] `docs/stories.md`
+- [x] `docs/pt-BR/stories.md`
+- [x] `package.json` and `package-lock.json` — pinned Next.js/React dependencies and static frontend build command
+- [x] `docs/DEVELOPMENT.md` and `docs/pt-BR/DESENVOLVIMENTO.md` — document the Next dev server and static frontend build
+- [x] `next.config.mjs`, App Router roots/pages and alias script under `apps/frontend/`
+- [x] `Dockerfile` and `.dockerignore` — static frontend build/package stage, without production root cutover
+- [x] `tsconfig.web.json`, `eslint.config.js`, `.gitignore` — JSX validation and generated output boundaries
+- [x] `tests/integration/next-static-export.test.js`
+- [x] `tests/unit/next-frontend-config.test.js`
+- [x] `apps/frontend/scripts/dev-server.mjs`, `dev-env.mjs`, `dev-runtime-config.mjs`, and `tests/unit/next-dev-env.test.js`, `next-dev-runtime-config.test.js`, `next-dev-proxy.test.js`
+- [x] `apps/frontend/scripts/dev-database.mjs`, `dev-database-command.mjs`, `compose.dev.yaml`, and unit coverage for isolated DB lifecycle, secret permissions, and snapshot-before-migrate ordering
+- [x] `apps/infra/src/bootstrap-secret.mjs` and `tests/unit/bootstrap-secret.test.js` — handle the local CA export when source and export directory are the same
+- [x] `.env.product.example`; runtime creates ignored `.env.product.local` without touching AIOX `.env` files
+- [x] `tests/integration/compose-contract.test.js`
+- [x] `apps/frontend/lib/api/client.mjs`, `apps/frontend/lib/i18n/{panel-catalogs,persist-product-locale}.mjs`
+- [x] `apps/frontend/features/panel-shell/`, `apps/frontend/features/overview/`, `apps/frontend/components/ui/language-picker.jsx`, and `apps/frontend/styles/panel.css`
+- [x] `apps/frontend/app/(overlay)/overlay/overlay-root.jsx`, `apps/frontend/styles/overlay.css`, and the separate overlay layout
+- [x] `tests/unit/next-api-client.test.js`, `next-locale-persistence.test.js`, `next-panel-catalogs.test.js`, `next-panel-shell.test.js`, and `next-panel-snapshot.test.js`
+- [x] `tests/unit/next-overlay-root.test.js`
+- [x] `apps/api/src/http/local-session.mjs`, `apps/api/src/server.mjs`, and `apps/frontend/scripts/dev-runtime-config.mjs` — allow only the exact Codespaces forwarded origin in the dev launcher
+- [x] `apps/frontend/scripts/next-runtime-config.mjs` — avoid API redirects in development while preserving production static-export routes
+- [x] `apps/frontend/features/queues/queue-lifecycle.mjs`, `queue-list.jsx`, and `queues-page-content.jsx` — Activate/Pause controls and truthful pending/confirmed feedback
+- [x] `tests/unit/local-session.test.js`, `next-dev-runtime-config.test.js`, `next-runtime-config.test.js`, `next-queue-lifecycle.test.js`, and `next-queue-list.test.js`
+- [x] `apps/frontend/app/(panel)/layout.jsx`, `apps/frontend/app/(overlay)/layout.jsx`, and `tests/unit/next-root-layout-hydration.test.js` — suppress root HTML hydration warnings caused by browser-injected attributes
+- [x] `apps/frontend/features/queues/queue-entry-actions.mjs`, queue list/provider wiring, and `tests/unit/next-queue-entry-actions.test.js` — Next queue attendance lifecycle actions through existing API contracts
+- [x] `apps/web/queue-sync-status.mjs`, `queue-list.jsx`, localized viewer-specific aria labels, empty-queue call feedback, and allowlisted Next catalog interpolation; covered by `next-queue-list.test.js`, `next-queue-entry-actions.test.js`, `next-panel-catalogs.test.js`, and localization validation
+- [x] Dockerfile includes the shared catalog validator and first-party catalogs in the static build stage.
+- [x] Dockerfile explicitly copies `apps/web/queue-action-state.mjs` into the isolated frontend build stage.
+- [x] Dockerfile explicitly copies `apps/web/overlay-renderer.mjs` into the isolated frontend build stage.
+- [x] Dockerfile explicitly copies `apps/web/panel-catalog.mjs` and `apps/web/queue-sync-status.mjs` into the isolated frontend build stage.
+- [x] `docs/front-end-architecture/{files-and-modules,runtime-and-boundaries,verification}.md` and pt-BR equivalents
+- [x] `docs/session-handoff.md` and `docs/pt-BR/session-handoff.md`
+
+### Expected implementation documentation (update only where affected)
+
+- [x] `docs/front-end-architecture.md` and `docs/pt-BR/front-end-architecture.md`
+- [x] `docs/front-end-architecture/runtime-and-boundaries.md` and `docs/pt-BR/front-end-architecture/runtime-and-boundaries.md`
+- [x] `docs/front-end-architecture/files-and-modules.md` and `docs/pt-BR/front-end-architecture/files-and-modules.md`
+- [x] `docs/front-end-architecture/screen-model.md` and `docs/pt-BR/front-end-architecture/screen-model.md`
+- [x] `docs/front-end-architecture/privacy-and-state.md` and `docs/pt-BR/front-end-architecture/privacy-and-state.md`
+- [x] `docs/front-end-architecture/verification.md` and `docs/pt-BR/front-end-architecture/verification.md`
+- [x] `docs/fullstack-architecture/architecture-constraints.md` and `docs/pt-BR/fullstack-architecture/architecture-constraints.md`
+- [x] `docs/fullstack-architecture/runtime-topology.md` and `docs/pt-BR/fullstack-architecture/runtime-topology.md`
+- [x] `docs/prd/non-goals.md` and `docs/pt-BR/prd/non-goals.md`
+- [x] `docs/prd.md` and `docs/pt-BR/prd.md`
+- [x] `docs/prd/functional-requirements.md` and `docs/pt-BR/prd/functional-requirements.md`
+- [x] `docs/framework/tech-stack.md` and `docs/pt-BR/framework/tech-stack.md`
+- [x] `docs/stories/FND-0/spec/spec.md` and `docs/pt-BR/stories/FND-0/spec/spec.md`; corresponding `requirements.json` constraints
+- [x] `docs/stories/FND-8/story.md`, `spec/spec.md`, `spec/requirements.json` and pt-BR equivalents
+- [x] `docs/session-handoff.md` and `docs/pt-BR/session-handoff.md`
+- [ ] Bilingual legacy-test audit artifact, to be completed after Next parity and before cutover
+- [ ] User documentation and stage changelog pairs only if their setup/operation instructions change.
+
+## Change log
+
+| Date | Change | Author |
+| --- | --- | --- |
+| 2026-10-14 | Drafted OPS-15 from the reviewed UX inventory and approved local static-export direction; issue creation, architecture review, UX sign-off, QA review, and implementation remain pending. | `$aiox-sm` |
+| 2026-10-14 | Added concrete Next export/Fastify route mapping, runtime community catalog mount/merge and latency bound, linked existing visual direction, clarified FND-7 WCAG AA scope, and recorded specialist planning reviews. | `$aiox-master` |
+| 2026-10-14 | Closed planning reviews: UX 9.5/10, architecture PASS 9.5/10, independent planning QA PASS 10/10. OPS-15 remains Draft pending its DevOps/GitHub issue workflow; implementation has not started. | AIOX specialists |
+| 2026-10-14 | Created GitHub issue #69 with the approved scope and acceptance criteria before implementation; owner authorized work after planning review. Reviewed related issues #57, #65 and completed baseline #7; none was closed or marked obsolete by the migration. | `$aiox-devops` / `$aiox-master` |
+| 2026-10-14 | Implemented the Next static export foundation, separate route client bundles, literal overlay alias and Docker packaging. TDD focused tests and image build passed. Added an architecture gate for the unresolved capability-free projection versus existing capability URL conflict in #57. | `$aiox-dev` / `$aiox-master` |
+| 2026-10-14 | Added the owner-requested legacy-test audit as an OPS-15 acceptance/task gate: execute after Next parity and before cutover, retain behavioral contracts until equivalent Next coverage passes, and record bilingual evidence. | `$aiox-master` |
+| 2026-10-15 | Added `npm run dev` for the Next.js App Router on port 3100, with a test-first script contract and bilingual Codespaces/development guidance. | `$aiox-dev` / `$aiox-master` |
+| 2026-10-15 | Excluded generated Next `.next`/`out` artifacts from OpenGrep after the scan hit framework-generated false positives; source scan is 0 findings. Verified the owner-started dev preview returns HTTP 200 and preserved its running instance. | `$aiox-dev` / `$aiox-master` |
+| 2026-10-15 | Extended `npm run dev` to start Fastify and Next together. Isolated product env as `.env.product.local` after identifying that root `.env` belongs to AIOX; generated product env template and ensured no existing local env is overwritten. | `$aiox-dev` / `$aiox-master` |
+| 2026-10-15 | Corrected queue-action review findings and migrated manual admission into Next, including operator-verified priority and neutral localized failure feedback. Full suite passed 122 files / 1,065 tests; lint, typecheck, static analysis and Docker image build passed. Independent QA scored attendance/actions and manual admission 10/10 PASS in separate scopes; overall OPS-15 parity and browser acceptance remain pending. | `$aiox-dev` / `$aiox-master` |
+| 2026-10-15 | Added the UX-approved Next Operations route with separate Twitch, viewer-points refund, and redemption-fulfillment groups; explicit uncertainty/confirmation copy; localized states/actions; and test-first operation/route coverage. Review scores and full-suite result will be recorded in the active handoff when available. | `$aiox-dev` / `$aiox-master` |

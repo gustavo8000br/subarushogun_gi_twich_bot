@@ -4,6 +4,12 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('runtime database URL construction', () => {
+  it('uses an explicit DATABASE_URL for host development without reading a container secret', async () => {
+    const { createDatabaseUrl } = await import('../../apps/infra/src/database-url.mjs');
+    await expect(createDatabaseUrl({ env: { DATABASE_URL: 'postgresql://dev:dev@127.0.0.1:55432/queuebot' } }))
+      .resolves.toBe('postgresql://dev:dev@127.0.0.1:55432/queuebot');
+  });
+
   it('reads the local secret and percent-encodes credentials without logging them', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'aiox-db-url-'));
     try {

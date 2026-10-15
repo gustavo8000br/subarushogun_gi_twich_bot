@@ -63,6 +63,16 @@ function queueDto(queue, { operator = false } = {}) {
   };
 }
 
+function operationDto(operation) {
+  return {
+    id: operation.id, type: operation.operationType, redemptionId: operation.redemptionId,
+    ...(operation.operationType.startsWith('reward.') ? { entityId: operation.entityId } : {}),
+    ...(operation.requiresDeleteConfirmation === true ? { requiresDeleteConfirmation: true } : {}),
+    status: operation.status, attempts: operation.attempts,
+    nextAttemptAt: operation.nextAttemptAt ?? null,
+  };
+}
+
 function setupDto(value, publicBaseUrl) {
   const source = value ?? {};
   const eligibility = source.eligibility && typeof source.eligibility === 'object' ? {
@@ -142,7 +152,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
         twitch_chat: integrations.chatStatus ?? 'not_configured', twitch_rewards: integrations.rewardStatus ?? 'unknown',
       },
       queues: (await repository.listQueueProjection?.() ?? []).map((queue) => queueDto(queue)),
-      pending_operations: await repository.listFinancialOperations?.() ?? [],
+      pending_operations: (await repository.listFinancialOperations?.() ?? []).map(operationDto),
     };
   });
   app.get('/api/command-catalog', async (_request, reply) => {
@@ -231,12 +241,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       return reply.code(503).send({ error: 'Não foi possível salvar as permissões dos comandos.' });
     }
   });
-  app.get('/api/operations', async () => (await repository.listFinancialOperations?.() ?? []).map((operation) => ({
-    id: operation.id, type: operation.operationType, redemptionId: operation.redemptionId,
-    ...(operation.operationType.startsWith('reward.') ? { entityId: operation.entityId } : {}),
-    status: operation.status, attempts: operation.attempts,
-    nextAttemptAt: operation.nextAttemptAt ?? null,
-  })));
+  app.get('/api/operations', async () => (await repository.listFinancialOperations?.() ?? []).map(operationDto));
   app.post('/api/operations/:operationId/retry', async (request, reply) => {
     const result = await repository.retryOutboxManually(/** @type {any} */ (request.params).operationId);
     if (!result.count) return reply.code(409).send({ error: 'Esta operação não está disponível para nova tentativa manual.' });

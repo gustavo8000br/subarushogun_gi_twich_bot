@@ -84,4 +84,11 @@ describe('local operational secret bootstrap', () => {
     expect(await readFile(second.certificatePath, 'utf8')).toBe(certificate);
     expect(await readFile(second.privateKeyPath, 'utf8')).toBe(privateKey);
   });
+
+  it('supports using the same directory for the private CA and public CA export', async () => {
+    const directory = await createSecretsDir();
+    const result = await bootstrap.ensureLocalTlsCertificate({ directory, exportDirectory: directory });
+    expect(result.exportedCertificatePath).toBe(result.caCertificatePath);
+    expect(await readFile(result.exportedCertificatePath, 'utf8')).toContain('BEGIN CERTIFICATE');
+  });
 });

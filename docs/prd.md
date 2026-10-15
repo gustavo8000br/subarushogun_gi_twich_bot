@@ -26,7 +26,7 @@ An operator can configure and run multiple Twitch channel-points queues for one 
 | FR-8 | Receive redemption/chat events with EventSub WebSocket, send via Helix, deduplicate, and reconcile after startup/reconnect/interval/operator request. | P0 |
 | FR-9 | Parse Portuguese commands independently from execution/authorization and enforce channel, role, identity, syntax, cooldown, and response limits. | P0 |
 | FR-10 | Provide list/position/leave/add/remove/next/start/complete/move/open/close/archive/clear/account operations, notifications, and no-show timers per policy. | P0 |
-| FR-11 | Provide a local vanilla UI and protected Fastify API with installation, health, queues, entries, finance, reconciliation, account settings, and explicit state projection. | P1 |
+| FR-11 | Provide a local static operator UI and protected Fastify API with installation, health, queues, entries, points operations, reconciliation, account settings, and explicit state projection; OPS-15 specifies Next.js static export. | P1 |
 | FR-12 | Persist current/default account labels and switch ownership; only a single-person automatic call may set ownership. | P1 |
 | FR-13 | Expose complete runtime product version separately from API contract and state revision; materialize exact seven-character source SHA only for artifacts. | P1 |
 | FR-14 | Keep English primary docs and equivalent pt-BR installation, stories/evidence, integration, versioning, and changelog docs. | P1 |
@@ -37,7 +37,7 @@ Acceptance IDs AC-1 through AC-20 are defined in `stories/FND-0/spec/requirement
 
 ## Non-goals
 
-No public signup, viewer join command, game credentials, UID verification, Discord/DM, overlay, ranking, multiple channels/apps/bot accounts, hosted backend/database, telemetry, export/backup feature, horizontal scaling, IRC, frontend framework, TypeScript, transpiler, or bundler.
+No public signup, viewer join command, game credentials, UID verification, Discord/DM, public/external overlay service, ranking, multiple channels/apps/bot accounts, hosted backend/database, telemetry, export/backup feature, horizontal scaling, or IRC. The local OBS overlay is a product surface. OPS-15 permits Next.js App Router and its build-time transpilation/bundling only for static export served by local Fastify; browser application code remains JavaScript ESM with JSDoc, with no TypeScript or Next.js runtime server.
 
 ## Sequencing
 

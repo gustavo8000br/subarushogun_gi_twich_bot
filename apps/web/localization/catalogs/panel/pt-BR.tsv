@@ -14,6 +14,8 @@ panel.navigation.widgets	Widgets do OBS
 panel.navigation.settings	Configurações
 panel.navigation.connection	Conexão Twitch
 panel.sidebar.local_note	O painel e os dados ficam neste computador.
+panel.section.local	LOCAL
+panel.migration.note	A estrutura do painel está sendo migrada. As demais telas serão habilitadas conforme cada fluxo passar pela validação de paridade.
 panel.health.label	Saúde da instalação
 panel.health.database	Banco de dados
 panel.health.twitch_api	API da Twitch
@@ -66,6 +68,18 @@ panel.new_queue.description	Escolha entre uma fila com Pontos do Canal e uma fil
 panel.operations.eyebrow	PONTOS E RECUPERAÇÃO
 panel.operations.title	Sincronização com a Twitch e devolução de pontos
 panel.operations.description	Acompanhe separadamente a comunicação com a Twitch e a devolução de Pontos do Canal aos espectadores, além da confirmação de resgates.
+panel.operations.group.twitch_sync	Comunicação com a Twitch
+panel.operations.group.points_refund	Devolução de Pontos do Canal
+panel.operations.group.redemption_fulfillment	Confirmação de resgate
+panel.operations.loading	Carregando operações…
+panel.operations.refresh	Atualizar
+panel.operations.refreshing	Atualizando…
+panel.operations.refresh_failed	Não foi possível atualizar as operações. Os últimos resultados carregados continuam visíveis.
+panel.operations.action_retry_pending	Nova tentativa solicitada. A Twitch ainda não confirmou o resultado.
+panel.operations.action_manual_resolution	Resolução manual registrada. Isso não confirma o resultado na Twitch.
+panel.operations.action_refresh_failed	A ação foi aceita, mas a lista não atualizou. Recarregue antes de tentar novamente.
+panel.operations.action_failed	Não foi possível concluir esta ação. Atualize as operações e confira o estado atual.
+panel.operations.reconcile_failed	Não foi possível reconciliar com a Twitch. Confira a conexão e revise as operações.
 panel.commands.eyebrow	CHAT DA LIVE
 panel.commands.title	Comandos disponíveis
 panel.commands.description	Defina um nível mínimo da audiência. Cargos superiores herdam acesso; comandos fixos de gestão ficam bloqueados.
@@ -85,6 +99,7 @@ panel.locale.title	Idioma do painel
 panel.locale.description	O idioma selecionado também será usado nas mensagens próprias do bot. Catálogos comunitários completos aparecem automaticamente.
 panel.locale.available	Idioma disponível
 panel.error.generic	Não foi possível concluir. Tente novamente.
+panel.error.local_load	Não foi possível conectar à API local. Confira se o serviço está ativo e atualize a página.
 panel.error.reference	Referência: {id}
 panel.error.locale_conflict	O idioma mudou em outra solicitação. Atualize a página.
 panel.form.queue_name	Nome da fila
@@ -92,6 +107,10 @@ panel.form.create_queue	Criar fila
 panel.widget.appearance	Aparência
 panel.widget.save	Salvar widget
 panel.entry.add	Adicionar à fila
+panel.entry.added	Pessoa adicionada à fila.
+panel.entry.error.invalid	Confira o login da Twitch, o UID e o benefício conferido.
+panel.entry.error.unavailable	Não foi possível adicionar a entrada. Atualize o painel e tente novamente.
+panel.entry.error.failed	Não foi possível adicionar a pessoa. Atualize o painel e confira a fila e o login.
 panel.form.command	Comando
 panel.form.command_placeholder	abismo
 panel.form.aliases	Apelidos
@@ -209,6 +228,22 @@ panel.queue.action.open	Abrir
 panel.queue.action.close	Fechar
 panel.queue.action.activate	Ativar fila
 panel.queue.action.pause	Pausar fila
+panel.queue.action_result.saving	Salvando…
+panel.queue.action_result.confirmed	Estado da fila atualizado.
+panel.queue.action_result.pending	Solicitação salva. Aguardando confirmação da Twitch.
+panel.queue.action_result.failed	Não foi possível atualizar o estado da fila. Tente novamente.
+panel.queue.action_result.no_waiting	Não há pessoas aguardando nesta fila.
+panel.queue.creation_result.created_local	Fila local criada. Ela está pausada até você ativá-la.
+panel.queue.creation_result.created_remote	Fila criada e recompensa da Twitch sincronizada.
+panel.queue.creation_result.pending	Fila salva. A criação da recompensa Twitch aguarda confirmação; confira o estado antes de tentar novamente.
+panel.queue.creation_result.review	A fila existe, mas a sincronização com a Twitch precisa ser revisada antes da ativação.
+panel.queue.creation_result.recovered	Uma fila correspondente foi encontrada após uma resposta interrompida. Ela não foi criada novamente; revise o estado.
+panel.queue.creation_result.refresh_failed	Fila criada, mas a lista não atualizou. Abra as filas e recarregue antes de tentar novamente.
+panel.queue.creation_result.open_queues	Abrir filas
+panel.queue.creation_result.uncertain	Não foi possível confirmar o resultado. Não envie novamente ainda; abra as filas e recarregue para conferir se ela foi criada.
+panel.queue.creation_result.key_conflict	Esse comando ou um de seus apelidos já está em uso. Escolha outro e tente novamente.
+panel.queue.entry_action_result.saved	A ação de atendimento foi registrada no painel.
+panel.queue.entry_action_result.refresh_failed	A ação foi registrada, mas não foi possível atualizar a fila. Recarregue a página para ver o estado atual.
 panel.queue.action.resolve_reward	Vincular recompensa
 panel.queue.action_blocked.reward_unresolved	Os controles estão pausados até vincular e confirmar uma recompensa da Twitch. Use “Vincular recompensa” para continuar.
 panel.queue.action_blocked.reward_creation_pending	Os controles serão liberados quando a Twitch confirmar a criação da recompensa.
@@ -224,14 +259,19 @@ panel.queue.history.title	Histórico recente
 panel.queue.history.empty	Ainda não há atendimentos encerrados.
 panel.queue.history.date_unavailable	Data indisponível
 panel.entry.action.call	chamar
+panel.entry.action.call_aria	Chamar {user}
 panel.entry.action.move_up	Mover ↑
 panel.entry.action.move_down	Mover ↓
 panel.entry.action.remove_priority	Remover prioridade
 panel.entry.action.mark_priority	Marcar prioritária
 panel.entry.action.attend	atender
+panel.entry.action.attend_aria	Atender {user}
 panel.entry.action.complete	concluir
+panel.entry.action.complete_aria	Concluir atendimento de {user}
 panel.entry.action.resend	Reenviar chamada
+panel.entry.action.resend_aria	Reenviar chamada para {user}
 panel.entry.action.remove	remover
+panel.entry.action.remove_aria	Remover {user} da fila
 panel.entry.priority_badge	Prioritária · conferida pelo operador
 panel.entry.uid_label	UID
 panel.queue.points	pontos
@@ -386,7 +426,7 @@ panel.operation.attempts.other	{count} tentativas
 panel.operation.action.resolve	Registrar resolução manual
 panel.operation.action.retry	Reconciliar / tentar novamente
 panel.operation.action.continue_delete	Continuar exclusão
-panel.operation.confirm.resolve	O estado dos pontos não pôde ser confirmado pela Twitch. Registrar que você revisou e encerrou o acompanhamento automático? Isso não confirma reembolso nem consumo e não haverá novas tentativas automáticas.
+panel.operation.confirm.resolve	A Twitch ainda não confirmou esta operação de resgate. Registrar que você a revisou e encerrar o acompanhamento automático? Isso não confirma reembolso nem atendimento e não haverá novas tentativas automáticas.
 panel.operation.confirm.continue_delete	Tentar continuar a exclusão desta fila e da reward Twitch? O app verificará novamente os resgates pendentes, a comunicação com a Twitch e as devoluções de pontos. Se o estado da reward e todas as devoluções necessárias forem confirmados, ela poderá ser excluída sem possibilidade de restauração. Escolha Cancelar exclusão na fila para mantê-la para depois.
 panel.reconciliation.running	Sincronização em andamento…
 panel.reconciliation.complete.one	Sincronização concluída. {count} resgate importado.
@@ -401,6 +441,7 @@ panel.entry.status.no_show	Ausente
 panel.commands.saved	Permissões dos comandos atualizadas.
 panel.notice.queue_created	Fila salva. A criação da recompensa Twitch está pendente; acompanhe o estado abaixo.
 panel.notice.queue_settings_saved	Configurações da fila salvas.
+panel.queue.settings_result.refresh_failed	As configurações foram salvas, mas a lista não atualizou. Recarregue a página para conferir os valores atuais.
 panel.notice.reward_update_pending	Alteração solicitada. A fila mostrará a sincronização pendente até a confirmação da Twitch.
 panel.notice.call_already_queued	A chamada já está na fila de envio.
 panel.notice.call_resent	Reenvio solicitado. O prazo de ausência foi mantido.
@@ -577,3 +618,30 @@ panel.confirmation.accept	OK
 panel.queue.status.pending_local_delete_diverged	A exclusão local está pausada porque o estado da reward Twitch precisa ser verificado. Resgates, comunicação com a Twitch e devoluções de pontos relacionadas continuam em recuperação; resgates posteriores da Twitch serão detectados e registrados para cancelamento. Este app não alterará a reward Twitch.
 panel.queue.confirm.retry_delete_converted_diverged	Verifique o andamento da exclusão. A fila continuará pendente até a Twitch confirmar que a reward histórica está pausada e todos os resgates atualmente conhecidos, as solicitações de sincronização com a Twitch e as devoluções de pontos relacionadas forem resolvidos. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. Esta ação não alterará a reward Twitch.
 panel.queue.status.deletion_complete	A exclusão da fila foi concluída.
+panel.accessibility.skip_to_content	Pular para o conteúdo principal
+panel.form.section_identity	Identificação da fila
+panel.form.section_entry	Como o público entra
+panel.form.section_reward	Reward de Pontos do Canal
+panel.form.section_handling	Privacidade e atendimento
+panel.form.command_hint	Este nome será usado no comando do chat após !. Ele é sugerido a partir do nome da fila.
+panel.form.aliases_hint	Nomes alternativos opcionais para o comando, separados por vírgulas.
+panel.form.mode_channel_points_hint	O público resgata uma reward da Twitch para entrar. O bot cria e gerencia essa reward.
+panel.form.mode_manual_hint	A fila permanece local. O streamer adiciona pessoas pela página de filas.
+panel.form.cancel	Cancelar
+panel.overview.next_empty_title	Crie sua primeira fila
+panel.overview.next_empty_description	Escolha Pontos do Canal ou uma fila local para começar a receber pessoas.
+panel.overview.next_empty_action	Criar fila
+panel.overview.next_queues_title	Revise suas filas
+panel.overview.next_queues_description	Gerencie a disponibilidade e continue os atendimentos na tela de filas ao vivo.
+panel.overview.next_queues_action	Abrir filas
+panel.overview.next_unavailable_title	Verificando dados locais
+panel.overview.next_unavailable_description	A próxima ação aparecerá quando o painel local terminar de carregar.
+panel.queue_settings.section_attendance	Chamada e atendimento
+panel.queue_settings.section_privacy	Privacidade do UID do público
+panel.queue_settings.section_points	Conta e políticas de pontos
+panel.queue_settings.unsaved	Alterações não salvas
+panel.queue_settings.no_changes	Todas as configurações estão salvas.
+panel.credentials.validating	Validando credenciais…
+panel.credentials.saved	Credenciais do aplicativo validadas e salvas.
+panel.connection.saved_refresh_failed	As credenciais foram salvas, mas não foi possível atualizar a conexão. Recarregue para confirmar o estado.
+panel.health.twitch.eligibility_unknown	Verificando elegibilidade

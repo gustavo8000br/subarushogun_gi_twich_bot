@@ -113,6 +113,23 @@ describe('local Compose runtime contract', () => {
     expect(dockerfile).toMatch(/^RUN apk add --no-cache openssl$/m);
   });
 
+  it('builds the Next static export in a separate stage and copies it into the image without changing the legacy web root', () => {
+    const dockerfile = readFileSync(dockerfilePath, 'utf8');
+    expect(dockerfile).toMatch(/^FROM dependencies AS frontend-build$/m);
+    expect(dockerfile).toMatch(/^COPY apps\/shared \.\/apps\/shared$/m);
+    expect(dockerfile).toMatch(/^COPY apps\/web\/panel-catalog\.mjs \.\/apps\/web\/panel-catalog\.mjs$/m);
+    expect(dockerfile).toMatch(/^COPY apps\/web\/queue-sync-status\.mjs \.\/apps\/web\/queue-sync-status\.mjs$/m);
+    expect(dockerfile).toMatch(/^COPY apps\/web\/queue-settings-version\.mjs \.\/apps\/web\/queue-settings-version\.mjs$/m);
+    expect(dockerfile).toMatch(/^COPY apps\/web\/panel-navigation\.mjs \.\/apps\/web\/panel-navigation\.mjs$/m);
+    expect(dockerfile).toMatch(/^COPY apps\/web\/setup-messages\.mjs \.\/apps\/web\/setup-messages\.mjs$/m);
+    expect(dockerfile).toMatch(/^COPY apps\/web\/overlay-renderer\.mjs \.\/apps\/web\/overlay-renderer\.mjs$/m);
+    expect(dockerfile).toMatch(/^COPY apps\/web\/localization\/catalogs \.\/apps\/web\/localization\/catalogs$/m);
+    expect(dockerfile).toContain('RUN npm run build:frontend');
+    expect(dockerfile).toMatch(/^COPY --from=frontend-build \/app\/apps\/frontend\/out \.\/apps\/frontend\/out$/m);
+    expect(readFileSync(`${root}/apps/api/src/server.mjs`, 'utf8'))
+      .toContain("new URL('../../web/', import.meta.url)");
+  });
+
   it('allows IMAGE_TAG to select a platform-specific GHCR image explicitly', () => {
     const result = spawnSync('docker', ['compose', '-f', composePath, 'config', '--format', 'json'], {
       cwd: root,

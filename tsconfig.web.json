@@ -1,7 +1,11 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "preserve"
+  },
   "include": [
     "apps/web/**/*.js",
-    "apps/web/**/*.mjs"
+    "apps/web/**/*.mjs",
+    "apps/frontend/**/*.jsx"
   ]
 }

@@ -14,7 +14,7 @@
 | FR-8 | Receber eventos de resgate/chat via EventSub WebSocket, enviar via Helix, deduplicar e reconciliar após inicialização/reconexão/intervalo/solicitação do operador. | P0 |
 | FR-9 | Interpretar comandos em português separados de execução/autorização e validar canal, papel, identidade, sintaxe, cooldown e limites de resposta. | P0 |
 | FR-10 | Fornecer operações de lista/posição/saída/inclusão/remoção/próximo/início/conclusão/movimentação/abertura/fechamento/arquivo/limpeza/conta, notificações e timeout conforme política. | P0 |
-| FR-11 | Fornecer UI local vanilla e API Fastify protegida para instalação, saúde, filas, entradas, operações financeiras, reconciliação, conta e projeção explícita do estado. | P1 |
+| FR-11 | Fornecer UI local estática e API Fastify protegida para instalação, saúde, filas, entradas, operações de pontos, reconciliação, conta e projeção explícita do estado; a OPS-15 especifica export estático Next.js. | P1 |
 | FR-12 | Persistir rótulos de conta atual/padrão e propriedade da troca; somente chamada automática individual pode definir essa propriedade. | P1 |
 | FR-13 | Expor versão completa de runtime separada da versão do contrato API/revisão do estado; materializar SHA de sete caracteres da origem somente em artefatos. | P1 |
 | FR-14 | Manter documentação principal em inglês e versões equivalentes pt-BR para instalação, stories/evidências, integração, versionamento e changelogs. | P1 |

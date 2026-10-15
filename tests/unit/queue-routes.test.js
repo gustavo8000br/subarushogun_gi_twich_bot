@@ -620,6 +620,24 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('allowlists pending operation fields in the state response', async () => {
+    const h = await createHarness();
+    h.repository.listFinancialOperations = vi.fn(async () => [{
+      id: 'task-id', operationType: 'reward.set_open', entityId: 'queue-id', status: 'unknown', attempts: 2,
+      requiresDeleteConfirmation: true, payload: { token: 'private' }, lastError: 'internal_error', secret: 'private',
+    }]);
+
+    const response = await h.app.inject({ method: 'GET', url: '/api/state', headers: h.sessionHeaders });
+
+    expect(response.json().pending_operations).toEqual([{
+      id: 'task-id', type: 'reward.set_open', entityId: 'queue-id', status: 'unknown', attempts: 2,
+      requiresDeleteConfirmation: true, nextAttemptAt: null,
+    }]);
+    expect(response.body).not.toContain('private');
+    expect(response.body).not.toContain('internal_error');
+    await h.app.close();
+  });
+
   it('returns the settings needed to reopen and edit a queue in the operator projection', async () => {
     const h = await createHarness();
     h.repository.listQueueProjection.mockResolvedValue([{
@@ -830,12 +848,21 @@ describe('local queue and setup API', () => {
 
   it('exposes only safe queue-deletion operation fields to the protected operations panel', async () => {
     const h = await createHarness();
-    h.repository.listFinancialOperations = vi.fn(async () => [{ id: 'delete-task', operationType: 'reward.delete', entityId: 'queue-id', status: 'unknown', attempts: 3, lastError: 'queue_delete_result_unknown', secret: 'must-not-leak' }]);
+    h.repository.listFinancialOperations = vi.fn(async () => [
+      { id: 'delete-task', operationType: 'reward.delete', entityId: 'queue-id', status: 'unknown', attempts: 3, lastError: 'queue_delete_result_unknown', secret: 'must-not-leak' },
+      { id: 'pause-task', operationType: 'reward.set_open', entityId: 'queue-id', status: 'failed', attempts: 1, requiresDeleteConfirmation: true, payload: { token: 'private' } },
+      { id: 'normal-pause', operationType: 'reward.set_open', entityId: 'queue-id', status: 'unknown', attempts: 1, payload: { deleteAfterConfirm: false } },
+    ]);
     const response = await h.app.inject({ method: 'GET', url: '/api/operations', headers: h.sessionHeaders });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual([{ id: 'delete-task', type: 'reward.delete', entityId: 'queue-id', status: 'unknown', attempts: 3, nextAttemptAt: null }]);
+    expect(response.json()).toEqual([
+      { id: 'delete-task', type: 'reward.delete', entityId: 'queue-id', status: 'unknown', attempts: 3, nextAttemptAt: null },
+      { id: 'pause-task', type: 'reward.set_open', entityId: 'queue-id', status: 'failed', attempts: 1, nextAttemptAt: null, requiresDeleteConfirmation: true },
+      { id: 'normal-pause', type: 'reward.set_open', entityId: 'queue-id', status: 'unknown', attempts: 1, nextAttemptAt: null },
+    ]);
     expect(response.body).not.toContain('must-not-leak');
     expect(response.body).not.toContain('queue_delete_result_unknown');
+    expect(response.body).not.toContain('private');
     await h.app.close();
   });
 

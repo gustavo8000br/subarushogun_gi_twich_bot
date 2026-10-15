@@ -40,6 +40,25 @@ describe('local panel session and CSRF protection', () => {
     await app.close();
   });
 
+  it('accepts the exact forwarded Codespaces origin only when explicitly configured for development', async () => {
+    const app = Fastify();
+    registerLocalSession(app, { developmentOrigin: 'https://example-3100.app.github.dev' });
+    app.post('/api/mutate', async () => ({ ok: true }));
+    const session = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
+    const cookie = session.cookies[0];
+    const forwarded = await app.inject({ method: 'POST', url: '/api/mutate', headers: {
+      host: 'localhost:3000', origin: 'https://example-3100.app.github.dev', cookie: `${cookie.name}=${cookie.value}`,
+      'x-csrf-token': session.json().csrfToken,
+    } });
+    const other = await app.inject({ method: 'POST', url: '/api/mutate', headers: {
+      host: 'localhost:3000', origin: 'https://other-3100.app.github.dev', cookie: `${cookie.name}=${cookie.value}`,
+      'x-csrf-token': session.json().csrfToken,
+    } });
+    expect(forwarded.statusCode).toBe(200);
+    expect(other.statusCode).toBe(403);
+    await app.close();
+  });
+
   it('rejects foreign Host and Origin values without reflecting them', async () => {
     const app = Fastify();
     registerLocalSession(app);
