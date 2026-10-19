@@ -1,10 +1,10 @@
 # Next.js Overlay Continuation Handoff
 
-**Date:** 2026-10-19  
-**Repository:** SubaruShogun Twitch Queue Bot  
-**Branch:** `feat/ops-15-next-panel`  
-**Starting checkpoint:** `38cc55e`  
-**Story:** OPS-15 — **In Progress**  
+**Date:** 2026-10-19
+**Repository:** SubaruShogun Twitch Queue Bot
+**Branch:** `feat/ops-15-next-panel`
+**Starting checkpoint:** `38cc55e`
+**Story:** OPS-15 — **In Progress**
 **Audience:** GitHub Copilot and Claude Code
 
 ## Read first

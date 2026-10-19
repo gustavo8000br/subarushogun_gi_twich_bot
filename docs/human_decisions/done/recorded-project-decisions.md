@@ -9,5 +9,3 @@
 - Keep OPS-15 **In Progress**; do not close FND-9, remove vanilla, create a PR, or merge as part of the current implementation work.
 - Do not change schema, persistence, cross-session clear semantics, or domain/API policy under this UI migration without the required story and Data Engineer coordination.
 - OpenGrep is a tool-installation blocker, not a product decision. The project pins a release and requires signature verification; install the required verifier/tool or leave the static-analysis gate Pending. Never bypass signature verification. See the [project CI/CD tool references](../../CI-CD.md) and [OpenGrep's pinned installation guide](https://github.com/opengrep/opengrep/blob/acf67b45c97c4b63626536605c77064ef536806d/INSTALL.md).
-
-

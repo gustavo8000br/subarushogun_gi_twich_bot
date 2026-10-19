@@ -16,5 +16,3 @@
 **Recomendação:** C neste checkpoint. O OBS documenta que o Browser Source é baseado em CEF, então o aceite nativo deve ocorrer dentro do próprio OBS. [Documentação Browser Source do OBS](https://obsproject.com/kb/browser-source).
 
 **Seleção atual:** C até o teste nativo ser executado. Não precisa responder agora; escolha A ou B após revisar a evidência nativa registrada.
-
-
