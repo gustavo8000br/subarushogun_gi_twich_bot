@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'QRA-21 POST /api/queues/:queueId/unarchive known conflict responses only'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (QRA-21 unarchive conflicts, uncommitted)'
+updated: '2026-10-19'
+status_reason: 'QUEUE_NOT_AVAILABLE, QUEUE_REWARD_NOT_READY, and QUEUE_OPEN_WHILE_ARCHIVED all return the existing HTTP 409 generic response without private exception details. Tests assert queueId, actorId, and origin context. Protected success and sanitized unexpected 503 diagnostics remain covered. This PASS is limited to QRA-21 known conflicts; OPS-15 remains In Progress and the final story gate is not satisfied.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 file / 106 tests passed'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 file / 106 tests passed'
+  lint: 'npm run lint passed'
+  typecheck: 'npm run typecheck passed'
+  diff_check: 'git diff --check passed (line-ending normalization warnings on existing working-tree files)'
+  response_review: 'All three known domain errors remain 409 with exact generic body; private exception detail is omitted; repository actor and origin arguments are asserted.'
+  bilingual_docs: 'QRA-21 known-conflict outcomes and pending persisted-state evidence are aligned in EN and pt-BR.'
+limitations:
+  - 'Persisted unarchive state and paused state after reload were not validated against PostgreSQL.'
+  - 'No browser/Next runtime, installer, Twitch, or native OBS/CEF validation was performed.'
+  - 'This is not overall OPS-15 QA, does not close the story, and does not authorize panel cutover.'

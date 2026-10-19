@@ -1,0 +1,28 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.1/10
+scope: 'QRA-13 selected/next call recovery, separate persistent notice, safe reference, refresh/retry behavior, focus handling, and confirmed empty-queue result only'
+reviewer: Quinn (Test Architect)
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (QRA-13 call recovery, uncommitted)'
+updated: '2026-10-19'
+status_reason: 'The review found the stale-projection retry risk closed: uncertain or accepted calls with a failed refresh block both call controls until a valid projection loads, while the separate notice retains its safe reference and retry affordance through unrelated actions and empty state. Confirmed count: 0 remains no_waiting without unnecessary recovery; this scoped PASS does not close OPS-15.'
+top_issues: []
+waiver: { active: false }
+quality_score: 91
+evidence:
+  tests_reviewed: 227
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 11, 13]
+    ac_gaps: [3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16]
+  focused_tests: 'npm test -- --run tests/unit/next-queue-entry-actions.test.js tests/unit/next-queue-list.test.js tests/unit/queue-routes.test.js tests/unit/next-api-client.test.js; 4 files / 227 tests passed'
+  lint: 'npm run lint passed'
+  typecheck: 'npm run typecheck passed'
+  localization: 'npm run validate:localization passed for en, es, and pt-BR'
+  diff_check: 'git diff --check passed'
+  ux_review: 'Scoped UX review found no remaining blocker; recovery notice is independent from ordinary action feedback, keeps safe reference and retry control visible, and moves focus to refreshed status or the enabled retry button.'
+limitations:
+  - 'No Next build/browser/runtime or .next access was performed.'
+  - 'Docker/PostgreSQL, production-like Compose, real Windows installer, native OBS/CEF, isolated rollback, full legacy-test audit, and complete panel parity remain Pending.'
+  - 'This scoped gate does not authorize vanilla-panel removal, cutover, or story completion.'

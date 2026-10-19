@@ -24,8 +24,31 @@ export function buildDevProxyRules(env = process.env) {
     { source: '/overlay/api/:path*', destination: `${origin}/overlay/api/:path*` },
     { source: '/health', destination: `${origin}/health` },
     { source: '/callback', destination: `${origin}/callback` },
-    { source: '/overlay.html', destination: '/overlay/' },
+    { source: '/overlay.html', destination: '/overlay' },
   ];
+}
+
+export function buildProductionProxyRules(env = process.env) {
+  const apiPort = env.API_PORT ?? '3109';
+  const origin = env.FASTIFY_INTERNAL_ORIGIN ?? `https://localhost:${apiPort}`;
+  let target;
+  try { target = new URL(origin); } catch { throw new TypeError('FASTIFY_INTERNAL_ORIGIN must be a valid local HTTPS URL.'); }
+  if (target.protocol !== 'https:' || !['localhost', '127.0.0.1'].includes(target.hostname)
+    || target.username || target.password || !target.port || target.pathname !== '/' || target.search || target.hash) {
+    throw new TypeError('FASTIFY_INTERNAL_ORIGIN must use HTTPS and a loopback host with an explicit port.');
+  }
+  return {
+    beforeFiles: [
+      { source: '/api/:path*', destination: `${target.origin}/api/:path*` },
+      { source: '/overlay/api/:path*', destination: `${target.origin}/overlay/api/:path*` },
+      { source: '/health', destination: `${target.origin}/health` },
+      { source: '/callback', destination: `${target.origin}/callback` },
+      ...['/', '/queues/:path*', '/new-queue/:path*', '/operations/:path*', '/connection/:path*', '/commands/:path*', '/widgets/:path*', '/settings/:path*', '/styles.css', '/app.js']
+        .map((source) => ({ source, destination: `${target.origin}${source}` })),
+    ],
+    afterFiles: [{ source: '/overlay.html', destination: '/overlay' }],
+    fallback: [],
+  };
 }
 
 export function trustLocalDevelopmentCa(env, repositoryRoot) {

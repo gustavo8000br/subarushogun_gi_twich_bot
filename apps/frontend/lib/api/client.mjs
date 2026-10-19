@@ -22,13 +22,20 @@ export function createApiClient({ fetchImpl = globalThis.fetch, createIdempotenc
       headers.set('x-csrf-token', csrfToken);
       headers.set('idempotency-key', options.idempotencyKey ?? createIdempotencyKey());
     }
-    const response = await fetchImpl(path, {
-      ...options,
-      method,
-      body: options.body,
-      headers,
-      credentials: 'same-origin',
-    });
+    let response;
+    try {
+      response = await fetchImpl(path, {
+        ...options,
+        method,
+        body: options.body,
+        headers,
+        credentials: 'same-origin',
+      });
+    } catch {
+      // The request may have reached the server even when the response was lost.
+      // Keep transport details private and let action-specific UI choose safe guidance.
+      throw Object.assign(new Error('The request could not be completed.'), SAFE_ERROR);
+    }
     if (response.status === 204) return null;
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -42,10 +49,21 @@ export function createApiClient({ fetchImpl = globalThis.fetch, createIdempotenc
   }
 
   async function initializeSession() {
-    const response = await fetchImpl('/api/session', { credentials: 'same-origin', headers: { accept: 'application/json' } });
+    let response;
+    try {
+      response = await fetchImpl('/api/session', { credentials: 'same-origin', headers: { accept: 'application/json' } });
+    } catch {
+      throw Object.assign(new Error('The local session could not be initialized.'), {
+        code: 'SESSION_INITIALIZATION_FAILED',
+        status: 0,
+      });
+    }
     const payload = response.ok ? await response.json().catch(() => ({})) : {};
     if (typeof payload?.csrfToken !== 'string' || payload.csrfToken.length < 16) {
-      throw Object.assign(new Error('The local session could not be initialized.'), { ...SAFE_ERROR, status: response.status });
+      throw Object.assign(new Error('The local session could not be initialized.'), {
+        code: 'SESSION_INITIALIZATION_FAILED',
+        status: response.status,
+      });
     }
     csrfToken = payload.csrfToken;
     return payload;

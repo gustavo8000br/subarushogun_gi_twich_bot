@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.3/10
+scope: 'Rota QRA-12 de reenvio de aviso: resultados conhecidos 404/409, resposta de diagnóstico em falha inesperada ao enfileirar, propagação segura da referência pela ação Next existente e somente linhas bilíngues do inventário/story/handoff'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (diagnósticos QRA-12 de reenvio de aviso, não commitado)'
+updated: '2026-10-19'
+status_reason: 'O endpoint preserva os resultados aceitos queued/already_queued e mapeia estados indisponíveis/conflitantes conhecidos para 404/409. Falhas inesperadas ao enfileirar retornam 503 genérico INTERNAL_ERROR com origem diagnóstica estável e referência no header/corpo; o logger omite mensagens brutas e stack. O cliente existente preserva somente metadados seguros e o alerta compartilhado mostra uma referência validada. Os registros EN/pt-BR correspondem. Este PASS vale somente para QRA-12; OPS-15 permanece In Progress e o gate final da story não está satisfeito.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 76 testes passaram em execução independente'
+  local_focused_tests: 'Suítes focadas de rota/ação/lista; 3 arquivos / 120 testes passaram localmente'
+  lint: 'npm run lint passou (evidência local da implementação)'
+  typecheck: 'npm run typecheck passou (evidência local da implementação)'
+  localization: 'npm run validate:localization passou (evidência local da implementação)'
+  diff_check: 'git diff --check passou (evidência local da implementação)'
+  security_review: 'Falhas inesperadas usam sendDiagnosedFailure; origem estável http.entry.call_notification_resend; diagnósticos estruturados omitem mensagem bruta, stack e payload; cliente API não expõe o corpo bruto da resposta; mapeamento da ação UI valida o token da referência'
+limitations:
+  - 'Uma execução ampla, excluindo tests/integration/next-static-export.test.js, terminou com 141 arquivos: 1.042 passaram, 25 falharam, 178 foram ignorados (1.245 testes no total). As falhas estavam fora do escopo QRA-12: sete suítes PostgreSQL/Compose sem o pipe do engine Linux do Docker; 20 assertions do instalador Unix não puderam executar porque sh não está disponível; quatro testes de bootstrap foram afetados pela ausência de openssl/permissões POSIX; e um teste de segredo dev esperava comportamento POSIX de modo de arquivo.'
+  - 'Não foram executadas validações de runtime, PostgreSQL/banco, browser/prévia Next, Twitch, instalador ou OBS/CEF nativo.'
+  - 'Esta não é a QA geral da OPS-15 e não satisfaz o gate final da story, não encerra a story nem autoriza cutover do painel.'

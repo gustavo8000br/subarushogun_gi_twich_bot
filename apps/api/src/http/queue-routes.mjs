@@ -458,7 +458,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     } catch (error) {
       if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ error: 'Fila não encontrada.' });
       if (error?.code === 'ENTRY_NOT_WAITING' || error?.code === 'INVALID_QUEUE_POSITION') return reply.code(409).send({ error: 'A pessoa não está aguardando ou a posição não está mais disponível. Atualize o painel.' });
-      return reply.code(503).send({ error: 'Não foi possível reorganizar a fila.' });
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.move', error, statusCode: 503, message: 'Não foi possível reorganizar a fila.' });
     }
   });
   app.post('/api/entries/:entryId/priority', async (request, reply) => {
@@ -474,7 +474,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     } catch (error) {
       if (error?.code === 'ENTRY_NOT_WAITING') return reply.code(409).send({ error: 'Só é possível alterar a prioridade enquanto a pessoa aguarda.' });
       if (error?.code === 'INVALID_PRIORITY') return reply.code(400).send({ error: 'A categoria do benefício é inválida.' });
-      return reply.code(503).send({ error: 'Não foi possível atualizar a prioridade.' });
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.entry.priority', error, statusCode: 503, message: 'Não foi possível atualizar a prioridade.' });
     }
   });
   app.get('/api/queues/:queueId/reward-candidates', async (request, reply) => {
@@ -543,13 +543,17 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     if (typeof body.login !== 'string' || !/^[a-zA-Z0-9_]{1,25}$/.test(body.login)) return reply.code(400).send({ error: 'Informe um login válido da Twitch.' });
     if (body.priority !== undefined && typeof body.priority !== 'boolean') return reply.code(400).send({ error: 'A prioridade informada é inválida.' });
     if (body.priority === true && !['subscription', 'bits', 'external_payment', 'operator_override'].includes(body.priorityReason)) return reply.code(400).send({ error: 'Selecione o benefício conferido para atribuir prioridade.' });
-    const user = await resolveUser(body.login);
-    if (!user) return reply.code(404).send({ error: 'Esse usuário da Twitch não foi encontrado.' });
     try {
+      const user = await resolveUser(body.login);
+      if (!user) return reply.code(404).send({ error: 'Esse usuário da Twitch não foi encontrado.' });
       const result = await repository.addManualEntry({ queueId: /** @type {any} */ (request.params).queueId, twitchUserId: user.id, userLogin: user.login, displayName: user.displayName, uid: body.uid, actorId: /** @type {any} */ (request).localSession?.id, origin: 'panel', priorityReason: body.priority === true ? body.priorityReason : null });
       if (result.status !== 'created') return reply.code(409).send({ error: 'Essa pessoa já está ativa nesta fila.' });
       return reply.code(201).send({ id: result.entry.id, status: result.entry.status, position: result.entry.position });
-    } catch (error) { return reply.code(routeError(error)).send({ error: userError(error) }); }
+    } catch (error) {
+      const statusCode = routeError(error);
+      if (statusCode >= 500) return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.manual_entry', error, statusCode, message: 'Não foi possível concluir. Tente novamente.' });
+      return reply.code(statusCode).send({ error: userError(error) });
+    }
   });
   app.post('/api/entries/:entryId/transitions', async (request, reply) => {
     /** @type {Record<string, any>} */
@@ -563,7 +567,17 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       const localRequest = request;
       const result = await domainService.transitionEntry({ entryId: localRequest.params.entryId, to: body.to, origin: 'panel', reason: body.reason, actorId: localRequest.localSession?.id });
       return { id: result.id, status: result.status, financialDecision: result.financialDecision };
-    } catch (error) { return reply.code(routeError(error)).send({ error: userError(error) }); }
+    } catch (error) {
+      const statusCode = routeError(error);
+      if (statusCode >= 500) return sendDiagnosedFailure(reply, {
+        reportDiagnostic,
+        source: 'http.entry.transition',
+        error,
+        statusCode,
+        message: userError(error),
+      });
+      return reply.code(statusCode).send({ error: userError(error) });
+    }
   });
   app.post('/api/entries/:entryId/call-notification/resend', async (request, reply) => {
     /** @type {any} */
@@ -573,8 +587,14 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       if (result.status === 'entry_not_found' || result.status === 'notification_not_found') return reply.code(404).send({ error: 'A chamada não está disponível para reenvio.' });
       if (result.status === 'entry_not_called' || result.status === 'already_processing') return reply.code(409).send({ error: 'A chamada mudou de estado ou já está sendo enviada.' });
       return { status: result.status, entryId: result.entryId };
-    } catch {
-      return reply.code(503).send({ error: 'Não foi possível enfileirar o reenvio da chamada.' });
+    } catch (error) {
+      return sendDiagnosedFailure(reply, {
+        reportDiagnostic,
+        source: 'http.entry.call_notification_resend',
+        error,
+        statusCode: 503,
+        message: 'Não foi possível concluir. Tente novamente.',
+      });
     }
   });
   app.post('/api/queues/:queueId/call', async (request, reply) => {
@@ -598,7 +618,15 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       return { status: 'called', count: called.length };
     } catch (error) {
       if (error?.code === 'QUEUE_MODE_TRANSITION_PENDING') return reply.code(409).send({ code: error.code });
-      return reply.code(routeError(error)).send({ error: userError(error) });
+      const statusCode = routeError(error);
+      if (statusCode >= 500) return sendDiagnosedFailure(reply, {
+        reportDiagnostic,
+        source: 'http.queue.call',
+        error,
+        statusCode,
+        message: 'Não foi possível concluir. Tente novamente.',
+      });
+      return reply.code(statusCode).send({ error: userError(error) });
     }
   });
   for (const [suffix, method] of [['clear-preview', 'request'], ['clear-confirm', 'confirm']]) {
@@ -607,10 +635,22 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       /** @type {any} */
       const localRequest = request;
       const queueId = localRequest.params.queueId;
-      const queue = await repository.getQueueById(queueId);
-      if (!queue || queue.lifecycleStatus !== 'active') return reply.code(404).send({ error: 'Fila não encontrada.' });
-      const result = await clearConfirmation[method]({ actorId: localRequest.localSession.id, channelId: 'local-panel', queueId, origin: 'panel' });
-      return result;
+      try {
+        const queue = await repository.getQueueById(queueId);
+        if (!queue || queue.lifecycleStatus !== 'active') return reply.code(404).send({ error: 'Fila não encontrada.' });
+        const result = await clearConfirmation[method]({ actorId: localRequest.localSession.id, channelId: 'local-panel', queueId, origin: 'panel' });
+        return result;
+      } catch (error) {
+        const statusCode = routeError(error);
+        if (statusCode >= 500) return sendDiagnosedFailure(reply, {
+          reportDiagnostic,
+          source: `http.queue.${suffix.replace('-', '_')}`,
+          error,
+          statusCode: 503,
+          message: 'Não foi possível concluir. Tente novamente.',
+        });
+        return reply.code(statusCode).send({ error: userError(error) });
+      }
     });
   }
   app.post('/api/queues/:queueId/open-state', async (request, reply) => {

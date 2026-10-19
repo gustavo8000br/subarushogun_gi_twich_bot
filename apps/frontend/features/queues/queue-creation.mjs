@@ -2,6 +2,23 @@ const QUEUE_KEY = /^[a-z0-9-]{2,24}$/;
 const UID_MODES = new Set(['hidden', 'visible']);
 const QUEUE_MODES = new Set(['channel_points', 'manual_only']);
 const BENEFIT_LIMIT = 2_147_483_647;
+const CALL_MESSAGE_TOKENS = new Set(['user', 'queue', 'position', 'uid', 'account']);
+
+export function validateCallMessageTemplate(value) {
+  const message = String(value ?? '');
+  if (message.length > 350 || [...message].some((character) => {
+    const code = character.charCodeAt(0);
+    return code < 0x20 || code === 0x7f;
+  })) throw invalidQueueCreation();
+  if ([...message.matchAll(/\{([^}]+)\}/g)].some(([, token]) => !CALL_MESSAGE_TOKENS.has(token))) throw invalidQueueCreation();
+  return message;
+}
+
+export function renderCallMessagePreview(template, samples) {
+  return String(template ?? '').replace(/\{([^}]+)\}/g, (match, token) => (
+    CALL_MESSAGE_TOKENS.has(token) ? String(samples[token] ?? match) : match
+  ));
+}
 
 function invalidQueueCreation() {
   return Object.assign(new Error('The queue creation input is invalid.'), { code: 'INVALID_QUEUE_CREATION' });
@@ -23,12 +40,13 @@ export function buildQueueCreationPayload(values) {
   const queueMode = String(values.queueMode ?? 'channel_points');
   const uidMode = String(values.uidMode ?? 'hidden');
   const callTimeoutMin = Number(String(values.callTimeoutMin ?? '10').trim() || 10);
+  const callMessage = validateCallMessageTemplate(values.callMessage ?? '{user}, sua vez!');
   if (!title || title.length > 45 || !QUEUE_KEY.test(slug) || aliases.some((alias) => !QUEUE_KEY.test(alias))
     || new Set([slug, ...aliases]).size !== aliases.length + 1 || !QUEUE_MODES.has(queueMode)
     || !UID_MODES.has(uidMode) || !Number.isInteger(callTimeoutMin) || callTimeoutMin < 1 || callTimeoutMin > 120) {
     throw invalidQueueCreation();
   }
-  const payload = { title, slug, aliases, queueMode, callTimeoutMin, uidMode };
+  const payload = { title, slug, aliases, queueMode, callTimeoutMin, uidMode, callMessage };
   if (queueMode === 'channel_points') {
     const cost = Number(String(values.cost ?? '').trim());
     const rewardPrompt = String(values.rewardPrompt ?? '').trim();

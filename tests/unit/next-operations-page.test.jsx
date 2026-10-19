@@ -23,13 +23,16 @@ const COPY = {
   'panel.operations.reconcile_failed': 'Could not reconcile with Twitch.',
   'panel.connection.reconcile': 'Reconcile with Twitch now',
   'panel.error.local_load': 'Could not connect to the local API.',
+  'panel.error.reference': 'Reference: {id}',
   'panel.operations.refresh_failed': 'Could not refresh operations.',
+  'panel.error.reference': 'Reference: {id}',
   'panel.operations.reconcile': 'Reconcile with Twitch now',
   'panel.reconciliation.running': 'Reconciliation in progress…',
   'panel.reconciliation.complete.one': 'Reconciliation complete. Imported {count} redemption.',
   'panel.reconciliation.complete.other': 'Reconciliation complete. Imported {count} redemptions.',
   'panel.reconciliation.issues.one': 'Reconciliation completed with {count} issue.',
   'panel.reconciliation.issues.other': 'Reconciliation completed with {count} issues.',
+  'panel.reconciliation.refresh_failed': 'Reconciliation completed, but the operations list could not refresh. Refresh the list before relying on it.',
   'panel.operation.type.refund': 'POINTS REFUND',
   'panel.operation.type.fulfillment': 'REDEMPTION FULFILLMENT',
   'panel.operation.type.reward_update': 'TWITCH REWARD SYNC',
@@ -72,10 +75,10 @@ const fulfillment = {
   status: 'confirmed', attempts: 1, nextAttemptAt: null,
 };
 
-function harness({ operations = [refund, deletion, fulfillment], mutationResult = null, failRefresh = false, reconciliationPromise = null } = {}) {
+function harness({ operations = [refund, deletion, fulfillment], mutationResult = null, failRefresh = false, failInitial = false, reconciliationPromise = null } = {}) {
   const request = vi.fn(async (path) => {
     if (path === '/api/operations') {
-      if (failRefresh && request.mock.calls.length > 1) throw new Error('safe error');
+      if ((failInitial && request.mock.calls.length === 1) || (failRefresh && request.mock.calls.length > 1)) throw Object.assign(new Error('safe error'), { referenceId: 'ops-ref-7' });
       return operations;
     }
     if (path === '/api/reconciliation') return reconciliationPromise ?? { status: 'complete', imported: 1, issues: [] };
@@ -92,6 +95,14 @@ function renderPage(options) {
 }
 
 describe('Next Operations page', () => {
+  it('shows one initial load alert with a safe reference and suppresses polling until retry', async () => {
+    const { request } = renderPage({ failInitial: true });
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getAllByText('Could not connect to the local API.')).toHaveLength(1);
+    expect(screen.getByText('Reference: ops-ref-7')).toBeTruthy();
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
   it('separates Twitch synchronization, point refunds and redemption fulfillment', async () => {
     renderPage();
     expect(await screen.findByText('POINTS REFUND')).toBeTruthy();
@@ -151,6 +162,7 @@ describe('Next Operations page', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Reconcile / retry' }));
     await waitFor(() => expect(request).toHaveBeenCalledWith('/api/operations/operation-refund/retry', { method: 'POST', body: '{}' }));
     expect(await screen.findByText('Action accepted, but list refresh failed. Reload before retrying.')).toBeTruthy();
+    expect(await screen.findByText('Reference: ops-ref-7')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Reconcile / retry' })).toBeNull();
     expect(screen.getByText('Pending')).toBeTruthy();
   });
@@ -160,6 +172,55 @@ describe('Next Operations page', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Reconcile with Twitch now' }));
     await waitFor(() => expect(request).toHaveBeenCalledWith('/api/reconciliation', { method: 'POST', body: '{}' }));
     expect(await screen.findByText('Reconciliation complete. Imported 1 redemption.')).toBeTruthy();
+  });
+
+  it('preserves the partial reconciliation state and issue count', async () => {
+    const { request } = renderPage({ reconciliationPromise: { status: 'partial', imported: 1, issues: [{ code: 'reward_verification_failed' }] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Reconcile with Twitch now' }));
+    expect(await screen.findByText('Reconciliation completed with 1 issue.')).toBeTruthy();
+  });
+
+  it('rejects a failed reconciliation response without issue details', async () => {
+    const { request } = renderPage({ reconciliationPromise: { status: 'failed', imported: 0, issues: [] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Reconcile with Twitch now' }));
+    expect(await screen.findByText('Could not reconcile with Twitch.')).toBeTruthy();
+  });
+
+  it('does not replace a failed post-reconciliation refresh with a success notice', async () => {
+    let reads = 0;
+    const request = vi.fn(async (path) => {
+      if (path === '/api/operations') {
+        reads += 1;
+        if (reads > 1) throw Object.assign(new Error('read failure'), { referenceId: 'reconcile-refresh-2' });
+        return [refund];
+      }
+      if (path === '/api/reconciliation') return { status: 'complete', imported: 1, issues: [] };
+      return {};
+    });
+    render(React.createElement(OperationsPageContent, { t, locale: 'en', request }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Reconcile with Twitch now' }));
+    expect(await screen.findByText(COPY['panel.reconciliation.refresh_failed'])).toBeTruthy();
+    expect(screen.getByText('Reference: reconcile-refresh-2')).toBeTruthy();
+    expect(screen.queryByText('Reconciliation complete. Imported 1 redemption.')).toBeNull();
+  });
+
+  it('shows a safe diagnostic reference when operation loading fails', async () => {
+    const request = vi.fn(async () => { throw Object.assign(new Error('raw backend error'), { referenceId: 'ops-ref-1' }); });
+    render(React.createElement(OperationsPageContent, { t, locale: 'en', request }));
+    expect(await screen.findAllByText('Reference: ops-ref-1')).toHaveLength(1);
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.queryByText('raw backend error')).toBeNull();
+  });
+
+  it('shows a safe diagnostic reference when a Twitch reconciliation request fails', async () => {
+    const request = vi.fn(async (path) => {
+      if (path === '/api/operations') return [refund];
+      throw Object.assign(new Error('raw Twitch token detail'), { referenceId: 'reconcile-ref-1' });
+    });
+    render(React.createElement(OperationsPageContent, { t, locale: 'en', request }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Reconcile with Twitch now' }));
+    expect(await screen.findByText('Reference: reconcile-ref-1')).toBeTruthy();
+    expect(screen.queryByText('raw Twitch token detail')).toBeNull();
   });
 
   it('disables per-operation actions while global reconciliation is running', async () => {

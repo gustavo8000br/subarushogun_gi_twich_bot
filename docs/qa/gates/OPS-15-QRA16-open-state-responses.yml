@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'QRA-16 POST /api/queues/:queueId/open-state invalid isOpen validation and QUEUE_NOT_FOUND response assertions only'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (QRA-16 open-state responses, uncommitted)'
+updated: '2026-10-19'
+status_reason: 'The handler rejects non-boolean isOpen before repository access. QUEUE_NOT_FOUND maps to HTTP 404 and retains the existing generic error body; private exception details do not appear in the response. The bilingual route matrix matches the tested contract. This PASS is limited to QRA-16 response assertions; OPS-15 remains In Progress and the final story gate is not satisfied.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 file / 83 tests passed'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 file / 83 tests passed'
+  lint: 'npm run lint passed'
+  typecheck: 'npm run typecheck passed'
+  diff_check: 'git diff --check passed (line-ending normalization warnings on existing working-tree files)'
+  response_review: 'Invalid isOpen returns exact 400 body before repository access; QUEUE_NOT_FOUND returns 404 with the existing generic body and omits private exception details.'
+  bilingual_docs: 'QRA-16 route/action response and assertion matrices were updated in EN and pt-BR.'
+limitations:
+  - 'No PostgreSQL persistence, rollback, or subsequent Twitch-confirmed projection was validated.'
+  - 'No browser/Next runtime, installer, Twitch, or native OBS/CEF validation was performed.'
+  - 'This is not overall OPS-15 QA, does not close the story, and does not authorize panel cutover.'

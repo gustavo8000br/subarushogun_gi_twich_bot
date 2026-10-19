@@ -35,6 +35,7 @@ const COPY = {
   'panel.health.twitch.connected': 'Connected',
   'panel.health.twitch.not_configured': 'Not configured',
   'panel.error.generic': 'Could not complete. Try again.',
+  'panel.operations.reconcile_failed': 'Could not reconcile with Twitch.',
   'panel.error.twitch_credentials': 'Twitch rejected the app credentials.',
   'panel.credentials.validating': 'Validating credentials…',
   'panel.credentials.saved': 'App credentials validated and saved.',
@@ -132,5 +133,32 @@ describe('Next Twitch connection page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reconcile now' }));
     await waitFor(() => expect(request).toHaveBeenCalledWith('/api/reconciliation', { method: 'POST', body: '{}' }));
     expect(await screen.findByText('Reconciliation complete. Imported 2 redemptions.')).toBeTruthy();
+  });
+
+  it('reports failed reconciliation issues instead of claiming a successful zero-import result', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 'failed', issues: [{ code: 'reconciliation_failed' }] });
+    renderView({ setup: { ...baseSetup, secretConfigured: true, connected: true }, request });
+    fireEvent.click(screen.getByRole('button', { name: 'Reconcile now' }));
+    expect(await screen.findByText('Reconciliation completed with 1 issue.')).toBeTruthy();
+  });
+
+  it('reports valid partial reconciliation results with their issue count', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 'partial', imported: 1, issues: [{ code: 'reward_verification_failed' }] });
+    renderView({ setup: { ...baseSetup, secretConfigured: true, connected: true }, request });
+    fireEvent.click(screen.getByRole('button', { name: 'Reconcile now' }));
+    expect(await screen.findByText('Reconciliation completed with 1 issue.')).toBeTruthy();
+  });
+
+  it.each([
+    ['missing issues', { status: 'complete', imported: 0 }],
+    ['unknown status', { status: 'unexpected', imported: 2, issues: [] }],
+    ['failed without issue details', { status: 'failed', imported: 0, issues: [] }],
+    ['invalid imported count', { status: 'complete', imported: -1, issues: [] }],
+  ])('uses safe reconciliation failure feedback for malformed response (%s)', async (_name, response) => {
+    const request = vi.fn().mockResolvedValue(response);
+    renderView({ setup: { ...baseSetup, secretConfigured: true, connected: true }, request });
+    fireEvent.click(screen.getByRole('button', { name: 'Reconcile now' }));
+    expect(await screen.findByText('Could not reconcile with Twitch.')).toBeTruthy();
+    expect(screen.queryByText(/Reconciliation complete/)).toBeNull();
   });
 });

@@ -17,14 +17,18 @@ function safeEqual(left, right) {
   return first.length === second.length && timingSafeEqual(first, second);
 }
 
-/** @param {import('fastify').FastifyInstance} app @param {{randomBytes?: (size: number) => Buffer, port?: number, secure?: boolean, developmentOrigin?: string}} options */
-export function registerLocalSession(app, { randomBytes = generateRandomBytes, port = Number(process.env.APP_PORT ?? 3000), secure = true, developmentOrigin } = {}) {
-  const expectedAuthority = new Set([`localhost:${port}`, `127.0.0.1:${port}`, `[::1]:${port}`]);
+/** @param {import('fastify').FastifyInstance} app @param {{randomBytes?: (size: number) => Buffer, port?: number, backendPort?: number, secure?: boolean, developmentOrigin?: string}} options */
+export function registerLocalSession(app, { randomBytes = generateRandomBytes, port = Number(process.env.APP_PORT ?? 3000), backendPort = port, secure = true, developmentOrigin } = {}) {
+  const expectedAuthority = new Set([port, backendPort].flatMap((authorityPort) => [
+    `localhost:${authorityPort}`, `127.0.0.1:${authorityPort}`, `[::1]:${authorityPort}`,
+  ]));
   let allowedDevelopmentOrigin;
   if (developmentOrigin) {
     try {
       const parsed = new URL(developmentOrigin);
-      if (parsed.protocol === 'https:' && parsed.origin === developmentOrigin && !parsed.username && !parsed.password) {
+      const explicitPort = /:\d+$/.test(developmentOrigin.slice(developmentOrigin.indexOf('://') + 3));
+      if (['http:', 'https:'].includes(parsed.protocol) && parsed.origin === developmentOrigin
+        && (parsed.port || explicitPort) && !parsed.username && !parsed.password) {
         allowedDevelopmentOrigin = parsed.origin;
       }
     } catch { /* Invalid optional development origins are ignored. */ }

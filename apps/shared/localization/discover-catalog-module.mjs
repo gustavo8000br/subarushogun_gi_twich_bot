@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseCatalogBytes } from './parse-catalog-bytes.mjs';
-import { validateCatalogSet } from './validate-catalog-set.mjs';
+import { catalogKeyShape, validateCatalogSet } from './validate-catalog-set.mjs';
 
 const DEFAULT_REQUIRED_LOCALES = Object.freeze(['pt-BR', 'en', 'es']);
 const MODULE_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -52,8 +52,13 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'panel.queue.clear.changed': Object.freeze(['count']),
     'panel.queue.clear.done': Object.freeze(['count', 'refunds']),
     'panel.widget.card_details': Object.freeze(['queue', 'width', 'height', 'id']),
+    'panel.widget.notice.reference': Object.freeze(['id']),
+    'panel.widget.notice.refresh_failed': Object.freeze(['action']),
+    'panel.widget.notice.conflict_refreshed': Object.freeze([]),
+    'panel.widget.notice.conflict_missing': Object.freeze([]),
     'panel.entry.call.remaining': Object.freeze(['time']),
     'panel.error.reference': Object.freeze(['id']),
+    'panel.queue.call_next.reference': Object.freeze(['id']),
     'panel.reward.candidate_counts': Object.freeze(['compatible', 'total']),
     'panel.reward.mismatch_summary': Object.freeze(['reasons']),
     'panel.reward.mismatch.title': Object.freeze(['count']),
@@ -138,6 +143,56 @@ export async function discoverCatalogModule(catalogRoot, moduleName, options = {
         locales: requiredLocales,
         placeholders,
       });
+      catalogs[locale] = catalog;
+    } catch {
+      rejectedLocales.push({ locale, reason: 'invalid-catalog' });
+    }
+  }
+
+  const orderedLocales = Object.keys(catalogs).sort();
+  return Object.freeze({
+    catalogs: Object.freeze(catalogs),
+    locales: Object.freeze(orderedLocales),
+    rejectedLocales: Object.freeze(rejectedLocales),
+  });
+}
+
+/**
+ * Merge complete host-managed locale catalogs into one first-party module.
+ * First-party locales always win; community locales must match the exact key
+ * and placeholder contract of the shipped module.
+ * @param {string} catalogRoot
+ * @param {string} communityCatalogRoot
+ * @param {string} moduleName
+ * @param {{requiredLocales?: readonly string[], placeholders?: Record<string, string[]>}} [options]
+ */
+export async function discoverCatalogModuleWithCommunity(catalogRoot, communityCatalogRoot, moduleName, options = {}) {
+  const firstParty = await discoverCatalogModule(catalogRoot, moduleName, options);
+  let communityEntries;
+  try {
+    communityEntries = await readdir(resolve(communityCatalogRoot, moduleName), { withFileTypes: true });
+  } catch {
+    return firstParty;
+  }
+
+  const requiredLocales = options.requiredLocales ?? DEFAULT_REQUIRED_LOCALES;
+  const baseLocale = requiredLocales.includes('pt-BR') ? 'pt-BR' : requiredLocales[0];
+  const firstPartyShape = catalogKeyShape(firstParty.catalogs[baseLocale]);
+  const placeholders = options.placeholders ?? MODULE_PLACEHOLDERS[moduleName] ?? {};
+  const catalogs = { ...firstParty.catalogs };
+  const rejectedLocales = [...firstParty.rejectedLocales];
+
+  for (const entry of communityEntries) {
+    if (!entry.isFile() || !entry.name.endsWith('.tsv')) continue;
+    const locale = entry.name.slice(0, -4);
+    if (!isCanonicalLocale(locale) || Object.hasOwn(catalogs, locale)) continue;
+    try {
+      const catalog = parseCatalogBytes(await readFile(join(resolve(communityCatalogRoot, moduleName), entry.name)));
+      const shape = catalogKeyShape(catalog);
+      if (JSON.stringify(shape) !== JSON.stringify(firstPartyShape)) {
+        throw new Error('Community catalog keys differ from first-party module');
+      }
+      validateCatalogSet({ [locale]: catalog }, { locales: [locale], placeholders });
       catalogs[locale] = catalog;
     } catch {
       rejectedLocales.push({ locale, reason: 'invalid-catalog' });

@@ -76,10 +76,16 @@ export function ConnectionPageView({ setup = {}, locale = 'pt-BR', t, request, o
     setNotice({ key: 'panel.reconciliation.running', tone: 'pending' });
     try {
       const result = await request('/api/reconciliation', { method: 'POST', body: '{}' });
-      if (result?.status === 'complete') {
-        setNotice({ key: 'panel.reconciliation.complete', count: result.imported ?? 0, tone: 'success' });
+      if (!result || !['complete', 'partial', 'failed'].includes(result.status)
+        || !Array.isArray(result.issues)
+        || (result.status !== 'complete' && result.issues.length === 0)
+        || (result.imported !== undefined && (!Number.isInteger(result.imported) || result.imported < 0))) {
+        throw new Error('invalid reconciliation result');
+      }
+      if (result.status !== 'complete' || result.issues.length > 0) {
+        setNotice({ key: 'panel.reconciliation.issues', count: result.issues.length, tone: 'warning' });
       } else {
-        setNotice({ key: 'panel.reconciliation.issues', count: result?.issues?.length ?? 0, tone: 'warning' });
+        setNotice({ key: 'panel.reconciliation.complete', count: result.imported ?? 0, tone: 'success' });
       }
     } catch {
       setNotice({ key: 'panel.operations.reconcile_failed', tone: 'error' });
@@ -89,7 +95,7 @@ export function ConnectionPageView({ setup = {}, locale = 'pt-BR', t, request, o
   };
 
   const noticeText = notice?.count !== undefined
-    ? t(`${notice.key}.${new Intl.PluralRules(locale).select(notice.count)}`, { values: { count: notice.count } })
+    ? t(`${notice.key}.${new Intl.PluralRules(locale).select(notice.count)}`, { values: { count: new Intl.NumberFormat(locale).format(notice.count) } })
     : notice ? t(notice.key) : '';
 
   return (

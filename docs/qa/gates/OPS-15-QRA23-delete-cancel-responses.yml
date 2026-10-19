@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'QRA-23 POST /api/queues/:queueId/delete/cancel confirmation, known status mappings, accepted arguments, and unexpected diagnostics only'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (QRA-23 delete cancellation responses, uncommitted)'
+updated: '2026-10-19'
+status_reason: 'Missing confirm:true returns the exact 400 code/body before domain access. QUEUE_NOT_FOUND maps to exact 404; all four known cancellation state codes map to the documented 409 response without private exception details. Accepted queue/actor/origin arguments and unexpected 503 INTERNAL_ERROR diagnostics with referenceId, x-error-reference, and stable source are covered. This PASS is limited to QRA-23 response assertions; OPS-15 remains In Progress and the final story gate is not satisfied.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 file / 114 tests passed'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 file / 114 tests passed'
+  lint: 'npm run lint passed'
+  typecheck: 'npm run typecheck passed'
+  diff_check: 'git diff --check passed (line-ending normalization warnings on existing working-tree files)'
+  response_review: 'Exact missing-confirmation 400 before domain call; exact 404/four 409 responses with no private details; accepted args and unexpected 503 diagnostic body/reference/header/source covered.'
+  bilingual_docs: 'QRA-23 route response/status/error matrix is aligned in EN and pt-BR.'
+limitations:
+  - 'Persistent outbox cancellation/recheck states were not validated against PostgreSQL; no Twitch call was performed.'
+  - 'No browser/Next runtime, installer, or native OBS/CEF validation was performed.'
+  - 'This is not overall OPS-15 QA, does not close the story, and does not authorize panel cutover.'

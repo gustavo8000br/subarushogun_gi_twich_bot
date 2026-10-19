@@ -1,10 +1,10 @@
 import { readdir } from 'node:fs/promises';
-import { discoverCatalogModule } from './discover-catalog-module.mjs';
+import { discoverCatalogModule, discoverCatalogModuleWithCommunity } from './discover-catalog-module.mjs';
 
 /**
  * Discover every module directory and expose only locales complete in all of them.
  * @param {string} catalogRoot
- * @param {{requiredLocales?: readonly string[], placeholdersByModule?: Record<string, Record<string, string[]>>}} [options]
+ * @param {{requiredLocales?: readonly string[], placeholdersByModule?: Record<string, Record<string, string[]>>, communityCatalogRoot?: string}} [options]
  * @returns {Promise<{modules: object, locales: readonly string[]}>}
  */
 export async function discoverCatalogBundle(catalogRoot, options = {}) {
@@ -19,10 +19,13 @@ export async function discoverCatalogBundle(catalogRoot, options = {}) {
   if (moduleNames.length === 0) throw new Error('Catalog root must contain at least one module');
 
   const discoveredModules = await Promise.all(moduleNames.map(async (moduleName) => {
-    const result = await discoverCatalogModule(catalogRoot, moduleName, {
+    const moduleOptions = {
       requiredLocales: options.requiredLocales,
       placeholders: options.placeholdersByModule?.[moduleName],
-    });
+    };
+    const result = options.communityCatalogRoot
+      ? await discoverCatalogModuleWithCommunity(catalogRoot, options.communityCatalogRoot, moduleName, moduleOptions)
+      : await discoverCatalogModule(catalogRoot, moduleName, moduleOptions);
     return [moduleName, result];
   }));
 

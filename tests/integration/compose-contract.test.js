@@ -38,6 +38,9 @@ describe('local Compose runtime contract', () => {
       host_ip: '127.0.0.1', target: 3000, published: '3000',
     }));
     expect(config.services.bot.environment.APP_PORT).toBe('3000');
+    expect(config.services.bot.environment.PUBLIC_PORT).toBe('3000');
+    expect(config.services.bot.environment.API_PORT).toBe('3109');
+    expect(config.services.bot.environment.PANEL_PORT).toBe('3000');
     expect(config.services.bot.environment.APP_LOG_LEVEL).toBe('info');
     expect(config.services.bot.environment.PUBLIC_BASE_URL).toBe('https://localhost:3000');
     expect(config.services.bot.environment.CALLBACK_URL).toBe('https://localhost:3000/callback');
@@ -56,9 +59,10 @@ describe('local Compose runtime contract', () => {
     expect(result.status, result.stderr).toBe(0);
     const config = JSON.parse(result.stdout);
     expect(config.services.bot.ports).toContainEqual(expect.objectContaining({
-      host_ip: '127.0.0.1', target: 3217, published: '3217',
+      host_ip: '127.0.0.1', target: 3000, published: '3217',
     }));
-    expect(config.services.bot.environment.APP_PORT).toBe('3217');
+    expect(config.services.bot.environment.APP_PORT).toBe('3000');
+    expect(config.services.bot.environment.PUBLIC_PORT).toBe('3217');
     expect(config.services.bot.environment.APP_LOG_LEVEL).toBe('debug');
     expect(config.services.bot.environment.PUBLIC_BASE_URL).toBe('https://localhost:3217');
     expect(config.services.bot.environment.CALLBACK_URL).toBe('https://localhost:3217/callback');
@@ -87,6 +91,13 @@ describe('local Compose runtime contract', () => {
     expect(config.services.bot.volumes).toContainEqual(expect.objectContaining({
       type: 'bind', source: resolve(root, '.local'), target: '/app/.local',
     }));
+    expect(config.services.bot.volumes).toContainEqual(expect.objectContaining({
+      type: 'bind',
+      source: resolve(root, '.local/community-catalogs'),
+      target: '/app/.local/community-catalogs',
+      read_only: true,
+      bind: { create_host_path: false },
+    }));
     expect(config.services.bot.group_add).toContain('10001');
   });
 
@@ -113,19 +124,25 @@ describe('local Compose runtime contract', () => {
     expect(dockerfile).toMatch(/^RUN apk add --no-cache openssl$/m);
   });
 
-  it('builds the Next static export in a separate stage and copies it into the image without changing the legacy web root', () => {
+  it('builds the Next production server separately and starts the Next gateway with a private Fastify API', () => {
     const dockerfile = readFileSync(dockerfilePath, 'utf8');
     expect(dockerfile).toMatch(/^FROM dependencies AS frontend-build$/m);
     expect(dockerfile).toMatch(/^COPY apps\/shared \.\/apps\/shared$/m);
     expect(dockerfile).toMatch(/^COPY apps\/web\/panel-catalog\.mjs \.\/apps\/web\/panel-catalog\.mjs$/m);
     expect(dockerfile).toMatch(/^COPY apps\/web\/queue-sync-status\.mjs \.\/apps\/web\/queue-sync-status\.mjs$/m);
+    expect(dockerfile).toMatch(/^COPY apps\/web\/queue-confirmation-copy\.mjs \.\/apps\/web\/queue-confirmation-copy\.mjs$/m);
+    expect(dockerfile).toMatch(/^COPY apps\/web\/reward-link-dialog\.mjs \.\/apps\/web\/reward-link-dialog\.mjs$/m);
     expect(dockerfile).toMatch(/^COPY apps\/web\/queue-settings-version\.mjs \.\/apps\/web\/queue-settings-version\.mjs$/m);
     expect(dockerfile).toMatch(/^COPY apps\/web\/panel-navigation\.mjs \.\/apps\/web\/panel-navigation\.mjs$/m);
     expect(dockerfile).toMatch(/^COPY apps\/web\/setup-messages\.mjs \.\/apps\/web\/setup-messages\.mjs$/m);
     expect(dockerfile).toMatch(/^COPY apps\/web\/overlay-renderer\.mjs \.\/apps\/web\/overlay-renderer\.mjs$/m);
     expect(dockerfile).toMatch(/^COPY apps\/web\/localization\/catalogs \.\/apps\/web\/localization\/catalogs$/m);
     expect(dockerfile).toContain('RUN npm run build:frontend');
-    expect(dockerfile).toMatch(/^COPY --from=frontend-build \/app\/apps\/frontend\/out \.\/apps\/frontend\/out$/m);
+    expect(dockerfile).toMatch(/^COPY --from=frontend-build \/app\/apps\/frontend\/\.next \.\/apps\/frontend\/\.next$/m);
+    expect(dockerfile).toContain('CMD ["node", "apps/infra/scripts/start-product.mjs"]');
+    expect(readFileSync(`${root}/apps/infra/scripts/start-product.mjs`, 'utf8')).toContain('apps/frontend/scripts/start-production.mjs');
+    expect(readFileSync(`${root}/apps/frontend/scripts/next-runtime-config.mjs`, 'utf8')).toContain('buildProductionProxyRules');
+    expect(readFileSync(`${root}/apps/frontend/scripts/next-runtime-config.mjs`, 'utf8')).toContain('trailingSlash: false');
     expect(readFileSync(`${root}/apps/api/src/server.mjs`, 'utf8'))
       .toContain("new URL('../../web/', import.meta.url)");
   });

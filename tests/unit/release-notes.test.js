@@ -2,6 +2,13 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import { createReleaseNotes, getChangelogHeading, getChangelogPaths } from '../../apps/infra/scripts/create-release-notes.mjs';
 
+function getReleaseSection(changelog, version) {
+  const start = changelog.indexOf(`## ${version}`);
+  if (start === -1) return '';
+  const nextVersion = changelog.indexOf('\n## v', start + 1);
+  return changelog.slice(start, nextVersion === -1 ? undefined : nextVersion);
+}
+
 describe('release notes from bilingual public changelogs', () => {
   it('ties the current beta target to the first bilingual changelog section', async () => {
     const [packageJson, stage, version, english, portuguese] = await Promise.all([
@@ -19,13 +26,13 @@ describe('release notes from bilingual public changelogs', () => {
     expect(portuguese).toContain('## v0.2.0-beta');
     expect(english.indexOf('## v0.2.0-beta')).toBeLessThan(english.indexOf('## v0.1.2-beta'));
     expect(english.indexOf('## v0.1.1-beta')).toBeLessThan(english.indexOf('## v0.1.0-beta'));
-    expect(english.split('## v0.1.2-beta')[1].split('## ')[0]).toContain('preserves the pending Twitch fulfillment');
-    expect(english.split('## v0.2.0-beta')[1].split('## ')[0]).toContain('cancel a pending reward-backed queue deletion');
+    expect(getReleaseSection(english, 'v0.1.2-beta')).toContain('preserves the pending Twitch fulfillment');
+    expect(getReleaseSection(english, 'v0.2.0-beta')).toContain('cancel a pending reward-backed queue deletion');
     expect(portuguese.indexOf('## v0.2.0-beta')).toBeLessThan(portuguese.indexOf('## v0.1.2-beta'));
     expect(portuguese.indexOf('## v0.1.2-beta')).toBeLessThan(portuguese.indexOf('## v0.1.1-beta'));
     expect(portuguese.indexOf('## v0.1.1-beta')).toBeLessThan(portuguese.indexOf('## v0.1.0-beta'));
-    expect(portuguese.split('## v0.1.2-beta')[1].split('## ')[0]).toContain('a conclusão pendente na Twitch agora é preservada');
-    expect(portuguese.split('## v0.2.0-beta')[1].split('## ')[0]).toContain('podem cancelar a exclusão pendente');
+    expect(getReleaseSection(portuguese, 'v0.1.2-beta')).toContain('a conclusão pendente na Twitch agora é preservada');
+    expect(getReleaseSection(portuguese, 'v0.2.0-beta')).toContain('podem cancelar a exclusão pendente');
     expect(english).toContain('## v0.1.1-beta');
     expect(portuguese).toContain('## v0.1.1-beta');
     expect(english).toContain('## v0.1.0-beta');

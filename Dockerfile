@@ -8,6 +8,8 @@ FROM dependencies AS frontend-build
 COPY apps/frontend ./apps/frontend
 COPY apps/web/overlay-renderer.mjs ./apps/web/overlay-renderer.mjs
 COPY apps/web/queue-action-state.mjs ./apps/web/queue-action-state.mjs
+COPY apps/web/queue-confirmation-copy.mjs ./apps/web/queue-confirmation-copy.mjs
+COPY apps/web/reward-link-dialog.mjs ./apps/web/reward-link-dialog.mjs
 COPY apps/web/panel-catalog.mjs ./apps/web/panel-catalog.mjs
 COPY apps/web/queue-sync-status.mjs ./apps/web/queue-sync-status.mjs
 COPY apps/web/queue-settings-version.mjs ./apps/web/queue-settings-version.mjs
@@ -26,7 +28,7 @@ WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY apps ./apps
-COPY --from=frontend-build /app/apps/frontend/out ./apps/frontend/out
+COPY --from=frontend-build /app/apps/frontend/.next ./apps/frontend/.next
 COPY prisma.config.mjs ./prisma.config.mjs
 COPY VERSION .release-stage ./
 ARG PRODUCT_VERSION
@@ -34,4 +36,4 @@ RUN test -z "$PRODUCT_VERSION" || printf '%s\n' "$PRODUCT_VERSION" > VERSION
 RUN DATABASE_URL=postgresql://queuebot:build-only@db:5432/queuebot npm exec -- prisma generate --schema apps/api/prisma/schema.prisma
 USER 10001:10001
 EXPOSE 3000
-CMD ["node", "apps/api/src/server.mjs"]
+CMD ["node", "apps/infra/scripts/start-product.mjs"]

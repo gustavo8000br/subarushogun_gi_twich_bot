@@ -28,6 +28,9 @@ const COPY = {
   'panel.widget.source.called_position': 'Called person’s original position',
   'panel.widget.source.service_name': 'Person in service',
   'panel.widget.source.fixed_text': 'Fixed text',
+  'panel.widget.fixed_text_label': 'Widget text field',
+  'panel.widget.link.title': 'One-time URL',
+  'panel.widget.local_widget_url': 'Widget URL',
   'panel.widget.preview.account': 'Sample account',
   'panel.widget.preview.queue': 'Sample queue',
   'panel.widget.status.active': 'Link active',
@@ -46,8 +49,12 @@ const COPY = {
   'panel.widget.editor.create': 'Create widget',
   'panel.widget.editor.edit': 'Edit widget',
   'panel.widget.source_label': 'What to display',
-  'panel.widget.queue_label': 'Queue',
-  'panel.widget.fixed_text_label': 'Fixed text',
+  'panel.widget.source.help': 'For queue data, choose the specific queue below. Its linked Channel Points reward is included when applicable.',
+  'panel.widget.queue_label': 'Queue / linked reward',
+  'panel.widget.queue.help': 'This widget reads data from the selected queue.',
+  'panel.widget.queue.empty': 'No active queues are available to select.',
+  'panel.widget.queue.create': 'Create a queue',
+  'panel.widget.queue.create_hint': 'Opens in a new tab so this widget draft stays open.',
   'panel.widget.fallback_label': 'Fallback text when no value is available',
   'panel.widget.appearance': 'Appearance',
   'panel.widget.save': 'Save widget',
@@ -55,11 +62,13 @@ const COPY = {
   'panel.widget.preview_eyebrow': 'SIMULATED PREVIEW',
   'panel.widget.preview_example': 'Widget example',
   'panel.widget.link_eyebrow': 'ONE-TIME LINK',
-  'panel.widget.link.copied_once': 'Copy it now. The link will not be shown again.',
+  'panel.widget.link.copied_once': 'Copy this one-time link now. It will not be shown again after you close this dialog.',
+  'panel.widget.link.title': 'One-time widget link',
+  'panel.widget.local_widget_url': 'Widget URL',
   'panel.widget.link.copied': 'Link copied.',
   'panel.widget.link.copy_fallback': 'Select and copy the link. It will not be shown again after closing.',
   'panel.widget.copy_link': 'Copy link',
-  'panel.widget.link.close_loses': 'Closing will clear this link. If you lose it, generate another one.',
+  'panel.widget.link.close_loses': 'Closing clears the URL. If you lose it, generate another one.',
   'panel.widget.close': 'Close',
   'panel.widget.obs_help': 'In OBS: add a Browser source, paste the URL, and set Page Permissions to None.',
   'panel.widget.notice.saved': 'Widget saved.',
@@ -68,6 +77,21 @@ const COPY = {
   'panel.widget.notice.deleted': 'Widget deleted.',
   'panel.widget.notice.conflict': 'This widget changed. Review your draft and reload before saving.',
   'panel.widget.notice.error': 'Could not complete. Try again.',
+  'panel.widget.notice.reference': 'Reference: {id}',
+  'panel.error.reference': 'Reference: {id}',
+  'panel.widget.notice.refresh_failed': '{action} was accepted, but the widget list could not refresh. Refresh before repeating this action.',
+  'panel.widget.notice.action_created': 'Widget creation',
+  'panel.widget.notice.action_saved': 'Widget update',
+  'panel.widget.notice.action_revoked': 'Link revocation',
+  'panel.widget.notice.action_deleted': 'Widget deletion',
+  'panel.widget.notice.conflict_refreshed': 'Latest widget list loaded. Your draft is unchanged; review the current widget before trying again.',
+  'panel.widget.notice.conflict_missing': 'This widget is no longer in the list. Your draft is unchanged; close it without saving.',
+  'panel.widget.notice.conflict_replaced': 'Latest widget values loaded into the form. Review them, make your changes, then save.',
+  'panel.widget.conflict.latest_title': 'Current version on the server',
+  'panel.widget.conflict.replace_draft': 'Replace my draft with this version',
+  'panel.widget.close_without_saving': 'Close without saving',
+  'panel.widget.conflict.refresh': 'Refresh widget list',
+  'panel.widget.conflict.refresh_hint': 'Your draft will stay open. Review the latest widget before saving again.',
   'panel.dialog.confirm': 'Confirm',
   'panel.dialog.cancel': 'Cancel',
   'panel.error.generic': 'Could not complete. Try again.',
@@ -86,7 +110,8 @@ const widget = (overrides = {}) => ({
 const queues = [{ id: 'queue-1', title: 'Test queue', slug: 'test', isOpen: true, isDeleted: false }];
 
 function renderPage({ request = vi.fn(async (path) => path === '/api/overlay-widgets' ? [] : {}), suppliedQueues = queues } = {}) {
-  render(<WidgetsPageView t={t} request={request} queues={suppliedQueues} />);
+  const fullCatalogs = { 'pt-BR': { 'translation.unavailable': 'Texto indisponível.', ...COPY } };
+  render(<WidgetsPageView t={(key, options) => translatePanel(fullCatalogs, 'pt-BR', key, options)} request={request} queues={suppliedQueues} />);
   return { request };
 }
 
@@ -112,7 +137,7 @@ describe('Next OBS widget management page', () => {
     await screen.findByText('No widgets created');
     fireEvent.click(screen.getByRole('button', { name: 'Create your first widget' }));
     fireEvent.change(screen.getByLabelText('What to display'), { target: { value: 'fixed_text' } });
-    fireEvent.change(screen.getByLabelText('Fixed text'), { target: { value: 'Ready' } });
+    fireEvent.change(screen.getByLabelText('Widget text field', { selector: 'textarea' }), { target: { value: 'Ready' } });
     fireEvent.change(screen.getByLabelText('Fallback text when no value is available'), { target: { value: 'Offline' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save widget' }));
 
@@ -120,26 +145,45 @@ describe('Next OBS widget management page', () => {
     const body = JSON.parse(request.mock.calls.find(([path, options]) => path === '/api/overlay-widgets' && options?.method === 'POST')[1].body);
     expect(body).toMatchObject({ sourceType: 'fixed_text', queueId: null, fixedText: 'Ready', fallbackText: 'Offline', style });
     expect(await screen.findByDisplayValue(secretUrl)).toBeTruthy();
-    expect(screen.getByText(/link will not be shown again/i)).toBeTruthy();
+    expect(screen.getByText(/not be shown again after you close/i)).toBeTruthy();
     expect(screen.queryByText(secretUrl)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByDisplayValue(secretUrl)).toBeNull());
     expect(document.body.textContent).not.toContain('one-time-secret');
   });
 
-  it('keeps a queue-scoped source tied to the selected queue', async () => {
+  it.each(['queue_name', 'queue_state', 'queue_waiting_count'])('keeps %s tied to the selected queue and linked reward', async (sourceType) => {
     const request = vi.fn(async (path, options) => path === '/api/overlay-widgets' && options?.method === 'POST'
       ? { widget: widget({ sourceType: 'queue_name', queueId: 'queue-1' }), capabilityUrl: 'https://localhost/overlay.html#secret' }
       : []);
     renderPage({ request });
     await screen.findByText('No widgets created');
     fireEvent.click(screen.getByRole('button', { name: 'Create your first widget' }));
-    fireEvent.change(screen.getByLabelText('What to display'), { target: { value: 'queue_name' } });
-    expect(screen.getByLabelText('Queue')).toBeTruthy();
-    fireEvent.change(screen.getByLabelText('Queue'), { target: { value: 'queue-1' } });
+    fireEvent.change(screen.getByLabelText('What to display'), { target: { value: sourceType } });
+    expect(screen.getByText(/For queue data, choose the specific queue below/)).toBeTruthy();
+    expect(screen.getByText('This widget reads data from the selected queue.')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Queue / linked reward'), { target: { value: 'queue-1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save widget' }));
     await waitFor(() => expect(request).toHaveBeenCalledWith('/api/overlay-widgets', expect.objectContaining({ method: 'POST' })));
-    expect(JSON.parse(request.mock.calls.find(([path, options]) => path === '/api/overlay-widgets' && options?.method === 'POST')[1].body)).toMatchObject({ sourceType: 'queue_name', queueId: 'queue-1', fixedText: null });
+    expect(JSON.parse(request.mock.calls.find(([path, options]) => path === '/api/overlay-widgets' && options?.method === 'POST')[1].body)).toMatchObject({ sourceType, queueId: 'queue-1', fixedText: null });
+  });
+
+  it('explains how to get a queue when no active queue or linked reward can be selected', async () => {
+    const request = vi.fn(async (path) => path === '/api/overlay-widgets' ? [] : {});
+    renderPage({ request, suppliedQueues: [] });
+    await screen.findByText('No widgets created');
+    fireEvent.click(screen.getByRole('button', { name: 'Create your first widget' }));
+    fireEvent.change(screen.getByLabelText('What to display'), { target: { value: 'queue_name' } });
+
+    expect(screen.getByLabelText('Queue / linked reward').disabled).toBe(true);
+    expect(screen.getByText('No active queues are available to select.')).toBeTruthy();
+    const createQueueLink = screen.getByRole('link', { name: 'Create a queue' });
+    expect(createQueueLink.getAttribute('href')).toBe('/queues/');
+    expect(createQueueLink.getAttribute('target')).toBe('_blank');
+    expect(screen.getByRole('button', { name: 'Save widget' }).disabled).toBe(true);
+
+    fireEvent.submit(document.querySelector('.widget-editor-form'));
+    expect(request.mock.calls.some(([path, options]) => path === '/api/overlay-widgets' && options?.method === 'POST')).toBe(false);
   });
 
   it('edits an existing widget with its expected version without rotating the one-time link', async () => {
@@ -152,7 +196,7 @@ describe('Next OBS widget management page', () => {
     renderPage({ request });
     const card = await screen.findByRole('article');
     fireEvent.click(within(card).getByRole('button', { name: 'Edit' }));
-    fireEvent.change(screen.getByLabelText('Fixed text'), { target: { value: 'Ready now' } });
+    fireEvent.change(screen.getByLabelText('Widget text field'), { target: { value: 'Ready now' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save widget' }));
     await waitFor(() => expect(request).toHaveBeenCalledWith(`/api/overlay-widgets/${existing.id}`, expect.objectContaining({ method: 'PATCH' })));
     const [path, options] = request.mock.calls.find(([candidate, opts]) => candidate.endsWith(existing.id) && opts?.method === 'PATCH');
@@ -180,21 +224,106 @@ describe('Next OBS widget management page', () => {
     await waitFor(() => expect(screen.queryByDisplayValue(secretUrl)).toBeNull());
   });
 
-  it('retains the edit draft and reports a safe conflict when the widget revision changes', async () => {
+  it('clears the one-time capability when the user clicks outside its dialog', async () => {
+    const secretUrl = 'https://localhost/overlay.html#backdrop-secret';
+    const active = widget();
+    const request = vi.fn(async (path, options) => {
+      if (path.endsWith('/regenerate') && options?.method === 'POST') return { widget: { ...active, version: 4 }, capabilityUrl: secretUrl };
+      if (path === '/api/overlay-widgets') return [active];
+      return {};
+    });
+    renderPage({ request });
+    const card = await screen.findByRole('article');
+    fireEvent.click(within(card).getByRole('button', { name: 'Regenerate link' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }));
+    expect(await screen.findByDisplayValue(secretUrl)).toBeTruthy();
+    fireEvent.mouseDown(document.querySelector('.widget-secret-backdrop'));
+    await waitFor(() => expect(screen.queryByDisplayValue(secretUrl)).toBeNull());
+    expect(document.body.textContent).not.toContain('backdrop-secret');
+  });
+
+  it('retains the edit draft, shows a diagnostic reference, and offers list refresh on conflict', async () => {
     const existing = widget({ sourceType: 'fixed_text', fixedText: 'Before' });
     const request = vi.fn(async (path, options) => {
-      if (path.startsWith('/api/overlay-widgets/') && options?.method === 'PATCH') throw Object.assign(new Error('raw database detail'), { status: 409 });
+      if (path.startsWith('/api/overlay-widgets/') && options?.method === 'PATCH') throw Object.assign(new Error('raw database detail'), { status: 409, referenceId: 'safe-ref-9' });
       if (path === '/api/overlay-widgets') return [existing];
       return {};
     });
     renderPage({ request });
     const card = await screen.findByRole('article');
     fireEvent.click(within(card).getByRole('button', { name: 'Edit' }));
-    const fixedText = screen.getByLabelText('Fixed text');
+    const fixedText = screen.getByLabelText('Widget text field');
     fireEvent.change(fixedText, { target: { value: 'Draft survives' } });
+    let listReads = 0;
+    request.mockImplementation(async (path, options) => {
+      if (path.startsWith('/api/overlay-widgets/') && options?.method === 'PATCH') throw Object.assign(new Error('raw database detail'), { status: 409, referenceId: 'safe-ref-9' });
+      if (path === '/api/overlay-widgets') {
+        listReads += 1;
+        return listReads > 0 ? [widget({ ...existing, version: 4, fixedText: 'External' })] : [existing];
+      }
+      return {};
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save widget' }));
     expect(await screen.findByText(/widget changed/i)).toBeTruthy();
-    expect(screen.getByLabelText('Fixed text').value).toBe('Draft survives');
+    expect(screen.getByLabelText('Widget text field').value).toBe('Draft survives');
+    expect(await screen.findByText('Reference: safe-ref-9')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh widget list' }));
+    expect(await screen.findByText(/Latest widget list loaded/)).toBeTruthy();
+    expect(screen.getByLabelText('Widget text field').value).toBe('Draft survives');
+    expect(screen.getAllByText('External')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Replace my draft with this version' }));
+    expect(screen.getByLabelText('Widget text field').value).toBe('External');
+    expect(screen.getByText(/Latest widget values loaded/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Widget text field'), { target: { value: 'Reviewed update' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save widget' }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith(`/api/overlay-widgets/${existing.id}`, expect.objectContaining({ method: 'PATCH' })));
+    const patchCalls = request.mock.calls.filter(([candidate, options]) => candidate.endsWith(existing.id) && options?.method === 'PATCH');
+    expect(JSON.parse(patchCalls.at(-1)[1].body)).toMatchObject({ expectedVersion: 4, changes: { fixedText: 'Reviewed update' } });
     expect(screen.queryByText('raw database detail')).toBeNull();
+  });
+
+  it('keeps accepted create feedback distinct when the widget projection refresh fails', async () => {
+    let widgetListReads = 0;
+    const request = vi.fn(async (path, options) => {
+      if (path === '/api/overlay-widgets' && options?.method === 'POST') return { widget: widget({ fixedText: 'Ready' }), capabilityUrl: 'https://localhost/overlay.html#one-time' };
+      if (path === '/api/overlay-widgets' && ++widgetListReads > 1) throw Object.assign(new Error('read failed'), { referenceId: 'refresh-ref-1' });
+      return [];
+    });
+    renderPage({ request });
+    await screen.findByText('No widgets created');
+    fireEvent.click(screen.getByRole('button', { name: 'Create your first widget' }));
+    fireEvent.submit(document.querySelector('.widget-editor-form'));
+    expect(await screen.findByDisplayValue('https://localhost/overlay.html#one-time')).toBeTruthy();
+    expect(await screen.findByText(/Widget creation was accepted, but the widget list could not refresh/)).toBeTruthy();
+    expect(await screen.findByText('Reference: refresh-ref-1')).toBeTruthy();
+  });
+
+  it('blocks saving an edit after refresh confirms the widget was removed', async () => {
+    const existing = widget({ sourceType: 'fixed_text', fixedText: 'Before' });
+    let listReads = 0;
+    const request = vi.fn(async (path, options) => {
+      if (path.startsWith('/api/overlay-widgets/') && options?.method === 'PATCH') throw Object.assign(new Error('conflict'), { status: 409, referenceId: 'removed-ref-2' });
+      if (path === '/api/overlay-widgets') return listReads++ === 0 ? [existing] : [];
+      return {};
+    });
+    renderPage({ request });
+    const card = await screen.findByRole('article');
+    fireEvent.click(within(card).getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByLabelText('Widget text field'), { target: { value: 'Local draft' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save widget' }));
+    expect(await screen.findByText(/widget changed/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh widget list' }));
+    expect(await screen.findByText(/no longer in the list/i)).toBeTruthy();
+    expect(screen.getByLabelText('Widget text field').value).toBe('Local draft');
+    expect(screen.getByRole('button', { name: 'Save widget' }).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Close without saving' })).toBeTruthy();
+    expect(request.mock.calls.filter(([, options]) => options?.method === 'PATCH')).toHaveLength(1);
+  });
+
+  it('shows safe diagnostic reference for list load failure', async () => {
+    const request = vi.fn(async () => { throw Object.assign(new Error('raw storage detail'), { referenceId: 'widget-ref-1' }); });
+    renderPage({ request });
+    expect(await screen.findByText('Reference: widget-ref-1')).toBeTruthy();
+    expect(screen.queryByText('raw storage detail')).toBeNull();
   });
 });

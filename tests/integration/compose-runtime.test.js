@@ -42,18 +42,29 @@ async function getFreePort() {
   return port;
 }
 
-function health() {
+function request(path) {
   return new Promise((resolve, reject) => {
-    const request = https.get(`https://127.0.0.1:${hostPort}/health`, { rejectUnauthorized: false, timeout: 2000 }, (response) => {
+    const pending = https.get(`https://127.0.0.1:${hostPort}${path}`, { rejectUnauthorized: false, timeout: 2000 }, (response) => {
       const peerCertificate = response.socket.getPeerCertificate(true);
       let body = '';
       response.setEncoding('utf8');
       response.on('data', (chunk) => { body += chunk; });
-      response.on('end', () => resolve({ ok: response.statusCode === 200, status: response.statusCode, json: () => JSON.parse(body), peerCertificate }));
+      response.on('end', () => resolve({
+        ok: response.statusCode === 200,
+        status: response.statusCode,
+        headers: response.headers,
+        body,
+        json: () => JSON.parse(body),
+        peerCertificate,
+      }));
     });
-    request.on('error', reject);
-    request.on('timeout', () => request.destroy(new Error('HTTPS health request timed out')));
+    pending.on('error', reject);
+    pending.on('timeout', () => pending.destroy(new Error(`HTTPS ${path} request timed out`)));
   });
+}
+
+function health() {
+  return request('/health');
 }
 
 async function waitForHealthyBot() {
@@ -106,6 +117,18 @@ describe('isolated Compose first-run and restart acceptance', () => {
     ]);
     expect(Number(migrationCount)).toBeGreaterThan(0);
   }, 120_000);
+
+  it('serves the overlay document from Next and proxies the live capability API to Fastify on the same origin', async () => {
+    const document = await request('/overlay.html');
+    expect(document.status).toBe(200);
+    expect(document.headers['content-type']).toContain('text/html');
+    expect(document.body).toContain('id="overlay-widget"');
+
+    const projection = await request('/overlay/api/widget');
+    expect(projection.status).toBe(401);
+    expect(projection.headers['cache-control']).toContain('no-store');
+    expect(projection.json()).toEqual({ error: 'Widget indisponível.' });
+  }, 30_000);
 
   it('serves HTTPS on localhost with a generated certificate trusted by the exported local CA', async () => {
     const response = await health();

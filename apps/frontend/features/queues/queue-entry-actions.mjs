@@ -13,13 +13,36 @@ export function getManualQueueEntryFailureKey(error) {
   return 'panel.entry.error.failed';
 }
 
-/** @param {{action:string, result:Record<string, any>, refreshFailed?:boolean}} input */
-export function getQueueEntryActionFeedback({ action, result, refreshFailed = false }) {
+/** @param {{code?:string,referenceId?:string,status?:number}|null|undefined} error @param {{action?:string}} [context] */
+export function getQueueEntryActionFailureFeedback(error, { action } = {}) {
+  const referenceId = typeof error?.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(error.referenceId)
+    ? error.referenceId
+    : null;
+  const uncertainCall = ['call-next', 'call'].includes(action) && error?.code !== 'SESSION_INITIALIZATION_FAILED' && (
+    error?.status === 0
+    || error?.status >= 500
+    || error?.code === 'INVALID_QUEUE_ENTRY_ACTION_RESPONSE'
+  );
+  return {
+    status: 'error',
+    key: error?.code === 'QUEUE_MODE_TRANSITION_PENDING'
+      ? 'panel.error.queue_mode_transition_pending'
+      : uncertainCall
+        ? 'panel.queue.action_result.uncertain'
+        : 'panel.queue.action_result.failed',
+    ...(referenceId ? { referenceId } : {}),
+  };
+}
+
+/** @param {{action:string, result:Record<string, any>, refreshFailed?:boolean, priority?:boolean}} input */
+export function getQueueEntryActionFeedback({ action, result, refreshFailed = false, priority }) {
   if (action === 'call-next' && result.count === 0) {
     return { status: 'info', key: 'panel.queue.action_result.no_waiting' };
   }
   if (refreshFailed) {
-    return { status: 'warning', key: 'panel.queue.entry_action_result.refresh_failed' };
+    return action === 'call-next' || action === 'call'
+      ? { status: 'warning', key: 'panel.queue.call_next.refresh_required' }
+      : { status: 'warning', key: 'panel.queue.entry_action_result.refresh_failed' };
   }
   if (action === 'resend-call') {
     return {
@@ -27,10 +50,20 @@ export function getQueueEntryActionFeedback({ action, result, refreshFailed = fa
       key: result.status === 'already_queued' ? 'panel.notice.call_already_queued' : 'panel.notice.call_resent',
     };
   }
+  if (action === 'toggle-priority') {
+    return { status: 'confirmed', key: priority ? 'panel.priority.marked' : 'panel.priority.removed' };
+  }
   if (action === 'add-manual') {
     return { status: 'confirmed', key: 'panel.entry.added' };
   }
   return { status: 'confirmed', key: 'panel.queue.entry_action_result.saved' };
+}
+
+/** Require a fresh queue projection before another call can use potentially stale waiting entries. */
+export function queueCallRequiresRefresh({ action, feedback, refreshFailed = false }) {
+  return ['call-next', 'call'].includes(action)
+    && feedback?.key !== 'panel.queue.action_result.no_waiting'
+    && (refreshFailed || feedback?.key === 'panel.queue.action_result.uncertain');
 }
 
 /** Preserve an accepted mutation result when only the subsequent read projection fails. */
@@ -47,8 +80,8 @@ function invalidResponse() {
   return Object.assign(new Error('The queue entry action response is invalid.'), { code: 'INVALID_QUEUE_ENTRY_ACTION_RESPONSE' });
 }
 
-/** @param {{request: (path:string, options?:object)=>Promise<any>, queueId:string, entryId?:string|null, action:string, login?:string, uid?:string, priority?:boolean, priorityReason?:string}} input */
-export async function performQueueEntryAction({ request, queueId, entryId = null, action, login, uid, priority = false, priorityReason }) {
+/** @param {{request: (path:string, options?:object)=>Promise<any>, queueId:string, entryId?:string|null, action:string, login?:string, uid?:string, priority?:boolean, reason?:string, position?:number, priorityReason?:string}} input */
+export async function performQueueEntryAction({ request, queueId, entryId = null, action, login, uid, priority = false, reason, position, priorityReason }) {
   if (typeof queueId !== 'string' || !queueId || typeof action !== 'string') {
     throw Object.assign(new Error('The queue entry action request is invalid.'), { code: 'INVALID_QUEUE_ENTRY_ACTION_REQUEST' });
   }
@@ -81,6 +114,28 @@ export async function performQueueEntryAction({ request, queueId, entryId = null
     throw Object.assign(new Error('An entry is required for this queue action.'), { code: 'INVALID_QUEUE_ENTRY_ACTION_REQUEST' });
   }
   const encodedEntryId = encodeURIComponent(entryId);
+
+  if (action === 'move-up' || action === 'move-down') {
+    if (!Number.isInteger(position) || position < 1 || position > 10_000) {
+      throw Object.assign(new Error('The queue entry position is invalid.'), { code: 'INVALID_QUEUE_ENTRY_ACTION_REQUEST' });
+    }
+    result = await request(`/api/queues/${encodeURIComponent(queueId)}/move`, {
+      method: 'POST', body: JSON.stringify({ entryId, position }),
+    });
+    if (!['moved', 'unchanged'].includes(result?.status) || (result.status === 'moved' && (result.entryId !== entryId || result.position !== position))) throw invalidResponse();
+    return result;
+  }
+
+  if (action === 'toggle-priority') {
+    if (typeof priority !== 'boolean' || !['subscription', 'bits', 'external_payment', 'operator_override'].includes(reason)) {
+      throw Object.assign(new Error('The queue entry priority request is invalid.'), { code: 'INVALID_QUEUE_ENTRY_ACTION_REQUEST' });
+    }
+    result = await request(`/api/entries/${encodedEntryId}/priority`, {
+      method: 'POST', body: JSON.stringify({ priority, reason }),
+    });
+    if (!['updated', 'unchanged'].includes(result?.status)) throw invalidResponse();
+    return result;
+  }
 
   if (action === 'call') {
     result = await request(`/api/queues/${encodeURIComponent(queueId)}/call`, {

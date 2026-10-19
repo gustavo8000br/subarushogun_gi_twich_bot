@@ -62,20 +62,31 @@ services:
       - "10001"
     environment:
       NODE_ENV: production
-      APP_HOST: 0.0.0.0
-      APP_PORT: ${APP_PORT:-3000}
+      APP_HOST: 127.0.0.1
+      APP_PORT: 3000
+      PUBLIC_PORT: ${APP_PORT:-3000}
+      API_PORT: 3109
+      PANEL_PORT: 3000
+      PANEL_HOST: 0.0.0.0
       APP_LOG_LEVEL: ${APP_LOG_LEVEL:-info}
       PUBLIC_BASE_URL: https://localhost:${APP_PORT:-3000}
       CALLBACK_URL: https://localhost:${APP_PORT:-3000}/callback
       PRODUCT_INITIAL_LOCALE: ${PRODUCT_INITIAL_LOCALE:-pt-BR}
       TLS_CERT_FILE: /run/secrets/localhost.crt
       TLS_KEY_FILE: /run/secrets/localhost.key
+      NODE_EXTRA_CA_CERTS: /run/secrets/localhost-ca.crt
       PRODUCT_LOCALE_PROJECTION_FILE: /app/.local/product-locale.state
     ports:
-      - "127.0.0.1:${APP_PORT:-3000}:${APP_PORT:-3000}"
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
     volumes:
       - operational_secrets:/run/secrets:ro
       - ${LOCAL_CERT_DIRECTORY:-./.local}:/app/.local
+      - type: bind
+        source: ${LOCAL_COMMUNITY_CATALOG_DIRECTORY:-./.local/community-catalogs}
+        target: /app/.local/community-catalogs
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       db:
         condition: service_healthy

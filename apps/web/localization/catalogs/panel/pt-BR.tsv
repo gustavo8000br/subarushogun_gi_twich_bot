@@ -145,6 +145,14 @@ panel.form.uid_mode	Modo do UID
 panel.form.uid_hidden	Oculto
 panel.form.uid_visible	Solicitar UID
 panel.form.call_timeout	Prazo de chamada (min)
+panel.form.section_call_message	Mensagem de chamada no chat
+panel.form.call_message	Mensagem enviada no chat da Twitch quando alguém é chamado
+panel.form.call_preview_label	Prévia (apenas exemplo)
+panel.form.call_preview_user	Alex
+panel.form.call_preview_queue	Fila Cozy
+panel.form.call_preview_account	Streamer
+panel.form.call_preview_uid_note	O UID só será enviado se você selecionar “Solicitar UID” acima e depois ativar “Mostrar UID na chamada” nas opções da fila.
+panel.form.call_message_invalid	Use até 350 caracteres em uma única linha e somente os campos aceitos listados acima.
 panel.dialog.close	Fechar
 panel.queue_settings.title	Opções da fila
 panel.queue_settings.call_deadline	Prazo para iniciar atendimento (minutos; vazio desativa)
@@ -158,14 +166,17 @@ panel.queue_settings.refund_removed	Solicitar reembolso ao remover pessoa chamad
 panel.queue_settings.refund_no_show	Solicitar reembolso quando houver ausência
 panel.queue_settings.refund_viewer_leave	Solicitar reembolso se a pessoa chamada sair
 panel.reward_settings.title	Editar recompensa
-panel.reward_settings.twitch_limits_hint	A Twitch aplica os limites e cooldown. Alterações ficam pendentes até a API confirmar. Ocultar UID também remove os valores locais armazenados.
+panel.reward_settings.twitch_limits_hint	A Twitch aplica estes limites e cooldown. Alterações ficam pendentes até a API confirmar.
 panel.entry.priority_toggle	Prioridade conferida por mim
+panel.priority.dialog_title	Confirme o benefício da prioridade
+panel.entry.reason_select	Selecione um benefício conferido
+panel.entry.reason_required	Selecione um benefício para registrar por que esta entrada tem prioridade.
 panel.entry.priority_audit_hint	A confirmação fica auditada com seu usuário. O bot não verifica pagamento/inscrição nem guarda comprovantes. Entradas prioritárias seguem FIFO na faixa prioritária e não criam operações de pontos.
 panel.entry.reason_external	Pagamento externo (ex.: PIX)
 panel.entry.reason_bits	Bits
 panel.entry.reason_sub	Inscrição
 panel.entry.reason_other	Outro benefício conferido
-panel.reward.manual_association_hint	A lista é consultada diretamente na Twitch. Selecione uma recompensa gerenciável por este app que corresponda às configurações da fila; o vínculo será auditado.
+panel.reward.manual_association_hint	A lista é consultada diretamente na Twitch. Selecione uma recompensa gerenciável por este app que corresponda às configurações da fila; o vínculo será auditado. A associação é registrada localmente e não confirma a resposta da solicitação original de criação da recompensa.
 panel.commands.policy_title	Como as permissões funcionam
 panel.commands.policy_help	O streamer sempre pode usar comandos configuráveis. Cargos superiores herdam acesso. VIP depende do toggle atual. Acesso de seguidor exige uma permissão Twitch adicional e é verificado ao vivo.
 panel.commands.group.configurable	Acesso da audiência
@@ -205,7 +216,12 @@ panel.credentials.secret_empty	Nenhum segredo do aplicativo foi salvo ainda.
 panel.credentials.validate_save	Validar e salvar aplicativo
 panel.widget.editor_eyebrow	CONFIGURAÇÃO DO WIDGET
 panel.widget.source_label	O que exibir
-panel.widget.queue_label	Fila
+panel.widget.queue_label	Fila / reward vinculada
+panel.widget.source.help	Para exibir dados de uma fila, selecione a fila específica abaixo. A reward de Pontos do Canal vinculada é selecionada junto com ela, quando houver.
+panel.widget.queue.help	Este widget lê os dados da fila selecionada.
+panel.widget.queue.empty	Não há filas ativas para selecionar.
+panel.widget.queue.create	Criar uma fila
+panel.widget.queue.create_hint	Abre em outra aba para manter este rascunho de widget aberto.
 panel.widget.fallback_label	Texto alternativo quando não houver valor
 panel.widget.link_lifetime_help	O link não pode ser consultado depois que esta janela for fechada. Se perder, gere outro link; o anterior será invalidado.
 panel.widget.copy_link	Copiar link
@@ -250,6 +266,19 @@ panel.queue.action_result.saving	Salvando…
 panel.queue.action_result.confirmed	Estado da fila atualizado.
 panel.queue.action_result.pending	Solicitação salva. Aguardando confirmação da Twitch.
 panel.queue.action_result.failed	Não foi possível atualizar o estado da fila. Tente novamente.
+panel.queue.action_result.uncertain	A chamada pode ter sido registrada. Atualize a fila antes de tentar novamente.
+panel.queue.call_next.refresh_required	Não foi possível atualizar a fila. Atualize antes de chamar novamente.
+panel.queue.call_next.reference	Referência da chamada: {id}
+panel.queue.call_next.refresh	Atualizar fila
+panel.queue.call_next.refreshing	Atualizando fila…
+panel.queue.call_next.refreshed	Fila atualizada. Confira quem está aguardando antes de chamar novamente.
+panel.queue.call_next.refresh_failed	Não foi possível atualizar a fila. Tente de novo antes de chamar alguém.
+panel.queue.clear.uncertain	A limpeza pode ter sido aplicada. Confira a fila atualizada antes de tentar novamente.
+panel.queue.clear.refresh_required	Não foi possível verificar se a limpeza foi aplicada. Atualize a fila antes de tentar novamente.
+panel.queue.clear.refresh	Atualizar fila
+panel.queue.clear.refreshing	Atualizando fila…
+panel.queue.clear.refreshed	Fila atualizada. Confira antes de iniciar outra limpeza.
+panel.queue.clear.refresh_failed	Não foi possível atualizar a fila. Tente atualizar novamente antes de limpar.
 panel.queue.action_result.no_waiting	Não há pessoas aguardando nesta fila.
 panel.queue.creation_result.created_local	Fila local criada. Ela está pausada até você ativá-la.
 panel.queue.creation_result.created_remote	Fila criada e recompensa da Twitch sincronizada.
@@ -274,6 +303,9 @@ panel.queue.delete_blocked.remote_operation_pending	Exclusão indisponível enqu
 panel.queue.delete_blocked.queue_mode_transition_pending	Exclusão indisponível durante a troca de modo da fila.
 panel.queue.delete_blocked.queue_not_active	Esta fila já está em exclusão ou foi excluída.
 panel.queue.history.title	Histórico recente
+panel.queue.history.loading	Carregando histórico recente…
+panel.queue.history.failed	Não foi possível carregar o histórico recente.
+panel.queue.history.retry	Tentar novamente
 panel.queue.history.empty	Ainda não há atendimentos encerrados.
 panel.queue.history.date_unavailable	Data indisponível
 panel.entry.action.call	chamar
@@ -345,7 +377,6 @@ panel.widget.action.delete	Excluir
 panel.widget.confirm.regenerate	O link atual deixará de funcionar. Gerar um novo link agora?
 panel.widget.confirm.revoke	A fonte do OBS deixará de receber dados. Revogar este link?
 panel.widget.confirm.delete	Excluir este widget? A URL atual será invalidada e não poderá ser recuperada.
-panel.widget.link.copied_once	Copie agora. O link não será exibido novamente.
 panel.widget.link.copied	Link copiado.
 panel.widget.link.copy_fallback	Selecione e copie o link. Ele não será exibido novamente ao fechar.
 panel.widget.queue.select	Selecione uma fila
@@ -457,6 +488,7 @@ panel.reconciliation.complete.other	Sincronização concluída. {count} resgates
 panel.reconciliation.issues.one	Sincronização concluída com {count} pendência. Revise os avisos e operações.
 panel.reconciliation.issues.many	Sincronização concluída com {count} pendências. Revise os avisos e operações.
 panel.reconciliation.issues.other	Sincronização concluída com {count} pendências. Revise os avisos e operações.
+panel.reconciliation.refresh_failed	A conciliação foi concluída, mas a lista de operações não atualizou. Atualize a lista antes de confiar nela.
 panel.entry.status.completed	Concluído
 panel.entry.status.removed	Removido
 panel.entry.status.no_show	Ausente
@@ -467,8 +499,6 @@ panel.queue.settings_result.refresh_failed	As configurações foram salvas, mas 
 panel.notice.reward_update_pending	Alteração solicitada. A fila mostrará a sincronização pendente até a confirmação da Twitch.
 panel.notice.call_already_queued	A chamada já está na fila de envio.
 panel.notice.call_resent	Reenvio solicitado. O prazo de ausência foi mantido.
-panel.priority.reason_prompt	Selecione o benefício conferido: 1 inscrição, 2 Bits, 3 pagamento externo (ex.: PIX), 4 outro.
-panel.priority.invalid_reason	Selecione uma opção de 1 a 4.
 panel.priority.marked	Prioridade registrada e auditada. A conferência foi feita pelo operador.
 panel.priority.removed	Prioridade removida.
 panel.queue.action.archive_local_anyway	Excluir do painel mesmo assim
@@ -496,6 +526,9 @@ panel.queue.delete.pending	Exclusão local iniciada. A fila ficará pendente at�
 panel.queue.delete.done	Fila excluída. O histórico dos resgates foi preservado e a reward Twitch continua pausada.
 panel.reward.no_candidates	A consulta funcionou, mas nenhuma recompensa gerenciável por este app, pausada e com todos os dados compatíveis foi localizada. Sem confirmar a propriedade, ações remotas como excluir ficam bloqueadas. Confira as diferenças abaixo e atualize a lista.
 panel.queue.clear.empty	A fila já está vazia.
+panel.queue.clear.failed	Não foi possível limpar a fila. Atualize e tente novamente.
+panel.queue.clear.loading	Calculando a fila atual…
+panel.queue.clear.clearing	Limpando a fila…
 panel.queue.clear.confirm	Limpar a fila “{title}”? {count} pessoas serão removidas e {refunds} reembolsos serão solicitados. A confirmação vale por 15 segundos.
 panel.queue.clear.changed	A fila mudou. Revise a nova confirmação para {count} pessoas.
 panel.queue.clear.done	{count} pessoas removidas; {refunds} reembolsos solicitados.
@@ -537,6 +570,10 @@ panel.reward_settings.stream_limit	Limite por live (vazio desativa)
 panel.reward_settings.viewer_limit	Limite por pessoa por live
 panel.reward_settings.cooldown	Intervalo global em segundos
 panel.reward_settings.submit	Solicitar atualização na Twitch
+panel.reward_settings.group.reward	Detalhes da recompensa
+panel.reward_settings.group.viewer	Dados e privacidade de viewers
+panel.reward_settings.group.limits	Limites da Twitch
+panel.reward_settings.uid_removal_warning	Ocultar UID remove valores já armazenados nesta fila e cancela notificações de chamadas pendentes.
 panel.entry.dialog_eyebrow	ADICIONAR MANUALMENTE
 panel.entry.dialog_title	Entrada na fila
 panel.entry.twitch_login	Login Twitch
@@ -547,6 +584,10 @@ panel.reward.dialog_title	Localizar recompensa da fila
 panel.reward.lookup_error_title	Falha ao consultar a Twitch
 panel.reward.link_error_title	Não foi possível vincular a recompensa
 panel.reward.link_success	Recompensa vinculada e associação registrada.
+panel.reward.link_refresh_failed	A associação foi salva, mas a fila não atualizou. Atualize a fila antes de vincular outra recompensa.
+panel.reward.link_refreshed	Fila atualizada. Confira o vínculo atual da recompensa antes de continuar.
+panel.reward.refresh_queue	Atualizar fila
+panel.reward.refreshing_queue	Atualizando fila…
 panel.reward.candidates_found_title	Consulta concluída
 panel.reward.compatible_rewards	Recompensas compatíveis
 panel.reward.loading_candidates	Consultando recompensas gerenciáveis na Twitch…
@@ -587,7 +628,7 @@ panel.error.invalid_queue_settings	Revise as configurações da fila e tente nov
 panel.error.invalid_call_template	Use somente os campos de chamada listados na ajuda.
 panel.error.invalid_reward_settings	Revise o título, custo, descrição e limites da recompensa.
 panel.error.invalid_local_queue_setting	Altere UID e recompensa no editor de recompensa da Twitch.
-panel.error.stale_queue_settings	A fila mudou enquanto você editava. Atualize o painel e tente novamente.
+panel.error.stale_queue_settings	A fila mudou enquanto você editava. Seu rascunho continua aberto; copie suas alterações, feche o editor e atualize o painel antes de tentar novamente.
 panel.error.queue_not_found	Esta fila não existe mais. Atualize o painel.
 panel.error.queue_not_available	Esta fila está sendo excluída e não aceita alterações.
 panel.error.reward_update_pending	Já existe uma alteração de recompensa em andamento. Atualize o painel para conferir o estado.
@@ -722,6 +763,20 @@ panel.widget.notice.revoked	Link do widget revogado.
 panel.widget.notice.deleted	Widget excluído.
 panel.widget.notice.conflict	Este widget mudou. Revise o rascunho e recarregue antes de salvar.
 panel.widget.notice.error	Não foi possível concluir. Tente novamente.
+panel.widget.notice.reference	Referência: {id}
+panel.widget.notice.conflict_refreshed	A lista atual foi carregada. Seu rascunho não mudou; revise o widget antes de tentar novamente.
+panel.widget.notice.conflict_missing	Este widget não está mais na lista. Seu rascunho não mudou; feche sem salvar.
+panel.widget.notice.conflict_replaced	Os dados atuais do widget foram carregados no formulário. Revise, faça suas alterações e salve.
+panel.widget.notice.refresh_failed	{action} foi aceita, mas a lista de widgets não atualizou. Atualize antes de repetir esta ação.
+panel.widget.notice.action_created	A criação do widget
+panel.widget.notice.action_saved	A alteração do widget
+panel.widget.notice.action_revoked	A revogação do link
+panel.widget.notice.action_deleted	A exclusão do widget
+panel.widget.conflict.refresh	Atualizar lista de widgets
+panel.widget.conflict.refresh_hint	Seu rascunho continuará aberto. Revise o widget atualizado antes de salvar novamente.
+panel.widget.conflict.latest_title	Versão atual no servidor
+panel.widget.conflict.replace_draft	Substituir meu rascunho por esta versão
+panel.widget.close_without_saving	Fechar sem salvar
 panel.widget.link.close_loses	Ao fechar, o link será removido da tela. Se perdê-lo, gere outro.
 panel.widget.cancel	Cancelar
 panel.dialog.confirm	Confirmar

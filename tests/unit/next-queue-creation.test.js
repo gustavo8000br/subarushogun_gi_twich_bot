@@ -5,6 +5,8 @@ import {
   getQueueCreationFeedback,
   getQueueCreationFailureKey,
   isQueueCreationResponse,
+  renderCallMessagePreview,
+  validateCallMessageTemplate,
 } from '../../apps/frontend/features/queues/queue-creation.mjs';
 
 describe('Next queue creation', () => {
@@ -14,7 +16,7 @@ describe('Next queue creation', () => {
       uidMode: 'visible', callTimeoutMin: '12',
     })).toEqual({
       title: 'Free Queue', slug: 'free-queue', aliases: ['free', 'gratis'], queueMode: 'manual_only',
-      callTimeoutMin: 12, uidMode: 'visible',
+      callTimeoutMin: 12, uidMode: 'visible', callMessage: '{user}, sua vez!',
     });
   });
 
@@ -25,7 +27,7 @@ describe('Next queue creation', () => {
       globalCooldownSeconds: '', rewardPrompt: 'Resgate para entrar', uidMode: 'hidden', callTimeoutMin: '10',
     })).toEqual({
       title: 'Arena', slug: 'arena', aliases: ['pvp', 'batalha'], queueMode: 'channel_points', cost: 250,
-      maxRedemptionsPerUserPerStream: 3, rewardPrompt: 'Resgate para entrar', uidMode: 'hidden', callTimeoutMin: 10,
+      maxRedemptionsPerUserPerStream: 3, rewardPrompt: 'Resgate para entrar', uidMode: 'hidden', callTimeoutMin: 10, callMessage: '{user}, sua vez!',
     });
   });
 
@@ -43,13 +45,24 @@ describe('Next queue creation', () => {
     expect(isQueueCreationResponse({ id: '', slug: 'arena' })).toBe(false);
   });
 
+  it('validates the existing chat placeholders and renders a safe preview', () => {
+    expect(validateCallMessageTemplate('Olá {user} · {queue} · {position} · {uid} · {account}'))
+      .toBe('Olá {user} · {queue} · {position} · {uid} · {account}');
+    expect(() => validateCallMessageTemplate('Use {unsupported}')).toThrow(expect.objectContaining({ code: 'INVALID_QUEUE_CREATION' }));
+    expect(() => validateCallMessageTemplate('linha\nquebrada')).toThrow(expect.objectContaining({ code: 'INVALID_QUEUE_CREATION' }));
+    expect(() => validateCallMessageTemplate('x'.repeat(351))).toThrow(expect.objectContaining({ code: 'INVALID_QUEUE_CREATION' }));
+    expect(renderCallMessagePreview('{user}, {queue}, {position}, {uid}, {account}, {other}', {
+      user: 'Alex', queue: 'Fila Cozy', position: 1, uid: 'UID 1234', account: 'Streamer',
+    })).toBe('Alex, Fila Cozy, 1, UID 1234, Streamer, {other}');
+  });
+
   it('creates through the established endpoint and refreshes the operator projection', async () => {
     const created = { id: 'q1', slug: 'arena', title: 'Arena', queueMode: 'manual_only', isOpen: false };
     const request = vi.fn().mockResolvedValueOnce(created).mockResolvedValueOnce([created]);
     await expect(createQueueWithRefresh({ request, formValues: { title: 'Arena', slug: 'arena', queueMode: 'manual_only' } }))
       .resolves.toEqual({ queue: created, queues: [created], refreshFailed: false, recovered: false });
     expect(request).toHaveBeenNthCalledWith(1, '/api/queues', { method: 'POST', body: JSON.stringify({
-      title: 'Arena', slug: 'arena', aliases: [], queueMode: 'manual_only', callTimeoutMin: 10, uidMode: 'hidden',
+      title: 'Arena', slug: 'arena', aliases: [], queueMode: 'manual_only', callTimeoutMin: 10, uidMode: 'hidden', callMessage: '{user}, sua vez!',
     }) });
     expect(request).toHaveBeenNthCalledWith(2, '/api/queues');
   });
