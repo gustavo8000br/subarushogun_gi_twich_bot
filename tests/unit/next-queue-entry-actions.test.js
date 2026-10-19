@@ -2,12 +2,77 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it, vi } from 'vitest';
 import {
   getQueueEntryActionFeedback,
+  getQueueEntryActionFailureFeedback,
+  queueCallRequiresRefresh,
   getManualQueueEntryFailureKey,
   performQueueEntryAction,
   performQueueEntryActionWithRefresh,
 } from '../../apps/frontend/features/queues/queue-entry-actions.mjs';
 
 describe('Next queue entry actions', () => {
+  it('keeps unexpected queue-entry action errors generic and carries only a safe diagnostic reference', () => {
+    expect(getQueueEntryActionFailureFeedback({
+      code: 'INTERNAL_ERROR', status: 500, referenceId: '22222222-2222-4222-8222-222222222222',
+    })).toEqual({
+      status: 'error', key: 'panel.queue.action_result.failed', referenceId: '22222222-2222-4222-8222-222222222222',
+    });
+    expect(getQueueEntryActionFailureFeedback({
+      code: 'QUEUE_MODE_TRANSITION_PENDING', status: 409, referenceId: 'private detail <script>',
+    })).toEqual({ status: 'error', key: 'panel.error.queue_mode_transition_pending' });
+  });
+
+  it('asks the operator to refresh before retrying a queue call with an uncertain result', () => {
+    const error = { code: 'INTERNAL_ERROR', status: 500, referenceId: '88888888-8888-4888-8888-888888888888' };
+    expect(getQueueEntryActionFailureFeedback(error, { action: 'call-next' })).toEqual({
+      status: 'error', key: 'panel.queue.action_result.uncertain', referenceId: error.referenceId,
+    });
+    expect(getQueueEntryActionFailureFeedback({ status: 0 }, { action: 'call-next' })).toEqual({
+      status: 'error', key: 'panel.queue.action_result.uncertain',
+    });
+    expect(getQueueEntryActionFailureFeedback(error, { action: 'call' })).toEqual({
+      status: 'error', key: 'panel.queue.action_result.uncertain', referenceId: error.referenceId,
+    });
+    expect(getQueueEntryActionFailureFeedback({ code: 'INVALID_QUEUE_ENTRY_ACTION_RESPONSE' }, { action: 'call-next' })).toEqual({
+      status: 'error', key: 'panel.queue.action_result.uncertain',
+    });
+    expect(getQueueEntryActionFailureFeedback({ code: 'INVALID_QUEUE_ENTRY_ACTION_REQUEST' }, { action: 'call-next' })).toEqual({
+      status: 'error', key: 'panel.queue.action_result.failed',
+    });
+  });
+
+  it('requires a fresh queue projection before retrying either call action', () => {
+    for (const action of ['call-next', 'call']) {
+      expect(queueCallRequiresRefresh({ action, feedback: { key: 'panel.queue.action_result.uncertain' } })).toBe(true);
+      expect(queueCallRequiresRefresh({ action, feedback: { key: 'panel.queue.call_next.refresh_required' }, refreshFailed: true })).toBe(true);
+      expect(getQueueEntryActionFeedback({ action, result: { status: 'called', count: 1 }, refreshFailed: true })).toEqual({
+        status: 'warning', key: 'panel.queue.call_next.refresh_required',
+      });
+    }
+    expect(queueCallRequiresRefresh({ action: 'complete', feedback: { key: 'panel.queue.action_result.uncertain' } })).toBe(false);
+  });
+
+  it.each([
+    ['en', 'The call may have been recorded. Refresh the queue before trying again.'],
+    ['es', 'Es posible que la llamada se haya registrado. Actualiza la cola antes de intentarlo de nuevo.'],
+    ['pt-BR', 'A chamada pode ter sido registrada. Atualize a fila antes de tentar novamente.'],
+  ])('uses clear uncertain-call guidance in the %s catalog', async (locale, message) => {
+    const catalog = await readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+    expect(catalog).toContain(`panel.queue.action_result.uncertain\t${message}`);
+  });
+
+  it.each([
+    ['en', 'Refresh queue'],
+    ['es', 'Actualizar cola'],
+    ['pt-BR', 'Atualizar fila'],
+  ])('provides localized call-refresh controls in the %s catalog', async (locale, label) => {
+    const catalog = await readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+    expect(catalog).toContain(`panel.queue.call_next.refresh\t${label}`);
+    expect(catalog).toContain('panel.queue.call_next.refresh_required\t');
+    expect(catalog).toContain('panel.queue.call_next.reference\t');
+    expect(catalog).toContain('panel.queue.call_next.refreshed\t');
+    expect(catalog).toContain('panel.queue.call_next.refresh_failed\t');
+  });
+
   it.each([404, 409])('does not attribute an ambiguous HTTP %s to the viewer account', (status) => {
     expect(getManualQueueEntryFailureKey({ status })).toBe('panel.entry.error.unavailable');
   });
@@ -97,10 +162,43 @@ describe('Next queue entry actions', () => {
     expect(request).toHaveBeenCalledWith('/api/entries/entry-1/call-notification/resend', { method: 'POST' });
   });
 
+  it.each([['move-up', 1], ['move-down', 3]])('moves a waiting entry to the requested same-lane position (%s)', async (action, position) => {
+    const request = vi.fn().mockResolvedValue({ status: 'moved', entryId: 'entry-1', position });
+    await expect(performQueueEntryAction({ request, queueId: 'queue-1', entryId: 'entry-1', action, position }))
+      .resolves.toMatchObject({ entryId: 'entry-1', position });
+    expect(request).toHaveBeenCalledWith('/api/queues/queue-1/move', {
+      method: 'POST', body: JSON.stringify({ entryId: 'entry-1', position }),
+    });
+  });
+
+  it('records and removes priority using the existing audited policy endpoint', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 'updated', priorityClass: 'priority' });
+    await performQueueEntryAction({ request, queueId: 'queue-1', entryId: 'entry-1', action: 'toggle-priority', priority: true, reason: 'bits' });
+    expect(request).toHaveBeenCalledWith('/api/entries/entry-1/priority', {
+      method: 'POST', body: JSON.stringify({ priority: true, reason: 'bits' }),
+    });
+  });
+
+  it('rejects invalid queue reorder and priority inputs before making requests', async () => {
+    const request = vi.fn();
+    await expect(performQueueEntryAction({ request, queueId: 'queue-1', entryId: 'entry-1', action: 'move-up', position: 0 }))
+      .rejects.toMatchObject({ code: 'INVALID_QUEUE_ENTRY_ACTION_REQUEST' });
+    await expect(performQueueEntryAction({ request, queueId: 'queue-1', entryId: 'entry-1', action: 'toggle-priority', priority: true, reason: 'unknown' }))
+      .rejects.toMatchObject({ code: 'INVALID_QUEUE_ENTRY_ACTION_REQUEST' });
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it('reports an empty next-call result as information instead of success', () => {
     expect(getQueueEntryActionFeedback({ action: 'call-next', result: { status: 'called', count: 0 } })).toEqual({
       status: 'info', key: 'panel.queue.action_result.no_waiting',
     });
+  });
+
+  it('reports the audited priority result with the matching localized status', () => {
+    expect(getQueueEntryActionFeedback({ action: 'toggle-priority', priority: true, result: { status: 'updated' } }))
+      .toEqual({ status: 'confirmed', key: 'panel.priority.marked' });
+    expect(getQueueEntryActionFeedback({ action: 'toggle-priority', priority: false, result: { status: 'updated' } }))
+      .toEqual({ status: 'confirmed', key: 'panel.priority.removed' });
   });
 
   it('reports a successful next-call result as confirmed', () => {
@@ -125,8 +223,10 @@ describe('Next queue entry actions', () => {
   });
 
   it('preserves the empty-queue result when a no-op refresh fails', () => {
-    expect(getQueueEntryActionFeedback({
+    const feedback = getQueueEntryActionFeedback({
       action: 'call-next', result: { status: 'called', count: 0 }, refreshFailed: true,
-    })).toEqual({ status: 'info', key: 'panel.queue.action_result.no_waiting' });
+    });
+    expect(feedback).toEqual({ status: 'info', key: 'panel.queue.action_result.no_waiting' });
+    expect(queueCallRequiresRefresh({ action: 'call-next', feedback, refreshFailed: true })).toBe(false);
   });
 });

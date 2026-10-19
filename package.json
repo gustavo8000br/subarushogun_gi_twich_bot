@@ -19,7 +19,7 @@
     "sync:ide:check": "node .aiox-core/infrastructure/scripts/ide-sync/index.js validate --strict",
     "sync:skills:codex": "node .aiox-core/infrastructure/scripts/codex-skills-sync/index.js",
     "test:e2e:overlay": "node tests/e2e/overlay-browser.mjs",
-    "build:frontend": "next build apps/frontend && node apps/frontend/scripts/create-overlay-alias.mjs",
+    "build:frontend": "next build apps/frontend",
     "validate:version": "node apps/infra/scripts/validate-version.mjs",
     "validate:port-denylist": "node apps/infra/scripts/validate-port-denylist.mjs",
     "validate:localization": "node apps/infra/scripts/validate-localization.mjs",

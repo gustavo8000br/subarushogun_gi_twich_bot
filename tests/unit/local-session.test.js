@@ -40,22 +40,47 @@ describe('local panel session and CSRF protection', () => {
     await app.close();
   });
 
-  it('accepts the exact forwarded Codespaces origin only when explicitly configured for development', async () => {
+  it('accepts only the exact explicitly configured loopback HTTP origin for local Next development', async () => {
     const app = Fastify();
-    registerLocalSession(app, { developmentOrigin: 'https://example-3100.app.github.dev' });
+    registerLocalSession(app, { developmentOrigin: 'http://localhost:3000', port: 3109 });
     app.post('/api/mutate', async () => ({ ok: true }));
-    const session = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
+    const session = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3109' } });
     const cookie = session.cookies[0];
-    const forwarded = await app.inject({ method: 'POST', url: '/api/mutate', headers: {
-      host: 'localhost:3000', origin: 'https://example-3100.app.github.dev', cookie: `${cookie.name}=${cookie.value}`,
+    const allowed = await app.inject({ method: 'POST', url: '/api/mutate', headers: {
+      host: 'localhost:3109', origin: 'http://localhost:3000', cookie: `${cookie.name}=${cookie.value}`,
       'x-csrf-token': session.json().csrfToken,
     } });
-    const other = await app.inject({ method: 'POST', url: '/api/mutate', headers: {
-      host: 'localhost:3000', origin: 'https://other-3100.app.github.dev', cookie: `${cookie.name}=${cookie.value}`,
+    const otherPort = await app.inject({ method: 'POST', url: '/api/mutate', headers: {
+      host: 'localhost:3109', origin: 'http://localhost:3001', cookie: `${cookie.name}=${cookie.value}`,
       'x-csrf-token': session.json().csrfToken,
     } });
-    expect(forwarded.statusCode).toBe(200);
-    expect(other.statusCode).toBe(403);
+    const remote = await app.inject({ method: 'POST', url: '/api/mutate', headers: {
+      host: 'localhost:3109', origin: 'http://attacker.example:3000', cookie: `${cookie.name}=${cookie.value}`,
+      'x-csrf-token': session.json().csrfToken,
+    } });
+    expect(allowed.statusCode).toBe(200);
+    expect(otherPort.statusCode).toBe(403);
+    expect(remote.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it('accepts the internal Fastify Host while validating mutations against the public Next origin', async () => {
+    const app = Fastify();
+    registerLocalSession(app, { port: 3000, backendPort: 3109 });
+    app.post('/api/mutate', async () => ({ ok: true }));
+    const session = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3109' } });
+    const cookie = session.cookies[0];
+    const allowed = await app.inject({ method: 'POST', url: '/api/mutate', headers: {
+      host: 'localhost:3109', origin: 'https://localhost:3000', cookie: `${cookie.name}=${cookie.value}`,
+      'x-csrf-token': session.json().csrfToken,
+    } });
+    const wrongOrigin = await app.inject({ method: 'POST', url: '/api/mutate', headers: {
+      host: 'localhost:3109', origin: 'https://localhost:3101', cookie: `${cookie.name}=${cookie.value}`,
+      'x-csrf-token': session.json().csrfToken,
+    } });
+    expect(session.statusCode).toBe(200);
+    expect(allowed.statusCode).toBe(200);
+    expect(wrongOrigin.statusCode).toBe(403);
     await app.close();
   });
 
@@ -67,7 +92,7 @@ describe('local panel session and CSRF protection', () => {
     const session = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
     const cookie = session.cookies[0];
     const foreignOrigin = await app.inject({ method: 'POST', url: '/api/mutate', headers: {
-      host: 'localhost:3000', origin: 'https://attacker.example', cookie: `${cookie.name}=${cookie.value}`,
+      host: 'localhost:3109', origin: 'https://attacker.example', cookie: `${cookie.name}=${cookie.value}`,
       'x-csrf-token': session.json().csrfToken,
     } });
     expect(foreignOrigin.statusCode).toBe(403);

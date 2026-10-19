@@ -6,10 +6,14 @@ import { normalizeCatalogBundle, translatePanel } from '../../lib/i18n/panel-cat
 import { persistProductLocale } from '../../lib/i18n/persist-product-locale.mjs';
 import { loadPanelRuntimeSnapshot, loadPanelSnapshot } from './load-panel-snapshot.mjs';
 import { summarizeQueues } from '../overview/queue-summary.mjs';
-import { loadQueueProjection, requestQueueOpenState } from '../queues/queue-lifecycle.mjs';
-import { getManualQueueEntryFailureKey, getQueueEntryActionFeedback, performQueueEntryActionWithRefresh } from '../queues/queue-entry-actions.mjs';
+import { loadQueueProjection, performQueueLifecycleAction, requestQueueOpenState } from '../queues/queue-lifecycle.mjs';
+import { getManualQueueEntryFailureKey, getQueueEntryActionFailureFeedback, getQueueEntryActionFeedback, performQueueEntryActionWithRefresh, queueCallRequiresRefresh } from '../queues/queue-entry-actions.mjs';
 import { createQueueWithRefresh, getQueueCreationFailureKey, getQueueCreationFeedback } from '../queues/queue-creation.mjs';
 import { getQueueSettingsFailureKey, getQueueSettingsFeedback, saveQueueSettingsWithRetry } from '../queues/queue-settings.mjs';
+import { loadQueueHistory as fetchQueueHistory } from '../queues/queue-history.mjs';
+import { confirmQueueClear as confirmQueueClearRequest, getQueueClearFailureFeedback, previewQueueClear as previewQueueClearRequest } from '../queues/queue-clear.mjs';
+import { loadQueueRewardCandidates as fetchQueueRewardCandidates, resolveQueueReward as resolveQueueRewardRequest } from '../queues/queue-reward-resolution.mjs';
+import { getQueueRewardSettingsFailureKey, updateQueueRewardSettings as updateQueueRewardSettingsRequest } from '../queues/queue-reward-settings.mjs';
 
 const PanelContext = createContext(null);
 
@@ -29,6 +33,9 @@ export function PanelProvider({ children, fallbackCatalog }) {
   const [queueAction, setQueueAction] = useState(null);
   const [queueCreation, setQueueCreation] = useState(null);
   const [queueSettingsAction, setQueueSettingsAction] = useState(null);
+  const [queueClearRefreshRequired, setQueueClearRefreshRequired] = useState(false);
+  const [queueCallRecovery, setQueueCallRecovery] = useState(null);
+  const queueCallRefreshRequired = Boolean(queueCallRecovery?.required);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshNotice, setRefreshNotice] = useState(null);
   const [lastRefreshAt, setLastRefreshAt] = useState(null);
@@ -70,6 +77,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
       setHealthState(snapshot.health);
       setQueueProjection(snapshot.queues);
       setQueueSummary(summarizeQueues(snapshot.queues));
+      setQueueClearRefreshRequired(false);
       if (snapshot.state.product_locale && locales.includes(snapshot.state.product_locale.locale)
         && Number.isInteger(snapshot.state.product_locale.revision)) setLocaleState(snapshot.state.product_locale);
       setLastRefreshAt(Date.now());
@@ -155,33 +163,202 @@ export function PanelProvider({ children, fallbackCatalog }) {
     }
   }, [saving]);
 
-  const runQueueEntryAction = useCallback(async (queueId, entryId, action) => {
+  const runQueueEntryAction = useCallback(async (queueId, entryId, action, actionOptions = {}) => {
     if (saving) return;
+    if (['call-next', 'call'].includes(action) && queueCallRefreshRequired) return;
+    if (['call-next', 'call'].includes(action)) setQueueCallRecovery(null);
     setSaving(true);
     setQueueAction({ queueId, entryId, status: 'saving', key: '' });
     try {
       const { result, queues, refreshFailed } = await performQueueEntryActionWithRefresh({
         request: apiClient.request, queueId, entryId, action,
+        ...actionOptions,
       });
       if (queues) {
         setQueueProjection(queues);
         setQueueSummary(summarizeQueues(queues));
       }
-      const feedback = getQueueEntryActionFeedback({ action, result, refreshFailed });
+      const feedback = getQueueEntryActionFeedback({ action, result, refreshFailed, priority: actionOptions.priority });
+      if (queueCallRequiresRefresh({ action, feedback, refreshFailed })) {
+        setQueueCallRecovery({ queueId, required: true, key: feedback.key });
+        setQueueAction(null);
+        return;
+      }
       setQueueAction({
         queueId,
         entryId,
         ...feedback,
       });
     } catch (requestError) {
+      const feedback = getQueueEntryActionFailureFeedback(requestError, { action });
+      if (queueCallRequiresRefresh({ action, feedback })) {
+        setQueueCallRecovery({ queueId, required: true, key: feedback.key, referenceId: feedback.referenceId ?? null });
+        setQueueAction(null);
+        return;
+      }
       setQueueAction({
         queueId,
         entryId,
-        status: 'error',
-        key: requestError?.code === 'QUEUE_MODE_TRANSITION_PENDING'
-          ? 'panel.error.queue_mode_transition_pending'
-          : 'panel.queue.action_result.failed',
+        ...feedback,
       });
+    } finally {
+      setSaving(false);
+    }
+  }, [queueCallRefreshRequired, saving]);
+
+  const loadQueueHistory = useCallback((queueId) => fetchQueueHistory({ request: apiClient.request, queueId }), []);
+
+  const refreshQueueProjection = useCallback(async ({ purpose = 'general' } = {}) => {
+    try {
+      const queues = await loadQueueProjection(apiClient.request);
+      setQueueProjection(queues);
+      setQueueSummary(summarizeQueues(queues));
+      setQueueClearRefreshRequired(false);
+      if (queueCallRefreshRequired) {
+        setQueueCallRecovery((current) => current ? { ...current, required: false, key: 'panel.queue.call_next.refreshed' } : current);
+      }
+      if (purpose === 'reward-link') setQueueAction((current) => current?.key === 'panel.reward.link_refresh_failed'
+        ? { ...current, status: 'confirmed', key: 'panel.reward.link_refreshed', referenceId: null }
+        : current);
+      return true;
+    } catch (error) {
+      if (purpose === 'clear') setQueueClearRefreshRequired(true);
+      if (queueCallRefreshRequired) {
+        setQueueCallRecovery((current) => current ? { ...current, required: true, key: 'panel.queue.call_next.refresh_failed' } : current);
+      }
+      if (purpose === 'reward-link') {
+        const referenceId = typeof error?.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(error.referenceId) ? error.referenceId : null;
+        setQueueAction((current) => current?.key === 'panel.reward.link_refresh_failed' ? { ...current, referenceId } : current);
+      }
+      return false;
+    }
+  }, [queueCallRefreshRequired]);
+
+  const previewQueueClear = useCallback((queueId) => {
+    if (queueClearRefreshRequired) return Promise.resolve({ status: 'refresh_required' });
+    return previewQueueClearRequest({ request: apiClient.request, queueId });
+  }, [queueClearRefreshRequired]);
+
+  const confirmQueueClear = useCallback(async (queueId) => {
+    if (queueClearRefreshRequired) return { status: 'refresh_required' };
+    if (saving) return null;
+    setSaving(true);
+    setQueueAction({ queueId, status: 'saving', key: '' });
+    try {
+      const result = await confirmQueueClearRequest({ request: apiClient.request, queueId });
+      if (result.status === 'cleared') {
+        try {
+          const refreshed = await loadQueueProjection(apiClient.request);
+          setQueueProjection(refreshed);
+          setQueueSummary(summarizeQueues(refreshed));
+          setQueueAction({ queueId, status: 'confirmed', key: 'panel.queue.action_result.confirmed' });
+        } catch {
+          setQueueClearRefreshRequired(true);
+          return { ...result, refreshRequired: true };
+        }
+      } else if (result.status === 'empty') {
+        const refreshed = await refreshQueueProjection({ purpose: 'clear' });
+        setQueueClearRefreshRequired(!refreshed);
+        setQueueAction(null);
+        return { status: 'uncertain', refreshRequired: !refreshed };
+      }
+      return result;
+    } catch (error) {
+      const feedback = getQueueClearFailureFeedback(error, { phase: 'confirm' });
+      let refreshed = true;
+      if (feedback.key === 'panel.queue.clear.uncertain') {
+        refreshed = await refreshQueueProjection({ purpose: 'clear' });
+        setQueueClearRefreshRequired(!refreshed);
+      }
+      setQueueAction(null);
+      return {
+        status: feedback.key === 'panel.queue.clear.uncertain' ? 'uncertain' : 'failed',
+        referenceId: feedback.referenceId,
+        ...(feedback.key === 'panel.queue.clear.uncertain' ? { refreshRequired: !refreshed } : {}),
+      };
+    } finally {
+      setSaving(false);
+    }
+  }, [queueClearRefreshRequired, refreshQueueProjection, saving]);
+
+  const runQueueLifecycleAction = useCallback(async (queueId, action, context = {}) => {
+    if (saving) return null;
+    setSaving(true);
+    try {
+      const result = await performQueueLifecycleAction({ request: apiClient.request, queueId, action, queue: context.queue, challenge: context.challenge });
+      try {
+        const refreshed = loadQueueProjection(apiClient.request);
+        const queues = await refreshed;
+        setQueueProjection(queues);
+        setQueueSummary(summarizeQueues(queues));
+      } catch {
+        // Keep the accepted lifecycle response even when its follow-up read fails.
+      }
+      return result;
+    } catch (requestError) {
+      if (action.startsWith('archive-local-')) {
+        const key = requestError?.code === 'QUEUE_REWARD_OPERATION_PROCESSING' ? 'panel.queue.archive_local.processing'
+          : requestError?.code === 'LOCAL_ARCHIVE_CHALLENGE_EXPIRED' ? 'panel.queue.archive_local.expired'
+            : requestError?.code === 'STALE_QUEUE_VERSION' ? 'panel.queue.archive_local.stale'
+              : 'panel.queue.archive_local.unavailable';
+        return { status: 'error', key };
+      }
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  }, [saving]);
+
+  const loadQueueRewardCandidates = useCallback((queueId) => fetchQueueRewardCandidates({ request: apiClient.request, queueId }), []);
+
+  const resolveQueueReward = useCallback(async (queueId, rewardId) => {
+    if (saving) return null;
+    setSaving(true);
+    setQueueAction({ queueId, status: 'saving', key: '' });
+    let refreshFailed = false;
+    try {
+      const result = await resolveQueueRewardRequest({ request: apiClient.request, queueId, rewardId });
+      try {
+        const queues = await loadQueueProjection(apiClient.request);
+        setQueueProjection(queues);
+        setQueueSummary(summarizeQueues(queues));
+        setQueueAction({ queueId, status: 'confirmed', key: 'panel.reward.link_success' });
+      } catch (refreshError) {
+        refreshFailed = true;
+        const referenceId = typeof refreshError?.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(refreshError.referenceId) ? refreshError.referenceId : null;
+        setQueueAction({ queueId, status: 'warning', key: 'panel.reward.link_refresh_failed', referenceId });
+      }
+      return { ...result, refreshFailed };
+    } catch (requestError) {
+      const referenceId = typeof requestError?.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(requestError.referenceId) ? requestError.referenceId : null;
+      setQueueAction({ queueId, status: 'error', key: 'panel.reward.link_error_title', referenceId });
+      return { status: 'error', referenceId };
+    } finally {
+      setSaving(false);
+    }
+  }, [saving]);
+
+  const saveQueueRewardSettings = useCallback(async (queueId, settings) => {
+    if (saving) return { status: 'error' };
+    setSaving(true);
+    try {
+      const result = await updateQueueRewardSettingsRequest({ request: apiClient.request, queueId, settings });
+      let refreshFailed = false;
+      try {
+        const queues = await loadQueueProjection(apiClient.request);
+        setQueueProjection(queues);
+        setQueueSummary(summarizeQueues(queues));
+      } catch {
+        refreshFailed = true;
+      }
+      setQueueAction({
+        queueId,
+        status: refreshFailed ? 'warning' : 'pending',
+        key: refreshFailed ? 'panel.queue.entry_action_result.refresh_failed' : 'panel.notice.reward_update_pending',
+      });
+      return { status: 'pending', refreshFailed, result };
+    } catch (requestError) {
+      return { status: 'error', key: getQueueRewardSettingsFailureKey(requestError), referenceId: requestError?.referenceId ?? null };
     } finally {
       setSaving(false);
     }
@@ -202,10 +379,14 @@ export function PanelProvider({ children, fallbackCatalog }) {
       setQueueAction({ queueId, ...getQueueEntryActionFeedback({ action: 'add-manual', result, refreshFailed }) });
       return true;
     } catch (requestError) {
+      const referenceId = typeof requestError?.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(requestError.referenceId)
+        ? requestError.referenceId
+        : null;
       setQueueAction({
         queueId,
         status: 'error',
         key: getManualQueueEntryFailureKey(requestError),
+        ...(referenceId ? { referenceId } : {}),
       });
       return false;
     } finally {
@@ -275,7 +456,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
     }
   }, [saving, queueProjection]);
 
-  const value = useMemo(() => ({ catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, addManualQueueEntry, createQueue, saveQueueSettings }), [catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, addManualQueueEntry, createQueue, saveQueueSettings]);
+  const value = useMemo(() => ({ catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueCallRecovery, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, runQueueLifecycleAction, loadQueueRewardCandidates, resolveQueueReward, saveQueueRewardSettings, addManualQueueEntry, loadQueueHistory, previewQueueClear, confirmQueueClear, refreshQueueProjection, queueClearRefreshRequired, queueCallRefreshRequired, createQueue, saveQueueSettings }), [catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueCallRecovery, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, runQueueLifecycleAction, loadQueueRewardCandidates, resolveQueueReward, saveQueueRewardSettings, addManualQueueEntry, loadQueueHistory, previewQueueClear, confirmQueueClear, refreshQueueProjection, queueClearRefreshRequired, queueCallRefreshRequired, createQueue, saveQueueSettings]);
   return <PanelContext.Provider value={value}>{children}</PanelContext.Provider>;
 }
 

@@ -19,13 +19,14 @@ import { createOverlayWidgetService } from './domain/overlay-widget-service.mjs'
 import { createOverlayProjectionService } from './domain/overlay-projection-service.mjs';
 import { registerOverlayRoutes } from './http/overlay-routes.mjs';
 import { registerLocalizationRoutes } from './http/localization-routes.mjs';
-import { discoverCatalogModule } from '../../shared/localization/discover-catalog-module.mjs';
+import { discoverCatalogBundle } from '../../shared/localization/discover-catalog-bundle.mjs';
 import { writeProductLocaleProjection } from '../../infra/src/product-locale-projection.mjs';
 import { fileURLToPath } from 'node:url';
 import { createErrorDiagnosticReporter } from './observability/error-diagnostics.mjs';
 import { createStructuredLogger } from './observability/structured-logger.mjs';
 import { registerSafeHttpErrorHandler } from './http/safe-http-error-handler.mjs';
 import { createTwitchRouteIntegrationProxy } from './twitch/route-integration-proxy.mjs';
+import { registerDevelopmentOverlayAlias } from './http/dev-overlay-alias.mjs';
 
 const databaseUrl = await createDatabaseUrl();
 const pool = new pg.Pool({ connectionString: databaseUrl });
@@ -36,8 +37,14 @@ const logEvent = createStructuredLogger({ level: process.env.APP_LOG_LEVEL ?? 'i
 const reportDiagnostic = createErrorDiagnosticReporter({ logger: logEvent });
 registerSafeHttpErrorHandler(app, { reportDiagnostic });
 const productVersion = (await readFile(new URL('../../../VERSION', import.meta.url), 'utf8')).trim();
-const port = Number(process.env.APP_PORT ?? 3000);
+const port = Number(process.env.PUBLIC_PORT ?? process.env.APP_PORT ?? 3000);
+const apiPort = Number(process.env.API_PORT ?? process.env.APP_PORT ?? 3000);
 const catalogRoot = fileURLToPath(new URL('../../web/localization/catalogs/', import.meta.url));
+const communityCatalogRoot = fileURLToPath(new URL('../../../.local/community-catalogs/', import.meta.url));
+const getCatalogModule = async (moduleName) => {
+  const bundle = await discoverCatalogBundle(catalogRoot, { communityCatalogRoot });
+  return bundle.modules[moduleName]?.catalogs ?? {};
+};
 process.env.DATABASE_URL = databaseUrl;
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
 const repository = createQueueRepository(prisma, { defaultProductLocale: process.env.PRODUCT_INITIAL_LOCALE ?? 'pt-BR' });
@@ -52,8 +59,7 @@ let overlayCatalogCache = null;
 let overlayCatalogCacheAt = 0;
 const getOverlayCatalogs = async () => {
   if (overlayCatalogCache && Date.now() - overlayCatalogCacheAt < 5_000) return overlayCatalogCache;
-  const discovered = await discoverCatalogModule(catalogRoot, 'overlay');
-  overlayCatalogCache = discovered.catalogs;
+  overlayCatalogCache = await getCatalogModule('overlay');
   overlayCatalogCacheAt = Date.now();
   return overlayCatalogCache;
 };
@@ -70,13 +76,14 @@ const buildChatHandler = (broadcasterId) => createChatCommandHandler({
     setAccount: (label, actorId) => repository.setCurrentAccount(label, actorId),
     resetAccount: (actorId) => repository.resetCurrentAccount(actorId),
   }, broadcasterId, productVersion, getTwitchHealth: twitchHealthBridge.read,
-  getChatCatalogs: async () => (await discoverCatalogModule(catalogRoot, 'chat')).catalogs,
+  getChatCatalogs: () => getCatalogModule('chat'),
   onError: () => undefined,
 });
 let chatHandler = currentCredential?.broadcasterId ? buildChatHandler(currentCredential.broadcasterId) : null;
 
 registerLocalSession(app, {
   port,
+  backendPort: apiPort,
   ...(process.env.NODE_ENV === 'development' && process.env.PANEL_DEV_ORIGIN
     ? { developmentOrigin: process.env.PANEL_DEV_ORIGIN }
     : {}),
@@ -95,7 +102,7 @@ registerQueueRoutes(app, {
   repository,
   domainService: domainServiceProxy,
   clearConfirmation,
-  getSetupCatalogs: async () => (await discoverCatalogModule(catalogRoot, 'setup')).catalogs,
+  getSetupCatalogs: () => getCatalogModule('setup'),
   productVersion,
   integrations: createTwitchRouteIntegrationProxy(() => runtime?.integration ?? null),
   publicBaseUrl: process.env.PUBLIC_BASE_URL ?? `https://localhost:${port}`,
@@ -106,11 +113,15 @@ registerQueueRoutes(app, {
 const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? `https://localhost:${port}`;
 registerOverlayRoutes(app, {
   repository: overlayRepository,
-  widgetService: createOverlayWidgetService({ repository: overlayRepository, origin: publicBaseUrl }),
+  widgetService: createOverlayWidgetService({ repository: overlayRepository, origin: process.env.OVERLAY_PUBLIC_BASE_URL ?? publicBaseUrl }),
   projectionService: createOverlayProjectionService({ overlayRepository, queueRepository: repository, getOverlayCatalogs }),
 });
+if (process.env.NODE_ENV === 'development' && process.env.OVERLAY_PUBLIC_BASE_URL) {
+  registerDevelopmentOverlayAlias(app, { origin: process.env.OVERLAY_PUBLIC_BASE_URL });
+}
 registerLocalizationRoutes(app, {
   catalogRoot,
+  communityCatalogRoot,
   writeHostProjection: (localeState) => writeProductLocaleProjection(localeProjectionPath, localeState),
   repository,
 });
@@ -137,7 +148,7 @@ process.on('SIGTERM', () => void shutdown());
 process.on('SIGINT', () => void shutdown());
 
 try {
-  await app.listen({ host: process.env.APP_HOST ?? '0.0.0.0', port });
+  await app.listen({ host: process.env.APP_HOST ?? '0.0.0.0', port: apiPort });
 } catch {
   await shutdown();
   process.stderr.write('Local application server failed to start. Check runtime configuration and database health.\n');

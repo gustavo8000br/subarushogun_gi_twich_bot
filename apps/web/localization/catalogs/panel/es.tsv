@@ -145,6 +145,14 @@ panel.form.uid_mode	Modo de UID
 panel.form.uid_hidden	Oculto
 panel.form.uid_visible	Solicitar UID
 panel.form.call_timeout	Tiempo de espera de llamada (min)
+panel.form.section_call_message	Mensaje de llamada al viewer
+panel.form.call_message	Mensaje enviado en el chat de Twitch cuando se llama a un viewer
+panel.form.call_preview_label	Vista previa (solo ejemplo)
+panel.form.call_preview_user	Alex
+panel.form.call_preview_queue	Cola Cozy
+panel.form.call_preview_account	Streamer
+panel.form.call_preview_uid_note	El UID solo se enviará si seleccionas «Solicitar UID» arriba y después activas «Mostrar UID al llamar» en los ajustes de la cola.
+panel.form.call_message_invalid	Usa hasta 350 caracteres en una sola línea y solo los campos admitidos indicados arriba.
 panel.dialog.close	Cerrar
 panel.queue_settings.title	Opciones de la cola
 panel.queue_settings.call_deadline	Tiempo para iniciar la atención (minutos; vacío lo desactiva)
@@ -158,14 +166,17 @@ panel.queue_settings.refund_removed	Solicitar reembolso al quitar a una persona 
 panel.queue_settings.refund_no_show	Solicitar reembolso por ausencia
 panel.queue_settings.refund_viewer_leave	Solicitar reembolso si la persona llamada se retira
 panel.reward_settings.title	Editar recompensa
-panel.reward_settings.twitch_limits_hint	Twitch aplica los límites y el enfriamiento. Los cambios quedan pendientes hasta que la API los confirme. Ocultar el UID también elimina los valores guardados localmente.
+panel.reward_settings.twitch_limits_hint	Twitch aplica estos límites y el enfriamiento. Los cambios quedan pendientes hasta que la API los confirme.
 panel.entry.priority_toggle	Prioridad verificada por mí
+panel.priority.dialog_title	Confirma el beneficio de prioridad
+panel.entry.reason_select	Selecciona un beneficio verificado
+panel.entry.reason_required	Selecciona un beneficio para registrar por qué esta entrada tiene prioridad.
 panel.entry.priority_audit_hint	La acción queda auditada. El bot no verifica pagos ni suscripciones y no guarda comprobantes. Las entradas prioritarias siguen FIFO en su tramo y no generan operaciones de puntos.
 panel.entry.reason_external	Pago externo (p. ej., PIX)
 panel.entry.reason_bits	Bits
 panel.entry.reason_sub	Suscripción
 panel.entry.reason_other	Otro beneficio verificado
-panel.reward.manual_association_hint	La lista se consulta directamente en Twitch. Elige una recompensa administrable por esta aplicación que coincida con la configuración de la cola; el vínculo queda auditado.
+panel.reward.manual_association_hint	La lista se consulta directamente en Twitch. Elige una recompensa administrable por esta aplicación que coincida con la configuración de la cola; el vínculo queda auditado. La asociación se registra localmente y no confirma la respuesta a la solicitud original de creación.
 panel.commands.policy_title	Cómo funcionan los permisos
 panel.commands.policy_help	El streamer siempre puede usar comandos configurables. Los cargos superiores heredan acceso. VIP depende de la opción actual. El acceso de seguidores requiere autorización Twitch adicional y se verifica en cada uso.
 panel.commands.group.configurable	Acceso de la audiencia
@@ -205,7 +216,12 @@ panel.credentials.secret_empty	Aún no se ha guardado el secreto de la aplicaci�
 panel.credentials.validate_save	Validar y guardar aplicación
 panel.widget.editor_eyebrow	CONFIGURACIÓN DEL WIDGET
 panel.widget.source_label	Qué mostrar
-panel.widget.queue_label	Cola
+panel.widget.queue_label	Cola / recompensa vinculada
+panel.widget.source.help	Para mostrar datos de una cola, selecciona la cola específica abajo. Su recompensa de puntos del canal vinculada se incluye cuando corresponda.
+panel.widget.queue.help	Este widget lee los datos de la cola seleccionada.
+panel.widget.queue.empty	No hay colas activas disponibles para seleccionar.
+panel.widget.queue.create	Crear una cola
+panel.widget.queue.create_hint	Se abre en otra pestaña para mantener abierto el borrador del widget.
 panel.widget.fallback_label	Texto alternativo cuando no haya un valor
 panel.widget.link_lifetime_help	El enlace no se podrá consultar después de cerrar esta ventana. Si lo pierdes, genera uno nuevo; el anterior quedará invalidado.
 panel.widget.copy_link	Copiar enlace
@@ -250,6 +266,19 @@ panel.queue.action_result.saving	Guardando…
 panel.queue.action_result.confirmed	Se actualizó el estado de la cola.
 panel.queue.action_result.pending	Solicitud guardada. Esperando la confirmación de Twitch.
 panel.queue.action_result.failed	No se pudo actualizar el estado de la cola. Inténtalo de nuevo.
+panel.queue.action_result.uncertain	Es posible que la llamada se haya registrado. Actualiza la cola antes de intentarlo de nuevo.
+panel.queue.call_next.refresh_required	No se pudo actualizar la cola. Actualízala antes de volver a llamar.
+panel.queue.call_next.reference	Referencia de la llamada: {id}
+panel.queue.call_next.refresh	Actualizar cola
+panel.queue.call_next.refreshing	Actualizando cola…
+panel.queue.call_next.refreshed	Cola actualizada. Revisa quién espera antes de volver a llamar.
+panel.queue.call_next.refresh_failed	No se pudo actualizar la cola. Inténtalo de nuevo antes de llamar a alguien.
+panel.queue.clear.uncertain	Es posible que se haya aplicado la limpieza. Revisa la cola actualizada antes de intentarlo de nuevo.
+panel.queue.clear.refresh_required	No pudimos verificar si se aplicó la limpieza. Actualiza la cola antes de intentarlo de nuevo.
+panel.queue.clear.refresh	Actualizar cola
+panel.queue.clear.refreshing	Actualizando cola…
+panel.queue.clear.refreshed	Cola actualizada. Revísala antes de iniciar otra limpieza.
+panel.queue.clear.refresh_failed	No se pudo actualizar la cola. Intenta actualizarla otra vez antes de limpiar.
 panel.queue.action_result.no_waiting	No hay personas esperando en esta cola.
 panel.queue.creation_result.created_local	Cola local creada. Está pausada hasta que la actives.
 panel.queue.creation_result.created_remote	Cola creada y recompensa de Twitch sincronizada.
@@ -274,6 +303,9 @@ panel.queue.delete_blocked.remote_operation_pending	No se puede eliminar mientra
 panel.queue.delete_blocked.queue_mode_transition_pending	No se puede eliminar mientras cambia el modo de la cola.
 panel.queue.delete_blocked.queue_not_active	Esta cola ya se está eliminando o fue eliminada.
 panel.queue.history.title	Historial reciente
+panel.queue.history.loading	Cargando el historial reciente…
+panel.queue.history.failed	No se pudo cargar el historial reciente.
+panel.queue.history.retry	Intentar de nuevo
 panel.queue.history.empty	Todavía no hay atenciones finalizadas.
 panel.queue.history.date_unavailable	Fecha no disponible
 panel.entry.action.call	llamar
@@ -345,7 +377,6 @@ panel.widget.action.delete	Eliminar
 panel.widget.confirm.regenerate	El enlace actual dejará de funcionar. ¿Generar un enlace nuevo ahora?
 panel.widget.confirm.revoke	La fuente de OBS dejará de recibir datos. ¿Revocar este enlace?
 panel.widget.confirm.delete	¿Eliminar este widget? La URL actual quedará invalidada y no se podrá recuperar.
-panel.widget.link.copied_once	Cópialo ahora. El enlace no volverá a mostrarse.
 panel.widget.link.copied	Enlace copiado.
 panel.widget.link.copy_fallback	Selecciona y copia el enlace. No volverá a mostrarse al cerrar.
 panel.widget.queue.select	Selecciona una cola
@@ -457,6 +488,7 @@ panel.reconciliation.complete.other	Sincronización completada. Se importaron {c
 panel.reconciliation.issues.one	Sincronización completada con {count} incidencia. Revisa los avisos y las operaciones.
 panel.reconciliation.issues.many	Sincronización completada con {count} incidencias. Revisa los avisos y las operaciones.
 panel.reconciliation.issues.other	Sincronización completada con {count} incidencias. Revisa los avisos y las operaciones.
+panel.reconciliation.refresh_failed	La conciliación terminó, pero no se pudo actualizar la lista de operaciones. Actualiza la lista antes de usarla.
 panel.entry.status.completed	Completado
 panel.entry.status.removed	Quitado
 panel.entry.status.no_show	Ausente
@@ -467,8 +499,6 @@ panel.queue.settings_result.refresh_failed	La configuración se guardó, pero no
 panel.notice.reward_update_pending	Cambio solicitado. La cola mostrará la sincronización pendiente hasta que Twitch la confirme.
 panel.notice.call_already_queued	La llamada ya está en la cola de envío.
 panel.notice.call_resent	Se solicitó reenviar la llamada. Se conservó el plazo de ausencia.
-panel.priority.reason_prompt	Selecciona el beneficio verificado: 1 suscripción, 2 Bits, 3 pago externo (p. ej., PIX), 4 otro.
-panel.priority.invalid_reason	Selecciona una opción del 1 al 4.
 panel.priority.marked	La prioridad quedó registrada y auditada. El operador verificó el beneficio.
 panel.priority.removed	Se quitó la prioridad.
 panel.queue.action.archive_local_anyway	Eliminar del panel de todos modos
@@ -496,6 +526,9 @@ panel.queue.delete.pending	Se inició la eliminación local. La cola seguirá pe
 panel.queue.delete.done	Cola eliminada. Se conservó el historial de canjes y la recompensa de Twitch sigue pausada.
 panel.reward.no_candidates	La consulta se completó, pero no se encontró una recompensa administrable por esta aplicación, pausada y compatible con todos los ajustes de la cola. Las acciones remotas, como eliminar, siguen bloqueadas hasta confirmar la propiedad. Revisa las diferencias y actualiza la lista.
 panel.queue.clear.empty	La cola ya está vacía.
+panel.queue.clear.failed	No se pudo vaciar la cola. Actualiza e inténtalo de nuevo.
+panel.queue.clear.loading	Calculando la cola actual…
+panel.queue.clear.clearing	Vaciando la cola…
 panel.queue.clear.confirm	¿Vaciar la cola “{title}”? Se quitarán {count} personas y se solicitarán {refunds} reembolsos. La confirmación es válida durante 15 segundos.
 panel.queue.clear.changed	La cola cambió. Revisa la nueva confirmación para {count} personas.
 panel.queue.clear.done	Se quitaron {count} personas; se solicitaron {refunds} reembolsos.
@@ -537,6 +570,10 @@ panel.reward_settings.stream_limit	Límite por transmisión (vacío lo desactiva
 panel.reward_settings.viewer_limit	Límite por persona y transmisión
 panel.reward_settings.cooldown	Intervalo global en segundos
 panel.reward_settings.submit	Solicitar actualización en Twitch
+panel.reward_settings.group.reward	Detalles de la recompensa
+panel.reward_settings.group.viewer	Datos y privacidad del viewer
+panel.reward_settings.group.limits	Límites de Twitch
+panel.reward_settings.uid_removal_warning	Ocultar el UID elimina los valores ya guardados para esta cola y cancela las notificaciones de llamadas pendientes.
 panel.entry.dialog_eyebrow	AÑADIR MANUALMENTE
 panel.entry.dialog_title	Entrada en la cola
 panel.entry.twitch_login	Usuario de Twitch
@@ -547,6 +584,10 @@ panel.reward.dialog_title	Buscar la recompensa de la cola
 panel.reward.lookup_error_title	No se pudieron consultar las recompensas de Twitch
 panel.reward.link_error_title	No se pudo vincular la recompensa
 panel.reward.link_success	Recompensa vinculada y asociación registrada.
+panel.reward.link_refresh_failed	El vínculo se guardó, pero la cola no pudo actualizarse. Actualiza la cola antes de vincular otra recompensa.
+panel.reward.link_refreshed	Cola actualizada. Revisa el vínculo actual de la recompensa antes de continuar.
+panel.reward.refresh_queue	Actualizar cola
+panel.reward.refreshing_queue	Actualizando cola…
 panel.reward.candidates_found_title	Consulta completada
 panel.reward.compatible_rewards	Recompensas compatibles
 panel.reward.loading_candidates	Consultando recompensas administrables en Twitch…
@@ -587,7 +628,7 @@ panel.error.invalid_queue_settings	Revisa la configuración de la cola e intént
 panel.error.invalid_call_template	Usa solo los campos de llamada indicados en la ayuda.
 panel.error.invalid_reward_settings	Revisa el nombre, coste, descripción y límites de la recompensa.
 panel.error.invalid_local_queue_setting	Cambia el UID y la recompensa en el editor de recompensas de Twitch.
-panel.error.stale_queue_settings	La cola cambió mientras la editabas. Actualiza el panel e inténtalo de nuevo.
+panel.error.stale_queue_settings	La cola cambió mientras la editabas. Tu borrador sigue abierto; copia tus cambios, cierra el editor y actualiza el panel antes de volver a intentarlo.
 panel.error.queue_not_found	Esta cola ya no existe. Actualiza el panel.
 panel.error.queue_not_available	Esta cola se está eliminando y no se puede modificar.
 panel.error.reward_update_pending	Ya hay una actualización de recompensa en curso. Actualiza el panel para ver su estado.
@@ -722,6 +763,20 @@ panel.widget.notice.revoked	Enlace del widget revocado.
 panel.widget.notice.deleted	Widget eliminado.
 panel.widget.notice.conflict	Este widget cambió. Revisa el borrador y vuelve a cargar antes de guardar.
 panel.widget.notice.error	No se pudo completar. Inténtalo de nuevo.
+panel.widget.notice.reference	Referencia: {id}
+panel.widget.notice.conflict_refreshed	Se cargó la lista actualizada. Tu borrador no cambió; revisa el widget antes de volver a intentarlo.
+panel.widget.notice.conflict_missing	Este widget ya no está en la lista. Tu borrador no cambió; ciérralo sin guardar.
+panel.widget.notice.conflict_replaced	Se cargaron los datos actuales del widget en el formulario. Revísalos, haz tus cambios y guarda.
+panel.widget.notice.refresh_failed	Se aceptó {action}, pero no se pudo actualizar la lista de widgets. Actualiza antes de repetir esta acción.
+panel.widget.notice.action_created	La creación del widget
+panel.widget.notice.action_saved	La actualización del widget
+panel.widget.notice.action_revoked	La revocación del enlace
+panel.widget.notice.action_deleted	La eliminación del widget
+panel.widget.conflict.refresh	Actualizar lista de widgets
+panel.widget.conflict.refresh_hint	Tu borrador seguirá abierto. Revisa el widget actualizado antes de volver a guardar.
+panel.widget.conflict.latest_title	Versión actual en el servidor
+panel.widget.conflict.replace_draft	Reemplazar mi borrador con esta versión
+panel.widget.close_without_saving	Cerrar sin guardar
 panel.widget.link.close_loses	Al cerrar, el enlace se borrará de la pantalla. Si lo pierdes, genera otro.
 panel.widget.cancel	Cancelar
 panel.dialog.confirm	Confirmar

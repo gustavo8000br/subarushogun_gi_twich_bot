@@ -1,0 +1,36 @@
+schema: 1
+story: OPS-15
+gate: CONCERNS
+score: 8.0/10
+reviewer: Quinn (Test Architect)
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (full OPS-15 evidence review, uncommitted)'
+updated: '2026-10-19'
+status_reason: 'The reviewed code and focused QRA-13 recovery checks are sound, but the full migration cannot be accepted with major required runtime, packaging, OBS/CEF, rollback, legacy-audit, and parity evidence still Pending. The prior broad suite has host-dependent failures and the configured OpenGrep scan was unavailable; OPS-15 remains In Progress.'
+top_issues:
+  - id: TEST-001
+    severity: high
+    finding: 'Full acceptance evidence is missing for PostgreSQL-backed runtime/rollback, complete browser parity, production-like Compose, real Windows installer, native OBS/CEF, and legacy-test disposition.'
+    suggested_action: 'Complete each ordered OPS-15 acceptance gate in disposable environments and record reproducible evidence before cutover.'
+  - id: TEST-002
+    severity: medium
+    finding: 'The latest review did not rerun the full suite; the latest broad run recorded in the handoff had 25 host/environment-dependent failures, and OpenGrep was unavailable.'
+    suggested_action: 'Rerun the full quality suite and configured static scan on a supported host, triage failures, and preserve exact outputs.'
+waiver: { active: false }
+quality_score: 80
+evidence:
+  tests_reviewed: 227
+  risks_identified: 2
+  trace:
+    ac_covered: [1, 2, 11, 13]
+    ac_gaps: [3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16]
+  focused_tests: '4 files / 227 tests passed for QRA-13 and related queue action/client/route behavior; this is not full story coverage'
+  lint: 'npm run lint passed'
+  typecheck: 'npm run typecheck passed'
+  localization: 'npm run validate:localization passed'
+  diff_check: 'git diff --check passed'
+  previous_broad_suite: 'The latest broad run recorded in the active handoff had 141 files: 1,053 passed, 25 failed, 178 skipped; failures were attributed there to unavailable Docker Linux pipe, Unix sh, OpenSSL, and POSIX permissions. It was not rerun in this review.'
+  static_analysis: 'npm run review:static could not start because OpenGrep is unavailable on this Windows host.'
+limitations:
+  - 'Docker daemon/PostgreSQL and Next/Fastify preview were unavailable for current runtime validation; .next was not accessed.'
+  - 'Production-like Compose/image build, real Docker-backed Windows installer lifecycle, native OBS/CEF, isolated rollback, full route/action parity and bilingual legacy-test audit remain Pending.'
+  - 'OPS-15 remains In Progress; this CONCERNS review does not authorize cutover or vanilla-panel removal.'

@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.1/10
+scope: 'QRA-19 POST /api/queues/:queueId/archive-local/challenge validation, known error mappings, and unexpected diagnostics only'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (QRA-19 local archive challenge, uncommitted)'
+updated: '2026-10-19'
+status_reason: 'Invalid expectedVersion is rejected before repository access. QUEUE_NOT_FOUND maps to 404 and unresolved/unavailable/stale codes map to their documented 409 responses with safe exact bodies. Unexpected errors return 503 INTERNAL_ERROR with referenceId, x-error-reference, and stable diagnostic source; private exception text is omitted. The bilingual route inventory matches these assertions. This PASS is limited to QRA-19 challenge responses; OPS-15 remains In Progress and the final story gate is not satisfied.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 file / 93 tests passed'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 file / 93 tests passed'
+  lint: 'npm run lint passed'
+  typecheck: 'npm run typecheck passed'
+  diff_check: 'git diff --check passed (line-ending normalization warnings on existing working-tree files)'
+  response_review: 'Exact 400 before repository access; exact 404/409 domain bodies without private details; unexpected 503 diagnostic body, reference header, and source are covered.'
+  bilingual_docs: 'QRA-19 challenge request/status/body/reference matrix is aligned in EN and pt-BR.'
+limitations:
+  - 'Persistent challenge expiry, version changes, and remote-status binding were not validated against PostgreSQL.'
+  - 'No browser/Next runtime, installer, Twitch, or native OBS/CEF validation was performed.'
+  - 'This is not overall OPS-15 QA, does not close the story, and does not authorize panel cutover.'

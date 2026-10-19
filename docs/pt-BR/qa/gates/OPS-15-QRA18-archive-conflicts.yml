@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'Somente respostas de conflito conhecidas QUEUE_NOT_AVAILABLE e QUEUE_REWARD_NOT_READY em POST /api/queues/:queueId/archive QRA-18'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (conflitos de arquivamento QRA-18, não commitados)'
+updated: '2026-10-19'
+status_reason: 'Ambos os códigos de domínio conhecidos retornam a mensagem genérica existente de arquivamento com HTTP 409; o texto privado da exceção não é exposto, e a chamada à rota mantém contexto de fila, ator e origem. O inventário bilíngue corresponde às assertions. Este PASS limita-se aos conflitos conhecidos QRA-18; OPS-15 permanece In Progress e o gate final da story não foi satisfeito.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 87 testes passaram'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 87 testes passaram'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  diff_check: 'git diff --check passou (avisos de normalização de fim de linha em arquivos existentes da worktree)'
+  response_review: 'Ambos os erros de domínio conhecidos continuam 409 e retornam a cópia genérica exata, sem detalhes privados da exceção.'
+  bilingual_docs: 'Assertions dos conflitos conhecidos QRA-18 e evidência pendente de persistência estão alinhadas em inglês e pt-BR.'
+limitations:
+  - 'Estado arquivado persistido e disponibilidade do controle após reload não foram testados em PostgreSQL.'
+  - 'Não foram executados browser/runtime Next, instalador, Twitch ou OBS/CEF nativo.'
+  - 'Esta não é QA geral da OPS-15, não encerra a story e não autoriza cutover do painel.'

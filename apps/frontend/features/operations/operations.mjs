@@ -81,7 +81,7 @@ export async function performOperationActionWithRefresh({ request, operation, ac
   try {
     const operations = validateOperationsProjection(await request('/api/operations'));
     return { result, operations, refreshFailed: false };
-  } catch {
-    return { result, operations: null, refreshFailed: true };
+  } catch (error) {
+    return { result, operations: null, refreshFailed: true, refreshReferenceId: error?.referenceId ?? null };
   }
 }

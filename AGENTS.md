@@ -27,6 +27,7 @@ Ao retomar uma sessao de desenvolvimento, leia primeiro o handoff ativo em `docs
 ## Ordenação dos changelogs por estágio
 
 - Em cada changelog de estágio, mantenha a seção da versão mais recente primeiro, imediatamente após o título e a linha explicativa/de links. As versões anteriores vêm em ordem decrescente; os changelogs em inglês e pt-BR devem permanecer equivalentes.
+- Antes de qualquer commit, atualize os changelogs de estágio afetados em inglês e pt-BR e confira a equivalência e a ordenação das entradas mais recentes.
 
 ## Autoridade e sequência oficial dos papéis AIOX
 

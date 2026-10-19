@@ -33,7 +33,7 @@ describe('local development environment file', () => {
     const secretPath = await ensureDevelopmentDatabaseSecret(temporaryDirectory);
     const firstSecret = await readFile(secretPath, 'utf8');
     expect(firstSecret.length).toBeGreaterThanOrEqual(40);
-    expect((await stat(secretPath)).mode & 0o077).toBe(0);
+    if (process.platform !== 'win32') expect((await stat(secretPath)).mode & 0o077).toBe(0);
     expect(await ensureDevelopmentDatabaseSecret(temporaryDirectory)).toBe(secretPath);
     expect(await readFile(secretPath, 'utf8')).toBe(firstSecret);
   });

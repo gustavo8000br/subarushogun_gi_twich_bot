@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createApiClient } from '../../apps/frontend/lib/api/client.mjs';
+import { getQueueEntryActionFailureFeedback, performQueueEntryAction } from '../../apps/frontend/features/queues/queue-entry-actions.mjs';
 
 function response(body, { status = 200, headers = {} } = {}) {
   return { ok: status >= 200 && status < 300, status, headers: new globalThis.Headers(headers), json: vi.fn(async () => body) };
@@ -62,5 +63,55 @@ describe('Next same-origin API client', () => {
   it('returns null for no-content responses', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(response(null, { status: 204 }));
     expect(await createApiClient({ fetchImpl }).request('/api/health')).toBeNull();
+  });
+
+  it('treats a rejected call POST as uncertain but keeps pre-POST session failures distinct', async () => {
+    const failedPostApi = createApiClient({ fetchImpl: vi.fn()
+      .mockResolvedValueOnce(response({ csrfToken: 'c'.repeat(64) }))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch')) });
+    let postError;
+    try {
+      await performQueueEntryAction({ request: failedPostApi.request, queueId: 'queue-1', action: 'call-next' });
+    } catch (error) { postError = error; }
+    expect(postError).toMatchObject({ code: 'REQUEST_FAILED', status: 0 });
+    expect(getQueueEntryActionFailureFeedback(postError, { action: 'call-next' }).key)
+      .toBe('panel.queue.action_result.uncertain');
+    expect(postError.message).not.toContain('Failed to fetch');
+
+    const failedSessionApi = createApiClient({ fetchImpl: vi.fn().mockRejectedValue(new TypeError('Failed to fetch')) });
+    let sessionError;
+    try {
+      await performQueueEntryAction({ request: failedSessionApi.request, queueId: 'queue-1', action: 'call-next' });
+    } catch (error) { sessionError = error; }
+    expect(sessionError).toMatchObject({ code: 'SESSION_INITIALIZATION_FAILED', status: 0 });
+    expect(getQueueEntryActionFailureFeedback(sessionError, { action: 'call-next' }).key)
+      .toBe('panel.queue.action_result.failed');
+  });
+
+  it('treats an unreadable successful call response as uncertain', async () => {
+    const api = createApiClient({ fetchImpl: vi.fn()
+      .mockResolvedValueOnce(response({ csrfToken: 'd'.repeat(64) }))
+      .mockResolvedValueOnce({ ok: true, status: 200, headers: new globalThis.Headers(), json: vi.fn().mockRejectedValue(new SyntaxError('invalid JSON')) }) });
+    let error;
+    try {
+      await performQueueEntryAction({ request: api.request, queueId: 'queue-1', action: 'call-next' });
+    } catch (requestError) { error = requestError; }
+    expect(error).toMatchObject({ code: 'INVALID_QUEUE_ENTRY_ACTION_RESPONSE' });
+    expect(getQueueEntryActionFailureFeedback(error, { action: 'call-next' }).key)
+      .toBe('panel.queue.action_result.uncertain');
+  });
+
+  it('keeps a failed session HTTP response generic and never sends the call POST', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(response({ error: 'private' }, { status: 500 }));
+    const api = createApiClient({ fetchImpl });
+    let error;
+    try {
+      await performQueueEntryAction({ request: api.request, queueId: 'queue-1', action: 'call-next' });
+    } catch (requestError) { error = requestError; }
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(fetchImpl).toHaveBeenCalledWith('/api/session', expect.any(Object));
+    expect(error).toMatchObject({ code: 'SESSION_INITIALIZATION_FAILED', status: 500 });
+    expect(getQueueEntryActionFailureFeedback(error, { action: 'call-next' }).key)
+      .toBe('panel.queue.action_result.failed');
   });
 });

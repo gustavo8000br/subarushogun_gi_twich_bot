@@ -1,4 +1,4 @@
-import { buildDevProxyRules } from './dev-proxy-config.mjs';
+import { buildDevProxyRules, buildProductionProxyRules } from './dev-proxy-config.mjs';
 
 export function buildNextConfig(env = process.env) {
   const devPort = env.NEXT_DEV_PORT ?? '3000';
@@ -6,11 +6,14 @@ export function buildNextConfig(env = process.env) {
     ? `${env.CODESPACE_NAME}-${devPort}.${env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
     : null;
   return {
-    output: 'export',
-    trailingSlash: env.NODE_ENV !== 'development',
+    trailingSlash: false,
+    async rewrites() {
+      return env.NODE_ENV === 'development'
+        ? buildDevProxyRules(env)
+        : buildProductionProxyRules(env);
+    },
     ...(env.NODE_ENV === 'development' ? {
       allowedDevOrigins: [...new Set(['127.0.0.1', ...(codespacesHost ? [codespacesHost] : [])])],
-      async rewrites() { return buildDevProxyRules(env); },
     } : {}),
   };
 }

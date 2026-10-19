@@ -1,0 +1,36 @@
+schema: 1
+story: OPS-15
+gate: CONCERNS
+score: 8.0/10
+reviewer: Quinn (Test Architect)
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (revisão de evidências OPS-15 completa, não commitada)'
+updated: '2026-10-19'
+status_reason: 'O código revisado e os testes focados da recuperação QRA-13 estão consistentes, mas a migração completa não pode ser aceita enquanto evidências obrigatórias de runtime, empacotamento, OBS/CEF, rollback, auditoria legada e paridade permanecerem Pendentes. A suíte ampla anterior teve falhas dependentes do host e o OpenGrep configurado estava indisponível; OPS-15 continua In Progress.'
+top_issues:
+  - id: TEST-001
+    severity: high
+    finding: 'Faltam evidências de aceite para runtime/rollback com PostgreSQL, paridade completa no browser, Compose semelhante à produção, instalador Windows real, OBS/CEF nativo e destinação dos testes legados.'
+    suggested_action: 'Concluir cada gate ordenado da OPS-15 em ambientes descartáveis e registrar evidências reproduzíveis antes do cutover.'
+  - id: TEST-002
+    severity: medium
+    finding: 'A revisão atual não repetiu a suíte ampla; a última execução ampla registrada no handoff teve 25 falhas dependentes do host/ambiente, e o OpenGrep configurado estava indisponível.'
+    suggested_action: 'Reexecutar a suíte completa de qualidade e a análise estática configurada em host compatível, triar as falhas e preservar os resultados exatos.'
+waiver: { active: false }
+quality_score: 80
+evidence:
+  tests_reviewed: 227
+  risks_identified: 2
+  trace:
+    ac_covered: [1, 2, 11, 13]
+    ac_gaps: [3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16]
+  focused_tests: '4 arquivos / 227 testes passaram para QRA-13 e comportamento relacionado de ações/cliente/rotas de fila; isto não cobre a story completa'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  localization: 'npm run validate:localization passou'
+  diff_check: 'git diff --check passou'
+  previous_broad_suite: 'A última execução ampla registrada no handoff ativo teve 141 arquivos: 1.053 aprovados, 25 falharam, 178 ignorados; as falhas foram atribuídas à indisponibilidade do pipe Linux do Docker, sh Unix, OpenSSL e permissões POSIX. Ela não foi repetida nesta revisão.'
+  static_analysis: 'npm run review:static não iniciou porque OpenGrep está indisponível neste host Windows.'
+limitations:
+  - 'Daemon Docker/PostgreSQL e prévia Next/Fastify estavam indisponíveis para validação runtime atual; .next não foi acessado.'
+  - 'Compose/build da imagem, ciclo real do instalador Windows com Docker, OBS/CEF nativo, rollback isolado, paridade completa de rotas/ações e auditoria bilíngue de testes legados continuam Pendentes.'
+  - 'OPS-15 continua In Progress; esta revisão CONCERNS não autoriza cutover nem remoção do painel vanilla.'

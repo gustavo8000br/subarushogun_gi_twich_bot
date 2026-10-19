@@ -24,6 +24,11 @@ const STATUS_CLASSES = new Set([
   'confirmed', 'resolved_manual', 'cancelled', 'cancel_verification',
 ]);
 
+function safeReferenceId(error) {
+  return typeof error?.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(error.referenceId)
+    ? error.referenceId : null;
+}
+
 function OperationCard({ operation, locale, t, saving, anySaving, onAction }) {
   const count = operation.attempts;
   const pluralCategory = count === 0 ? 'other' : new Intl.PluralRules(locale).select(count);
@@ -67,6 +72,7 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
   const [reconciling, setReconciling] = useState(false);
   const [notice, setNotice] = useState(null);
   const [confirmation, setConfirmation] = useState(null);
+  const [loadErrorReference, setLoadErrorReference] = useState(null);
   const requestInFlight = useRef(false);
   const operationsRef = useRef(null);
   const confirmationDialog = useRef(null);
@@ -74,7 +80,8 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
   useEffect(() => { operationsRef.current = operations; }, [operations]);
 
   const loadOperations = useCallback(async ({ quiet = false } = {}) => {
-    if (requestInFlight.current) return;
+    if (requestInFlight.current) return { ok: false, skipped: true };
+    if (quiet && operationsRef.current === null) return { ok: false, skipped: true };
     requestInFlight.current = true;
     if (!quiet) setLoading(true);
     try {
@@ -82,13 +89,20 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
       operationsRef.current = result;
       setOperations(result);
       setLoading(false);
+      setLoadErrorReference(null);
       if (quiet) setNotice(null);
-    } catch {
+      return { ok: true };
+    } catch (error) {
       setLoading(false);
-      if (operationsRef.current === null) setOperations(null);
-      setNotice(operationsRef.current === null
-        ? null
-        : { key: 'panel.operations.refresh_failed', error: true });
+      const referenceId = safeReferenceId(error);
+      setLoadErrorReference(referenceId);
+      if (operationsRef.current === null) {
+        setOperations(null);
+        setNotice(null);
+      } else if (!quiet) {
+        setNotice({ key: 'panel.operations.refresh_failed', error: true, referenceId });
+      }
+      return { ok: false, referenceId };
     } finally {
       requestInFlight.current = false;
     }
@@ -141,9 +155,10 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
             ? 'panel.operations.action_manual_resolution'
             : 'panel.operations.action_retry_pending',
         error: result.refreshFailed,
+        referenceId: result.refreshFailed ? safeReferenceId({ referenceId: result.refreshReferenceId }) : null,
       });
-    } catch {
-      setNotice({ key: 'panel.operations.action_failed', error: true });
+    } catch (error) {
+      setNotice({ key: 'panel.operations.action_failed', error: true, referenceId: safeReferenceId(error) });
     } finally {
       setSavingOperationId(null);
     }
@@ -155,14 +170,19 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
     setNotice({ key: 'panel.reconciliation.running' });
     try {
       const result = await request('/api/reconciliation', { method: 'POST', body: '{}' });
-      if (!result || !['complete', 'failed'].includes(result.status)
+      if (!result || !['complete', 'partial', 'failed'].includes(result.status)
         || !Array.isArray(result.issues)
+        || (result.status !== 'complete' && result.issues.length === 0)
         || (result.imported !== undefined && (!Number.isInteger(result.imported) || result.imported < 0))) {
         throw new Error('invalid reconciliation result');
       }
-      await loadOperations({ quiet: true });
+      const projection = await loadOperations({ quiet: true });
+      if (!projection?.ok) {
+        setNotice({ key: 'panel.reconciliation.refresh_failed', error: true, referenceId: projection?.referenceId });
+        return;
+      }
       const issueCount = result.issues.length;
-      if (result.status === 'failed' || issueCount > 0) {
+      if (result.status !== 'complete' || issueCount > 0) {
         const plural = issueCount === 0 ? 'other' : new Intl.PluralRules(locale).select(issueCount);
         setNotice({ key: `panel.reconciliation.issues.${plural}`, values: { count: new Intl.NumberFormat(locale).format(issueCount) }, error: true });
       } else {
@@ -170,8 +190,8 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
         const plural = imported === 0 ? 'other' : new Intl.PluralRules(locale).select(imported);
         setNotice({ key: `panel.reconciliation.complete.${plural}`, values: { count: new Intl.NumberFormat(locale).format(imported) } });
       }
-    } catch {
-      setNotice({ key: 'panel.operations.reconcile_failed', error: true });
+    } catch (error) {
+      setNotice({ key: 'panel.operations.reconcile_failed', error: true, referenceId: safeReferenceId(error) });
     } finally {
       setReconciling(false);
     }
@@ -203,6 +223,7 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
   const confirmationAccept = confirmation?.action === 'resolve_unknown'
     ? 'panel.operation.action.resolve'
     : 'panel.operation.action.continue_delete';
+  const noticeReference = notice?.referenceId ? t('panel.error.reference', { values: { id: notice.referenceId } }) : null;
 
   return (
     <>
@@ -217,9 +238,9 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
           </button>
         </div>
       </section>
-      {notice ? <p className={`operation-notice${notice.error ? ' is-error' : ''}`} role={notice.error ? 'alert' : 'status'}>{t(notice.key, { values: notice.values })}</p> : null}
+      {notice ? <div className={`operation-notice${notice.error ? ' is-error' : ''}`} role={notice.error ? 'alert' : 'status'}><p>{t(notice.key, { values: notice.values })}</p>{noticeReference ? <small>{noticeReference}</small> : null}</div> : null}
       {loading && operations === null ? <p className="status-card" role="status">{t('panel.operations.loading')}</p> : null}
-      {!loading && operations === null ? <section className="status-card error-card"><p role="alert">{t('panel.error.local_load')}</p><button type="button" className="button button-secondary" onClick={() => void loadOperations()}>{t('panel.operations.refresh')}</button></section> : null}
+      {!loading && operations === null ? <section className="status-card error-card" role="alert"><p>{t('panel.error.local_load')}</p>{loadErrorReference ? <small>{t('panel.error.reference', { values: { id: loadErrorReference } })}</small> : null}<button type="button" className="button button-secondary" onClick={() => void loadOperations()}>{t('panel.operations.refresh')}</button></section> : null}
       {!loading && operations?.length === 0 ? <section className="operation-empty"><h2>{t('panel.operations.empty')}</h2><p>{t('panel.operations.empty_hint')}</p></section> : null}
       {grouped?.length ? <div className="operation-groups">
         {grouped.map((group) => <section className="operation-group" key={group.id} aria-labelledby={`operation-group-${group.id}`}>

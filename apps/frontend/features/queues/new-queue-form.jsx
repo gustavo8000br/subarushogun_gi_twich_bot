@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { renderCallMessagePreview, validateCallMessageTemplate } from './queue-creation.mjs';
 
 function suggestSlug(value) {
   return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -12,9 +13,25 @@ export default function NewQueueForm({ t, saving, feedback, twitchConnected = fa
   const [queueMode, setQueueMode] = useState(twitchConnected ? 'channel_points' : 'manual_only');
   const [slug, setSlug] = useState('');
   const [slugEdited, setSlugEdited] = useState(false);
+  const [callMessageTouched, setCallMessageTouched] = useState(false);
+  const callMessageInput = useRef(null);
+  const defaultCallMessage = t('panel.queue_settings.call_message_default');
+  const [callMessage, setCallMessage] = useState(null);
+  const currentCallMessage = callMessage ?? defaultCallMessage;
+  let callMessageIsInvalid = false;
+  try { validateCallMessageTemplate(currentCallMessage); } catch { callMessageIsInvalid = true; }
+  const callPreview = renderCallMessagePreview(currentCallMessage || defaultCallMessage, {
+    user: t('panel.form.call_preview_user'), queue: t('panel.form.call_preview_queue'),
+    position: '1', uid: '', account: t('panel.form.call_preview_account'),
+  });
 
   async function submit(event) {
     event.preventDefault();
+    if (callMessageIsInvalid) {
+      setCallMessageTouched(true);
+      callMessageInput.current?.focus();
+      return;
+    }
     const form = event.currentTarget;
     const values = Object.fromEntries(new FormData(form).entries());
     const created = await onCreate(values);
@@ -23,6 +40,8 @@ export default function NewQueueForm({ t, saving, feedback, twitchConnected = fa
       setQueueMode(twitchConnected ? 'channel_points' : 'manual_only');
       setSlug('');
       setSlugEdited(false);
+      setCallMessage(null);
+      setCallMessageTouched(false);
     }
   }
 
@@ -56,7 +75,7 @@ export default function NewQueueForm({ t, saving, feedback, twitchConnected = fa
           {!twitchConnected ? <p className="form-hint form-field-wide queue-twitch-setup-hint" role="note">{t('panel.form.twitch_setup_required')} <a href="/connection/">{t('panel.form.twitch_setup_link')}</a></p> : null}
         </fieldset>
 
-        {queueMode === 'channel_points' ? <fieldset className="form-section queue-create-reward-fields">
+        <fieldset className="form-section queue-create-reward-fields" hidden={queueMode !== 'channel_points'} disabled={queueMode !== 'channel_points'}>
           <legend>{t('panel.form.section_reward')}</legend>
           <div className="form-grid">
             <label>{t('panel.form.cost')}<input name="cost" type="number" min="1" step="1" required defaultValue="1000" /></label>
@@ -66,7 +85,7 @@ export default function NewQueueForm({ t, saving, feedback, twitchConnected = fa
             <label>{t('panel.form.max_per_viewer')}<input name="maxRedemptionsPerUserPerStream" type="number" min="1" step="1" placeholder={t('panel.form.no_limit')} /></label>
             <label>{t('panel.form.cooldown')}<input name="globalCooldownSeconds" type="number" min="1" step="1" placeholder={t('panel.form.no_cooldown')} /></label>
           </div>
-        </fieldset> : null}
+        </fieldset>
 
         <fieldset className="form-section">
           <legend>{t('panel.form.section_handling')}</legend>
@@ -77,6 +96,17 @@ export default function NewQueueForm({ t, saving, feedback, twitchConnected = fa
             </select></label>
             <label>{t('panel.form.call_timeout')}<input name="callTimeoutMin" type="number" min="1" max="120" defaultValue="10" /></label>
           </div>
+        </fieldset>
+
+        <fieldset className="form-section">
+          <legend>{t('panel.form.section_call_message')}</legend>
+          <label>{t('panel.form.call_message')}<textarea ref={callMessageInput} name="callMessage" rows={2} maxLength={350} value={currentCallMessage} onChange={(event) => { setCallMessage(event.target.value); setCallMessageTouched(true); }} aria-invalid={callMessageTouched && callMessageIsInvalid || undefined} aria-describedby={[
+            'new-queue-call-message-hint',
+            currentCallMessage.includes('{uid}') ? 'new-queue-call-message-uid-note' : null,
+            callMessageTouched && callMessageIsInvalid ? 'new-queue-call-message-error' : null,
+          ].filter(Boolean).join(' ')} /><small id="new-queue-call-message-hint" className="form-hint">{t('panel.queue_settings.call_placeholders', { values: { user: '{user}', queue: '{queue}', position: '{position}', uid: '{uid}', account: '{account}' } })}</small>{callMessageTouched && callMessageIsInvalid ? <small id="new-queue-call-message-error" className="form-error" role="alert">{t('panel.form.call_message_invalid')}</small> : null}</label>
+          <div className="call-message-preview" id="new-queue-call-message-preview" role="group" aria-labelledby="new-queue-call-message-preview-label"><strong id="new-queue-call-message-preview-label">{t('panel.form.call_preview_label')}</strong><output>{callPreview}</output></div>
+          {currentCallMessage.includes('{uid}') ? <small id="new-queue-call-message-uid-note" className="form-hint">{t('panel.form.call_preview_uid_note')}</small> : null}
         </fieldset>
 
         <div className="form-action-bar">

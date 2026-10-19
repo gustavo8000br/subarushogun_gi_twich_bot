@@ -1,0 +1,35 @@
+story: OPS-15
+gate: queue-widget-operations-recovery
+status: PASS
+score: 9.2/10
+reviewer: aiox-qa
+independence: revisão independente; sem alterações de implementação
+scope:
+  - validação do modelo de mensagem de chamada e prévia localizada na criação de fila
+  - falha de atualização após associação de reward, referência diagnóstica, retry e bloqueio de nova associação
+  - falha de atualização após alteração aceita de widget, conflito de versão, recuperação após remoção e descarte do capability de uso único
+  - carga inicial, atualização após conciliação e diagnósticos após ações aceitas em Operações
+evidence:
+  independent_qa_run:
+    result: 8 arquivos focados / 89 testes passaram
+    files:
+      - tests/unit/next-queue-creation.test.js
+      - tests/unit/next-queue-creation-form.test.js
+      - tests/unit/next-widgets-page.test.jsx
+      - tests/unit/next-queue-reward-resolution.test.js
+      - tests/unit/next-queue-reward-recovery.test.jsx
+      - tests/unit/next-queue-list.test.js
+      - tests/unit/next-operations-page.test.jsx
+      - tests/unit/next-connection-page.test.jsx
+  developer_run: 8 arquivos focados / 79 testes passaram; o conjunto incluía testes do diálogo de reward settings no lugar da página next-connection
+  lint: passou
+  typecheck: passou
+  localization: passou
+  diff_check: passou
+findings: []
+limitations:
+  - OpenGrep indisponível nesta máquina
+  - sem validação em navegador, Twitch, OBS/CEF ou runtime de produção
+  - build não executado e .next não foi tocado
+  - este resultado delimitado não altera o status geral QA da OPS-15 nem encerra seus critérios de aceite
+overall_ops15: CONCERNS 8.0/10; In Progress

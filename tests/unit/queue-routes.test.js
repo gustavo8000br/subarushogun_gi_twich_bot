@@ -3,12 +3,14 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { registerLocalSession } from '../../apps/api/src/http/local-session.mjs';
 import { registerQueueRoutes } from '../../apps/api/src/http/queue-routes.mjs';
+import { registerSafeHttpErrorHandler } from '../../apps/api/src/http/safe-http-error-handler.mjs';
 import { createClearConfirmationService } from '../../apps/api/src/domain/clear-confirmation.mjs';
 import { registerOverlayRoutes } from '../../apps/api/src/http/overlay-routes.mjs';
 import { createQueueDomainService, createQueueDomainServiceProxy } from '../../apps/api/src/domain/queue-service.mjs';
 
-async function createHarness({ domainService, resolveUser = async () => null, beforeSession = async () => undefined, getSetupCatalogs, reportDiagnostic, logEvent } = {}) {
+async function createHarness({ domainService, resolveUser = async () => null, beforeSession = async () => undefined, getSetupCatalogs, reportDiagnostic, logEvent, clearConfirmation: suppliedClearConfirmation, clearConfirmationUnavailable = false, safeErrorHandler = false } = {}) {
   const app = Fastify();
+  if (safeErrorHandler) registerSafeHttpErrorHandler(app, { reportDiagnostic });
   registerLocalSession(app, { port: 3000 });
   const queue = { id: 'queue-id', slug: 'abismo', title: 'Abismo', cost: 100, uidMode: 'visible', showUidInOverlay: false, isOpen: false, isArchived: false, lifecycleStatus: 'active', version: 1 };
   queue.entries = [{ id: 'entry-id', status: 'waiting', position: 1, userLogin: 'viewer', displayName: 'Viewer', uid: '123456789' }];
@@ -35,7 +37,7 @@ async function createHarness({ domainService, resolveUser = async () => null, be
     updateCommandPolicies: vi.fn(async ({ expectedVersion, policies }) => ({ schemaVersion: 3, version: expectedVersion + 1, policies })),
   };
   const integrations = { status: 'not_configured', twitch: null };
-  const clearConfirmation = createClearConfirmationService({ repository });
+  const clearConfirmation = suppliedClearConfirmation ?? (clearConfirmationUnavailable ? null : createClearConfirmationService({ repository }));
   registerQueueRoutes(app, { repository, domainService, integrations, clearConfirmation, resolveUser, getSetupCatalogs, reportDiagnostic, logEvent, publicBaseUrl: 'https://localhost:3000', productVersion: 'v0.1.0-1234567-alpha' });
   await beforeSession({ app, repository });
   const inject = app.inject.bind(app);
@@ -408,6 +410,30 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('returns a safe unavailable response when the manual-mode transition is not implemented', async () => {
+    const h = await createHarness();
+    h.repository.requestManualModeTransition = undefined;
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-mode', headers: h.headers, payload: {} });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ error: 'A troca para fila local não está disponível.' });
+    await h.app.close();
+  });
+
+  it('returns a stable not-found response when requesting manual mode for a missing queue', async () => {
+    const h = await createHarness();
+    h.repository.requestManualModeTransition = vi.fn(async () => { throw Object.assign(new Error('private queue transition details'), { code: 'QUEUE_NOT_FOUND' }); });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/missing-queue/manual-mode', headers: h.headers, payload: {} });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: 'Não foi possível concluir a operação.' });
+    expect(response.body).not.toContain('private queue transition details');
+    expect(h.repository.requestManualModeTransition).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'missing-queue' }));
+    await h.app.close();
+  });
+
   it('updates only validated local queue settings through the protected route', async () => {
     const h = await createHarness();
     h.repository.updateLocalQueueSettings = vi.fn(async ({ settings }) => ({ id: 'queue-id', slug: 'abismo', title: 'Abismo', cost: 100, uidMode: 'visible', ...settings, version: 2 }));
@@ -494,6 +520,22 @@ describe('local queue and setup API', () => {
     expect(response.statusCode).toBe(201);
     expect(resolveUser).toHaveBeenCalledWith('viewer');
     expect(h.repository.addManualEntry).toHaveBeenCalledWith(expect.objectContaining({ actorId: h.headers.cookie.split('=')[1], origin: 'panel' }));
+    await h.app.close();
+  });
+
+  it('returns a safe diagnostic reference when manual admission user lookup fails unexpectedly', async () => {
+    const referenceId = '44444444-4444-4444-8444-444444444444';
+    const reportDiagnostic = vi.fn(() => referenceId);
+    const resolveUser = vi.fn(async () => { throw new Error('private Twitch response and token'); });
+    const h = await createHarness({ resolveUser, reportDiagnostic });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-entries', headers: h.headers, payload: { login: 'viewer' } });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.headers['x-error-reference']).toBe(referenceId);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível concluir. Tente novamente.', referenceId });
+    expect(response.body).not.toContain('private Twitch response and token');
+    expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.queue.manual_entry', error: expect.any(Error) });
     await h.app.close();
   });
 
@@ -743,6 +785,57 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it.each([
+    ['missing', null],
+    ['deleted', { id: 'queue-id', lifecycleStatus: 'deleted' }],
+  ])('returns a not-found response without reading history for a %s queue', async (_state, queue) => {
+    const h = await createHarness();
+    h.repository.getQueueById.mockResolvedValue(queue);
+    h.repository.listQueueHistoryProjection = vi.fn();
+
+    const response = await h.app.inject({ method: 'GET', url: '/api/queues/queue-id/history', headers: h.sessionHeaders });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: 'Fila não encontrada.' });
+    expect(h.repository.listQueueHistoryProjection).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it('returns a safe correlated response when queue history lookup fails unexpectedly', async () => {
+    const reportDiagnostic = vi.fn(() => '77777777-7777-4777-8777-777777777777');
+    const h = await createHarness({ reportDiagnostic, safeErrorHandler: true });
+    const failure = new Error('private history database detail');
+    h.repository.getQueueById.mockResolvedValue({ id: 'queue-id', lifecycleStatus: 'active' });
+    h.repository.listQueueHistoryProjection = vi.fn().mockRejectedValue(failure);
+
+    const response = await h.app.inject({ method: 'GET', url: '/api/queues/queue-id/history', headers: h.sessionHeaders });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível concluir. Tente novamente.', referenceId: '77777777-7777-4777-8777-777777777777' });
+    expect(response.headers['x-error-reference']).toBe('77777777-7777-4777-8777-777777777777');
+    expect(response.body).not.toContain('private history database detail');
+    expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.get.api_queues_queueId_history', error: failure });
+    await h.app.close();
+  });
+
+  it('returns a safe correlated response when queue history ownership lookup fails unexpectedly', async () => {
+    const reportDiagnostic = vi.fn(() => '88888888-8888-4888-8888-888888888888');
+    const h = await createHarness({ reportDiagnostic, safeErrorHandler: true });
+    const failure = new Error('private queue lookup database detail');
+    h.repository.getQueueById.mockRejectedValue(failure);
+    h.repository.listQueueHistoryProjection = vi.fn();
+
+    const response = await h.app.inject({ method: 'GET', url: '/api/queues/queue-id/history', headers: h.sessionHeaders });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível concluir. Tente novamente.', referenceId: '88888888-8888-4888-8888-888888888888' });
+    expect(response.headers['x-error-reference']).toBe('88888888-8888-4888-8888-888888888888');
+    expect(response.body).not.toContain('private queue lookup database detail');
+    expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.get.api_queues_queueId_history', error: failure });
+    expect(h.repository.listQueueHistoryProjection).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
   it('moves only waiting entries through the protected panel API with a validated position', async () => {
     const h = await createHarness();
     h.repository.moveWaitingEntry = vi.fn(async () => ({ status: 'moved', entryId: 'entry-id', position: 2 }));
@@ -768,6 +861,45 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it.each(['entry_not_found', 'notification_not_found'])('reports unavailable call notification resend as 404 (%s)', async (status) => {
+    const h = await createHarness();
+    h.repository.resendCallNotification = vi.fn(async () => ({ status }));
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/call-notification/resend', headers: h.headers, payload: {} });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: 'A chamada não está disponível para reenvio.' });
+    await h.app.close();
+  });
+
+  it.each(['entry_not_called', 'already_processing'])('reports a call notification that cannot be retried as 409 (%s)', async (status) => {
+    const h = await createHarness();
+    h.repository.resendCallNotification = vi.fn(async () => ({ status }));
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/call-notification/resend', headers: h.headers, payload: {} });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ error: 'A chamada mudou de estado ou já está sendo enviada.' });
+    await h.app.close();
+  });
+
+  it('returns a safe diagnostic reference when queuing a call notification resend fails unexpectedly', async () => {
+    const referenceId = '77777777-7777-4777-8777-777777777777';
+    const reportDiagnostic = vi.fn(() => referenceId);
+    const h = await createHarness({ reportDiagnostic });
+    const error = Object.assign(new Error('private provider response and credentials'), { code: 'P2002' });
+    h.repository.resendCallNotification = vi.fn().mockRejectedValue(error);
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/call-notification/resend', headers: h.headers, payload: {} });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível concluir. Tente novamente.', referenceId });
+    expect(response.headers['x-error-reference']).toBe(referenceId);
+    expect(response.body).not.toContain('private provider response');
+    expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.entry.call_notification_resend', error });
+    await h.app.close();
+  });
+
   it('requires the local session and CSRF token for call notification resend', async () => {
     const h = await createHarness();
     h.repository.resendCallNotification = vi.fn();
@@ -789,6 +921,126 @@ describe('local queue and setup API', () => {
     const unarchived = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/unarchive', headers: h.headers, payload: {} });
     expect(unarchived.statusCode).toBe(200);
     expect(unarchived.json()).toMatchObject({ status: 'unarchived', queue: { isArchived: false, isOpen: false } });
+    await h.app.close();
+  });
+
+  it.each(['QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY'])('returns a stable archive conflict for %s without exposing private details', async (code) => {
+    const h = await createHarness();
+    h.repository.archiveQueue = vi.fn(async () => { throw Object.assign(new Error('private archive state details'), { code }); });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive', headers: h.headers, payload: {} });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ error: 'Não foi possível arquivar a fila neste estado. Verifique a sincronização da recompensa.' });
+    expect(response.body).not.toContain('private archive state details');
+    expect(h.repository.archiveQueue).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', actorId: expect.any(String), origin: 'panel' }));
+    await h.app.close();
+  });
+
+  it.each(['QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY', 'QUEUE_OPEN_WHILE_ARCHIVED'])('returns a stable unarchive conflict for %s without exposing private details', async (code) => {
+    const h = await createHarness();
+    h.repository.unarchiveQueue = vi.fn(async () => { throw Object.assign(new Error('private unarchive state details'), { code }); });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/unarchive', headers: h.headers, payload: {} });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ error: 'Não foi possível desarquivar a fila. Confirme primeiro que a recompensa está pausada.' });
+    expect(response.body).not.toContain('private unarchive state details');
+    expect(h.repository.unarchiveQueue).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', actorId: expect.any(String), origin: 'panel' }));
+    await h.app.close();
+  });
+
+  it('rejects an invalid local-archive challenge version before calling the repository', async () => {
+    const h = await createHarness();
+    h.repository.beginLocalQueueArchive = vi.fn();
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive-local/challenge', headers: h.headers, payload: { expectedVersion: 0 } });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ code: 'INVALID_LOCAL_ARCHIVE_CHALLENGE', error: 'A confirmação local está inválida. Atualize o painel e tente novamente.' });
+    expect(h.repository.beginLocalQueueArchive).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it.each([
+    ['QUEUE_NOT_FOUND', 404, 'A fila mudou ou não está disponível para arquivamento local. Atualize o painel e tente novamente.'],
+    ['QUEUE_REWARD_UNRESOLVED', 409, 'A recompensa ainda está sendo identificada. Resolva a sincronização antes de arquivar.'],
+    ['QUEUE_LOCAL_ARCHIVE_UNAVAILABLE', 409, 'A fila mudou ou não está disponível para arquivamento local. Atualize o painel e tente novamente.'],
+    ['STALE_QUEUE_VERSION', 409, 'A fila mudou ou não está disponível para arquivamento local. Atualize o painel e tente novamente.'],
+  ])('maps local-archive challenge error %s to a safe response', async (code, statusCode, errorMessage) => {
+    const h = await createHarness();
+    h.repository.beginLocalQueueArchive = vi.fn(async () => { throw Object.assign(new Error('private archive challenge details'), { code }); });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive-local/challenge', headers: h.headers, payload: { expectedVersion: 4 } });
+
+    expect(response.statusCode).toBe(statusCode);
+    expect(response.json()).toEqual({ code, error: errorMessage });
+    expect(response.body).not.toContain('private archive challenge details');
+    await h.app.close();
+  });
+
+  it('returns a diagnostic reference for unexpected local-archive challenge failures', async () => {
+    const reportDiagnostic = vi.fn(() => '44444444-4444-4444-8444-444444444444');
+    const h = await createHarness({ reportDiagnostic });
+    const failure = new Error('private archive database failure');
+    h.repository.beginLocalQueueArchive = vi.fn().mockRejectedValue(failure);
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive-local/challenge', headers: h.headers, payload: { expectedVersion: 4 } });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível iniciar o arquivamento local.', referenceId: '44444444-4444-4444-8444-444444444444' });
+    expect(response.headers['x-error-reference']).toBe('44444444-4444-4444-8444-444444444444');
+    expect(response.body).not.toContain('private archive database failure');
+    expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.queue.archive_local_challenge', error: failure });
+    await h.app.close();
+  });
+
+  it('rejects a malformed local-archive confirmation before calling the repository', async () => {
+    const h = await createHarness();
+    h.repository.confirmLocalQueueArchive = vi.fn();
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive-local/confirm', headers: h.headers, payload: { challengeId: 'challenge-id', expectedVersion: 0, remoteSyncStatus: 'unknown' } });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ code: 'INVALID_LOCAL_ARCHIVE_CHALLENGE', error: 'A confirmação local está inválida. Recomece as duas confirmações.' });
+    expect(h.repository.confirmLocalQueueArchive).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it.each([
+    ['QUEUE_NOT_FOUND', 404, 'A fila ou a confirmação mudou/expirou. Atualize o painel e reinicie as duas confirmações.'],
+    ['QUEUE_REWARD_UNRESOLVED', 409, 'A recompensa ainda está sendo identificada. Resolva a sincronização antes de arquivar.'],
+    ['QUEUE_LOCAL_ARCHIVE_UNAVAILABLE', 409, 'A fila ou a confirmação mudou/expirou. Atualize o painel e reinicie as duas confirmações.'],
+    ['STALE_QUEUE_VERSION', 409, 'A fila ou a confirmação mudou/expirou. Atualize o painel e reinicie as duas confirmações.'],
+    ['LOCAL_ARCHIVE_CHALLENGE_EXPIRED', 409, 'A fila ou a confirmação mudou/expirou. Atualize o painel e reinicie as duas confirmações.'],
+    ['QUEUE_REWARD_OPERATION_PROCESSING', 409, 'Uma operação da recompensa ainda está em processamento. Aguarde e tente novamente.'],
+    ['QUEUE_DELETION_CANCELLATION_IN_PROGRESS', 409, 'O cancelamento da exclusão ainda está verificando a recompensa na Twitch. Aguarde e tente novamente.'],
+    ['INVALID_LOCAL_ARCHIVE_CHALLENGE', 400, 'A confirmação local está inválida. Recomece as duas confirmações.'],
+  ])('maps local-archive confirmation error %s to a safe response', async (code, statusCode, errorMessage) => {
+    const h = await createHarness();
+    h.repository.confirmLocalQueueArchive = vi.fn(async () => { throw Object.assign(new Error('private archive confirmation details'), { code }); });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive-local/confirm', headers: h.headers, payload: { challengeId: 'challenge-id', expectedVersion: 4, remoteSyncStatus: 'unknown' } });
+
+    expect(response.statusCode).toBe(statusCode);
+    expect(response.json()).toEqual({ code, error: errorMessage });
+    expect(response.body).not.toContain('private archive confirmation details');
+    await h.app.close();
+  });
+
+  it('returns a diagnostic reference for unexpected local-archive confirmation failures', async () => {
+    const reportDiagnostic = vi.fn(() => '55555555-5555-4555-8555-555555555555');
+    const h = await createHarness({ reportDiagnostic });
+    const failure = new Error('private local archive confirmation database failure');
+    h.repository.confirmLocalQueueArchive = vi.fn().mockRejectedValue(failure);
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive-local/confirm', headers: h.headers, payload: { challengeId: 'challenge-id', expectedVersion: 4, remoteSyncStatus: 'unknown' } });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível concluir o arquivamento local.', referenceId: '55555555-5555-4555-8555-555555555555' });
+    expect(response.headers['x-error-reference']).toBe('55555555-5555-4555-8555-555555555555');
+    expect(response.body).not.toContain('private local archive confirmation database failure');
+    expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.queue.archive_local_confirm', error: failure });
     await h.app.close();
   });
 
@@ -817,6 +1069,7 @@ describe('local queue and setup API', () => {
     expect(domainService.deleteQueue).not.toHaveBeenCalled();
     const missingConfirmation = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: {} });
     expect(missingConfirmation.statusCode).toBe(400);
+    expect(missingConfirmation.json()).toEqual({ error: 'Confirme explicitamente a exclusão desta fila.' });
     expect(domainService.deleteQueue).not.toHaveBeenCalled();
     const accepted = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: { confirm: true } });
     expect(accepted.statusCode).toBe(200);
@@ -833,6 +1086,7 @@ describe('local queue and setup API', () => {
     expect(domainService.cancelQueueDeletion).not.toHaveBeenCalled();
     const missingConfirmation = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete/cancel', headers: h.headers, payload: {} });
     expect(missingConfirmation.statusCode).toBe(400);
+    expect(missingConfirmation.json()).toEqual({ code: 'QUEUE_DELETE_CANCEL_CONFIRMATION_REQUIRED', error: 'Confirme explicitamente o cancelamento da exclusão.' });
     expect(domainService.cancelQueueDeletion).not.toHaveBeenCalled();
     const accepted = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete/cancel', headers: h.headers, payload: { confirm: true } });
     expect(accepted.statusCode).toBe(200);
@@ -841,15 +1095,54 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
-  it('returns a stable safe error code when confirmed reward state blocks queue deletion', async () => {
-    const domainService = { deleteQueue: vi.fn(async () => { throw Object.assign(new Error('private database detail'), { code: 'QUEUE_REWARD_NOT_READY' }); }) };
+  it.each([
+    ['QUEUE_NOT_FOUND', 404, 'Fila não encontrada.'],
+    ['QUEUE_REWARD_NOT_READY', 409, 'A recompensa ainda não foi confirmada.'],
+    ['QUEUE_NOT_AVAILABLE', 409, 'A fila não está disponível para exclusão.'],
+  ])('returns a stable safe deletion response for %s', async (code, statusCode, errorMessage) => {
+    const domainService = { deleteQueue: vi.fn(async () => { throw Object.assign(new Error('private database detail'), { code }); }) };
     const h = await createHarness({ domainService });
 
     const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: { confirm: true } });
 
-    expect(response.statusCode).toBe(409);
-    expect(response.json()).toMatchObject({ code: 'QUEUE_REWARD_NOT_READY' });
+    expect(response.statusCode).toBe(statusCode);
+    expect(response.json()).toEqual({ code, error: errorMessage });
     expect(response.body).not.toContain('private database detail');
+    expect(domainService.deleteQueue).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' });
+    await h.app.close();
+  });
+
+  it.each([
+    ['QUEUE_NOT_FOUND', 404, 'Fila não encontrada.'],
+    ['QUEUE_DELETION_NOT_PENDING', 409, 'Não foi possível cancelar a exclusão neste estado. Atualize o painel e revise a operação da reward.'],
+    ['QUEUE_REWARD_OPERATION_PROCESSING', 409, 'Não foi possível cancelar a exclusão neste estado. Atualize o painel e revise a operação da reward.'],
+    ['QUEUE_DELETION_CANCELLATION_STALE', 409, 'Não foi possível cancelar a exclusão neste estado. Atualize o painel e revise a operação da reward.'],
+    ['QUEUE_DELETION_CANCELLATION_UNVERIFIED', 409, 'Não foi possível cancelar a exclusão neste estado. Atualize o painel e revise a operação da reward.'],
+  ])('returns a stable queue-deletion cancellation response for %s', async (code, statusCode, errorMessage) => {
+    const domainService = { cancelQueueDeletion: vi.fn(async () => { throw Object.assign(new Error('private cancellation state detail'), { code }); }) };
+    const h = await createHarness({ domainService });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete/cancel', headers: h.headers, payload: { confirm: true } });
+
+    expect(response.statusCode).toBe(statusCode);
+    expect(response.json()).toEqual({ code, error: errorMessage });
+    expect(response.body).not.toContain('private cancellation state detail');
+    expect(domainService.cancelQueueDeletion).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' });
+    await h.app.close();
+  });
+
+  it('returns a diagnostic reference for unexpected queue-deletion cancellation failures', async () => {
+    const reportDiagnostic = vi.fn(() => '66666666-6666-4666-8666-666666666666');
+    const domainService = { cancelQueueDeletion: vi.fn().mockRejectedValue(new Error('private cancellation database detail')) };
+    const h = await createHarness({ domainService, reportDiagnostic });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete/cancel', headers: h.headers, payload: { confirm: true } });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível verificar o cancelamento da exclusão.', referenceId: '66666666-6666-4666-8666-666666666666' });
+    expect(response.headers['x-error-reference']).toBe('66666666-6666-4666-8666-666666666666');
+    expect(response.body).not.toContain('private cancellation database detail');
+    expect(reportDiagnostic).toHaveBeenCalledWith(expect.objectContaining({ source: 'http.queue.delete_cancel', error: expect.any(Error) }));
     await h.app.close();
   });
 
@@ -913,6 +1206,32 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it.each([
+    ['request', 'clear-preview', 'http.queue.clear_preview'],
+    ['confirm', 'clear-confirm', 'http.queue.clear_confirm'],
+  ])('returns a safe diagnostic reference when queue clear %s fails unexpectedly', async (method, route, source) => {
+    const referenceId = method === 'request'
+      ? 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+      : 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const error = new Error(`private ${method} database and refund details`);
+    const reportDiagnostic = vi.fn(() => referenceId);
+    const clearConfirmation = {
+      request: vi.fn(async () => ({ status: 'confirmation_required', count: 1, refundsRequested: 1, expiresInSeconds: 15 })),
+      confirm: vi.fn(async () => ({ status: 'cleared', count: 1, refundsRequested: 1 })),
+      [method]: vi.fn().mockRejectedValue(error),
+    };
+    const h = await createHarness({ clearConfirmation, reportDiagnostic });
+
+    const response = await h.app.inject({ method: 'POST', url: `/api/queues/queue-id/${route}`, headers: h.headers, payload: {} });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível concluir. Tente novamente.', referenceId });
+    expect(response.headers['x-error-reference']).toBe(referenceId);
+    expect(response.body).not.toContain(`private ${method} database and refund details`);
+    expect(reportDiagnostic).toHaveBeenCalledWith({ source, error });
+    await h.app.close();
+  });
+
   it('routes a confirmed panel deletion through the late-bound production domain proxy', async () => {
     const h = await createHarness();
     h.repository.requestQueueDeletion = vi.fn(async ({ queueId }) => ({ status: 'pending', activeRemoved: 0, refundsRequested: 0, queue: { id: queueId, lifecycleStatus: 'deleting' } }));
@@ -931,6 +1250,30 @@ describe('local queue and setup API', () => {
     expect(response.json()).toMatchObject({ status: 'pending', queue: { lifecycleStatus: 'deleting' } });
     expect(h.repository.requestQueueDeletion).toHaveBeenCalledOnce();
     await app.close();
+    await h.app.close();
+  });
+
+  it('rejects an invalid open-state payload before calling the repository', async () => {
+    const h = await createHarness();
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/open-state', headers: h.headers, payload: { isOpen: 'true' } });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: 'Estado da fila inválido.' });
+    expect(h.repository.setQueueOpen).toBeUndefined();
+    await h.app.close();
+  });
+
+  it('returns a stable not-found response when changing the state of a missing queue', async () => {
+    const h = await createHarness();
+    h.repository.setQueueOpen = vi.fn(async () => { throw Object.assign(new Error('private queue lookup details'), { code: 'QUEUE_NOT_FOUND' }); });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/missing-queue/open-state', headers: h.headers, payload: { isOpen: true } });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: 'Não foi possível concluir a operação.' });
+    expect(response.body).not.toContain('private queue lookup details');
+    expect(h.repository.setQueueOpen).toHaveBeenCalledWith('missing-queue', true, expect.any(String));
     await h.app.close();
   });
 
@@ -1099,6 +1442,33 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('returns a safe diagnostic reference when an attendance transition fails unexpectedly', async () => {
+    const reportDiagnostic = vi.fn(() => '22222222-2222-4222-8222-222222222222');
+    const domainService = {
+      transitionEntry: vi.fn(async () => { throw Object.assign(new Error('private transition database detail'), { code: 'DATABASE_FAILURE' }); }),
+    };
+    const h = await createHarness({ domainService, reportDiagnostic });
+
+    const response = await h.app.inject({
+      method: 'POST', url: '/api/entries/entry-id/transitions', headers: h.headers,
+      payload: { to: 'completed', reason: 'service_completed' },
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({
+      code: 'INTERNAL_ERROR',
+      error: 'Não foi possível concluir a operação.',
+      referenceId: '22222222-2222-4222-8222-222222222222',
+    });
+    expect(response.headers['x-error-reference']).toBe('22222222-2222-4222-8222-222222222222');
+    expect(response.body).not.toContain('private transition database detail');
+    expect(reportDiagnostic).toHaveBeenCalledWith({
+      source: 'http.entry.transition',
+      error: expect.objectContaining({ message: 'private transition database detail', code: 'DATABASE_FAILURE' }),
+    });
+    await h.app.close();
+  });
+
   it('routes panel queue calls through the shared domain service', async () => {
     const domainService = { callNext: vi.fn(async () => [{ id: 'entry-id', status: 'called' }]) };
     const h = await createHarness({ domainService });
@@ -1122,6 +1492,382 @@ describe('local queue and setup API', () => {
     expect(singleResponse.json()).toMatchObject({ code: 'QUEUE_MODE_TRANSITION_PENDING' });
     expect(singleResponse.body).not.toContain('internal detail');
     expect(h.repository.enqueueCallNotification).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it('returns a safe diagnostic reference when the queue-call domain service fails unexpectedly', async () => {
+    const referenceId = '88888888-8888-4888-8888-888888888888';
+    const error = Object.assign(new Error('private domain and provider details'), { code: 'P2002' });
+    const reportDiagnostic = vi.fn(() => referenceId);
+    const domainService = { callNext: vi.fn().mockRejectedValue(error) };
+    const h = await createHarness({ domainService, reportDiagnostic });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/call', headers: h.headers, payload: { count: 1 } });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível concluir. Tente novamente.', referenceId });
+    expect(response.headers['x-error-reference']).toBe(referenceId);
+    expect(response.body).not.toContain('private domain and provider details');
+    expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.queue.call', error });
+    await h.app.close();
+  });
+
+  it('correlates a failed call-notification enqueue after calling a selected entry', async () => {
+    const referenceId = '99999999-9999-4999-8999-999999999999';
+    const error = new Error('private notification adapter details');
+    const reportDiagnostic = vi.fn(() => referenceId);
+    const h = await createHarness({ reportDiagnostic });
+    h.repository.enqueueCallNotification.mockRejectedValue(error);
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/call', headers: h.headers, payload: { entryId: 'entry-id' } });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível concluir. Tente novamente.', referenceId });
+    expect(response.headers['x-error-reference']).toBe(referenceId);
+    expect(response.body).not.toContain('private notification adapter details');
+    expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.queue.call', error });
+    await h.app.close();
+  });
+
+  it('correlates a failed enqueue after a batch call has already transitioned entries', async () => {
+    const referenceId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const error = new Error('private batch notification details');
+    const reportDiagnostic = vi.fn(() => referenceId);
+    const domainService = { callNext: vi.fn().mockResolvedValue([{ id: 'entry-1' }, { id: 'entry-2' }]) };
+    const h = await createHarness({ domainService, reportDiagnostic });
+    h.repository.enqueueCallNotification.mockResolvedValueOnce({ status: 'queued' }).mockRejectedValueOnce(error);
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/call', headers: h.headers, payload: { count: 2 } });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível concluir. Tente novamente.', referenceId });
+    expect(response.headers['x-error-reference']).toBe(referenceId);
+    expect(response.body).not.toContain('private batch notification details');
+    expect(domainService.callNext).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', count: 2, actorId: expect.any(String) }));
+    expect(h.repository.enqueueCallNotification).toHaveBeenCalledTimes(2);
+    expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.queue.call', error });
+    await h.app.close();
+  });
+
+  it.each([
+    ['RESERVED_QUEUE_KEY', 400, 'Esse identificador é reservado para um comando.'],
+    ['DUPLICATE_QUEUE_KEY', 409, 'Esse identificador ou apelido já está em uso.'],
+  ])('maps queue creation conflict %s to its exact safe response', async (code, status, errorMessage) => {
+    const h = await createHarness();
+    const failure = Object.assign(new Error('private queue-key constraint detail'), { code });
+    h.repository.createQueueWithRewardIntent.mockRejectedValue(failure);
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues', headers: h.headers, payload: { slug: 'valid-queue', title: 'Fila válida', cost: 100 } });
+
+    expect(response.statusCode).toBe(status);
+    expect(response.json()).toEqual({ error: errorMessage });
+    expect(response.body).not.toContain('private queue-key constraint detail');
+    await h.app.close();
+  });
+
+  it.each([
+    ['QUEUE_NOT_FOUND', 404, { code: 'QUEUE_NOT_FOUND', error: 'Fila não encontrada.' }],
+    ['QUEUE_NOT_AVAILABLE', 409, { code: 'QUEUE_NOT_AVAILABLE', error: 'Esta fila não aceita alterações enquanto está sendo excluída.' }],
+  ])('maps local queue settings outcome %s to its exact safe response', async (code, status, expected) => {
+    const h = await createHarness();
+    h.repository.updateLocalQueueSettings = vi.fn().mockRejectedValue(Object.assign(new Error('private settings database detail'), { code }));
+
+    const response = await h.app.inject({ method: 'PATCH', url: '/api/queues/queue-id/settings', headers: h.headers, payload: { expectedVersion: 1, callTimeoutMin: 15 } });
+
+    expect(response.statusCode).toBe(status);
+    expect(response.json()).toEqual(expected);
+    expect(response.body).not.toContain('private settings database detail');
+    await h.app.close();
+  });
+
+  it.each([
+    ['QUEUE_NOT_FOUND', 404, { code: 'QUEUE_NOT_FOUND', error: 'Fila não encontrada.' }],
+    ['STALE_QUEUE_VERSION', 409, { code: 'STALE_QUEUE_VERSION', error: 'A recompensa não está sincronizada ou a fila mudou. Atualize o painel e tente novamente.' }],
+    ['QUEUE_REWARD_NOT_READY', 409, { code: 'QUEUE_REWARD_NOT_READY', error: 'A recompensa não está sincronizada ou a fila mudou. Atualize o painel e tente novamente.' }],
+    ['QUEUE_REWARD_UPDATE_PENDING', 409, { code: 'QUEUE_REWARD_UPDATE_PENDING', error: 'A recompensa não está sincronizada ou a fila mudou. Atualize o painel e tente novamente.' }],
+    ['QUEUE_NOT_AVAILABLE', 409, { code: 'QUEUE_NOT_AVAILABLE', error: 'Esta fila não aceita alterações enquanto está sendo excluída.' }],
+  ])('maps Twitch reward-settings outcome %s to its exact safe response', async (code, status, expected) => {
+    const h = await createHarness();
+    h.repository.updateQueueRewardSettings = vi.fn().mockRejectedValue(Object.assign(new Error('private reward database detail'), { code }));
+
+    const response = await h.app.inject({ method: 'PATCH', url: '/api/queues/queue-id/reward-settings', headers: h.headers, payload: { expectedVersion: 1, title: 'Teatro' } });
+
+    expect(response.statusCode).toBe(status);
+    expect(response.json()).toEqual(expected);
+    expect(response.body).not.toContain('private reward database detail');
+    await h.app.close();
+  });
+
+  it('returns a correlated safe response when the reward-settings operation fails unexpectedly', async () => {
+    const referenceId = 'b1111111-1111-4111-8111-111111111111';
+    const reportDiagnostic = vi.fn(() => referenceId);
+    const failure = new Error('private reward operation SQL detail');
+    const h = await createHarness({ reportDiagnostic });
+    h.repository.updateQueueRewardSettings = vi.fn().mockRejectedValue(failure);
+
+    const response = await h.app.inject({ method: 'PATCH', url: '/api/queues/queue-id/reward-settings', headers: h.headers, payload: { expectedVersion: 1, title: 'Teatro' } });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível solicitar a alteração da recompensa Twitch.', referenceId });
+    expect(response.headers['x-error-reference']).toBe(referenceId);
+    expect(response.body).not.toContain('private reward operation SQL detail');
+    expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.queue.reward_settings', error: failure });
+    await h.app.close();
+  });
+
+  it.each([
+    ['QUEUE_NOT_FOUND', 404, { error: 'Fila não encontrada.' }],
+    ['ENTRY_NOT_WAITING', 409, { error: 'A pessoa não está aguardando ou a posição não está mais disponível. Atualize o painel.' }],
+    ['INVALID_QUEUE_POSITION', 409, { error: 'A pessoa não está aguardando ou a posição não está mais disponível. Atualize o painel.' }],
+  ])('maps queue move outcome %s to its exact safe response', async (code, status, expected) => {
+    const h = await createHarness();
+    h.repository.moveWaitingEntry = vi.fn().mockRejectedValue(Object.assign(new Error('private move conflict detail'), { code }));
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/move', headers: h.headers, payload: { entryId: 'entry-id', position: 2 } });
+
+    expect(response.statusCode).toBe(status);
+    expect(response.json()).toEqual(expected);
+    expect(response.body).not.toContain('private move conflict detail');
+    await h.app.close();
+  });
+
+  it('returns a correlated safe response when queue reordering fails unexpectedly', async () => {
+    const referenceId = 'b2222222-2222-4222-8222-222222222222';
+    const reportDiagnostic = vi.fn(() => referenceId);
+    const failure = new Error('private queue move database detail');
+    const h = await createHarness({ reportDiagnostic });
+    h.repository.moveWaitingEntry = vi.fn().mockRejectedValue(failure);
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/move', headers: h.headers, payload: { entryId: 'entry-id', position: 2 } });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível reorganizar a fila.', referenceId });
+    expect(response.headers['x-error-reference']).toBe(referenceId);
+    expect(response.body).not.toContain('private queue move database detail');
+    expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.queue.move', error: failure });
+    await h.app.close();
+  });
+
+  it.each([
+    ['missing entry', null, 404, { error: 'Entrada não encontrada.' }],
+    ['entry not waiting', Object.assign(new Error('private priority state'), { code: 'ENTRY_NOT_WAITING' }), 409, { error: 'Só é possível alterar a prioridade enquanto a pessoa aguarda.' }],
+    ['invalid priority', Object.assign(new Error('private priority category'), { code: 'INVALID_PRIORITY' }), 400, { error: 'A categoria do benefício é inválida.' }],
+  ])('maps priority update outcome for %s to its exact safe response', async (_label, failure, status, expected) => {
+    const h = await createHarness();
+    if (failure === null) h.repository.getEntry.mockResolvedValue(null);
+    else h.repository.setEntryPriority = vi.fn().mockRejectedValue(failure);
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/priority', headers: h.headers, payload: { priority: true, reason: 'bits' } });
+
+    expect(response.statusCode).toBe(status);
+    expect(response.json()).toEqual(expected);
+    expect(response.body).not.toContain('private priority');
+    await h.app.close();
+  });
+
+  it.each(['lookup', 'update'])('returns a correlated safe response when priority %s fails unexpectedly', async (stage) => {
+    const referenceId = stage === 'lookup' ? 'b3333333-3333-4333-8333-333333333333' : 'b4444444-4444-4444-8444-444444444444';
+    const reportDiagnostic = vi.fn(() => referenceId);
+    const failure = new Error(`private priority ${stage} database detail`);
+    const h = await createHarness({ reportDiagnostic });
+    if (stage === 'lookup') h.repository.getEntry.mockRejectedValue(failure);
+    else h.repository.setEntryPriority = vi.fn().mockRejectedValue(failure);
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/priority', headers: h.headers, payload: { priority: true, reason: 'bits' } });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível atualizar a prioridade.', referenceId });
+    expect(response.headers['x-error-reference']).toBe(referenceId);
+    expect(response.body).not.toContain('private priority');
+    expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.entry.priority', error: failure });
+    await h.app.close();
+  });
+
+  it.each([
+    ['missing queue', null, 404, { error: 'Fila não encontrada.' }],
+    ['already-linked reward', { id: 'queue-id', rewardId: 'reward-id', remoteSyncStatus: 'synced' }, 409, { error: 'Esta fila não está aguardando associação manual de recompensa.' }],
+  ])('returns the exact safe reward-candidate response for a %s queue', async (_label, queue, status, expected) => {
+    const h = await createHarness();
+    h.repository.getQueueById.mockResolvedValue(queue);
+
+    const response = await h.app.inject({ method: 'GET', url: '/api/queues/queue-id/reward-candidates', headers: h.sessionHeaders });
+
+    expect(response.statusCode).toBe(status);
+    expect(response.json()).toEqual(expected);
+    await h.app.close();
+  });
+
+  it.each([
+    ['invalid reward identifier', { rewardId: '' }, 400, { error: 'Selecione uma recompensa válida.' }],
+    ['missing queue', { rewardId: 'reward-id' }, 404, { error: 'Fila não encontrada.' }],
+    ['queue is not awaiting resolution', { rewardId: 'reward-id' }, 409, { error: 'Esta fila não está aguardando associação manual de recompensa.' }],
+  ])('returns an exact safe reward-resolution response for %s', async (label, payload, status, expected) => {
+    const h = await createHarness();
+    h.repository.resolveUnknownRewardCreation = vi.fn();
+    if (label === 'missing queue') h.repository.getQueueById.mockResolvedValue(null);
+    if (label === 'queue is not awaiting resolution') h.repository.getQueueById.mockResolvedValue({ id: 'queue-id', rewardId: 'reward-id', remoteSyncStatus: 'synced' });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/resolve-reward', headers: h.headers, payload });
+
+    expect(response.statusCode).toBe(status);
+    expect(response.json()).toEqual(expected);
+    expect(h.repository.resolveUnknownRewardCreation).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it.each([
+    ['invalid login', { login: '!invalid!' }, { error: 'Informe um login válido da Twitch.' }],
+    ['invalid priority flag', { login: 'viewer', priority: 'yes' }, { error: 'A prioridade informada é inválida.' }],
+    ['missing priority reason', { login: 'viewer', priority: true }, { error: 'Selecione o benefício conferido para atribuir prioridade.' }],
+  ])('rejects manual admission with %s before user lookup', async (_label, payload, expected) => {
+    const resolveUser = vi.fn(async () => ({ id: 'viewer-id', login: 'viewer', displayName: 'Viewer' }));
+    const h = await createHarness({ resolveUser });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-entries', headers: h.headers, payload });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual(expected);
+    expect(resolveUser).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it('maps a missing manual-admission viewer to the exact safe 404 response', async () => {
+    const resolveUser = vi.fn(async () => null);
+    const h = await createHarness({ resolveUser });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-entries', headers: h.headers, payload: { login: 'viewer' } });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: 'Esse usuário da Twitch não foi encontrado.' });
+    expect(h.repository.addManualEntry).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it.each([
+    ['QUEUE_NOT_FOUND', 404, { error: 'Não foi possível concluir a operação.' }],
+    ['QUEUE_NOT_AVAILABLE', 409, { error: 'Essa fila não aceita novas entradas.' }],
+  ])('maps manual-admission repository outcome %s to its exact safe response', async (code, status, expected) => {
+    const resolveUser = vi.fn(async () => ({ id: 'viewer-id', login: 'viewer', displayName: 'Viewer' }));
+    const h = await createHarness({ resolveUser });
+    h.repository.addManualEntry = vi.fn().mockRejectedValue(Object.assign(new Error('private manual admission detail'), { code }));
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-entries', headers: h.headers, payload: { login: 'viewer' } });
+
+    expect(response.statusCode).toBe(status);
+    expect(response.json()).toEqual(expected);
+    expect(response.body).not.toContain('private manual admission detail');
+    await h.app.close();
+  });
+
+  it('maps duplicate active manual admission to the exact safe 409 response', async () => {
+    const resolveUser = vi.fn(async () => ({ id: 'viewer-id', login: 'viewer', displayName: 'Viewer' }));
+    const h = await createHarness({ resolveUser });
+    h.repository.addManualEntry = vi.fn().mockResolvedValue({ status: 'duplicate' });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-entries', headers: h.headers, payload: { login: 'viewer' } });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ error: 'Essa pessoa já está ativa nesta fila.' });
+    await h.app.close();
+  });
+
+  it('validates attendance transitions before invoking the domain service', async () => {
+    const transitionEntry = vi.fn();
+    const h = await createHarness({ domainService: { transitionEntry } });
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/transitions', headers: h.headers, payload: { to: 'unknown', reason: 'invalid reason!' } });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: 'Ação de atendimento inválida.' });
+    expect(transitionEntry).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it.each([
+    ['ENTRY_NOT_FOUND', 404, 'Não foi possível concluir a operação.'],
+    ['QUEUE_NOT_AVAILABLE', 409, 'Essa fila não aceita novas entradas.'],
+    ['QUEUE_REWARD_NOT_READY', 409, 'Confirme a recompensa da Twitch antes de alterar a fila.'],
+    ['QUEUE_MODE_TRANSITION_PENDING', 409, 'A troca do modo da fila ainda está sendo confirmada pela Twitch.'],
+  ])('maps attendance transition outcome %s to its exact safe response', async (code, status, errorMessage) => {
+    const transitionEntry = vi.fn().mockRejectedValue(Object.assign(new Error('private attendance domain detail'), { code }));
+    const h = await createHarness({ domainService: { transitionEntry } });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/transitions', headers: h.headers, payload: { to: 'in_progress', reason: 'service_started' } });
+
+    expect(response.statusCode).toBe(status);
+    expect(response.json()).toEqual({ error: errorMessage });
+    expect(response.body).not.toContain('private attendance domain detail');
+    await h.app.close();
+  });
+
+  it('rejects invalid call counts and mismatched selected entries with exact safe responses', async () => {
+    const callNext = vi.fn();
+    const h = await createHarness({ domainService: { callNext } });
+    const invalidCount = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/call', headers: h.headers, payload: { count: 11 } });
+    expect(invalidCount.statusCode).toBe(400);
+    expect(invalidCount.json()).toEqual({ error: 'Escolha de 1 a 10 pessoas.' });
+    expect(callNext).not.toHaveBeenCalled();
+
+    h.repository.getEntry.mockResolvedValue({ id: 'entry-id', queueId: 'other-queue', status: 'waiting' });
+    const mismatched = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/call', headers: h.headers, payload: { entryId: 'entry-id' } });
+    expect(mismatched.statusCode).toBe(409);
+    expect(mismatched.json()).toEqual({ error: 'A entrada não está aguardando nesta fila.' });
+    await h.app.close();
+  });
+
+  it.each([
+    ['QUEUE_MODE_TRANSITION_PENDING', 409, { error: 'A troca do modo da fila ainda está sendo confirmada pela Twitch.' }],
+    ['QUEUE_OPEN_WHILE_ARCHIVED', 409, { error: 'Não foi possível concluir a operação.' }],
+  ])('maps additional open-state conflict %s to its exact safe response', async (code, status, expected) => {
+    const h = await createHarness();
+    h.repository.setQueueOpen = vi.fn().mockRejectedValue(Object.assign(new Error('private open-state detail'), { code }));
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/open-state', headers: h.headers, payload: { isOpen: true } });
+
+    expect(response.statusCode).toBe(status);
+    expect(response.json()).toEqual(expected);
+    expect(response.body).not.toContain('private open-state detail');
+    await h.app.close();
+  });
+
+  it.each([
+    ['QUEUE_NOT_AVAILABLE', { code: 'QUEUE_NOT_AVAILABLE', error: 'Essa fila não aceita novas entradas.' }],
+    ['QUEUE_REWARD_NOT_READY', { code: 'QUEUE_REWARD_NOT_READY', error: 'Confirme a recompensa da Twitch antes de alterar a fila.' }],
+    ['QUEUE_MODE_TRANSITION_PENDING', { code: 'QUEUE_MODE_TRANSITION_PENDING', error: 'A troca do modo da fila ainda está sendo confirmada pela Twitch.' }],
+    ['QUEUE_MODE_TRANSITION_UNAVAILABLE', { code: 'QUEUE_MODE_TRANSITION_UNAVAILABLE', error: 'A troca para fila local não está disponível neste estado.' }],
+  ])('maps additional manual-mode conflict %s to its exact safe response', async (code, expected) => {
+    const h = await createHarness();
+    h.repository.requestManualModeTransition = vi.fn().mockRejectedValue(Object.assign(new Error('private manual-mode detail'), { code }));
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-mode', headers: h.headers, payload: {} });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual(expected);
+    expect(response.body).not.toContain('private manual-mode detail');
+    await h.app.close();
+  });
+
+  it.each([
+    ['clear-preview', 'request'],
+    ['clear-confirm', 'confirm'],
+  ])('returns the exact unavailable response when queue %s confirmation service is absent', async (suffix) => {
+    const h = await createHarness({ clearConfirmationUnavailable: true });
+    const response = await h.app.inject({ method: 'POST', url: `/api/queues/queue-id/${suffix}`, headers: h.headers, payload: {} });
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ error: 'A confirmação de limpeza não está disponível.' });
+    await h.app.close();
+  });
+
+  it.each(['clear-preview', 'clear-confirm'])('returns a safe not-found response when %s targets a missing or inactive queue', async (suffix) => {
+    const h = await createHarness();
+    h.repository.getQueueById.mockResolvedValueOnce(null);
+    const missing = await h.app.inject({ method: 'POST', url: `/api/queues/queue-id/${suffix}`, headers: h.headers, payload: {} });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json()).toEqual({ error: 'Fila não encontrada.' });
+
+    h.repository.getQueueById.mockResolvedValueOnce({ id: 'queue-id', lifecycleStatus: 'archived' });
+    const inactive = await h.app.inject({ method: 'POST', url: `/api/queues/queue-id/${suffix}`, headers: h.headers, payload: {} });
+    expect(inactive.statusCode).toBe(404);
+    expect(inactive.json()).toEqual({ error: 'Fila não encontrada.' });
     await h.app.close();
   });
 });
