@@ -16,5 +16,3 @@
 **Recommendation:** C at this checkpoint. OBS documents Browser Source as CEF-based, so native acceptance must be performed in OBS itself. [OBS Browser Source documentation](https://obsproject.com/kb/browser-source).
 
 **Current selection:** C until the native test is run. No reply is required now; choose A or B only after reviewing the recorded native evidence.
-
-

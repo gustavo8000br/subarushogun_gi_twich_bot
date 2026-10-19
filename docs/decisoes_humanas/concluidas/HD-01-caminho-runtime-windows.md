@@ -16,5 +16,3 @@
 **Recomendação:** Manter A como caminho do projeto, coerente com a autorização anterior para reinstalar Docker e com a meta de testar o instalador Windows. Usar B somente se você quiser o smoke da API local antes, enquanto o reparo do Docker fica adiado. O Docker documenta seus backends e requisitos WSL [aqui](https://docs.docker.com/desktop/setup/install/windows-install/) e [aqui](https://docs.docker.com/desktop/features/wsl/). O PostgreSQL oferece um caminho de instalador binário para Windows [aqui](https://www.postgresql.org/download/windows/); essa alternativa não comprova o aceite do Compose.
 
 **Seleção atual:** A já está autorizada; o engine ainda não foi restaurado. Não precisa responder, a menos que prefira B ou C.
-
-

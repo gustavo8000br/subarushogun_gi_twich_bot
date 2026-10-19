@@ -16,5 +16,3 @@
 **Recommendation:** Keep A as the project path, consistent with the prior Docker reinstall authorization and the Windows installer goal. Use B only if you specifically want the local API smoke sooner while Docker repair is deferred. Docker documents its Windows backends and WSL requirements [here](https://docs.docker.com/desktop/setup/install/windows-install/) and [here](https://docs.docker.com/desktop/features/wsl/). PostgreSQL provides a Windows binary installer path [here](https://www.postgresql.org/download/windows/); that alternative does not establish Compose acceptance.
 
 **Current selection:** A is already authorized; the engine has not yet been restored. No reply is required unless you prefer B or C.
-
-

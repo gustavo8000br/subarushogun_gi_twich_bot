@@ -1,8 +1,8 @@
 # OPS-15 human decisions
 
-**Updated:** 2026-10-19  
-**Branch:** `feat/ops-15-next-panel`  
-**Story:** [OPS-15](../stories/OPS-15/story.md) — remains **In Progress**  
+**Updated:** 2026-10-19
+**Branch:** `feat/ops-15-next-panel`
+**Story:** [OPS-15](../stories/OPS-15/story.md) — remains **In Progress**
 **Português:** [Decisões humanas da OPS-15](../decisoes_humanas/OPS-15-decisoes.md)
 
 This index groups the existing owner decisions by status. Decision text and choices are preserved in their individual records. This document does not authorize a merge, release, production cutover, vanilla removal, or database change.
@@ -21,4 +21,3 @@ Reply with decision IDs and option letters when a choice is requested. A choice 
 ## Awaiting
 
 - [HD-03 — Native OBS/CEF acceptance](awaiting/HD-03-native-obs-cef-acceptance.md)
-
