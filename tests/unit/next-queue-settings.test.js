@@ -10,13 +10,13 @@ import {
 
 const baseline = {
   callTimeoutMin: 10, callMessage: '{user}, sua vez!', showUidInList: false,
-  showUidInOverlay: false, showUidOnCall: false, autoSwitchAccount: false,
+  showUidInOverlay: false, showUidOnCall: false,
   refundIfRemovedWhileCalled: false, refundOnNoShow: false, refundIfViewerLeavesCalled: false,
 };
 
 const values = {
   expectedVersion: '3', callTimeoutMin: '', callMessage: 'Sua vez, {user}!',
-  showUidInList: 'on', showUidInOverlay: '', showUidOnCall: 'on', autoSwitchAccount: 'on',
+  showUidInList: 'on', showUidInOverlay: '', showUidOnCall: 'on',
   refundIfRemovedWhileCalled: '', refundOnNoShow: 'on', refundIfViewerLeavesCalled: '',
 };
 
@@ -27,18 +27,18 @@ describe('Next queue settings', () => {
     expect(queueSettingsMatch(baseline, baseline)).toBe(true);
     expect(reconcileQueueSettingsDraft({
       current: draft, draftBase: { queueId: 'q-1', version: 3, settings: baseline },
-      queueId: 'q-1', queueVersion: 4, projectedSettings: { ...baseline, autoSwitchAccount: true },
+      queueId: 'q-1', queueVersion: 4, projectedSettings: baseline,
     })).toBeNull();
     expect(reconcileQueueSettingsDraft({
       current: baseline, draftBase: { queueId: 'q-1', version: 3, settings: baseline },
-      queueId: 'q-1', queueVersion: 4, projectedSettings: { ...baseline, autoSwitchAccount: true },
-    })).toEqual({ queueId: 'q-1', version: 4, settings: { ...baseline, autoSwitchAccount: true } });
+      queueId: 'q-1', queueVersion: 4, projectedSettings: baseline,
+    })).toEqual({ queueId: 'q-1', version: 4, settings: baseline });
   });
 
   it('builds the versioned local settings payload with explicit checkbox values', () => {
     expect(buildQueueSettingsPayload(values)).toEqual({
       expectedVersion: 3, callTimeoutMin: null, callMessage: 'Sua vez, {user}!',
-      showUidInList: true, showUidInOverlay: false, showUidOnCall: true, autoSwitchAccount: true,
+      showUidInList: true, showUidInOverlay: false, showUidOnCall: true,
       refundIfRemovedWhileCalled: false, refundOnNoShow: true, refundIfViewerLeavesCalled: false,
     });
   });
@@ -73,7 +73,7 @@ describe('Next queue settings', () => {
   });
 
   it('does not overwrite concurrent settings changes after a 409', async () => {
-    const latest = { id: 'queue-1', version: 4, lifecycleStatus: 'active', isOpen: false, ...baseline, autoSwitchAccount: true };
+    const latest = { id: 'queue-1', version: 4, lifecycleStatus: 'active', isOpen: false, ...baseline, callMessage: 'Changed by another operator' };
     const request = vi.fn().mockRejectedValueOnce(Object.assign(new Error('stale'), { status: 409 })).mockResolvedValueOnce([latest]);
     await expect(saveQueueSettingsWithRetry({ request, queueId: 'queue-1', values, baselineSettings: baseline }))
       .rejects.toMatchObject({ status: 409 });

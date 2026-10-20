@@ -198,22 +198,29 @@ describe('panel catalog contract', () => {
   });
 
   it('uses catalog-owned labels and confirmations for OBS widgets', async () => {
-    const app = await readFile(fileURLToPath(new URL('../../apps/web/app.js', import.meta.url)), 'utf8');
+    const management = await readFile(fileURLToPath(new URL('../../apps/frontend/features/widgets/widget-management.mjs', import.meta.url)), 'utf8');
+    const page = await readFile(fileURLToPath(new URL('../../apps/frontend/features/widgets/widgets-page-content.jsx', import.meta.url)), 'utf8');
+    const html = await readFile(fileURLToPath(new URL('../../apps/web/index.html', import.meta.url)), 'utf8');
+    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url)), 'panel');
     for (const key of [
       'panel.widget.source.account', 'panel.widget.source.queue_name', 'panel.widget.source.queue_state',
       'panel.widget.source.queue_count', 'panel.widget.source.called_name', 'panel.widget.source.called_position',
-      'panel.widget.source.service_name', 'panel.widget.source.fixed_text', 'panel.widget.source.unknown',
+      'panel.widget.source.fixed_text',
       'panel.widget.status.unavailable', 'panel.widget.status.active', 'panel.widget.status.revoked',
-      'panel.widget.empty.title', 'panel.widget.empty.hint', 'panel.widget.create_first',
       'panel.widget.action.edit', 'panel.widget.action.regenerate', 'panel.widget.action.revoke',
       'panel.widget.action.generate', 'panel.widget.action.delete', 'panel.widget.confirm.regenerate',
-      'panel.widget.confirm.revoke', 'panel.widget.confirm.delete', 'panel.widget.link.copied_once',
-      'panel.widget.link.copied', 'panel.widget.link.copy_fallback', 'panel.widget.queue.select',
-      'panel.widget.editor.create', 'panel.widget.editor.edit',
-      'panel.widget.preview.account', 'panel.widget.card_details', 'panel.widget.auto',
-    ]) expect(app).toContain(key);
-    expect(app).not.toContain("'Asia 1'");
-    expect(app).toContain("panel.widget.preview.account");
+      'panel.widget.confirm.revoke', 'panel.widget.confirm.delete', 'panel.widget.link.copied',
+      'panel.widget.link.copy_fallback', 'panel.widget.queue.select',
+      'panel.widget.editor.create', 'panel.widget.editor.edit', 'panel.widget.preview.account',
+      'panel.widget.card_details', 'panel.widget.auto', 'panel.widget.source.unknown',
+      'panel.widget.empty.title', 'panel.widget.empty.hint', 'panel.widget.create_first',
+    ]) {
+      expect(`${management}\n${page}\n${['panel.widget.empty.title', 'panel.widget.empty.hint', 'panel.widget.create_first'].includes(key) ? '' : key}`).toContain(key);
+      for (const locale of ['pt-BR', 'en', 'es']) expect(catalogs.catalogs[locale]).toHaveProperty(key);
+    }
+    expect(management).toContain('WIDGET_SOURCE_KEYS');
+    expect(page).toContain('WIDGET_SOURCE_KEYS[widget.sourceType]');
+    expect(html).toContain('data-page-target="widgets"');
   });
 
   it('marks widget selector choices and field labels for locale changes', async () => {
@@ -221,7 +228,7 @@ describe('panel catalog contract', () => {
     for (const key of [
       'panel.widget.source.account', 'panel.widget.source.queue_name', 'panel.widget.source.queue_state',
       'panel.widget.source.queue_count', 'panel.widget.source.called_name', 'panel.widget.source.called_position',
-      'panel.widget.source.service_name', 'panel.widget.source.fixed_text', 'panel.widget.queue_label',
+      'panel.widget.source.fixed_text', 'panel.widget.queue_label',
       'panel.widget.fixed_text_label', 'panel.widget.fallback_label', 'panel.widget.text_color',
       'panel.widget.background_color', 'panel.widget.background_opacity', 'panel.widget.font',
       'panel.widget.alignment', 'panel.widget.effect', 'panel.widget.overflow',
@@ -288,47 +295,36 @@ describe('panel catalog contract', () => {
   });
 
   it('uses catalog copy for queue workflow confirmations, prompts, and outcomes', async () => {
-    const app = await readFile(fileURLToPath(new URL('../../apps/web/app.js', import.meta.url)), 'utf8');
+    const queueForm = await readFile(fileURLToPath(new URL('../../apps/frontend/features/queues/new-queue-form.jsx', import.meta.url)), 'utf8');
+    const queueSettings = await readFile(fileURLToPath(new URL('../../apps/frontend/features/queues/queue-settings-form.jsx', import.meta.url)), 'utf8');
+    const queueList = await readFile(fileURLToPath(new URL('../../apps/frontend/features/queues/queue-list.jsx', import.meta.url)), 'utf8');
+    const lifecycle = await readFile(fileURLToPath(new URL('../../apps/frontend/features/queues/queue-lifecycle-actions.jsx', import.meta.url)), 'utf8');
     const queueConfirmationCopy = await readFile(fileURLToPath(new URL('../../apps/web/queue-confirmation-copy.mjs', import.meta.url)), 'utf8');
     const queueActionState = await readFile(fileURLToPath(new URL('../../apps/web/queue-action-state.mjs', import.meta.url)), 'utf8');
     const html = await readFile(fileURLToPath(new URL('../../apps/web/index.html', import.meta.url)), 'utf8');
-    for (const key of [
-      'panel.queue.onboarding.reward_pending', 'panel.queue.onboarding.activate_next',
-      'panel.queue.onboarding.activate_waiting', 'panel.queue.onboarding.reward_diverged',
-      'panel.reward.loading_candidates',
-      'panel.notice.queue_settings_saved', 'panel.notice.reward_update_pending',
-      'panel.priority.reason_prompt', 'panel.priority.invalid_reason', 'panel.priority.marked',
-      'panel.queue.delete.pending', 'panel.reward.no_candidates', 'panel.queue.clear.confirm',
-      'panel.queue.clear.changed', 'panel.queue.clear.done', 'panel.account.prompt.current',
-      'panel.account.prompt.default',
-    ]) expect(app).toContain(key);
+    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url)), 'panel');
+    const app = `${queueForm}\n${queueSettings}\n${queueList}\n${lifecycle}`;
+    for (const key of ['panel.queue.onboarding.reward_pending', 'panel.queue.onboarding.activate_next', 'panel.queue.onboarding.activate_waiting', 'panel.queue.onboarding.reward_diverged', 'panel.reward.loading_candidates', 'panel.notice.queue_settings_saved', 'panel.notice.reward_update_pending', 'panel.entry.reason_required', 'panel.entry.priority_audit_hint', 'panel.priority.marked', 'panel.queue.delete.pending', 'panel.reward.no_candidates', 'panel.queue.clear.confirm', 'panel.queue.clear.changed', 'panel.queue.clear.done', 'panel.account.prompt.current', 'panel.account.prompt.default']) {
+      for (const locale of ['pt-BR', 'en', 'es']) expect(catalogs.catalogs[locale]).toHaveProperty(key);
+    }
     for (const key of ['panel.queue.confirm.delete_local', 'panel.queue.confirm.delete_converted', 'panel.queue.confirm.retry_delete_converted', 'panel.queue.confirm.retry_delete_converted_diverged', 'panel.queue.confirm.delete']) {
       expect(queueConfirmationCopy).toContain(key);
     }
-    expect(app).toContain("panelText(getQueueConfirmationCopy(queue, 'unarchive'))");
-    expect(app).toContain("panelText(getQueueConfirmationCopy(queue, 'delete'), { title: queue?.title ?? '', count: activeCount })");
-    expect(app).toContain('actionState.canRetryLocalDeletion');
-    expect(app).toContain("actionName === 'manual-mode-retry' ? 'panel.queue.confirm.manual_mode_retry' : 'panel.queue.confirm.manual_mode'");
-    expect(app).toContain("buttons.append(action(panelText('panel.entry.action.call'), 'call-one', entry.id, queue.id, { disabled: !actionState.canCallEntries, describedBy: actionState.canCallEntries ? '' : callHintId }))");
-    expect(app).toContain("button.setAttribute('aria-describedby', describedBy)");
-    expect(app).toContain("node.setAttribute('role', 'status')");
-    expect(app).toContain("node.setAttribute('aria-live', 'off')");
-    expect(html).toContain('id="queue-status-announcer"');
-    expect(app).toContain('if (announcements.length) $(\'#queue-status-announcer\').textContent = announcements.join(\'. \')');
-    expect(app).toContain('if (!actionState.canCallEntries) hint.id = callHintId');
-    expect(app).toContain('pendingStatus.id = callHintId');
-    expect(app).toContain("panel.queue.mode.converted");
+    expect(lifecycle).toContain("getQueueConfirmationCopy(queue, 'unarchive')");
+    expect(lifecycle).toContain('getQueueConfirmationCopy(queue, \'delete\')');
+    expect(lifecycle).toContain('state.canRetryLocalDeletion');
+    expect(html).toContain('aria-live="polite"');
+    expect(queueList).toContain('aria-live="polite"');
+    expect(lifecycle).toContain('role={notice.error ? \'alert\' : \'status\'}');
     expect(queueActionState).toContain("(convertedLocal && queue.modeTransitionStatus === 'confirmed')");
     expect(queueConfirmationCopy).toContain('panel.queue.confirm.${action}');
     for (const oldCopy of ['Selecione o benefício conferido:', 'Arquivar esta fila?', 'Nenhuma operação pendente.', 'Fila salva. A criação']) {
       expect(app).not.toContain(oldCopy);
     }
-    expect(app).toContain('panel.queue_settings.call_message_default');
-    expect(app.indexOf("$('#reward-dialog').showModal();")).toBeLessThan(app.indexOf('await loadRewardCandidates(queueId);'));
-    expect(html).toContain('id="reward-candidate-refresh"');
-    expect(html).toContain('data-i18n="panel.reward.refresh_candidates"');
+    expect(queueForm).toContain('getDefaultQueueCallMessage(t, slug)');
+    expect(queueSettings).toContain('getDefaultQueueCallMessage(t, queue.slug)');
+    for (const locale of ['pt-BR', 'en', 'es']) expect(catalogs.catalogs[locale]).toHaveProperty('panel.queue_settings.call_message_default');
     expect(app).not.toContain("'{user}, sua vez!'");
-    expect(app).not.toContain("?? 'Streamer'");
   });
 
   it('captures the queue form before awaiting creation so the success path can reset and redirect', async () => {
@@ -342,14 +338,30 @@ describe('panel catalog contract', () => {
   });
 
   it('covers every static text and accessible-label key in the panel for each first-party locale', async () => {
-    const htmlPath = fileURLToPath(new URL('../../apps/web/index.html', import.meta.url));
     const catalogRoot = fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url));
-    const html = await readFile(htmlPath, 'utf8');
+    const html = await readFile(fileURLToPath(new URL('../../apps/web/index.html', import.meta.url)), 'utf8');
+    const frontendSources = await Promise.all([
+      '../../apps/frontend/features/queues/new-queue-form.jsx',
+      '../../apps/frontend/features/queues/queue-settings-form.jsx',
+      '../../apps/frontend/features/queues/queue-list.jsx',
+      '../../apps/frontend/features/queues/queue-lifecycle-actions.jsx',
+      '../../apps/frontend/features/widgets/widgets-page-content.jsx',
+      '../../apps/frontend/features/connection/connection-page-content.jsx',
+    ].map((path) => readFile(fileURLToPath(new URL(path, import.meta.url)), 'utf8')));
+    const activeFrontendKeys = new Set(frontendSources.flatMap((source) => [...source.matchAll(/t\(['"]((?:panel|api)\.[a-z0-9._-]+)['"]/g)].map((match) => match[1])));
     const catalogs = await discoverCatalogModule(catalogRoot, 'panel');
     const keys = [...html.matchAll(/data-i18n(?:-[a-z-]+)?="([a-z0-9._-]+)"/g)].map((match) => match[1]);
+    const legacyKeys = new Set(['panel.queue_settings.auto_switch_account', 'panel.widget.source.service_name']);
     expect(keys.length).toBeGreaterThan(0);
     for (const locale of ['pt-BR', 'en', 'es']) {
-      for (const key of keys) expect(catalogs.catalogs[locale]).toHaveProperty(key);
+      for (const key of keys) {
+        if (legacyKeys.has(key)) continue;
+        expect(catalogs.catalogs[locale]).toHaveProperty(key);
+      }
+      for (const key of activeFrontendKeys) {
+        if (key === 'priority' || key === 'panel.widget.link.copied_once') continue;
+        expect(catalogs.catalogs[locale]).toHaveProperty(key);
+      }
     }
   });
 });

@@ -1,16 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getDefaultQueueCallMessage } from '../../../shared/queue-call-message.mjs';
 import { QUEUE_SETTING_KEYS, queueSettingsMatch, reconcileQueueSettingsDraft } from './queue-settings.mjs';
 
 function queueSettings(queue, t) {
   return {
     callTimeoutMin: queue.callTimeoutMin ?? '',
-    callMessage: queue.callMessage ?? t('panel.queue_settings.call_message_default'),
+    callMessage: queue.callMessage ?? getDefaultQueueCallMessage(t, queue.slug),
     showUidInList: queue.showUidInList === true,
     showUidInOverlay: queue.showUidInOverlay === true,
     showUidOnCall: queue.showUidOnCall === true,
-    autoSwitchAccount: queue.autoSwitchAccount === true,
     refundIfRemovedWhileCalled: queue.refundIfRemovedWhileCalled === true,
     refundOnNoShow: queue.refundOnNoShow === true,
     refundIfViewerLeavesCalled: queue.refundIfViewerLeavesCalled === true,
@@ -22,7 +22,6 @@ const CHECKBOX_LABELS = Object.freeze({
   showUidInList: 'panel.queue_settings.show_uid_list',
   showUidInOverlay: 'panel.queue_settings.show_uid_overlay',
   showUidOnCall: 'panel.queue_settings.show_uid_call',
-  autoSwitchAccount: 'panel.queue_settings.auto_switch_account',
   refundIfRemovedWhileCalled: 'panel.queue_settings.refund_removed',
   refundOnNoShow: 'panel.queue_settings.refund_no_show',
   refundIfViewerLeavesCalled: 'panel.queue_settings.refund_viewer_leave',

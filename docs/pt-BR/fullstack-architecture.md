@@ -18,7 +18,7 @@ flowchart LR
   Infra[apps/infra bootstrap/versão/saúde] --> DB
 ```
 
-`Dockerfile` e `compose.yaml` na raiz são pontos de entrada do produto. Serviços Compose: `bootstrap` de execução única; `db` persistente e saudável; `migrate` de execução única após a saúde do banco; `bot` sem root e iniciado só após migrations concluídas. O host publica somente `127.0.0.1:3000:3000`; Fastify escuta `0.0.0.0` no contêiner. Banco sem porta publicada. Volumes mantêm banco e segredos operacionais.
+`Dockerfile` e `compose.yaml` pull-only na raiz são entrypoints do runtime; `compose.build.yaml` adiciona contextos de build local somente para CI/manutenção. O instalador da plataforma incorpora o manifest de runtime e baixa imagem pré-compilada. Serviços Compose: `bootstrap` de execução única; `db` persistente e saudável; `migrate` de execução única após a saúde do banco; `bot` sem root e iniciado só após migrations concluídas. O host publica somente `127.0.0.1:3000:3000`; Fastify escuta `0.0.0.0` no contêiner. Banco sem porta publicada. Volumes mantêm banco e segredos operacionais. Desenvolvedores executam `npm ci` uma vez e depois `npm run dev` para Next HMR/Fastify watch e PostgreSQL descartável isolado por worktree.
 
 ## Módulos da aplicação
 

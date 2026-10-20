@@ -33,6 +33,7 @@ describe('OBS widget configuration policy', () => {
     expect(() => validateOverlayWidgetConfiguration({ sourceType: 'fixed_text', fixedText: 'Olá' })).not.toThrow();
     expect(() => validateOverlayWidgetConfiguration({ sourceType: 'fixed_text' })).toThrow();
     expect(() => validateOverlayWidgetConfiguration({ sourceType: 'unsupported' })).toThrow();
+    expect(() => validateOverlayWidgetConfiguration({ sourceType: 'in_service_viewer_display_name' })).toThrow();
   });
 
   it('provides the UX-approved transparent and readable default style', () => {

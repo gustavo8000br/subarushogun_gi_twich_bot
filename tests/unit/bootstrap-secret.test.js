@@ -23,13 +23,13 @@ afterEach(async () => {
 
 describe('local operational secret bootstrap', () => {
   it('resolves Git for Windows OpenSSL even when the inherited PATH omits its usr/bin directory', () => {
-    expect(bootstrap.resolveOpenSslCommand({ PATH: 'C:\\Program Files\\Git\\cmd' }, 'win32'))
+    expect(bootstrap.resolveOpenSslCommand({ PATH: 'C:\\Program Files\\Git\\cmd' }, 'win32', (path) => path.endsWith('\\Git\\usr\\bin\\openssl.exe')))
       .toBe('C:\\Program Files\\Git\\usr\\bin\\openssl.exe');
   });
 
   it('prefers an OpenSSL installation already available on PATH', () => {
     const opensslDirectory = 'C:\\Program Files\\Git\\usr\\bin';
-    expect(bootstrap.resolveOpenSslCommand({ PATH: `${opensslDirectory};C:\\Program Files\\Git\\cmd` }, 'win32'))
+    expect(bootstrap.resolveOpenSslCommand({ PATH: `${opensslDirectory};C:\\Program Files\\Git\\cmd` }, 'win32', (path) => path === `${opensslDirectory}\\openssl.exe`))
       .toBe(`${opensslDirectory}\\openssl.exe`);
   });
 

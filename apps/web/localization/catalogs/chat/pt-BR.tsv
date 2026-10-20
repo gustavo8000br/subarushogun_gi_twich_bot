@@ -69,6 +69,7 @@ chat.queue.select_user	Informe o usuário porque há mais de uma pessoa possíve
 chat.queue.person_not_active	Essa pessoa não está ativa nesta fila.
 chat.queue.complete_pending	Atendimento concluído. O consumo dos pontos está pendente de confirmação.
 chat.queue.service_started	Atendimento iniciado.
+chat.queue.service_started_pending	Atendimento iniciado. A confirmação do resgate na Twitch está pendente.
 chat.queue.service_completed	Atendimento concluído.
 chat.queue.move_failed	Não foi possível mover essa pessoa.
 chat.queue.move_done	Posição atualizada.

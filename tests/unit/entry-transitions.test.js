@@ -105,7 +105,10 @@ describe('entry transition decisions', () => {
     }).financialDecision).toBe('request_cancel');
   });
 
-  it('requests point consumption only for a local redemption completion', () => {
+  it('requests point consumption when a local redemption service starts or is directly completed', () => {
+    expect(decideEntryTransition({
+      from: 'called', to: 'in_progress', source: 'redemption', origin: 'panel', reason: 'service_started',
+    }).financialDecision).toBe('request_fulfill');
     expect(decideEntryTransition({
       from: 'in_progress', to: 'completed', source: 'redemption', origin: 'panel', reason: 'service_completed',
     }).financialDecision).toBe('request_fulfill');

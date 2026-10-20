@@ -102,7 +102,6 @@ registerQueueRoutes(app, {
   repository,
   domainService: domainServiceProxy,
   clearConfirmation,
-  getSetupCatalogs: () => getCatalogModule('setup'),
   productVersion,
   integrations: createTwitchRouteIntegrationProxy(() => runtime?.integration ?? null),
   publicBaseUrl: process.env.PUBLIC_BASE_URL ?? `https://localhost:${port}`,

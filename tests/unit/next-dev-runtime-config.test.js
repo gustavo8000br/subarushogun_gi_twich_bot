@@ -5,8 +5,9 @@ import { buildDevRuntimeConfig } from '../../apps/frontend/scripts/dev-runtime-c
 describe('combined local development runtime config', () => {
   it('starts the API and Next on separate ports with local-only API binding and a same-origin proxy', () => {
     const config = buildDevRuntimeConfig({ DATABASE_URL: 'postgresql://dev:dev@127.0.0.1:5432/queuebot' }, '/repo');
-    expect(config.api.args).toEqual(['apps/api/src/server.mjs']);
+    expect(config.api.args).toEqual(['--watch', 'apps/api/src/server.mjs']);
     expect(config.api.env.APP_HOST).toBe('127.0.0.1');
+    expect(config.api.env.PUBLIC_BASE_URL).toBe('https://localhost:3000');
     expect(config.api.env.TLS_KEY_FILE).toBe(resolve('/repo', '.local', 'dev-tls', 'localhost.key'));
     expect(config.frontend.args[config.frontend.args.indexOf('--port') + 1]).toBe('3000');
     expect(config.frontend.args[config.frontend.args.indexOf('--hostname') + 1]).toBe('127.0.0.1');

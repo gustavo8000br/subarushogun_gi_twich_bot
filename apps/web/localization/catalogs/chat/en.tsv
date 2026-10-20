@@ -67,6 +67,7 @@ chat.queue.select_user	Specify a user because more than one person is eligible.
 chat.queue.person_not_active	That person is not active in this queue.
 chat.queue.complete_pending	Service completed. Point consumption is awaiting confirmation.
 chat.queue.service_started	Service started.
+chat.queue.service_started_pending	Service started. Twitch redemption confirmation is pending.
 chat.queue.service_completed	Service completed.
 chat.queue.move_failed	Could not move that person.
 chat.queue.move_done	Position updated.

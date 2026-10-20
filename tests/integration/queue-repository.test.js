@@ -1185,7 +1185,7 @@ describe('PostgreSQL queue repository', () => {
 
   it('persists manual account changes and resets to the configured default', async () => {
     const changed = await repository.setCurrentAccount('Spiral Abyss', 'operator-1');
-    expect(changed).toMatchObject({ label: 'Spiral Abyss', source: 'manual', ownerEntryId: null });
+    expect(changed).toMatchObject({ label: 'Spiral Abyss', source: 'manual', ownerEntryId: expect.any(String) });
     expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Spiral Abyss', source: 'manual' });
     expect(await repository.resetCurrentAccount('operator-1')).toMatchObject({ label: 'Streamer', source: 'default', ownerEntryId: null });
   });
@@ -1217,9 +1217,9 @@ describe('PostgreSQL queue repository', () => {
     expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Streamer', source: 'default', ownerEntryId: null });
   });
 
-  it('switches account and updates the overlay after an individual call when enabled', async () => {
+  it('switches the current account and overlay after an individual call regardless of the legacy auto-switch setting', async () => {
     await repository.resetCurrentAccount('operator');
-    const queue = await repository.createQueue({ slug: `as-${randomUUID().slice(0, 8)}`, title: 'Account specific', cost: 1, autoSwitchAccount: true });
+    const queue = await repository.createQueue({ slug: `as-${randomUUID().slice(0, 8)}`, title: 'Account specific', cost: 1, autoSwitchAccount: false });
     const viewer = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `specific-${randomUUID()}`, userLogin: 'specific', displayName: 'Specific Viewer' });
 
     await queueService.callSpecificEntry({ queueId: queue.id, entryId: viewer.entry.id, actorId: 'operator' });
@@ -1229,7 +1229,7 @@ describe('PostgreSQL queue repository', () => {
     await repository.resetCurrentAccount('operator');
   });
 
-  it('keeps the current account unchanged after an individual call when auto-switch is disabled', async () => {
+  it('updates current account after an individual call when the legacy auto-switch setting is disabled', async () => {
     await repository.resetCurrentAccount('operator');
     await repository.setCurrentAccount('Manual Account', 'operator');
     const queue = await repository.createQueue({ slug: `aso-${randomUUID().slice(0, 8)}`, title: 'Account specific off', cost: 1, autoSwitchAccount: false });
@@ -1237,7 +1237,8 @@ describe('PostgreSQL queue repository', () => {
 
     await queueService.callSpecificEntry({ queueId: queue.id, entryId: viewer.entry.id, actorId: 'operator' });
 
-    expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Manual Account', source: 'manual', ownerEntryId: null });
+    expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Specific Viewer', source: 'queue_auto', ownerEntryId: viewer.entry.id });
+    await expect(repository.getOverlaySourceValue({ sourceType: 'account_label' })).resolves.toBe('Specific Viewer');
     await repository.resetCurrentAccount('operator');
   });
 
@@ -1467,6 +1468,100 @@ describe('PostgreSQL queue repository', () => {
     expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${redemptionId}` } })).toMatchObject({ id: fulfillment.id });
     expect(await prisma.outbox.findFirst({ where: { redemptionId, operationType: 'redemption.cancel' } })).toBeNull();
     expect(await repository.getQueueDeletionBlockers(queue.id)).toEqual({ pending: 1, blocked: 0 });
+  });
+
+  it('requests Twitch fulfillment when service starts and reuses the same intent through completion', async () => {
+    const queue = await repository.createQueue({ slug: `start-fulfill-${randomUUID().slice(0, 8)}`, title: 'Start fulfillment', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'synced', isOpen: true } });
+    const redemptionId = `start-fulfill-r-${randomUUID()}`;
+    const imported = await repository.importRedemption({
+      id: redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: `viewer-${randomUUID()}`,
+      userLogin: 'startviewer', displayName: 'Start Viewer', userInput: '', redeemedAt: new Date(), status: 'UNFULFILLED',
+    });
+    await queueService.transitionEntry({ entryId: imported.entryId, to: 'called', origin: 'panel', reason: 'operator_call' });
+
+    const started = await queueService.transitionEntry({ entryId: imported.entryId, to: 'in_progress', origin: 'panel', reason: 'service_started' });
+    const firstIntent = await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${redemptionId}` } });
+    expect(started).toMatchObject({ status: 'in_progress', financialDecision: 'request_fulfill' });
+    expect(firstIntent).toMatchObject({ operationType: 'redemption.fulfill', status: 'pending', redemptionId });
+    expect(await prisma.redemption.findUnique({ where: { redemptionId } })).toMatchObject({ expectedStatus: 'FULFILLED', remoteStatus: 'UNFULFILLED', syncStatus: 'pending' });
+
+    const completed = await queueService.transitionEntry({ entryId: imported.entryId, to: 'completed', origin: 'panel', reason: 'service_completed' });
+    expect(completed).toMatchObject({ status: 'completed', financialDecision: 'no_operation' });
+    expect(await prisma.outbox.count({ where: { redemptionId, operationType: { in: ['redemption.fulfill', 'redemption.cancel'] } } })).toBe(1);
+    expect(await prisma.outbox.findUnique({ where: { id: firstIntent.id } })).toMatchObject({ operationType: 'redemption.fulfill', status: 'pending' });
+  });
+
+  it('does not replace a started service fulfillment with a cancellation on later viewer removal', async () => {
+    const queue = await repository.createQueue({ slug: `start-no-cancel-${randomUUID().slice(0, 8)}`, title: 'Started no cancel', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'synced', isOpen: true, refundIfViewerLeavesCalled: true } });
+    const redemptionId = `start-no-cancel-r-${randomUUID()}`;
+    const imported = await repository.importRedemption({
+      id: redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: `viewer-${randomUUID()}`,
+      userLogin: 'leavingviewer', displayName: 'Leaving Viewer', userInput: '', redeemedAt: new Date(), status: 'UNFULFILLED',
+    });
+    await queueService.transitionEntry({ entryId: imported.entryId, to: 'called', origin: 'panel', reason: 'operator_call' });
+    await queueService.transitionEntry({ entryId: imported.entryId, to: 'in_progress', origin: 'panel', reason: 'service_started' });
+
+    await queueService.transitionEntry({ entryId: imported.entryId, to: 'removed', origin: 'viewer', reason: 'viewer_left' });
+
+    expect(await prisma.outbox.count({ where: { redemptionId, operationType: { in: ['redemption.fulfill', 'redemption.cancel'] } } })).toBe(1);
+    expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${redemptionId}` } })).toMatchObject({ operationType: 'redemption.fulfill', status: 'pending' });
+    expect(await prisma.redemption.findUnique({ where: { redemptionId } })).toMatchObject({ expectedStatus: 'FULFILLED', syncStatus: 'pending' });
+  });
+
+  it('syncs Twitch fulfillment without completing the active service or resetting its current account', async () => {
+    await repository.setDefaultAccountLabel('Streamer', 'operator');
+    await repository.resetCurrentAccount('operator');
+    const queue = await repository.createQueue({ slug: `start-event-${randomUUID().slice(0, 8)}`, title: 'Start event fulfillment', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'synced', isOpen: true, autoSwitchAccount: true } });
+    const redemptionId = `start-event-r-${randomUUID()}`;
+    const imported = await repository.importRedemption({
+      id: redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: `viewer-${randomUUID()}`,
+      userLogin: 'activeviewer', displayName: 'Active Viewer', userInput: '', redeemedAt: new Date(), status: 'UNFULFILLED',
+    });
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: imported.entryId, actorId: 'operator' });
+    await queueService.transitionEntry({ entryId: imported.entryId, to: 'in_progress', origin: 'panel', reason: 'service_started' });
+    const processor = createTwitchRedemptionProcessor({ repository, domainService: queueService, broadcasterId: 'broadcaster-1' });
+
+    await processor.onRedemptionUpdate({
+      id: redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: 'ignored', status: 'FULFILLED',
+    });
+
+    expect(await repository.getEntry(imported.entryId)).toMatchObject({ status: 'in_progress', finishedAt: null });
+    expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Active Viewer', ownerEntryId: imported.entryId });
+    expect(await prisma.redemption.findUnique({ where: { redemptionId } })).toMatchObject({ expectedStatus: 'FULFILLED', remoteStatus: 'FULFILLED', syncStatus: 'confirmed' });
+    expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${redemptionId}` } })).toMatchObject({ operationType: 'redemption.fulfill', status: 'confirmed' });
+    await repository.resetCurrentAccount('operator');
+  });
+
+  it('keeps an in-progress service active and marks an opposing Twitch cancellation as conflict', async () => {
+    await repository.setDefaultAccountLabel('Streamer', 'operator');
+    await repository.resetCurrentAccount('operator');
+    const queue = await repository.createQueue({ slug: `start-conflict-${randomUUID().slice(0, 8)}`, title: 'Start conflict', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'synced', isOpen: true, autoSwitchAccount: true } });
+    const redemptionId = `start-conflict-r-${randomUUID()}`;
+    const imported = await repository.importRedemption({
+      id: redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: `viewer-${randomUUID()}`,
+      userLogin: 'conflictviewer', displayName: 'Conflict Viewer', userInput: '', redeemedAt: new Date(), status: 'UNFULFILLED',
+    });
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: imported.entryId, actorId: 'operator' });
+    await queueService.transitionEntry({ entryId: imported.entryId, to: 'in_progress', origin: 'panel', reason: 'service_started' });
+    const processor = createTwitchRedemptionProcessor({ repository, domainService: queueService, broadcasterId: 'broadcaster-1' });
+
+    await expect(processor.onRedemptionUpdate({
+      id: redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: 'ignored', status: 'CANCELED',
+    })).resolves.toMatchObject({ status: 'conflict' });
+
+    expect(await repository.getEntry(imported.entryId)).toMatchObject({ status: 'in_progress', finishedAt: null });
+    expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Conflict Viewer', ownerEntryId: imported.entryId });
+    expect(await prisma.redemption.findUnique({ where: { redemptionId } })).toMatchObject({ expectedStatus: 'FULFILLED', remoteStatus: 'CANCELED', syncStatus: 'conflict' });
+    expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${redemptionId}` } })).toMatchObject({ operationType: 'redemption.fulfill', status: 'conflict' });
+    await repository.resetCurrentAccount('operator');
   });
 
   it.each(['pending', 'retry', 'processing', 'unknown', 'failed', 'conflict'])('preserves %s fulfillment during reward deletion reconciliation', async (status) => {
@@ -2618,6 +2713,7 @@ describe('PostgreSQL queue repository', () => {
     expect(await repository.recordExternalRedemptionState({ id: opposingId, broadcasterId: 'broadcaster', rewardId: 'reward', userId: opposingId, status: 'FULFILLED', redeemedAt: new Date() })).toMatchObject({ status: 'conflict' });
     expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${matchingId}` } })).toMatchObject({ status: 'confirmed' });
     expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${opposingId}` } })).toMatchObject({ status: 'conflict' });
+    expect(await prisma.redemption.findUnique({ where: { redemptionId: opposingId } })).toMatchObject({ remoteStatus: 'FULFILLED', expectedStatus: 'CANCELED', syncStatus: 'conflict' });
   });
 
   it('exposes sanitized financial operation status and allows only explicit manual retry of terminal uncertainty', async () => {

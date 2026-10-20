@@ -2,7 +2,7 @@
 
 [Português brasileiro](pt-BR/INSTALADORES.md) · [Back to README](../README.md)
 
-The project provides one unified installer file per supported operating system. It offers **Install / Start**, **Update**, and **Uninstall** in one menu. You do not need to clone the source repository. A release installer installs and updates to the GHCR image matching its release identity; the `main` image remains the default for CI/development builds.
+The project provides one unified installer file per supported operating system. It offers **Install / Start**, **Update**, and **Uninstall** in one menu. You do not need to install Node.js/npm, clone the source repository, or build the app image: the installer pulls a prebuilt GHCR image matching its release identity. The `main` image is for CI/maintainer builds, not a user installation default.
 
 ## Download a release
 

@@ -19,11 +19,12 @@ O workflow compartilhado termina com um job agregado que exige sucesso em todas 
 
 ## Tags e segurança da publicação
 
-O padrão de `compose.yaml` é `IMAGE_TAG=main`.
+`compose.yaml` e `compose.build.yaml` usam `IMAGE_TAG=dev` por padrão em desenvolvimento/builds locais. A configuração runtime gerada pelo instalador fixa explicitamente a imagem de release validada. Use `IMAGE_TAG=main` somente quando quiser executar intencionalmente a imagem móvel promovida pelo publicador da branch main.
 
 | Tag | Significado |
 | --- | --- |
 | `main` | Manifest móvel AMD64/ARM64 do commit mais recente validado da main |
+| `dev` | Tag local de desenvolvimento/build; não publicada pelos workflows main/release |
 | `main-linux-amd64`, `main-linux-arm64` | Tags móveis de arquitetura única dessa origem validada |
 | `<sha-completo-do-commit>-linux-amd64`, `<sha-completo-do-commit>-linux-arm64` | Tags de imagem vinculadas ao commit para promover tags móveis com segurança; tags do registry são aliases mutáveis |
 | `vMAJOR.MINOR.PATCH-SHA7-STAGE` | Manifest AMD64/ARM64 versionado, materializado a partir do commit exato |

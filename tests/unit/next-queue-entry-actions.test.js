@@ -151,6 +151,18 @@ describe('Next queue entry actions', () => {
     expect(request).toHaveBeenCalledWith('/api/entries/entry-1/transitions', { method: 'POST', body: JSON.stringify({ to, reason }) });
   });
 
+  it('accepts the fulfillment intent and tells the operator Twitch confirmation is pending', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 'in_progress', id: 'entry-1', financialDecision: 'request_fulfill' });
+    const result = await performQueueEntryAction({ request, queueId: 'queue-1', entryId: 'entry-1', action: 'attend' });
+    expect(result).toMatchObject({ financialDecision: 'request_fulfill' });
+    expect(getQueueEntryActionFeedback({ action: 'attend', result })).toEqual({
+      status: 'warning', key: 'panel.queue.entry_action_result.fulfillment_pending',
+    });
+    expect(getQueueEntryActionFeedback({ action: 'attend', result, refreshFailed: true })).toEqual({
+      status: 'warning', key: 'panel.queue.entry_action_result.fulfillment_refresh_failed',
+    });
+  });
+
   it('rejects transition results that do not confirm the requested local state', async () => {
     const request = vi.fn().mockResolvedValue({ status: 'called', id: 'entry-1' });
     await expect(performQueueEntryAction({ request, queueId: 'queue-1', entryId: 'entry-1', action: 'complete' })).rejects.toMatchObject({ code: 'INVALID_QUEUE_ENTRY_ACTION_RESPONSE' });
@@ -158,8 +170,43 @@ describe('Next queue entry actions', () => {
 
   it('resends the queued call notification through the established endpoint', async () => {
     const request = vi.fn().mockResolvedValue({ status: 'queued', entryId: 'entry-1' });
-    await expect(performQueueEntryAction({ request, queueId: 'queue-1', entryId: 'entry-1', action: 'resend-call' })).resolves.toMatchObject({ status: 'queued' });
+    const result = await performQueueEntryAction({ request, queueId: 'queue-1', entryId: 'entry-1', action: 'resend-call' });
+    expect(result).toMatchObject({ status: 'queued' });
+    expect(getQueueEntryActionFeedback({ action: 'resend-call', result })).toEqual({
+      status: 'confirmed', key: 'panel.notice.call_resent',
+    });
     expect(request).toHaveBeenCalledWith('/api/entries/entry-1/call-notification/resend', { method: 'POST' });
+  });
+
+  it('reports an already queued call notification without implying a second send', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 'already_queued', entryId: 'entry-1' });
+    const result = await performQueueEntryAction({ request, queueId: 'queue-1', entryId: 'entry-1', action: 'resend-call' });
+    expect(getQueueEntryActionFeedback({ action: 'resend-call', result })).toEqual({
+      status: 'confirmed', key: 'panel.notice.call_already_queued',
+    });
+  });
+
+  it.each([
+    ['en', 'Call resend requested. The no-show deadline was preserved.', 'The call is already waiting to be sent.'],
+    ['es', 'Se solicitó reenviar la llamada. Se conservó el plazo de ausencia.', 'La llamada ya está en la cola de envío.'],
+    ['pt-BR', 'Reenvio solicitado. O prazo de ausência foi mantido.', 'A chamada já está na fila de envio.'],
+  ])('keeps resend and already-queued messages explicit in the %s catalog', async (locale, sent, alreadyQueued) => {
+    const catalog = await readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+    expect(catalog).toContain(`panel.notice.call_resent\t${sent}`);
+    expect(catalog).toContain(`panel.notice.call_already_queued\t${alreadyQueued}`);
+  });
+
+  it('maps an uncertain resend failure to generic feedback with only a safe reference', () => {
+    expect(getQueueEntryActionFailureFeedback({
+      status: 503, code: 'INTERNAL_ERROR', referenceId: 'resend-queue-12',
+    }, { action: 'resend-call' })).toEqual({
+      status: 'error', key: 'panel.queue.action_result.failed', referenceId: 'resend-queue-12',
+    });
+    expect(getQueueEntryActionFailureFeedback({
+      status: 503, referenceId: '<script>private</script>',
+    }, { action: 'resend-call' })).toEqual({
+      status: 'error', key: 'panel.queue.action_result.failed',
+    });
   });
 
   it.each([['move-up', 1], ['move-down', 3]])('moves a waiting entry to the requested same-lane position (%s)', async (action, position) => {

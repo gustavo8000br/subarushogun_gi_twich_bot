@@ -18,6 +18,7 @@ export function buildDevRuntimeConfig(env = process.env, repositoryRoot = proces
     APP_PORT: appPort,
     APP_HOST: env.APP_HOST ?? '127.0.0.1',
     API_ONLY: 'true',
+    PUBLIC_BASE_URL: env.PUBLIC_BASE_URL ?? panelDevOrigin,
     PRODUCT_LOCALE_PROJECTION_FILE: productLocaleProjectionFile,
     PANEL_DEV_ORIGIN: panelDevOrigin,
     ...(codespacesOrigin ? {} : { OVERLAY_PUBLIC_BASE_URL: env.OVERLAY_PUBLIC_BASE_URL ?? panelDevOrigin }),
@@ -26,7 +27,7 @@ export function buildDevRuntimeConfig(env = process.env, repositoryRoot = proces
   };
 
   return {
-    api: { command: process.execPath, args: ['apps/api/src/server.mjs'], env: runtimeEnvironment },
+    api: { command: process.execPath, args: ['--watch', 'apps/api/src/server.mjs'], env: runtimeEnvironment },
     frontend: {
       command: process.execPath,
       args: [

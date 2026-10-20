@@ -39,6 +39,14 @@ export function getQueueEntryActionFeedback({ action, result, refreshFailed = fa
   if (action === 'call-next' && result.count === 0) {
     return { status: 'info', key: 'panel.queue.action_result.no_waiting' };
   }
+  if (action === 'attend' && result.financialDecision === 'request_fulfill') {
+    return {
+      status: 'warning',
+      key: refreshFailed
+        ? 'panel.queue.entry_action_result.fulfillment_refresh_failed'
+        : 'panel.queue.entry_action_result.fulfillment_pending',
+    };
+  }
   if (refreshFailed) {
     return action === 'call-next' || action === 'call'
       ? { status: 'warning', key: 'panel.queue.call_next.refresh_required' }
@@ -156,6 +164,7 @@ export async function performQueueEntryAction({ request, queueId, entryId = null
   result = await request(`/api/entries/${encodedEntryId}/transitions`, {
     method: 'POST', body: JSON.stringify(transition),
   });
-  if (result?.status !== transition.to || result.id !== entryId) throw invalidResponse();
+  if (result?.status !== transition.to || result.id !== entryId
+    || (result.financialDecision !== undefined && !['no_operation', 'request_cancel', 'request_fulfill'].includes(result.financialDecision))) throw invalidResponse();
   return result;
 }

@@ -1,5 +1,5 @@
 const queueScopedSources = new Set(['queue_name', 'queue_state', 'queue_waiting_count']);
-const supportedSources = new Set([...queueScopedSources, 'account_label', 'called_viewer_display_name', 'called_viewer_position', 'in_service_viewer_display_name', 'fixed_text']);
+const supportedSources = new Set([...queueScopedSources, 'account_label', 'called_viewer_display_name', 'called_viewer_position', 'fixed_text']);
 const fixedTextLimit = 240;
 const styleFields = ['textColor', 'backgroundColor', 'backgroundOpacity', 'fontFamily', 'fontSize', 'fontWeight', 'alignment', 'effect', 'outlineWidth', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY', 'width', 'height', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'overflow'];
 const fontFamilies = new Set(['system-ui', 'Arial, sans-serif', 'Verdana, sans-serif', 'Georgia, serif', 'Courier New, monospace']);

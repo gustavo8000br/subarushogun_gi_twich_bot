@@ -81,6 +81,8 @@ const messages = {
   'panel.queue.mode_transition.pending': 'Pausa pendente.',
   'panel.queue.unarchive.done': 'Fila visível.',
   'panel.queue.action_result.failed': 'A ação falhou.',
+  'panel.notice.call_already_queued': 'A chamada já está na fila de envio.',
+  'panel.notice.call_resent': 'Reenvio solicitado. O prazo de ausência foi mantido.',
   'panel.queue.action.add': 'Adicionar pessoa',
   'panel.entry.twitch_login': 'Login Twitch',
   'panel.entry.error.failed': 'Não foi possível adicionar a entrada. Atualize o painel e tente novamente.',
@@ -172,6 +174,25 @@ describe('Next queue list', () => {
     expect(markup).toContain('aria-label="Remover Viewer waiting da fila"');
     expect(markup).not.toContain('Completed viewer');
     expect(markup).not.toContain('private-uid');
+  });
+
+  it.each([
+    ['confirmed', 'panel.notice.call_resent', 'Reenvio solicitado. O prazo de ausência foi mantido.'],
+    ['confirmed', 'panel.notice.call_already_queued', 'A chamada já está na fila de envio.'],
+    ['error', 'panel.queue.action_result.failed', 'A ação falhou.'],
+  ])('renders resend feedback in the existing accessible queue live region (%s, %s)', (status, key, message) => {
+    const markup = renderToStaticMarkup(React.createElement(QueueList, {
+      queues: [{
+        id: 'queue-1', slug: 'arena', title: 'Arena', isOpen: true,
+        queueMode: 'manual_only', lifecycleStatus: 'active',
+        entries: [{ id: 'entry-1', displayName: 'Viewer called', status: 'called' }],
+      }],
+      locale: 'pt-BR', t,
+      queueAction: { queueId: 'queue-1', status, key, referenceId: 'resend-queue-12' },
+    }));
+    expect(markup).toContain(`role="${status === 'error' ? 'alert' : 'status'}"`);
+    expect(markup).toContain(message);
+    expect(markup).toContain('Referência: resend-queue-12');
   });
 
   it('distinguishes a valid empty queue projection', () => {

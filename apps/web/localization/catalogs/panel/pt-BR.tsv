@@ -161,7 +161,6 @@ panel.queue_settings.call_placeholders	Campos aceitos: {user}, {queue}, {positio
 panel.queue_settings.show_uid_list	Mostrar UID na lista do chat
 panel.queue_settings.show_uid_overlay	Permitir UID na projeção de overlay
 panel.queue_settings.show_uid_call	Mostrar UID na chamada
-panel.queue_settings.auto_switch_account	Trocar conta automaticamente ao chamar uma pessoa
 panel.queue_settings.refund_removed	Solicitar reembolso ao remover pessoa chamada/em atendimento
 panel.queue_settings.refund_no_show	Solicitar reembolso quando houver ausência
 panel.queue_settings.refund_viewer_leave	Solicitar reembolso se a pessoa chamada sair
@@ -200,6 +199,9 @@ panel.connection.connect_channel	Conectar canal
 panel.connection.confidential_app_help	Crie um aplicativo confidencial no console Twitch. O callback deste painel é:
 panel.connection.open_console	Abrir console de desenvolvedor ↗
 panel.connection.connect	Conectar com a Twitch
+panel.connection.oauth_declined	A autorização da Twitch foi recusada. Você continua no painel.
+panel.connection.oauth_error	Não foi possível conectar à Twitch. Você continua no painel.
+panel.connection.oauth_success	Twitch conectada com sucesso.
 panel.connection.credentials_required	Valide e salve as credenciais do aplicativo antes de conectar o canal.
 panel.connection.authorized_eyebrow	CANAL AUTORIZADO
 panel.connection.connected_fallback	Canal conectado
@@ -291,6 +293,8 @@ panel.queue.creation_result.uncertain	Não foi possível confirmar o resultado. 
 panel.queue.creation_result.key_conflict	Esse comando ou um de seus apelidos já está em uso. Escolha outro e tente novamente.
 panel.queue.entry_action_result.saved	A ação de atendimento foi registrada no painel.
 panel.queue.entry_action_result.refresh_failed	A ação foi registrada, mas não foi possível atualizar a fila. Recarregue a página para ver o estado atual.
+panel.queue.entry_action_result.fulfillment_pending	Atendimento iniciado. A recompensa está sendo confirmada na Twitch; o painel mostrará se foi confirmada ou continua sem resolução.
+panel.queue.entry_action_result.fulfillment_refresh_failed	Atendimento iniciado e a confirmação foi solicitada à Twitch, mas não foi possível atualizar a fila. Recarregue o painel para conferir o estado mais recente.
 panel.queue.action.resolve_reward	Vincular recompensa
 panel.queue.action_blocked.reward_unresolved	Os controles estão pausados até vincular e confirmar uma recompensa da Twitch. Use “Vincular recompensa” para continuar.
 panel.queue.action_blocked.reward_creation_pending	Os controles serão liberados quando a Twitch confirmar a criação da recompensa.
@@ -360,7 +364,6 @@ panel.widget.source.queue_state	Estado aberta/fechada de uma fila
 panel.widget.source.queue_count	Quantidade aguardando em uma fila
 panel.widget.source.called_name	Pessoa chamada
 panel.widget.source.called_position	Posição original da pessoa chamada
-panel.widget.source.service_name	Pessoa em atendimento
 panel.widget.source.fixed_text	Texto fixo
 panel.widget.source.unknown	Widget
 panel.widget.status.unavailable	Widget indisponível
@@ -386,7 +389,6 @@ panel.widget.preview_example	Exemplo do widget
 panel.widget.preview.waiting	4 aguardando
 panel.widget.preview.open	Aberta
 panel.widget.preview.called	Viewer chamado
-panel.widget.preview.in_service	Viewer em atendimento
 panel.widget.fixed_text_label	Texto fixo
 panel.widget.text_color	Cor do texto
 panel.widget.background_color	Cor do fundo
@@ -504,7 +506,7 @@ panel.priority.removed	Prioridade removida.
 panel.queue.action.archive_local_anyway	Excluir do painel mesmo assim
 panel.queue.action.archive_local_review	Continuar para a confirmação final da exclusão
 panel.queue.confirm.archive_local_uncertain_first	Isto removerá a fila apenas deste aplicativo; não excluirá a recompensa da Twitch. A recompensa ainda pode existir, e as entradas ativas e os registros financeiros serão preservados. O status atual de sincronização da Twitch será mantido como histórico e não verificado; isso não significa que uma operação continue em execução. Continuar para revisar a confirmação final da exclusão?
-panel.queue.confirm.archive_local_uncertain_final	Confirmação final: excluir esta fila do painel mesmo assim? Isto remove apenas a fila local; não exclui a recompensa da Twitch, que ainda pode existir e receber resgates. O histórico da fila e os registros financeiros serão preservados. O status remoto continuará histórico e não verificado, sem indicar que a sincronização ainda está em execução.
+panel.queue.confirm.archive_local_uncertain_final	Confirmação final: excluir a fila “{title}” do painel mesmo assim? Isto remove apenas a fila local; não exclui a recompensa da Twitch, que ainda pode existir e receber resgates. O histórico da fila e os registros financeiros serão preservados. O status remoto continuará histórico e não verificado, sem indicar que a sincronização ainda está em execução.
 panel.queue.archive_local.done	Fila removida do painel. O status da recompensa Twitch e o histórico foram preservados.
 panel.queue.archive_local.processing	Uma operação da recompensa Twitch ainda está em processamento. Aguarde e tente remover a fila do painel novamente.
 panel.queue.archive_local.expired	A confirmação expirou. Inicie novamente as duas etapas de confirmação da exclusão.
@@ -636,7 +638,7 @@ panel.error.reward_not_ready	A recompensa desta fila ainda não foi confirmada. 
 panel.widget.preview.account	Asia 1
 panel.widget.card_details	{queue}{width} × {height} · Widget {id}
 panel.widget.auto	automático
-panel.queue_settings.call_message_default	{user}, sua vez!
+panel.queue_settings.call_message_default	{user}, agora é sua vez! Use {command} para confirmar sua presença.
 panel.command.follower_scope_lost	Há comandos configurados para seguidores, mas a permissão Twitch não está disponível. Autorize novamente para restaurá-la.
 panel.command.follower_reauthorize	Reautorizar acesso de seguidores
 panel.commands.revision	Revisão do catálogo {version}

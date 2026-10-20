@@ -41,6 +41,9 @@ const COPY = {
   'panel.credentials.saved': 'App credentials validated and saved.',
   'panel.connection.saved_refresh_failed': 'Credentials were saved, but connection details could not be refreshed. Reload to verify the status.',
   'panel.connection.starting': 'Starting Twitch authorization…',
+  'panel.connection.oauth_success': 'Twitch connected successfully.',
+  'panel.connection.oauth_declined': 'Twitch authorization was declined. You are still in the panel.',
+  'panel.connection.oauth_error': 'Twitch could not be connected. You are still in the panel.',
   'panel.reconciliation.running': 'Reconciliation in progress…',
   'panel.reconciliation.complete.one': 'Reconciliation complete. Imported {count} redemption.',
   'panel.reconciliation.complete.other': 'Reconciliation complete. Imported {count} redemptions.',
@@ -64,6 +67,24 @@ describe('Next Twitch connection page', () => {
     expect(screen.getByText('https://localhost:3000/callback')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Connect to Twitch' }).disabled).toBe(true);
     expect(screen.getByText('Twitch is not connected yet')).toBeTruthy();
+  });
+
+  it('renders callback outcomes inside the connection page and removes the status from browser history', async () => {
+    window.history.replaceState(null, '', '/connection/?oauth=success&code=must-not-remain');
+    renderView();
+    expect((await screen.findByRole('status')).textContent).toContain('Twitch connected successfully.');
+    expect(window.location.pathname).toBe('/connection/');
+    expect(window.location.search).toBe('');
+  });
+
+  it('renders declined and unexpected callback failures as localized panel alerts', async () => {
+    window.history.replaceState(null, '', '/connection/?oauth=declined');
+    renderView();
+    expect((await screen.findByRole('alert')).textContent).toContain('Twitch authorization was declined. You are still in the panel.');
+    cleanup();
+    window.history.replaceState(null, '', '/connection/?oauth=error');
+    renderView();
+    expect((await screen.findByRole('alert')).textContent).toContain('Twitch could not be connected. You are still in the panel.');
   });
 
   it('validates and saves credentials, clears the secret, and refreshes setup state', async () => {

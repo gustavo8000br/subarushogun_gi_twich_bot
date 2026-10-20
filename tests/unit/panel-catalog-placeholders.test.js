@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFile } from 'node:fs/promises';
 import { PANEL_PLACEHOLDERS } from '../../apps/web/panel-catalog.mjs';
 import { translateCatalog } from '../../apps/shared/browser/translate-catalog.mjs';
 
@@ -25,10 +26,23 @@ describe('runtime panel interpolation allowlist', () => {
   });
 
   it('allows the documented viewer placeholder in the default queue call message', () => {
-    const callCatalog = { 'pt-BR': { 'translation.unavailable': 'Texto indisponível.', 'panel.queue_settings.call_message_default': '{user}, sua vez!' } };
+    const callCatalog = { 'pt-BR': { 'translation.unavailable': 'Texto indisponível.', 'panel.queue_settings.call_message_default': '{user}, use {command} para confirmar.' } };
     expect(translateCatalog(callCatalog, 'pt-BR', 'panel.queue_settings.call_message_default', {
-      values: { user: 'Viewer' }, placeholders: PANEL_PLACEHOLDERS,
-    })).toBe('Viewer, sua vez!');
+      values: { user: 'Viewer', command: '!arena presente' }, placeholders: PANEL_PLACEHOLDERS,
+    })).toBe('Viewer, use !arena presente para confirmar.');
+  });
+
+  it.each(['en', 'es', 'pt-BR'])('renders the queue title in the shipped %s final local deletion confirmation', async (locale) => {
+    const contents = await readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+    const catalog = Object.fromEntries(contents.trim().split('\n').map((line) => {
+      const separator = line.indexOf('\t');
+      return [line.slice(0, separator), line.slice(separator + 1)];
+    }));
+    const message = translateCatalog({ [locale]: catalog }, locale, 'panel.queue.confirm.archive_local_uncertain_final', {
+      values: { title: 'Fila teste' }, placeholders: PANEL_PLACEHOLDERS,
+    });
+    expect(message).toContain('Fila teste');
+    expect(message).not.toContain('unavailable');
   });
 
   it('rejects unexpected interpolation values for these panel messages', () => {

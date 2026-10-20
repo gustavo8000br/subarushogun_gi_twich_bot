@@ -161,7 +161,6 @@ panel.queue_settings.call_placeholders	Campos aceptados: {user}, {queue}, {posit
 panel.queue_settings.show_uid_list	Mostrar UID en la lista del chat
 panel.queue_settings.show_uid_overlay	Permitir UID en la proyección del widget
 panel.queue_settings.show_uid_call	Mostrar UID en la llamada
-panel.queue_settings.auto_switch_account	Cambiar de cuenta automáticamente al llamar a alguien
 panel.queue_settings.refund_removed	Solicitar reembolso al quitar a una persona llamada o en atención
 panel.queue_settings.refund_no_show	Solicitar reembolso por ausencia
 panel.queue_settings.refund_viewer_leave	Solicitar reembolso si la persona llamada se retira
@@ -200,6 +199,9 @@ panel.connection.connect_channel	Conectar canal
 panel.connection.confidential_app_help	Crea una aplicación confidencial en la consola de Twitch. La URL de callback de este panel es:
 panel.connection.open_console	Abrir consola de desarrollador ↗
 panel.connection.connect	Conectar con Twitch
+panel.connection.oauth_declined	Se rechazó la autorización de Twitch. Sigues en el panel.
+panel.connection.oauth_error	No se pudo conectar con Twitch. Sigues en el panel.
+panel.connection.oauth_success	Twitch se conectó correctamente.
 panel.connection.credentials_required	Valida y guarda las credenciales de la aplicación antes de conectar el canal.
 panel.connection.authorized_eyebrow	CANAL AUTORIZADO
 panel.connection.connected_fallback	Canal conectado
@@ -291,6 +293,8 @@ panel.queue.creation_result.uncertain	No se pudo confirmar el resultado. No vuel
 panel.queue.creation_result.key_conflict	Ese comando o uno de sus alias ya está en uso. Elige otro e inténtalo de nuevo.
 panel.queue.entry_action_result.saved	La acción de atención se registró en el panel.
 panel.queue.entry_action_result.refresh_failed	La acción se registró, pero no se pudo actualizar la cola. Recarga la página para ver su estado actual.
+panel.queue.entry_action_result.fulfillment_pending	Atención iniciada. Se está confirmando la recompensa de Twitch; el panel mostrará si queda confirmada o sin resolver.
+panel.queue.entry_action_result.fulfillment_refresh_failed	Atención iniciada y se solicitó la confirmación a Twitch, pero no se pudo actualizar la cola. Recarga el panel para consultar el último estado.
 panel.queue.action.resolve_reward	Vincular recompensa
 panel.queue.action_blocked.reward_unresolved	Los controles están pausados hasta vincular y confirmar una recompensa de Twitch. Usa «Vincular recompensa» para continuar.
 panel.queue.action_blocked.reward_creation_pending	Los controles estarán disponibles cuando Twitch confirme la creación de la recompensa.
@@ -360,7 +364,6 @@ panel.widget.source.queue_state	Estado abierta/cerrada de una cola
 panel.widget.source.queue_count	Cantidad de personas en espera en una cola
 panel.widget.source.called_name	Persona llamada
 panel.widget.source.called_position	Posición original de la persona llamada
-panel.widget.source.service_name	Persona en atención
 panel.widget.source.fixed_text	Texto fijo
 panel.widget.source.unknown	Widget
 panel.widget.status.unavailable	Widget no disponible
@@ -386,7 +389,6 @@ panel.widget.preview_example	Ejemplo del widget
 panel.widget.preview.waiting	4 en espera
 panel.widget.preview.open	Abierta
 panel.widget.preview.called	Viewer llamado
-panel.widget.preview.in_service	Viewer en atención
 panel.widget.fixed_text_label	Texto fijo
 panel.widget.text_color	Color del texto
 panel.widget.background_color	Color de fondo
@@ -504,7 +506,7 @@ panel.priority.removed	Se quitó la prioridad.
 panel.queue.action.archive_local_anyway	Eliminar del panel de todos modos
 panel.queue.action.archive_local_review	Continuar a la confirmación final de eliminación
 panel.queue.confirm.archive_local_uncertain_first	Esto quitará la cola solo de esta aplicación; no eliminará la recompensa de Twitch. La recompensa todavía puede existir, y se conservarán las entradas activas y los registros financieros. El estado actual de sincronización de Twitch se conservará como histórico y no verificado; esto no significa que haya una operación en curso. ¿Continuar para revisar la confirmación final de eliminación?
-panel.queue.confirm.archive_local_uncertain_final	Confirmación final: ¿eliminar esta cola del panel de todos modos? Esto solo quita la cola local; no elimina la recompensa de Twitch, que todavía puede existir y recibir canjes. Se conservarán el historial de la cola y los registros financieros. El estado remoto seguirá siendo histórico y no verificado; no indica que la sincronización continúe en curso.
+panel.queue.confirm.archive_local_uncertain_final	Confirmación final: ¿eliminar la cola “{title}” del panel de todos modos? Esto solo quita la cola local; no elimina la recompensa de Twitch, que todavía puede existir y recibir canjes. Se conservarán el historial de la cola y los registros financieros. El estado remoto seguirá siendo histórico y no verificado; no indica que la sincronización continúe en curso.
 panel.queue.archive_local.done	Cola eliminada del panel. Se conservaron el estado de la recompensa de Twitch y el historial.
 panel.queue.archive_local.processing	Una operación de la recompensa de Twitch sigue en curso. Espera a que termine y vuelve a intentar quitar la cola del panel.
 panel.queue.archive_local.expired	La confirmación venció. Inicia de nuevo los dos pasos de confirmación de eliminación.
@@ -636,7 +638,7 @@ panel.error.reward_not_ready	La recompensa de esta cola aún no está confirmada
 panel.widget.preview.account	Asia 1
 panel.widget.card_details	{queue}{width} × {height} · Widget {id}
 panel.widget.auto	automático
-panel.queue_settings.call_message_default	{user}, ¡es tu turno!
+panel.queue_settings.call_message_default	{user}, ¡es tu turno! Usa {command} para confirmar tu presencia.
 panel.command.follower_scope_lost	Hay comandos configurados para seguidores, pero el permiso de Twitch no está disponible. Vuelve a autorizar para restaurarlo.
 panel.command.follower_reauthorize	Volver a autorizar acceso de seguidores
 panel.commands.revision	Revisión del catálogo {version}

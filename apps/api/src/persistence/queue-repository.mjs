@@ -44,15 +44,14 @@ async function lockCurrentAccount(tx) {
   await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(1868787013, 1)) AS account_lock`;
 }
 
-async function applyAutomaticAccountSwitch(tx, { queue, entry, actorId }) {
-  if (!queue.autoSwitchAccount) return;
+async function applyAutomaticAccountSwitch(tx, { entry, actorId }) {
   await lockCurrentAccount(tx);
   const accountSetting = await tx.setting.findUnique({ where: { key: 'account_state' } });
   const previousAccount = accountSetting?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
   const nextAccount = { ...previousAccount, label: entry.displayName, source: 'queue_auto', ownerEntryId: entry.id };
   await tx.setting.upsert({ where: { key: 'account_state' }, create: { key: 'account_state', value: nextAccount }, update: { value: nextAccount } });
   await tx.auditLog.create({ data: {
-    queueId: queue.id, entryId: entry.id, event: 'account.auto_switched', actorId, origin: 'panel',
+    queueId: entry.queueId, entryId: entry.id, event: 'account.auto_switched', actorId, origin: 'panel',
     previousState: previousAccount.label, nextState: nextAccount.label, reason: 'single_entry_called', safeDetail: { ownerEntryId: entry.id },
   } });
 }
@@ -362,7 +361,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async getOverlaySourceValue({ sourceType, queueId = null, tx = prisma }) {
-      if (sourceType === 'account_label') {
+      if (sourceType === 'account_label' || sourceType === 'in_service_viewer_display_name') {
         const setting = await tx.setting.findUnique({ where: { key: 'account_state' } });
         return typeof setting?.value?.label === 'string' ? setting.value.label : 'Streamer';
       }
@@ -390,14 +389,6 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { safeDetail: true },
         });
         return Number.isInteger(transition?.safeDetail?.previousPosition) ? transition.safeDetail.previousPosition : null;
-      }
-      if (sourceType === 'in_service_viewer_display_name') {
-        const entry = await tx.entry.findFirst({
-          where: { status: 'in_progress', startedAt: { not: null } },
-          orderBy: [{ startedAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
-          select: { displayName: true },
-        });
-        return entry?.displayName ?? null;
       }
       return null;
     },
@@ -1114,7 +1105,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         const updated = await tx.entry.update({ where: { id: entryId }, data: { status: 'called', position: null, calledAt, callNotifiedAt: null, callDeadlineAt: null, callAcknowledgedAt: null, version: { increment: 1 } } });
         await renumberWaitingEntries(tx, queueId);
         await tx.auditLog.create({ data: { queueId, entryId, redemptionId: entry.redemptionId, event: 'entry.transitioned', actorId, origin: 'panel', previousState: 'waiting', nextState: 'called', reason: 'operator_call', safeDetail: { previousPosition: entry.position } } });
-        await applyAutomaticAccountSwitch(tx, { queue, entry: updated, actorId });
+        await applyAutomaticAccountSwitch(tx, { entry: updated, actorId });
         return { ...updated, previousPosition: entry.position };
       });
     },
@@ -1148,7 +1139,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           await tx.auditLog.create({ data: { queueId, entryId: entry.id, redemptionId: entry.redemptionId, event: 'entry.transitioned', origin: 'panel', previousState: 'waiting', nextState: 'called', reason: 'operator_call', safeDetail: { previousPosition: entry.position } } });
           selected.push({ ...updated, previousPosition: entry.position });
         }
-        if (count === 1 && selected.length === 1) await applyAutomaticAccountSwitch(tx, { queue, entry: selected[0], actorId });
+        if (count === 1 && selected.length === 1) await applyAutomaticAccountSwitch(tx, { entry: selected[0], actorId });
         await renumberWaitingEntries(tx, queueId);
         return selected;
       });
@@ -2023,7 +2014,13 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           if (to !== 'no_show' || entry.status !== 'called' || entry.callAcknowledgedAt || !(entry.callDeadlineAt instanceof Date)
             || !(cutoff instanceof Date) || entry.callDeadlineAt > cutoff) return null;
         }
-        const decision = decideTransition({ entry, queue, input });
+        let decision = decideTransition({ entry, queue, input });
+        if (entry.source === 'redemption' && entry.redemptionId) {
+          const existingFinancialIntent = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${entry.redemptionId}` } });
+          if (existingFinancialIntent && decision.financialDecision !== 'no_operation') {
+            decision = { ...decision, financialDecision: 'no_operation' };
+          }
+        }
 
         const now = clock();
         const data = {
@@ -2319,9 +2316,10 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         if (current.remoteStatus !== 'UNFULFILLED' && current.remoteStatus !== status) {
           return { status: 'conflict', redemptionId: event.id };
         }
+        const syncStatus = current.expectedStatus && current.expectedStatus !== status ? 'conflict' : 'confirmed';
         await tx.redemption.update({
           where: { redemptionId: event.id },
-          data: { remoteStatus: status, syncStatus: 'confirmed' },
+          data: { remoteStatus: status, syncStatus },
         });
         const task = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${event.id}` } });
         let outboxStatus = null;
@@ -2345,7 +2343,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           reason: status === 'CANCELED' ? 'external_cancellation' : 'external_fulfillment',
           safeDetail: { outboxStatus },
         } });
-        return { status: outboxStatus === 'conflict' ? 'conflict' : 'external_state_recorded', redemptionId: event.id };
+        return { status: outboxStatus === 'conflict' || syncStatus === 'conflict' ? 'conflict' : 'external_state_recorded', redemptionId: event.id };
       });
       return updated;
     },

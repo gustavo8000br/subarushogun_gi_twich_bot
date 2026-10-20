@@ -18,7 +18,7 @@ flowchart LR
   Infra[apps/infra bootstrap/version/health] --> DB
 ```
 
-Root `Dockerfile` and `compose.yaml` are product entrypoints. Compose services: one-shot `bootstrap`; persistent healthy `db`; one-shot `migrate` after DB health; non-root `bot` only after migrations complete. Host publishes only `127.0.0.1:3000:3000`; Fastify binds `0.0.0.0` in its container. Database has no host port. Volumes persist DB and operational secrets.
+Root `Dockerfile` and pull-only `compose.yaml` are product runtime entrypoints; `compose.build.yaml` adds local build contexts only for CI/maintainers. The platform installer embeds the runtime manifest and pulls a prebuilt image. Compose services: one-shot `bootstrap`; persistent healthy `db`; one-shot `migrate` after DB health; non-root `bot` only after migrations complete. Host publishes only `127.0.0.1:3000:3000`; Fastify binds `0.0.0.0` in its container. Database has no host port. Volumes persist DB and operational secrets. Developers use `npm ci` once followed by `npm run dev` for Next HMR/Fastify watch and a worktree-specific disposable PostgreSQL.
 
 ## Application modules
 

@@ -5,7 +5,6 @@ export const WIDGET_SOURCE_KEYS = Object.freeze({
   queue_waiting_count: 'panel.widget.source.queue_count',
   called_viewer_display_name: 'panel.widget.source.called_name',
   called_viewer_position: 'panel.widget.source.called_position',
-  in_service_viewer_display_name: 'panel.widget.source.service_name',
   fixed_text: 'panel.widget.source.fixed_text',
 });
 

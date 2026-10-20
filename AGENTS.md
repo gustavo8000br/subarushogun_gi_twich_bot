@@ -24,6 +24,21 @@ Ao retomar uma sessao de desenvolvimento, leia primeiro o handoff ativo em `docs
 5. Documentacao e obrigatoria: atualize os documentos afetados em ingles e pt-BR no mesmo incremento; uma story ou PR nao esta concluida sem ambas as versoes equivalentes e verificadas
 <!-- AIOX-MANAGED-END: core -->
 
+## Planejamento UX obrigatório
+
+- Antes de implementar qualquer mudança que afete a experiência de pessoas usuárias — interface do painel, overlay, acessibilidade, fluxo, conteúdo ou mensagens exibidas/enviadas pelo produto a streamers e viewers — planeje e revise a solução com a Skill `aiox-ux-design-expert`.
+- Registre na story o problema e as necessidades da pessoa usuária, o fluxo/conteúdo proposto, acessibilidade e estados relevantes, além do score UX de 0 a 10 e seu escopo.
+- A aprovação UX exige score mínimo de **9,0/10** antes de começar a implementação. Abaixo disso, itere o plano com a skill e não implemente a parte voltada à pessoa usuária até atingir o mínimo.
+- O score deve corresponder apenas ao escopo realmente revisado; não o apresente como nota geral da story/produto. Diferencie revisão estática de validação visual, browser, tecnologia assistiva ou pesquisa com pessoas quando esses métodos não tiverem sido executados.
+
+## Pesquisa técnica obrigatória
+
+- Antes de implementar, diagnosticar, escolher uma solução, preencher uma lacuna ou responder dúvidas sobre linguagens, bibliotecas, APIs, ferramentas, compatibilidade ou comportamento técnico, pesquise na internet. Não use apenas memória do modelo quando houver uma fonte atual consultável.
+- Priorize documentação oficial, especificações e notas de versão do projeto/linguagem/biblioteca. Consulte também GitHub (código, issues e discussões), fóruns, Reddit e DevDocs quando forem úteis para descobrir casos reais, lacunas ou alternativas.
+- Use fontes comunitárias como evidência complementar, não como autoridade final. Confirme afirmações técnicas em fontes primárias atuais; se fontes divergirem ou a documentação não resolver a questão, explicite a divergência, a inferência e o que permanece incerto.
+- Ao tomar uma decisão material com base na pesquisa, cite links diretos e registre as conclusões e limitações na story ou documentação técnica afetada. Confira versões e datas para evitar aplicar orientação obsoleta.
+- A pesquisa não substitui testes no ambiente e versões deste projeto; nunca apresente fórum, documentação ou teste unitário como evidência de runtime/API/banco que não foi realmente exercitada.
+
 ## Ordenação dos changelogs por estágio
 
 - Em cada changelog de estágio, mantenha a seção da versão mais recente primeiro, imediatamente após o título e a linha explicativa/de links. As versões anteriores vêm em ordem decrescente; os changelogs em inglês e pt-BR devem permanecer equivalentes.
@@ -59,15 +74,19 @@ Ordem de execução para mudanças: Master coordena; responsáveis especialistas
 
 ## Sincronização de stories e issues
 
+- **Lei imutável — rastreabilidade obrigatória:** toda story nova deve ter uma issue GitHub correspondente criada antes de iniciar a implementação; registre o ID/link da issue na story em inglês e pt-BR e no índice, quando aplicável. Não considerar story pronta para execução enquanto não houver issue correspondente.
+- **Lei imutável — roadmaps:** todo roadmap novo deve ter uma issue-mãe GitHub. Cada fatia/story planejada deve ter sua própria issue e ser agregada à issue-mãe como sub-issue nativa do GitHub; registre os links e a relação nos documentos bilíngues. Não substituir sub-issues por mera menção textual ou checklist no corpo da issue-mãe.
+- Ao auditar ou retomar trabalho, verifique a existência e a relação real das issues/sub-issues no GitHub; referências textuais locais não provam que o vínculo remoto existe. Se faltar issue ou vínculo, registrar a lacuna e não alegar rastreabilidade completa; criar ou corrigir o backlog pela autoridade `$aiox-devops`, sem operar na `main` fora do fluxo Git aprovado.
 - O @devops atualiza o corpo e o status da issue correspondente quando publicar uma story marcada como Done por PR mesclada.
 - Não publicar comentários em issues; comentários só são publicados se forem necessários para registrar uma decisão ou bloqueio que não caiba no corpo da issue.
 
-## Higiene de instâncias Docker
+## Higiene de recursos Docker
 
-- Em auditorias e após encerrar testes, identificar e remover contêineres órfãos criados por worktrees, branches já mescladas ou projetos de teste descartados; não deixá-los ocupando disco.
-- Antes da remoção, conferir projeto/labels e vínculo com worktree para proteger a instalação ativa e os serviços do trabalho atual.
-- Para instâncias comprovadamente órfãs, remover também os volumes associados quando autorizado pelo usuário ou quando forem artefatos descartáveis de teste sem dados do produto. Nunca remover volumes da instalação ativa.
-- Manter os serviços one-shot `bootstrap` e `migrate` do Compose atual quando fazem parte do projeto ativo; seu estado `Exited (0)` é esperado, não órfão.
+- Como o espaço de desenvolvimento é limitado, audite e limpe imagens, contêineres, redes e volumes descartáveis criados por testes, worktrees encerradas ou projetos de teste descartados.
+- Antes de remover qualquer recurso, confira projeto Compose, labels, nomes, vínculos com worktrees e uso por outros checkouts. Recursos compartilhados ou de propriedade incerta devem ser preservados até que seu vínculo seja esclarecido.
+- Nunca remova recursos do ambiente ativo do produto ou de outro ambiente de desenvolvimento em uso. Volumes com dados do produto devem ser preservados; volumes de teste só podem ser removidos quando forem comprovadamente descartáveis e isolados.
+- Ao encerrar testes, remova seus recursos descartáveis identificados. Imagens compartilhadas só devem ser removidas quando nenhum ambiente ativo ou checkout depender delas.
+- Mantenha os serviços one-shot `bootstrap` e `migrate` do Compose ativo quando fizerem parte do projeto; o estado `Exited (0)` é esperado e não os torna órfãos.
 
 ## Erros e diagnóstico
 

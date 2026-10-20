@@ -232,7 +232,7 @@ describe('PostgreSQL OBS widget persistence contract', () => {
     await expect(queueRepository.getOverlaySourceValue({ sourceType: 'queue_waiting_count', queueId: queue.id })).resolves.toBe(1);
     await expect(queueRepository.getOverlaySourceValue({ sourceType: 'called_viewer_display_name' })).resolves.toBe('Called Player');
     await expect(queueRepository.getOverlaySourceValue({ sourceType: 'called_viewer_position' })).resolves.toBe(7);
-    await expect(queueRepository.getOverlaySourceValue({ sourceType: 'in_service_viewer_display_name' })).resolves.toBe('Active Player');
+    await expect(queueRepository.getOverlaySourceValue({ sourceType: 'in_service_viewer_display_name' })).resolves.toBe('Asia 1');
     expect(waiting.uid).toBeNull();
   });
 
