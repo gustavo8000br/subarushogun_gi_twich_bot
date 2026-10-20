@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { getDefaultQueueCallMessage } from '../../../shared/queue-call-message.mjs';
 import { renderCallMessagePreview, validateCallMessageTemplate } from './queue-creation.mjs';
 
 function suggestSlug(value) {
@@ -15,7 +16,7 @@ export default function NewQueueForm({ t, saving, feedback, twitchConnected = fa
   const [slugEdited, setSlugEdited] = useState(false);
   const [callMessageTouched, setCallMessageTouched] = useState(false);
   const callMessageInput = useRef(null);
-  const defaultCallMessage = t('panel.queue_settings.call_message_default');
+  const defaultCallMessage = getDefaultQueueCallMessage(t, slug);
   const [callMessage, setCallMessage] = useState(null);
   const currentCallMessage = callMessage ?? defaultCallMessage;
   let callMessageIsInvalid = false;

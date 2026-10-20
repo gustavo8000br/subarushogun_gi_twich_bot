@@ -6,7 +6,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import NewQueueForm from '../../apps/frontend/features/queues/new-queue-form.jsx';
 
-const t = (key) => ({
+const t = (key, options = {}) => {
+  const catalog = {
   'panel.form.queue_name': 'Nome da fila',
   'panel.form.section_identity': 'Identificação da fila',
   'panel.form.section_entry': 'Como entra',
@@ -38,7 +39,8 @@ const t = (key) => ({
   'panel.form.call_preview_account': 'Streamer',
   'panel.form.call_preview_uid_note': 'O UID só será enviado se você selecionar “Solicitar UID” acima e depois ativar “Mostrar UID na chamada” nas opções da fila.',
   'panel.form.call_message_invalid': 'Use até 350 caracteres em uma única linha e somente os campos aceitos listados acima.',
-  'panel.queue_settings.call_message_default': '{user}, sua vez!',
+  'panel.queue_settings.call_message_default': '{user}, agora é sua vez! Use {command} para confirmar sua presença.',
+  'panel.command.syntax.queue_presente': '!<fila> presente',
   'panel.queue_settings.call_placeholders': 'Campos aceitos: {user}, {queue}, {position}, {uid}, {account}.',
   'panel.form.create_queue': 'Criar fila',
   'panel.form.queue_name_placeholder': 'Ex.: Arena',
@@ -50,7 +52,9 @@ const t = (key) => ({
   'panel.form.mode_manual_hint': 'Entrada local',
   'panel.form.twitch_setup_required': 'Conecte a Twitch para configurar recompensas. A fila manual funciona sem conexão.',
   'panel.form.cancel': 'Cancelar',
-}[key] ?? key);
+  };
+  return (catalog[key] ?? key).replace(/\{(user|command)\}/g, (match, name) => options.values?.[name] ?? match);
+};
 
 afterEach(cleanup);
 
@@ -65,7 +69,8 @@ describe('Next queue creation form', () => {
     expect(markup).toContain('type="submit"');
     expect(markup.match(/<fieldset/g)).toHaveLength(5);
     expect(markup).toContain('Identificação da fila');
-    expect(markup).toContain('Alex, sua vez!');
+    expect(markup).toContain('Alex, agora é sua vez! Use “!&lt;fila&gt; presente” para confirmar sua presença.');
+    expect(markup).toContain('{user}, agora é sua vez! Use “!&lt;fila&gt; presente” para confirmar sua presença.');
     expect(markup).toContain('Prévia (apenas exemplo)');
     expect(markup).toContain('Resgate na Twitch');
     expect(markup).toContain('href="/queues/"');
@@ -111,14 +116,16 @@ describe('Next queue creation form', () => {
   });
 
   it('keeps the untouched default message in sync with the selected locale and shows UID prerequisites', () => {
-    const englishT = (key) => key === 'panel.queue_settings.call_message_default' ? '{user}, your turn!' : t(key);
+    const englishT = (key, options) => key === 'panel.queue_settings.call_message_default'
+      ? `${options?.values?.user ?? '{user}'}, your turn! Use ${options?.values?.command ?? '!<queue> present'} to confirm your presence.`
+      : key === 'panel.command.syntax.queue_presente' ? '!<queue> present' : t(key, options);
     const { rerender } = render(React.createElement(NewQueueForm, { t: englishT, saving: false, feedback: null, twitchConnected: true, onCreate: async () => true }));
     const message = globalThis.document.querySelector('[name="callMessage"]');
-    expect(message.value).toBe('{user}, your turn!');
+    expect(message.value).toBe('{user}, your turn! Use “!<queue> present” to confirm your presence.');
 
-    const portugueseT = (key) => key === 'panel.queue_settings.call_message_default' ? '{user}, sua vez!' : t(key);
+    const portugueseT = t;
     rerender(React.createElement(NewQueueForm, { t: portugueseT, saving: false, feedback: null, twitchConnected: true, onCreate: async () => true }));
-    expect(message.value).toBe('{user}, sua vez!');
+    expect(message.value).toBe('{user}, agora é sua vez! Use “!<fila> presente” para confirmar sua presença.');
 
     fireEvent.change(message, { target: { value: '{user}, entre na fila {queue} ({uid})' } });
     const preview = screen.getByRole('group', { name: 'Prévia (apenas exemplo)' });
@@ -129,6 +136,20 @@ describe('Next queue creation form', () => {
 
     rerender(React.createElement(NewQueueForm, { t: englishT, saving: false, feedback: null, twitchConnected: true, onCreate: async () => true }));
     expect(message.value).toBe('{user}, entre na fila {queue} ({uid})');
+  });
+
+  it('updates the untouched default presence command when the queue slug is suggested', () => {
+    render(React.createElement(NewQueueForm, { t, saving: false, feedback: null, twitchConnected: true, onCreate: async () => true }));
+    const title = globalThis.document.querySelector('[name="title"]');
+    const message = globalThis.document.querySelector('[name="callMessage"]');
+
+    fireEvent.change(title, { target: { value: 'Arena Cozy' } });
+    expect(globalThis.document.querySelector('[name="slug"]').value).toBe('arena-cozy');
+    expect(message.value).toBe('{user}, agora é sua vez! Use “!arena-cozy presente” para confirmar sua presença.');
+
+    fireEvent.change(message, { target: { value: 'My own {user} template' } });
+    fireEvent.change(title, { target: { value: 'Another queue' } });
+    expect(message.value).toBe('My own {user} template');
   });
 
   it('explains invalid multi-line templates before calling the create action', () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { apiClient } from '../../lib/api/client.mjs';
 import { usePanel } from '../panel-shell/panel-provider.jsx';
 import { twitchEligibilityMessage, twitchStatusLabel, twitchStatusState } from '../../../web/setup-messages.mjs';
@@ -20,6 +20,18 @@ export function ConnectionPageView({ setup = {}, locale = 'pt-BR', t, request, o
 
   const currentSetup = localSetup ?? {};
   const status = twitchStatusState(currentSetup);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const callbackStatus = new URL(window.location.href).searchParams.get('oauth');
+    const callbackMessages = {
+      success: { key: 'panel.connection.oauth_success', tone: 'success' },
+      declined: { key: 'panel.connection.oauth_declined', tone: 'error' },
+      error: { key: 'panel.connection.oauth_error', tone: 'error' },
+    };
+    if (!callbackStatus || !callbackMessages[callbackStatus]) return;
+    setNotice(callbackMessages[callbackStatus]);
+    window.history.replaceState(null, '', '/connection/');
+  }, []);
   const healthRows = [
     ['panel.health.chat', 'panel.health.twitch_chat', currentSetup.chatStatus ?? 'unknown'],
     ['panel.health.rewards', 'panel.health.twitch_rewards', currentSetup.rewardStatus ?? 'unknown'],

@@ -6,10 +6,18 @@ import { describe, expect, it } from 'vitest';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const composePath = `${root}/compose.yaml`;
+const buildComposePath = `${root}/compose.build.yaml`;
 const dockerfilePath = `${root}/Dockerfile`;
 
 function getComposeConfig() {
   return spawnSync('docker', ['compose', '-f', composePath, 'config', '--format', 'json'], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+}
+
+function getBuildComposeConfig() {
+  return spawnSync('docker', ['compose', '-f', composePath, '-f', buildComposePath, 'config', '--format', 'json'], {
     cwd: root,
     encoding: 'utf8',
   });
@@ -109,19 +117,41 @@ describe('local Compose runtime contract', () => {
     expect(config.services.bot.group_add).toContain('999');
   });
 
-  it('defaults local app images to the main tag while keeping product identity separate', () => {
+  it('defaults local app images to the dev tag while keeping product identity separate', () => {
     expect(existsSync(composePath), 'product Compose configuration is missing').toBe(true);
     const result = getComposeConfig();
     expect(result.status, result.stderr).toBe(0);
     const config = JSON.parse(result.stdout);
     for (const serviceName of ['bootstrap', 'migrate', 'bot']) {
       expect(typeof config.services[serviceName].image).toBe('string');
-      expect(config.services[serviceName].image).toMatch(/^ghcr\.io\/gustavo8000br\/subarushogun_gi_twich_bot:main$/);
-      expect(config.services[serviceName].build.args.PRODUCT_VERSION).toBe('');
+      expect(config.services[serviceName].image).toMatch(/^ghcr\.io\/gustavo8000br\/subarushogun_gi_twich_bot:dev$/);
+      expect(config.services[serviceName].build).toBeUndefined();
+    }
+    const buildResult = getBuildComposeConfig();
+    expect(buildResult.status, buildResult.stderr).toBe(0);
+    const buildConfig = JSON.parse(buildResult.stdout);
+    for (const serviceName of ['bootstrap', 'migrate', 'bot']) {
+      expect(buildConfig.services[serviceName].build.context.replace(/\/$/, '')).toBe(root.replace(/\/$/, ''));
+      expect(buildConfig.services[serviceName].build.args.PRODUCT_VERSION).toBe('');
     }
     const dockerfile = readFileSync(dockerfilePath, 'utf8');
     expect(dockerfile).toMatch(/^FROM node:24\.20\.0-alpine3\.24 AS dependencies$/m);
     expect(dockerfile).toMatch(/^RUN apk add --no-cache openssl$/m);
+  });
+
+  it('keeps runtime Compose pull-only and reserves source builds for the explicit build overlay', () => {
+    const runtime = getComposeConfig();
+    const build = getBuildComposeConfig();
+    expect(runtime.status, runtime.stderr).toBe(0);
+    expect(build.status, build.stderr).toBe(0);
+    const runtimeConfig = JSON.parse(runtime.stdout);
+    const buildConfig = JSON.parse(build.stdout);
+    for (const name of ['bootstrap', 'migrate', 'bot']) {
+      expect(runtimeConfig.services[name].build).toBeUndefined();
+      expect(buildConfig.services[name].build.context.replace(/\/$/, '')).toBe(root.replace(/\/$/, ''));
+    }
+    expect(JSON.parse(readFileSync(`${root}/package.json`, 'utf8')).scripts.build)
+      .toBe('docker compose -f compose.yaml -f compose.build.yaml build bot');
   });
 
   it('builds the Next production server separately and starts the Next gateway with a private Fastify API', () => {

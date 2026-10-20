@@ -76,6 +76,7 @@ const CHAT_FALLBACKS = Object.freeze({
   'chat.queue.select_user': 'Informe o usuário porque há mais de uma pessoa possível.',
   'chat.queue.person_not_active': 'Essa pessoa não está ativa nesta fila.',
   'chat.queue.complete_pending': 'Atendimento concluído. O consumo dos pontos está pendente de confirmação.',
+  'chat.queue.service_started_pending': 'Atendimento iniciado. A confirmação do resgate na Twitch está pendente.',
   'chat.queue.service_started': 'Atendimento iniciado.',
   'chat.queue.service_completed': 'Atendimento concluído.',
   'chat.queue.move_failed': 'Não foi possível mover essa pessoa.',
@@ -223,7 +224,9 @@ export function createChatCommandHandler({ repository, domainService = repositor
         if (!entry) return reply(message, t('chat.queue.person_not_active'));
         const to = parsed.command === 'atender' ? 'in_progress' : 'completed';
         const result = await domainService.transitionEntry({ entryId: entry.id, to, origin: 'chat', actorId: authorized.actorId, reason: parsed.command === 'atender' ? 'service_started' : 'service_completed' });
-        return reply(message, result.financialDecision === 'request_fulfill' ? t('chat.queue.complete_pending') : parsed.command === 'atender' ? t('chat.queue.service_started') : t('chat.queue.service_completed'));
+        return reply(message, result.financialDecision === 'request_fulfill'
+          ? t(parsed.command === 'atender' ? 'chat.queue.service_started_pending' : 'chat.queue.complete_pending')
+          : parsed.command === 'atender' ? t('chat.queue.service_started') : t('chat.queue.service_completed'));
       }
       case 'mover': {
         const user = await twitch.getUserByLogin(normalizedLogin(args[0]));

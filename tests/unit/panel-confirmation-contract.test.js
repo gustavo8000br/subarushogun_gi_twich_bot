@@ -47,7 +47,7 @@ describe('panel confirmation dialog contract', () => {
       expect(catalog).toMatch(/panel\.queue\.archive_local\.(processing|expired|stale|unavailable)\t\S+/);
       expect(catalog).toMatch(/reward may still exist|todavía puede existir|ainda pode existir/i);
       expect(catalog).toMatch(/panel\.queue\.action\.archive_local_anyway\t(?:Delete from panel anyway|Excluir do painel mesmo assim|Eliminar del panel de todos modos)/);
-      expect(catalog).toMatch(/panel\.queue\.confirm\.archive_local_uncertain_final\t(?:Final confirmation: delete this queue from this panel anyway|Confirmação final: excluir esta fila do painel mesmo assim|Confirmación final: ¿eliminar esta cola del panel de todos modos)/);
+      expect(catalog).toMatch(/panel\.queue\.confirm\.archive_local_uncertain_final\t(?:Final confirmation: delete queue|Confirmação final: excluir a fila|Confirmación final: ¿eliminar la cola)/);
       expect(catalog).not.toMatch(/panel\.queue\.(?:action\.archive_local_anyway|confirm\.archive_local_uncertain_first|confirm\.archive_local_uncertain_final|archive_local\.(?:done|processing|unavailable))\t[^\n]*(?:archive|arquiv|archiv)/i);
       expect(catalog).toMatch(/historical and unverified|histórico e não verificado|histórico y no verificado/i);
       expect(catalog).toMatch(/not an indication that sync is still running|não significa que uma operação continue em execução|no indica que la sincronización continúe en curso/i);

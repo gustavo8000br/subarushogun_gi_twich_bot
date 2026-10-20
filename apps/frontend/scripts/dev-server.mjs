@@ -5,12 +5,14 @@ import { ensureLocalTlsCertificate } from '../../infra/src/bootstrap-secret.mjs'
 import { buildDevRuntimeConfig } from './dev-runtime-config.mjs';
 import { ensureDevelopmentEnvFile } from './dev-env.mjs';
 import { migrateDevelopmentDatabase, startDevelopmentDatabase } from './dev-database.mjs';
+import { runDevelopmentPreflight } from './dev-preflight.mjs';
 
 const repositoryRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 
 async function main() {
   const envPath = await ensureDevelopmentEnvFile(repositoryRoot);
   process.loadEnvFile(envPath);
+  await runDevelopmentPreflight({ root: repositoryRoot, env: process.env });
   const managedDatabase = process.env.DATABASE_URL ? undefined : await startDevelopmentDatabase({ root: repositoryRoot, env: process.env });
   const runtimeEnv = { ...process.env, ...(managedDatabase ? { DATABASE_URL: managedDatabase.databaseUrl } : {}) };
   const config = buildDevRuntimeConfig(runtimeEnv, repositoryRoot);

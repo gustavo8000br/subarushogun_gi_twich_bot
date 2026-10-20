@@ -278,6 +278,25 @@ describe('Twitch chat command handler', () => {
     expect(h.repository.transitionEntry).not.toHaveBeenCalled();
   });
 
+  it('reports that Twitch confirmation is pending when a moderator starts redemption service in chat', async () => {
+    const h = setup();
+    h.repository.getProductLocale = vi.fn(async () => ({ locale: 'en', revision: 1 }));
+    h.repository.listEntriesByStatus.mockResolvedValue([{ id: 'entry-1', status: 'called', source: 'redemption', redemptionId: 'redemption-1' }]);
+    h.domainService.transitionEntry.mockResolvedValue({ id: 'entry-1', status: 'in_progress', financialDecision: 'request_fulfill' });
+    h.handler = createChatCommandHandler({
+      repository: h.repository, domainService: h.domainService, twitch: h.twitch, settings: h.settings,
+      broadcasterId: 'broadcaster-1',
+      getChatCatalogs: async () => ({ en: { 'chat.queue.service_started_pending': 'Service started. Twitch redemption confirmation is pending.' } }),
+    });
+
+    await h.handler({ id: 'start-pending', text: '!abismo serve', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+
+    expect(h.domainService.transitionEntry).toHaveBeenCalledWith({
+      entryId: 'entry-1', to: 'in_progress', origin: 'chat', actorId: 'mod-1', reason: 'service_started',
+    });
+    expect(h.twitch.sendChatMessage).toHaveBeenCalledWith('Service started. Twitch redemption confirmation is pending.');
+  });
+
   it.each([
     ['pt-BR', 'presente', 'Presença confirmada.'],
     ['en', 'present', 'Presence confirmed.'],

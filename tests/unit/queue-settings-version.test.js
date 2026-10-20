@@ -4,7 +4,7 @@ import { canRetryQueueSettingsAfterVersionBump } from '../../apps/web/queue-sett
 describe('queue settings save after a remote status update', () => {
   const baselineSettings = {
     callTimeoutMin: 10, callMessage: 'Next: {user}', showUidInList: false,
-    showUidInOverlay: false, showUidOnCall: false, autoSwitchAccount: false,
+    showUidInOverlay: false, showUidOnCall: false,
     refundIfRemovedWhileCalled: true, refundOnNoShow: false, refundIfViewerLeavesCalled: false,
   };
 

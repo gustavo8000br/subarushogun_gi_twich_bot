@@ -2,7 +2,7 @@ import { canRetryQueueSettingsAfterVersionBump } from '../../../web/queue-settin
 
 export const QUEUE_SETTING_KEYS = Object.freeze([
   'callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall',
-  'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled',
+  'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled',
 ]);
 
 /** @param {Record<string, unknown>} current @param {Record<string, unknown>} baseline */

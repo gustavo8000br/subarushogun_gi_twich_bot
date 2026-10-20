@@ -1,0 +1,21 @@
+services:
+  bootstrap:
+    image: ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      args:
+        PRODUCT_VERSION: ${PRODUCT_VERSION:-}
+
+  migrate:
+    image: ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      args:
+        PRODUCT_VERSION: ${PRODUCT_VERSION:-}
+
+  bot:
+    image: ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      args:
+        PRODUCT_VERSION: ${PRODUCT_VERSION:-}

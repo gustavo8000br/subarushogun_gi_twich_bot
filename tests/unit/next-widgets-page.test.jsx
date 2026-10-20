@@ -26,7 +26,6 @@ const COPY = {
   'panel.widget.source.queue_count': 'Number waiting in a queue',
   'panel.widget.source.called_name': 'Called person',
   'panel.widget.source.called_position': 'Called person’s original position',
-  'panel.widget.source.service_name': 'Person in service',
   'panel.widget.source.fixed_text': 'Fixed text',
   'panel.widget.fixed_text_label': 'Widget text field',
   'panel.widget.link.title': 'One-time URL',
@@ -125,6 +124,8 @@ describe('Next OBS widget management page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create your first widget' }));
     expect(screen.getByRole('heading', { name: 'Create widget' })).toBeTruthy();
     expect(screen.getByLabelText('What to display')).toBeTruthy();
+    expect([...screen.getByLabelText('What to display').options].some((option) => option.value === 'in_service_viewer_display_name')).toBe(false);
+    expect([...screen.getByLabelText('What to display').options].some((option) => option.value === 'in_service_viewer_display_name')).toBe(false);
     expect(screen.getByText('Sample account')).toBeTruthy();
   });
 

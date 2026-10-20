@@ -40,10 +40,13 @@ O ambiente preparado inclui as ferramentas usadas pelos gates existentes do proj
 #### Desenvolvimento do Next.js e Fastify
 
 ```sh
+npm ci
 npm run dev
 ```
 
-Inicia um PostgreSQL de desenvolvimento isolado via Docker, cria um snapshot local antes de verificar/aplicar migrations, inicia Fastify em modo somente API em `127.0.0.1:${APP_PORT:-3109}` e o Next.js em `http://localhost:${NEXT_DEV_PORT:-3000}`. No Codespaces, encaminhe a porta `3000` para visualizar o frontend. Durante o desenvolvimento, o Next encaminha `/api/*`, `/overlay/api/*`, `/health` e `/callback` para o Fastify local e mapeia `/overlay.html` para a rota Next do overlay. A configuração dev permite `127.0.0.1` e o hostname exato do painel encaminhado pelo Codespaces em `allowedDevOrigins` do Next, e informa ao Fastify a origem HTTPS correspondente para validar a sessão local e o CSRF. Reinicie `npm run dev` depois de alterar a origem de desenvolvimento ou a configuração Next. Na primeira execução, o launcher cria `.env.product.local`, ignorado pelo Git, a partir de `.env.product.example`, sem substituir um arquivo existente. Deixe `DATABASE_URL` vazia para usar o banco gerenciado pelo launcher. Ele usa a porta host `55432`, bind somente em `127.0.0.1`, volume Docker `next_dev_postgres_data` dentro de um projeto Compose nomeado unicamente para a worktree e senha em `.local/dev-db/password`; o snapshot pré-migration fica em `.local/dev-db/backups/`. Esses dados são separados dos serviços e volumes de `compose.yaml`. Para parar o banco e preservar os dados, use `npm run dev:db:stop`; para subir apenas o banco, use `npm run dev:db:start`. Nunca use `docker compose down -v` nesse projeto dev, a menos que queira apagar manualmente os dados. O arquivo de env do produto é separado do `.env` e `.env.example` do AIOX. Se preencher `DATABASE_URL`, o launcher usa essa instância externa sem subir Docker nem executar migrations; use apenas um banco descartável de desenvolvimento. Defina `APP_PORT` e `FASTIFY_DEV_ORIGIN` juntos se a API usar outra porta (por exemplo, `3110` e `https://localhost:3110`). A produção permanece no painel legado servido pelo Fastify até a paridade e os gates de cutover passarem; a configuração somente API atual vale para o launcher de desenvolvimento. Use `npm run build:frontend` para gerar a exportação estática.
+Execute `npm ci` uma vez após clonar ou quando precisar reinstalar dependências; ele instala versões exatas do lockfile e não precisa rodar a cada inicialização. Antes de criar arquivos locais ou provisionar/migrar o banco, `npm run dev` verifica Node.js `24.20.0`, dependências Next/Prisma locais e (se `DATABASE_URL` estiver vazia) Docker Compose v2 com engine acessível. Uma falha informa o pré-requisito e a recuperação. Em seguida, inicia PostgreSQL isolado, cria snapshot antes das migrations, executa Fastify somente API em modo watch em `127.0.0.1:${APP_PORT:-3109}` e Next com HTTPS/HMR em `https://localhost:${NEXT_DEV_PORT:-3000}`. No Codespaces, encaminhe a porta `3000`. Next encaminha `/api/*`, `/overlay/api/*`, `/health` e `/callback` ao Fastify e mapeia `/overlay.html` à rota Next do overlay. A configuração permite loopback e o hostname exato do Codespaces, enviando a origem HTTPS correspondente para validar sessão/CSRF. Reinicie após alterar a origem de desenvolvimento ou config Next. Na primeira execução, cria `.env.product.local` ignorado pelo Git a partir do exemplo, sem substituir arquivo existente. Deixe `DATABASE_URL` vazia para usar o DB gerenciado, ligado somente ao loopback da porta host `55432`, em projeto/volume Compose específico da worktree; senha e snapshots ficam em `.local/dev-db/`. Esses recursos são separados do `compose.yaml` de produto. Use `npm run dev:db:stop` para parar preservando os dados e `npm run dev:db:start` para iniciar somente o DB. Não use `docker compose down -v` se não pretende apagar dados de desenvolvimento. Um `DATABASE_URL` explícito ignora Docker e migrations automáticas; use apenas DB descartável. Ao mudar a porta da API, configure juntos `APP_PORT` e `FASTIFY_DEV_ORIGIN`. Usuários finais usam o instalador da plataforma com imagem pré-compilada; mantenedores compilam localmente com `npm run build` (Compose runtime + `compose.build.yaml`). `npm run build:frontend` compila a exportação frontend independentemente.
+
+Imagens Compose locais usam `IMAGE_TAG=dev` por padrão. Não publique essa tag como artefato de main/release; somente o workflow validado da branch main promove `IMAGE_TAG=main`, enquanto instaladores fixam uma imagem versionada/digest validada.
 
 ```sh
 npm run dev:db:start
@@ -52,6 +55,8 @@ npm run dev
 npm run dev:db:stop
 ```
 
+Para executar o smoke seguro do overlay em Chromium contra a prévia Next ativa, use `npm run test:e2e:overlay:browser-only`. Ele requer Chrome local e intercepta todas as respostas da API do overlay com fixtures no navegador; não grava no PostgreSQL, Twitch, Docker ou OBS. Esta é apenas evidência de navegador/frontend, não aceite de API real nem de OBS/CEF nativo. O comando separado `npm run test:e2e:overlay` continua sendo o cenário conectado ao OBS e pode criar/remover fontes OBS e dados de Compose descartáveis.
+
 ```sh
 npm run lint:api && npm run typecheck:api
 npm run lint:infra && npm run typecheck:infra
@@ -59,7 +64,7 @@ npm run lint:web && npm run typecheck:web
 npm test -- --run tests/unit/<arquivo-de-teste>.test.js
 ```
 
-`npm run build` constrói a imagem implantável do bot com Docker Compose. `npm run build:frontend` constrói a exportação estática Next.js de forma independente. O [workflow CI do GitHub Actions](../../.github/workflows/ci.yml) roda em pull requests e chama os gates compartilhados de qualidade. A publicação de imagem da main e as releases com tag usam workflows separados; consulte o [guia CI/CD](CI-CD.md) para gatilhos, permissões, tags de imagem e recuperação.
+`compose.yaml` contém somente runtime pull-only e é consumido pelo instalador. `npm run build` combina explicitamente esse arquivo com `compose.build.yaml` para gerar a imagem; o CI usa o mesmo par. O [workflow CI do GitHub Actions](../../.github/workflows/ci.yml) roda em pull requests e chama os gates compartilhados de qualidade. A publicação de imagem da main e as releases com tag usam workflows separados; consulte o [guia CI/CD](CI-CD.md) para gatilhos, permissões, tags de imagem e recuperação.
 
 ## Estrutura do projeto
 

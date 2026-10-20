@@ -27,6 +27,7 @@ describe('OBS widget editor payload', () => {
 
   it('rejects unsupported source and font values in the browser before submitting', () => {
     expect(() => buildOverlayWidgetPayload(values({ sourceType: 'unknown' }))).toThrow();
+    expect(() => buildOverlayWidgetPayload(values({ sourceType: 'in_service_viewer_display_name' }))).toThrow();
     expect(() => buildOverlayWidgetPayload(values({ fontFamily: 'url(https://invalid.example)' }))).toThrow();
   });
 });

@@ -18,6 +18,7 @@ import { getQueueConfirmationCopy } from './queue-confirmation-copy.mjs';
 import { canRetryQueueSettingsAfterVersionBump } from './queue-settings-version.mjs';
 import { translateCatalog, translatePluralCatalog } from '../shared/browser/translate-catalog.mjs';
 import { PANEL_PLACEHOLDERS } from './panel-catalog.mjs';
+import { getDefaultQueueCallMessage } from '../shared/queue-call-message.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const optionalLimit = (value) => String(value ?? '').trim() ? Number(value) : null;
@@ -30,7 +31,7 @@ const overlaySourceKeys = {
   account_label: 'panel.widget.source.account', queue_name: 'panel.widget.source.queue_name',
   queue_state: 'panel.widget.source.queue_state', queue_waiting_count: 'panel.widget.source.queue_count',
   called_viewer_display_name: 'panel.widget.source.called_name', called_viewer_position: 'panel.widget.source.called_position',
-  in_service_viewer_display_name: 'panel.widget.source.service_name', fixed_text: 'panel.widget.source.fixed_text',
+  fixed_text: 'panel.widget.source.fixed_text',
 };
 const overlayStyleFields = ['textColor', 'backgroundColor', 'backgroundOpacity', 'fontFamily', 'fontSize', 'fontWeight', 'alignment', 'effect', 'outlineWidth', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY', 'width', 'height', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'overflow'];
 const queueScopedOverlaySources = new Set(['queue_name', 'queue_state', 'queue_waiting_count']);
@@ -386,13 +387,13 @@ function openQueueSettings(queue) {
   form.dataset.baselineSettings = JSON.stringify({
     callTimeoutMin: queue.callTimeoutMin ?? null, callMessage: queue.callMessage ?? '',
     showUidInList: queue.showUidInList === true, showUidInOverlay: queue.showUidInOverlay === true,
-    showUidOnCall: queue.showUidOnCall === true, autoSwitchAccount: queue.autoSwitchAccount === true,
+    showUidOnCall: queue.showUidOnCall === true,
     refundIfRemovedWhileCalled: queue.refundIfRemovedWhileCalled === true, refundOnNoShow: queue.refundOnNoShow === true,
     refundIfViewerLeavesCalled: queue.refundIfViewerLeavesCalled === true,
   });
   form.elements.namedItem('callTimeoutMin').value = queue.callTimeoutMin ?? '';
-  form.elements.namedItem('callMessage').value = queue.callMessage ?? panelText('panel.queue_settings.call_message_default');
-  for (const name of ['showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled']) form.elements.namedItem(name).checked = queue[name] === true;
+  form.elements.namedItem('callMessage').value = queue.callMessage ?? getDefaultQueueCallMessage(panelText, queue.slug);
+  for (const name of ['showUidInList', 'showUidInOverlay', 'showUidOnCall', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled']) form.elements.namedItem(name).checked = queue[name] === true;
   $('#queue-settings-notice').textContent = queue.queueMode === 'channel_points'
     && !['synced', 'synced_manual'].includes(queue.remoteSyncStatus)
     ? panelText(queue.remoteSyncStatus === 'diverged' ? 'panel.queue.onboarding.reward_diverged' : 'panel.queue.onboarding.reward_pending') : '';
@@ -614,7 +615,7 @@ function updateOverlayPreview() {
   const sample = sourceType === 'fixed_text' ? fixedText || panelText('panel.widget.preview_example')
     : sourceType === 'queue_waiting_count' ? panelText('panel.widget.preview.waiting')
       : sourceType === 'queue_state' ? panelText('panel.widget.preview.open') : sourceType === 'account_label' ? panelText('panel.widget.preview.account')
-        : sourceType.includes('called') ? panelText('panel.widget.preview.called') : sourceType.includes('in_service') ? panelText('panel.widget.preview.in_service')
+      : sourceType.includes('called') ? panelText('panel.widget.preview.called')
           : String($('#overlay-queue-field select')?.selectedOptions?.[0]?.textContent ?? panelText('panel.widget.queue_label'));
   preview.textContent = sample;
   const color = String(values.get('textColor') || '#ffffff');
@@ -842,6 +843,8 @@ async function refresh({ quiet = false } = {}) {
 }
 
 async function boot() {
+  document.querySelector('#queue-settings-form [name="autoSwitchAccount"]')?.closest('label')?.remove();
+  document.querySelector('#overlay-editor-form [name="sourceType"] option[value="in_service_viewer_display_name"]')?.remove();
   const session = await request('/api/session'); state.csrfToken = session.csrfToken;
   await refreshLocalizationCatalogs();
   document.addEventListener('click', (event) => {
@@ -930,7 +933,7 @@ async function boot() {
     event.preventDefault(); const form = event.currentTarget; const values = new FormData(form);
     const timeout = String(values.get('callTimeoutMin') ?? '').trim();
     const body = { expectedVersion: Number(values.get('expectedVersion')), callTimeoutMin: timeout ? Number(timeout) : null, callMessage: values.get('callMessage') };
-    for (const name of ['showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled']) body[name] = values.get(name) === 'on';
+    for (const name of ['showUidInList', 'showUidInOverlay', 'showUidOnCall', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled']) body[name] = values.get(name) === 'on';
     try {
       let queue;
       try {
@@ -974,6 +977,7 @@ async function boot() {
   $('#queue-list').addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]'); if (!button) return;
     const { action: actionName, entryId, queueId } = button.dataset;
+    let acceptedFulfillmentTransition = false;
     try {
       if (actionName === 'add-entry') { $('#entry-form [name=queueId]').value = queueId; $('#entry-dialog').showModal(); return; }
       if (actionName === 'edit-settings') {
@@ -1114,11 +1118,17 @@ async function boot() {
         else toast(panelText('panel.queue.clear.done', { count: result.count, refunds: result.refundsRequested }));
         await refresh(); return;
       }
+      let transitionResult = null;
       if (actionName === 'call-next' || actionName === 'call-one') await request(`/api/queues/${queueId}/call`, { method: 'POST', body: JSON.stringify({ count: 1, entryId }) });
       else if (actionName === 'open-queue' || actionName === 'close-queue') await request(`/api/queues/${queueId}/open-state`, { method: 'POST', body: JSON.stringify({ isOpen: actionName === 'open-queue' }) });
-      else await request(`/api/entries/${entryId}/transitions`, { method: 'POST', body: JSON.stringify({ to: actionName, reason: actionName === 'in_progress' ? 'service_started' : actionName === 'completed' ? 'service_completed' : 'operator_removed' }) });
+      else transitionResult = await request(`/api/entries/${entryId}/transitions`, { method: 'POST', body: JSON.stringify({ to: actionName, reason: actionName === 'in_progress' ? 'service_started' : actionName === 'completed' ? 'service_completed' : 'operator_removed' }) });
+      acceptedFulfillmentTransition = transitionResult?.financialDecision === 'request_fulfill';
       await refresh();
-    } catch (error) { toast(panelError(error), 'error'); }
+      if (transitionResult?.financialDecision === 'request_fulfill') toast(panelText('panel.queue.entry_action_result.fulfillment_pending'), 'warning');
+    } catch (error) {
+      if (acceptedFulfillmentTransition) toast(panelText('panel.queue.entry_action_result.fulfillment_refresh_failed'), 'warning');
+      else toast(panelError(error), 'error');
+    }
   });
   $('#entry-form').addEventListener('submit', async (event) => {
     event.preventDefault(); const values = new FormData(event.currentTarget);

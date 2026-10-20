@@ -12,11 +12,12 @@ export function createOverlayProjectionService({ overlayRepository, queueReposit
       if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43,}$/.test(token)) return null;
       const capabilityHash = createHash('sha256').update(token, 'utf8').digest('hex');
       const projection = await overlayRepository.projectWithActiveCapability(capabilityHash, async (widget, tx) => {
-        const value = widget.sourceType === 'fixed_text'
+        const sourceType = widget.sourceType === 'in_service_viewer_display_name' ? 'account_label' : widget.sourceType;
+        const value = sourceType === 'fixed_text'
           ? widget.fixedText
-          : await queueRepository.getOverlaySourceValue({ sourceType: widget.sourceType, queueId: widget.queueId, tx });
+          : await queueRepository.getOverlaySourceValue({ sourceType, queueId: widget.queueId, tx });
         return {
-          sourceType: widget.sourceType,
+          sourceType,
           value: typeof value === 'string' || typeof value === 'number' ? value : null,
           fallbackText: widget.fallbackText,
           style: widget.style,

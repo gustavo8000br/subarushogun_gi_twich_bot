@@ -2,27 +2,28 @@ import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { chmod, copyFile, mkdir, mkdtemp, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
-import { basename, delimiter, dirname, join } from 'node:path';
+import { basename, delimiter, dirname, join, win32 } from 'node:path';
 import { promisify } from 'node:util';
 
 const executeFile = promisify(execFile);
 
 /** Resolve OpenSSL on Windows installations where Git for Windows provides it off PATH. */
-export function resolveOpenSslCommand(env = process.env, platform = process.platform) {
+export function resolveOpenSslCommand(env = process.env, platform = process.platform, fileExists = existsSync) {
+  const path = platform === 'win32' ? win32 : { join, dirname };
   const executable = platform === 'win32' ? 'openssl.exe' : 'openssl';
   const pathSeparator = platform === 'win32' ? ';' : delimiter;
   const pathEntries = (env.PATH ?? env.Path ?? '').split(pathSeparator).filter(Boolean);
   const gitCandidates = platform === 'win32'
     ? [
-      env.PROGRAMFILES && join(env.PROGRAMFILES, 'Git', 'usr', 'bin', executable),
-      env['PROGRAMFILES(X86)'] && join(env['PROGRAMFILES(X86)'], 'Git', 'usr', 'bin', executable),
-      ...pathEntries.filter((entry) => /\\Git\\cmd$/i.test(entry)).map((entry) => join(dirname(entry), 'usr', 'bin', executable)),
+      env.PROGRAMFILES && path.join(env.PROGRAMFILES, 'Git', 'usr', 'bin', executable),
+      env['PROGRAMFILES(X86)'] && path.join(env['PROGRAMFILES(X86)'], 'Git', 'usr', 'bin', executable),
+      ...pathEntries.filter((entry) => /\\Git\\cmd$/i.test(entry)).map((entry) => path.join(path.dirname(entry), 'usr', 'bin', executable)),
     ].filter(Boolean)
     : [];
 
-  for (const candidate of [...pathEntries.map((entry) => join(entry, executable)), ...gitCandidates]) {
+  for (const candidate of [...pathEntries.map((entry) => path.join(entry, executable)), ...gitCandidates]) {
     try {
-      if (existsSync(candidate)) return candidate;
+      if (fileExists(candidate)) return candidate;
     } catch {
       // Ignore inaccessible PATH entries and continue to the other candidates.
     }

@@ -13,6 +13,11 @@
 
 ### Alterado
 
+- A inicialização de desenvolvimento agora verifica Node.js, dependências e Docker antes de provisionar o banco isolado; o usuário final continua pelo instalador da plataforma com imagem pré-compilada.
+- Chamadas de fila agora tornam o viewer chamado a conta atual automaticamente. O OBS oferece uma única fonte de identidade do jogador, `Conta atual`; widgets antigos de atendimento continuam usando essa mesma fonte.
+- Iniciar o atendimento de um viewer chamado agora solicita imediatamente o fulfillment do resgate de pontos na Twitch. O painel mantém o atendimento ativo e distingue estados pendentes, confirmados e conflitantes da recompensa do encerramento do serviço.
+- Filas novas agora começam com uma mensagem de chamada localizada que inclui o comando de presença correto; ele acompanha o slug sugerido até o streamer editar a mensagem.
+- Callbacks OAuth da Twitch agora retornam à página local estilizada de conexão, que mostra feedback localizado de sucesso ou falha sem expor detalhes do provider nem deixar o painel.
 - A criação de fila preserva as configurações da recompensa ao alternar modos de entrada, acompanha o idioma selecionado para a mensagem de chamada padrão e mostra uma prévia de como ela aparecerá no chat. Modelos inválidos recebem orientações claras e localizadas antes do envio.
 - Entradas diretas nas operações Twitch e nos widgets OBS agora aguardam a sessão local e o snapshot do painel antes de consultar dados protegidos. Filas novas começam com entrada manual local quando a Twitch está desconectada e oferecem um link direto para a configuração da conexão.
 - A visão geral do Next.js agora mostra a saúde da API do bot e das dependências, a conta atual, a contagem exata de operações não resolvidas e a última conciliação desta execução da API; oferece atualização manual e automática enquanto a página está visível e preserva os últimos dados de saúde quando a atualização falha.
@@ -21,6 +26,7 @@
 
 ### Corrigido
 
+- A confirmação final de exclusão local agora identifica a fila no aviso, permitindo que o streamer confira qual fila está removendo.
 - As páginas dos widgets OBS são servidas pelo Next.js em produção e desenvolvimento; o overlay continua consultando dados atuais de conta e fila no bot.
 - Links de widgets OBS agora abrem a página local do overlay durante o desenvolvimento, e links locais criados anteriormente continuam funcionando.
 - Falhas inesperadas nas ações de inclusão manual, atendimento, reenvio de aviso, chamada, reordenação, prioridade e limpeza de fila agora exibem uma referência diagnóstica segura. Se uma chamada puder ter sido aplicada sem uma resposta confiável, os dois controles de chamada ficam bloqueados até uma atualização bem-sucedida da fila; o alerta mantém a referência e oferece nova tentativa da atualização. Uma fila vazia confirmada mantém o resultado “ninguém aguardando”. Confirmações incertas de limpeza continuam exigindo atualização bem-sucedida antes de outra limpeza.

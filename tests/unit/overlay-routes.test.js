@@ -58,6 +58,15 @@ describe('local OBS widget routes', () => {
     await h.app.close();
   });
 
+  it('projects saved legacy in-service widget records as the current-account source', async () => {
+    const h = await makeHarness();
+    h.repository.list.mockResolvedValueOnce([{ id: 'legacy-widget', sourceType: 'in_service_viewer_display_name', style: {}, version: 1 }]);
+    const response = await h.app.inject({ method: 'GET', url: '/api/overlay-widgets', headers: h.sessionHeaders });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()[0]).toMatchObject({ id: 'legacy-widget', sourceType: 'account_label' });
+    await h.app.close();
+  });
+
   it('returns a newly created or regenerated capability URL once, while revoke has no replacement URL', async () => {
     const h = await makeHarness();
     const headers = { ...h.adminHeaders, 'idempotency-key': 'overlay-create-0001' };

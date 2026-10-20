@@ -30,6 +30,22 @@ describe('Twitch redemption processor', () => {
     expect(repository.recordExternalRedemptionState).not.toHaveBeenCalled();
   });
 
+  it('records Twitch fulfillment without ending an in-progress local service', async () => {
+    const entry = { id: 'entry-1', status: 'in_progress', source: 'redemption', redemptionId: 'r-1' };
+    const repository = {
+      findEntryByRedemption: vi.fn(async () => entry),
+      recordExternalRedemptionState: vi.fn(async () => ({ status: 'external_state_recorded', redemptionId: 'r-1' })),
+    };
+    const domainService = { transitionEntry: vi.fn() };
+    const processor = createTwitchRedemptionProcessor({ repository, domainService, broadcasterId: 'channel-1' });
+
+    await expect(processor.onRedemptionUpdate({
+      id: 'r-1', broadcasterId: 'channel-1', rewardId: 'reward-1', userId: 'viewer', status: 'FULFILLED',
+    })).resolves.toMatchObject({ status: 'external_state_recorded' });
+    expect(repository.recordExternalRedemptionState).toHaveBeenCalledOnce();
+    expect(domainService.transitionEntry).not.toHaveBeenCalled();
+  });
+
   it('records terminal-before-add and external changes for rejected/history entries without creating an entry', async () => {
     const repository = {
       findEntryByRedemption: vi.fn(async () => null),

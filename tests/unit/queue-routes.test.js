@@ -8,7 +8,7 @@ import { createClearConfirmationService } from '../../apps/api/src/domain/clear-
 import { registerOverlayRoutes } from '../../apps/api/src/http/overlay-routes.mjs';
 import { createQueueDomainService, createQueueDomainServiceProxy } from '../../apps/api/src/domain/queue-service.mjs';
 
-async function createHarness({ domainService, resolveUser = async () => null, beforeSession = async () => undefined, getSetupCatalogs, reportDiagnostic, logEvent, clearConfirmation: suppliedClearConfirmation, clearConfirmationUnavailable = false, safeErrorHandler = false } = {}) {
+async function createHarness({ domainService, resolveUser = async () => null, beforeSession = async () => undefined, reportDiagnostic, logEvent, clearConfirmation: suppliedClearConfirmation, clearConfirmationUnavailable = false, safeErrorHandler = false } = {}) {
   const app = Fastify();
   if (safeErrorHandler) registerSafeHttpErrorHandler(app, { reportDiagnostic });
   registerLocalSession(app, { port: 3000 });
@@ -38,7 +38,7 @@ async function createHarness({ domainService, resolveUser = async () => null, be
   };
   const integrations = { status: 'not_configured', twitch: null };
   const clearConfirmation = suppliedClearConfirmation ?? (clearConfirmationUnavailable ? null : createClearConfirmationService({ repository }));
-  registerQueueRoutes(app, { repository, domainService, integrations, clearConfirmation, resolveUser, getSetupCatalogs, reportDiagnostic, logEvent, publicBaseUrl: 'https://localhost:3000', productVersion: 'v0.1.0-1234567-alpha' });
+  registerQueueRoutes(app, { repository, domainService, integrations, clearConfirmation, resolveUser, reportDiagnostic, logEvent, publicBaseUrl: 'https://localhost:3000', productVersion: 'v0.1.0-1234567-alpha' });
   await beforeSession({ app, repository });
   const inject = app.inject.bind(app);
   const rawInject = app.inject.bind(app);
@@ -288,62 +288,50 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
-  it('renders an on-brand OAuth callback confirmation with a 30-second return to the panel', async () => {
+  it('completes OAuth and redirects to the frontend with only a safe success status', async () => {
     const h = await createHarness();
     h.integrations.completeAuthorization = vi.fn(async () => ({ displayName: '<Canal>' }));
     const response = await h.app.inject({ method: 'GET', url: '/callback?code=auth-code&state=valid-state', headers: h.sessionHeaders });
-    expect(response.statusCode).toBe(200);
-    expect(response.headers['content-type']).toContain('text/html');
-    expect(response.body).toContain('Fila Local');
-    expect(response.body).toContain('callback-card');
-    expect(response.body).toContain('&lt;Canal&gt;');
-    expect(response.body).toContain('window.setTimeout');
-    expect(response.body).toContain('30000');
-    expect(response.body).toContain("window.history.replaceState(null,'','/callback')");
-    expect(response.body).toContain('href="/"');
-    expect(response.body).not.toContain('auth-code');
+    expect(response.statusCode).toBe(303);
+    expect(response.headers.location).toBe('/connection/?oauth=success');
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.headers['referrer-policy']).toBe('no-referrer');
+    expect(response.body).toBe('');
+    expect(h.integrations.completeAuthorization).toHaveBeenCalledWith({ sessionId: expect.any(String), code: 'auth-code', state: 'valid-state' });
+    expect(response.headers.location).not.toContain('auth-code');
+    expect(response.headers.location).not.toContain('valid-state');
     await h.app.close();
   });
 
-  it('renders the OAuth callback with the selected product locale and escaped channel text', async () => {
-    const catalogs = {
-      en: {
-        'translation.unavailable': 'Product text unavailable.',
-        'setup.callback.success_title': 'Channel connected',
-        'setup.callback.success_message': 'The channel {channel} is authorized for this installation.',
-        'setup.callback.secure': 'Secure connection',
-        'setup.callback.local_installation': 'Local installation',
-        'setup.callback.return_message': 'You can return now. This page returns to the panel in {seconds} seconds.',
-        'setup.callback.return_action': 'Return to panel',
-        'setup.callback.eyebrow_success': 'SETUP COMPLETE',
-      },
-    };
-    const h = await createHarness({ getSetupCatalogs: async () => catalogs });
-    h.repository.getProductLocale.mockResolvedValue({ locale: 'en', revision: 2 });
-    h.integrations.completeAuthorization = vi.fn(async () => ({ displayName: '<Channel>' }));
-    const response = await h.app.inject({ method: 'GET', url: '/callback?code=auth-code&state=valid-state', headers: h.sessionHeaders });
-    expect(response.body).toContain('<html lang="en">');
-    expect(response.body).toContain('Channel connected');
-    expect(response.body).toContain('The channel &lt;Channel&gt; is authorized for this installation.');
-    expect(response.body).toContain('Return to panel');
-    expect(response.body).not.toContain('<Channel>');
-    await h.app.close();
-  });
-
-  it('renders a safe on-brand callback recovery page when Twitch authorization is declined', async () => {
+  it('redirects declined and unexpected OAuth failures using safe status values without HTML or provider details', async () => {
     const h = await createHarness();
+    h.integrations.completeAuthorization = vi.fn(async () => { throw new Error('private provider details'); });
     const response = await h.app.inject({ method: 'GET', url: '/callback?error=access_denied&error_description=secret-data&state=oauth-state', headers: h.sessionHeaders });
-    expect(response.statusCode).toBe(400);
-    expect(response.headers['content-type']).toContain('text/html');
-    expect(response.body).toContain('callback-card');
-    expect(response.body).toContain('Não foi possível conectar a Twitch');
-    expect(response.body).toContain('id="callback-countdown">30');
-    expect(response.body).toContain('window.setTimeout');
-    expect(response.body).toContain('30000');
-    expect(response.body).toContain('href="/"');
-    expect(response.body).toContain("window.history.replaceState(null,'','/callback')");
-    expect(response.body).not.toContain('secret-data');
-    expect(response.body).not.toContain('oauth-state');
+    const invalid = await h.app.inject({ method: 'GET', url: '/callback?code=auth-code', headers: h.sessionHeaders });
+    const failed = await h.app.inject({ method: 'GET', url: '/callback?code=auth-code&state=valid-state', headers: h.sessionHeaders });
+    expect(response.statusCode).toBe(303);
+    expect(response.headers.location).toBe('/connection/?oauth=declined');
+    for (const result of [response, invalid, failed]) {
+      expect(result.statusCode).toBe(303);
+      expect(result.headers['content-type'] ?? '').not.toContain('text/html');
+      expect(result.headers.location).toMatch(/^\/connection\/\?oauth=(declined|error)$/);
+      expect(result.headers.location).not.toMatch(/secret-data|oauth-state|auth-code|valid-state|private provider details/);
+      expect(result.body).toBe('');
+    }
+    await h.app.close();
+  });
+
+  it('redirects a callback without a local session to a safe frontend error state', async () => {
+    const h = await createHarness();
+    h.integrations.completeAuthorization = vi.fn();
+    const response = await h.app.inject({
+      method: 'GET', url: '/callback?code=auth-code&state=valid-state',
+      headers: { host: 'localhost:3000', origin: 'https://localhost:3000' },
+    });
+    expect(response.statusCode).toBe(303);
+    expect(response.headers.location).toBe('/connection/?oauth=error');
+    expect(response.body).toBe('');
+    expect(h.integrations.completeAuthorization).not.toHaveBeenCalled();
     await h.app.close();
   });
 

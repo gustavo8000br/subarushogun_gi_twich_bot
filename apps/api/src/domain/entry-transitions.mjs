@@ -21,9 +21,9 @@ function shouldRequestCancellation({ from, source, origin, to, policy = {} }) {
   return policy.refundIfRemovedWhileCalled === true;
 }
 
-/** @param {Pick<TransitionInput, 'source'|'to'>} input */
-function shouldRequestFulfillment({ source, to }) {
-  return source === 'redemption' && to === 'completed';
+/** @param {Pick<TransitionInput, 'from'|'source'|'to'>} input */
+function shouldRequestFulfillment({ from, source, to }) {
+  return source === 'redemption' && (to === 'completed' || (from === 'called' && to === 'in_progress'));
 }
 
 /** @param {Pick<TransitionInput, 'source'|'to'|'policy'>} input */
@@ -50,7 +50,7 @@ export function decideEntryTransition(input) {
       || shouldRequestCancellation({ from, source, origin, to, policy: policySnapshot })
       || shouldRequestNoShowCancellation({ source, to, policy: policySnapshot }))) {
     financialDecision = 'request_cancel';
-  } else if (origin !== 'external' && shouldRequestFulfillment({ source, to })) {
+  } else if (origin !== 'external' && shouldRequestFulfillment({ from, source, to })) {
     financialDecision = 'request_fulfill';
   }
 

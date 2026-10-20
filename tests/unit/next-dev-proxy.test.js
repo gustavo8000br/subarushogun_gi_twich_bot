@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildDevProxyRules, buildProductionProxyRules, resolveFastifyDevOrigin, trustLocalDevelopmentCa } from '../../apps/frontend/scripts/dev-proxy-config.mjs';
+import { buildNextConfig } from '../../apps/frontend/scripts/next-runtime-config.mjs';
 
 let temporaryDirectory;
 afterEach(async () => {
@@ -35,10 +36,18 @@ describe('Next local development API proxy', () => {
         { source: '/overlay/api/:path*', destination: 'https://localhost:3199/overlay/api/:path*' },
         { source: '/health', destination: 'https://localhost:3199/health' },
         { source: '/callback', destination: 'https://localhost:3199/callback' },
-        ...['/', '/queues/:path*', '/new-queue/:path*', '/operations/:path*', '/connection/:path*', '/commands/:path*', '/widgets/:path*', '/settings/:path*', '/styles.css', '/app.js']
+        ...['/', '/queues/:path*', '/new-queue/:path*', '/operations/:path*', '/commands/:path*', '/widgets/:path*', '/settings/:path*', '/styles.css', '/app.js']
           .map((source) => ({ source, destination: `https://localhost:3199${source}` })),
       ], afterFiles: [{ source: '/overlay.html', destination: '/overlay' }], fallback: [],
     });
+  });
+
+  it('keeps the OAuth result page owned by Next in production while Fastify owns only the callback endpoint', async () => {
+    const config = buildNextConfig({ NODE_ENV: 'production', API_PORT: '3199' });
+    const rewrites = await config.rewrites();
+    expect(rewrites.beforeFiles).toContainEqual({ source: '/callback', destination: 'https://localhost:3199/callback' });
+    expect(rewrites.beforeFiles.some(({ source }) => source === '/connection/:path*')).toBe(false);
+    expect(rewrites.beforeFiles.some(({ source }) => source === '/')).toBe(true);
   });
 
   it('rejects non-loopback or non-HTTPS production API proxy targets', () => {

@@ -13,6 +13,11 @@
 
 ### Changed
 
+- Development startup now checks Node.js, project dependencies, and managed Docker prerequisites before provisioning its isolated database; end-user setup remains on the platform installer with a prebuilt image.
+- Queue calls now make the called viewer the current account automatically. OBS offers one player identity source, `Current account`; previously saved in-service widgets continue through that same source.
+- Starting service for a called Channel Points viewer now queues Twitch redemption fulfillment immediately. The panel keeps the service active and distinguishes pending, confirmed, and conflicting Twitch reward status from service completion.
+- New queues now start with a localized call message that includes the queue's working presence command; the command updates with the suggested slug until the streamer edits the message.
+- Twitch OAuth callbacks now return to the styled local connection page, which shows localized success or failure feedback without exposing provider details or leaving the panel.
 - Queue creation now preserves reward settings when switching entry modes, follows the selected language for its default call message, and previews the message as it will appear in chat. Invalid message templates receive clear, localized feedback before submission.
 - Direct visits to Twitch operations and OBS widgets now wait for the local session and panel snapshot before requesting protected data. New queues default to local manual entry while Twitch is disconnected and link directly to connection setup.
 - The Next.js overview now shows bot/API and dependency health, the current account, an exact unresolved-operation total, and the last reconciliation in the current API run; it offers manual and automatic refresh while the page is visible and preserves the last health data when a refresh fails.
@@ -21,6 +26,7 @@
 
 ### Fixed
 
+- The final local queue deletion confirmation now includes the queue title in the warning, so streamers can verify which queue they are removing.
 - OBS widget pages are served by Next.js in production and development; the overlay continues to read live account and queue data from the bot.
 - OBS widget links now open on the local overlay page during development, and previously created local links remain usable.
 - Unexpected failures in manual entry, attendance, notification resend, call, queue reorder, priority, and queue-clear actions now expose a safe diagnostic reference. If a call may have been applied without a reliable response, both call controls stay blocked until a successful queue refresh; the alert keeps its reference and offers a retryable refresh. A confirmed empty queue keeps its “no viewers waiting” result. Uncertain clear confirmations still require a successful refresh before another clear.

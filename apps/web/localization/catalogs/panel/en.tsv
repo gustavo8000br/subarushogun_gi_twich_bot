@@ -161,7 +161,6 @@ panel.queue_settings.call_placeholders	Accepted fields: {user}, {queue}, {positi
 panel.queue_settings.show_uid_list	Show UID in chat list
 panel.queue_settings.show_uid_overlay	Allow UID in overlay projection
 panel.queue_settings.show_uid_call	Show UID in call message
-panel.queue_settings.auto_switch_account	Switch account automatically when calling someone
 panel.queue_settings.refund_removed	Request a refund when removing a called or in-service person
 panel.queue_settings.refund_no_show	Request a refund after a no-show
 panel.queue_settings.refund_viewer_leave	Request a refund if a called viewer leaves
@@ -200,6 +199,9 @@ panel.connection.connect_channel	Connect channel
 panel.connection.confidential_app_help	Create a confidential app in the Twitch console. This panel callback URL is:
 panel.connection.open_console	Open developer console ↗
 panel.connection.connect	Connect to Twitch
+panel.connection.oauth_declined	Twitch authorization was declined. You are still in the panel.
+panel.connection.oauth_error	Twitch could not be connected. You are still in the panel.
+panel.connection.oauth_success	Twitch connected successfully.
 panel.connection.credentials_required	Validate and save your app credentials before connecting the channel.
 panel.connection.authorized_eyebrow	AUTHORIZED CHANNEL
 panel.connection.connected_fallback	Channel connected
@@ -291,6 +293,8 @@ panel.queue.creation_result.uncertain	The result could not be confirmed. Do not 
 panel.queue.creation_result.key_conflict	That command or one of its aliases is already in use. Choose another and try again.
 panel.queue.entry_action_result.saved	The service action was recorded in the panel.
 panel.queue.entry_action_result.refresh_failed	The action was recorded, but the queue could not refresh. Reload the page to see its current state.
+panel.queue.entry_action_result.fulfillment_pending	Service started. The Twitch reward is being confirmed; this panel will show its confirmed or unresolved status.
+panel.queue.entry_action_result.fulfillment_refresh_failed	Service started and Twitch confirmation was queued, but the queue could not refresh. Reload the panel to check the latest status.
 panel.queue.action.resolve_reward	Link reward
 panel.queue.action_blocked.reward_unresolved	Queue controls are paused until you link and confirm a Twitch reward. Use “Link reward” to continue.
 panel.queue.action_blocked.reward_creation_pending	Queue controls will be available after Twitch confirms reward creation.
@@ -360,7 +364,6 @@ panel.widget.source.queue_state	Whether a queue is open or closed
 panel.widget.source.queue_count	Number waiting in a queue
 panel.widget.source.called_name	Called person
 panel.widget.source.called_position	Called person’s original position
-panel.widget.source.service_name	Person in service
 panel.widget.source.fixed_text	Fixed text
 panel.widget.source.unknown	Widget
 panel.widget.status.unavailable	Widget unavailable
@@ -386,7 +389,6 @@ panel.widget.preview_example	Widget example
 panel.widget.preview.waiting	4 waiting
 panel.widget.preview.open	Open
 panel.widget.preview.called	Viewer called
-panel.widget.preview.in_service	Viewer in service
 panel.widget.fixed_text_label	Fixed text
 panel.widget.text_color	Text color
 panel.widget.background_color	Background color
@@ -501,7 +503,7 @@ panel.priority.removed	Priority removed.
 panel.queue.action.archive_local_anyway	Delete from panel anyway
 panel.queue.action.archive_local_review	Continue to final deletion confirmation
 panel.queue.confirm.archive_local_uncertain_first	This will remove the queue from this app only; it will not delete the Twitch reward. The reward may still exist, and active entries and financial records will be preserved. The current Twitch sync status will be retained as historical and unverified; it does not mean an operation is still running. Continue to review the final deletion confirmation?
-panel.queue.confirm.archive_local_uncertain_final	Final confirmation: delete this queue from this panel anyway? This removes only the local queue; it will not delete the Twitch reward, which may still exist and receive redemptions. The queue history and financial records will be preserved. The remote sync status will remain historical and unverified, not an indication that sync is still running.
+panel.queue.confirm.archive_local_uncertain_final	Final confirmation: delete queue “{title}” from this panel anyway? This removes only the local queue; it will not delete the Twitch reward, which may still exist and receive redemptions. The queue history and financial records will be preserved. The remote sync status will remain historical and unverified, not an indication that sync is still running.
 panel.queue.archive_local.done	Queue removed from the panel. Twitch reward status and history were preserved.
 panel.queue.archive_local.processing	A Twitch reward operation is still processing. Wait for it to finish, then retry removing the queue from the panel.
 panel.queue.archive_local.expired	The confirmation expired. Start both deletion confirmation steps again.
@@ -633,7 +635,7 @@ panel.error.reward_not_ready	This queue reward is not confirmed yet. Refresh the
 panel.widget.preview.account	Asia 1
 panel.widget.card_details	{queue}{width} × {height} · Widget {id}
 panel.widget.auto	auto
-panel.queue_settings.call_message_default	{user}, it’s your turn!
+panel.queue_settings.call_message_default	{user}, it’s your turn! Use {command} to confirm your presence.
 panel.command.follower_scope_lost	Follower access is configured, but Twitch follower permission is unavailable. Reauthorize to restore it.
 panel.command.follower_reauthorize	Reauthorize follower access
 panel.commands.revision	Catalog revision {version}

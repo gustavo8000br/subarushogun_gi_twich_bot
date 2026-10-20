@@ -81,7 +81,7 @@ describe('single-file lifecycle installer', () => {
         expect(composeText).toContain('operational_secrets');
         const compose = load(composeText);
         expect(Object.values(compose.services).every((service) => !service.build)).toBe(true);
-        expect(compose.services.bot.image).toContain('${IMAGE_TAG:-main}');
+        expect(compose.services.bot.image).toContain('${IMAGE_TAG:-dev}');
         expect(composeText).not.toContain('./apps/');
       }
       const encodedCompose = platform === 'windows'

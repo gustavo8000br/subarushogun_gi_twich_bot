@@ -28,7 +28,6 @@ const SOURCE_SAMPLE_KEYS = Object.freeze({
   account_label: 'panel.widget.preview.account', queue_name: 'panel.widget.preview.queue',
   queue_state: 'panel.widget.preview.open', queue_waiting_count: 'panel.widget.preview.waiting',
   called_viewer_display_name: 'panel.widget.preview.called', called_viewer_position: 'panel.widget.preview.position',
-  in_service_viewer_display_name: 'panel.widget.preview.in_service',
 });
 
 function styleFromForm(values) {
