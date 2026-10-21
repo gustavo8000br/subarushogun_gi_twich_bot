@@ -1044,11 +1044,14 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         if (queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be edited');
         if (queue.version !== expectedVersion) throw repositoryError('STALE_QUEUE_VERSION', 'Queue changed since it was loaded');
         const updated = await tx.queue.update({ where: { id: queueId }, data: { ...settings, version: { increment: 1 } } });
+        const aliases = await tx.queueKey.findMany({
+          where: { queueId, keyType: 'alias' }, orderBy: { key: 'asc' }, select: { key: true },
+        });
         await tx.auditLog.create({ data: {
           queueId, event: 'queue.settings_updated', actorId, origin,
           safeDetail: { updatedFields: Object.keys(settings).sort(), uidMode: updated.uidMode },
         } });
-        return updated;
+        return { ...updated, aliases: aliases.map(({ key }) => key) };
       });
     },
 
@@ -1441,7 +1444,10 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           await tx.queueKey.createMany({
             data: normalizedKeys.keys.map(({ key, keyType }) => ({ key, keyType, queueId: queue.id })),
           });
-          return queue;
+          return {
+            ...queue,
+            aliases: normalizedKeys.keys.filter(({ keyType }) => keyType === 'alias').map(({ key }) => key),
+          };
         });
       } catch (error) {
         if (isUniqueConstraintError(error)) {
@@ -1478,7 +1484,10 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
             reason: 'local_queue_created',
             safeDetail: { rewardLinked: false },
           } });
-          return queue;
+          return {
+            ...queue,
+            aliases: normalizedKeys.keys.filter(({ keyType }) => keyType === 'alias').map(({ key }) => key),
+          };
         });
       } catch (error) {
         if (isUniqueConstraintError(error)) {
@@ -1533,7 +1542,13 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
               safeDetail: { remoteSyncStatus: 'pending_create' },
             },
           });
-          return { queue, status: 'pending' };
+          return {
+            queue: {
+              ...queue,
+              aliases: normalizedKeys.keys.filter(({ keyType }) => keyType === 'alias').map(({ key }) => key),
+            },
+            status: 'pending',
+          };
         });
       } catch (error) {
         if (isUniqueConstraintError(error)) {

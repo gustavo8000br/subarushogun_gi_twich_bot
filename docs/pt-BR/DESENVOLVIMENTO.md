@@ -57,6 +57,8 @@ npm run dev:db:stop
 
 Para executar o smoke seguro do overlay em Chromium contra a prévia Next ativa, use `npm run test:e2e:overlay:browser-only`. Ele requer Chrome local e intercepta todas as respostas da API do overlay com fixtures no navegador; não grava no PostgreSQL, Twitch, Docker ou OBS. Esta é apenas evidência de navegador/frontend, não aceite de API real nem de OBS/CEF nativo. O comando separado `npm run test:e2e:overlay` continua sendo o cenário conectado ao OBS e pode criar/remover fontes OBS e dados de Compose descartáveis.
 
+Para executar o smoke Chromium QRA-23 do cancelamento de exclusão de fila, use `npm run test:e2e:queue-lifecycle:browser-only` contra a prévia Next local ativa. Ele intercepta respostas da API do painel e verifica o conflito em processamento, o alerta localizado acessível, a referência diagnóstica segura e os headers same-origin CSRF/idempotência. Não grava na API/banco do produto nem na Twitch e não é evidência de operação persistida.
+
 ```sh
 npm run lint:api && npm run typecheck:api
 npm run lint:infra && npm run typecheck:infra

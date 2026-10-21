@@ -2262,7 +2262,9 @@ describe('PostgreSQL queue repository', () => {
   });
 
   it('updates operator queue settings without changing Twitch reward privacy', async () => {
-    const queue = await repository.createQueue({ slug: `settings-${randomUUID().slice(0, 8)}`, title: 'Settings', cost: 1, uidMode: 'visible', showUidOnCall: true });
+    const slug = `settings-${randomUUID().slice(0, 8)}`;
+    const alias = `${slug}-alt`;
+    const queue = await repository.createQueue({ slug, aliases: [alias], title: 'Settings', cost: 1, uidMode: 'visible', showUidOnCall: true });
     const entry = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `settings-user-${randomUUID()}`, userLogin: 'settings_user', displayName: 'Settings User', uid: '123456789' });
     const notification = await prisma.outbox.create({ data: {
       operationType: 'chat.call', entityType: 'entry', entityId: entry.entry.id,
@@ -2275,7 +2277,7 @@ describe('PostgreSQL queue repository', () => {
       settings: { callTimeoutMin: null, showUidOnCall: true, autoSwitchAccount: true },
     });
 
-    expect(updated).toMatchObject({ version: 2, callTimeoutMin: null, uidMode: 'visible', showUidOnCall: true, autoSwitchAccount: true });
+    expect(updated).toMatchObject({ aliases: [alias], version: 2, callTimeoutMin: null, uidMode: 'visible', showUidOnCall: true, autoSwitchAccount: true });
     expect(await prisma.entry.findUnique({ where: { id: entry.entry.id } })).toMatchObject({ uid: '123456789' });
     expect(await prisma.outbox.findUnique({ where: { id: notification.id } })).toMatchObject({ status: 'pending', payload: { text: '123456789' } });
     expect(await prisma.auditLog.findFirst({ where: { queueId: queue.id, event: 'queue.settings_updated' } }))

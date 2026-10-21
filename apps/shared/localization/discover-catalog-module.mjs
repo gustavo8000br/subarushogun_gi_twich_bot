@@ -42,6 +42,7 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'panel.entry.action.complete_aria': Object.freeze(['user']),
     'panel.entry.action.resend_aria': Object.freeze(['user']),
     'panel.entry.action.remove_aria': Object.freeze(['user']),
+    'panel.entry.add.refresh_failed': Object.freeze(['user', 'position']),
     'panel.queue_settings.call_message_default': Object.freeze(['user', 'command']),
     'panel.operation.attempts': Object.freeze(['count']),
     'panel.reconciliation.complete': Object.freeze(['count']),

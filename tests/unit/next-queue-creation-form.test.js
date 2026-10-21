@@ -52,8 +52,10 @@ const t = (key, options = {}) => {
   'panel.form.mode_manual_hint': 'Entrada local',
   'panel.form.twitch_setup_required': 'Conecte a Twitch para configurar recompensas. A fila manual funciona sem conexão.',
   'panel.form.cancel': 'Cancelar',
+  'panel.queue.creation_result.uncertain': 'Não foi possível confirmar se a fila foi criada. Verifique Filas e atendimentos antes de tentar novamente.',
+  'panel.error.reference': 'Referência: {id}',
   };
-  return (catalog[key] ?? key).replace(/\{(user|command)\}/g, (match, name) => options.values?.[name] ?? match);
+  return (catalog[key] ?? key).replace(/\{(user|command|id)\}/g, (match, name) => options.values?.[name] ?? match);
 };
 
 afterEach(cleanup);
@@ -189,5 +191,19 @@ describe('Next queue creation form', () => {
       onCreate: async () => false,
     }));
     expect(markup).toContain('Referência: safe-ref-1');
+  });
+
+  it('keeps uncertain creation guidance localized and renders the diagnostic reference separately', () => {
+    const markup = renderToStaticMarkup(React.createElement(NewQueueForm, {
+      t,
+      saving: false,
+      feedback: { status: 'uncertain', key: 'panel.queue.creation_result.uncertain', referenceId: 'safe-ref-1' },
+      onCreate: async () => false,
+    }));
+
+    expect(markup).toContain('Não foi possível confirmar se a fila foi criada. Verifique Filas e atendimentos antes de tentar novamente.');
+    expect(markup).toContain('Referência: safe-ref-1');
+    expect(markup).not.toContain('Texto do produto indisponível.');
+    expect(markup).not.toContain('Product text unavailable.');
   });
 });

@@ -125,6 +125,7 @@ panel.widget.appearance	Appearance
 panel.widget.save	Save widget
 panel.entry.add	Add to queue
 panel.entry.added	Viewer added to the queue.
+panel.entry.add.refresh_failed	The API accepted {user} at position {position}, but the queue list could not refresh. Refresh before retrying.
 panel.entry.error.invalid	Check the Twitch login, UID and verified benefit fields.
 panel.entry.error.unavailable	The entry could not be added. Refresh the panel and try again.
 panel.entry.error.failed	The viewer could not be added. Refresh the panel and check the queue and login.
@@ -496,6 +497,7 @@ panel.notice.queue_created	Queue saved. Twitch reward creation is pending; follo
 panel.notice.queue_settings_saved	Queue settings saved.
 panel.queue.settings_result.refresh_failed	Settings were saved, but the queue list could not refresh. Reload the page to verify the current values.
 panel.notice.reward_update_pending	Change requested. The queue will show a pending sync until Twitch confirms it.
+panel.reward.settings_refresh_failed	The reward update was accepted, but the queue could not refresh. Accepted settings are shown; refresh to verify its Twitch status.
 panel.notice.call_already_queued	The call is already waiting to be sent.
 panel.notice.call_resent	Call resend requested. The no-show deadline was preserved.
 panel.priority.marked	Priority was recorded and audited. The operator verified the benefit.
@@ -518,6 +520,9 @@ panel.queue.delete.cancel.already_deleted	Twitch has already confirmed that the 
 panel.queue.delete.cancel.reward_absent	Cancellation was not confirmed because Twitch no longer reports this reward. The queue remains in deletion recovery.
 panel.queue.delete.cancel.reward_diverged	Cancellation was not confirmed because the Twitch reward does not match the paused queue configuration. The queue remains in deletion recovery.
 panel.queue.delete.cancel.unverified	Twitch could not confirm the reward state, so deletion was not cancelled. The queue remains in recovery; retry cancellation later.
+panel.queue.delete.cancel.stale	The deletion state changed before cancellation could be confirmed. Refresh the panel and review the current queue state before retrying.
+panel.queue.delete.cancel.processing	A Twitch reward operation is still processing, so deletion was not cancelled. Wait for it to finish, then refresh and review the queue before retrying.
+panel.queue.delete.cancel.uncertain	We could not confirm whether cancellation completed. Refresh the panel and review the queue's deletion status before trying again.
 panel.queue.confirm.delete_local	Delete local queue “{title}”? {count} active entries will be removed. This queue has no linked Twitch reward or redemption.
 panel.queue.confirm.delete_converted	Delete manual queue “{title}”? {count} active entries will be removed. Deletion will remain pending until all known redemptions, Twitch synchronization requests, and related points refunds are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.
 panel.queue.confirm.retry_delete_converted	Check whether all known pending redemptions, Twitch sync requests, and related points refunds are confirmed. If they are, the local queue will be deleted. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.

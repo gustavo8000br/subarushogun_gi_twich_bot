@@ -218,6 +218,23 @@ describe('Next queue entry actions', () => {
     });
   });
 
+  it.each([
+    ['move-up', { entryId: 'entry-1', position: 1 }, { status: 'moved', entryId: 'entry-1', position: 1 }],
+    ['toggle-priority', { entryId: 'entry-1', priority: true, reason: 'bits' }, { status: 'updated', priorityClass: 'priority' }],
+  ])('retains the accepted %s result when reloading the queue projection fails', async (action, actionOptions, result) => {
+    const request = vi.fn().mockResolvedValueOnce(result).mockRejectedValueOnce(new Error('temporary read failure'));
+    await expect(performQueueEntryActionWithRefresh({ request, queueId: 'queue-1', action, ...actionOptions }))
+      .resolves.toEqual({ result, queues: null, refreshFailed: true });
+    expect(request).toHaveBeenNthCalledWith(2, '/api/queues');
+    expect(getQueueEntryActionFeedback({ action, result, refreshFailed: true, priority: actionOptions.priority }))
+      .toEqual({ status: 'warning', key: 'panel.queue.entry_action_result.refresh_failed' });
+  });
+
+  it.each(['move-up', 'toggle-priority'])('keeps a rejected %s mutation distinct from a refresh failure', (action) => {
+    expect(getQueueEntryActionFailureFeedback({ status: 409, code: 'QUEUE_ENTRY_NOT_WAITING' }, { action }))
+      .toEqual({ status: 'error', key: 'panel.queue.action_result.failed' });
+  });
+
   it('records and removes priority using the existing audited policy endpoint', async () => {
     const request = vi.fn().mockResolvedValue({ status: 'updated', priorityClass: 'priority' });
     await performQueueEntryAction({ request, queueId: 'queue-1', entryId: 'entry-1', action: 'toggle-priority', priority: true, reason: 'bits' });

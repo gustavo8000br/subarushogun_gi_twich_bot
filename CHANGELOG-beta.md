@@ -10,6 +10,7 @@
 - The Next.js chat commands page now lets streamers change the minimum audience for configurable commands. New and implicit policies default to followers; explicit saved policies remain intact, and fixed moderator/streamer commands stay read-only.
 - Streamers can cancel a pending reward-backed queue deletion after the app verifies that the exact managed Twitch reward still exists and is paused. The queue and financial history remain recoverable, and a later deletion safely resumes the same intent.
 - The operations page now distinguishes Twitch synchronization from Channel Points refunds to viewers and redemption fulfillment.
+- When Twitch reward deletion cannot be confirmed, streamers can explicitly archive the local queue through a separate confirmation flow; a restored queue stays paused until the streamer activates it.
 
 ### Changed
 
@@ -23,6 +24,7 @@
 - The Next.js overview now shows bot/API and dependency health, the current account, an exact unresolved-operation total, and the last reconciliation in the current API run; it offers manual and automatic refresh while the page is visible and preserves the last health data when a refresh fails.
 - The Next.js overview distinguishes service health with green for functional, yellow for partial/in-progress/unknown, and red for unavailable or unconfigured states, with an explicit localized legend. Narrow screens stack the reconciliation detail below the health heading, and mobile navigation uses a thin purple scrollbar to signal horizontal scrolling.
 - The Next.js local panel now identifies the connected Twitch channel and clearly distinguishes an unsaved application secret. Language changes verify the API response and reconcile from persisted state after an uncertain response.
+- Development API listeners now bind to loopback by default instead of exposing the local API on every network interface.
 
 ### Fixed
 
@@ -31,6 +33,8 @@
 - OBS widget links now open on the local overlay page during development, and previously created local links remain usable.
 - Unexpected failures in manual entry, attendance, notification resend, call, queue reorder, priority, and queue-clear actions now expose a safe diagnostic reference. If a call may have been applied without a reliable response, both call controls stay blocked until a successful queue refresh; the alert keeps its reference and offers a retryable refresh. A confirmed empty queue keeps its “no viewers waiting” result. Uncertain clear confirmations still require a successful refresh before another clear.
 - Local deletion confirmation stays blocked while cancellation is being verified, preserving a safe way to resume the operation.
+- Accepted queue creation, settings, and manual-entry changes remain visible when the follow-up list refresh fails; the panel offers a read-only retry instead of implying rejection or repeating the mutation.
+- Archive and unarchive success feedback remains visible after the affected queue leaves the current list, and resend feedback distinguishes an already-queued chat notice without claiming delivery.
 
 ## v0.1.2-beta
 

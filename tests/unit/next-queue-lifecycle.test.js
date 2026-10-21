@@ -1,7 +1,31 @@
 import { describe, expect, it, vi } from 'vitest';
-import { isQueueLifecycleActionAvailable, performQueueLifecycleAction } from '../../apps/frontend/features/queues/queue-lifecycle.mjs';
+import { getQueueLifecycleFailureFeedback, isQueueLifecycleActionAvailable, performQueueLifecycleAction } from '../../apps/frontend/features/queues/queue-lifecycle.mjs';
 
 describe('Next queue lifecycle actions', () => {
+  it.each([
+    ['QUEUE_DELETION_NOT_PENDING', 'panel.queue.delete.cancel.stale'],
+    ['QUEUE_DELETION_CANCELLATION_STALE', 'panel.queue.delete.cancel.stale'],
+    ['QUEUE_REWARD_OPERATION_PROCESSING', 'panel.queue.delete.cancel.processing'],
+    ['QUEUE_DELETION_CANCELLATION_UNVERIFIED', 'panel.queue.delete.cancel.unverified'],
+    ['QUEUE_NOT_FOUND', 'panel.error.queue_not_found'],
+  ])('maps the %s deletion-cancel result to exact localized feedback', (code, key) => {
+    expect(getQueueLifecycleFailureFeedback({ code, status: code === 'QUEUE_NOT_FOUND' ? 404 : 409 }, { action: 'cancel-delete' }))
+      .toEqual({ status: 'error', key, uncertain: false });
+  });
+
+  it('keeps transport/server cancellation outcomes explicitly uncertain and exposes only a safe reference', () => {
+    expect(getQueueLifecycleFailureFeedback({ code: 'REQUEST_FAILED', status: 0, referenceId: 'cancel-op_12' }, { action: 'cancel-delete' }))
+      .toEqual({ status: 'error', key: 'panel.queue.delete.cancel.uncertain', uncertain: true, referenceId: 'cancel-op_12' });
+    expect(getQueueLifecycleFailureFeedback({ code: 'INTERNAL_ERROR', status: 503, referenceId: 'private details' }, { action: 'cancel-delete' }))
+      .toEqual({ status: 'error', key: 'panel.queue.delete.cancel.uncertain', uncertain: true });
+    expect(getQueueLifecycleFailureFeedback({ code: 'SESSION_INITIALIZATION_FAILED', status: 0 }, { action: 'cancel-delete' }))
+      .toEqual({ status: 'error', key: 'panel.error.generic', uncertain: false });
+    expect(getQueueLifecycleFailureFeedback({ code: 'constructor', status: 409 }, { action: 'cancel-delete' }))
+      .toEqual({ status: 'error', key: 'panel.error.generic', uncertain: false });
+    expect(getQueueLifecycleFailureFeedback({ code: 'QUEUE_NOT_FOUND' }, { action: 'unarchive' }))
+      .toEqual({ status: 'error', key: 'panel.error.generic', uncertain: false });
+  });
+
   it.each([
     ['delete', { status: 'pending' }, '/api/queues/queue%201/delete', { confirm: true }],
     ['cancel-delete', { status: 'cancelled' }, '/api/queues/queue%201/delete/cancel', { confirm: true }],

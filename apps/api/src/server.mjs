@@ -27,6 +27,7 @@ import { createStructuredLogger } from './observability/structured-logger.mjs';
 import { registerSafeHttpErrorHandler } from './http/safe-http-error-handler.mjs';
 import { createTwitchRouteIntegrationProxy } from './twitch/route-integration-proxy.mjs';
 import { registerDevelopmentOverlayAlias } from './http/dev-overlay-alias.mjs';
+import { resolveApiHost } from './runtime-config.mjs';
 
 const databaseUrl = await createDatabaseUrl();
 const pool = new pg.Pool({ connectionString: databaseUrl });
@@ -147,7 +148,7 @@ process.on('SIGTERM', () => void shutdown());
 process.on('SIGINT', () => void shutdown());
 
 try {
-  await app.listen({ host: process.env.APP_HOST ?? '0.0.0.0', port: apiPort });
+  await app.listen({ host: resolveApiHost(), port: apiPort });
 } catch {
   await shutdown();
   process.stderr.write('Local application server failed to start. Check runtime configuration and database health.\n');

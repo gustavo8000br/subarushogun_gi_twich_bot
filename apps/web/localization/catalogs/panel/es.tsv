@@ -125,6 +125,7 @@ panel.widget.appearance	Apariencia
 panel.widget.save	Guardar widget
 panel.entry.add	Añadir a la cola
 panel.entry.added	Se añadió a la persona a la cola.
+panel.entry.add.refresh_failed	La API aceptó a {user} en la posición {position}, pero no se pudo actualizar la cola. Actualiza antes de volver a intentarlo.
 panel.entry.error.invalid	Comprueba el usuario de Twitch, el UID y el beneficio verificado.
 panel.entry.error.unavailable	No se pudo añadir la entrada. Actualiza el panel e inténtalo de nuevo.
 panel.entry.error.failed	No se pudo añadir a la persona. Actualiza el panel y comprueba la cola y el usuario.
@@ -499,6 +500,7 @@ panel.notice.queue_created	Cola guardada. La creación de la recompensa de Twitc
 panel.notice.queue_settings_saved	Se guardó la configuración de la cola.
 panel.queue.settings_result.refresh_failed	La configuración se guardó, pero no se pudo actualizar la lista. Recarga la página para comprobar los valores actuales.
 panel.notice.reward_update_pending	Cambio solicitado. La cola mostrará la sincronización pendiente hasta que Twitch la confirme.
+panel.reward.settings_refresh_failed	Se aceptó el cambio de recompensa, pero no se pudo actualizar la cola. Se muestran los datos aceptados; actualiza para verificar el estado en Twitch.
 panel.notice.call_already_queued	La llamada ya está en la cola de envío.
 panel.notice.call_resent	Se solicitó reenviar la llamada. Se conservó el plazo de ausencia.
 panel.priority.marked	La prioridad quedó registrada y auditada. El operador verificó el beneficio.
@@ -521,6 +523,9 @@ panel.queue.delete.cancel.already_deleted	Twitch ya confirmó que se eliminó la
 panel.queue.delete.cancel.reward_absent	No se confirmó la cancelación porque Twitch ya no encuentra esta recompensa. La cola permanece en recuperación de eliminación.
 panel.queue.delete.cancel.reward_diverged	No se confirmó la cancelación porque la recompensa de Twitch no coincide con la configuración pausada de la cola. La cola permanece en recuperación de eliminación.
 panel.queue.delete.cancel.unverified	Twitch no pudo confirmar el estado de la recompensa, así que no se canceló la eliminación. La cola permanece en recuperación; vuelve a intentar cancelar más adelante.
+panel.queue.delete.cancel.stale	El estado de la eliminación cambió antes de poder confirmar la cancelación. Actualiza el panel y revisa el estado actual de la cola antes de volver a intentarlo.
+panel.queue.delete.cancel.processing	Una operación de la recompensa de Twitch sigue en curso, por lo que no se canceló la eliminación. Espera a que termine, actualiza el panel y revisa la cola antes de volver a intentarlo.
+panel.queue.delete.cancel.uncertain	No pudimos confirmar si se completó la cancelación. Actualiza el panel y revisa el estado de eliminación de la cola antes de intentarlo de nuevo.
 panel.queue.confirm.delete_local	¿Eliminar la cola local “{title}”? Se quitarán {count} entradas activas. Esta cola no tiene recompensas ni canjes de Twitch vinculados.
 panel.queue.confirm.delete_converted	¿Eliminar la cola manual “{title}”? Se quitarán {count} entradas activas. La eliminación seguirá pendiente hasta confirmar todos los canjes conocidos y la comunicación con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
 panel.queue.confirm.retry_delete_converted	Comprueba si se confirmaron todos los canjes conocidos pendientes y la comunicación con Twitch y las devoluciones de puntos relacionadas. Si es así, se eliminará la cola local. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.

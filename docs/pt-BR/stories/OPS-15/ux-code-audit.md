@@ -1,5 +1,68 @@
 # Auditoria UX do código Next da OPS-15
 
+## Revisão UX focada — reenviar aviso de viewer chamado (QRA-12, 2026-10-20)
+
+- **Necessidade/plano:** para uma entrada já marcada como chamada, manter a ação de reenvio ao lado da pessoa e informar claramente quando a solicitação foi enfileirada; diferenciar enfileiramento de entrega real ao chat, preservar o prazo de ausência e evitar segunda interação de envio ou padrão novo de UI.
+- **Revisão do design existente:** a ação inline localizada “Reenviar chamada” continua junto ao viewer chamado. O feedback na live region diz que o reenvio foi enfileirado e o prazo preservado. Nenhum layout, copy, endpoint ou comportamento de produto foi alterado; este incremento adiciona somente evidência browser.
+- **Validação:** E2E Chromium usou fixtures interceptadas para API same-origin; afirmou um POST, headers CSRF/idempotência, `role="status"`, copy exata queued-não-entregue e prazo inalterado na projeção renderizada. Nenhum worker de chat, Twitch, banco, screenshot, axe ou teste com tecnologia assistiva foi exercitado.
+- **Nota UX delimitada: 9,2/10** somente para o contrato existente da interação/feedback de reenvio. Não é nota geral da página de filas/OPS-15 nem QA independente.
+
+## Revisão UX focada — feedback após arquivar fila localmente (2026-10-20)
+
+- **Necessidade da pessoa usuária:** depois de confirmar em duas etapas o arquivamento somente local de uma fila cujo estado da recompensa Twitch é incerto, o streamer precisa receber confirmação mesmo que a atualização remova o cartão da lista ativa.
+- **Fluxo/design:** o sucesso do ciclo de vida fica no provider compartilhado do painel e é renderizado pelo padrão existente de feedback da página com `role="status"`. Continua independente do cartão e aparece antes dos estados de lista preenchida ou vazia; não cria toast duplicado, diálogo bloqueante, erro bruto nem afirma exclusão na Twitch. Uma nova operação de ciclo de vida limpa a mensagem anterior.
+- **Validação:** Chromium em Compose isolado percorreu challenge/confirmação exatos em Next/Fastify/PostgreSQL, observou o sucesso localizado após a remoção do cartão e recarregou para verificar que o cartão continuava ausente. Regressão de componente cobre lista vazia. Não houve screenshot visual, axe, teste com leitor de tela ou QA independente.
+- **Nota UX delimitada: 9,2/10** somente para o feedback de conclusão do arquivamento: status acessível sobrevive à remoção do conteúdo e comunica apenas a ação local confirmada. Não é nota da página de filas completa nem da OPS-15 geral.
+
+## Planejamento/revisão UX focada — admissão manual aceita com falha ao atualizar (2026-10-20)
+
+- **Problema/necessidade:** depois de a API aceitar uma pessoa numa posição específica, mas falhar a leitura posterior da lista, o streamer precisa ver a entrada e não pode repetir a inclusão porque a lista antiga não a exibia.
+- **Fluxo:** projetar a resposta aceita na fila atual usando ID/status/posição retornados e login informado pelo operador; anunciar que a aceitação é conhecida, mas a atualização da lista falhou; oferecer retry somente GET. Após uma leitura bem-sucedida contendo o ID da entrada, mudar para o aviso normal de adição. Nunca repetir POST durante a recuperação.
+- **Acessibilidade/estados:** feedback usa `role="status"` e placeholders escalares localizados/seguros; botão de atualização tem nome acessível e fica ocupado/desabilitado durante a leitura. E2E afirma que entrada segue visível, falha privada não vaza, contrato 201/requisição exatos, CSRF/idempotência, retry de leitura e somente um POST. Sem axe, leitor de tela ou auditoria visual.
+- **Validação e nota:** nota UX delimitada **9,2/10** somente para este fluxo de recuperação/estado/acessibilidade; não é QA independente, aceite backend ao vivo nem score geral OPS-15.
+
+## Planejamento/revisão UX focada — atualização aceita da reward e falha ao reler (2026-10-20)
+
+- **Problema/necessidade:** uma resposta local 202 bem-sucedida significa que a alteração da reward Twitch está pendente, não confirmada remotamente. Se a leitura posterior da lista falha, mostrar reward antiga como “sincronizada” ou manter o editor disponível pode incentivar mutação duplicada e induzir o streamer ao erro.
+- **Fluxo:** manter localmente o QueueDto aceito, mostrar seu estado `pending_update`, remover controles de edição enquanto não resolvido, anunciar aviso localizado com ação somente de leitura “Atualizar fila” e substituir o aviso por orientação de sincronização pendente somente depois de uma leitura de projeção bem-sucedida.
+- **Acessibilidade/estados:** aviso usa `role="status"` existente; ação de atualização tem nome acessível localizado e estado ocupado/desabilitado; teste verifica ausência de falso sucesso remoto, projeção antiga, mensagem privada do servidor e PATCH duplicado. Revisão code-only/fixture Chromium; sem axe, leitor de tela ou auditoria visual de layout.
+- **Validação e nota:** nota UX delimitada **9,2/10** somente para este fluxo de recuperação/estado/acessibilidade. Não é QA independente, aceite Twitch real, auditoria visual nem score geral OPS-15.
+
+## Planejamento/revisão UX focada — resposta incerta ao criar fila (2026-10-20)
+
+- **Problema/necessidade:** quando a criação da fila retorna falha ambígua do servidor e a leitura subsequente não encontra a fila, o streamer precisa de orientação clara de incerteza, não pode receber informação não comprovada de sucesso/falha e não deve enviar outra criação por acidente.
+- **Fluxo:** manter o rascunho do formulário manual-first; mostrar a mensagem localizada existente de resultado incerto e a referência diagnóstica segura separadamente; oferecer link para conferir as filas; desabilitar novo envio até a pessoa verificar a lista. Nenhum layout ou padrão novo de interação foi introduzido.
+- **Acessibilidade/estados:** `role="status"` existente anuncia o resultado; mensagem e referência ficam separadas; o teste afirma ausência de detalhes privados/sucesso falso e preservação dos campos. Não houve axe, leitor de tela ou avaliação de layout visual.
+- **Validação e nota:** E2E Chromium browser-only com todas as rotas API interceptadas e teste focado de componente. Nota UX delimitada **9,2/10** somente para este fluxo de copy/estado/acessibilidade; não é auditoria visual, QA independente nem score geral OPS-15. Revisão de planejamento/código dentro do escopo, não aceite de backend ao vivo.
+
+## Revisão UX focada — configurações aceitas com falha ao atualizar (2026-10-20)
+
+- **Problema/necessidade:** após o PATCH de configurações locais ser aceito, a leitura posterior da lista pode falhar. O streamer precisa saber que o salvamento foi aceito, sem ser informado que a lista está atualizada nem incentivado a repetir uma mutação já bem-sucedida.
+- **Fluxo proposto:** manter no formulário os valores do DTO versionado aceito, mostrar o aviso localizado existente pedindo que a pessoa recarregue e confira os valores atuais, e não substituí-lo por aviso de sucesso. Nenhuma interface ou copy nova foi introduzida.
+- **Acessibilidade/estados:** o aviso usa o `role="status"` existente; durante o salvamento os controles ficam temporariamente desabilitados, os campos aceitos permanecem visíveis e o texto privado da falha não é exposto. O E2E verifica esses estados no Chromium, sem executar axe ou teste com leitor de tela.
+- **Revisão/método:** revisão code-only do fluxo existente mais E2E Chromium browser-only com todas as rotas API interceptadas. **Nota UX delimitada: 9,2/10** somente para o contrato de feedback salvamento-aceito/atualização-falha; não é auditoria visual, QA independente, nota geral das rotas nem score de conclusão OPS-15. A linha de base UX geral permanece 8,8/10.
+
+## Reavaliação UX browser — configurações e ativação de fila local (2026-10-20)
+
+- **Problema/necessidade:** permitir que a pessoa streamer crie uma fila manual desconectada, ajuste o fluxo de atendimento e a ative sem sugerir que existe ou está sincronizada uma reward Twitch.
+- **Fluxo revisado:** link de sucesso da criação → cartão da fila → disclosure de configurações agrupadas → editar/salvar prazo e mensagem → status acessível de salvamento → ativar fila local → projeção atualizada. Nenhuma interface ou copy mudou nesta fatia.
+- **Método/evidência:** Chromium em Compose isolado semelhante à produção, em 390×844; locators usam nomes/papéis acessíveis; teste afirma ausência de overflow horizontal, requests exatos de configurações/abertura locais, feedback de sucesso e releitura persistida. Nenhum preview/banco ativo nem chamada Twitch foi usado. Não houve axe, leitor de tela, revisão somente por teclado nem auditoria visual por screenshot.
+- **Nota UX delimitada: 9,2/10** para este caminho de criar/configurar/ativar fila desconectada; agrupamento existente, status claro de alteração/salvamento, ações próximas e estado explicitamente local atendem ao limite solicitado de 9+/10. A nota limita-se à rota/viewport testados; não é a página inteira de filas, QA independente nem score geral OPS-15. A linha de base UX geral continua 8,8/10.
+
+## Reavaliação UX browser — configurações e ativação de fila local (2026-10-20)
+
+- **Problema/necessidade:** permitir que a pessoa streamer crie uma fila manual desconectada, ajuste o fluxo de atendimento e a ative sem sugerir que existe ou está sincronizada uma reward Twitch.
+- **Fluxo revisado:** link de sucesso da criação → cartão da fila → disclosure de configurações agrupadas → editar/salvar prazo e mensagem → status acessível de salvamento → ativar fila local → projeção atualizada. Nenhuma interface ou copy mudou nesta fatia.
+- **Método/evidência:** Chromium em Compose isolado semelhante à produção, em 390×844; locators usam nomes/papéis acessíveis; teste afirma ausência de overflow horizontal, requests exatos de configurações/abertura locais, feedback de sucesso e releitura persistida. Nenhum preview/banco ativo nem chamada Twitch foi usado. Não houve axe, leitor de tela, revisão somente por teclado nem auditoria visual por screenshot.
+- **Nota UX delimitada: 9,2/10** para este caminho de criar/configurar/ativar fila desconectada; agrupamento existente, status claro de alteração/salvamento, ações próximas e estado explicitamente local atendem ao limite solicitado de 9+/10. A nota limita-se à rota/viewport testados; não é a página inteira de filas, QA independente nem score geral OPS-15. A linha de base UX geral continua 8,8/10.
+
+## Reavaliação UX no navegador — sessão/origem e Nova fila desconectada (2026-10-20)
+
+- Revisora: `$aiox-ux-design-expert` (Uma), delimitada aos achados anteriores de sessão fria/origem em Operações e Widgets e ao caminho de setup Twitch na Nova fila desconectada.
+- Método: Chromium somente leitura contra o preview Next HTTPS ativo, em pt-BR, nas larguras 390×844, 768×900 e 1440×900. O health da instância reportou integração Twitch degradada; nenhuma credencial/OAuth foi usada. Não houve envio de formulário, mutação de API, chamada Twitch ou escrita no banco.
+- Resultados: Nova fila mostrou entrada manual, aviso próximo de configuração Twitch e link `/connection/`. A entrada direta em Operações e Widgets concluiu a inicialização da sessão/snapshot sem alerta transitório. As três rotas tinham título visível e nenhuma apresentou overflow horizontal nas larguras verificadas; não ocorreram erros JS.
+- **Gate UX focado: PASS; nenhuma nova nota numérica atribuída.** As notas históricas 8,0 das rotas continuam históricas e não foram substituídas silenciosamente por uma reavaliação incompleta. A linha de base geral das oito rotas permanece **8,8/10** até uma avaliação abrangente. Isto não é QA independente e não valida estados preenchidos do banco, Twitch ao vivo, persistência da API ou conclusão da OPS-15.
+
 ## Revisão UX focada — limpeza incerta e falha ao atualizar a fila (2026-10-19)
 
 - A revisão UX identificou que o texto anterior de resultado incerto afirmava que a fila havia sido atualizada mesmo quando a leitura posterior da projeção falhava. Também era possível tentar limpar novamente usando dados locais potencialmente antigos.

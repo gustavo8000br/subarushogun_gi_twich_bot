@@ -275,10 +275,13 @@ function QueueClearAction({ queue, t, saving, onPreview, onConfirm, onRefreshQue
 }
 
 /** @param {{queues: Array<any>, locale: string, t: (key:string, options?:object)=>string}} props */
-export default function QueueList({ queues, locale, t, onToggleQueue, onEntryAction, onManualEntry, onSaveSettings, onLoadHistory, onPreviewClear, onConfirmClear, onRefreshQueue, onRefreshCallQueue, onRefreshProjection, clearRefreshRequired = false, queueCallRefreshRequired = false, queueCallRecovery = null, onLifecycleAction, onLoadRewardCandidates, onResolveReward, onSaveRewardSettings, saving = false, queueAction = null, queueSettingsAction = null }) {
+export default function QueueList({ queues, locale, t, lifecycleNotice = null, onToggleQueue, onEntryAction, onManualEntry, onSaveSettings, onLoadHistory, onPreviewClear, onConfirmClear, onRefreshQueue, onRefreshCallQueue, onRefreshProjection, clearRefreshRequired = false, queueCallRefreshRequired = false, queueCallRecovery = null, onLifecycleAction, onLoadRewardCandidates, onResolveReward, onSaveRewardSettings, saving = false, queueAction = null, queueSettingsAction = null }) {
   const format = (value) => new Intl.NumberFormat(locale).format(value);
   const [priorityReasonEntry, setPriorityReasonEntry] = useState(null);
   const priorityReasonDialog = useRef(null);
+  const lifecycleFeedback = lifecycleNotice?.key
+    ? <p className="queue-action-feedback" role="status">{t(lifecycleNotice.key)}</p>
+    : null;
   useEffect(() => {
     if (priorityReasonEntry && !priorityReasonDialog.current?.open) priorityReasonDialog.current?.showModal?.();
     if (!priorityReasonEntry && priorityReasonDialog.current?.open) priorityReasonDialog.current.close();
@@ -286,6 +289,7 @@ export default function QueueList({ queues, locale, t, onToggleQueue, onEntryAct
   if (queues.length === 0) {
     return (
       <>
+        {lifecycleFeedback}
         {queueCallRecovery ? <QueueCallRecoveryNotice recovery={queueCallRecovery} t={t} saving={saving} onRefresh={onRefreshCallQueue} /> : null}
         <section className="queue-list-empty" aria-labelledby="queue-empty-title">
           <h2 id="queue-empty-title">{t('panel.queue.empty.title')}</h2>
@@ -298,6 +302,7 @@ export default function QueueList({ queues, locale, t, onToggleQueue, onEntryAct
 
   return (
     <section className="queue-list" aria-label={t('panel.queues.title')}>
+      {lifecycleFeedback}
       {queueCallRecovery ? <QueueCallRecoveryNotice recovery={queueCallRecovery} t={t} saving={saving} onRefresh={onRefreshCallQueue} /> : null}
       {queues.map((queue) => {
         const syncLabel = queueSyncTranslationKey(queue.remoteSyncStatus);
@@ -333,9 +338,11 @@ export default function QueueList({ queues, locale, t, onToggleQueue, onEntryAct
                 ? <p className="queue-action-help">{t(`panel.queue.delete_blocked.${actionState.deleteBlockedReason}`)}</p> : null}
               {!actionState.canToggleIntake && actionState.blockedReason ? <p className="queue-action-help">{t(`panel.queue.action_blocked.${actionState.blockedReason}`)}</p> : null}
               {queueAction?.queueId === queue.id && queueAction.status !== 'saving' ? <div className={`queue-action-feedback ${queueAction.status === 'error' ? 'is-error' : ['pending', 'warning'].includes(queueAction.status) ? 'is-warning' : ''}`} role={queueAction.status === 'error' ? 'alert' : 'status'}>
-                <span>{t(queueAction.key)}</span>
+                <span>{t(queueAction.key, { values: queueAction.values })}</span>
                 {typeof queueAction.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(queueAction.referenceId) ? <small>{t('panel.error.reference', { values: { id: queueAction.referenceId } })}</small> : null}
                 {queueAction.key === 'panel.reward.link_refresh_failed' ? <button type="button" className="small-action" disabled={saving} aria-busy={saving} onClick={() => void onRefreshProjection?.()}>{t(saving ? 'panel.reward.refreshing_queue' : 'panel.reward.refresh_queue')}</button> : null}
+                {queueAction.key === 'panel.reward.settings_refresh_failed' ? <button type="button" className="small-action" disabled={saving} aria-busy={saving} onClick={() => void onRefreshProjection?.({ purpose: 'reward-settings' })}>{t(saving ? 'panel.reward.refreshing_queue' : 'panel.reward.refresh_queue')}</button> : null}
+                {queueAction.key === 'panel.entry.add.refresh_failed' ? <button type="button" className="small-action" disabled={saving} aria-busy={saving} onClick={() => void onRefreshProjection?.({ purpose: 'manual-entry' })}>{t(saving ? 'panel.reward.refreshing_queue' : 'panel.reward.refresh_queue')}</button> : null}
               </div> : null}
             </div>
             {canManageEntries && actionState.canAddManualEntry ? <ManualEntryForm queue={queue} saving={saving} t={t} onSubmit={onManualEntry} /> : null}

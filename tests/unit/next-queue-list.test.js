@@ -80,6 +80,7 @@ const messages = {
   'panel.queue.mode_transition.done': 'Fila manual confirmada.',
   'panel.queue.mode_transition.pending': 'Pausa pendente.',
   'panel.queue.unarchive.done': 'Fila visível.',
+  'panel.queue.archive_local.done': 'Fila removida do painel; reward Twitch preservada.',
   'panel.queue.action_result.failed': 'A ação falhou.',
   'panel.notice.call_already_queued': 'A chamada já está na fila de envio.',
   'panel.notice.call_resent': 'Reenvio solicitado. O prazo de ausência foi mantido.',
@@ -132,6 +133,16 @@ const t = (key, { values = {} } = {}) => Object.entries(values).reduce(
 );
 
 describe('Next queue list', () => {
+  it('keeps the local archive success feedback visible after the archived queue leaves the projection', () => {
+    const markup = renderToStaticMarkup(React.createElement(QueueList, {
+      queues: [], locale: 'pt-BR', t,
+      lifecycleNotice: { key: 'panel.queue.archive_local.done' },
+    }));
+    expect(markup).toContain('role="status"');
+    expect(markup).toContain('Fila removida do painel; reward Twitch preservada.');
+    expect(markup).not.toContain('queue-list-card');
+  });
+
   it('keeps a saved reward link warning actionable and shows its safe reference', () => {
     const queues = [{ id: 'queue-reward', slug: 'reward', title: 'Reward', isOpen: false, queueMode: 'channel_points', lifecycleStatus: 'active', remoteSyncStatus: 'create_unknown', modeTransitionStatus: 'none', entries: [] }];
     const markup = renderToStaticMarkup(React.createElement(QueueList, {

@@ -65,7 +65,9 @@ export default function QueueRewardSettingsDialog({ queue, t, saving, onSave }) 
       return;
     }
     const failure = t(result?.key ?? 'panel.error.generic');
-    const reference = typeof result?.referenceId === 'string' ? t('panel.error.reference', { values: { id: result.referenceId } }) : '';
+    const reference = typeof result?.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(result.referenceId)
+      ? t('panel.error.reference', { values: { id: result.referenceId } })
+      : '';
     setError(reference ? `${failure} ${reference}` : failure);
   }
 

@@ -50,6 +50,34 @@ describe('Next queue reward settings dialog', () => {
     expect(title.value).toBe('My draft');
     expect(container.querySelector('dialog[open]')).toBeTruthy();
   });
+
+  it('keeps the draft open and shows safe feedback when a reward update is pending elsewhere', async () => {
+    const onSave = vi.fn(async () => ({ status: 'error', key: 'panel.error.reward_update_pending', referenceId: 'reward-operation-12' }));
+    const translate = (key, options) => key === 'panel.error.reward_update_pending'
+      ? 'A Twitch reward update is already pending.'
+      : key === 'panel.error.reference' ? `Reference ${options.values.id}` : key;
+    const { container } = render(<QueueRewardSettingsDialog queue={queue} t={translate} saving={false} onSave={onSave} />);
+    fireEvent.click(screen.getByRole('button', { name: 'panel.queue.action.edit_reward' }));
+    const title = container.querySelector('input[name="title"]');
+    fireEvent.change(title, { target: { value: 'Keep this draft' } });
+    fireEvent.submit(container.querySelector('form'));
+
+    expect((await screen.findByRole('alert')).textContent).toBe('A Twitch reward update is already pending. Reference reward-operation-12');
+    expect(title.value).toBe('Keep this draft');
+    expect(container.querySelector('dialog[open]')).toBeTruthy();
+  });
+
+  it('does not render an unsafe diagnostic reference returned by the save action', async () => {
+    const onSave = vi.fn(async () => ({ status: 'error', key: 'panel.error.generic', referenceId: 'private SQL details' }));
+    const { container } = render(<QueueRewardSettingsDialog queue={queue} t={t} saving={false} onSave={onSave} />);
+    fireEvent.click(screen.getByRole('button', { name: 'panel.queue.action.edit_reward' }));
+    fireEvent.submit(container.querySelector('form'));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('panel.error.generic');
+    expect(alert.textContent).not.toContain('private SQL details');
+    expect(container.querySelector('dialog[open]')).toBeTruthy();
+  });
 });
 
 describe('Next queue reward resolution dialog', () => {

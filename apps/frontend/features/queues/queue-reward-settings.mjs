@@ -51,3 +51,14 @@ export function getQueueRewardSettingsFailureKey(error) {
   if (requestError.code === 'QUEUE_NOT_FOUND') return 'panel.error.queue_not_found';
   return 'panel.error.generic';
 }
+
+/** @param {unknown} error */
+export function getQueueRewardSettingsFailureFeedback(error) {
+  const requestError = error && typeof error === 'object' ? /** @type {Record<string, unknown>} */ (error) : {};
+  return {
+    key: getQueueRewardSettingsFailureKey(requestError),
+    referenceId: typeof requestError.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(requestError.referenceId)
+      ? requestError.referenceId
+      : null,
+  };
+}

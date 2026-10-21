@@ -57,6 +57,8 @@ npm run dev:db:stop
 
 To run the safe Chromium overlay smoke against the active Next preview, use `npm run test:e2e:overlay:browser-only`. It requires local Chrome and intercepts every overlay API response with browser fixtures; it never writes to PostgreSQL, Twitch, Docker, or OBS. This is frontend browser evidence only, not native OBS/CEF or live API acceptance. The separate `npm run test:e2e:overlay` remains the full OBS-connected scenario and may create/remove OBS sources and disposable Compose data.
 
+For the QRA-23 queue deletion-cancellation browser smoke, run `npm run test:e2e:queue-lifecycle:browser-only` against the active loopback Next preview. It intercepts panel API responses and asserts the processing conflict, accessible localized alert, safe diagnostic reference, and same-origin CSRF/idempotency headers. It does not write to the product API/database or Twitch and is not persisted-operation evidence.
+
 ```sh
 npm run lint:api && npm run typecheck:api
 npm run lint:infra && npm run typecheck:infra

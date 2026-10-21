@@ -12,6 +12,7 @@ export const PANEL_PLACEHOLDERS = Object.freeze({
   'panel.entry.action.complete_aria': ['user'],
   'panel.entry.action.resend_aria': ['user'],
   'panel.entry.action.remove_aria': ['user'],
+  'panel.entry.add.refresh_failed': ['user', 'position'],
   'panel.queue.clear.confirm': ['title', 'count', 'refunds'],
   'panel.queue.clear.changed': ['count'], 'panel.queue.clear.done': ['count', 'refunds'],
   'panel.widget.card_details': ['queue', 'width', 'height', 'id'],

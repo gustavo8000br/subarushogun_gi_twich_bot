@@ -42,8 +42,8 @@ export async function runDevelopmentPreflight({
   if (env.DATABASE_URL) return;
 
   const composeResult = checkCommand('docker', ['compose', 'version'], root);
-  if (composeResult.status !== 0 || !/Docker Compose version v2\./i.test(composeResult.stdout ?? '')) {
-    throw new Error('Docker Compose v2 is required. Install/start Docker Engine or Desktop, then retry npm run dev.');
+  if (composeResult.status !== 0 || !/Docker Compose version v(?:2|5)\./i.test(composeResult.stdout ?? '')) {
+    throw new Error('Docker Compose v2 or v5 is required. Install/start Docker Engine or Desktop, then retry npm run dev.');
   }
 
   const engineResult = checkCommand('docker', ['info', '--format', '{{.ServerVersion}}'], root);

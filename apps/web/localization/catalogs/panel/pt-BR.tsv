@@ -125,6 +125,7 @@ panel.widget.appearance	Aparência
 panel.widget.save	Salvar widget
 panel.entry.add	Adicionar à fila
 panel.entry.added	Pessoa adicionada à fila.
+panel.entry.add.refresh_failed	A API aceitou {user} na posição {position}, mas não foi possível atualizar a fila. Atualize antes de tentar novamente.
 panel.entry.error.invalid	Confira o login da Twitch, o UID e o benefício conferido.
 panel.entry.error.unavailable	Não foi possível adicionar a entrada. Atualize o painel e tente novamente.
 panel.entry.error.failed	Não foi possível adicionar a pessoa. Atualize o painel e confira a fila e o login.
@@ -499,6 +500,7 @@ panel.notice.queue_created	Fila salva. A criação da recompensa Twitch está pe
 panel.notice.queue_settings_saved	Configurações da fila salvas.
 panel.queue.settings_result.refresh_failed	As configurações foram salvas, mas a lista não atualizou. Recarregue a página para conferir os valores atuais.
 panel.notice.reward_update_pending	Alteração solicitada. A fila mostrará a sincronização pendente até a confirmação da Twitch.
+panel.reward.settings_refresh_failed	A alteração da recompensa foi aceita, mas não foi possível atualizar a fila. Os dados aceitos estão visíveis; atualize para verificar o estado na Twitch.
 panel.notice.call_already_queued	A chamada já está na fila de envio.
 panel.notice.call_resent	Reenvio solicitado. O prazo de ausência foi mantido.
 panel.priority.marked	Prioridade registrada e auditada. A conferência foi feita pelo operador.
@@ -521,6 +523,9 @@ panel.queue.delete.cancel.already_deleted	A Twitch já confirmou que a reward fo
 panel.queue.delete.cancel.reward_absent	O cancelamento não foi confirmado porque a Twitch não encontrou mais esta reward. A fila continua em recuperação de exclusão.
 panel.queue.delete.cancel.reward_diverged	O cancelamento não foi confirmado porque a reward da Twitch não corresponde à configuração pausada da fila. A fila continua em recuperação de exclusão.
 panel.queue.delete.cancel.unverified	A Twitch não conseguiu confirmar o estado da reward, então a exclusão não foi cancelada. A fila continua em recuperação; tente cancelar novamente depois.
+panel.queue.delete.cancel.stale	O estado da exclusão mudou antes de ser possível confirmar o cancelamento. Atualize o painel e confira o estado atual da fila antes de tentar novamente.
+panel.queue.delete.cancel.processing	Uma operação da reward na Twitch ainda está em andamento, então a exclusão não foi cancelada. Aguarde a operação terminar, atualize o painel e confira a fila antes de tentar novamente.
+panel.queue.delete.cancel.uncertain	Não foi possível confirmar se o cancelamento foi concluído. Atualize o painel e confira o estado da exclusão antes de tentar novamente.
 panel.queue.confirm.delete_local	Excluir a fila local “{title}”? {count} entradas ativas serão removidas. Não há reward ou resgate Twitch vinculado a esta fila.
 panel.queue.confirm.delete_converted	Excluir a fila manual “{title}”? {count} entradas ativas serão removidas. A exclusão ficará pendente até a confirmação de todos os resgates conhecidos, das solicitações de sincronização com a Twitch e das devoluções de pontos relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá pausada e intacta.
 panel.queue.confirm.retry_delete_converted	Verifique se todos os resgates conhecidos pendentes e as solicitações de sincronização com a Twitch e as devoluções de pontos relacionadas foram confirmados. Se sim, a fila local será excluída. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá pausada e intacta.

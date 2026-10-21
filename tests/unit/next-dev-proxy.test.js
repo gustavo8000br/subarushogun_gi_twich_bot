@@ -36,7 +36,7 @@ describe('Next local development API proxy', () => {
         { source: '/overlay/api/:path*', destination: 'https://localhost:3199/overlay/api/:path*' },
         { source: '/health', destination: 'https://localhost:3199/health' },
         { source: '/callback', destination: 'https://localhost:3199/callback' },
-        ...['/', '/queues/:path*', '/new-queue/:path*', '/operations/:path*', '/commands/:path*', '/widgets/:path*', '/settings/:path*', '/styles.css', '/app.js']
+        ...['/', '/styles.css', '/app.js']
           .map((source) => ({ source, destination: `https://localhost:3199${source}` })),
       ], afterFiles: [{ source: '/overlay.html', destination: '/overlay' }], fallback: [],
     });

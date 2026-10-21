@@ -35,7 +35,9 @@ try {
     const url = new URL(request.url());
     if (url.origin === parsedOrigin.origin && url.pathname === '/overlay/api/widget') {
       calls.push({ method: request.method(), headers: request.headers() });
+      if (mode === 'unauthorized') return route.fulfill({ status: 401, body: '{}' });
       if (mode === 'revoked') return route.fulfill({ status: 403, body: '{}' });
+      if (mode === 'missing') return route.fulfill({ status: 404, body: '{}' });
       if (mode === 'stale') return route.fulfill({ status: 503, body: '{}' });
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(widgetPayload(activeValue)) });
     }
@@ -61,6 +63,11 @@ try {
   await page.getByText('Account refreshed').waitFor({ timeout: 2500 });
   await page.waitForFunction(() => !document.querySelector('#overlay-widget')?.classList.contains('is-stale'));
 
+  activeValue = '';
+  await page.waitForFunction(() => document.querySelector('#overlay-value')?.textContent === 'No value', null, { timeout: 2500 });
+  activeValue = 'Account refreshed';
+  await page.getByText('Account refreshed').waitFor({ timeout: 2500 });
+
   await page.reload();
   await page.getByText('Account refreshed').waitFor();
   assert.equal(new URL(page.url()).hash, '', 'reload recovers capability from per-reference session storage');
@@ -68,6 +75,14 @@ try {
   await page.waitForFunction(() => document.querySelector('#overlay-status')?.textContent === 'Source unavailable');
   await page.waitForFunction((key) => sessionStorage.getItem(key) === null, `overlay-capability:${refs[0]}`);
   assert.equal(await page.locator('#overlay-value').textContent(), '', 'revocation clears the rendered value');
+
+  for (const [modeName, statusCode] of [['unauthorized', 401], ['missing', 404]]) {
+    mode = modeName;
+    await page.goto(`${appOrigin}/overlay.html?ref=${refs[0]}#${tokens[0]}`);
+    await page.waitForFunction(() => document.querySelector('#overlay-status')?.textContent === 'Source unavailable');
+    await page.waitForFunction((key) => sessionStorage.getItem(key) === null, `overlay-capability:${refs[0]}`);
+    assert.equal(await page.locator('#overlay-value').textContent(), '', `HTTP ${statusCode} clears overlay content`);
+  }
 
   const isolatedPages = [];
   for (let index = 1; index < refs.length; index += 1) {
@@ -90,7 +105,7 @@ try {
     assert.deepEqual(storage, [`overlay-capability:${refs[index]}`], `source ${index + 1} stores only its own reference capability`);
   }
 
-  console.log(`PASS overlay browser-only: exact Next alias, fragment cleanup, bearer without cookies, stale recovery, reload, revocation, and ${refs.length} isolated sources.`);
+  console.log(`PASS overlay browser-only: exact Next alias, fragment cleanup, bearer without cookies, current account refresh, empty-value fallback, stale recovery, reload, 401/403/404 clearing, and ${refs.length} isolated sources.`);
   console.log('Boundary: API responses are intercepted fixtures; no database, Twitch, Docker, OBS, or CEF interaction was performed.');
 }
 finally {

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { createConnection } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
@@ -15,6 +16,7 @@ let prisma;
 let repository;
 let containerStarted = false;
 let connectionString;
+let publishedPort;
 
 function docker(args) {
   const result = spawnSync('docker', args, { cwd: root, encoding: 'utf8', timeout: 30_000 });
@@ -24,10 +26,24 @@ function docker(args) {
 
 async function waitForPostgres() {
   for (let attempt = 0; attempt < 60; attempt += 1) {
-    const probe = spawnSync('docker', ['exec', containerName, 'pg_isready', '-U', 'queuebot', '-d', 'queuebot'], {
+    const probe = spawnSync('docker', [
+      'exec', containerName, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-Atqc', 'SELECT 1',
+    ], {
       cwd: root, encoding: 'utf8', timeout: 3000,
     });
-    if (probe.status === 0) return;
+    if (probe.status === 0 && probe.stdout.trim() === '1') {
+      const hostPortReady = await new Promise((resolve) => {
+        const socket = createConnection({ host: '127.0.0.1', port: publishedPort });
+        const finish = (ready) => {
+          socket.destroy();
+          resolve(ready);
+        };
+        socket.once('connect', () => finish(true));
+        socket.once('error', () => finish(false));
+        socket.setTimeout(1000, () => finish(false));
+      });
+      if (hostPortReady) return;
+    }
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   throw new Error('isolated PostgreSQL did not become healthy');
@@ -40,14 +56,18 @@ describe('PostgreSQL OBS widget persistence contract', () => {
       '--publish', '127.0.0.1::5432', '--volume', `${volumeName}:/var/lib/postgresql`,
       'postgres:18.6-bookworm']);
     containerStarted = true;
-    const published = docker(['port', containerName, '5432/tcp']).split(':').at(-1);
-    connectionString = `postgresql://queuebot:isolated-test-password@127.0.0.1:${published}/queuebot?schema=public`;
+    publishedPort = Number(docker(['port', containerName, '5432/tcp']).split(':').at(-1));
+    expect(Number.isInteger(publishedPort)).toBe(true);
+    connectionString = `postgresql://queuebot:isolated-test-password@127.0.0.1:${publishedPort}/queuebot?schema=public`;
     await waitForPostgres();
     const migration = spawnSync(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy'], {
       cwd: root, encoding: 'utf8', timeout: 60_000,
       env: { ...process.env, DATABASE_URL: connectionString },
     });
-    expect(migration.status, migration.stderr || migration.stdout).toBe(0);
+    const migrationOutput = `${migration.stdout ?? ''}\n${migration.stderr ?? ''}`
+      .replaceAll(connectionString, '[DATABASE_URL REDACTED]');
+    const databaseLogs = migration.status === 0 ? '' : docker(['logs', containerName]);
+    expect(migration.status, `${migrationOutput}\nDisposable PostgreSQL logs:\n${databaseLogs}`).toBe(0);
     prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
     repository = createOverlayWidgetRepository(prisma);
   }, 120_000);
@@ -207,9 +227,10 @@ describe('PostgreSQL OBS widget persistence contract', () => {
     const widget = await repository.create({ sourceType: 'fixed_text', fixedText: 'Genshin ready', capabilityHash: hash });
     await prisma.$disconnect();
     docker(['restart', containerName]);
+    publishedPort = Number(docker(['port', containerName, '5432/tcp']).split(':').at(-1));
+    expect(Number.isInteger(publishedPort)).toBe(true);
     await waitForPostgres();
-    const publishedAfterRestart = docker(['port', containerName, '5432/tcp']).split(':').at(-1);
-    connectionString = `postgresql://queuebot:isolated-test-password@127.0.0.1:${publishedAfterRestart}/queuebot?schema=public`;
+    connectionString = `postgresql://queuebot:isolated-test-password@127.0.0.1:${publishedPort}/queuebot?schema=public`;
     prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
     repository = createOverlayWidgetRepository(prisma);
     await expect(repository.getById(widget.id)).resolves.toMatchObject({

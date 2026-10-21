@@ -7,16 +7,22 @@ import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
+import { chromium } from 'playwright-core';
 import { cleanupIsolatedComposeProject } from '../helpers/isolated-compose-cleanup.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const projectName = `queuebot-accept-${process.pid}-${randomUUID().slice(0, 8)}`;
+const acceptanceId = `${process.pid}-${randomUUID().slice(0, 8)}`;
+const projectName = `queuebot-accept-${acceptanceId}`;
+const imageTag = `ops15-accept-${acceptanceId}`;
 const composeFile = `${root}/compose.yaml`;
 const buildComposeFile = `${root}/compose.build.yaml`;
 let hostPort;
 let composeStarted = false;
 let localCertDirectory;
 let communityCatalogDirectory;
+const chromeBinary = process.env.CHROME_BINARY ?? 'google-chrome';
+const chromeAvailable = spawnSync(chromeBinary, ['--version'], { encoding: 'utf8' }).status === 0;
+const composeBrowserTest = chromeAvailable ? it : it.skip;
 
 function dockerCompose(args, options = {}) {
   const result = spawnSync('docker', [
@@ -28,7 +34,7 @@ function dockerCompose(args, options = {}) {
     env: {
       ...process.env,
       APP_PORT: String(hostPort),
-      IMAGE_TAG: 'dev',
+      IMAGE_TAG: imageTag,
       LOCAL_CERT_DIRECTORY: localCertDirectory,
       LOCAL_COMMUNITY_CATALOG_DIRECTORY: communityCatalogDirectory,
     },
@@ -106,10 +112,10 @@ describe('isolated Compose first-run and restart acceptance', () => {
       mkdirSync(join(communityCatalogDirectory, moduleName), { mode: 0o755 });
     }
     hostPort = await getFreePort();
-    dockerCompose(['build', 'bot']);
-    dockerCompose(['up', '--detach', 'bot']);
+    dockerCompose(['build', 'bot'], { timeout: 480_000 });
     composeStarted = true;
-  }, 240_000);
+    dockerCompose(['up', '--detach', 'bot']);
+  }, 540_000);
 
   afterAll(() => {
     if (composeStarted) {
@@ -122,12 +128,12 @@ describe('isolated Compose first-run and restart acceptance', () => {
           timeout: 60_000,
         }),
       });
-      spawnSync('docker', ['image', 'rm', 'ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:dev'], {
-        cwd: root,
-        encoding: 'utf8',
-        timeout: 60_000,
-      });
     }
+    spawnSync('docker', ['image', 'rm', `ghcr.io/gustavo8000br/subarushogun_gi_twich_bot:${imageTag}`], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 60_000,
+    });
     if (localCertDirectory) rmSync(localCertDirectory, { recursive: true, force: true });
     if (communityCatalogDirectory) rmSync(communityCatalogDirectory, { recursive: true, force: true });
   });
@@ -146,11 +152,232 @@ describe('isolated Compose first-run and restart acceptance', () => {
     expect(Number(migrationCount)).toBeGreaterThan(0);
   }, 120_000);
 
-  it('serves the overlay document from Next and proxies the live capability API to Fastify on the same origin', async () => {
+  it('creates a manual queue and verifies versioned local settings against persisted operator DTOs', async () => {
+    await waitForHealthyBot();
+    const sessionResponse = await request('/api/session');
+    expect(sessionResponse.status).toBe(200);
+    const session = sessionResponse.json();
+    const cookie = sessionResponse.headers['set-cookie']?.[0]?.split(';', 1)[0];
+    expect(cookie).toBeTruthy();
+    const headers = {
+      cookie,
+      origin: `https://127.0.0.1:${hostPort}`,
+      'x-csrf-token': session.csrfToken,
+      'idempotency-key': randomUUID(),
+      'content-type': 'application/json',
+    };
+    const slug = `ops15-manual-${randomUUID().slice(0, 8)}`;
+    const callMessage = '{user}, sua vez chegou!';
+    const created = await request('/api/queues', {
+      method: 'POST',
+      headers,
+      body: { slug, title: 'OPS-15 disposable manual queue', queueMode: 'manual_only', callMessage, callTimeoutMin: 12, uidMode: 'visible' },
+    });
+    expect(created.status).toBe(201);
+    const dto = created.json();
+    expect(dto).toMatchObject({
+      slug,
+      aliases: [],
+      title: 'OPS-15 disposable manual queue',
+      rewardPrompt: '',
+      cost: null,
+      uidMode: 'visible',
+      queueMode: 'manual_only',
+      rewardOrigin: 'none',
+      modeTransitionStatus: 'none',
+      rewardId: null,
+      maxRedemptionsPerStream: null,
+      maxRedemptionsPerUserPerStream: null,
+      globalCooldownSeconds: null,
+      callMessage,
+      callTimeoutMin: 12,
+      showUidInList: false,
+      showUidInOverlay: false,
+      showUidOnCall: false,
+      autoSwitchAccount: false,
+      refundIfRemovedWhileCalled: true,
+      refundOnNoShow: false,
+      refundIfViewerLeavesCalled: false,
+      isOpen: false,
+      isArchived: false,
+      lifecycleStatus: 'active',
+      version: 1,
+      remoteSyncStatus: 'local_only',
+      entries: [],
+    });
+    expect(dto.id).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(Object.keys(dto).sort()).toEqual([
+      'id', 'slug', 'aliases', 'title', 'rewardPrompt', 'cost', 'uidMode', 'queueMode', 'rewardOrigin',
+      'modeTransitionStatus', 'rewardId', 'maxRedemptionsPerStream', 'maxRedemptionsPerUserPerStream',
+      'globalCooldownSeconds', 'callMessage', 'callTimeoutMin', 'showUidInList', 'showUidInOverlay',
+      'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow',
+      'refundIfViewerLeavesCalled', 'isOpen', 'isArchived', 'lifecycleStatus', 'version', 'remoteSyncStatus', 'entries',
+    ].sort());
+
+    const listed = await request('/api/queues', { headers: { cookie, origin: headers.origin } });
+    expect(listed.status).toBe(200);
+    const persisted = listed.json().filter((queue) => queue.id === dto.id);
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0]).toEqual(dto);
+    expect(dto.remoteSyncStatus).toBe('local_only');
+
+    const updatedCallMessage = '{user}, a fila foi atualizada!';
+    const settings = await request(`/api/queues/${dto.id}/settings`, {
+      method: 'PATCH',
+      headers: { ...headers, 'idempotency-key': randomUUID() },
+      body: { expectedVersion: 1, callTimeoutMin: 18, callMessage: updatedCallMessage, showUidInList: true },
+    });
+    expect(settings.status).toBe(200);
+    const updatedDto = settings.json();
+    expect(updatedDto).toMatchObject({
+      id: dto.id,
+      slug,
+      version: 2,
+      callTimeoutMin: 18,
+      callMessage: updatedCallMessage,
+      showUidInList: true,
+      queueMode: 'manual_only',
+      remoteSyncStatus: 'local_only',
+    });
+    expect(Object.keys(updatedDto).sort()).toEqual(Object.keys(dto).sort());
+
+    const staleSettings = await request(`/api/queues/${dto.id}/settings`, {
+      method: 'PATCH',
+      headers: { ...headers, 'idempotency-key': randomUUID() },
+      body: { expectedVersion: 1, callTimeoutMin: 24 },
+    });
+    expect(staleSettings.status).toBe(409);
+    expect(staleSettings.json()).toEqual({
+      code: 'STALE_QUEUE_VERSION',
+      error: 'A fila mudou em outra operação. Atualize o painel e tente novamente.',
+    });
+
+    const reread = await request('/api/queues', { headers: { cookie, origin: headers.origin } });
+    expect(reread.status).toBe(200);
+    const persistedAfterUpdate = reread.json().filter((queue) => queue.id === dto.id);
+    expect(persistedAfterUpdate).toHaveLength(1);
+    expect(persistedAfterUpdate[0]).toEqual(updatedDto);
+
+    const history = await request(`/api/queues/${dto.id}/history`, {
+      headers: { cookie, origin: headers.origin },
+    });
+    expect(history.status).toBe(200);
+    expect(history.json()).toEqual([]);
+
+    const terminalEntryId = randomUUID();
+    const finishedAt = '2026-10-20T18:00:00.000Z';
+    dockerCompose([
+      'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+      `INSERT INTO entries (id, queue_id, twitch_user_id, user_login, display_name, source, status, finished_at, terminal_reason) VALUES ('${terminalEntryId}', '${dto.id}', 'ops15-synthetic-user', 'ops15viewer', 'OPS15Viewer', 'manual', 'completed', TIMESTAMPTZ '${finishedAt}', 'manual_test')`,
+    ]);
+    const populatedHistory = await request(`/api/queues/${dto.id}/history`, {
+      headers: { cookie, origin: headers.origin },
+    });
+    expect(populatedHistory.status).toBe(200);
+    expect(populatedHistory.json()).toEqual([{
+      id: terminalEntryId,
+      userLogin: 'ops15viewer',
+      displayName: 'OPS15Viewer',
+      status: 'completed',
+      finishedAt,
+      terminalReason: 'manual_test',
+    }]);
+
+    const firstWaitingEntryId = randomUUID();
+    const movedWaitingEntryId = randomUUID();
+    dockerCompose([
+      'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+      `INSERT INTO entries (id, queue_id, twitch_user_id, user_login, display_name, source, status, position) VALUES ('${firstWaitingEntryId}', '${dto.id}', 'ops15-first-user', 'ops15first', 'OPS15First', 'manual', 'waiting', 1), ('${movedWaitingEntryId}', '${dto.id}', 'ops15-second-user', 'ops15second', 'OPS15Second', 'manual', 'waiting', 2)`,
+    ]);
+    const move = await request(`/api/queues/${dto.id}/move`, {
+      method: 'POST',
+      headers: { ...headers, 'idempotency-key': randomUUID() },
+      body: { entryId: movedWaitingEntryId, position: 1 },
+    });
+    expect(move.status).toBe(200);
+    expect(move.json()).toEqual({ status: 'moved', entryId: movedWaitingEntryId, position: 1 });
+
+    const afterMove = await request('/api/queues', { headers: { cookie, origin: headers.origin } });
+    expect(afterMove.status).toBe(200);
+    const movedQueue = afterMove.json().find((queue) => queue.id === dto.id);
+    expect(movedQueue.entries.filter((entry) => entry.status === 'waiting').map(({ id, position }) => ({ id, position }))).toEqual([
+      { id: movedWaitingEntryId, position: 1 },
+      { id: firstWaitingEntryId, position: 2 },
+    ]);
+
+    const priority = await request(`/api/entries/${firstWaitingEntryId}/priority`, {
+      method: 'POST',
+      headers: { ...headers, 'idempotency-key': randomUUID() },
+      body: { priority: true, reason: 'bits' },
+    });
+    expect(priority.status).toBe(200);
+    const priorityResult = priority.json();
+    expect(priorityResult.status).toBe('updated');
+    expect(priorityResult.priorityClass).toBe('priority');
+    expect(priorityResult.position).toBe(1);
+    expect(priorityResult.entry).toMatchObject({
+      id: firstWaitingEntryId,
+      queueId: dto.id,
+      status: 'waiting',
+      priorityClass: 'priority',
+      priorityReason: 'bits',
+      position: 1,
+      version: 3,
+    });
+    const auditCount = dockerCompose([
+      'exec', '--no-TTY', 'db', 'psql', '-U', 'queuebot', '-d', 'queuebot', '-Atc',
+      `SELECT count(*) FROM audit_logs WHERE entry_id = '${firstWaitingEntryId}' AND event = 'entry.priority_changed' AND reason = 'bits' AND origin = 'panel'`,
+    ]);
+    expect(Number(auditCount)).toBe(1);
+
+    const priorityRemoved = await request(`/api/entries/${firstWaitingEntryId}/priority`, {
+      method: 'POST',
+      headers: { ...headers, 'idempotency-key': randomUUID() },
+      body: { priority: false, reason: 'bits' },
+    });
+    expect(priorityRemoved.status).toBe(200);
+    expect(priorityRemoved.json()).toMatchObject({
+      status: 'updated',
+      priorityClass: 'standard',
+      position: 2,
+      entry: {
+        id: firstWaitingEntryId,
+        priorityClass: 'standard',
+        priorityReason: null,
+        position: 2,
+        version: 4,
+      },
+    });
+    const removalAuditCount = dockerCompose([
+      'exec', '--no-TTY', 'db', 'psql', '-U', 'queuebot', '-d', 'queuebot', '-Atc',
+      `SELECT count(*) FROM audit_logs WHERE entry_id = '${firstWaitingEntryId}' AND event = 'entry.priority_changed' AND reason = 'priority_removed' AND origin = 'panel'`,
+    ]);
+    expect(Number(removalAuditCount)).toBe(1);
+
+    dockerCompose([
+      'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+      `UPDATE queues SET remote_sync_status = 'create_unknown' WHERE id = '${dto.id}'`,
+    ]);
+    const unavailableCandidates = await request(`/api/queues/${dto.id}/reward-candidates`, {
+      headers: { cookie, origin: headers.origin },
+    });
+    expect(unavailableCandidates.status).toBe(503);
+    expect(unavailableCandidates.json()).toEqual({
+      error: 'A conexão Twitch está indisponível para consultar recompensas. Aguarde a reconexão e tente novamente.',
+      referenceId: unavailableCandidates.headers['x-error-reference'],
+    });
+    expect(unavailableCandidates.headers['x-error-reference']).toMatch(/^[a-zA-Z0-9_-]{8,}$/);
+  }, 30_000);
+
+  it('documents production-like route ownership for migrated Next pages, vanilla root, overlay, and Fastify APIs', async () => {
+    await waitForHealthyBot();
     const document = await request('/overlay.html');
     expect(document.status).toBe(200);
     expect(document.headers['content-type']).toContain('text/html');
+    expect(document.headers['x-powered-by']).toBe('Next.js');
     expect(document.body).toContain('id="overlay-widget"');
+    expect(document.body).toContain('data-next-overlay-entry="true"');
+    expect(document.body).toContain('/_next/static/');
 
     const projection = await request('/overlay/api/widget');
     expect(projection.status).toBe(401);
@@ -162,6 +389,33 @@ describe('isolated Compose first-run and restart acceptance', () => {
     expect(panel.headers['content-type']).toContain('text/html');
     expect(panel.body).toContain('class="app-shell"');
     expect(panel.body).toContain('href="/styles.css"');
+
+    const migratedPanelRoutes = ['/queues/', '/new-queue/', '/operations/', '/commands/', '/widgets/', '/settings/'];
+    for (const path of migratedPanelRoutes) {
+      const redirectChain = [];
+      let route = await request(path);
+      for (let redirects = 0; [301, 302, 303, 307, 308].includes(route.status) && redirects < 3; redirects += 1) {
+        const location = route.headers.location;
+        expect(location, `${path} redirect must have a local destination`).toBeTruthy();
+        const target = new URL(location, `https://127.0.0.1:${hostPort}`);
+        expect(target.origin).toBe(`https://127.0.0.1:${hostPort}`);
+        redirectChain.push({ status: route.status, location: `${target.pathname}${target.search}` });
+        route = await request(`${target.pathname}${target.search}`);
+      }
+      expect([301, 302, 303, 307, 308].includes(route.status), `${path} redirect chain terminates`).toBe(false);
+      expect(route.status, `${path} is served by its migrated Next page; chain: ${JSON.stringify(redirectChain)}`).toBe(200);
+      expect(route.headers['content-type']).toContain('text/html');
+      expect(route.headers['x-powered-by']).toBe('Next.js');
+      expect(route.body).toContain('class="panel-shell"');
+      expect(route.body).not.toContain('class="app-shell"');
+    }
+
+    const nextConnection = await request('/connection');
+    expect(nextConnection.status).toBe(200);
+    expect(nextConnection.headers['content-type']).toContain('text/html');
+    expect(nextConnection.headers['x-powered-by']).toBe('Next.js');
+    expect(nextConnection.body).toContain('class="panel-shell"');
+    expect(nextConnection.body).not.toContain('class="app-shell"');
 
     const callback = await request('/callback');
     expect(callback.status).toBe(303);
@@ -339,5 +593,456 @@ describe('isolated Compose first-run and restart acceptance', () => {
     expect(marker).toBe('persisted');
     expect(migrationCountAfter).toBe(migrationCountBefore);
     expect(passwordHashAfter).toBe(passwordHashBefore);
+  }, 120_000);
+
+  composeBrowserTest('creates, configures, activates, reads history, reorders, prioritizes and completes a local queue in Chromium through Next, Fastify and disposable PostgreSQL', async () => {
+    await waitForHealthyBot();
+    const origin = `https://127.0.0.1:${hostPort}`;
+    const browser = await chromium.launch({
+      ...(process.env.CHROME_BINARY ? { executablePath: process.env.CHROME_BINARY } : { channel: 'chrome' }),
+      headless: true,
+      args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    });
+    try {
+      const context = await browser.newContext({ ignoreHTTPSErrors: true, serviceWorkers: 'block' });
+      const page = await context.newPage();
+      await page.goto(`${origin}/new-queue/`, { waitUntil: 'domcontentloaded' });
+      const createButton = page.getByRole('button', { name: 'Criar fila' });
+      await createButton.waitFor({ timeout: 20_000 });
+      expect(await page.getByLabel('Tipo de fila').inputValue()).toBe('manual_only');
+      expect(await page.getByRole('note').getByRole('link', { name: 'Configurar conexão com a Twitch' }).count()).toBe(1);
+      expect(await page.locator('.queue-create-reward-fields').isVisible()).toBe(false);
+
+      const title = `OPS-15 browser queue ${randomUUID().slice(0, 6)}`;
+      const alias = `ops15-alt-${randomUUID().slice(0, 6)}`;
+      await page.getByRole('textbox', { name: 'Nome da fila', exact: true }).fill(title);
+      await page.getByRole('textbox', { name: 'Apelidos' }).fill(alias);
+      const slug = await page.locator('input[name="slug"]').inputValue();
+      const createResponsePromise = page.waitForResponse((response) => {
+        const requestUrl = new URL(response.url());
+        return requestUrl.origin === origin && requestUrl.pathname === '/api/queues'
+          && response.request().method() === 'POST';
+      });
+      await createButton.click();
+
+      const created = await createResponsePromise;
+      expect(created.status()).toBe(201);
+      const dto = await created.json();
+      expect(dto).toMatchObject({
+        slug,
+        aliases: [alias],
+        title,
+        queueMode: 'manual_only',
+        rewardOrigin: 'none',
+        rewardId: null,
+        cost: null,
+        remoteSyncStatus: 'local_only',
+        isOpen: false,
+      });
+      expect(Object.keys(dto).sort()).toEqual([
+        'id', 'slug', 'aliases', 'title', 'rewardPrompt', 'cost', 'uidMode', 'queueMode', 'rewardOrigin',
+        'modeTransitionStatus', 'rewardId', 'maxRedemptionsPerStream', 'maxRedemptionsPerUserPerStream',
+        'globalCooldownSeconds', 'callMessage', 'callTimeoutMin', 'showUidInList', 'showUidInOverlay',
+        'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow',
+        'refundIfViewerLeavesCalled', 'isOpen', 'isArchived', 'lifecycleStatus', 'version', 'remoteSyncStatus', 'entries',
+      ].sort());
+
+      const feedback = page.getByRole('status').filter({ hasText: 'Fila local criada. Ela está pausada até você ativá-la.' });
+      await feedback.waitFor({ timeout: 10_000 });
+      expect(await feedback.getByRole('link', { name: 'Abrir filas' }).count()).toBe(1);
+      expect(await createButton.isEnabled()).toBe(true);
+      const cookies = await context.cookies(origin);
+      const sessionCookie = cookies.find(({ name }) => name === 'queuebot_session');
+      expect(sessionCookie).toBeTruthy();
+      const list = await request('/api/queues', {
+        headers: { cookie: `queuebot_session=${sessionCookie.value}`, origin },
+      });
+      expect(list.status).toBe(200);
+      expect(list.json().find(({ id }) => id === dto.id)).toEqual(dto);
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await feedback.getByRole('link', { name: 'Abrir filas' }).click();
+      await page.waitForURL('**/queues');
+      const queueCard = page.locator('.queue-list-card').filter({
+        has: page.getByRole('heading', { name: title, exact: true }),
+      });
+      await queueCard.getByText('Configurar', { exact: true }).click();
+      const settingsForm = queueCard.getByRole('form', { name: `Opções da fila: ${title}` });
+      const updatedCallMessage = '{user}, sua configuração local foi salva!';
+      await settingsForm.locator('input[name="callTimeoutMin"]').fill('18');
+      await settingsForm.locator('textarea[name="callMessage"]').fill(updatedCallMessage);
+      expect(await page.evaluate(() => globalThis.document.documentElement.scrollWidth <= globalThis.window.innerWidth)).toBe(true);
+
+      const settingsResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/settings`
+          && response.request().method() === 'PATCH';
+      });
+      const settingsProjectionPromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === '/api/queues'
+          && response.request().method() === 'GET';
+      }).catch((error) => error);
+      await settingsForm.getByRole('button', { name: 'Salvar configurações', exact: true }).click();
+
+      const settingsResponse = await settingsResponsePromise;
+      expect(settingsResponse.status()).toBe(200);
+      expect(settingsResponse.request().postDataJSON()).toEqual({
+        expectedVersion: 1,
+        callTimeoutMin: 18,
+        callMessage: updatedCallMessage,
+        showUidInList: false,
+        showUidInOverlay: false,
+        showUidOnCall: false,
+        refundIfRemovedWhileCalled: true,
+        refundOnNoShow: false,
+        refundIfViewerLeavesCalled: false,
+      });
+      const updatedDto = await settingsResponse.json();
+      expect(updatedDto).toMatchObject({
+        id: dto.id,
+        slug,
+        aliases: [alias],
+        version: 2,
+        callTimeoutMin: 18,
+        callMessage: updatedCallMessage,
+        queueMode: 'manual_only',
+        remoteSyncStatus: 'local_only',
+      });
+      expect(Object.keys(updatedDto).sort()).toEqual(Object.keys(dto).sort());
+
+      const settingsProjection = await settingsProjectionPromise;
+      expect(settingsProjection).not.toBeInstanceOf(Error);
+      expect(settingsProjection.status()).toBe(200);
+      const updatedQueues = await settingsProjection.json();
+      expect(updatedQueues.find(({ id }) => id === dto.id)).toEqual(updatedDto);
+      await settingsForm.getByRole('status').filter({ hasText: 'Configurações da fila salvas.' }).waitFor();
+      expect(await settingsForm.locator('input[name="callTimeoutMin"]').inputValue()).toBe('18');
+      expect(await settingsForm.locator('textarea[name="callMessage"]').inputValue()).toBe(updatedCallMessage);
+
+      const openStateResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/open-state`
+          && response.request().method() === 'POST';
+      });
+      const openStateProjectionPromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === '/api/queues'
+          && response.request().method() === 'GET';
+      }).catch((error) => error);
+      await queueCard.getByRole('button', { name: 'Ativar fila', exact: true }).click();
+      const openStateResponse = await openStateResponsePromise;
+      expect(openStateResponse.status()).toBe(200);
+      expect(openStateResponse.request().postDataJSON()).toEqual({ isOpen: true });
+      expect(await openStateResponse.json()).toEqual({
+        status: 'confirmed', isOpen: true, remoteSyncStatus: 'local_only',
+      });
+      const openStateProjection = await openStateProjectionPromise;
+      expect(openStateProjection).not.toBeInstanceOf(Error);
+      expect(openStateProjection.status()).toBe(200);
+      const openedQueue = (await openStateProjection.json()).find(({ id }) => id === dto.id);
+      expect(openedQueue).toMatchObject({
+        id: dto.id,
+        aliases: [alias],
+        version: 3,
+        callTimeoutMin: 18,
+        callMessage: updatedCallMessage,
+        isOpen: true,
+        remoteSyncStatus: 'local_only',
+      });
+      await page.getByRole('status').filter({ hasText: 'Estado da fila atualizado.' }).waitFor();
+
+      const terminalEntryId = randomUUID();
+      const finishedAt = '2026-10-20T18:00:00.000Z';
+      dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+        `INSERT INTO entries (id, queue_id, twitch_user_id, user_login, display_name, source, status, finished_at, terminal_reason) VALUES ('${terminalEntryId}', '${dto.id}', 'ops15-history-user', 'ops15history', 'OPS15HistoryViewer', 'manual', 'completed', TIMESTAMPTZ '${finishedAt}', 'manual_test')`,
+      ]);
+      const historyResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/history`
+          && response.request().method() === 'GET';
+      });
+      await queueCard.locator('details.queue-history > summary').click();
+      const historyResponse = await historyResponsePromise;
+      expect(historyResponse.status()).toBe(200);
+      expect(await historyResponse.json()).toEqual([{
+        id: terminalEntryId,
+        userLogin: 'ops15history',
+        displayName: 'OPS15HistoryViewer',
+        status: 'completed',
+        finishedAt,
+        terminalReason: 'manual_test',
+      }]);
+      const historyRow = queueCard.locator('.history-entry').filter({ hasText: 'OPS15HistoryViewer' });
+      await historyRow.waitFor();
+      expect(await historyRow.textContent()).toContain('OPS15HistoryViewer · Concluído ·');
+      expect(await page.evaluate(() => globalThis.document.documentElement.scrollWidth <= globalThis.window.innerWidth)).toBe(true);
+
+      const firstWaitingEntryId = randomUUID();
+      const secondWaitingEntryId = randomUUID();
+      dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+        `INSERT INTO entries (id, queue_id, twitch_user_id, user_login, display_name, source, status, position) VALUES ('${firstWaitingEntryId}', '${dto.id}', 'ops15-first-user', 'ops15first', 'OPS15FirstWaiter', 'manual', 'waiting', 1), ('${secondWaitingEntryId}', '${dto.id}', 'ops15-second-user', 'ops15second', 'OPS15SecondWaiter', 'manual', 'waiting', 2)`,
+      ]);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await queueCard.getByText('OPS15FirstWaiter', { exact: true }).waitFor();
+      await queueCard.getByText('OPS15SecondWaiter', { exact: true }).waitFor();
+      const moveResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/move`
+          && response.request().method() === 'POST';
+      });
+      const moveProjectionPromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === '/api/queues'
+          && response.request().method() === 'GET';
+      }).catch((error) => error);
+      const secondWaitingRow = queueCard.locator('.queue-entry-row').filter({ hasText: 'OPS15SecondWaiter' });
+      await secondWaitingRow.getByRole('button', { name: 'Mover ↑', exact: true }).click();
+      const moveResponse = await moveResponsePromise;
+      expect(moveResponse.status()).toBe(200);
+      expect(moveResponse.request().postDataJSON()).toEqual({ entryId: secondWaitingEntryId, position: 1 });
+      expect(await moveResponse.json()).toEqual({ status: 'moved', entryId: secondWaitingEntryId, position: 1 });
+      const moveProjection = await moveProjectionPromise;
+      expect(moveProjection).not.toBeInstanceOf(Error);
+      expect(moveProjection.status()).toBe(200);
+      const movedQueue = (await moveProjection.json()).find(({ id }) => id === dto.id);
+      expect(movedQueue.entries.find(({ id }) => id === secondWaitingEntryId)).toMatchObject({ position: 1 });
+      expect(movedQueue.entries.find(({ id }) => id === firstWaitingEntryId)).toMatchObject({ position: 2 });
+
+      const priorityResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/entries/${secondWaitingEntryId}/priority`
+          && response.request().method() === 'POST';
+      }).catch((error) => error);
+      const priorityProjectionPromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === '/api/queues'
+          && response.request().method() === 'GET';
+      }).catch((error) => error);
+      const priorityEntryRow = queueCard.locator('.queue-entry-row').filter({ hasText: 'OPS15SecondWaiter' });
+      await priorityEntryRow.getByRole('button', { name: 'Marcar prioritária', exact: true }).click();
+      const priorityDialog = page.getByRole('dialog');
+      await priorityDialog.waitFor();
+      await priorityDialog.getByRole('combobox', { name: 'Benefício conferido', exact: true }).selectOption('bits');
+      await priorityDialog.getByRole('button', { name: 'Marcar prioritária', exact: true }).click();
+      const priorityResponse = await priorityResponsePromise;
+      expect(priorityResponse).not.toBeInstanceOf(Error);
+      expect(priorityResponse.status()).toBe(200);
+      expect(priorityResponse.request().postDataJSON()).toEqual({ priority: true, reason: 'bits' });
+      expect(await priorityResponse.json()).toMatchObject({
+        status: 'updated',
+        priorityClass: 'priority',
+        position: 1,
+        entry: { id: secondWaitingEntryId, priorityClass: 'priority', priorityReason: 'bits', status: 'waiting' },
+      });
+      const priorityProjection = await priorityProjectionPromise;
+      expect(priorityProjection).not.toBeInstanceOf(Error);
+      expect(priorityProjection.status()).toBe(200);
+      const prioritizedQueue = (await priorityProjection.json()).find(({ id }) => id === dto.id);
+      expect(prioritizedQueue.entries.find(({ id }) => id === secondWaitingEntryId))
+        .toMatchObject({ priorityClass: 'priority', priorityReason: 'bits', position: 1 });
+      expect(prioritizedQueue.entries.find(({ id }) => id === firstWaitingEntryId))
+        .toMatchObject({ priorityClass: 'standard', priorityReason: null, position: 2 });
+      const priorityBadge = queueCard.locator('.priority-badge').filter({ hasText: 'Bits' });
+      await priorityBadge.waitFor();
+      const removePriorityResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/entries/${secondWaitingEntryId}/priority`
+          && response.request().method() === 'POST';
+      }).catch((error) => error);
+      const removePriorityProjectionPromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === '/api/queues'
+          && response.request().method() === 'GET';
+      }).catch((error) => error);
+      await priorityEntryRow.getByRole('button', { name: 'Remover prioridade', exact: true }).click();
+      const removePriorityResponse = await removePriorityResponsePromise;
+      expect(removePriorityResponse).not.toBeInstanceOf(Error);
+      expect(removePriorityResponse.status()).toBe(200);
+      expect(removePriorityResponse.request().postDataJSON()).toEqual({ priority: false, reason: 'bits' });
+      expect(await removePriorityResponse.json()).toMatchObject({
+        status: 'updated',
+        priorityClass: 'standard',
+        entry: { id: secondWaitingEntryId, priorityClass: 'standard', priorityReason: null, status: 'waiting' },
+      });
+      const removePriorityProjection = await removePriorityProjectionPromise;
+      expect(removePriorityProjection).not.toBeInstanceOf(Error);
+      expect(removePriorityProjection.status()).toBe(200);
+      const standardQueue = (await removePriorityProjection.json()).find(({ id }) => id === dto.id);
+      expect(standardQueue.entries.find(({ id }) => id === secondWaitingEntryId))
+        .toMatchObject({ priorityClass: 'standard', priorityReason: null });
+      expect(await priorityBadge.count()).toBe(0);
+
+      dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+        `UPDATE entries SET status = 'called', position = null, called_at = NOW(), call_deadline_at = NOW() + INTERVAL '3 minutes' WHERE id = '${firstWaitingEntryId}'`,
+      ]);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      const calledEntryRow = queueCard.locator('.queue-entry-row').filter({ hasText: 'OPS15FirstWaiter' });
+      const attendResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/entries/${firstWaitingEntryId}/transitions`
+          && response.request().method() === 'POST' && response.request().postDataJSON()?.to === 'in_progress';
+      });
+      await calledEntryRow.getByRole('button', { name: 'Atender OPS15FirstWaiter', exact: true }).click();
+      const attendResponse = await attendResponsePromise;
+      expect(attendResponse.status()).toBe(200);
+      expect(attendResponse.request().postDataJSON()).toEqual({ to: 'in_progress', reason: 'service_started' });
+      expect(await attendResponse.json()).toEqual({
+        id: firstWaitingEntryId, status: 'in_progress', financialDecision: 'no_operation',
+      });
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      const attendProjection = await page.evaluate(async () => {
+        const response = await fetch('/api/queues');
+        return { status: response.status, queues: await response.json() };
+      });
+      expect(attendProjection.status).toBe(200);
+      expect(attendProjection.queues.find(({ id }) => id === dto.id).entries.find(({ id }) => id === firstWaitingEntryId))
+        .toMatchObject({ id: firstWaitingEntryId, status: 'in_progress', position: null });
+
+      const completeResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/entries/${firstWaitingEntryId}/transitions`
+          && response.request().method() === 'POST' && response.request().postDataJSON()?.to === 'completed';
+      });
+      await queueCard.getByRole('button', { name: 'Concluir atendimento de OPS15FirstWaiter', exact: true }).click();
+      const completeResponse = await completeResponsePromise;
+      expect(completeResponse.status()).toBe(200);
+      expect(completeResponse.request().postDataJSON()).toEqual({ to: 'completed', reason: 'service_completed' });
+      expect(await completeResponse.json()).toEqual({
+        id: firstWaitingEntryId, status: 'completed', financialDecision: 'no_operation',
+      });
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      const completeProjection = await page.evaluate(async () => {
+        const response = await fetch('/api/queues');
+        return { status: response.status, queues: await response.json() };
+      });
+      expect(completeProjection.status).toBe(200);
+      expect(completeProjection.queues.find(({ id }) => id === dto.id).entries.some(({ id }) => id === firstWaitingEntryId)).toBe(false);
+      const persistedCompletion = dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-At', '-c',
+        `SELECT json_build_object('status', status, 'terminalReason', terminal_reason, 'hasFinishedAt', finished_at IS NOT NULL)::text FROM entries WHERE id = '${firstWaitingEntryId}'`,
+      ]);
+      expect(JSON.parse(persistedCompletion)).toEqual({ status: 'completed', terminalReason: 'service_completed', hasFinishedAt: true });
+
+      dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+        `UPDATE queues SET is_archived = true, is_open = false, version = version + 1 WHERE id = '${dto.id}'`,
+      ]);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await queueCard.getByRole('button', { name: 'Mostrar esta fila para viewers', exact: true }).waitFor();
+      const unarchiveResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/unarchive`
+          && response.request().method() === 'POST';
+      });
+      const unarchiveProjectionPromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === '/api/queues'
+          && response.request().method() === 'GET';
+      }).catch((error) => error);
+      await queueCard.getByRole('button', { name: 'Mostrar esta fila para viewers', exact: true }).click();
+      const unarchiveDialog = page.getByRole('dialog');
+      await unarchiveDialog.getByRole('button', { name: 'Confirmar', exact: true }).click();
+      const unarchiveResponse = await unarchiveResponsePromise;
+      expect(unarchiveResponse.status()).toBe(200);
+      expect(unarchiveResponse.request().postDataJSON()).toEqual({});
+      const unarchivedDto = await unarchiveResponse.json();
+      expect(unarchivedDto).toMatchObject({
+        status: 'unarchived',
+        queue: { id: dto.id, isArchived: false, isOpen: false, remoteSyncStatus: 'local_only', version: 5 },
+      });
+      const unarchiveProjection = await unarchiveProjectionPromise;
+      expect(unarchiveProjection).not.toBeInstanceOf(Error);
+      expect(unarchiveProjection.status()).toBe(200);
+      expect((await unarchiveProjection.json()).find(({ id }) => id === dto.id))
+        .toMatchObject({ id: dto.id, isArchived: false, isOpen: false, version: 5 });
+      await queueCard.getByRole('status').filter({ hasText: 'Fila mostrada para viewers e continua pausada até você ativá-la.' }).waitFor();
+
+      dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+        `UPDATE queues SET queue_mode = 'channel_points', reward_origin = 'bot_created', reward_id = 'ops15-synthetic-uncertain-reward', cost = 1, mode_transition_status = 'none', remote_sync_status = 'unknown', version = version + 1 WHERE id = '${dto.id}'`,
+      ]);
+      const uncertainProjectionPromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === '/api/queues'
+          && response.request().method() === 'GET';
+      });
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      const uncertainProjection = await uncertainProjectionPromise;
+      expect(uncertainProjection.status()).toBe(200);
+      expect((await uncertainProjection.json()).find(({ id }) => id === dto.id)).toMatchObject({
+        queueMode: 'channel_points', rewardOrigin: 'bot_created', rewardId: 'ops15-synthetic-uncertain-reward',
+        remoteSyncStatus: 'unknown', modeTransitionStatus: 'none', lifecycleStatus: 'active', isArchived: false,
+      });
+      const uncertainQueueCard = page.locator('.queue-list-card').filter({
+        has: page.getByRole('heading', { name: title, exact: true }),
+      });
+      await uncertainQueueCard.getByRole('button', { name: 'Continuar para a confirmação final da exclusão', exact: true }).waitFor();
+      const challengeResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/archive-local/challenge`
+          && response.request().method() === 'POST';
+      });
+      await uncertainQueueCard.getByRole('button', { name: 'Continuar para a confirmação final da exclusão', exact: true }).click();
+      const firstArchiveDialog = page.getByRole('dialog');
+      await firstArchiveDialog.getByRole('button', { name: 'Confirmar', exact: true }).click();
+      const challengeResponse = await challengeResponsePromise;
+      expect(challengeResponse.status()).toBe(200);
+      expect(challengeResponse.request().postDataJSON()).toEqual({ expectedVersion: 6 });
+      const challengeDto = await challengeResponse.json();
+      expect(challengeDto).toMatchObject({
+        status: 'challenge_issued', expectedVersion: 6, remoteSyncStatus: 'unknown',
+      });
+      expect(challengeDto.challengeId).toMatch(/^[0-9a-f-]{36}$/i);
+
+      const confirmArchiveResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/archive-local/confirm`
+          && response.request().method() === 'POST';
+      });
+      const finalArchiveDialog = page.getByRole('dialog');
+      await finalArchiveDialog.getByRole('button', { name: 'Confirmar', exact: true }).click();
+      const confirmArchiveResponse = await confirmArchiveResponsePromise;
+      expect(confirmArchiveResponse.status()).toBe(200);
+      expect(confirmArchiveResponse.request().postDataJSON()).toEqual({
+        challengeId: challengeDto.challengeId,
+        expectedVersion: 6,
+        remoteSyncStatus: 'unknown',
+      });
+      const archivedDto = await confirmArchiveResponse.json();
+      expect(archivedDto).toMatchObject({
+        status: 'archived',
+        queue: {
+          id: dto.id, lifecycleStatus: 'deleted', isArchived: true, isOpen: false,
+          remoteSyncStatus: 'unknown', version: 7,
+        },
+      });
+      await page.getByRole('status').filter({ hasText: 'Fila removida do painel. O status da recompensa Twitch e o histórico foram preservados.' }).waitFor();
+      const archivedProjectionPromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === '/api/queues'
+          && response.request().method() === 'GET';
+      });
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      const archivedProjection = await archivedProjectionPromise;
+      expect(archivedProjection).not.toBeInstanceOf(Error);
+      expect(archivedProjection.status()).toBe(200);
+      expect((await archivedProjection.json()).some(({ id }) => id === dto.id)).toBe(false);
+      expect(await page.getByRole('heading', { name: title, exact: true }).count()).toBe(0);
+      const persistedArchive = dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-At', '-c',
+        `SELECT json_build_object('lifecycleStatus', lifecycle_status, 'isArchived', is_archived, 'isOpen', is_open, 'remoteSyncStatus', remote_sync_status, 'version', version, 'hasDeletedAt', deleted_at IS NOT NULL)::text FROM queues WHERE id = '${dto.id}'`,
+      ]);
+      expect(JSON.parse(persistedArchive)).toEqual({
+        lifecycleStatus: 'deleted', isArchived: true, isOpen: false, remoteSyncStatus: 'unknown', version: 7, hasDeletedAt: true,
+      });
+      expect(await page.evaluate(() => globalThis.document.documentElement.scrollWidth <= globalThis.window.innerWidth)).toBe(true);
+      await context.close();
+    } finally {
+      await browser.close();
+    }
   }, 120_000);
 });

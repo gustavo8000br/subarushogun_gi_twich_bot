@@ -1,5 +1,25 @@
 # Next.js Overlay Continuation Handoff
 
+### Latest continuation — QRA-04 reward-settings runtime (2026-10-20)
+
+The real Fastify route against disposable PostgreSQL returns the exact 202 DTO with `operationStatus: pending`, persists version-2 `pending_update`, previous settings in the idempotent `reward.update` outbox and panel actor audit. A stale expected version returns exact `STALE_QUEUE_VERSION` and does not duplicate the task; the protected list read matches the accepted DTO. Focused QRA fixture passed 6/6; full serial suite passed 153 files/1,463 tests. All nine browser-only E2Es passed, overlay parity in 1,041 ms; lint/typecheck/localization/version/denylist/diff/OpenGrep passed. No Twitch worker/adapter or remote mutation/confirmation. Keep the active preview and data; no bump/commit/push/cutover/vanilla removal.
+
+### Latest continuation — QRA-02 Channel Points create (2026-10-20)
+
+Real Fastify + disposable PostgreSQL coverage now asserts the exact Channel Points operator DTO (including normalized aliases), persisted settings, pending `reward.create` outbox intent, actor audit and matching protected list projection. It found/fixed the create response returning `aliases: []`; no Twitch adapter/call is used. New Chromium E2E `queue-creation-accepted-browser-only.mjs` passes for exact request, accessible pending-not-confirmed feedback and projection refresh with intercepted APIs. Focused route/PostgreSQL tests: 170/170; full suite: 153 files / 1,462 tests. All nine browser-only E2Es pass; lint/typecheck/localization/version/denylist/diff/OpenGrep pass. Preview `/health` and six migrated routes are 200; Twitch integration reports `degraded`. Preserve preview/data; no bump/commit/push/cutover/vanilla removal. Live Twitch creation and OBS/CEF/platform gates remain open.
+
+### Latest continuation — QRA-10 accepted manual admission recovery (2026-10-20)
+
+`tests/e2e/queue-manual-entry-recovery-browser-only.mjs` passes: accepted 201 plus failed list GET keeps the known `{id,status,position}` entry visible; localized accessible feedback and a GET-only retry reconcile it without another POST. Added matching placeholder allowlists for server-side discovery and browser interpolation. All API responses are intercepted; no live API/DB/Twitch evidence. Run full post-QRA-10 quality gates; preserve preview/data and keep no bump/commit/push/cutover/vanilla removal.
+
+### Latest continuation — QRA-04 accepted reward settings recovery (2026-10-20)
+
+After an accepted 202/pending reward-settings PATCH followed by a failed queue-list GET, the prior provider retained a stale `synced` projection. The provider now displays the accepted `pending_update` DTO, removes reward editing until Twitch is confirmed, exposes an accessible localized warning and GET-only refresh, then changes to ordinary pending-sync feedback after a successful retry. `tests/e2e/queue-reward-settings-recovery-browser-only.mjs` passes with intercepted API fixtures; it asserts exact body, CSRF/idempotency, no duplicate PATCH, no false Twitch confirmation. Full suite passed 153/1,461; focused reward/lifecycle 39/39; all seven browser-only E2Es; lint/type/localization/version/denylist/diff/OpenGrep gates passed. UX code-only scope 9.2/10. Preserve preview/data; no bump/commit/push/cutover/vanilla removal.
+
+### Latest continuation — QRA-02 uncertain queue creation (2026-10-20)
+
+The browser-only Chromium test `tests/e2e/queue-creation-uncertain-browser-only.mjs` verifies manual-first disconnected setup, exact POST DTO, ambiguous 503/reconciliation, accessible localized uncertainty feedback, safe reference, retained draft, and submit lockout. It found/fixed passing `{id}` into a catalog message without that interpolation. Focused unit tests passed 11/11; full suite passed 153 files / 1,461 tests, including Compose; lint/typecheck/localization/version/port-denylist/diff checks passed; OpenGrep found 0 issues in 149 analyzed files. All six browser-only E2Es passed, including QRA-02/03 and overlay source/bundle checks. API responses are intercepted, so this is not live persistence/Twitch evidence. Keep OPS-15 In Progress and preserve preview/data; no bump, commit, push, cutover, or vanilla removal.
+
 **Date:** 2026-10-19
 **Repository:** SubaruShogun Twitch Queue Bot
 **Branch:** `feat/ops-15-next-panel`
