@@ -10,6 +10,7 @@
 - A página Next.js de comandos do chat agora permite ao streamer alterar a audiência mínima dos comandos configuráveis. Políticas novas ou sem override usam seguidores; políticas salvas explicitamente são preservadas, e comandos fixos de moderadores/streamer continuam somente leitura.
 - Streamers podem cancelar a exclusão pendente de uma fila vinculada a reward depois que o app verifica que a reward exata, gerenciada pela Twitch, ainda existe e está pausada. A fila e o histórico financeiro permanecem recuperáveis, e uma exclusão posterior retoma com segurança a mesma intenção.
 - A página de operações agora distingue a sincronização com a Twitch da devolução de Pontos do Canal aos espectadores e da confirmação de resgates.
+- Quando não é possível confirmar a exclusão de uma reward na Twitch, o streamer pode arquivar a fila local por um fluxo de confirmação separado; uma fila restaurada continua pausada até ser ativada pelo streamer.
 
 ### Alterado
 
@@ -23,6 +24,7 @@
 - A visão geral do Next.js agora mostra a saúde da API do bot e das dependências, a conta atual, a contagem exata de operações não resolvidas e a última conciliação desta execução da API; oferece atualização manual e automática enquanto a página está visível e preserva os últimos dados de saúde quando a atualização falha.
 - A visão geral do Next.js diferencia a saúde dos serviços por cores: verde para funcional, amarelo para parcial/em andamento/desconhecido e vermelho para indisponível ou não configurado, com legenda localizada explícita. Em telas estreitas, a conciliação fica abaixo do título de saúde; a navegação móvel ganha uma barra roxa fina que indica rolagem horizontal.
 - O painel local Next.js agora identifica o canal Twitch conectado e informa claramente quando o segredo do aplicativo ainda não foi salvo. A troca de idioma valida a resposta da API e reconcilia com o estado persistido após uma resposta incerta.
+- Por padrão, o listener local da API de desenvolvimento agora fica vinculado ao loopback, em vez de expor a API em todas as interfaces de rede.
 
 ### Corrigido
 
@@ -31,6 +33,8 @@
 - Links de widgets OBS agora abrem a página local do overlay durante o desenvolvimento, e links locais criados anteriormente continuam funcionando.
 - Falhas inesperadas nas ações de inclusão manual, atendimento, reenvio de aviso, chamada, reordenação, prioridade e limpeza de fila agora exibem uma referência diagnóstica segura. Se uma chamada puder ter sido aplicada sem uma resposta confiável, os dois controles de chamada ficam bloqueados até uma atualização bem-sucedida da fila; o alerta mantém a referência e oferece nova tentativa da atualização. Uma fila vazia confirmada mantém o resultado “ninguém aguardando”. Confirmações incertas de limpeza continuam exigindo atualização bem-sucedida antes de outra limpeza.
 - A confirmação de exclusão local fica bloqueada enquanto o cancelamento estiver verificando a reward, preservando uma forma segura de retomar a operação.
+- Criação de fila, configurações e inclusão manual que a API já aceitou permanecem visíveis quando a atualização seguinte da lista falha; o painel oferece uma nova leitura sem repetir a mutação nem indicar rejeição indevida.
+- O feedback de arquivamento/desarquivamento continua visível mesmo quando a fila sai da lista, e o reenvio diferencia um aviso já enfileirado sem afirmar que a mensagem foi entregue.
 
 ## v0.1.2-beta
 

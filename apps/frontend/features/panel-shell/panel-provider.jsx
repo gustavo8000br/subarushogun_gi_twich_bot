@@ -6,14 +6,14 @@ import { normalizeCatalogBundle, translatePanel } from '../../lib/i18n/panel-cat
 import { persistProductLocale } from '../../lib/i18n/persist-product-locale.mjs';
 import { loadPanelRuntimeSnapshot, loadPanelSnapshot } from './load-panel-snapshot.mjs';
 import { summarizeQueues } from '../overview/queue-summary.mjs';
-import { loadQueueProjection, performQueueLifecycleAction, requestQueueOpenState } from '../queues/queue-lifecycle.mjs';
+import { getQueueLifecycleFailureFeedback, loadQueueProjection, performQueueLifecycleAction, requestQueueOpenState } from '../queues/queue-lifecycle.mjs';
 import { getManualQueueEntryFailureKey, getQueueEntryActionFailureFeedback, getQueueEntryActionFeedback, performQueueEntryActionWithRefresh, queueCallRequiresRefresh } from '../queues/queue-entry-actions.mjs';
 import { createQueueWithRefresh, getQueueCreationFailureKey, getQueueCreationFeedback } from '../queues/queue-creation.mjs';
 import { getQueueSettingsFailureKey, getQueueSettingsFeedback, saveQueueSettingsWithRetry } from '../queues/queue-settings.mjs';
 import { loadQueueHistory as fetchQueueHistory } from '../queues/queue-history.mjs';
 import { confirmQueueClear as confirmQueueClearRequest, getQueueClearFailureFeedback, previewQueueClear as previewQueueClearRequest } from '../queues/queue-clear.mjs';
 import { loadQueueRewardCandidates as fetchQueueRewardCandidates, resolveQueueReward as resolveQueueRewardRequest } from '../queues/queue-reward-resolution.mjs';
-import { getQueueRewardSettingsFailureKey, updateQueueRewardSettings as updateQueueRewardSettingsRequest } from '../queues/queue-reward-settings.mjs';
+import { getQueueRewardSettingsFailureFeedback, updateQueueRewardSettings as updateQueueRewardSettingsRequest } from '../queues/queue-reward-settings.mjs';
 
 const PanelContext = createContext(null);
 
@@ -31,6 +31,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
   const [localeNotice, setLocaleNotice] = useState(null);
   const [saving, setSaving] = useState(false);
   const [queueAction, setQueueAction] = useState(null);
+  const [queueLifecycleNotice, setQueueLifecycleNotice] = useState(null);
   const [queueCreation, setQueueCreation] = useState(null);
   const [queueSettingsAction, setQueueSettingsAction] = useState(null);
   const [queueClearRefreshRequired, setQueueClearRefreshRequired] = useState(false);
@@ -220,6 +221,17 @@ export function PanelProvider({ children, fallbackCatalog }) {
       if (purpose === 'reward-link') setQueueAction((current) => current?.key === 'panel.reward.link_refresh_failed'
         ? { ...current, status: 'confirmed', key: 'panel.reward.link_refreshed', referenceId: null }
         : current);
+      if (purpose === 'reward-settings') setQueueAction((current) => current?.key === 'panel.reward.settings_refresh_failed'
+        ? { ...current, status: 'pending', key: 'panel.notice.reward_update_pending', referenceId: null }
+        : current);
+      if (purpose === 'manual-entry') setQueueAction((current) => {
+        if (current?.key !== 'panel.entry.add.refresh_failed') return current;
+        const reconciled = queues.some((queue) => queue.id === current.queueId
+          && queue.entries.some((entry) => entry.id === current.entryId));
+        return reconciled
+          ? { ...current, status: 'confirmed', key: 'panel.entry.added', referenceId: null, values: undefined }
+          : current;
+      });
       return true;
     } catch (error) {
       if (purpose === 'clear') setQueueClearRefreshRequired(true);
@@ -284,8 +296,14 @@ export function PanelProvider({ children, fallbackCatalog }) {
   const runQueueLifecycleAction = useCallback(async (queueId, action, context = {}) => {
     if (saving) return null;
     setSaving(true);
+    setQueueLifecycleNotice(null);
     try {
       const result = await performQueueLifecycleAction({ request: apiClient.request, queueId, action, queue: context.queue, challenge: context.challenge });
+      if (action === 'archive-local-confirm' && result.status === 'archived') {
+        setQueueLifecycleNotice({ key: 'panel.queue.archive_local.done' });
+      } else if (action === 'unarchive' && result.status === 'unarchived') {
+        setQueueLifecycleNotice({ key: 'panel.queue.unarchive.done' });
+      }
       try {
         const refreshed = loadQueueProjection(apiClient.request);
         const queues = await refreshed;
@@ -303,6 +321,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
               : 'panel.queue.archive_local.unavailable';
         return { status: 'error', key };
       }
+      if (action === 'cancel-delete') return getQueueLifecycleFailureFeedback(requestError, { action });
       return null;
     } finally {
       setSaving(false);
@@ -351,18 +370,23 @@ export function PanelProvider({ children, fallbackCatalog }) {
       } catch {
         refreshFailed = true;
       }
+      if (refreshFailed) {
+        const acceptedProjection = queueProjection.map((queue) => queue.id === queueId ? result : queue);
+        setQueueProjection(acceptedProjection);
+        setQueueSummary(summarizeQueues(acceptedProjection));
+      }
       setQueueAction({
         queueId,
         status: refreshFailed ? 'warning' : 'pending',
-        key: refreshFailed ? 'panel.queue.entry_action_result.refresh_failed' : 'panel.notice.reward_update_pending',
+        key: refreshFailed ? 'panel.reward.settings_refresh_failed' : 'panel.notice.reward_update_pending',
       });
       return { status: 'pending', refreshFailed, result };
     } catch (requestError) {
-      return { status: 'error', key: getQueueRewardSettingsFailureKey(requestError), referenceId: requestError?.referenceId ?? null };
+      return { status: 'error', ...getQueueRewardSettingsFailureFeedback(requestError) };
     } finally {
       setSaving(false);
     }
-  }, [saving]);
+  }, [saving, queueProjection]);
 
   const addManualQueueEntry = useCallback(async (queueId, entry) => {
     if (saving) return false;
@@ -375,8 +399,30 @@ export function PanelProvider({ children, fallbackCatalog }) {
       if (queues) {
         setQueueProjection(queues);
         setQueueSummary(summarizeQueues(queues));
+      } else if (entry.login && result?.id) {
+        const acceptedEntry = {
+          id: result.id,
+          userLogin: entry.login,
+          displayName: entry.login,
+          status: result.status,
+          position: result.position,
+          priorityClass: entry.priority ? 'priority' : 'standard',
+          priorityReason: entry.priority ? entry.priorityReason : null,
+          uid: entry.uid || null,
+        };
+        const acceptedProjection = queueProjection.map((queue) => queue.id === queueId
+          ? { ...queue, entries: [...queue.entries.filter((item) => item.id !== result.id), acceptedEntry].sort((left, right) => left.position - right.position) }
+          : queue);
+        setQueueProjection(acceptedProjection);
+        setQueueSummary(summarizeQueues(acceptedProjection));
       }
-      setQueueAction({ queueId, ...getQueueEntryActionFeedback({ action: 'add-manual', result, refreshFailed }) });
+      setQueueAction({
+        queueId,
+        ...(refreshFailed && entry.login ? {
+          status: 'warning', key: 'panel.entry.add.refresh_failed', entryId: result.id,
+          values: { user: entry.login, position: result.position },
+        } : getQueueEntryActionFeedback({ action: 'add-manual', result, refreshFailed })),
+      });
       return true;
     } catch (requestError) {
       const referenceId = typeof requestError?.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(requestError.referenceId)
@@ -392,7 +438,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
     } finally {
       setSaving(false);
     }
-  }, [saving]);
+  }, [saving, queueProjection]);
 
   const createQueue = useCallback(async (formValues) => {
     if (saving) return false;
@@ -456,7 +502,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
     }
   }, [saving, queueProjection]);
 
-  const value = useMemo(() => ({ catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueCallRecovery, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, runQueueLifecycleAction, loadQueueRewardCandidates, resolveQueueReward, saveQueueRewardSettings, addManualQueueEntry, loadQueueHistory, previewQueueClear, confirmQueueClear, refreshQueueProjection, queueClearRefreshRequired, queueCallRefreshRequired, createQueue, saveQueueSettings }), [catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueCallRecovery, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, runQueueLifecycleAction, loadQueueRewardCandidates, resolveQueueReward, saveQueueRewardSettings, addManualQueueEntry, loadQueueHistory, previewQueueClear, confirmQueueClear, refreshQueueProjection, queueClearRefreshRequired, queueCallRefreshRequired, createQueue, saveQueueSettings]);
+  const value = useMemo(() => ({ catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueLifecycleNotice, queueCallRecovery, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, runQueueLifecycleAction, loadQueueRewardCandidates, resolveQueueReward, saveQueueRewardSettings, addManualQueueEntry, loadQueueHistory, previewQueueClear, confirmQueueClear, refreshQueueProjection, queueClearRefreshRequired, queueCallRefreshRequired, createQueue, saveQueueSettings }), [catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueLifecycleNotice, queueCallRecovery, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, runQueueLifecycleAction, loadQueueRewardCandidates, resolveQueueReward, saveQueueRewardSettings, addManualQueueEntry, loadQueueHistory, previewQueueClear, confirmQueueClear, refreshQueueProjection, queueClearRefreshRequired, queueCallRefreshRequired, createQueue, saveQueueSettings]);
   return <PanelContext.Provider value={value}>{children}</PanelContext.Provider>;
 }
 

@@ -3,6 +3,32 @@ import { getQueueActionState } from '../../../web/queue-action-state.mjs';
 
 const LIFECYCLE_ACTIONS = new Set(['delete', 'cancel-delete', 'manual-mode', 'unarchive', 'archive-local-challenge', 'archive-local-confirm']);
 
+/** @param {{code?:string,referenceId?:string,status?:number}|null|undefined} error @param {{action?:string}} [context] */
+export function getQueueLifecycleFailureFeedback(error, { action } = {}) {
+  if (action !== 'cancel-delete') return { status: 'error', key: 'panel.error.generic', uncertain: false };
+  const referenceId = typeof error?.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(error.referenceId)
+    ? error.referenceId
+    : null;
+  const knownKeys = {
+    QUEUE_DELETION_NOT_PENDING: 'panel.queue.delete.cancel.stale',
+    QUEUE_DELETION_CANCELLATION_STALE: 'panel.queue.delete.cancel.stale',
+    QUEUE_REWARD_OPERATION_PROCESSING: 'panel.queue.delete.cancel.processing',
+    QUEUE_DELETION_CANCELLATION_UNVERIFIED: 'panel.queue.delete.cancel.unverified',
+    QUEUE_NOT_FOUND: 'panel.error.queue_not_found',
+  };
+  const key = Object.hasOwn(knownKeys, error?.code) ? knownKeys[error?.code] : null;
+  if (key) return { status: 'error', key, uncertain: false };
+
+  const uncertain = error?.code !== 'SESSION_INITIALIZATION_FAILED'
+    && (error?.status === 0 || error?.status >= 500 || error?.code === 'INVALID_QUEUE_LIFECYCLE_RESPONSE');
+  return {
+    status: 'error',
+    key: uncertain ? 'panel.queue.delete.cancel.uncertain' : 'panel.error.generic',
+    uncertain,
+    ...(uncertain && referenceId ? { referenceId } : {}),
+  };
+}
+
 /** @param {{request:(path:string, options?:object)=>Promise<any>, queueId:string, action:string, queue?:Record<string, any>, challenge?:Record<string, any>}} input */
 export async function performQueueLifecycleAction({ request, queueId, action, queue, challenge }) {
   if (typeof queueId !== 'string' || !queueId || !LIFECYCLE_ACTIONS.has(action)) {

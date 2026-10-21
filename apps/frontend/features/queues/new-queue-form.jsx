@@ -115,7 +115,7 @@ export default function NewQueueForm({ t, saving, feedback, twitchConnected = fa
           <button className="button button-primary" type="submit" disabled={saving || feedback?.status === 'uncertain'}>{saving ? t('panel.queue.action_result.saving') : t('panel.form.create_queue')}</button>
         </div>
         {feedback?.status ? <div className={`queue-creation-feedback${feedback.status === 'error' ? ' is-error' : feedback.status === 'warning' || feedback.status === 'pending' || feedback.status === 'uncertain' ? ' is-warning' : ''}`} role={feedback.status === 'error' ? 'alert' : 'status'}>
-          <p>{t(feedback.key, feedback.referenceId ? { values: { id: feedback.referenceId } } : undefined)}</p>
+          <p>{t(feedback.key, feedback.key === 'panel.error.reference' && feedback.referenceId ? { values: { id: feedback.referenceId } } : undefined)}</p>
           {feedback.referenceId && feedback.key !== 'panel.error.reference' ? <small>{t('panel.error.reference', { values: { id: feedback.referenceId } })}</small> : null}
           {['confirmed', 'pending', 'warning', 'uncertain'].includes(feedback.status) ? <a href="/queues/">{t('panel.queue.creation_result.open_queues')}</a> : null}
         </div> : null}

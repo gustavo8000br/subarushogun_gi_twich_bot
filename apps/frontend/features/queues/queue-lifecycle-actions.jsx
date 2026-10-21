@@ -49,7 +49,7 @@ function QueueLifecycleActions({ queue, locale, t, saving, rewardLinkRefreshRequ
       setPending(null);
       return;
     }
-    if (result.status === 'error') setNotice({ key: result.key ?? 'panel.queue.archive_local.unavailable', error: true });
+    if (result.status === 'error') setNotice({ key: result.key ?? 'panel.queue.archive_local.unavailable', error: true, referenceId: result.referenceId });
     else if (action === 'delete') setNotice({ key: result.status === 'pending' ? 'panel.queue.delete.pending' : 'panel.queue.delete.done', warning: result.status === 'pending' });
     else if (action === 'archive-local-confirm') setNotice({ key: 'panel.queue.archive_local.done' });
     else if (action === 'cancel-delete') {
@@ -95,7 +95,12 @@ function QueueLifecycleActions({ queue, locale, t, saving, rewardLinkRefreshRequ
       {visible ? <button type="button" className="button button-secondary" disabled={visible.disabled || saving} onClick={() => ask('unarchive')}>{t(visible.key)}</button> : null}
       {state.resolveReward ? <QueueRewardResolutionDialog queue={queue} locale={locale} t={t} saving={saving} disabled={rewardLinkRefreshRequired} onLoadCandidates={onLoadRewardCandidates} onResolve={onResolveReward} /> : null}
     </div>
-    {notice ? <p className={`queue-action-feedback${notice.error ? ' is-error' : notice.warning ? ' is-warning' : ''}`} role={notice.error ? 'alert' : 'status'}>{t(notice.key)}</p> : null}
+    {notice ? <p className={`queue-action-feedback${notice.error ? ' is-error' : notice.warning ? ' is-warning' : ''}`} role={notice.error ? 'alert' : 'status'}>
+      {t(notice.key)}
+      {typeof notice.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(notice.referenceId)
+        ? <> <small>{t('panel.error.reference', { values: { id: notice.referenceId } })}</small></>
+        : null}
+    </p> : null}
     <dialog ref={dialog} className="operation-confirmation" aria-modal="true" aria-labelledby={`lifecycle-title-${queue.id}`} aria-describedby={`lifecycle-copy-${queue.id}`} onClose={() => { setPending(null); setArchiveChallenge(null); }}>
       <h2 id={`lifecycle-title-${queue.id}`}>{t('panel.confirmation.title')}</h2>
       <p id={`lifecycle-copy-${queue.id}`}>{confirmCopy}</p>

@@ -1,5 +1,68 @@
 # OPS-15 Next UI code audit
 
+## Focused UX review — retry a called viewer notification (QRA-12, 2026-10-20)
+
+- **User need/plan:** for an entry already marked called, place the resend action beside that entry and give clear feedback after the request is queued; distinguish queueing from actual chat delivery, retain the no-show deadline, and avoid adding a second-send interaction or new UI pattern.
+- **Existing design review:** the current inline “Resend call” action remains adjacent to the called viewer. Its localized live-region feedback says the resend was queued and the deadline preserved. No layout, copy, endpoint, or application behavior was changed; this increment adds browser evidence only.
+- **Validation:** Chromium E2E used intercepted same-origin API fixtures; it asserted one POST, CSRF/idempotency headers, `role="status"`, exact queued-not-delivered copy and the unchanged deadline in the rendered projection. No chat worker, Twitch, database, screenshot, axe or assistive-technology test was run.
+- **Scoped UX score: 9.2/10** for the existing resend interaction/feedback contract only. Not an overall queue-page or OPS-15 score, and not independent QA.
+
+## Focused UX review — success feedback after local queue archive (2026-10-20)
+
+- **User need:** after explicitly choosing the two-step local-only archive for a queue whose Twitch reward state is uncertain, the streamer must receive confirmation even though the successful refresh removes that queue card from the active list.
+- **Flow/design:** lifecycle success is retained in the shared panel provider and rendered as the existing page-level `role="status"` feedback pattern. It remains independent of the queue card and appears above both populated and empty queue states; no duplicate toast, blocking dialog, raw error, or claim of Twitch deletion is introduced. New lifecycle work clears the prior message.
+- **Validation:** isolated Compose Chromium exercised the exact challenge and confirmation through Next/Fastify/PostgreSQL, observed the localized success after the card was removed, then reloaded to verify the card stayed absent. A component regression covers the empty-list case. No visual screenshot, axe scan, screen-reader test, or independent QA was run.
+- **Scoped UX score: 9.2/10** for this archive-completion feedback state only: accessible status survives the underlying content removal and communicates only the confirmed local action. Not a score for the full queue page or OPS-15 overall.
+
+## Focused UX plan/review — accepted manual queue admission with failed refresh (2026-10-20)
+
+- **Problem/user need:** after the API accepts a viewer at a specific queue position but the follow-up list read fails, the streamer needs to see that entry and must not repeat the add because the stale list omitted it.
+- **Flow:** project the accepted response into the current queue using its returned ID/status/position and the operator-entered login; announce that acceptance is known but the list refresh failed; provide a GET-only retry. After a successful projection read that contains the entry ID, change to the ordinary added notice. Never repeat the POST during recovery.
+- **Accessibility/states:** feedback uses `role="status"` and safe, localized scalar placeholders; refresh button is named and busy/disabled while loading. E2E asserts the entry stays visible, no private error leaks, exact 201/request contract, CSRF/idempotency, read retry, and one POST only. No axe, screen-reader, or visual audit.
+- **Validation and score:** scoped UX score **9.2/10** for this recovery/state/accessibility flow only; not independent QA, live backend acceptance, or OPS-15 overall score.
+
+## Focused UX plan/review — accepted reward update with failed list refresh (2026-10-20)
+
+- **Problem/user need:** a successful local 202 response means the Twitch reward update is pending, not remotely confirmed. If the follow-up list read fails, showing the old “synced” reward or leaving its editor available could invite a duplicate mutation and mislead the streamer.
+- **Flow:** retain the accepted QueueDto locally, show its `pending_update` state, remove reward-edit controls while unresolved, announce a localized warning with a read-only “Refresh queue” action, then replace the warning with pending-sync guidance only after a successful projection read.
+- **Accessibility/states:** warning is the existing `role="status"`; refresh action has a localized accessible name and busy/disabled state; test verifies no false remote success, stale projection, private server message, or duplicate PATCH. This was a code-only/Chromium fixture review; no axe, screen-reader, or visual-layout audit.
+- **Validation and score:** scoped UX score **9.2/10** for this recovery/state/accessibility flow only. Not independent QA, real Twitch acceptance, visual audit, or OPS-15 overall score.
+
+## Focused UX plan/review — uncertain queue creation response (2026-10-20)
+
+- **Problem/user need:** when queue creation returns an ambiguous server failure and the follow-up list read finds no queue, the streamer needs clear uncertainty guidance, must not be told creation failed/ succeeded without proof, and must not accidentally submit a duplicate.
+- **Flow:** keep the manual-first form draft; show the existing localized uncertain-result message and a separate safe diagnostic reference; link to queues for verification; disable another create submission until the operator checks the list. No new layout or interaction pattern is introduced.
+- **Accessibility/states:** existing `role="status"` announces the result; message and reference remain distinct; the test asserts no private server details, no false success, and preserved field values. No axe, screen-reader, or visual-layout review was performed.
+- **Validation and score:** Chromium browser-only E2E with all API routes intercepted, plus focused component test. Scoped UX score **9.2/10** for this copy/state/accessibility flow only; not a visual audit, independent QA, or overall OPS-15 score. The review is in-scope plan/code inspection, not a live-backend acceptance.
+
+## Focused UX review — accepted queue settings with failed refresh (2026-10-20)
+
+- **Problem/user need:** after the local settings PATCH is accepted, the follow-up list read can fail. The streamer must know the save was accepted without being told that the list is current or encouraged to repeat a successful mutation.
+- **Proposed flow:** keep the values from the accepted versioned DTO in the existing form, show the existing localized warning that asks the operator to reload and verify current values, and do not replace it with a success notice. No new UI or copy was introduced.
+- **Accessibility/states:** the warning is exposed through the existing `role="status"`; saving temporarily disables form controls, accepted fields remain present, and the private server failure text is not exposed. The E2E verifies these states in Chromium but does not run axe or screen-reader testing.
+- **Review/method:** code-only review of the existing flow plus browser-only Chromium E2E with every API route intercepted. **Scoped UX score: 9.2/10** for the accepted-save/failed-refresh feedback contract only; not a visual audit, independent QA, route-wide score, or OPS-15 completion score. Overall UX baseline remains 8.8/10.
+
+## Browser UX re-review — local queue settings and activation (2026-10-20)
+
+- **Problem/user need:** let a streamer create a disconnected manual queue, adjust its call behavior, and activate it without implying a Twitch reward exists or is synchronized.
+- **Flow reviewed:** existing creation success link → queue card → grouped settings disclosure → edit/save call timeout and message → accessible saved status → activate local queue → updated queue projection. No UI or copy change was made in this increment.
+- **Method and evidence:** Chromium against isolated production-like Compose at 390×844; locators use accessible names/roles; test asserts no horizontal document overflow, exact local settings/open-state requests, success feedback and persisted read-back. No active preview/database or Twitch call was used. No axe, screen-reader, keyboard-only or screenshot-based visual audit was performed.
+- **Scoped UX score: 9.2/10** for this disconnected queue create/configure/activate path; established grouping, clear dirty/saved status, colocated actions, and explicit local-only state meet the requested 9+/10 threshold. This score is scoped to the tested viewport/path, not the full queue page, independent QA, or overall OPS-15 score. Overall UX baseline remains 8.8/10.
+
+## Browser UX re-review — local queue settings and activation (2026-10-20)
+
+- **Problem/user need:** let a streamer create a disconnected manual queue, adjust its call behavior, and activate it without implying a Twitch reward exists or is synchronized.
+- **Flow reviewed:** existing creation success link → queue card → grouped settings disclosure → edit/save call timeout and message → accessible saved status → activate local queue → updated queue projection. No UI or copy change was made in this increment.
+- **Method and evidence:** Chromium against isolated production-like Compose at 390×844; locators use accessible names/roles; test asserts no horizontal document overflow, exact local settings/open-state requests, success feedback and persisted read-back. No active preview/database or Twitch call was used. No axe, screen-reader, keyboard-only or screenshot-based visual audit was performed.
+- **Scoped UX score: 9.2/10** for this disconnected queue create/configure/activate path; established grouping, clear dirty/saved status, colocated actions, and explicit local-only state meet the requested 9+/10 threshold. This score is scoped to the tested viewport/path, not the full queue page, independent QA, or overall OPS-15 score. Overall UX baseline remains 8.8/10.
+
+## Browser UX re-review — session/origin and disconnected New Queue (2026-10-20)
+
+- Reviewer: `$aiox-ux-design-expert` (Uma), scoped to the prior cold-session/origin findings in Operations and Widgets and the disconnected New Queue setup path.
+- Method: read-only Chromium against the active HTTPS Next preview in pt-BR at 390×844, 768×900 and 1440×900. The instance health endpoint reported Twitch integration degraded; no credentials/OAuth were entered. No form submit, API mutation, Twitch call, or database write was performed.
+- Results: New Queue displayed the manual-entry mode with the nearby Twitch setup note and `/connection/` link. Direct Operations and Widgets entry completed session/snapshot initialization without a transient alert. All three routes had a visible heading and no horizontal document overflow at the sampled widths; no page JavaScript errors occurred.
+- **Focused UX gate: PASS; no new numeric score assigned.** The historic 8.0 route scores remain historical rather than being silently replaced by an incomplete re-score. The overall eight-route UX baseline remains **8.8/10** pending a whole-surface reassessment. This is not independent QA and does not validate populated DB states, live Twitch, API persistence, or OPS-15 completion.
+
 ## Focused UX review — uncertain queue clear and failed refresh (2026-10-19)
 
 - UX review found that the prior uncertain-result message said the queue was refreshed even when the follow-up projection read failed. The clear action could also be retried against stale local data.

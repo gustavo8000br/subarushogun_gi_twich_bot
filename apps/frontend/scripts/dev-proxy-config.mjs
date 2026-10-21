@@ -43,7 +43,7 @@ export function buildProductionProxyRules(env = process.env) {
       { source: '/overlay/api/:path*', destination: `${target.origin}/overlay/api/:path*` },
       { source: '/health', destination: `${target.origin}/health` },
       { source: '/callback', destination: `${target.origin}/callback` },
-      ...['/', '/queues/:path*', '/new-queue/:path*', '/operations/:path*', '/commands/:path*', '/widgets/:path*', '/settings/:path*', '/styles.css', '/app.js']
+      ...['/', '/styles.css', '/app.js']
         .map((source) => ({ source, destination: `${target.origin}${source}` })),
     ],
     afterFiles: [{ source: '/overlay.html', destination: '/overlay' }],

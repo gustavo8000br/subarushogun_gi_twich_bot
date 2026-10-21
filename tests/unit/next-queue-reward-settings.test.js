@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getQueueRewardSettingsFailureKey, updateQueueRewardSettings } from '../../apps/frontend/features/queues/queue-reward-settings.mjs';
+import { getQueueRewardSettingsFailureFeedback, getQueueRewardSettingsFailureKey, updateQueueRewardSettings } from '../../apps/frontend/features/queues/queue-reward-settings.mjs';
 
 const valid = {
   expectedVersion: 4, title: 'Arena', cost: 350, rewardPrompt: 'UID opcional', uidMode: 'hidden',
@@ -34,9 +34,25 @@ describe('Next queue reward settings', () => {
     await expect(updateQueueRewardSettings({ request, queueId: 'queue-id', settings: valid })).rejects.toMatchObject({ code: 'INVALID_REWARD_SETTINGS_RESPONSE' });
   });
 
-  it('maps known queue conflicts to safe localized product copy', () => {
-    expect(getQueueRewardSettingsFailureKey({ code: 'STALE_QUEUE_VERSION', status: 409 })).toBe('panel.error.stale_queue_settings');
-    expect(getQueueRewardSettingsFailureKey({ code: 'QUEUE_REWARD_UPDATE_PENDING', status: 409 })).toBe('panel.error.reward_update_pending');
-    expect(getQueueRewardSettingsFailureKey({ message: 'private server details' })).toBe('panel.error.generic');
+  it.each([
+    [{ code: 'INVALID_REWARD_SETTINGS' }, 'panel.error.invalid_reward_settings'],
+    [{ status: 400 }, 'panel.error.invalid_reward_settings'],
+    [{ code: 'STALE_QUEUE_VERSION', status: 409 }, 'panel.error.stale_queue_settings'],
+    [{ code: 'QUEUE_REWARD_UPDATE_PENDING', status: 409 }, 'panel.error.reward_update_pending'],
+    [{ code: 'QUEUE_REWARD_NOT_READY', status: 409 }, 'panel.error.reward_not_ready'],
+    [{ code: 'QUEUE_NOT_AVAILABLE', status: 409 }, 'panel.error.queue_not_available'],
+    [{ code: 'QUEUE_NOT_FOUND', status: 404 }, 'panel.error.queue_not_found'],
+    [{ code: 'INTERNAL_ERROR', status: 503, referenceId: 'safe-reference' }, 'panel.error.generic'],
+    [{ code: 'INVALID_REWARD_SETTINGS_RESPONSE' }, 'panel.error.generic'],
+    [{ message: 'private server details' }, 'panel.error.generic'],
+  ])('maps failure %o to safe localized product copy', (error, key) => {
+    expect(getQueueRewardSettingsFailureKey(error)).toBe(key);
+  });
+
+  it('keeps only a safe diagnostic reference for reward-settings feedback', () => {
+    expect(getQueueRewardSettingsFailureFeedback({ code: 'INTERNAL_ERROR', referenceId: 'operation.ref-12_3' }))
+      .toEqual({ key: 'panel.error.generic', referenceId: 'operation.ref-12_3' });
+    expect(getQueueRewardSettingsFailureFeedback({ code: 'INTERNAL_ERROR', referenceId: 'secret SQL details' }))
+      .toEqual({ key: 'panel.error.generic', referenceId: null });
   });
 });

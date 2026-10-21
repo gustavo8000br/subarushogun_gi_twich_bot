@@ -27,6 +27,21 @@ describe('development startup preflight', () => {
     expect(checkDependencies).toHaveBeenCalledWith('/repo');
   });
 
+  it.each(['v2.39.1', 'v5.6.0'])(
+    'accepts supported Docker Compose %s releases',
+    async (version) => {
+      const checkCommand = vi.fn().mockImplementation((_command, args) => {
+        if (args[0] === '--version') return commandResult('v24.20.0');
+        if (args[0] === 'compose') return commandResult(`Docker Compose version ${version}`);
+        return args[0] === 'info' ? commandResult('29.9.1') : commandResult();
+      });
+
+      await expect(runDevelopmentPreflight({
+        env: {}, root: '/repo', checkCommand, checkDependencies: vi.fn().mockResolvedValue(true),
+      })).resolves.toBeUndefined();
+    },
+  );
+
   it('does not require Docker when an explicit database URL is configured', async () => {
     const checkCommand = vi.fn().mockReturnValue(commandResult('v24.20.0'));
     const checkDependencies = vi.fn().mockResolvedValue(true);
@@ -62,7 +77,7 @@ describe('development startup preflight', () => {
   });
 
   it.each([
-    ['compose-missing', 'Docker Compose v2 is required. Install/start Docker Engine or Desktop, then retry npm run dev.'],
+    ['compose-missing', 'Docker Compose v2 or v5 is required. Install/start Docker Engine or Desktop, then retry npm run dev.'],
     ['engine-unavailable', 'Docker Engine is not running or accessible. Start Docker Desktop/Engine, then retry npm run dev.'],
   ])('reports a safe actionable Docker diagnostic for %s', async (failure, expectedMessage) => {
     const checkCommand = vi.fn().mockImplementation((_command, args) => {
@@ -94,7 +109,7 @@ describe('development startup preflight', () => {
 
     await expect(runDevelopmentPreflight({
       env: {}, root: '/repo', checkCommand, checkDependencies: vi.fn().mockResolvedValue(true),
-    })).rejects.toThrow('Docker Compose v2 is required.');
+    })).rejects.toThrow('Docker Compose v2 or v5 is required.');
     expect(checkCommand).toHaveBeenCalledTimes(2);
   });
 });
