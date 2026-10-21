@@ -3,15 +3,14 @@
 Copie o texto abaixo para iniciar a próxima sessão do Claude Code:
 
 ```text
-Continue a implementação da story OPS-15 neste repositório. Você está na branch de trabalho `feat/ops-15-next-panel`; nunca trabalhe na `main`.
+Continue a implementação da story OPS-15 neste repositório. Você está na branch de trabalho `feat/ops-15-next-panel`.
 
 ## Leis imutáveis do projeto
 
-- Use sempre o AIOX Master como orquestrador. Leia e siga `AGENTS.md`, a constituição AIOX e as skills locais necessárias. Delegue responsabilidades especializadas conforme as regras AIOX.
-- Nunca acesse `/media*`, nem use caminhos antigos que apontem para essa localização.
+- Use sempre o AIOX Master como orquestrador. Leia e siga `AGENTS.md` (se o arquivo `CLAUDE.me` não existir, crie o arquivo e faça uma adaptação do AGENTS.md para o arquivo `CLAUDE.md`), a constituição AIOX e as skills locais necessárias. Delegue responsabilidades especializadas conforme as regras AIOX.
 - Pesquise sempre na internet para verificar soluções, lacunas técnicas e dúvidas de linguagem/framework; prefira documentação oficial, repositórios/issues e discussões técnicas pertinentes. Cite fontes quando trouxer afirmações baseadas nessa pesquisa.
-- Antes de alterar qualquer interface/fluxo de contato com o usuário final, planeje com `.codex/skills/aiox-ux-design-expert/SKILL.md`; a avaliação UX da fatia precisa atingir pelo menos 9/10. Não confunda revisão de código com validação visual, acessibilidade assistiva ou QA independente.
-- Não faça bump de versão, push, cutover, remoção do painel vanilla ou mudanças de produção sem autorização explícita. Não crie commit local sem nova autorização explícita.
+- Antes de alterar qualquer interface/fluxo de contato com o usuário final, planeje com `@aiox-ux-design-expert`; a avaliação UX da fatia precisa atingir pelo menos 9/10. Não confunda revisão de código com validação visual, acessibilidade assistiva ou QA independente.
+- Não faça bump de versão, push, cutover, remoção do painel vanilla ou mudanças de produção sem autorização explícita.
 - Antes de editar, confira branch, `git status`, diff e handoff mais recente. Preserve todas as mudanças e dados existentes; não reverta nem sobrescreva trabalho sem autorização.
 - Não remova volumes, imagens ou containers ativos sem identificar ownership e obter autorização explícita para o alvo exato. O banco de desenvolvimento está limpo agora; preserve os novos dados que forem criados pelo usuário.
 - Não invente evidências. Diferencie fixtures/mocks, testes unitários, runtime/API/PostgreSQL descartável, serviços reais, Twitch/worker, navegador real e OBS/CEF nativo.
@@ -19,7 +18,6 @@ Continue a implementação da story OPS-15 neste repositório. Você está na br
 
 ## Ambiente atual confirmado
 
-- Repositório: `/home/gustavo/projects/subarushogun_gi_twich_bot` (use somente este caminho).
 - Branch: `feat/ops-15-next-panel`.
 - Node `24.20.0` está configurado como padrão do usuário via NVM; o `npm run dev` ativo também usa essa versão.
 - Prévia Next/Fastify com hot reload: `https://localhost:3000`; health/API encaminhados ao Fastify local.
