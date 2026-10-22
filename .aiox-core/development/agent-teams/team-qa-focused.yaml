@@ -27,10 +27,10 @@ purpose: |
      - Automated code review before human QA
      - Run comprehensive test suites
      - Validate story acceptance criteria
-     - Treat scanner failures as blocking findings; human review remains separate
+     - Block completion on CRITICAL issues
 
   3. **PR Phase** (@github-devops):
-     - Pre-PR quality gate (configured scanner exits successfully)
+     - Pre-PR quality gate (0 CRITICAL issues required)
      - Automated PR validation workflow
      - Lint + Tests + configured static scan
      - Generate comprehensive PR validation report
@@ -66,7 +66,7 @@ quality_gates:
       - npm run review:static
       - npm run lint
       - npm test
-    threshold: static scan PASS, lint PASS, tests PASS
+    threshold: 0 CRITICAL issues, lint PASS, tests PASS
 
   pre_merge:
     trigger: PR opened/updated
@@ -113,7 +113,7 @@ usage_example: |
   ## 4. Deployment (by @github-devops)
   "Run deployment safety check for production"
   → @github-devops runs deployment-safety-check workflow
-  → Security/static scan, risk analysis, env check, migrations, tests
+  → Deep scan, risk analysis, env check, migrations, tests
   → Generates safety report with GO/NO-GO decision
   → Blocks if critical issues found
 
@@ -122,4 +122,4 @@ notes:
   - Quality gates are enforced at multiple levels
   - Reports are generated and stored for audit trail
   - GitHub Actions provide automated enforcement
-  - Reports retain observed quality-gate results
+  - Dashboard aggregates metrics across all reviews

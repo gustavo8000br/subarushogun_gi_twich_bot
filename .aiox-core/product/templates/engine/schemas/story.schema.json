@@ -164,8 +164,15 @@
           "type": "array",
           "items": { "type": "string" }
         },
-        "staticAnalysisCommand": { "type": "string" },
-        "focusAreas": { "type": "object" }
+        "selfHealing": {
+          "type": "object",
+          "properties": {
+            "primaryAgent": { "type": "string" },
+            "maxIterations": { "type": "integer" },
+            "timeout": { "type": "string" },
+            "severityFilter": { "type": "string" }
+          }
+        }
       },
       "description": "Story-specific quality gate and static analysis plan"
     },

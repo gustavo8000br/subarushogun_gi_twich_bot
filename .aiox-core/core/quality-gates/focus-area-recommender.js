@@ -205,11 +205,12 @@ class FocusAreaRecommender {
             area: 'code-quality',
             reason: 'Local static analysis reported findings that need review',
             questions: [
-              'Have all blocking static-analysis findings been resolved or explicitly waived?',
-              'Do the findings point to a broader security or quality issue?',
+              'Are the HIGH severity issues acceptable tradeoffs?',
+              'Do these issues indicate deeper architectural problems?',
             ],
           });
         }
+      }
     }
 
     // Limit to top 3 primary areas
