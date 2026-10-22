@@ -46,7 +46,7 @@ describe('Next local development API proxy', () => {
     const config = buildNextConfig({ NODE_ENV: 'production', API_PORT: '3199' });
     const rewrites = await config.rewrites();
     expect(rewrites.beforeFiles).toContainEqual({ source: '/callback', destination: 'https://localhost:3199/callback' });
-    expect(rewrites.beforeFiles.some(({ source }) => source === '/connection/:path*')).toBe(false);
+    expect(rewrites).toEqual(buildProductionProxyRules({ NODE_ENV: 'production', API_PORT: '3199' }));
     expect(rewrites.beforeFiles.some(({ source }) => source === '/')).toBe(true);
   });
 

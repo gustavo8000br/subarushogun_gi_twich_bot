@@ -26,7 +26,7 @@ A operadora consegue configurar e executar várias filas de pontos do canal da T
 | FR-8 | Receber eventos de resgate/chat via EventSub WebSocket, enviar via Helix, deduplicar e reconciliar após inicialização/reconexão/intervalo/solicitação do operador. | P0 |
 | FR-9 | Interpretar comandos em português separados de execução/autorização e validar canal, papel, identidade, sintaxe, cooldown e limites de resposta. | P0 |
 | FR-10 | Fornecer operações de lista/posição/saída/inclusão/remoção/próximo/início/conclusão/movimentação/abertura/fechamento/arquivo/limpeza/conta, notificações e timeout conforme política. | P0 |
-| FR-11 | Fornecer UI local estática e API Fastify protegida para instalação, saúde, filas, entradas, operações de pontos, reconciliação, conta e projeção explícita do estado; a OPS-15 especifica export estático Next.js. | P1 |
+| FR-11 | Fornecer UI local e API Fastify protegida para instalação, saúde, filas, entradas, operações de pontos, reconciliação, conta e projeção explícita do estado; a OPS-15 especifica um painel Next.js App Router modular servido pelo servidor Next.js local (sem export estático), que encaminha requisições same-origin da API para a API Fastify em loopback. | P1 |
 | FR-12 | Persistir rótulos de conta atual/padrão e propriedade da troca; somente chamada automática individual pode definir essa propriedade. | P1 |
 | FR-13 | Expor versão completa de runtime separada da versão do contrato API/revisão do estado; materializar SHA de sete caracteres da origem somente em artefatos. | P1 |
 | FR-14 | Manter documentação principal em inglês e versões equivalentes pt-BR para instalação, stories/evidências, integração, versionamento e changelogs. | P1 |
@@ -37,7 +37,7 @@ Os critérios AC-1 a AC-20 estão definidos em `stories/FND-0/spec/requirements.
 
 ## Fora de escopo
 
-Inscrição pública, comando de entrada para viewer, credenciais do jogo, verificação de UID, Discord/mensagens privadas, serviço público/externo de overlay, ranking, múltiplos canais/apps/contas de bot, backend/banco hospedado, telemetria, exportação/backup como funcionalidade, escala horizontal e IRC. O overlay OBS local é uma superfície do produto. A OPS-15 permite Next.js App Router e sua transpilation/bundling em build somente para export estático servido pelo Fastify local; o código da aplicação de navegador permanece JavaScript ESM com JSDoc, sem TypeScript ou servidor Next em runtime.
+Inscrição pública, comando de entrada para viewer, credenciais do jogo, verificação de UID, Discord/mensagens privadas, serviço público/externo de overlay, ranking, múltiplos canais/apps/contas de bot, backend/banco hospedado, telemetria, exportação/backup como funcionalidade, escala horizontal e IRC. O overlay OBS local é uma superfície do produto. A OPS-15 permite Next.js App Router servido pelo servidor Next.js local (sem export estático), que encaminha requisições same-origin da API para a API Fastify em loopback; o código da aplicação de navegador permanece JavaScript ESM com JSDoc, sem código de aplicação TypeScript.
 
 ## Sequência
 

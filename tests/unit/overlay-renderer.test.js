@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { mountOverlayWidget } from '../../apps/web/overlay-renderer.mjs';
+import { mountOverlayWidget } from '../../apps/shared/panel/overlay-renderer.mjs';
 
 function createDocument() {
   const listeners = new Map();

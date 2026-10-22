@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getDefaultQueueCallMessage } from '../../../shared/queue-call-message.mjs';
+import { getDefaultQueueCallMessage } from '../../../shared/panel/queue-call-message.mjs';
 import { QUEUE_SETTING_KEYS, queueSettingsMatch, reconcileQueueSettingsDraft } from './queue-settings.mjs';
 
 function queueSettings(queue, t) {
@@ -28,6 +28,8 @@ const CHECKBOX_LABELS = Object.freeze({
 });
 
 /** @param {{queue:Record<string,any>, t:(key:string, options?:object)=>string, saving:boolean, feedback:any, onSave:(queueId:string, values:Record<string,unknown>, baseline:Record<string,unknown>)=>Promise<boolean>}} props */
+const REWARD_NOTICE_KEYS = { diverged: 'panel.queue.onboarding.reward_diverged', create_failed: 'panel.queue.onboarding.reward_failed' };
+
 export default function QueueSettingsForm({ queue, t, saving, feedback, onSave }) {
   const [settings, setSettings] = useState(() => queueSettings(queue, t));
   const [draftBase, setDraftBase] = useState(() => ({ queueId: queue.id, version: queue.version, settings: queueSettings(queue, t) }));
@@ -61,6 +63,8 @@ export default function QueueSettingsForm({ queue, t, saving, feedback, onSave }
     <details className="queue-settings-editor" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary><span>{t('panel.queue.action.configure')}</span>{dirty ? <span className="settings-dirty-indicator">{t('panel.queue_settings.unsaved')}</span> : null}</summary>
       <form className="queue-settings-form" onSubmit={submit} aria-label={`${t('panel.queue_settings.title')}: ${queue.title}`}>
+        {queue.queueMode === 'channel_points' && !['synced', 'synced_manual'].includes(queue.remoteSyncStatus)
+          ? <p className="form-hint queue-settings-notice">{t(REWARD_NOTICE_KEYS[queue.remoteSyncStatus] ?? 'panel.queue.onboarding.reward_pending')}</p> : null}
         <fieldset className="settings-section">
           <legend>{t('panel.queue_settings.section_attendance')}</legend>
           <label>{t('panel.queue_settings.call_deadline')}<input type="number" name="callTimeoutMin" min="1" max="120" value={settings.callTimeoutMin} onChange={(event) => update('callTimeoutMin', event.target.value)} disabled={saving} /></label>

@@ -6,8 +6,19 @@ const ENTRY_ACTIONS = Object.freeze({
   remove: { to: 'removed', reason: 'operator_removed' },
 });
 
-/** @param {{status?:number}|null|undefined} error */
+const MANUAL_ENTRY_CODE_KEYS = Object.freeze({
+  DUPLICATE_ACTIVE_ENTRY: 'panel.entry.error.already_active',
+  TWITCH_USER_NOT_FOUND: 'panel.entry.error.twitch_user_not_found',
+  QUEUE_NOT_FOUND: 'panel.entry.error.queue_unavailable',
+  QUEUE_NOT_AVAILABLE: 'panel.entry.error.queue_unavailable',
+  QUEUE_REWARD_NOT_READY: 'panel.entry.error.queue_unavailable',
+  QUEUE_MODE_TRANSITION_UNAVAILABLE: 'panel.entry.error.queue_unavailable',
+  QUEUE_MODE_TRANSITION_PENDING: 'panel.error.queue_mode_transition_pending',
+});
+
+/** @param {{code?:string,status?:number}|null|undefined} error */
 export function getManualQueueEntryFailureKey(error) {
+  if (typeof error?.code === 'string' && Object.hasOwn(MANUAL_ENTRY_CODE_KEYS, error.code)) return MANUAL_ENTRY_CODE_KEYS[error.code];
   if (error?.status === 400) return 'panel.entry.error.invalid';
   if (error?.status === 404 || error?.status === 409) return 'panel.entry.error.unavailable';
   return 'panel.entry.error.failed';

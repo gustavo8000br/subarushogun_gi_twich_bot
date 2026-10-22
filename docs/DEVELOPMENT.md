@@ -13,6 +13,9 @@
 
 ```sh
 npm ci
+
+**Platform status (2026-10-21):** validated by a person on Ubuntu Linux only. Windows is planned and will be accepted by the owner. **macOS has not been validated** (no macOS host available); it shares the Unix base with Linux, so the same flow may work, but that is an assumption. CI runs only the installer smoke on `macos-15`.
+
 npm run build
 npm run lint
 npm run typecheck
@@ -39,6 +42,8 @@ The prepared image includes the tools needed for the existing project gates. The
 
 #### Next.js and Fastify development
 
+`npm run dev` names its disposable PostgreSQL Compose project after the last 28 characters of the checkout path. If two checkouts end in the same text, set `DEV_COMPOSE_PROJECT` (lowercase letters, digits, `-`, `_`; up to 63 characters) in each one so they do not share a database volume. Leaving it unset keeps the current name and data.
+
 ```sh
 npm ci
 npm run dev
@@ -54,6 +59,14 @@ npm run dev
 # when finished:
 npm run dev:db:stop
 ```
+
+`npm run dev:start` is the same entry point as `npm run dev` (both keep working). While running, it records its own PID and the API/Next child PIDs in ignored `.local/dev-server/state.json`; the file is removed on exit.
+
+`npm run dev:stop` stops the processes recorded by `dev:start` (SIGTERM, SIGKILL after 10 seconds; on Linux it first confirms the recorded PID is still `dev-server.mjs`) and then runs `docker compose -f compose.dev.yaml -p <dev project> down --volumes --rmi local` for the development project only. Before removing anything it refuses (non-zero exit) unless the file is `compose.dev.yaml` at the repository root, the project is the one resolved by `DEV_COMPOSE_PROJECT` or the checkout path and uses the `queuebot-dev-` prefix, and every container/volume carries the matching `com.docker.compose.project` label (containers must also point to that `compose.dev.yaml`). It prints the removed containers, volumes and images, and exits 0 with a message when nothing is running. "Images" means only images built locally for the dev project (`--rmi local`); today `compose.dev.yaml` builds none, so the shared pulled `postgres` image is kept. With an explicit `DATABASE_URL`, only the processes are stopped.
+
+> **Warning:** `npm run dev:stop` DELETES the development database volume, including all development data. The pre-migration snapshots under `.local/dev-db/backups/` are kept.
+
+To stop everything while keeping the data, run `npm run dev:stop -- --keep-data` (the `--` passes the flag through npm). It stops the dev server processes and only the `db` container (`stop db`), preserving volumes and images, with the same file/project/label guards; it never runs `down`. Any other option is rejected before anything is stopped. Refused projects without the `queuebot-dev-` prefix get a message explaining how to remove them manually.
 
 To run the safe Chromium overlay smoke against the active Next preview, use `npm run test:e2e:overlay:browser-only`. It requires local Chrome and intercepts every overlay API response with browser fixtures; it never writes to PostgreSQL, Twitch, Docker, or OBS. This is frontend browser evidence only, not native OBS/CEF or live API acceptance. The separate `npm run test:e2e:overlay` remains the full OBS-connected scenario and may create/remove OBS sources and disposable Compose data.
 
@@ -74,7 +87,8 @@ npm test -- --run tests/unit/<test-file>.test.js
 apps/api/    Fastify API, domain, Prisma schema and migrations
 apps/infra/  Compose and operational scripts
 apps/frontend/ Next.js App Router panel and OBS overlay
-apps/web/      Existing static browser panel and localization catalogs (kept during migration)
+apps/web/      Vanilla browser panel and localization catalogs (kept until the authorized cutover)
+apps/shared/    Modules shared by Next, the vanilla panel and the API (`apps/shared/panel` holds the panel/overlay helpers; Next must not import `apps/web`)
 tests/       Unit, integration, and browser acceptance tests
 docs/        Stories and focused user/developer references
 ```

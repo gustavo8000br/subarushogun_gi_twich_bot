@@ -73,8 +73,40 @@ describe('Next queue entry actions', () => {
     expect(catalog).toContain('panel.queue.call_next.refresh_failed\t');
   });
 
-  it.each([404, 409])('does not attribute an ambiguous HTTP %s to the viewer account', (status) => {
+  it.each([404, 409])('keeps a neutral message for an ambiguous HTTP %s that carries no stable code', (status) => {
     expect(getManualQueueEntryFailureKey({ status })).toBe('panel.entry.error.unavailable');
+  });
+
+  it.each([
+    ['DUPLICATE_ACTIVE_ENTRY', 409, 'panel.entry.error.already_active'],
+    ['TWITCH_USER_NOT_FOUND', 404, 'panel.entry.error.twitch_user_not_found'],
+    ['QUEUE_NOT_FOUND', 404, 'panel.entry.error.queue_unavailable'],
+    ['QUEUE_NOT_AVAILABLE', 409, 'panel.entry.error.queue_unavailable'],
+    ['QUEUE_REWARD_NOT_READY', 409, 'panel.entry.error.queue_unavailable'],
+    ['QUEUE_MODE_TRANSITION_UNAVAILABLE', 409, 'panel.entry.error.queue_unavailable'],
+    ['QUEUE_MODE_TRANSITION_PENDING', 409, 'panel.error.queue_mode_transition_pending'],
+  ])('maps the stable API code %s (HTTP %i) to a specific message key', (code, status, key) => {
+    expect(getManualQueueEntryFailureKey({ code, status })).toBe(key);
+  });
+
+  it('ignores unknown codes and falls back to the status mapping', () => {
+    expect(getManualQueueEntryFailureKey({ code: 'SOMETHING_PRIVATE', status: 409 })).toBe('panel.entry.error.unavailable');
+    expect(getManualQueueEntryFailureKey({ code: 'SOMETHING_PRIVATE', status: 503 })).toBe('panel.entry.error.failed');
+  });
+
+  it.each([
+    ['en', 'already_active', '@{user} is already in this queue. Nothing was changed.'],
+    ['es', 'already_active', '@{user} ya está en esta cola. No se cambió nada.'],
+    ['pt-BR', 'already_active', '@{user} já está nesta fila. Nada foi alterado.'],
+    ['en', 'twitch_user_not_found', "We couldn't find @{user} on Twitch. Check the login spelling (not the display name) and try again."],
+    ['es', 'twitch_user_not_found', 'No encontramos a @{user} en Twitch. Revisa cómo se escribe el usuario (no el nombre visible) e inténtalo de nuevo.'],
+    ['pt-BR', 'twitch_user_not_found', 'Não encontramos @{user} na Twitch. Confira a grafia do login (não o nome de exibição) e tente de novo.'],
+    ['en', 'queue_unavailable', "This queue isn't accepting entries right now. Refresh the panel to see its current state."],
+    ['es', 'queue_unavailable', 'Esta cola no acepta entradas ahora. Actualiza el panel para ver su estado actual.'],
+    ['pt-BR', 'queue_unavailable', 'Esta fila não está aceitando entradas agora. Atualize o painel para ver o estado atual.'],
+  ])('ships the %s %s manual-entry message', async (locale, name, message) => {
+    const catalog = await readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+    expect(catalog).toContain(`panel.entry.error.${name}\t${message}`);
   });
 
   it('maps invalid manual-entry fields separately from a server failure', () => {
@@ -83,10 +115,10 @@ describe('Next queue entry actions', () => {
   });
 
   it.each([
-    ['en', 'The entry could not be added. Refresh the panel and try again.'],
-    ['es', 'No se pudo añadir la entrada. Actualiza el panel e inténtalo de nuevo.'],
-    ['pt-BR', 'Não foi possível adicionar a entrada. Atualize o painel e tente novamente.'],
-  ])('keeps the unavailable-entry message neutral in the %s catalog', async (locale, expectedMessage) => {
+    ['en', "The viewer could not be added. Check the login and whether they're already in the queue; if both look right, refresh the panel."],
+    ['es', 'No se pudo añadir a la persona. Revisa el usuario y si ya está en la cola; si todo está bien, actualiza el panel.'],
+    ['pt-BR', 'Não foi possível adicionar a pessoa. Confira o login e se ela já está na fila; se estiver tudo certo, atualize o painel.'],
+  ])('ships the reviewed code-less fallback message in the %s catalog', async (locale, expectedMessage) => {
     const catalog = await readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
     expect(catalog).toContain(`panel.entry.error.unavailable\t${expectedMessage}`);
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import * as setupMessages from '../../apps/web/setup-messages.mjs';
+import * as setupMessages from '../../apps/shared/panel/setup-messages.mjs';
 const { twitchEligibilityMessage } = setupMessages;
 
 describe('Twitch setup eligibility message', () => {

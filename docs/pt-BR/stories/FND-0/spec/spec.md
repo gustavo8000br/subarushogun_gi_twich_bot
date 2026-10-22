@@ -6,6 +6,8 @@
 > **Complexidade:** COMPLEX (25/25)  
 > **Gerada:** 2026-10-02  
 > **Status:** Rascunho para crítica AIOX  
+
+> **Substituída em parte pela OPS-15 (2026-10-21):** esta é uma especificação histórica. Suas afirmações sobre o runtime do frontend (export estático Next.js em `apps/web`, assets `out/*` servidos por `@fastify/static`, sem servidor Next.js em runtime) e o estágio inicial `alpha` não descrevem mais o produto. O painel e o overlay são servidos pelo servidor Next.js, que encaminha requisições same-origin da API para a API Fastify em loopback; o estágio atual é `beta` (base `v0.2.0`). O painel vanilla é removido após a migração somente com autorização explícita do proprietário, e `legacy` é somente referência histórica, não fallback nem alvo de rollback. O mesmo vale para os arquivos irmãos `requirements.json`, `plan.json` e `research.json`. Consulte [`docs/pt-BR/architecture.md`](../../../architecture.md) e a [revisão estrutural da OPS-15](../../OPS-15/structural-review.md).
 > **Fonte:** Prompt 1 completo do usuário e esclarecimento sobre estrutura de pastas
 
 ## 1. Visão geral

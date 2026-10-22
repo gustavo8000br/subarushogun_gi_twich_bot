@@ -1,5 +1,5 @@
 import { translateCatalog as translate } from '../../../shared/browser/translate-catalog.mjs';
-import { PANEL_PLACEHOLDERS } from '../../../web/panel-catalog.mjs';
+import { PANEL_PLACEHOLDERS } from '../../../shared/panel/panel-catalog.mjs';
 
 /** Convert the validated API bundle into the shared translator's module shape. */
 export function normalizeCatalogBundle(bundle) {

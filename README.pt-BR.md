@@ -1,7 +1,7 @@
 # Bot de filas da Twitch para Genshin Impact
 
 [![CI](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml)
-[![Status: alpha](https://img.shields.io/badge/status-alpha-8a2be2)](VERSION)
+[![Status: beta](https://img.shields.io/badge/status-beta-8a2be2)](VERSION)
 [![JavaScript ESM](https://img.shields.io/badge/JavaScript-ESM-f7df1e?logo=javascript&logoColor=222)](package.json)
 [![Docker Compose v2](https://img.shields.io/badge/Docker-Compose_v2-2496ed?logo=docker&logoColor=white)](compose.yaml)
 [![Licença: MIT](https://img.shields.io/badge/Licen%C3%A7a-MIT-yellow.svg)](LICENSE)
@@ -10,12 +10,12 @@
 
 Um **chatbot da Twitch com painel local para o streamer** organizar filas de Genshin Impact. Execute no seu computador; o app mantém o PostgreSQL e os segredos operacionais em volumes Docker locais.
 
-> **Alpha:** as stories centrais de filas, chat, Twitch, painel, localização e widgets OBS estão implementadas. Escritas reais de recompensas/pontos ainda não foram verificadas em um canal Twitch elegível. Consulte o [roadmap atual](docs/pt-BR/ROADMAP.md).
+> **Beta (ainda sem release pública):** as stories centrais de filas, chat, Twitch, painel, localização e widgets OBS estão implementadas. Escritas reais de recompensas/pontos ainda não foram verificadas em um canal Twitch elegível. Consulte o [roadmap atual](docs/pt-BR/ROADMAP.md).
 
 ## Início rápido
 
 1. Instale/inicie Docker Engine ou Docker Desktop com Compose v2; se necessário, o instalador oferece instruções oficiais do fornecedor.
-2. Quando uma release pública estiver disponível, baixe e execute o instalador para seu sistema em [GitHub Releases](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases). Ainda não há release pública, e a data/aprovação da beta seguem pendentes. O app do usuário usa imagem pré-compilada; não exige Node.js, npm, clone do código nem build local. Consulte a [disponibilidade do instalador](docs/pt-BR/INSTALADORES.md).
+2. Quando uma release pública estiver disponível, baixe e execute o instalador para seu sistema em [GitHub Releases](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases). Nenhuma release pública foi publicada ainda; não há data definida e a publicação depende do proprietário. O app do usuário usa imagem pré-compilada; não exige Node.js, npm, clone do código nem build local. Consulte a [disponibilidade do instalador](docs/pt-BR/INSTALADORES.md).
 3. Escolha **Instalar / Iniciar**, confie no certificado local e abra a URL do painel mostrada pelo instalador, conforme [Instalação](docs/pt-BR/INSTALACAO.md).
 4. Conecte seu aplicativo Twitch em **Conexão do canal**. O [manual do usuário](docs/MANUAL_DE_USUARIO-pt_BR.md) explica filas, comandos, widgets OBS, recuperação, atualização e desinstalação.
 
@@ -46,7 +46,7 @@ Cada guia aponta para sua versão em português brasileiro. A interface, ajuda e
 
 ## Estado do projeto
 
-FND-2 a FND-8 e OPS-1 a OPS-6 estão implementadas. A OPS-5 gera um artefato de instalador por sistema desktop; verificações nativas na CI e aceitação no computador do usuário são acompanhadas separadamente no [roadmap](docs/pt-BR/ROADMAP.md). Os antigos helpers Windows da FND-1 foram substituídos por este instalador; o aceite Windows do artefato atual é acompanhado separadamente.
+FND-1 a FND-8 e OPS-1 a OPS-11 estão concluídas; FND-9 e OPS-13 aguardam aceite do proprietário, e a migração do painel para Next.js (OPS-15) está em andamento. O estado atual de cada story está no [roadmap](docs/pt-BR/ROADMAP.md). A OPS-5 gera um artefato de instalador por sistema desktop; verificações nativas na CI e aceitação no computador do usuário são acompanhadas separadamente no [roadmap](docs/pt-BR/ROADMAP.md). Os antigos helpers Windows da FND-1 foram substituídos por este instalador; o aceite Windows do artefato atual é acompanhado separadamente.
 
 ## Como contribuir
 

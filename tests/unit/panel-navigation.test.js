@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import * as panelNavigation from '../../apps/web/panel-navigation.mjs';
+import * as panelNavigation from '../../apps/shared/panel/panel-navigation.mjs';
 const { getInitialPanelPage, selectPanelPage } = panelNavigation;
 
 function element(dataset = {}) {

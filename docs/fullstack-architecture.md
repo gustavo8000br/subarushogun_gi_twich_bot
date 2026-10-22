@@ -4,25 +4,28 @@
 
 ## Architecture constraints
 
-One local installation, one Twitch broadcaster/client, one bot process, local PostgreSQL via Compose, no public backend/remote storage/telemetry. Product runtime is JavaScript ESM and vanilla browser assets; `.env.example` remains AIOX framework scaffolding. Code is placed under `apps/*`.
+One local installation, one Twitch broadcaster/client, one bot process, local PostgreSQL via Compose, no public backend/remote storage/telemetry. Product runtime is JavaScript ESM; browser source is a Next.js App Router application (JavaScript ESM with JSDoc) served by the Next.js production server, with Fastify as a separate loopback API process in the same container. `.env.example` remains AIOX framework scaffolding. Code is placed under `apps/*`.
 
 ## Runtime topology
 
 ```mermaid
 flowchart LR
-  Browser[Local operator browser] -->|127.0.0.1:3000| Web[apps/web static assets]
-  Web --> API[apps/api Fastify + domain]
+  Browser[Local operator browser] -->|https://127.0.0.1:3000| Next[apps/frontend Next.js server :3000]
+  OBS[OBS Browser Source] -->|/overlay.html?ref=...#token| Next
+  Next -->|rewrites /api, /overlay/api, /health, /callback| API[apps/api Fastify + domain, loopback :3109]
+  Next -.->|transitional until cutover: /, /app.js, /styles.css| API
   API --> DB[(PostgreSQL / Prisma)]
   API --> Twitch[Twurple adapters: OAuth, Helix, EventSub WS]
   API --> Outbox[PostgreSQL outbox workers]
   Infra[apps/infra bootstrap/version/health] --> DB
 ```
 
-Root `Dockerfile` and pull-only `compose.yaml` are product runtime entrypoints; `compose.build.yaml` adds local build contexts only for CI/maintainers. The platform installer embeds the runtime manifest and pulls a prebuilt image. Compose services: one-shot `bootstrap`; persistent healthy `db`; one-shot `migrate` after DB health; non-root `bot` only after migrations complete. Host publishes only `127.0.0.1:3000:3000`; Fastify binds `0.0.0.0` in its container. Database has no host port. Volumes persist DB and operational secrets. Developers use `npm ci` once followed by `npm run dev` for Next HMR/Fastify watch and a worktree-specific disposable PostgreSQL.
+Root `Dockerfile` and pull-only `compose.yaml` are product runtime entrypoints; `compose.build.yaml` adds local build contexts only for CI/maintainers. The platform installer embeds the runtime manifest and pulls a prebuilt image. Compose services: one-shot `bootstrap`; persistent healthy `db`; one-shot `migrate` after DB health; non-root `bot` only after migrations complete. `apps/infra/scripts/start-product.mjs` starts the Next.js server (`PANEL_HOST` `0.0.0.0`, `PANEL_PORT` 3000) and Fastify (`APP_HOST` `127.0.0.1`, `API_PORT` 3109) and stops both when either exits. Host publishes only `127.0.0.1:${APP_PORT:-3000}` to container port 3000; the Fastify port is not published. Database has no host port. Volumes persist DB and operational secrets. Developers use `npm ci` once followed by `npm run dev` for Next HMR/Fastify watch and a worktree-specific disposable PostgreSQL.
 
 ## Application modules
 
-- `apps/web`: HTML/CSS/vanilla JS operator panel; uses explicit API projections and safe text APIs.
+- `apps/frontend`: Next.js App Router operator panel and isolated OBS overlay route; uses explicit API projections and safe text rendering.
+- `apps/web`: vanilla panel still served at production `/` until the owner-authorized cutover, then removed; `apps/frontend` no longer imports it; the shared modules moved to `apps/shared/panel` (S-03) and only the catalogs remain here until a separate move.
 - `apps/api`: Fastify process composition, local security, route handlers, domain services, persistence adapters, Twitch adapters, EventSub and durable workers.
 - `apps/api/prisma`: Prisma 6 schema/config/client generation and PostgreSQL migrations, including SQL constraints not represented by Prisma schema.
 - `apps/infra`: bootstrap secret helper, product version validation/materialization, health and operations utilities.

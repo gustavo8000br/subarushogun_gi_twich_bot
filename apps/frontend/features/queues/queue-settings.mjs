@@ -1,4 +1,5 @@
-import { canRetryQueueSettingsAfterVersionBump } from '../../../web/queue-settings-version.mjs';
+import { getQueueActionState } from '../../../shared/panel/queue-action-state.mjs';
+import { canRetryQueueSettingsAfterVersionBump } from '../../../shared/panel/queue-settings-version.mjs';
 
 export const QUEUE_SETTING_KEYS = Object.freeze([
   'callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall',
@@ -68,11 +69,17 @@ export async function saveQueueSettingsWithRetry({ request, queueId, values, bas
   return { queue, retried };
 }
 
-/** @param {{refreshFailed:boolean}} input */
-export function getQueueSettingsFeedback({ refreshFailed }) {
-  return refreshFailed
-    ? { status: 'warning', key: 'panel.queue.settings_result.refresh_failed' }
-    : { status: 'confirmed', key: 'panel.notice.queue_settings_saved' };
+const REWARD_PENDING_STATES = new Set(['pending', 'pending_create', 'create_unknown', 'pending_open', 'pending_close', 'open_unknown']);
+
+/** @param {{refreshFailed:boolean, queue?: Record<string, any>|null}} input */
+export function getQueueSettingsFeedback({ refreshFailed, queue = null }) {
+  if (refreshFailed) return { status: 'warning', key: 'panel.queue.settings_result.refresh_failed' };
+  if (queue && !queue.isOpen && !queue.isArchived) {
+    // Guidance follows the same rule that enables the activate button; activation is never automatic.
+    if (getQueueActionState(queue).canToggleIntake) return { status: 'confirmed', key: 'panel.queue.onboarding.activate_next', focusActivate: true };
+    if (REWARD_PENDING_STATES.has(queue.remoteSyncStatus)) return { status: 'confirmed', key: 'panel.queue.onboarding.activate_waiting' };
+  }
+  return { status: 'confirmed', key: 'panel.notice.queue_settings_saved' };
 }
 
 /** @param {unknown} error */

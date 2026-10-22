@@ -1726,14 +1726,14 @@ describe('local queue and setup API', () => {
     const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-entries', headers: h.headers, payload: { login: 'viewer' } });
 
     expect(response.statusCode).toBe(404);
-    expect(response.json()).toEqual({ error: 'Esse usuário da Twitch não foi encontrado.' });
+    expect(response.json()).toEqual({ code: 'TWITCH_USER_NOT_FOUND', error: 'Esse usuário da Twitch não foi encontrado.' });
     expect(h.repository.addManualEntry).not.toHaveBeenCalled();
     await h.app.close();
   });
 
   it.each([
-    ['QUEUE_NOT_FOUND', 404, { error: 'Não foi possível concluir a operação.' }],
-    ['QUEUE_NOT_AVAILABLE', 409, { error: 'Essa fila não aceita novas entradas.' }],
+    ['QUEUE_NOT_FOUND', 404, { code: 'QUEUE_NOT_FOUND', error: 'Não foi possível concluir a operação.' }],
+    ['QUEUE_NOT_AVAILABLE', 409, { code: 'QUEUE_NOT_AVAILABLE', error: 'Essa fila não aceita novas entradas.' }],
   ])('maps manual-admission repository outcome %s to its exact safe response', async (code, status, expected) => {
     const resolveUser = vi.fn(async () => ({ id: 'viewer-id', login: 'viewer', displayName: 'Viewer' }));
     const h = await createHarness({ resolveUser });
@@ -1755,7 +1755,7 @@ describe('local queue and setup API', () => {
     const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-entries', headers: h.headers, payload: { login: 'viewer' } });
 
     expect(response.statusCode).toBe(409);
-    expect(response.json()).toEqual({ error: 'Essa pessoa já está ativa nesta fila.' });
+    expect(response.json()).toEqual({ code: 'DUPLICATE_ACTIVE_ENTRY', error: 'Essa pessoa já está ativa nesta fila.' });
     await h.app.close();
   });
 

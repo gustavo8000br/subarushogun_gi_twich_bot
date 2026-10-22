@@ -2,7 +2,8 @@
 [Português brasileiro](../pt-BR/fullstack-architecture/application-modules.md)
 
 
-- `apps/web`: HTML/CSS/vanilla JS operator panel; uses explicit API projections and safe text APIs.
+- `apps/frontend`: Next.js App Router operator panel and isolated OBS overlay route; uses explicit API projections and safe text rendering.
+- `apps/web`: vanilla panel still served at production `/` until the owner-authorized cutover, then removed; `apps/frontend` no longer imports it; the shared modules moved to `apps/shared/panel` (S-03) and only the catalogs remain here until a separate move.
 - `apps/api`: Fastify process composition, local security, route handlers, domain services, persistence adapters, Twitch adapters, EventSub and durable workers.
 - `apps/api/prisma`: Prisma 6 schema/config/client generation and PostgreSQL migrations, including SQL constraints not represented by Prisma schema.
 - `apps/infra`: bootstrap secret helper, product version validation/materialization, health and operations utilities.

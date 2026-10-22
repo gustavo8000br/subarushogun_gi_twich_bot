@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import QueueSettingsForm from '../../apps/frontend/features/queues/queue-settings-form.jsx';
 import { translateCatalog } from '../../apps/shared/browser/translate-catalog.mjs';
-import { PANEL_PLACEHOLDERS } from '../../apps/web/panel-catalog.mjs';
+import { PANEL_PLACEHOLDERS } from '../../apps/shared/panel/panel-catalog.mjs';
 
 const COPY = {
   'panel.queue.action.configure': 'Configure queue',

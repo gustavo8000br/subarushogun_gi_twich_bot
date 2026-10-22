@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../../lib/api/client.mjs';
 import { usePanel } from '../panel-shell/panel-provider.jsx';
-import { twitchEligibilityMessage, twitchStatusLabel, twitchStatusState } from '../../../web/setup-messages.mjs';
+import { twitchEligibilityMessage, twitchStatusLabel, twitchStatusState } from '../../../shared/panel/setup-messages.mjs';
 
 const OAUTH_ORIGIN = 'https://id.twitch.tv';
 const OAUTH_PATH = '/oauth2/authorize';
