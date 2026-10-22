@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-18/story.md)
 
-**Status:** In Progress — owner-approved behavior; implementation is on `feat/ops-15-next-panel`.
+**Status:** In Progress — owner-approved behavior; implementation is on `feat/ops-15-next-panel`. **Issue:** [#77](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/77), created by `$aiox-devops`.
 **Type:** Overlay/product behavior and existing account-state persistence; no schema migration planned.
 **Related:** OPS-11 current-account ownership; OPS-13 overlay capability/polling.
 
