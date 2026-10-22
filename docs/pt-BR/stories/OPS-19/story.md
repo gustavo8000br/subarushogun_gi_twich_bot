@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-19/story.md)
 
-**Status:** Em andamento — comportamento solicitado pelo proprietário; implementação na `feat/ops-15-next-panel`.
+**Status:** Em andamento — comportamento solicitado pelo proprietário; implementação na `feat/ops-15-next-panel`. **Issue:** [#78](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/78), criada por `$aiox-devops`.
 **Relacionado:** outbox financeira FND-3; ciclo de fila/recompensa FND-9; paridade do painel OPS-15 (sem ampliar o escopo da OPS-15).
 **Coordenação de dados:** Reutilizar `Redemption.expectedStatus`, a outbox existente de intenção única por resgate, leases/retries do worker e reconciliação remota. Sem migration de schema ou operação no banco ativo.
 
