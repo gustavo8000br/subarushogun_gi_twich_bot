@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-18/story.md)
 
-**Status:** Em andamento — comportamento aprovado pelo proprietário; implementação na `feat/ops-15-next-panel`.
+**Status:** Em andamento — comportamento aprovado pelo proprietário; implementação na `feat/ops-15-next-panel`. **Issue:** [#77](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/77), criada por `$aiox-devops`.
 **Tipo:** Comportamento de overlay/produto e persistência de estado de conta existente; sem migration de schema planejada.
 **Relacionado:** OPS-11, ownership da conta atual; OPS-13, capacidade/polling do overlay.
 

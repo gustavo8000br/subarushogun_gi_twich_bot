@@ -2,7 +2,7 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-19/story.md)
 
-**Status:** In Progress — owner-requested behavior; implementation on `feat/ops-15-next-panel`.
+**Status:** In Progress — owner-requested behavior; implementation on `feat/ops-15-next-panel`. **Issue:** [#78](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/78), created by `$aiox-devops`.
 **Related:** FND-3 durable financial outbox; FND-9 local queue/reward lifecycle; OPS-15 panel parity (no OPS-15 scope expansion).
 **Data coordination:** Reuse `Redemption.expectedStatus`, the existing one-intent-per-redemption outbox, worker leases/retries, and remote reconciliation. No schema migration or active-database operation.
 
