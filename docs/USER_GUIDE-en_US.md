@@ -28,7 +28,7 @@ Follow the [installation guide](INSTALLATION.md) for exact host requirements, cu
 
 In the Twitch Developer Console, create a confidential app and register the exact callback address shown by the panel. By default it is `https://localhost:3000/callback`; if the installation uses another port, register the exact address shown there.
 
-Enter the app's Client ID and Client Secret in the panel and choose **Validar e salvar aplicativo**. The panel checks the pair before saving. After that, choose **Conectar com a Twitch** and approve the requested access:
+Enter the app's Client ID and Client Secret in the panel and choose **Validate and save app**. The panel checks the pair before saving. After that, choose **Connect to Twitch** and approve the requested access:
 
 - Manage the channel's custom rewards and redemptions.
 - Read chat messages.
@@ -40,7 +40,7 @@ Each installation is tied to one Twitch channel and one Twitch app. Reconnecting
 
 ## Creating and preparing a queue
 
-Use **Nova fila** in the panel. A new queue has a unique command name, a display title, and a Twitch custom reward created specifically for this bot. It does not adopt a reward from another app, even if that reward already exists in the channel.
+Use **New queue** in the panel. A new queue has a unique command name, a display title, and a Twitch custom reward created specifically for this bot. It does not adopt a reward from another app, even if that reward already exists in the channel.
 
 You can set the queue name and aliases, reward title and description, point cost, UID mode, Twitch's own per-stream/per-viewer limits and cooldown, call text, call timeout, account switching, and point policies. Queue names use 2–24 lowercase English letters, numbers, and hyphens. The initial queue is closed while its reward is being prepared. Open it only after the panel reports the reward is ready.
 
@@ -77,19 +77,19 @@ Use `!<queue> proximo [1-10]` to call one viewer or a group. If fewer people are
 
 The absence timer starts only after Twitch confirms the first call message was sent. If delivery fails, the panel shows that the call needs attention; no absence decision is made until a call is confirmed. A retry does not silently extend an existing deadline.
 
-Use `!<queue> atender [user]` to start service. Starting service stops the absence timer. Use `!<queue> concluir [user]` when the work is finished. If a call times out before service starts, the entry becomes **Ausente**; whether its points are requested back depends on the queue setting.
+Use `!<queue> atender [user]` to start service. Starting service stops the absence timer. Use `!<queue> concluir [user]` when the work is finished. If a call times out before service starts, the entry becomes **No-show**; whether its points are requested back depends on the queue setting.
 
 ## How Channel Points are returned or consumed
 
-“Requested” or “pending” means the bot has asked Twitch to change the redemption and is waiting for confirmation. It does not mean the points have already been returned or consumed. The panel's **Operações financeiras** page shows pending, confirmed, uncertain, or conflicting operations.
+“Requested” or “pending” means the bot has asked Twitch to change the redemption and is waiting for confirmation. It does not mean the points have already been returned or consumed. The panel's **Twitch sync & point refunds** page shows pending, confirmed, uncertain, or conflicting operations.
 
 | Situation | Redemption result requested |
 | --- | --- |
 | Remove a waiting reward entry, or the viewer leaves while waiting | Cancel the redemption; points return after Twitch confirms. |
 | Complete a reward entry after service | Fulfill the redemption; points are consumed after Twitch confirms. |
-| Remove a called/in-service viewer by an operator | Controlled by **Solicitar reembolso ao remover pessoa chamada/em atendimento**; default is on. |
-| Viewer leaves after being called or while in service | Controlled by **Solicitar reembolso se a pessoa chamada sair**; default is off. |
-| A called viewer does not begin service in time | Controlled by **Solicitar reembolso quando houver ausência**; default is off. |
+| Remove a called/in-service viewer by an operator | Controlled by **Request a refund when removing a called or in-service person**; default is on. |
+| Viewer leaves after being called or while in service | Controlled by **Request a refund if a called viewer leaves**; default is off. |
+| A called viewer does not begin service in time | Controlled by **Request a refund after a no-show**; default is off. |
 | Clear a queue or delete it | Requests cancellation for all active reward entries, regardless of the three options above. |
 | Manually added entry | No Twitch points are involved. |
 
@@ -130,26 +130,26 @@ These queue-management actions are reserved to the streamer and moderators and c
 | `!conta reset` | Restores the default account label. |
 | `!queue ping` | Replies `Pong 🏓`, the running version, and the most recently measured Twitch response time. Streamer/moderator only. |
 
-The streamer always has access. Product copy follows the locale selected in **Settings**. Streamer-authored queue/reward text is preserved verbatim. For supported commands, the streamer chooses an explicit list of allowed roles in **Comandos do chat**. Selected roles work independently; there is no automatic role inheritance. VIP access also depends on the separate VIP-management setting. Viewer commands have a five-second per-person cooldown; management commands do not. Replies are kept within Twitch's 500-character message limit. The parser accepts upper/lowercase and repeated spaces, and accepts `posicao`/`posição` and `proximo`/`próximo`.
+The streamer always has access. Product copy follows the locale selected in **Settings**. Streamer-authored queue/reward text is preserved verbatim. For supported commands, the streamer chooses an explicit list of allowed roles in **Chat commands**. Selected roles work independently; there is no automatic role inheritance. VIP access also depends on the separate VIP-management setting. Viewer commands have a five-second per-person cooldown; management commands do not. Replies are kept within Twitch's 500-character message limit. The parser accepts upper/lowercase and repeated spaces, and accepts `posicao`/`posição` and `proximo`/`próximo`.
 
 ## Current account
 
 `!conta` shows the label, initially **Streamer**. The streamer or a moderator can set it with `!conta <name>` or restore the initial label with `!conta reset`. The name is a live display label, not a game login or credential.
 
-With **Trocar conta automaticamente ao chamar uma pessoa** enabled for a queue, calling exactly one person switches the label to that viewer's display name. Calling a group never switches it. When the entry that owns the automatic switch ends, the label returns to the default. Finishing a different entry does not change it. A manual label lasts until reset or the next eligible one-person automatic switch, subject to the current owner entry.
+With the queue's automatic account switch on call enabled, calling exactly one person switches the label to that viewer's display name. Calling a group never switches it. When the entry that owns the automatic switch ends, the label returns to the default. Finishing a different entry does not change it. A manual label lasts until reset or the next eligible one-person automatic switch, subject to the current owner entry.
 
 ## The control panel
 
 The local panel is at `https://localhost:3000` by default. It includes:
 
 - An overview with local service and Twitch connection status.
-- **Filas e atendimentos** for queue members, calling, service, removal, reordering, and recent history.
-- **Nova fila** for creating a dedicated reward-backed queue.
-- **Operações financeiras** for pending/confirmed/uncertain point actions and recovery.
-- **Comandos do chat** for the command catalog and allowed roles.
-- **Widgets do OBS** for local stream labels and queue information.
-- **Configurações** for account labels.
-- **Conexão do canal** during setup or when reconnecting is needed; otherwise, it shows the connected account and recovery actions.
+- **Queues and service** for queue members, calling, service, removal, reordering, and recent history.
+- **New queue** for creating a dedicated reward-backed queue.
+- **Twitch sync & point refunds** for pending/confirmed/uncertain point actions and recovery.
+- **Chat commands** for the command catalog and allowed roles.
+- **OBS widgets** for local stream labels and queue information.
+- **Settings** for account labels.
+- **Channel connection** during setup or when reconnecting is needed; otherwise, it shows the connected account and recovery actions.
 
 The OBS page creates local Browser Source widgets for one selected value or fixed text. Each widget link is shown only once when created or regenerated. Keep it private; revoke or replace it if exposed. The verified OBS setup is Ubuntu 24.04 with OBS Studio 32.2.2 and CEF 127. Windows and macOS OBS certificate behavior has not been verified.
 
@@ -166,10 +166,10 @@ For installation, update, or removal, use the same unified installer file for yo
 | What you see | What to do |
 | --- | --- |
 | The browser warns about the local certificate | Follow the certificate trust step for your system in the [installation guide](INSTALLATION.md), then restart the browser and reopen `https://localhost:3000`. Do not switch to an insecure address. |
-| Panel says Twitch needs reconnection | Open **Conexão do canal**, reconnect the same channel, and approve the requested access. The panel and saved work remain available while reconnecting. |
+| Panel says Twitch needs reconnection | Open **Channel connection**, reconnect the same channel, and approve the requested access. The panel and saved work remain available while reconnecting. |
 | Channel is ineligible or points rewards are unavailable | Only Twitch Affiliates/Partners with Channel Points can use reward-backed queues in this version. Manual-only ineligible-channel support is planned, not yet available. |
-| A reward is pending or an operation is uncertain | Open **Operações financeiras** or **Conexão do canal**, review the message, and use its retry/sync/recovery action. Do not assume points changed until confirmed. |
-| A reward redemption does not appear in the queue | Confirm that the viewer redeemed this bot's own reward, that the queue is open, and that the channel connection is healthy. Other apps' rewards are not adopted. Use **Sincronizar agora** on the connection page when available. |
+| A reward is pending or an operation is uncertain | Open **Twitch sync & point refunds** or **Channel connection**, review the message, and use its retry/sync/recovery action. Do not assume points changed until confirmed. |
+| A reward redemption does not appear in the queue | Confirm that the viewer redeemed this bot's own reward, that the queue is open, and that the channel connection is healthy. Other apps' rewards are not adopted. Use **Reconcile now** on the connection page when available. |
 | A chat command is ignored | Check the queue spelling, command list with `!queue comandos` or `!<queue> comandos`, and the sender's allowed role. Management commands require streamer/moderator access. |
 | A viewer cannot join | There is no viewer self-join command. They must redeem the queue reward or be added by the streamer/moderator. |
 | Queue is closed | New reward redemptions are paused. The streamer/moderator can use `!<queue> abrir`; existing people can still be served. |

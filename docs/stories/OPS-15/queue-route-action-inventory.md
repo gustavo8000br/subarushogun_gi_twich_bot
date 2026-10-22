@@ -2,6 +2,59 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-15/queue-route-action-inventory.md)
 
+### Parity matrix reconciliation — 2026-10-21
+
+The route table below was written on 2026-10-19 from source inspection, so its blanket “runtime/browser … Pending” wording is stale. Layers: **U** unit; **A** real Fastify + disposable PostgreSQL (`qra-postgres-fixtures.test.js`, `queue-repository.test.js`); **B** browser-only Chromium with intercepted API (`tests/e2e/queue-*-browser-only.mjs`); **C** production-like Compose stack (real Next + Fastify + PostgreSQL; “API” means HTTP only, “Chromium” means driven through the real UI). Authoritative per-route detail stays in the addenda above and in each row; this matrix only states which layer exists and what is still open. “—” means no test at that layer (not a claim of absence of coverage elsewhere). Live Twitch, the worker and chat delivery are not exercised at any layer.
+
+| Route/action | U | A | B | C | Still open |
+|---|---|---|---|---|---|
+| QRA-01 list | U | A | B | C | — |
+| QRA-02 create | U | A | B | C (manual-only) | Twitch create |
+| QRA-03 settings | U | A | B | C | — |
+| QRA-04 reward settings | U | A | B | — | worker/Twitch |
+| QRA-05 history | U | A | — | C (API) | — |
+| QRA-06 move | U | A | — | C (API) | — |
+| QRA-07 priority | U | A | — | C (API + audit) | — |
+| QRA-08 reward candidates | U | A | B | C (503 safe) | real Twitch lookup |
+| QRA-09 resolve reward | U | A | B | — | real Twitch |
+| QRA-10 manual entry | U | A | B | — | real Twitch user lookup |
+| QRA-11 transitions | U | A | — | C (API) | — |
+| QRA-12 call resend | U | A | B | — | chat delivery (OPS-14, #65) |
+| QRA-13 call | U | A | — | C (Chromium) | chat delivery |
+| QRA-14 clear preview | U | A | — | C (Chromium) | clock expiry |
+| QRA-15 clear confirm | U | A | — | C (Chromium) | worker/Twitch refund, clock expiry |
+| QRA-16 open/close | U | A | — | C (Chromium) | worker/Twitch |
+| QRA-17 manual mode | U | A | — | C (Chromium) | worker/Twitch pause |
+| QRA-18 archive (API-only) | U | A | n/a | n/a | retired with the vanilla panel |
+| QRA-19 archive-local challenge | U | A | — | C (Chromium) | — |
+| QRA-20 archive-local confirm | U | A | — | C (Chromium) | — |
+| QRA-21 unarchive | U | A | — | C (Chromium) | — |
+| QRA-22 delete request | U | A | B | C (Chromium) | worker/Twitch delete |
+| QRA-23 delete cancel | U | A | B | — | worker/Twitch |
+
+Open across the matrix: real Twitch/worker evidence (owner-documented blocker), Windows end-user acceptance (owner), populated-queue visual and assistive-technology validation, es/pt-BR browser rendering, and QRA-18 retirement with the vanilla panel. QRA-13 `actorId` on batch audit and QRA-02 Channel Points `callTimeoutMin` route validation were observed gaps and are tracked as follow-ups, not parity.
+
+### QRA-08/09/10/14/15/18 browser gap closure — 2026-10-21
+
+Research first (official and community sources, see the handoff): Twitch refunds are *Update Redemption Status → `CANCELED`* and only work for rewards created by the same Client ID (dashboard-made rewards return 403, per Twitch developer-forum threads), which matches the app listing only manageable rewards in QRA-08; Playwright guidance says to register waiters before the action and to read bodies eagerly; mocking is suited to error branches while critical flows should also run against the real backend.
+
+- **QRA-08/09 — reward recovery (browser-only, intercepted fixtures):** `tests/e2e/queue-reward-resolution-browser-only.mjs` (`npm run test:e2e:queue-reward-resolution:browser-only`) opens **Link reward** on a `create_unknown` queue and asserts: a failed lookup (503) shows the localized alert with only the safe reference, never the private text; an empty lookup shows `0 compatible out of 3` and only allow-listed mismatch reasons; a compatible reward is selected and linked with one exact `POST resolve-reward {rewardId}` carrying CSRF and idempotency headers; the UI reports the association was recorded and never claims Twitch confirmation (`remoteConfirmed:false`). The real-stack GET without a Twitch adapter (503 + safe reference) remains covered by the earlier Compose API proof; no live Twitch call exists.
+- **QRA-10 — outcomes (browser-only, 390×844):** UX review of the existing presentation found that duplicate (409) and unknown Twitch login (404) both showed the same generic “refresh and try again” text. **Scoped UX review 9.2/10** (static code/copy review only; no visual, assistive-technology or user research). Implemented test-first: the API now sends stable codes (`DUPLICATE_ACTIVE_ENTRY`, `TWITCH_USER_NOT_FOUND`, and the existing queue codes), the panel maps code first and status second, and the copy exists in en/es/pt-BR with `{user}` allow-listed. Duplicate is a polite `role=status` warning that keeps the draft; an unknown login is an inline field error with `aria-invalid`, focus and no duplicate card alert; unavailable queue keeps a specific alert; a code-less 409/404 keeps a reviewed neutral fallback; success clears the form and returns focus to the login field. `tests/e2e/queue-manual-entry-outcomes-browser-only.mjs` (`npm run test:e2e:manual-entry-outcomes:browser-only`) covers all five outcomes, one POST each with distinct idempotency keys and no overflow. Unit: route tests (exact 404/409 bodies with codes), mapping/catalog tests (229) and component tests (24) pass. API responses are intercepted; Twitch viewer resolution is not exercised live.
+- **QRA-14/15 — refund-bearing clear (real stack):** the Compose Chromium journey seeds a redemption-backed entry and a manual entry, previews (`count:2, refundsRequested:1`, localized dialog), changes an entry between preview and confirm so the first confirm returns the renewed confirmation (“A fila mudou…”, nothing cleared), then confirms: `{status:'cleared',count:2,refundsRequested:1}`, localized result, both entries `removed/queue_cleared`, the redemption `expected_status=CANCELED`, `sync_status=pending`, `remote_status=UNFULFILLED` and exactly one pending `redemption.cancel` outbox intent. No worker or Twitch request ran: remote refund is not claimed.
+- **QRA-18 — `POST /api/queues/:queueId/archive`:** no panel calls this route (searched the Next panel, the vanilla `apps/web/app.js` and baseline `845a58f`; both panels use only `archive-local/challenge` and `archive-local/confirm`). It is therefore API-only: there is no browser path to prove, and the route/API evidence stands. Owner decision pending: keep it as a protected API surface or retire it when the vanilla panel is removed.
+
+### QRA-22 browser evidence — request queue deletion — 2026-10-21
+
+In the Compose Chromium journey, a synthetic synchronized Channel Points queue (`synced`, closed, reward ID set) is deleted through the real UI (**Excluir fila** → **Confirmar**). The test asserts the exact `POST /api/queues/:queueId/delete` body `{confirm:true}`, the 200 `{status:'pending',activeRemoved:0,refundsRequested:0}` projection (`lifecycleStatus:'deleting'`, `isArchived:true`, `isOpen:false`, `remoteSyncStatus:'delete_pending'`, version 6) and the persisted pending `reward.delete` outbox intent with `requestMayHaveReachedTwitch:false` and `safeToDelete:false`. The disposable queue is then restored for the following local-archive steps. No worker or Twitch request ran, so remote deletion is not claimed. Focused journey passed **1/1** (6 filtered). Remaining browser gaps: QRA-08/09, QRA-10 success/duplicate, QRA-18, refund-bearing clears.
+
+### QRA-17 browser evidence — request local-only conversion — 2026-10-21
+
+In the same Compose Chromium journey, a synthetic synchronized Channel Points queue (`synced`, reward ID set) is converted through the real UI (**Usar fila local** → **Confirmar**). The test asserts the exact empty `POST /api/queues/:queueId/manual-mode` body, the 202 `{status:'pending'}` projection (`isOpen:false`, `remoteSyncStatus:'pending_close'`, `modeTransitionStatus:'pending_pause'`, version 6) and the persisted pending `reward.set_open` outbox intent with `convertToManualAfterConfirm:true`. It then restores the disposable queue (outbox row removed, version 5, manual-only) for the local-archive steps that follow. This proves the local request only; worker execution, Twitch pause observation and reconciliation to `manual_only` remain covered only by the earlier PostgreSQL fixture. The same change replaced two racy response-body reads with eager or in-page reads (Chromium discards bodies after navigation). Focused journey passed **1/1** (6 filtered).
+
+### QRA-13/14/15 browser evidence — call and clear through the real stack — 2026-10-21
+
+The Compose Chromium journey (`tests/integration/compose-runtime.test.js`, “creates, configures, activates, …”) now clicks the per-entry **Chamar** button for a synthetic waiting entry through Next → Fastify → disposable PostgreSQL. It asserts the exact `POST /api/queues/:queueId/call` body `{count:1,entryId}`, the exact `{status:'called',id}` response, the persisted entry (`called`, no position) and one pending `chat.call` outbox row with the stable idempotency key. It then runs **Limpar fila**: exact `clear-preview` response `{status:'confirmation_required',count:1,refundsRequested:0,expiresInSeconds:15}`, localized dialog copy, exact `clear-confirm` response `{status:'cleared',count:1,refundsRequested:0}`, the localized `role=status` result and the persisted entry (`removed` / `queue_cleared`). Focused case passed **1/1** (6 filtered). No worker, chat or Twitch request was executed; the chat notice remains a pending outbox row. Refund-bearing clears (redemption cancel) and clear/call error branches are still covered only by the earlier API/PostgreSQL fixtures and component tests.
+
 ### QRA-03 browser evidence addendum — 2026-10-20
 
 `tests/integration/compose-runtime.test.js` test `creates and configures a local-only queue in Chromium through Next, Fastify and disposable PostgreSQL` now covers the real Next UI → Fastify → disposable PostgreSQL path. At 390×844 it creates a manual queue with an alias, saves versioned call settings, asserts the exact PATCH body and exact-key response DTO (including the preserved alias), observes the UI-triggered GET and verifies persisted projection plus localized success status. The same browser test activates the manual queue and asserts the exact `{status:'confirmed',isOpen:true,remoteSyncStatus:'local_only'}` response and version-3 persisted projection. This exposed/fixed aliases missing from `updateLocalQueueSettings`. Focused Compose Chromium passed 1/1; focused repository PostgreSQL regression passed 1/1. No Twitch request is involved. `queue-settings-recovery-browser-only.mjs` remains complementary fixture evidence for accepted save followed by failed list read; this does not replace live Twitch, platform or full parity gates.
@@ -26,7 +79,7 @@
 
 The same test-owned PostgreSQL fixture now sends `PATCH /api/queues/:queueId/reward-settings` through the real Fastify route and asserts exact 202 `QueueDto` + `operationStatus: pending`, version-2 `pending_update`, the `reward.update` outbox's prior values/idempotency key, and panel actor audit. A stale expected version returns exact `STALE_QUEUE_VERSION`, creates no second operation, and protected GET returns the same accepted queue projection. No Twitch worker/adapter is started; the remote reward is not mutated or confirmed. Browser-only UI recovery still uses API fixtures and is not evidence of live UI-to-database flow.
 
-**Status:** Source-inspected route/action baseline, 2026-10-19. Runtime/browser evidence is Pending; this file does not claim parity or story acceptance.
+**Status:** Source-inspected route/action baseline, 2026-10-19. Runtime/browser evidence is summarised in the 2026-10-21 reconciliation matrix above; this file does not claim parity or story acceptance.
 **Parent:** [OPS-15 endpoint/catalog inventory](endpoint-catalog-inventory.md), In Progress.
 
 ## Scope and evidence rules

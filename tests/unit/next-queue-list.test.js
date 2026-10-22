@@ -87,6 +87,8 @@ const messages = {
   'panel.queue.action.add': 'Adicionar pessoa',
   'panel.entry.twitch_login': 'Login Twitch',
   'panel.entry.error.failed': 'Não foi possível adicionar a entrada. Atualize o painel e tente novamente.',
+  'panel.entry.error.already_active': '@{user} já está nesta fila. Nada foi alterado.',
+  'panel.entry.error.twitch_user_not_found': 'Não encontramos @{user} na Twitch. Confira a grafia do login (não o nome de exibição) e tente de novo.',
   'panel.error.reference': 'Referência: {id}',
   'panel.entry.uid_optional': 'UID (opcional)',
   'panel.entry.login_placeholder': '@usuario',
@@ -352,6 +354,39 @@ describe('Next queue list', () => {
     expect(markup).toContain('Referência: 44444444-4444-4444-8444-444444444444');
   });
 
+  it('announces a duplicate manual admission politely as a status, not as an error alert', () => {
+    const queues = [{
+      id: 'queue-manual', slug: 'manual', title: 'Manual', queueMode: 'manual_only', rewardOrigin: 'none',
+      isOpen: false, remoteSyncStatus: 'local_only', entries: [],
+    }];
+    const markup = renderToStaticMarkup(React.createElement(QueueList, {
+      queues, locale: 'pt-BR', t,
+      queueAction: { queueId: 'queue-manual', status: 'warning', key: 'panel.entry.error.already_active', values: { user: 'viewer_name' } },
+    }));
+
+    expect(markup).toContain('@viewer_name já está nesta fila. Nada foi alterado.');
+    expect(markup).toContain('is-warning');
+    expect(markup).toContain('role="status"');
+    expect(markup).not.toContain('role="alert"');
+  });
+
+  it('explains an unknown Twitch login beside the login field instead of in the queue card', () => {
+    const queues = [{
+      id: 'queue-manual', slug: 'manual', title: 'Manual', queueMode: 'manual_only', rewardOrigin: 'none',
+      isOpen: false, remoteSyncStatus: 'local_only', entries: [],
+    }];
+    const markup = renderToStaticMarkup(React.createElement(QueueList, {
+      queues, locale: 'pt-BR', t,
+      queueAction: { queueId: 'queue-manual', status: 'error', key: 'panel.entry.error.twitch_user_not_found', values: { user: 'viewer_nme' } },
+    }));
+
+    expect(markup).toContain('aria-invalid="true"');
+    expect(markup).toContain('aria-describedby="login-error-queue-manual"');
+    expect(markup).toContain('id="login-error-queue-manual"');
+    expect(markup.split('Não encontramos @viewer_nme na Twitch.').length - 1).toBe(1);
+    expect(markup).not.toContain('role="alert"');
+  });
+
   it('shows a safe error reference beside the existing attendance-action alert', () => {
     const queues = [{
       id: 'queue-attendance', slug: 'attendance', title: 'Attendance', queueMode: 'manual_only', rewardOrigin: 'none',
@@ -439,5 +474,17 @@ describe('Next queue list', () => {
     ];
     const markup = renderToStaticMarkup(React.createElement(QueueList, { queues, locale: 'pt-BR', t }));
     expect(markup).not.toContain('Adicionar pessoa');
+  });
+});
+
+describe('called entry deadline line', () => {
+  it('renders the deadline line only for called entries', () => {
+    const queue = { id: 'queue-1', title: 'Fila', status: 'open', isOpen: true, entries: [
+      { id: 'entry-1', displayName: 'Viewer called', status: 'called', callNotifiedAt: null, callDeadlineAt: null },
+      { id: 'entry-2', displayName: 'Viewer waiting', status: 'waiting', position: 1 },
+    ] };
+    const html = renderToStaticMarkup(React.createElement(QueueList, { queues: [queue], locale: 'pt-BR', t: (key) => key }));
+    expect(html.match(/class="call-deadline /g)).toHaveLength(1);
+    expect(html).toContain('panel.entry.call.awaiting_delivery');
   });
 });

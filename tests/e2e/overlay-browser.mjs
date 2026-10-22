@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { composeEnvironmentForOrigin } from '../helpers/compose-origin-environment.mjs';
 import { createObsWebSocketAuthentication } from '../helpers/obs-websocket-auth.mjs';
+import { decodeRgbaPng } from '../helpers/png-alpha.mjs';
 import { withTimeout } from '../helpers/with-timeout.mjs';
 
 const appOrigin = process.env.APP_ORIGIN ?? 'https://localhost:3437';
@@ -245,6 +246,37 @@ async function verifyRecoveryAndRotation(obs, widget, assigned, inputNames, sess
   }
 }
 
+async function sourceImage(obs, inputName) {
+  const { imageData } = await obs.request('GetSourceScreenshot', { sourceName: inputName, imageFormat: 'png' });
+  return decodeRgbaPng(Buffer.from(imageData.slice(imageData.indexOf(',') + 1), 'base64'));
+}
+
+async function verifyTransparencyAndResize(obs, inputName, page) {
+  const image = await sourceImage(obs, inputName);
+  assert.deepEqual([image.width, image.height], [640, 100], 'OBS must render the Browser Source at its configured size');
+  for (const [x, y] of [[1, 1], [638, 1], [1, 98], [638, 98]]) assert.equal(image.alphaAt(x, y), 0, `corner ${x},${y} must stay fully transparent in the OBS compositor`);
+  let opaque = 0;
+  for (let y = 0; y < image.height; y += 1) for (let x = 0; x < image.width; x += 1) if (image.alphaAt(x, y) > 0) opaque += 1;
+  assert.ok(opaque > 40, 'the widget text must produce visible pixels');
+  assert.ok(opaque < image.width * image.height * 0.5, 'the widget must not paint an opaque background');
+
+  const settings = (await obs.request('GetInputSettings', { inputName })).inputSettings;
+  await obs.request('SetInputSettings', { inputName, inputSettings: { ...settings, width: 320, height: 60 }, overlay: true });
+  const deadline = Date.now() + 10_000;
+  let viewport;
+  while (Date.now() < deadline) {
+    viewport = await page.evaluate('innerWidth + "x" + innerHeight').catch(() => undefined);
+    if (viewport === '320x60') break;
+    await delay(150);
+  }
+  assert.equal(viewport, '320x60', 'CEF viewport must follow the OBS Browser Source resize');
+  const resized = await sourceImage(obs, inputName);
+  assert.deepEqual([resized.width, resized.height], [320, 60], 'OBS output must follow the resize');
+  assert.equal(resized.alphaAt(1, 1), 0, 'transparency must survive the resize');
+  await obs.request('SetInputSettings', { inputName, inputSettings: { ...settings, width: 640, height: 100 }, overlay: true });
+  return true;
+}
+
 async function main() {
   const session = await apiSession();
   const obs = new ObsWebSocket(obsWebSocketUrl);
@@ -275,6 +307,8 @@ async function main() {
       assert.deepEqual(proof, { hashLength: 0, background: 'rgba(0, 0, 0, 0)', fontSize: '38px' }, 'CEF must hide the secret, preserve transparency, and apply the selected style');
     }
 
+    await verifyTransparencyAndResize(obs, inputNames[0], assigned.get(0).page);
+
     const measurements = [];
     for (let round = 1; round <= rounds; round += 1) {
       const commits = [];
@@ -295,7 +329,7 @@ async function main() {
     }
     for (const widget of created) widget.expectedValues = created.map((candidate) => candidate.expected);
     const recoveryVerified = await verifyRecoveryAndRotation(obs, created[0], assigned, inputNames, session, baselineIds);
-    console.log(`OBS Browser Source E2E passed: OBS ${process.env.OBS_VERSION ?? 'version not supplied'}, CEF ${process.env.CEF_VERSION ?? 'version not supplied'}, ${widgetCount} active widgets, ${measurements.length} database-commit-to-DOM updates, max ${Math.max(...measurements)} ms, all <= ${updateLimitMs} ms; TLS secure, Page Permissions=None, token fragment removed${recoveryVerified ? ', bot stop/restart, Browser Source unload/reload, and capability rotation recovered' : ''}.`);
+    console.log(`OBS Browser Source E2E passed: OBS ${process.env.OBS_VERSION ?? 'version not supplied'}, CEF ${process.env.CEF_VERSION ?? 'version not supplied'}, ${widgetCount} active widgets, ${measurements.length} database-commit-to-DOM updates, max ${Math.max(...measurements)} ms, all <= ${updateLimitMs} ms; TLS secure, Page Permissions=None, token fragment removed, OBS compositor transparency and Browser Source resize verified${recoveryVerified ? ', bot stop/restart, Browser Source unload/reload, and capability rotation recovered' : ''}.`);
   } finally {
     for (const { page } of (await waitForAllPages(created.map((widget) => widget.expected), baselineIds, 1_000).catch(() => new Map())).values()) page.close();
     for (const inputName of inputNames) await obs.request('RemoveInput', { inputName }).catch(() => undefined);

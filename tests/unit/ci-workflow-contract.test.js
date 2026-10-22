@@ -17,7 +17,9 @@ const parseWorkflow = (content) => yaml.load(content);
 
 describe('GitHub Actions application CI contract', () => {
   it.each(['api', 'infra', 'web'])('provides independent lint and typecheck commands for %s', (app) => {
-    expect(packageJson.scripts[`lint:${app}`]).toBe(`eslint apps/${app} --max-warnings=0`);
+    // OPS-15 S-03: the web lint also covers the modules shared with Next under apps/shared/panel.
+    const lintTargets = app === 'web' ? 'apps/web apps/shared/panel' : `apps/${app}`;
+    expect(packageJson.scripts[`lint:${app}`]).toBe(`eslint ${lintTargets} --max-warnings=0`);
     expect(packageJson.scripts[`typecheck:${app}`]).toBe(`tsc --noEmit -p tsconfig.${app}.json`);
     expect(qualityWorkflow).toContain('app: [api, infra, web]');
     expect(qualityWorkflow).toContain(`npm run lint:\${{ matrix.app }}`);

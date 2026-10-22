@@ -74,7 +74,7 @@ export const QRA_ERROR_FIXTURES = Object.freeze({
   'QRA-07': { conflict: { status: 409, body: { error: 'Só é possível alterar a prioridade enquanto a pessoa aguarda.' } } },
   'QRA-08': { unavailable: errorResponse(503, 'INTERNAL_ERROR', 'Não foi possível consultar recompensas da Twitch.') },
   'QRA-09': { changed: { status: 409, body: { error: 'A associação da recompensa foi alterada. Atualize o painel.' } } },
-  'QRA-10': { duplicate: { status: 409, body: { error: 'Essa pessoa já está ativa nesta fila.' } } },
+  'QRA-10': { duplicate: { status: 409, body: { code: 'DUPLICATE_ACTIVE_ENTRY', error: 'Essa pessoa já está ativa nesta fila.' } } },
   'QRA-11': { conflict: { status: 409, body: { error: 'A ação não pode ser aplicada ao estado atual.' } } },
   'QRA-12': { duplicate: { status: 409, body: { error: 'Esta notificação já está na fila.' } } },
   'QRA-13': { uncertain: errorResponse(503, 'INTERNAL_ERROR', 'The call result is uncertain.') },

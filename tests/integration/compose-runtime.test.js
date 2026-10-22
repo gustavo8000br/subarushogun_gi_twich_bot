@@ -716,7 +716,8 @@ describe('isolated Compose first-run and restart acceptance', () => {
       expect(settingsProjection.status()).toBe(200);
       const updatedQueues = await settingsProjection.json();
       expect(updatedQueues.find(({ id }) => id === dto.id)).toEqual(updatedDto);
-      await settingsForm.getByRole('status').filter({ hasText: 'Configurações da fila salvas.' }).waitFor();
+      // Closed, activatable queue: post-save onboarding guidance (panel.queue.onboarding.activate_next), never auto-activation.
+      await settingsForm.getByRole('status').filter({ hasText: 'Configurações salvas. Confira a fila abaixo; ela continuará fechada até você ativá-la.' }).waitFor();
       expect(await settingsForm.locator('input[name="callTimeoutMin"]').inputValue()).toBe('18');
       expect(await settingsForm.locator('textarea[name="callMessage"]').inputValue()).toBe(updatedCallMessage);
 
@@ -927,6 +928,53 @@ describe('isolated Compose first-run and restart acceptance', () => {
       ]);
       expect(JSON.parse(persistedCompletion)).toEqual({ status: 'completed', terminalReason: 'service_completed', hasFinishedAt: true });
 
+      // QRA-13 call and QRA-14/15 clear through the real UI; the chat notice stays a pending outbox row (no worker/Twitch).
+      const callRow = queueCard.locator('.queue-entry-row').filter({ hasText: 'OPS15SecondWaiter' });
+      const callResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/call`
+          && response.request().method() === 'POST';
+      });
+      await callRow.getByRole('button', { name: 'Chamar OPS15SecondWaiter', exact: true }).click();
+      const callResponse = await callResponsePromise;
+      expect(callResponse.status()).toBe(200);
+      expect(callResponse.request().postDataJSON()).toEqual({ count: 1, entryId: secondWaitingEntryId });
+      expect(await callResponse.json()).toEqual({ status: 'called', id: secondWaitingEntryId });
+      const persistedCall = dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-At', '-c',
+        `SELECT json_build_object('status', e.status, 'hasPosition', e.position IS NOT NULL, 'notices', (SELECT count(*) FROM outbox o WHERE o.idempotency_key = 'chat.call:${secondWaitingEntryId}' AND o.operation_type = 'chat.call' AND o.status = 'pending'))::text FROM entries e WHERE e.id = '${secondWaitingEntryId}'`,
+      ]);
+      expect(JSON.parse(persistedCall)).toEqual({ status: 'called', hasPosition: false, notices: 1 });
+
+      const clearPreviewPromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/clear-preview`
+          && response.request().method() === 'POST';
+      });
+      await queueCard.getByRole('button', { name: 'Limpar fila', exact: true }).click();
+      const clearPreview = await clearPreviewPromise;
+      expect(clearPreview.status()).toBe(200);
+      expect(await clearPreview.json()).toEqual({
+        status: 'confirmation_required', count: 1, refundsRequested: 0, expiresInSeconds: 15,
+      });
+      const clearDialog = page.getByRole('dialog');
+      await clearDialog.getByText('1 pessoas serão removidas', { exact: false }).waitFor();
+      const clearConfirmPromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/clear-confirm`
+          && response.request().method() === 'POST';
+      });
+      await clearDialog.getByRole('button', { name: 'Confirmar', exact: true }).click();
+      const clearConfirm = await clearConfirmPromise;
+      expect(clearConfirm.status()).toBe(200);
+      expect(await clearConfirm.json()).toEqual({ status: 'cleared', count: 1, refundsRequested: 0 });
+      await page.getByRole('status').filter({ hasText: '1 pessoas removidas; 0 reembolsos solicitados.' }).waitFor();
+      const persistedClear = dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-At', '-c',
+        `SELECT json_build_object('status', status, 'terminalReason', terminal_reason)::text FROM entries WHERE id = '${secondWaitingEntryId}'`,
+      ]);
+      expect(JSON.parse(persistedClear)).toEqual({ status: 'removed', terminalReason: 'queue_cleared' });
+
       dockerCompose([
         'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
         `UPDATE queues SET is_archived = true, is_open = false, version = version + 1 WHERE id = '${dto.id}'`,
@@ -961,19 +1009,139 @@ describe('isolated Compose first-run and restart acceptance', () => {
         .toMatchObject({ id: dto.id, isArchived: false, isOpen: false, version: 5 });
       await queueCard.getByRole('status').filter({ hasText: 'Fila mostrada para viewers e continua pausada até você ativá-la.' }).waitFor();
 
+      // QRA-14/15 with a refund: a redemption-backed entry plus a stale snapshot; only a local cancel intent is persisted.
+      const refundRedemptionId = `ops15-refund-redemption-${randomUUID()}`;
+      const refundEntryId = randomUUID();
+      const plainEntryId = randomUUID();
+      dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+        `INSERT INTO redemptions (redemption_id, broadcaster_id, reward_id, user_id, queue_id, redeemed_at, remote_status, sync_status, created_at, updated_at) VALUES ('${refundRedemptionId}', 'ops15-broadcaster', 'ops15-synthetic-refund-reward', 'ops15-refund-user', '${dto.id}', NOW(), 'UNFULFILLED', 'observed', NOW(), NOW()); INSERT INTO entries (id, queue_id, twitch_user_id, user_login, display_name, source, redemption_id, status, position) VALUES ('${refundEntryId}', '${dto.id}', 'ops15-refund-user', 'ops15refund', 'OPS15RefundViewer', 'redemption', '${refundRedemptionId}', 'waiting', 1), ('${plainEntryId}', '${dto.id}', 'ops15-plain-user', 'ops15plain', 'OPS15PlainViewer', 'manual', NULL, 'waiting', 2)`,
+      ]);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await queueCard.getByText('OPS15RefundViewer', { exact: true }).waitFor();
+      const refundPreviewPromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/clear-preview`
+          && response.request().method() === 'POST';
+      }).then(async (response) => ({ status: response.status(), body: await response.json() }));
+      await queueCard.getByRole('button', { name: 'Limpar fila', exact: true }).click();
+      const refundPreview = await refundPreviewPromise;
+      expect(refundPreview.status).toBe(200);
+      expect(refundPreview.body).toEqual({ status: 'confirmation_required', count: 2, refundsRequested: 1, expiresInSeconds: 15 });
+      const refundDialog = page.getByRole('dialog');
+      await refundDialog.getByText('2 pessoas serão removidas e 1 reembolsos serão solicitados', { exact: false }).waitFor();
+      dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+        `UPDATE entries SET version = version + 1 WHERE id = '${plainEntryId}'`,
+      ]);
+      const staleConfirmPromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/clear-confirm`
+          && response.request().method() === 'POST';
+      }).then(async (response) => ({ status: response.status(), body: await response.json() }));
+      await refundDialog.getByRole('button', { name: 'Confirmar', exact: true }).click();
+      const staleConfirm = await staleConfirmPromise;
+      expect(staleConfirm.status).toBe(200);
+      expect(staleConfirm.body).toEqual({ status: 'confirmation_required', count: 2, refundsRequested: 1, expiresInSeconds: 15 });
+      await refundDialog.getByText('A fila mudou. Revise a nova confirmação para 2 pessoas.', { exact: false }).waitFor();
+      expect(JSON.parse(dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-At', '-c',
+        `SELECT json_build_object('waiting', count(*))::text FROM entries WHERE queue_id = '${dto.id}' AND status = 'waiting'`,
+      ]))).toEqual({ waiting: 2 });
+      const refundConfirmPromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/clear-confirm`
+          && response.request().method() === 'POST';
+      }).then(async (response) => ({ status: response.status(), body: await response.json() }));
+      await refundDialog.getByRole('button', { name: 'Confirmar', exact: true }).click();
+      const refundConfirm = await refundConfirmPromise;
+      expect(refundConfirm.status).toBe(200);
+      expect(refundConfirm.body).toEqual({ status: 'cleared', count: 2, refundsRequested: 1 });
+      await page.getByRole('status').filter({ hasText: '2 pessoas removidas; 1 reembolsos solicitados.' }).waitFor();
+      const persistedRefund = JSON.parse(dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-At', '-c',
+        `SELECT json_build_object('removed', (SELECT count(*) FROM entries WHERE queue_id = '${dto.id}' AND status = 'removed' AND terminal_reason = 'queue_cleared' AND id IN ('${refundEntryId}', '${plainEntryId}')), 'expectedStatus', r.expected_status, 'syncStatus', r.sync_status, 'remoteStatus', r.remote_status, 'cancelIntents', (SELECT count(*) FROM outbox o WHERE o.redemption_id = r.redemption_id AND o.operation_type = 'redemption.cancel' AND o.status = 'pending'))::text FROM redemptions r WHERE r.redemption_id = '${refundRedemptionId}'`,
+      ]));
+      expect(persistedRefund).toEqual({ removed: 2, expectedStatus: 'CANCELED', syncStatus: 'pending', remoteStatus: 'UNFULFILLED', cancelIntents: 1 });
+      // Clean the synthetic redemption evidence so later steps see only the journey queue.
+      dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+        `DELETE FROM outbox WHERE redemption_id = '${refundRedemptionId}'; DELETE FROM audit_logs WHERE redemption_id = '${refundRedemptionId}'`,
+      ]);
+
+      // QRA-17: request local-only conversion of a synthetic synchronized queue; only the local intent is persisted.
+      dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+        `UPDATE queues SET queue_mode = 'channel_points', reward_origin = 'bot_created', reward_id = 'ops15-synthetic-manual-mode-reward', cost = 1, mode_transition_status = 'none', remote_sync_status = 'synced', is_open = true WHERE id = '${dto.id}'`,
+      ]);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      const manualModeResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/manual-mode`
+          && response.request().method() === 'POST';
+      }).then(async (response) => ({ status: response.status(), request: response.request().postDataJSON(), body: await response.json() }));
+      await queueCard.getByRole('button', { name: 'Usar fila local', exact: true }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Confirmar', exact: true }).click();
+      const manualModeResponse = await manualModeResponsePromise;
+      expect(manualModeResponse.status).toBe(202);
+      expect(manualModeResponse.request).toEqual({});
+      expect(manualModeResponse.body).toMatchObject({
+        status: 'pending',
+        queue: { id: dto.id, queueMode: 'channel_points', isOpen: false, remoteSyncStatus: 'pending_close', modeTransitionStatus: 'pending_pause', version: 6 },
+      });
+      const persistedManualMode = dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-At', '-c',
+        `SELECT json_build_object('operationType', operation_type, 'status', status, 'convert', payload->'convertToManualAfterConfirm')::text FROM outbox WHERE idempotency_key = 'queue:${dto.id}:mode.manual:6'`,
+      ]);
+      expect(JSON.parse(persistedManualMode)).toEqual({ operationType: 'reward.set_open', status: 'pending', convert: true });
+      // Restore the disposable queue to the state the following local-archive journey expects (version 5).
+      dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+        `DELETE FROM outbox WHERE entity_id = '${dto.id}'; UPDATE queues SET queue_mode = 'manual_only', reward_origin = 'none', reward_id = NULL, cost = NULL, mode_transition_status = 'none', remote_sync_status = 'local_only', is_open = false, version = 5 WHERE id = '${dto.id}'`,
+      ]);
+
+      // QRA-22: request deletion of a synthetic synchronized queue; only the local intent is persisted (no worker/Twitch).
+      dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+        `UPDATE queues SET queue_mode = 'channel_points', reward_origin = 'bot_created', reward_id = 'ops15-synthetic-delete-reward', cost = 1, mode_transition_status = 'none', remote_sync_status = 'synced', is_open = false WHERE id = '${dto.id}'`,
+      ]);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      const deleteResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url());
+        return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/delete`
+          && response.request().method() === 'POST';
+      }).then(async (response) => ({ status: response.status(), request: response.request().postDataJSON(), body: await response.json() }));
+      await queueCard.getByRole('button', { name: 'Excluir fila', exact: true }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Confirmar', exact: true }).click();
+      const deleteResponse = await deleteResponsePromise;
+      expect(deleteResponse.status).toBe(200);
+      expect(deleteResponse.request).toEqual({ confirm: true });
+      expect(deleteResponse.body).toMatchObject({
+        status: 'pending', activeRemoved: 0, refundsRequested: 0,
+        queue: { id: dto.id, lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_pending', version: 6 },
+      });
+      const persistedDeletion = dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-At', '-c',
+        `SELECT json_build_object('operationType', operation_type, 'status', status, 'mayHaveReachedTwitch', payload->'requestMayHaveReachedTwitch', 'safeToDelete', payload->'safeToDelete')::text FROM outbox WHERE idempotency_key = 'queue:${dto.id}:reward.delete'`,
+      ]);
+      expect(JSON.parse(persistedDeletion)).toEqual({ operationType: 'reward.delete', status: 'pending', mayHaveReachedTwitch: false, safeToDelete: false });
+      // Restore the disposable queue for the local-archive steps that follow.
+      dockerCompose([
+        'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
+        `DELETE FROM outbox WHERE entity_id = '${dto.id}'; UPDATE queues SET lifecycle_status = 'active', is_archived = false, queue_mode = 'manual_only', reward_origin = 'none', reward_id = NULL, cost = NULL, mode_transition_status = 'none', remote_sync_status = 'local_only', is_open = false, version = 5 WHERE id = '${dto.id}'`,
+      ]);
+
       dockerCompose([
         'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
         `UPDATE queues SET queue_mode = 'channel_points', reward_origin = 'bot_created', reward_id = 'ops15-synthetic-uncertain-reward', cost = 1, mode_transition_status = 'none', remote_sync_status = 'unknown', version = version + 1 WHERE id = '${dto.id}'`,
       ]);
-      const uncertainProjectionPromise = page.waitForResponse((response) => {
-        const responseUrl = new URL(response.url());
-        return responseUrl.origin === origin && responseUrl.pathname === '/api/queues'
-          && response.request().method() === 'GET';
-      });
       await page.reload({ waitUntil: 'domcontentloaded' });
-      const uncertainProjection = await uncertainProjectionPromise;
-      expect(uncertainProjection.status()).toBe(200);
-      expect((await uncertainProjection.json()).find(({ id }) => id === dto.id)).toMatchObject({
+      const uncertainProjection = await page.evaluate(async () => {
+        const response = await fetch('/api/queues');
+        return { status: response.status, body: await response.json() };
+      });
+      expect(uncertainProjection.status).toBe(200);
+      expect(uncertainProjection.body.find(({ id }) => id === dto.id)).toMatchObject({
         queueMode: 'channel_points', rewardOrigin: 'bot_created', rewardId: 'ops15-synthetic-uncertain-reward',
         remoteSyncStatus: 'unknown', modeTransitionStatus: 'none', lifecycleStatus: 'active', isArchived: false,
       });
@@ -1021,16 +1189,16 @@ describe('isolated Compose first-run and restart acceptance', () => {
         },
       });
       await page.getByRole('status').filter({ hasText: 'Fila removida do painel. O status da recompensa Twitch e o histórico foram preservados.' }).waitFor();
+      // Read the body inside the response handler: Chromium discards it once a later navigation replaces the page.
       const archivedProjectionPromise = page.waitForResponse((response) => {
         const responseUrl = new URL(response.url());
         return responseUrl.origin === origin && responseUrl.pathname === '/api/queues'
           && response.request().method() === 'GET';
-      });
+      }).then(async (response) => ({ status: response.status(), body: await response.json() }));
       await page.reload({ waitUntil: 'domcontentloaded' });
       const archivedProjection = await archivedProjectionPromise;
-      expect(archivedProjection).not.toBeInstanceOf(Error);
-      expect(archivedProjection.status()).toBe(200);
-      expect((await archivedProjection.json()).some(({ id }) => id === dto.id)).toBe(false);
+      expect(archivedProjection.status).toBe(200);
+      expect(archivedProjection.body.some(({ id }) => id === dto.id)).toBe(false);
       expect(await page.getByRole('heading', { name: title, exact: true }).count()).toBe(0);
       const persistedArchive = dockerCompose([
         'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-At', '-c',
@@ -1044,5 +1212,5 @@ describe('isolated Compose first-run and restart acceptance', () => {
     } finally {
       await browser.close();
     }
-  }, 120_000);
+  }, 300_000);
 });

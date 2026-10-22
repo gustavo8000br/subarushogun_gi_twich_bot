@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 import QueueSummaryCards from '../overview/queue-summary-cards.jsx';
 import { getRuntimeHealthSeverity, projectRuntimeHealth, summarizeUnresolvedOperations } from '../overview/queue-summary.mjs';
 import { PanelProvider, usePanel } from './panel-provider.jsx';
-import { getOverviewNextAction } from '../../../web/panel-navigation.mjs';
+import { getOverviewNextAction } from '../../../shared/panel/panel-navigation.mjs';
 
 const NAVIGATION = Object.freeze([
   ['overview', 'panel.navigation.overview', true, '/'],

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { projectMinimumRoleAudience, projectCommandCatalog, collectCommandPolicies, mergeCommandPolicyState, followerAuthorizationRequest, groupCommandPolicies } from '../../apps/web/command-catalog-view.mjs';
+import { projectMinimumRoleAudience, projectCommandCatalog, collectCommandPolicies, mergeCommandPolicyState, followerAuthorizationRequest, groupCommandPolicies } from '../../apps/shared/panel/command-catalog-view.mjs';
 
 describe('command catalog view contract', () => {
   it('projects the complete inherited audience for each configurable threshold', () => {

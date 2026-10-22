@@ -6,6 +6,7 @@ import { buildDevRuntimeConfig } from './dev-runtime-config.mjs';
 import { ensureDevelopmentEnvFile } from './dev-env.mjs';
 import { migrateDevelopmentDatabase, startDevelopmentDatabase } from './dev-database.mjs';
 import { runDevelopmentPreflight } from './dev-preflight.mjs';
+import { removeDevelopmentServerState, writeDevelopmentServerState } from './dev-server-state.mjs';
 
 const repositoryRoot = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 
@@ -32,6 +33,8 @@ async function main() {
     cwd: repositoryRoot, env: { ...config.frontend.env, NODE_EXTRA_CA_CERTS: runtimeEnvironment.NODE_EXTRA_CA_CERTS }, stdio: 'inherit',
   });
   const children = [api, frontend];
+  await writeDevelopmentServerState(repositoryRoot, { pid: process.pid, children: children.map((child) => child.pid).filter((pid) => pid !== undefined) });
+  process.once('exit', () => { void removeDevelopmentServerState(repositoryRoot, process.pid); });
   let shuttingDown = false;
 
   /** @param {NodeJS.Signals} [signal] */

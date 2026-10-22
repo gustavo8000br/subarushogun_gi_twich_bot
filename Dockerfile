@@ -6,17 +6,6 @@ RUN npm ci
 
 FROM dependencies AS frontend-build
 COPY apps/frontend ./apps/frontend
-COPY apps/web/overlay-renderer.mjs ./apps/web/overlay-renderer.mjs
-COPY apps/web/queue-action-state.mjs ./apps/web/queue-action-state.mjs
-COPY apps/web/queue-confirmation-copy.mjs ./apps/web/queue-confirmation-copy.mjs
-COPY apps/web/reward-link-dialog.mjs ./apps/web/reward-link-dialog.mjs
-COPY apps/web/panel-catalog.mjs ./apps/web/panel-catalog.mjs
-COPY apps/web/queue-sync-status.mjs ./apps/web/queue-sync-status.mjs
-COPY apps/web/queue-settings-version.mjs ./apps/web/queue-settings-version.mjs
-COPY apps/web/panel-navigation.mjs ./apps/web/panel-navigation.mjs
-COPY apps/web/command-catalog-view.mjs ./apps/web/command-catalog-view.mjs
-COPY apps/web/setup-messages.mjs ./apps/web/setup-messages.mjs
-COPY apps/web/overlay-widget-form.mjs ./apps/web/overlay-widget-form.mjs
 COPY apps/web/localization/catalogs ./apps/web/localization/catalogs
 COPY apps/shared ./apps/shared
 RUN npm run build:frontend

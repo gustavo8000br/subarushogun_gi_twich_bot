@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../../lib/api/client.mjs';
 import { usePanel } from '../panel-shell/panel-provider.jsx';
-import { followerAuthorizationRequest, groupCommandPolicies, mergeCommandPolicyState, projectCommandCatalog } from '../../../web/command-catalog-view.mjs';
+import { followerAuthorizationRequest, groupCommandPolicies, mergeCommandPolicyState, projectCommandCatalog } from '../../../shared/panel/command-catalog-view.mjs';
 
 const ROLE_KEYS = Object.freeze({ everyone: 'panel.command.role.everyone', follower: 'panel.command.role.follower', subscriber: 'panel.command.role.subscriber', vip: 'panel.command.role.vip', moderator: 'panel.command.role.moderator', streamer: 'panel.command.role.streamer' });
 const GROUP_KEYS = Object.freeze({ configurable: 'panel.commands.group.configurable', moderator: 'panel.commands.group.moderator', streamer: 'panel.commands.group.streamer', fixed: 'panel.commands.group.fixed' });

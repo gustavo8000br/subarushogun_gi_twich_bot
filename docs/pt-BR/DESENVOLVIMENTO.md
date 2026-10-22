@@ -13,6 +13,9 @@
 
 ```sh
 npm ci
+
+**Situação por plataforma (2026-10-21):** validado por uma pessoa somente no Ubuntu Linux. O Windows está planejado e será aceito pelo proprietário. **O macOS não foi validado** (sem host macOS disponível); ele compartilha a base Unix com o Linux, então o mesmo fluxo pode funcionar, mas isso é uma suposição. O CI roda apenas o smoke do instalador em `macos-15`.
+
 npm run build
 npm run lint
 npm run typecheck
@@ -39,6 +42,8 @@ O ambiente preparado inclui as ferramentas usadas pelos gates existentes do proj
 
 #### Desenvolvimento do Next.js e Fastify
 
+`npm run dev` nomeia o projeto Compose do PostgreSQL descartável com os últimos 28 caracteres do caminho do checkout. Se dois checkouts terminarem com o mesmo texto, defina `DEV_COMPOSE_PROJECT` (letras minúsculas, dígitos, `-`, `_`; até 63 caracteres) em cada um para que não compartilhem o volume do banco. Sem a variável, o nome e os dados atuais continuam iguais.
+
 ```sh
 npm ci
 npm run dev
@@ -54,6 +59,14 @@ npm run dev
 # depois de terminar de desenvolver:
 npm run dev:db:stop
 ```
+
+`npm run dev:start` é o mesmo ponto de entrada de `npm run dev` (ambos continuam funcionando). Durante a execução, ele registra o próprio PID e os PIDs filhos da API/Next em `.local/dev-server/state.json` (ignorado pelo Git); o arquivo é removido ao encerrar.
+
+`npm run dev:stop` encerra os processos registrados pelo `dev:start` (SIGTERM e SIGKILL após 10 segundos; no Linux confirma antes que o PID registrado ainda é o `dev-server.mjs`) e depois executa `docker compose -f compose.dev.yaml -p <projeto dev> down --volumes --rmi local` somente para o projeto de desenvolvimento. Antes de remover qualquer coisa, recusa (saída diferente de zero) a menos que o arquivo seja o `compose.dev.yaml` da raiz do repositório, o projeto seja o resolvido por `DEV_COMPOSE_PROJECT` ou pelo caminho do checkout e use o prefixo `queuebot-dev-`, e todo container/volume tenha o rótulo `com.docker.compose.project` correspondente (containers também precisam apontar para esse `compose.dev.yaml`). Ele imprime os containers, volumes e imagens removidos e termina com código 0 e uma mensagem quando nada está em execução. "Imagens" significa apenas imagens construídas localmente para o projeto dev (`--rmi local`); hoje o `compose.dev.yaml` não constrói nenhuma, então a imagem compartilhada `postgres` baixada é mantida. Com `DATABASE_URL` explícito, apenas os processos são encerrados.
+
+> **Atenção:** `npm run dev:stop` APAGA o volume do banco de desenvolvimento, incluindo todos os dados de desenvolvimento. Os snapshots pré-migration em `.local/dev-db/backups/` são mantidos.
+
+Para parar tudo preservando os dados, execute `npm run dev:stop -- --keep-data` (o `--` repassa a flag pelo npm). Ele encerra os processos do dev server e somente o container `db` (`stop db`), preservando volumes e imagens, com as mesmas travas de arquivo/projeto/rótulos; nunca executa `down`. Qualquer outra opção é recusada antes de parar algo. Projetos recusados por não terem o prefixo `queuebot-dev-` recebem mensagem explicando como removê-los manualmente.
 
 Para executar o smoke seguro do overlay em Chromium contra a prévia Next ativa, use `npm run test:e2e:overlay:browser-only`. Ele requer Chrome local e intercepta todas as respostas da API do overlay com fixtures no navegador; não grava no PostgreSQL, Twitch, Docker ou OBS. Esta é apenas evidência de navegador/frontend, não aceite de API real nem de OBS/CEF nativo. O comando separado `npm run test:e2e:overlay` continua sendo o cenário conectado ao OBS e pode criar/remover fontes OBS e dados de Compose descartáveis.
 
@@ -74,7 +87,8 @@ npm test -- --run tests/unit/<arquivo-de-teste>.test.js
 apps/api/    API Fastify, domínio, schema e migrations Prisma
 apps/infra/  Compose e scripts operacionais
 apps/frontend/ App Router Next.js do painel e do overlay OBS
-apps/web/      Painel estático atual e catálogos (mantidos durante a migração)
+apps/web/      Painel vanilla e catálogos de localização (mantidos até o cutover autorizado)
+apps/shared/    Módulos compartilhados por Next, painel vanilla e API (`apps/shared/panel` contém os helpers de painel/overlay; o Next não pode importar `apps/web`)
 tests/       Testes unitários, integração e aceite de navegador
 docs/        Stories e guias específicos de usuário/desenvolvimento
 ```

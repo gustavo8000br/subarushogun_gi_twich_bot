@@ -15,6 +15,9 @@ function mutationFingerprint(request) {
   return createHash('sha256').update(JSON.stringify({ method: request.method, url: request.url, body })).digest('hex');
 }
 
+/** Stable, non-sensitive outcome codes the manual-admission form may use to explain a 4xx precisely. */
+const MANUAL_ENTRY_PUBLIC_CODES = new Set(['QUEUE_NOT_FOUND', 'QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY', 'QUEUE_MODE_TRANSITION_PENDING', 'QUEUE_MODE_TRANSITION_UNAVAILABLE']);
+
 function routeError(error) {
   if (['INVALID_QUEUE_KEY', 'RESERVED_QUEUE_KEY', 'INVALID_QUEUE_ALIASES', 'INVALID_UID'].includes(error?.code)) return 400;
   if (['DUPLICATE_QUEUE_KEY'].includes(error?.code)) return 409;
@@ -544,14 +547,14 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     if (body.priority === true && !['subscription', 'bits', 'external_payment', 'operator_override'].includes(body.priorityReason)) return reply.code(400).send({ error: 'Selecione o benefício conferido para atribuir prioridade.' });
     try {
       const user = await resolveUser(body.login);
-      if (!user) return reply.code(404).send({ error: 'Esse usuário da Twitch não foi encontrado.' });
+      if (!user) return reply.code(404).send({ code: 'TWITCH_USER_NOT_FOUND', error: 'Esse usuário da Twitch não foi encontrado.' });
       const result = await repository.addManualEntry({ queueId: /** @type {any} */ (request.params).queueId, twitchUserId: user.id, userLogin: user.login, displayName: user.displayName, uid: body.uid, actorId: /** @type {any} */ (request).localSession?.id, origin: 'panel', priorityReason: body.priority === true ? body.priorityReason : null });
-      if (result.status !== 'created') return reply.code(409).send({ error: 'Essa pessoa já está ativa nesta fila.' });
+      if (result.status !== 'created') return reply.code(409).send({ code: 'DUPLICATE_ACTIVE_ENTRY', error: 'Essa pessoa já está ativa nesta fila.' });
       return reply.code(201).send({ id: result.entry.id, status: result.entry.status, position: result.entry.position });
     } catch (error) {
       const statusCode = routeError(error);
       if (statusCode >= 500) return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.manual_entry', error, statusCode, message: 'Não foi possível concluir. Tente novamente.' });
-      return reply.code(statusCode).send({ error: userError(error) });
+      return reply.code(statusCode).send({ ...(MANUAL_ENTRY_PUBLIC_CODES.has(error?.code) ? { code: error.code } : {}), error: userError(error) });
     }
   });
   app.post('/api/entries/:entryId/transitions', async (request, reply) => {

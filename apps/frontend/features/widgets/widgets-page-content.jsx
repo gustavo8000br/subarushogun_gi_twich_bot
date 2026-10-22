@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '../../lib/api/client.mjs';
 import { usePanel } from '../panel-shell/panel-provider.jsx';
-import { buildOverlayWidgetPayload, countOverlayTextCodePoints } from '../../../web/overlay-widget-form.mjs';
+import { buildOverlayWidgetPayload, countOverlayTextCodePoints } from '../../../shared/panel/overlay-widget-form.mjs';
 import { createWidgetFormValues, QUEUE_WIDGET_SOURCES, validateWidgetProjection, WIDGET_SOURCE_KEYS, WIDGET_STYLE_FIELDS } from './widget-management.mjs';
 
 function safeReferenceId(error) {

@@ -6,6 +6,8 @@
 > **Complexity:** COMPLEX (25/25)  
 > **Generated:** 2026-10-02  
 > **Status:** Draft for AIOX critique  
+
+> **Superseded in part by OPS-15 (2026-10-21):** this is a historical specification. Its frontend runtime statements (Next.js static export in `apps/web`, `out/*` assets served by `@fastify/static`, no Next.js runtime server) and the initial `alpha` stage no longer describe the product. The panel and overlay are served by the Next.js server, which forwards same-origin API requests to the loopback Fastify API; the current stage is `beta` (base `v0.2.0`). The vanilla panel is removed after the migration only with explicit owner authorization, and `legacy` is historical reference only, not a fallback or rollback target. The same applies to the sibling `requirements.json`, `plan.json` and `research.json`. See [`docs/architecture.md`](../../../architecture.md) and the [OPS-15 structural review](../../OPS-15/structural-review.md).
 > **Source:** User's complete Prompt 1 and folder-layout clarification
 
 ## 1. Overview

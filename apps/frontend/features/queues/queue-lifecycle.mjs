@@ -1,5 +1,5 @@
 import { validateQueueProjection } from '../panel-shell/load-panel-snapshot.mjs';
-import { getQueueActionState } from '../../../web/queue-action-state.mjs';
+import { getQueueActionState } from '../../../shared/panel/queue-action-state.mjs';
 
 const LIFECYCLE_ACTIONS = new Set(['delete', 'cancel-delete', 'manual-mode', 'unarchive', 'archive-local-challenge', 'archive-local-confirm']);
 

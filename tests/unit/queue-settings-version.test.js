@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canRetryQueueSettingsAfterVersionBump } from '../../apps/web/queue-settings-version.mjs';
+import { canRetryQueueSettingsAfterVersionBump } from '../../apps/shared/panel/queue-settings-version.mjs';
 
 describe('queue settings save after a remote status update', () => {
   const baselineSettings = {

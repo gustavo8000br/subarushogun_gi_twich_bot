@@ -129,7 +129,10 @@ await registerWebRoutes(
   app,
   fileURLToPath(new URL('../../web/', import.meta.url)),
   fileURLToPath(new URL('../../shared/browser/', import.meta.url)),
-  { apiOnly: process.env.API_ONLY === 'true' },
+  {
+    apiOnly: process.env.API_ONLY === 'true',
+    sharedPanelRoot: fileURLToPath(new URL('../../shared/panel/', import.meta.url)),
+  },
 );
 
 runtime = await createApplicationRuntime({ app, pool, prisma, repository, credentialRepository, reportDiagnostic, onError: () => undefined,

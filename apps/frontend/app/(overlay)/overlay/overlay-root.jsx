@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { mountOverlayWidget } from '../../../../web/overlay-renderer.mjs';
+import { mountOverlayWidget } from '../../../../shared/panel/overlay-renderer.mjs';
 
 export default function OverlayRoot() {
   useEffect(() => {

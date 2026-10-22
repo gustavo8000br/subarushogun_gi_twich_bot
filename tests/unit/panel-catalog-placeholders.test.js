@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
-import { PANEL_PLACEHOLDERS } from '../../apps/web/panel-catalog.mjs';
+import { PANEL_PLACEHOLDERS } from '../../apps/shared/panel/panel-catalog.mjs';
 import { translateCatalog } from '../../apps/shared/browser/translate-catalog.mjs';
 
 const catalog = {

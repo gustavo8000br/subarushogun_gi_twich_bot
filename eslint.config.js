@@ -39,4 +39,16 @@ export default [
       },
     },
   },
+  {
+    // OPS-15 S-03: the Next runtime and shared modules must not depend on the vanilla panel tree.
+    files: ['apps/frontend/**/*.js', 'apps/frontend/**/*.mjs', 'apps/frontend/**/*.jsx', 'apps/shared/**/*.mjs', 'apps/shared/**/*.js'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['**/web/*', '**/web/**'],
+          message: 'Import shared modules from apps/shared (apps/web is the vanilla panel and will be removed).',
+        }],
+      }],
+    },
+  },
 ];
