@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { getQueueActionState } from '../../../web/queue-action-state.mjs';
-import { queueSyncTranslationKey } from '../../../web/queue-sync-status.mjs';
+import { getQueueActionState } from '../../../shared/panel/queue-action-state.mjs';
+import { queueSyncTranslationKey } from '../../../shared/panel/queue-sync-status.mjs';
+import CallDeadline from './call-deadline.jsx';
 import QueueSettingsForm from './queue-settings-form.jsx';
 import QueueLifecycleActions from './queue-lifecycle-actions.jsx';
 import QueueRewardSettingsDialog from './queue-reward-settings-dialog.jsx';
@@ -51,10 +52,18 @@ function QueueCallRecoveryNotice({ recovery, t, saving, onRefresh }) {
   </div>;
 }
 
-function ManualEntryForm({ queue, saving, t, onSubmit }) {
+function ManualEntryForm({ queue, saving, t, onSubmit, loginError = null }) {
+  const loginInput = useRef(null);
+  const [loginErrorDismissed, setLoginErrorDismissed] = useState(false);
   const [priority, setPriority] = useState(false);
   const [priorityReason, setPriorityReason] = useState('');
   const [priorityError, setPriorityError] = useState(false);
+  useEffect(() => {
+    if (!loginError) return;
+    setLoginErrorDismissed(false);
+    loginInput.current?.focus();
+    loginInput.current?.select();
+  }, [loginError]);
   async function submit(event) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -76,6 +85,7 @@ function ManualEntryForm({ queue, saving, t, onSubmit }) {
       form.reset();
       setPriority(false);
       setPriorityReason('');
+      loginInput.current?.focus();
     }
   }
 
@@ -83,7 +93,7 @@ function ManualEntryForm({ queue, saving, t, onSubmit }) {
     <details className="queue-manual-entry">
       <summary>{t('panel.queue.action.add')}</summary>
       <form className="form-stack" onSubmit={submit}>
-        <label>{t('panel.entry.twitch_login')}<input name="login" required maxLength={25} pattern="@?[A-Za-z0-9_]{1,25}" placeholder={t('panel.entry.login_placeholder')} autoComplete="off" /></label>
+        <label>{t('panel.entry.twitch_login')}<input ref={loginInput} name="login" required maxLength={25} pattern="@?[A-Za-z0-9_]{1,25}" placeholder={t('panel.entry.login_placeholder')} autoComplete="off" aria-invalid={loginError && !loginErrorDismissed ? true : undefined} aria-describedby={loginError && !loginErrorDismissed ? `login-error-${queue.id}` : undefined} onChange={() => setLoginErrorDismissed(true)} />{loginError && !loginErrorDismissed ? <small id={`login-error-${queue.id}`} className="form-error">{t(loginError.key, { values: loginError.values })}</small> : null}</label>
         <label>{t('panel.entry.uid_optional')}<input name="uid" inputMode="numeric" pattern="[0-9]{9}" maxLength={9} placeholder={t('panel.entry.uid_placeholder')} /></label>
         <label className="check-label"><input type="checkbox" name="priority" checked={priority} disabled={saving} onChange={(event) => { setPriority(event.currentTarget.checked); setPriorityReason(''); setPriorityError(false); }} />{t('panel.entry.priority_toggle')}</label>
         <div aria-live="polite">{priority ? <label>{t('panel.entry.benefit')}<select name="priorityReason" value={priorityReason} disabled={saving} aria-invalid={priorityError || undefined} aria-describedby={priorityError ? 'priority-reason-error' : 'priority-reason-hint'} onChange={(event) => { setPriorityReason(event.currentTarget.value); setPriorityError(false); }}>
@@ -276,9 +286,22 @@ function QueueClearAction({ queue, t, saving, onPreview, onConfirm, onRefreshQue
 
 /** @param {{queues: Array<any>, locale: string, t: (key:string, options?:object)=>string}} props */
 export default function QueueList({ queues, locale, t, lifecycleNotice = null, onToggleQueue, onEntryAction, onManualEntry, onSaveSettings, onLoadHistory, onPreviewClear, onConfirmClear, onRefreshQueue, onRefreshCallQueue, onRefreshProjection, clearRefreshRequired = false, queueCallRefreshRequired = false, queueCallRecovery = null, onLifecycleAction, onLoadRewardCandidates, onResolveReward, onSaveRewardSettings, saving = false, queueAction = null, queueSettingsAction = null }) {
+  const [expiryAnnouncement, setExpiryAnnouncement] = useState('');
+  function announceExpiry(entry) {
+    setExpiryAnnouncement(t('panel.entry.call.expired_announcement', { values: { user: entry.displayName || entry.userLogin || '' } }));
+  }
+  useEffect(() => {
+    // After a save that makes activation possible, move focus to the (enabled) activate action. Never activates by itself.
+    if (!queueSettingsAction?.focusActivate || !queueSettingsAction.queueId) return;
+    const button = /** @type {HTMLButtonElement | null} */ (document.getElementById(`queue-toggle-${queueSettingsAction.queueId}`));
+    if (!button || button.disabled) return;
+    button.focus();
+    button.scrollIntoView?.({ block: 'nearest' });
+  }, [queueSettingsAction]);
   const format = (value) => new Intl.NumberFormat(locale).format(value);
   const [priorityReasonEntry, setPriorityReasonEntry] = useState(null);
   const priorityReasonDialog = useRef(null);
+  const expiryRegion = <p className="call-deadline-announcement" role="status">{expiryAnnouncement}</p>;
   const lifecycleFeedback = lifecycleNotice?.key
     ? <p className="queue-action-feedback" role="status">{t(lifecycleNotice.key)}</p>
     : null;
@@ -303,6 +326,7 @@ export default function QueueList({ queues, locale, t, lifecycleNotice = null, o
   return (
     <section className="queue-list" aria-label={t('panel.queues.title')}>
       {lifecycleFeedback}
+      {expiryRegion}
       {queueCallRecovery ? <QueueCallRecoveryNotice recovery={queueCallRecovery} t={t} saving={saving} onRefresh={onRefreshCallQueue} /> : null}
       {queues.map((queue) => {
         const syncLabel = queueSyncTranslationKey(queue.remoteSyncStatus);
@@ -324,7 +348,7 @@ export default function QueueList({ queues, locale, t, lifecycleNotice = null, o
             </header>
             {syncLabel ? <p className="queue-sync-state">{t(syncLabel)}</p> : null}
             <div className="queue-lifecycle-actions">
-              {!queue.isArchived && queue.lifecycleStatus !== 'deleting' ? <button type="button" className="button button-secondary" disabled={!actionState.canToggleIntake || saving} onClick={() => onToggleQueue?.(queue.id, !queue.isOpen)}>
+              {!queue.isArchived && queue.lifecycleStatus !== 'deleting' ? <button type="button" id={`queue-toggle-${queue.id}`} className="button button-secondary" disabled={!actionState.canToggleIntake || saving} onClick={() => onToggleQueue?.(queue.id, !queue.isOpen)}>
                 {isSavingQueue ? t('panel.queue.action_result.saving') : t(actionKey)}
               </button> : null}
               {canManageEntries ? <button type="button" className="button button-secondary" disabled={!actionState.canCallEntries || waitingCount === 0 || saving || queueCallRefreshRequired} onClick={() => onEntryAction?.(queue.id, null, 'call-next')}>{t('panel.queue.action.next')}</button> : null}
@@ -337,7 +361,7 @@ export default function QueueList({ queues, locale, t, lifecycleNotice = null, o
               {!queue.isArchived && queue.lifecycleStatus !== 'deleting' && !actionState.canDelete && actionState.deleteBlockedReason
                 ? <p className="queue-action-help">{t(`panel.queue.delete_blocked.${actionState.deleteBlockedReason}`)}</p> : null}
               {!actionState.canToggleIntake && actionState.blockedReason ? <p className="queue-action-help">{t(`panel.queue.action_blocked.${actionState.blockedReason}`)}</p> : null}
-              {queueAction?.queueId === queue.id && queueAction.status !== 'saving' ? <div className={`queue-action-feedback ${queueAction.status === 'error' ? 'is-error' : ['pending', 'warning'].includes(queueAction.status) ? 'is-warning' : ''}`} role={queueAction.status === 'error' ? 'alert' : 'status'}>
+              {queueAction?.queueId === queue.id && queueAction.status !== 'saving' && queueAction.key !== 'panel.entry.error.twitch_user_not_found' ? <div className={`queue-action-feedback ${queueAction.status === 'error' ? 'is-error' : ['pending', 'warning'].includes(queueAction.status) ? 'is-warning' : ''}`} role={queueAction.status === 'error' ? 'alert' : 'status'}>
                 <span>{t(queueAction.key, { values: queueAction.values })}</span>
                 {typeof queueAction.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(queueAction.referenceId) ? <small>{t('panel.error.reference', { values: { id: queueAction.referenceId } })}</small> : null}
                 {queueAction.key === 'panel.reward.link_refresh_failed' ? <button type="button" className="small-action" disabled={saving} aria-busy={saving} onClick={() => void onRefreshProjection?.()}>{t(saving ? 'panel.reward.refreshing_queue' : 'panel.reward.refresh_queue')}</button> : null}
@@ -345,7 +369,7 @@ export default function QueueList({ queues, locale, t, lifecycleNotice = null, o
                 {queueAction.key === 'panel.entry.add.refresh_failed' ? <button type="button" className="small-action" disabled={saving} aria-busy={saving} onClick={() => void onRefreshProjection?.({ purpose: 'manual-entry' })}>{t(saving ? 'panel.reward.refreshing_queue' : 'panel.reward.refresh_queue')}</button> : null}
               </div> : null}
             </div>
-            {canManageEntries && actionState.canAddManualEntry ? <ManualEntryForm queue={queue} saving={saving} t={t} onSubmit={onManualEntry} /> : null}
+            {canManageEntries && actionState.canAddManualEntry ? <ManualEntryForm queue={queue} saving={saving} t={t} onSubmit={onManualEntry} loginError={queueAction?.queueId === queue.id && queueAction.key === 'panel.entry.error.twitch_user_not_found' ? queueAction : null} /> : null}
             {canManageEntries ? <QueueSettingsForm queue={queue} t={t} saving={saving} feedback={queueSettingsAction} onSave={onSaveSettings} /> : null}
             <div className="queue-entry-groups">
               {ENTRY_GROUPS.map((group) => {
@@ -372,6 +396,7 @@ export default function QueueList({ queues, locale, t, lifecycleNotice = null, o
                           return (
                         <li key={entry.id} className="queue-entry-row">
                           <span>{user}{entry.priorityClass === 'priority' ? <small className="priority-badge">{t('panel.entry.priority_badge')} ({t(PRIORITY_REASON_KEYS[entry.priorityReason] ?? 'panel.entry.reason_other')})</small> : null}</span>
+                          {entry.status === 'called' ? <CallDeadline entry={entry} t={t} onExpire={announceExpiry} /> : null}
                           {canManageEntries ? <span className="queue-entry-actions">
                               {entry.status === 'waiting' ? <>
                                 <button type="button" className="small-action" aria-label={t('panel.entry.action.call_aria', { values: { user } })} disabled={!actionState.canCallEntries || saving || queueCallRefreshRequired} onClick={() => onEntryAction?.(queue.id, entry.id, 'call')}>{t('panel.entry.action.call')}</button>

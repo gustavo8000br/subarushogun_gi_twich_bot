@@ -2,7 +2,7 @@
 [Português brasileiro](../pt-BR/front-end-architecture/files-and-modules.md)
 
 
-The migration keeps the existing frontend in `apps/web/` while the new Next.js source is built under `apps/frontend/`. This lets the team verify export and runtime contracts before cutover. New application code remains JavaScript ESM with JSDoc:
+The Next.js source lives in `apps/frontend/`; the vanilla frontend stays in `apps/web/` only until the owner-authorized cutover and its full removal. New application code remains JavaScript ESM with JSDoc:
 
 ```text
 apps/frontend/
@@ -12,12 +12,12 @@ apps/frontend/
   lib/api/             same-origin API client and JSDoc contracts
   lib/i18n/            runtime catalog loading, locale selection and formatting
   styles/              tokens, global styles and feature styles
-  scripts/             static-export compatibility artifacts
+  scripts/             Next runtime config, production HTTPS server, development launcher
   features/panel-shell/ local session bootstrap, navigation and shell composition
   features/overview/    read-only overview summaries and projection presentation
-apps/web/               existing vanilla frontend retained until parity gates pass
+apps/web/               vanilla frontend; removed after the authorized cutover
 ```
 
 The panel shell bootstraps `/api/session` before protected reads, loads the allowlisted `/api/state` and operator `/api/queues` projections, and fetches `/api/localization/catalogs` at runtime. Only a first-party pt-BR catalog is embedded as a static render fallback; the runtime API supplies the complete installed locale set and is authoritative for persisted language selection. Invalid queue projections show an API error instead of an empty queue summary. Mutations keep CSRF, idempotency and expected-revision contracts.
 
-The current foundation emits `apps/frontend/out/*`, including a copied `overlay.html` alias, and the production image contains that output. The dedicated overlay route now mounts the existing read-only renderer in its own client entry so the current URL, capability, polling, and revocation behavior stays intact. Fastify still serves `apps/web/` during this migration phase; switching its root is a later cutover gate. Keep route/layout composition thin and domain decisions in the current backend services. Use text-safe rendering; never put untrusted names/messages into raw HTML. Keep bounded polling and do not add a panel WebSocket. The panel and overlay must produce separate browser entry bundles.
+The Docker frontend stage runs `npm run build:frontend` and the runtime image contains `apps/frontend/.next`, served by the Next.js production server; there is no `out/` export. The modules shared with the vanilla panel live in `apps/shared/panel/` and reach the build through the single `COPY apps/shared` line; only the catalogs are still copied from `apps/web/localization/catalogs` (structural review S-03). The dedicated overlay route mounts the existing read-only renderer in its own client entry, preserving the current URL, capability, polling, and revocation behavior. Production `/` is still proxied to the vanilla shell served by Fastify until the cutover. Keep route/layout composition thin and domain decisions in the current backend services. Use text-safe rendering; never put untrusted names/messages into raw HTML. Keep bounded polling and do not add a panel WebSocket. The panel and overlay must produce separate browser entry bundles.

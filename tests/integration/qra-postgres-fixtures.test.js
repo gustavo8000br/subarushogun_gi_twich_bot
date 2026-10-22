@@ -888,7 +888,7 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
         payload: { login: 'qra_synthetic_viewer' },
       });
       expect(duplicateAdmission.statusCode).toBe(409);
-      expect(duplicateAdmission.json()).toEqual({ error: 'Essa pessoa já está ativa nesta fila.' });
+      expect(duplicateAdmission.json()).toEqual({ code: 'DUPLICATE_ACTIVE_ENTRY', error: 'Essa pessoa já está ativa nesta fila.' });
       expect(await prisma.entry.count({ where: { queueId: manualQueue.id, twitchUserId: 'qra-synthetic-twitch-user', status: 'waiting' } })).toBe(1);
 
       for (const [to, reason] of [

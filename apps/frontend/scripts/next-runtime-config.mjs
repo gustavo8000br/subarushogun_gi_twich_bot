@@ -6,13 +6,12 @@ export function buildNextConfig(env = process.env) {
     ? `${env.CODESPACE_NAME}-${devPort}.${env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
     : null;
   const productionRewrites = buildProductionProxyRules(env);
-  const beforeFiles = productionRewrites.beforeFiles.filter(({ source }) => source !== '/connection/:path*');
   return {
     trailingSlash: false,
     async rewrites() {
       return env.NODE_ENV === 'development'
         ? buildDevProxyRules(env)
-        : { ...productionRewrites, beforeFiles };
+        : productionRewrites;
     },
     ...(env.NODE_ENV === 'development' ? {
       allowedDevOrigins: [...new Set(['127.0.0.1', ...(codespacesHost ? [codespacesHost] : [])])],

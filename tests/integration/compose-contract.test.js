@@ -158,14 +158,8 @@ describe('local Compose runtime contract', () => {
     const dockerfile = readFileSync(dockerfilePath, 'utf8');
     expect(dockerfile).toMatch(/^FROM dependencies AS frontend-build$/m);
     expect(dockerfile).toMatch(/^COPY apps\/shared \.\/apps\/shared$/m);
-    expect(dockerfile).toMatch(/^COPY apps\/web\/panel-catalog\.mjs \.\/apps\/web\/panel-catalog\.mjs$/m);
-    expect(dockerfile).toMatch(/^COPY apps\/web\/queue-sync-status\.mjs \.\/apps\/web\/queue-sync-status\.mjs$/m);
-    expect(dockerfile).toMatch(/^COPY apps\/web\/queue-confirmation-copy\.mjs \.\/apps\/web\/queue-confirmation-copy\.mjs$/m);
-    expect(dockerfile).toMatch(/^COPY apps\/web\/reward-link-dialog\.mjs \.\/apps\/web\/reward-link-dialog\.mjs$/m);
-    expect(dockerfile).toMatch(/^COPY apps\/web\/queue-settings-version\.mjs \.\/apps\/web\/queue-settings-version\.mjs$/m);
-    expect(dockerfile).toMatch(/^COPY apps\/web\/panel-navigation\.mjs \.\/apps\/web\/panel-navigation\.mjs$/m);
-    expect(dockerfile).toMatch(/^COPY apps\/web\/setup-messages\.mjs \.\/apps\/web\/setup-messages\.mjs$/m);
-    expect(dockerfile).toMatch(/^COPY apps\/web\/overlay-renderer\.mjs \.\/apps\/web\/overlay-renderer\.mjs$/m);
+    // OPS-15 S-03: modules shared with Next live in apps/shared/panel and are covered by the apps/shared COPY.
+    expect(dockerfile).not.toMatch(/^COPY apps\/web\/[^\s]+\.mjs /m);
     expect(dockerfile).toMatch(/^COPY apps\/web\/localization\/catalogs \.\/apps\/web\/localization\/catalogs$/m);
     expect(dockerfile).toContain('RUN npm run build:frontend');
     expect(dockerfile).toMatch(/^COPY --from=frontend-build \/app\/apps\/frontend\/\.next \.\/apps\/frontend\/\.next$/m);

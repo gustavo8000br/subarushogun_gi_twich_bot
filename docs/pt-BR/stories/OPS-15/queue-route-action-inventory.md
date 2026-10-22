@@ -2,6 +2,59 @@
 
 [English](../../../stories/OPS-15/queue-route-action-inventory.md)
 
+### Reconciliação da matriz de paridade — 2026-10-21
+
+A tabela de rotas abaixo foi escrita em 2026-10-19 a partir de inspeção de código, então o texto genérico “runtime/browser … Pending” está desatualizado. Camadas: **U** unitário; **A** Fastify real + PostgreSQL descartável (`qra-postgres-fixtures.test.js`, `queue-repository.test.js`); **B** Chromium somente-navegador com API interceptada (`tests/e2e/queue-*-browser-only.mjs`); **C** stack Compose de produção (Next + Fastify + PostgreSQL reais; “API” é só HTTP, “Chromium” é pela interface real). O detalhe por rota continua nos adendos acima e em cada linha; esta matriz só diz qual camada existe e o que segue aberto. “—” significa sem teste naquela camada. Twitch real, worker e entrega no chat não são exercitados em nenhuma camada.
+
+| Rota/ação | U | A | B | C | Ainda aberto |
+|---|---|---|---|---|---|
+| QRA-01 list | U | A | B | C | — |
+| QRA-02 create | U | A | B | C (manual-only) | Twitch create |
+| QRA-03 settings | U | A | B | C | — |
+| QRA-04 reward settings | U | A | B | — | worker/Twitch |
+| QRA-05 history | U | A | — | C (API) | — |
+| QRA-06 move | U | A | — | C (API) | — |
+| QRA-07 priority | U | A | — | C (API + audit) | — |
+| QRA-08 reward candidates | U | A | B | C (503 safe) | real Twitch lookup |
+| QRA-09 resolve reward | U | A | B | — | real Twitch |
+| QRA-10 manual entry | U | A | B | — | real Twitch user lookup |
+| QRA-11 transitions | U | A | — | C (API) | — |
+| QRA-12 call resend | U | A | B | — | chat delivery (OPS-14, #65) |
+| QRA-13 call | U | A | — | C (Chromium) | chat delivery |
+| QRA-14 clear preview | U | A | — | C (Chromium) | clock expiry |
+| QRA-15 clear confirm | U | A | — | C (Chromium) | worker/Twitch refund, clock expiry |
+| QRA-16 open/close | U | A | — | C (Chromium) | worker/Twitch |
+| QRA-17 manual mode | U | A | — | C (Chromium) | worker/Twitch pause |
+| QRA-18 archive (API-only) | U | A | n/a | n/a | retired with the vanilla panel |
+| QRA-19 archive-local challenge | U | A | — | C (Chromium) | — |
+| QRA-20 archive-local confirm | U | A | — | C (Chromium) | — |
+| QRA-21 unarchive | U | A | — | C (Chromium) | — |
+| QRA-22 delete request | U | A | B | C (Chromium) | worker/Twitch delete |
+| QRA-23 delete cancel | U | A | B | — | worker/Twitch |
+
+Em aberto na matriz inteira: evidência Twitch/worker real (bloqueio documentado pelo proprietário), aceitação em Windows (proprietário), validação visual e de tecnologia assistiva com filas populadas, renderização es/pt-BR no navegador e aposentadoria do QRA-18 junto com o painel vanilla. `actorId` na auditoria em lote do QRA-13 e a validação de `callTimeoutMin` no ramo Channel Points do QRA-02 são lacunas observadas, tratadas como acompanhamento, não como paridade.
+
+### Fechamento das lacunas de browser QRA-08/09/10/14/15/18 — 2026-10-21
+
+Pesquisa primeiro (fontes oficiais e da comunidade, veja o handoff): o reembolso na Twitch é *Update Redemption Status → `CANCELED`* e só funciona para recompensas criadas pelo mesmo Client ID (recompensas do dashboard retornam 403, segundo threads do fórum de desenvolvedores da Twitch), o que combina com o app listar só recompensas gerenciáveis no QRA-08; a orientação do Playwright é registrar os waiters antes da ação e ler os corpos imediatamente; mocks servem bem para ramos de erro, mas fluxos críticos também devem rodar contra o backend real.
+
+- **QRA-08/09 — recuperação de recompensa (somente browser, fixtures interceptadas):** `tests/e2e/queue-reward-resolution-browser-only.mjs` (`npm run test:e2e:queue-reward-resolution:browser-only`) abre **Vincular recompensa** em uma fila `create_unknown` e afirma: leitura com falha (503) mostra o alerta localizado só com a referência segura, nunca o texto privado; leitura vazia mostra `0 compatíveis de 3` e apenas motivos de divergência da allowlist; uma recompensa compatível é selecionada e vinculada com um único `POST resolve-reward {rewardId}` com cabeçalhos CSRF e de idempotência; a UI informa que a associação foi registrada e nunca alega confirmação da Twitch (`remoteConfirmed:false`). O GET na stack real sem adaptador Twitch (503 + referência segura) continua coberto pela prova de API do Compose; não há chamada real à Twitch.
+- **QRA-10 — resultados (somente browser, 390×844):** a revisão de UX da apresentação existente achou que duplicidade (409) e login inexistente na Twitch (404) mostravam o mesmo texto genérico “atualize e tente de novo”. **Revisão UX do escopo: 9,2/10** (somente revisão estática de código/copy; sem validação visual, de tecnologia assistiva ou pesquisa com pessoas). Implementado com teste primeiro: a API agora envia códigos estáveis (`DUPLICATE_ACTIVE_ENTRY`, `TWITCH_USER_NOT_FOUND` e os códigos de fila já existentes), o painel mapeia primeiro o código e depois o status, e o texto existe em en/es/pt-BR com `{user}` na allowlist. Duplicidade é um aviso educado em `role=status` que mantém o rascunho; login inexistente é um erro inline no campo com `aria-invalid`, foco e sem alerta duplicado no card; fila indisponível mantém um alerta específico; 409/404 sem código mantém um fallback neutro revisado; o sucesso limpa o formulário e devolve o foco ao campo de login. `tests/e2e/queue-manual-entry-outcomes-browser-only.mjs` (`npm run test:e2e:manual-entry-outcomes:browser-only`) cobre os cinco resultados, um POST cada com chaves de idempotência distintas e sem overflow. Unitários: testes de rota (corpos 404/409 exatos com códigos), de mapeamento/catálogo (229) e de componente (24) passam. As respostas da API são interceptadas; a resolução de viewer na Twitch não é exercitada ao vivo.
+- **QRA-14/15 — limpeza com reembolso (stack real):** a jornada Chromium do Compose semeia uma entrada de resgate e uma manual, faz a prévia (`count:2, refundsRequested:1`, diálogo localizado), altera uma entrada entre a prévia e a confirmação para que a primeira confirmação devolva a confirmação renovada (“A fila mudou…”, nada limpo) e então confirma: `{status:'cleared',count:2,refundsRequested:1}`, resultado localizado, as duas entradas `removed/queue_cleared`, o resgate com `expected_status=CANCELED`, `sync_status=pending`, `remote_status=UNFULFILLED` e exatamente uma intenção `redemption.cancel` pendente no outbox. Nenhum worker ou requisição Twitch rodou: reembolso remoto não é alegado.
+- **QRA-18 — `POST /api/queues/:queueId/archive`:** nenhum painel chama essa rota (busquei no painel Next, no vanilla `apps/web/app.js` e no baseline `845a58f`; ambos usam só `archive-local/challenge` e `archive-local/confirm`). Ela é, portanto, somente de API: não há caminho de browser a provar e a evidência de rota/API permanece. Decisão do proprietário pendente: manter como superfície de API protegida ou aposentar quando o painel vanilla for removido.
+
+### Evidência de browser QRA-22 — solicitar exclusão de fila — 2026-10-21
+
+Na jornada Chromium do Compose, uma fila Channel Points sintética e sincronizada (`synced`, fechada, reward ID definido) é excluída pela UI real (**Excluir fila** → **Confirmar**). O teste afirma o corpo exato de `POST /api/queues/:queueId/delete` `{confirm:true}`, a projeção 200 `{status:'pending',activeRemoved:0,refundsRequested:0}` (`lifecycleStatus:'deleting'`, `isArchived:true`, `isOpen:false`, `remoteSyncStatus:'delete_pending'`, versão 6) e a intenção `reward.delete` pendente no outbox, com `requestMayHaveReachedTwitch:false` e `safeToDelete:false`. Depois a fila descartável é restaurada para os passos de arquivamento local seguintes. Nenhum worker nem requisição Twitch rodou, então a exclusão remota não é alegada. A jornada focada passou **1/1** (6 filtrados). Lacunas de browser restantes: QRA-08/09, sucesso/duplicidade do QRA-10, QRA-18 e limpezas com reembolso.
+
+### Evidência de browser QRA-17 — solicitar conversão para fila local — 2026-10-21
+
+Na mesma jornada Chromium do Compose, uma fila Channel Points sintética e sincronizada (`synced`, reward ID definido) é convertida pela UI real (**Usar fila local** → **Confirmar**). O teste afirma o corpo vazio exato de `POST /api/queues/:queueId/manual-mode`, a projeção 202 `{status:'pending'}` (`isOpen:false`, `remoteSyncStatus:'pending_close'`, `modeTransitionStatus:'pending_pause'`, versão 6) e a intenção `reward.set_open` pendente no outbox com `convertToManualAfterConfirm:true`. Depois restaura a fila descartável (linha do outbox removida, versão 5, somente manual) para os passos de arquivamento local seguintes. Isso prova apenas a solicitação local; execução do worker, observação de pausa na Twitch e reconciliação para `manual_only` continuam cobertas só pela fixture PostgreSQL anterior. A mesma mudança trocou duas leituras de corpo de resposta sujeitas a corrida por leituras imediatas ou dentro da página (o Chromium descarta corpos após navegação). A jornada focada passou **1/1** (6 filtrados).
+
+### Evidência de browser QRA-13/14/15 — chamar e limpar na stack real — 2026-10-21
+
+A jornada Chromium do Compose (`tests/integration/compose-runtime.test.js`, “creates, configures, activates, …”) agora clica no botão **Chamar** de uma entrada sintética em espera, atravessando Next → Fastify → PostgreSQL descartável. Ela afirma o corpo exato `POST /api/queues/:queueId/call` `{count:1,entryId}`, a resposta exata `{status:'called',id}`, a entrada persistida (`called`, sem posição) e uma linha `chat.call` pendente no outbox com a chave de idempotência estável. Em seguida executa **Limpar fila**: resposta exata de `clear-preview` `{status:'confirmation_required',count:1,refundsRequested:0,expiresInSeconds:15}`, texto localizado do diálogo, resposta exata de `clear-confirm` `{status:'cleared',count:1,refundsRequested:0}`, o resultado localizado em `role=status` e a entrada persistida (`removed` / `queue_cleared`). O caso focado passou **1/1** (6 filtrados). Nenhum worker, chat ou requisição Twitch foi executado; o aviso de chat continua como linha pendente no outbox. Limpezas com reembolso (cancelamento de resgate) e ramos de erro de chamar/limpar seguem cobertos apenas pelas fixtures de API/PostgreSQL e testes de componente anteriores.
+
 ### Complemento de evidência browser QRA-03 — 2026-10-20
 
 O teste `creates and configures a local-only queue in Chromium through Next, Fastify and disposable PostgreSQL` em `tests/integration/compose-runtime.test.js` cobre agora o fluxo real interface Next → Fastify → PostgreSQL descartável. Em 390×844 cria fila manual com alias, salva configurações de chamada versionadas, afirma corpo exato do PATCH e DTO de resposta com chaves exatas (incluindo alias preservado), observa o GET acionado pela interface e verifica projeção persistida e status localizado de sucesso. O mesmo teste browser ativa a fila manual e afirma a resposta exata `{status:'confirmed',isOpen:true,remoteSyncStatus:'local_only'}` e a projeção persistida na versão 3. Isso revelou/corrigiu aliases ausentes em `updateLocalQueueSettings`. Chromium Compose focado passou 1/1; regressão PostgreSQL do repositório passou 1/1. Nenhuma chamada Twitch é feita. `queue-settings-recovery-browser-only.mjs` continua como evidência complementar por fixture para salvamento aceito seguido de falha na leitura da lista; isso não substitui Twitch ao vivo, aceite multiplataforma nem gates completos de paridade.

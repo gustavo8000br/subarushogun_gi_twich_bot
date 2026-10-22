@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { getQueueActionState, getQueueVisibilityAction } from '../../../web/queue-action-state.mjs';
+import { getQueueActionState, getQueueVisibilityAction } from '../../../shared/panel/queue-action-state.mjs';
 import { isQueueLifecycleActionAvailable } from './queue-lifecycle.mjs';
-import { getQueueConfirmationCopy } from '../../../web/queue-confirmation-copy.mjs';
+import { getQueueConfirmationCopy } from '../../../shared/panel/queue-confirmation-copy.mjs';
 import QueueRewardResolutionDialog from './queue-reward-resolution-dialog.jsx';
 
 function QueueLifecycleActions({ queue, locale, t, saving, rewardLinkRefreshRequired, onAction, onLoadRewardCandidates, onResolveReward }) {

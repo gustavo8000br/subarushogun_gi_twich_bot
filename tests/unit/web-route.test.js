@@ -5,6 +5,7 @@ import { registerWebRoutes } from '../../apps/api/src/web-route.mjs';
 
 const webRoot = fileURLToPath(new URL('../../apps/web/', import.meta.url));
 const sharedRoot = fileURLToPath(new URL('../../apps/shared/browser/', import.meta.url));
+const sharedPanelRoot = fileURLToPath(new URL('../../apps/shared/panel/', import.meta.url));
 const applications = [];
 
 afterEach(async () => {
@@ -42,6 +43,31 @@ describe('local web entrypoint', () => {
     await app.close();
   });
 
+  it('serves the shared panel modules under the transitional /shared/panel/ prefix for the vanilla panel', async () => {
+    const app = Fastify({ logger: false });
+    applications.push(app);
+    await registerWebRoutes(app, webRoot, sharedRoot, { sharedPanelRoot });
+
+    const navigation = await app.inject({ method: 'GET', url: '/shared/panel/panel-navigation.mjs' });
+    expect(navigation.statusCode).toBe(200);
+    expect(navigation.headers['content-type']).toContain('javascript');
+    expect(navigation.body).toContain('export function getInitialPanelPage');
+    const renderer = await app.inject({ method: 'GET', url: '/shared/panel/overlay-renderer.mjs' });
+    expect(renderer.statusCode).toBe(200);
+    const oldPath = await app.inject({ method: 'GET', url: '/panel-navigation.mjs' });
+    expect(oldPath.statusCode).toBe(404);
+    const missing = await app.inject({ method: 'GET', url: '/shared/panel/does-not-exist.mjs' });
+    expect(missing.statusCode).toBe(404);
+  });
+
+  it('does not expose the shared panel prefix in API-only mode', async () => {
+    const app = Fastify({ logger: false });
+    applications.push(app);
+    await registerWebRoutes(app, webRoot, sharedRoot, { apiOnly: true, sharedPanelRoot });
+    const navigation = await app.inject({ method: 'GET', url: '/shared/panel/panel-navigation.mjs' });
+    expect(navigation.statusCode).toBe(404);
+  });
+
   it('serves overview, queues, new queue, finances, settings, and connection as separate panel pages', async () => {
     const app = Fastify({ logger: false });
     applications.push(app);
@@ -71,7 +97,7 @@ describe('local web entrypoint', () => {
     expect(page).toContain('name="globalCooldownSeconds"');
 
     const script = await app.inject({ method: 'GET', url: '/app.js' });
-    expect(script.body).toContain("from './panel-navigation.mjs'");
+    expect(script.body).toContain("from '../shared/panel/panel-navigation.mjs'");
     expect(script.body).toContain('getInitialPanelPage(setup)');
     expect(script.body).toContain("selectPanelPage(pageId");
     expect(script.body).toContain('maxRedemptionsPerStream: optionalLimit(values.get');

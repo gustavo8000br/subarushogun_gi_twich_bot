@@ -1,4 +1,4 @@
-import { normalizeRewardCandidates } from '../../../web/reward-link-dialog.mjs';
+import { normalizeRewardCandidates } from '../../../shared/panel/reward-link-dialog.mjs';
 
 function invalidResponse() {
   return Object.assign(new Error('The reward resolution response is invalid.'), { code: 'INVALID_QUEUE_REWARD_RESOLUTION_RESPONSE' });

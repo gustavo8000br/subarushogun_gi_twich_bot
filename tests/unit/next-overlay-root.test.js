@@ -9,7 +9,7 @@ const overlay = vi.hoisted(() => {
   return { controls, mountOverlayWidget: vi.fn(() => controls) };
 });
 
-vi.mock('../../apps/web/overlay-renderer.mjs', () => ({ mountOverlayWidget: overlay.mountOverlayWidget }));
+vi.mock('../../apps/shared/panel/overlay-renderer.mjs', () => ({ mountOverlayWidget: overlay.mountOverlayWidget }));
 
 import OverlayRoot from '../../apps/frontend/app/(overlay)/overlay/overlay-root.jsx';
 import OverlayPage from '../../apps/frontend/app/(overlay)/overlay/page.jsx';

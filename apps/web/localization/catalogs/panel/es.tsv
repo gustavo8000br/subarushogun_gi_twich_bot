@@ -127,8 +127,11 @@ panel.entry.add	Añadir a la cola
 panel.entry.added	Se añadió a la persona a la cola.
 panel.entry.add.refresh_failed	La API aceptó a {user} en la posición {position}, pero no se pudo actualizar la cola. Actualiza antes de volver a intentarlo.
 panel.entry.error.invalid	Comprueba el usuario de Twitch, el UID y el beneficio verificado.
-panel.entry.error.unavailable	No se pudo añadir la entrada. Actualiza el panel e inténtalo de nuevo.
+panel.entry.error.unavailable	No se pudo añadir a la persona. Revisa el usuario y si ya está en la cola; si todo está bien, actualiza el panel.
 panel.entry.error.failed	No se pudo añadir a la persona. Actualiza el panel y comprueba la cola y el usuario.
+panel.entry.error.already_active	@{user} ya está en esta cola. No se cambió nada.
+panel.entry.error.twitch_user_not_found	No encontramos a @{user} en Twitch. Revisa cómo se escribe el usuario (no el nombre visible) e inténtalo de nuevo.
+panel.entry.error.queue_unavailable	Esta cola no acepta entradas ahora. Actualiza el panel para ver su estado actual.
 panel.form.command	Comando
 panel.form.command_placeholder	abismo
 panel.form.aliases	Alias
@@ -339,6 +342,7 @@ panel.queue.sync.not_synced	sin sincronización confirmada
 panel.queue.sync.diverged	la configuración difiere en Twitch · requiere revisión
 panel.queue.onboarding.reward_pending	La cola está guardada y cerrada. Twitch aún debe confirmar la recompensa; no podrá activarse antes.
 panel.queue.onboarding.reward_diverged	La cola está guardada y cerrada, pero la recompensa de Twitch difiere de la configuración guardada. Revisa la diferencia antes de continuar.
+panel.queue.onboarding.reward_failed	La cola está guardada y cerrada, pero Twitch no pudo crear su recompensa. La activación sigue no disponible.
 panel.queue.onboarding.activate_next	Configuración guardada. Revisa la cola abajo; seguirá cerrada hasta que la actives.
 panel.queue.onboarding.activate_waiting	Configuración guardada. La cola seguirá cerrada mientras Twitch confirma la recompensa.
 panel.command.role.everyone	Todos
@@ -685,6 +689,7 @@ panel.entry.call.awaiting_delivery	El plazo aún no ha comenzado; esperando la c
 panel.entry.call.no_deadline	No hay plazo automático para iniciar la atención.
 panel.entry.call.remaining	Tiempo para iniciar la atención: quedan {time}.
 panel.entry.call.expired	El plazo terminó; esperando la actualización de la atención.
+panel.entry.call.expired_announcement	El plazo de llamada de {user} terminó.
 panel.confirmation.title	Confirmar acción
 panel.confirmation.cancel	Cancelar
 panel.confirmation.accept	Aceptar

@@ -1,4 +1,4 @@
-import { translateCatalog } from '../shared/browser/translate-catalog.mjs';
+import { translateCatalog } from '../browser/translate-catalog.mjs';
 
 /** @param {{eligibility?: {eligible?: boolean, broadcasterType?: string, reason?: string, rewardCount?: number, rewardLimit?: number, nearRewardLimit?: boolean}|null, connected?: boolean, secretConfigured?: boolean}} setup */
 const localizedEligibilityMessages = Object.freeze({

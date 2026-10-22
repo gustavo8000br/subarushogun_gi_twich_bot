@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { getDefaultQueueCallMessage } from '../../../shared/queue-call-message.mjs';
+import { getDefaultQueueCallMessage } from '../../../shared/panel/queue-call-message.mjs';
 import { renderCallMessagePreview, validateCallMessageTemplate } from './queue-creation.mjs';
 
 function suggestSlug(value) {

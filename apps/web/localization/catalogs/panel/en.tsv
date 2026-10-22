@@ -127,8 +127,11 @@ panel.entry.add	Add to queue
 panel.entry.added	Viewer added to the queue.
 panel.entry.add.refresh_failed	The API accepted {user} at position {position}, but the queue list could not refresh. Refresh before retrying.
 panel.entry.error.invalid	Check the Twitch login, UID and verified benefit fields.
-panel.entry.error.unavailable	The entry could not be added. Refresh the panel and try again.
+panel.entry.error.unavailable	The viewer could not be added. Check the login and whether they're already in the queue; if both look right, refresh the panel.
 panel.entry.error.failed	The viewer could not be added. Refresh the panel and check the queue and login.
+panel.entry.error.already_active	@{user} is already in this queue. Nothing was changed.
+panel.entry.error.twitch_user_not_found	We couldn't find @{user} on Twitch. Check the login spelling (not the display name) and try again.
+panel.entry.error.queue_unavailable	This queue isn't accepting entries right now. Refresh the panel to see its current state.
 panel.form.command	Command
 panel.form.command_placeholder	abyss
 panel.form.aliases	Aliases
@@ -339,6 +342,7 @@ panel.queue.sync.not_synced	no confirmed sync
 panel.queue.sync.diverged	Twitch settings differ · review required
 panel.queue.onboarding.reward_pending	The queue is saved and closed. Twitch still has to confirm its reward; activation stays unavailable until then.
 panel.queue.onboarding.reward_diverged	The queue is saved and closed, but its Twitch reward differs from the saved settings. Review the mismatch before continuing.
+panel.queue.onboarding.reward_failed	The queue is saved and closed, but Twitch could not create its reward. Activation stays unavailable.
 panel.queue.onboarding.activate_next	Settings saved. Review the queue below; it stays closed until you activate it.
 panel.queue.onboarding.activate_waiting	Settings saved. The queue stays closed while Twitch confirms its reward.
 panel.command.role.everyone	Everyone
@@ -682,6 +686,7 @@ panel.entry.call.awaiting_delivery	Deadline has not started; waiting for deliver
 panel.entry.call.no_deadline	No automatic deadline to start service.
 panel.entry.call.remaining	Time to start service: {time} remaining.
 panel.entry.call.expired	Deadline passed; waiting for the service status to update.
+panel.entry.call.expired_announcement	Call deadline passed for {user}.
 panel.confirmation.title	Confirm action
 panel.confirmation.cancel	Cancel
 panel.confirmation.accept	OK

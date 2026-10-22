@@ -127,8 +127,11 @@ panel.entry.add	Adicionar à fila
 panel.entry.added	Pessoa adicionada à fila.
 panel.entry.add.refresh_failed	A API aceitou {user} na posição {position}, mas não foi possível atualizar a fila. Atualize antes de tentar novamente.
 panel.entry.error.invalid	Confira o login da Twitch, o UID e o benefício conferido.
-panel.entry.error.unavailable	Não foi possível adicionar a entrada. Atualize o painel e tente novamente.
+panel.entry.error.unavailable	Não foi possível adicionar a pessoa. Confira o login e se ela já está na fila; se estiver tudo certo, atualize o painel.
 panel.entry.error.failed	Não foi possível adicionar a pessoa. Atualize o painel e confira a fila e o login.
+panel.entry.error.already_active	@{user} já está nesta fila. Nada foi alterado.
+panel.entry.error.twitch_user_not_found	Não encontramos @{user} na Twitch. Confira a grafia do login (não o nome de exibição) e tente de novo.
+panel.entry.error.queue_unavailable	Esta fila não está aceitando entradas agora. Atualize o painel para ver o estado atual.
 panel.form.command	Comando
 panel.form.command_placeholder	abismo
 panel.form.aliases	Apelidos
@@ -339,6 +342,7 @@ panel.queue.sync.not_synced	sem sincronização confirmada
 panel.queue.sync.diverged	divergência na Twitch · requer revisão
 panel.queue.onboarding.reward_pending	A fila está salva e fechada. A Twitch ainda precisa confirmar a recompensa; a ativação espera essa confirmação.
 panel.queue.onboarding.reward_diverged	A fila está salva e fechada, mas a recompensa da Twitch diverge das configurações salvas. Revise a diferença antes de continuar.
+panel.queue.onboarding.reward_failed	A fila está salva e fechada, mas a Twitch não conseguiu criar a recompensa. A ativação continua indisponível.
 panel.queue.onboarding.activate_next	Configurações salvas. Confira a fila abaixo; ela continuará fechada até você ativá-la.
 panel.queue.onboarding.activate_waiting	Configurações salvas. A fila permanece fechada enquanto a Twitch confirma a recompensa.
 panel.command.role.everyone	Todos
@@ -685,6 +689,7 @@ panel.entry.call.awaiting_delivery	Prazo ainda não iniciado; aguardando confirm
 panel.entry.call.no_deadline	Sem prazo automático para iniciar o atendimento.
 panel.entry.call.remaining	Prazo para iniciar atendimento: {time} restante.
 panel.entry.call.expired	Prazo encerrado; aguardando atualização do atendimento.
+panel.entry.call.expired_announcement	O prazo da chamada de {user} encerrou.
 panel.confirmation.title	Confirmar ação
 panel.confirmation.cancel	Cancelar
 panel.confirmation.accept	OK

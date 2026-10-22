@@ -428,10 +428,13 @@ export function PanelProvider({ children, fallbackCatalog }) {
       const referenceId = typeof requestError?.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(requestError.referenceId)
         ? requestError.referenceId
         : null;
+      const failureKey = getManualQueueEntryFailureKey(requestError);
       setQueueAction({
         queueId,
-        status: 'error',
-        key: getManualQueueEntryFailureKey(requestError),
+        // A duplicate is information, not a failure of the operator's input: announce it politely, in warning style.
+        status: failureKey === 'panel.entry.error.already_active' ? 'warning' : 'error',
+        key: failureKey,
+        ...(['panel.entry.error.already_active', 'panel.entry.error.twitch_user_not_found'].includes(failureKey) && entry.login ? { values: { user: entry.login } } : {}),
         ...(referenceId ? { referenceId } : {}),
       });
       return false;
@@ -482,7 +485,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
         : [queue, ...queueProjection.filter((item) => item.id !== queue.id)];
       setQueueProjection(nextProjection);
       setQueueSummary(summarizeQueues(nextProjection));
-      setQueueSettingsAction({ queueId, ...getQueueSettingsFeedback({ refreshFailed: !refreshed }) });
+      setQueueSettingsAction({ queueId, ...getQueueSettingsFeedback({ refreshFailed: !refreshed, queue: nextProjection.find((item) => item.id === queueId) ?? queue }) });
       return true;
     } catch (requestError) {
       if (requestError?.status === 409) {

@@ -56,7 +56,7 @@ export function runCommand(command, args, { cwd = repositoryRoot, env = process.
 export async function startDevelopmentDatabase({ root = repositoryRoot, env = process.env, command = 'docker' } = {}) {
   const secretPath = await ensureDevelopmentDatabaseSecret(root);
   const composeFile = resolve(root, 'compose.dev.yaml');
-  const projectName = getDevelopmentComposeProject(root);
+  const projectName = getDevelopmentComposeProject(root, env);
   await runCommand(command, ['compose', '-f', composeFile, '-p', projectName, 'up', '-d', '--wait', 'db'], { cwd: root, env });
   const databasePort = env.DEV_DATABASE_PORT ?? '55432';
   const password = (await readFile(secretPath, 'utf8')).trim();
@@ -68,7 +68,15 @@ export async function startDevelopmentDatabase({ root = repositoryRoot, env = pr
   };
 }
 
-export function getDevelopmentComposeProject(root = repositoryRoot) {
+/** An explicit DEV_COMPOSE_PROJECT separates checkouts whose paths end in the same 28 characters. */
+export function getDevelopmentComposeProject(root = repositoryRoot, env = process.env) {
+  const override = env.DEV_COMPOSE_PROJECT;
+  if (override !== undefined && override !== '') {
+    if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(override)) {
+      throw new Error('DEV_COMPOSE_PROJECT must be 1-63 characters: lowercase letters, digits, "-" or "_", starting with a letter or digit.');
+    }
+    return override;
+  }
   const normalized = root.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(-28);
   return `queuebot-dev-${normalized || 'workspace'}`;
 }
@@ -76,7 +84,82 @@ export function getDevelopmentComposeProject(root = repositoryRoot) {
 /** @param {{root?: string, env?: NodeJS.ProcessEnv, command?: string | ((args: string[], options: {cwd: string, env: NodeJS.ProcessEnv, stdio: string}) => Promise<{stdout?: Buffer, stderr?: string} | void>)}} [options] */
 export async function stopDevelopmentDatabase({ root = repositoryRoot, env = process.env, command = 'docker' } = {}) {
   const composeFile = resolve(root, 'compose.dev.yaml');
-  await runCommand(command, ['compose', '-f', composeFile, '-p', getDevelopmentComposeProject(root), 'stop', 'db'], { cwd: root, env });
+  await runCommand(command, ['compose', '-f', composeFile, '-p', getDevelopmentComposeProject(root, env), 'stop', 'db'], { cwd: root, env });
+}
+
+const DEVELOPMENT_PROJECT_PREFIX = 'queuebot-dev-';
+const DEVELOPMENT_VOLUME = 'next_dev_postgres_data';
+
+/**
+ * Destructive operations accept only compose.dev.yaml at the repository root and the project
+ * resolved by getDevelopmentComposeProject, which must use the queuebot-dev- naming.
+ * @param {{root?: string, env?: NodeJS.ProcessEnv, composeFile?: string, projectName?: string}} [options]
+ */
+export function assertDevelopmentComposeTarget({ root = repositoryRoot, env = process.env, composeFile = resolve(root, 'compose.dev.yaml'), projectName } = {}) {
+  if (resolve(composeFile) !== resolve(root, 'compose.dev.yaml')) {
+    throw new Error('Refusing to remove resources: only compose.dev.yaml at the repository root is allowed.');
+  }
+  const resolvedProject = getDevelopmentComposeProject(root, env);
+  if (!resolvedProject.startsWith(DEVELOPMENT_PROJECT_PREFIX)) {
+    throw new Error(`Refusing to remove resources: Compose project "${resolvedProject}" does not use the development naming "${DEVELOPMENT_PROJECT_PREFIX}*". To remove it manually, first check its resources with \`docker ps -a --filter label=com.docker.compose.project=${resolvedProject}\` and \`docker volume ls --filter label=com.docker.compose.project=${resolvedProject}\`, then run \`docker compose -f ${resolve(root, 'compose.dev.yaml')} -p ${resolvedProject} down --volumes\` yourself.`);
+  }
+  if (projectName !== undefined && projectName !== resolvedProject) {
+    throw new Error(`Refusing to remove resources: project "${projectName}" is not the resolved development project "${resolvedProject}".`);
+  }
+  return resolvedProject;
+}
+
+/** @param {Buffer | undefined} stdout */
+function parseRows(stdout) {
+  return (stdout ? stdout.toString() : '').split('\n').map((line) => line.trim()).filter(Boolean).map((line) => line.split('\t'));
+}
+
+/**
+ * Stops the development Compose project and deletes its containers, named volumes (ALL dev data)
+ * and images built locally for it (--rmi local). Pulled images such as postgres are preserved.
+ * @param {{root?: string, env?: NodeJS.ProcessEnv, command?: string | ((args: string[], options: {cwd: string, env: NodeJS.ProcessEnv, stdio: string}) => Promise<{stdout?: Buffer, stderr?: string} | void>)}} [options]
+ */
+export async function removeDevelopmentEnvironment({ root = repositoryRoot, env = process.env, command = 'docker' } = {}) {
+  const { composeFile, ...result } = await inspectDevelopmentEnvironment({ root, env, command });
+  if (result.containers.length + result.volumes.length + result.images.length === 0) return result;
+  await runCommand(command, ['compose', '-f', composeFile, '-p', result.projectName, 'down', '--volumes', '--rmi', 'local'], { cwd: root, env });
+  return result;
+}
+
+/**
+ * Same guards as removal, then only `stop db` (stopDevelopmentDatabase): volumes and images are preserved.
+ * @param {{root?: string, env?: NodeJS.ProcessEnv, command?: string | ((args: string[], options: {cwd: string, env: NodeJS.ProcessEnv, stdio: string}) => Promise<{stdout?: Buffer, stderr?: string} | void>)}} [options]
+ */
+export async function stopDevelopmentEnvironment({ root = repositoryRoot, env = process.env, command = 'docker' } = {}) {
+  const { projectName, containers } = await inspectDevelopmentEnvironment({ root, env, command });
+  if (containers.length > 0) await stopDevelopmentDatabase({ root, env, command });
+  return { projectName, containers };
+}
+
+/** Guards file/project and verifies compose labels of every container, volume and image before any change. @param {{root: string, env: NodeJS.ProcessEnv, command: any}} options */
+async function inspectDevelopmentEnvironment({ root, env, command }) {
+  const composeFile = resolve(root, 'compose.dev.yaml');
+  const projectName = assertDevelopmentComposeTarget({ root, env, composeFile });
+  const label = `label=com.docker.compose.project=${projectName}`;
+  const query = async (args) => parseRows((await runCommand(command, args, { cwd: root, env, stdio: 'pipe' }) || {}).stdout);
+  const containers = await query(['ps', '-a', '--filter', label, '--format', '{{.Names}}\t{{.Label "com.docker.compose.project"}}\t{{.Label "com.docker.compose.project.config_files"}}']);
+  const volumes = await query(['volume', 'ls', '--filter', label, '--format', '{{.Name}}\t{{.Label "com.docker.compose.project"}}']);
+  const images = await query(['image', 'ls', '--filter', label, '--format', '{{.Repository}}:{{.Tag}}\t{{.Label "com.docker.compose.project"}}']);
+  for (const [name, project, configFiles = ''] of containers) {
+    const files = configFiles.split(',').filter(Boolean);
+    if (project !== projectName || files.length === 0 || files.some((file) => resolve(file) !== composeFile)) {
+      throw new Error(`Refusing to remove resources: container "${name}" was not created from ${composeFile} for project "${projectName}".`);
+    }
+  }
+  for (const [name, project] of volumes) {
+    if (project !== projectName || name !== `${projectName}_${DEVELOPMENT_VOLUME}`) {
+      throw new Error(`Refusing to remove resources: volume "${name}" is not the declared development volume of project "${projectName}".`);
+    }
+  }
+  for (const [name, project] of images) {
+    if (project !== projectName) throw new Error(`Refusing to remove resources: image "${name}" is not labelled for project "${projectName}".`);
+  }
+  return { composeFile, projectName, containers: containers.map(([name]) => name), volumes: volumes.map(([name]) => name), images: images.map(([name]) => name) };
 }
 
 /** @param {string} databaseUrl @param {{root?: string, env?: NodeJS.ProcessEnv, projectName?: string, composeFile?: string, command?: string | ((args: string[], options: {cwd: string, env: NodeJS.ProcessEnv, stdio: string}) => Promise<{stdout?: Buffer, stderr?: string} | void>), prismaCommand?: string | ((args: string[], options: {cwd: string, env: NodeJS.ProcessEnv, stdio: string}) => Promise<{stdout?: Buffer, stderr?: string} | void>)}} [options] */

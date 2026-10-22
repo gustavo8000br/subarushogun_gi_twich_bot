@@ -169,7 +169,7 @@ describe('panel catalog contract', () => {
 
   it('uses catalog-owned copy for queue and entry presentation', async () => {
     const app = await readFile(fileURLToPath(new URL('../../apps/web/app.js', import.meta.url)), 'utf8');
-    const queueActionState = await readFile(fileURLToPath(new URL('../../apps/web/queue-action-state.mjs', import.meta.url)), 'utf8');
+    const queueActionState = await readFile(fileURLToPath(new URL('../../apps/shared/panel/queue-action-state.mjs', import.meta.url)), 'utf8');
     for (const key of [
       'panel.queue.group.waiting', 'panel.queue.group.called', 'panel.queue.group.in_service',
       'panel.queue.empty.title', 'panel.queue.empty.hint', 'panel.queue.empty_group',
@@ -299,8 +299,8 @@ describe('panel catalog contract', () => {
     const queueSettings = await readFile(fileURLToPath(new URL('../../apps/frontend/features/queues/queue-settings-form.jsx', import.meta.url)), 'utf8');
     const queueList = await readFile(fileURLToPath(new URL('../../apps/frontend/features/queues/queue-list.jsx', import.meta.url)), 'utf8');
     const lifecycle = await readFile(fileURLToPath(new URL('../../apps/frontend/features/queues/queue-lifecycle-actions.jsx', import.meta.url)), 'utf8');
-    const queueConfirmationCopy = await readFile(fileURLToPath(new URL('../../apps/web/queue-confirmation-copy.mjs', import.meta.url)), 'utf8');
-    const queueActionState = await readFile(fileURLToPath(new URL('../../apps/web/queue-action-state.mjs', import.meta.url)), 'utf8');
+    const queueConfirmationCopy = await readFile(fileURLToPath(new URL('../../apps/shared/panel/queue-confirmation-copy.mjs', import.meta.url)), 'utf8');
+    const queueActionState = await readFile(fileURLToPath(new URL('../../apps/shared/panel/queue-action-state.mjs', import.meta.url)), 'utf8');
     const html = await readFile(fileURLToPath(new URL('../../apps/web/index.html', import.meta.url)), 'utf8');
     const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url)), 'panel');
     const app = `${queueForm}\n${queueSettings}\n${queueList}\n${lifecycle}`;
