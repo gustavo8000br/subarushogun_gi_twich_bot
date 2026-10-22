@@ -471,10 +471,9 @@ $ciWorkflow | Out-File -FilePath ".github/workflows/ci.yml" -Encoding utf8
 
 Write-Host "✅ Installed ci.yml"
 
-# Install pr-automation.yml with the local scanner command
-$prTemplate = Get-Content ".aiox-core/infrastructure/templates/github-workflows/pr-automation.yml.template" -Raw
-$prWorkflow = $prTemplate -replace '\{\{OPENGREP_COMMAND\}\}', 'npm run review:static'
-$prWorkflow | Out-File -FilePath ".github/workflows/pr-automation.yml" -Encoding utf8
+# Copy pr-automation.yml
+Copy-Item ".aiox-core/infrastructure/templates/github-workflows/pr-automation.yml.template" `
+  -Destination ".github/workflows/pr-automation.yml"
 Write-Host "✅ Installed pr-automation.yml"
 
 # Copy release.yml
@@ -497,15 +496,22 @@ if (-not (Test-Path ".opengrep/rules.yml")) {
     -Destination ".opengrep/rules.yml"
 }
 
-$package = Get-Content "package.json" -Raw | ConvertFrom-Json
-if (-not $package.scripts.'review:static') {
-  Write-Warning "Add a review:static script that runs opengrep scan with .opengrep/rules.yml."
-  $opengrepConfigured = $false
-} else {
-  $opengrepConfigured = $true
+if (Test-Path "tests" -or Test-Path "__tests__") {
+  $pathInstructions += @"
+    - path: "**/*.test.*"
+      instructions: |
+        Ensure test coverage and edge cases.
+        Verify mock implementations are correct.
+"@
 }
-Write-Host "✅ Local rules: .opengrep/rules.yml"
-```
+
+if (Test-Path "docs") {
+  $pathInstructions += @"
+    - path: "docs/**"
+      instructions: |
+        Check clarity and completeness of documentation.
+"@
+}
 
 The PR workflow runs the configured `review:static` script. No hosted app or service account is needed.
 

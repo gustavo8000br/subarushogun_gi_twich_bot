@@ -5,7 +5,7 @@
 # with wave-based parallel execution and quality gates.
 #
 # Each story within a wave runs the full development-cycle
-# (PO validates → Executor develops → Static Analysis → Quality Gate → DevOps push)
+# (PO validates → Executor develops → Self-healing → Quality Gate → DevOps push)
 #
 # Project-specific execution plans reference this template
 # and live in docs/stories/epics/{epic-name}/
@@ -21,7 +21,7 @@ workflow:
   description: >-
     Reusable template for executing epics with wave-based parallel development.
     Stories within each wave run the full development-cycle workflow
-    (PO → Executor → Static Analysis → Quality Gate → DevOps → Checkpoint).
+    (PO → Executor → Self-Healing → Quality Gate → DevOps → Checkpoint).
     Wave gates validate integration before proceeding to next wave.
     Supports worktree isolation for conflict-free parallel development.
 
