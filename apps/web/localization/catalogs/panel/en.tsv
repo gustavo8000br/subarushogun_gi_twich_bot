@@ -386,7 +386,7 @@ panel.widget.confirm.regenerate	The current link will stop working. Generate a n
 panel.widget.confirm.revoke	The OBS source will stop receiving data. Revoke this link?
 panel.widget.confirm.delete	Delete this widget? Its current URL will be invalidated and cannot be recovered.
 panel.widget.link.copied	Link copied.
-panel.widget.link.copy_fallback	Select and copy the link. It will not be shown again after closing this dialog.
+panel.widget.link.copy_fallback	Couldn't copy automatically. Show the link, select it and copy it before closing — it won't be shown again.
 panel.widget.queue.select	Select a queue
 panel.widget.editor.create	Create widget
 panel.widget.editor.edit	Edit widget
@@ -786,7 +786,15 @@ panel.widget.conflict.refresh_hint	Your draft will stay open. Review the latest 
 panel.widget.conflict.latest_title	Current version on the server
 panel.widget.conflict.replace_draft	Replace my draft with this version
 panel.widget.close_without_saving	Close without saving
-panel.widget.link.close_loses	Closing clears this link from the screen. If you lose it, generate another one.
+panel.widget.link.done	Done, I copied the link
+panel.widget.link.show	Show link
+panel.widget.link.hide	Hide link
+panel.widget.link.hidden_label	Link hidden
+panel.widget.link.confirm_close.title	Close without copying the link?
+panel.widget.link.confirm_close.body	This link can't be shown again. To use this widget later, generate a new link on its card — this link will then stop working.
+panel.widget.link.confirm_close.back	Back to the link
+panel.widget.link.confirm_close.confirm	Close anyway
+panel.widget.notice.link_closed_uncopied	Link closed without copying. Use "Regenerate link" on the widget card when you need it.
 panel.widget.cancel	Cancel
 panel.dialog.confirm	Confirm
 panel.dialog.cancel	Cancel
