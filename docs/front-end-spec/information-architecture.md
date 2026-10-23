@@ -7,4 +7,6 @@
 3. **Queues:** open/closed/archived/deletion-pending state; queue settings; create/edit/open/close/archive/unarchive/delete with explicit confirmation.
 4. **Queue detail:** waiting order, called entries, in-progress service, terminal history; manual add, call, start, complete, remove, move, and safe call retry.
 5. **Points and recovery:** pending, confirmed, conflict, or unknown operations with retry/reconcile actions that cannot change the recorded intent.
-6. **Account:** current/default text labels and reset behavior.
+6. **Commands:** chat command catalog and policies.
+7. **Widgets:** create, style, and preview overlay widgets; generate, regenerate, and revoke their one-time OBS links.
+8. **Settings:** product language (which also sets the chat language) and local preferences, such as the current/default account text labels and reset behavior. Anything new in Settings needs its own story.
