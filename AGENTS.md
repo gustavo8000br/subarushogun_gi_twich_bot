@@ -38,6 +38,7 @@ Ao retomar uma sessao de desenvolvimento, leia primeiro o handoff ativo em `docs
 - Use fontes comunitárias como evidência complementar, não como autoridade final. Confirme afirmações técnicas em fontes primárias atuais; se fontes divergirem ou a documentação não resolver a questão, explicite a divergência, a inferência e o que permanece incerto.
 - Ao tomar uma decisão material com base na pesquisa, cite links diretos e registre as conclusões e limitações na story ou documentação técnica afetada. Confira versões e datas para evitar aplicar orientação obsoleta.
 - A pesquisa não substitui testes no ambiente e versões deste projeto; nunca apresente fórum, documentação ou teste unitário como evidência de runtime/API/banco que não foi realmente exercitada.
+- **Regra de ouro contra redundância (proprietário, 2026-10-22; vale para o projeto inteiro):** se o `@analyst` já pesquisou um tema e julgou que não é necessária mais pesquisa, não gaste tokens com nova pesquisa. Antes de pedir ou executar qualquer pesquisa, consulte `docs/research-index.md` (notas existentes e veredito SUFICIENTE / REVISAR SE / LACUNA) e pesquise de novo apenas para uma LACUNA ou um gatilho de revisão que realmente ocorreu. Agentes sem ferramenta de internet leem as notas existentes em vez de pedir pesquisa nova. Esta regra refina, e não cancela, a pesquisa técnica obrigatória acima.
 
 ## Ordenação dos changelogs por estágio
 
@@ -69,6 +70,7 @@ Ordem de execução para mudanças: Master coordena; responsáveis especialistas
 - `@data-engineer` (Dara) coordena todo trabalho que envolva banco de dados em qualquer story: modelagem, schema Prisma, migrations SQL, constraints, índices, persistência, transações, concorrência, recuperação, testes de banco, operações e documentação correspondente.
 - O Master mantém a orquestração geral; o `@dev` implementa as mudanças de aplicação e código delegadas pelo plano de dados aprovado. Não desenhar, aplicar ou alterar persistência/schema/migration sem coordenação explícita de `@data-engineer`.
 - `@architect` pode revisar a arquitetura e `@qa` valida os resultados de forma independente; essas revisões não substituem a responsabilidade de dados.
+- **Validação independente de testes (regra permanente do proprietário, 2026-10-22):** a execução final e independente dos testes e dos gates (suíte completa, E2E, validações e varreduras) antes de commit, PR ou release é do `@qa`, que entrega um veredito (PASS, CONCERNS, FAIL ou WAIVED) e a lista de grupos prontos para commitar. O `@dev` roda testes durante o desenvolvimento, mas isso não substitui a validação do `@qa`. O `@devops` comita, faz push e abre PR somente com o veredito do `@qa` em mãos e só dos grupos que ele liberou, sem tratar a própria execução de testes como validação independente. O `@qa` não altera código; limpa apenas os recursos Docker descartáveis que a suíte criou e que ele consegue provar por rótulo ou prefixo.
 - Garantias de PostgreSQL exigem integração em PostgreSQL isolado com migrations reais. Nunca usar SQLite ou mocks de Prisma como evidência de atomicidade, constraints, concorrência ou recuperação.
 - Antes de mudança de schema em banco persistente, `@data-engineer` verifica o alvo e define snapshot/rollback compatível. Testes devem usar instância e dados descartáveis, sem tocar nos volumes ativos do produto.
 
@@ -94,6 +96,24 @@ Ordem de execução para mudanças: Master coordena; responsáveis especialistas
 - Registre eventos JSON com `referenceId`, horário UTC, origem, tipo da exceção e código técnico sanitizado. Não registre mensagem/stack brutos, corpo de chat/resgate, UID, tokens, headers, segredos, senha ou connection string.
 - Nomeie a origem de cada worker/rota com identificador estável. O painel deve mostrar a referência para que ela possa ser correlacionada com `docker compose logs bot`.
 - Erros de operação Twitch devem permanecer na outbox com estado/código seguro e recuperação apropriada; uma resposta ausente nunca vira confirmação.
+
+## Regras do proprietário e sobreposições ao framework AIOX
+
+Esta seção fica fora dos blocos `AIOX-MANAGED` de propósito: uma sincronização do framework não pode sobrescrevê-la. Ela prevalece sobre `.claude/rules/`, `.github/agents/`, `.github/copilot-instructions.md` e sobre tasks/definições de agentes em `.aiox-core/` quando houver divergência (divergência documentada do projeto). Auditoria de origem: `docs/audits/rules-alignment-2026-10-22.md`.
+
+- **Documentação bilíngue (cópia não gerenciada da regra 5 e do gate de documentação):** atualize os documentos afetados em inglês e pt-BR no mesmo incremento; uma story ou PR não está concluída sem ambas as versões equivalentes e verificadas.
+- **Gates completos:** `npm run lint`, `npm run typecheck`, `npm test`, `npm run validate:localization`, `npm run validate:version`, `npm run validate:port-denylist` e `npm run review:static`; atualize checklist e file list da story antes de concluir.
+- **Git e commits:** o `@dev` não executa `git add`, `git commit`, `git merge` nem `git push`; ele implementa e testa. Commits, push, PR, deploy e release são do `@devops`, somente com o veredito do `@qa` e apenas dos grupos liberados, sempre com pathspec explícito (`git commit -- <caminhos>`). A matriz genérica de `.claude/rules/agent-authority.md` não amplia essa autoridade.
+- **Issues:** somente o `@devops` edita issues, sempre pelo corpo principal (`gh issue edit --body-file`). Tasks AIOX que prevejam comentário em issue ou PR (por exemplo `resolve-github-issue`) devem gravar o conteúdo no corpo da issue ou na descrição da PR.
+- **Pesquisa:** o `@analyst` (ou o `@architect`) pesquisa como etapa explícita do fluxo pesquisa → planejamento → desenvolvimento e entrega a nota aos agentes sem ferramenta de internet, sempre respeitando a regra de ouro e `docs/research-index.md`.
+- **Revisão estática:** o único revisor é o OpenGrep (`npm run review:static`); nunca use nem reintroduza o provedor antigo (o nome é bloqueado por `tests/unit/aiox-static-review.test.js`).
+- **`legacy`:** apenas referência histórica; não é fallback nem alvo de rollback.
+- **Ambiente e stack:** Node `24.20.0` (fixado em `package.json`), JavaScript ESM com JSDoc, PostgreSQL com Prisma; stories em `docs/stories/<ID>/story.md` e `docs/pt-BR/stories/<ID>/story.md`. Exemplos genéricos do framework (Node 18+, Supabase, `{epic}.{story}.story.md`) não se aplicam.
+- **Memória de agentes:** `.claude/agent-memory/**` é conhecimento compartilhado da equipe e deve ser versionado (commit pelo `@devops`); não guarde nela segredos nem dados pessoais. Regras normativas vivem neste arquivo; memórias só apontam para elas.
+
+### Atualização do framework AIOX
+
+Depois de qualquer sincronização ou atualização do AIOX: compare o diff dos blocos `AIOX-MANAGED` e de `.claude/rules/`; confirme que esta seção continua intacta; reaplique as customizações do OpenGrep e remova vestígios do provedor antigo; reaplique as correções de projeto em `.claude/rules/agent-authority.md`, `story-lifecycle.md`, `handoff-consolidation.md` e `agent-memory-imports.md`; rode `npm run sync:ide:check` e `npx vitest run tests/unit/documentation-contract.test.js tests/unit/aiox-static-review.test.js`.
 
 <!-- AIOX-MANAGED-START: quality -->
 ## Quality Gates

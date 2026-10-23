@@ -272,7 +272,7 @@ await story.save();
 ## Environment Setup
 
 ### Required Tools
-- Node.js 18+
+- Node.js 24.20.0 (pinned in `package.json`; project override, see AGENTS.md)
 - GitHub CLI
 - Git
 - Your preferred package manager (npm/yarn/pnpm)

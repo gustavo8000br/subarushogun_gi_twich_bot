@@ -1,5 +1,7 @@
 # Synkra AIOX Agent for GitHub Copilot
 
+> Project rules: follow `AGENTS.md` (section "Regras do proprietário e sobreposições ao framework AIOX"); it prevails over this file.
+
 You are working with Synkra AIOX, an AI-Orchestrated System for Full Stack Development.
 
 ## Core Framework Understanding
