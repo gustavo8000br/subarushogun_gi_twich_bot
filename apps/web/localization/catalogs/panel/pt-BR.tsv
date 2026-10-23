@@ -386,7 +386,7 @@ panel.widget.confirm.regenerate	O link atual deixará de funcionar. Gerar um nov
 panel.widget.confirm.revoke	A fonte do OBS deixará de receber dados. Revogar este link?
 panel.widget.confirm.delete	Excluir este widget? A URL atual será invalidada e não poderá ser recuperada.
 panel.widget.link.copied	Link copiado.
-panel.widget.link.copy_fallback	Selecione e copie o link. Ele não será exibido novamente ao fechar.
+panel.widget.link.copy_fallback	Não foi possível copiar automaticamente. Mostre o link, selecione e copie antes de fechar — ele não será exibido de novo.
 panel.widget.queue.select	Selecione uma fila
 panel.widget.editor.create	Criar widget
 panel.widget.editor.edit	Editar widget
@@ -789,7 +789,15 @@ panel.widget.conflict.refresh_hint	Seu rascunho continuará aberto. Revise o wid
 panel.widget.conflict.latest_title	Versão atual no servidor
 panel.widget.conflict.replace_draft	Substituir meu rascunho por esta versão
 panel.widget.close_without_saving	Fechar sem salvar
-panel.widget.link.close_loses	Ao fechar, o link será removido da tela. Se perdê-lo, gere outro.
+panel.widget.link.done	Pronto, copiei o link
+panel.widget.link.show	Mostrar link
+panel.widget.link.hide	Ocultar link
+panel.widget.link.hidden_label	Link oculto
+panel.widget.link.confirm_close.title	Fechar sem copiar o link?
+panel.widget.link.confirm_close.body	Este link não poderá ser exibido de novo. Para usar o widget depois, gere um novo link no card dele — este link deixará de funcionar.
+panel.widget.link.confirm_close.back	Voltar ao link
+panel.widget.link.confirm_close.confirm	Fechar mesmo assim
+panel.widget.notice.link_closed_uncopied	Link fechado sem copiar. Use "Regenerar link" no card do widget quando precisar.
 panel.widget.cancel	Cancelar
 panel.dialog.confirm	Confirmar
 panel.dialog.cancel	Cancelar

@@ -346,6 +346,7 @@ describe('panel catalog contract', () => {
       '../../apps/frontend/features/queues/queue-list.jsx',
       '../../apps/frontend/features/queues/queue-lifecycle-actions.jsx',
       '../../apps/frontend/features/widgets/widgets-page-content.jsx',
+      '../../apps/frontend/features/widgets/widget-link-dialog.jsx',
       '../../apps/frontend/features/connection/connection-page-content.jsx',
     ].map((path) => readFile(fileURLToPath(new URL(path, import.meta.url)), 'utf8')));
     const activeFrontendKeys = new Set(frontendSources.flatMap((source) => [...source.matchAll(/t\(['"]((?:panel|api)\.[a-z0-9._-]+)['"]/g)].map((match) => match[1])));
@@ -359,7 +360,7 @@ describe('panel catalog contract', () => {
         expect(catalogs.catalogs[locale]).toHaveProperty(key);
       }
       for (const key of activeFrontendKeys) {
-        if (key === 'priority' || key === 'panel.widget.link.copied_once') continue;
+        if (key === 'priority') continue;
         expect(catalogs.catalogs[locale]).toHaveProperty(key);
       }
     }

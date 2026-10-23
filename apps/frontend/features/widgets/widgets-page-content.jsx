@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '../../lib/api/client.mjs';
 import { usePanel } from '../panel-shell/panel-provider.jsx';
 import { buildOverlayWidgetPayload, countOverlayTextCodePoints } from '../../../shared/panel/overlay-widget-form.mjs';
+import { WidgetLinkDialog } from './widget-link-dialog.jsx';
 import { createWidgetFormValues, QUEUE_WIDGET_SOURCES, validateWidgetProjection, WIDGET_SOURCE_KEYS, WIDGET_STYLE_FIELDS } from './widget-management.mjs';
 
 function safeReferenceId(error) {
@@ -72,9 +73,8 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
   const [values, setValues] = useState(() => createWidgetFormValues());
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
-  const [secret, setSecret] = useState('');
-  const [secretNotice, setSecretNotice] = useState('');
-  const [secretNoticeError, setSecretNoticeError] = useState(false);
+  const [linkDialog, setLinkDialog] = useState(null);
+  const [focusTarget, setFocusTarget] = useState(null);
   const [confirmation, setConfirmation] = useState(null);
   const [conflictLatest, setConflictLatest] = useState(null);
   const [conflictMissing, setConflictMissing] = useState(false);
@@ -104,7 +104,7 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
   useEffect(() => { void loadWidgets(); }, [loadWidgets]);
 
   useEffect(() => {
-    const active = Boolean(editor || secret || confirmation);
+    const active = Boolean(editor || confirmation);
     if (!active) return undefined;
     const dialog = document.querySelector('.widget-editor-backdrop [role="dialog"], .widget-editor-backdrop [role="alertdialog"]');
     if (!dialog) return undefined;
@@ -114,8 +114,7 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        if (secret) { setSecret(''); setSecretNotice(''); setSecretNoticeError(false); }
-        else if (confirmation) setConfirmation(null);
+        if (confirmation) setConfirmation(null);
         else if (!busy) setEditor(null);
       } else if (event.key === 'Tab') {
         const items = focusable();
@@ -129,7 +128,17 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
       document.removeEventListener('keydown', onKeyDown);
       if (previousFocus?.isConnected) previousFocus.focus();
     };
-  }, [busy, confirmation, editor, secret]);
+  }, [busy, confirmation, editor]);
+
+  // Explicit focus return after the one-time link dialog closes (the opener may be unmounted).
+  useEffect(() => {
+    if (!focusTarget || loadStatus === 'loading') return;
+    const card = focusTarget.widgetId ? document.querySelector(`[data-widget-id="${globalThis.CSS.escape(focusTarget.widgetId)}"]`) : null;
+    const target = focusTarget.actions.map((action) => card?.querySelector(`[data-widget-action="${action}"]`)).find(Boolean)
+      ?? document.querySelector('[data-widget-action="create"]');
+    target?.focus();
+    setFocusTarget(null);
+  }, [focusTarget, loadStatus, widgets]);
 
   const activeQueues = useMemo(() => queues.filter((queue) => !queue.isDeleted && queue.lifecycleStatus !== 'deleting' && queue.lifecycleStatus !== 'deleted'), [queues]);
   const previewText = values.sourceType === 'fixed_text'
@@ -169,7 +178,7 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
         : await request('/api/overlay-widgets', { method: 'POST', body: JSON.stringify(payload) });
       const action = editor.id ? 'saved' : 'created';
       setEditor(null);
-      if (result?.capabilityUrl) { setSecret(result.capabilityUrl); setSecretNotice(t('panel.widget.link.copied_once')); setSecretNoticeError(false); }
+      if (result?.capabilityUrl) setLinkDialog({ url: result.capabilityUrl, origin: 'create', widgetId: result.widget?.id ?? null });
       const refreshed = await loadWidgets();
       setNotice(refreshed
         ? { key: `panel.widget.notice.${action}`, tone: 'success' }
@@ -185,7 +194,8 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
     try {
       if (action === 'regenerate') {
         const result = await request(`/api/overlay-widgets/${widget.id}/regenerate`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) });
-        setSecret(result.capabilityUrl); setSecretNotice(t('panel.widget.link.copied_once')); setSecretNoticeError(false);
+        setConfirmation(null);
+        setLinkDialog({ url: result.capabilityUrl, origin: widget.capabilityActive ? 'regenerate' : 'generate', widgetId: widget.id });
       } else if (action === 'revoke') {
         await request(`/api/overlay-widgets/${widget.id}/revoke`, { method: 'POST', body: JSON.stringify({ expectedVersion: widget.version }) });
       } else {
@@ -202,9 +212,14 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
     } finally { setBusy(false); }
   }
 
-  async function copySecret() {
-    try { await globalThis.navigator.clipboard.writeText(secret); setSecretNotice(t('panel.widget.link.copied')); setSecretNoticeError(false); }
-    catch { setSecretNotice(t('panel.widget.link.copy_fallback')); setSecretNoticeError(true); }
+  function closeLinkDialog({ copied }) {
+    const closed = linkDialog;
+    setLinkDialog(null);
+    if (!copied) setNotice({ key: 'panel.widget.notice.link_closed_uncopied', tone: 'success' });
+    setFocusTarget({
+      widgetId: closed?.widgetId ?? null,
+      actions: copied && closed?.origin === 'create' ? ['edit'] : ['regenerate', 'generate', 'edit'],
+    });
   }
 
   async function refreshConflictWidget() {
@@ -240,7 +255,7 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
   return <>
     <div className="page-heading">
       <div><p className="eyebrow">{t('panel.widgets.eyebrow')}</p><h1>{t('panel.widgets.title')}</h1><p className="page-description">{t('panel.widgets.description')}</p></div>
-      <button className="button button-primary" type="button" onClick={() => openEditor()}>{t('panel.widgets.create')}</button>
+      <button className="button button-primary" type="button" data-widget-action="create" onClick={() => openEditor()}>{t('panel.widgets.create')}</button>
     </div>
     <p className="status-card widgets-obs-help">{t('panel.widget.obs_help')}</p>
     {notice && !editor && loadStatus !== 'error' ? <div className={`status-card${notice.tone === 'error' ? ' error-card' : ''}`} role={notice.tone === 'error' ? 'alert' : 'status'}><p>{t(notice.key, notice.values ? { values: notice.values } : undefined)}</p>{notice.referenceId ? <small>{t('panel.widget.notice.reference', { values: { id: notice.referenceId } })}</small> : null}<button className="button button-secondary" type="button" onClick={() => void loadWidgets()}>{t('panel.widgets.refresh')}</button></div> : null}
@@ -253,13 +268,13 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
         const queue = queues.find((item) => item.id === widget.queueId);
         const stateKey = widget.deleted ? 'unavailable' : widget.capabilityActive ? 'active' : 'revoked';
         const preview = widget.sourceType === 'fixed_text' ? widget.fixedText : widget.fallbackText || t('panel.widget.preview_example');
-        return <article className="widget-card" key={widget.id}>
+        return <article className="widget-card" key={widget.id} data-widget-id={widget.id}>
           <div className="widget-card-heading"><h3>{t(WIDGET_SOURCE_KEYS[widget.sourceType] ?? 'panel.widget.source.fixed_text')}</h3><span className={`status-pill${widget.capabilityActive ? ' status-connected' : ''}`}>{t(`panel.widget.status.${stateKey}`)}</span></div>
           <p className="muted">{t('panel.widget.card_details', { values: { queue: queue ? `${queue.title} · ` : '', width: widget.style.width ?? t('panel.widget.auto'), height: widget.style.height ?? t('panel.widget.auto'), id: widget.id.slice(0, 8) } })}</p>
           <p className="widget-card-preview">{preview}</p>
-          <div className="widget-card-actions"><button className="button button-secondary" type="button" onClick={() => openEditor(widget)}>{t('panel.widget.action.edit')}</button>
-            {widget.capabilityActive ? <><button className="button button-secondary" type="button" onClick={() => setConfirmation({ widget, action: 'regenerate' })}>{t('panel.widget.action.regenerate')}</button><button className="button button-danger" type="button" onClick={() => setConfirmation({ widget, action: 'revoke' })}>{t('panel.widget.action.revoke')}</button></> : null}
-            {!widget.capabilityActive && !widget.deleted ? <button className="button button-secondary" type="button" onClick={() => void runAction(widget, 'regenerate')}>{t('panel.widget.action.generate')}</button> : null}
+          <div className="widget-card-actions"><button className="button button-secondary" type="button" data-widget-action="edit" onClick={() => openEditor(widget)}>{t('panel.widget.action.edit')}</button>
+            {widget.capabilityActive ? <><button className="button button-secondary" type="button" data-widget-action="regenerate" onClick={() => setConfirmation({ widget, action: 'regenerate' })}>{t('panel.widget.action.regenerate')}</button><button className="button button-danger" type="button" onClick={() => setConfirmation({ widget, action: 'revoke' })}>{t('panel.widget.action.revoke')}</button></> : null}
+            {!widget.capabilityActive && !widget.deleted ? <button className="button button-secondary" type="button" data-widget-action="generate" onClick={() => void runAction(widget, 'regenerate')}>{t('panel.widget.action.generate')}</button> : null}
             <button className="button button-danger" type="button" onClick={() => setConfirmation({ widget, action: 'delete' })}>{t('panel.widget.action.delete')}</button>
           </div>
         </article>;
@@ -286,7 +301,7 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
       </section>
     </div> : null}
 
-    {secret ? <div className="widget-editor-backdrop widget-secret-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setSecret(''); setSecretNotice(''); setSecretNoticeError(false); } }}><section className="widget-secret-dialog" role="dialog" aria-modal="true" aria-labelledby="widget-secret-title"><p className="eyebrow">{t('panel.widget.link_eyebrow')}</p><h2 id="widget-secret-title">{t('panel.widget.link.title')}</h2><p role={secretNoticeError ? 'alert' : 'status'}>{secretNotice}</p><label>{t('panel.widget.local_widget_url')}<input readOnly value={secret} onFocus={(event) => event.target.select()} /></label><p className="muted">{t('panel.widget.link.close_loses')}</p><div className="widget-editor-actions"><button className="button button-secondary" type="button" onClick={() => { setSecret(''); setSecretNotice(''); setSecretNoticeError(false); }}>{t('panel.widget.close')}</button><button className="button button-primary" type="button" onClick={() => void copySecret()}>{t('panel.widget.copy_link')}</button></div></section></div> : null}
+    {linkDialog ? <WidgetLinkDialog key={linkDialog.url} t={t} url={linkDialog.url} onClosed={closeLinkDialog} /> : null}
 
     {confirmation ? <div className="widget-editor-backdrop widget-secret-backdrop"><section className="widget-secret-dialog" role="alertdialog" aria-modal="true" aria-labelledby="widget-confirm-title"><p className="eyebrow">{t('panel.dialog.confirm_action')}</p><h2 id="widget-confirm-title">{t(`panel.widget.confirm.${confirmation.action}`)}</h2><div className="widget-editor-actions"><button className="button button-secondary" type="button" disabled={busy} onClick={() => setConfirmation(null)}>{t('panel.dialog.cancel')}</button><button className="button button-danger" type="button" disabled={busy} onClick={() => void runAction(confirmation.widget, confirmation.action)}>{t('panel.dialog.confirm')}</button></div></section></div> : null}
   </>;

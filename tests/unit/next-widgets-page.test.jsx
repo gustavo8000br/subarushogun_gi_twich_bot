@@ -1,11 +1,13 @@
 /** @vitest-environment jsdom */
 import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { WidgetsPageView } from '../../apps/frontend/features/widgets/widgets-page-content.jsx';
 import { translatePanel } from '../../apps/frontend/lib/i18n/panel-catalogs.mjs';
+import { installDialogStub } from './helpers/dialog-stub.mjs';
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); Reflect.deleteProperty(globalThis.navigator, 'clipboard'); });
+beforeAll(installDialogStub);
 
 const COPY = {
   'panel.widgets.eyebrow': 'STREAM SOURCES',
@@ -28,7 +30,7 @@ const COPY = {
   'panel.widget.source.called_position': 'Called person’s original position',
   'panel.widget.source.fixed_text': 'Fixed text',
   'panel.widget.fixed_text_label': 'Widget text field',
-  'panel.widget.link.title': 'One-time URL',
+  'panel.widget.link.title': 'Copy this link to OBS',
   'panel.widget.local_widget_url': 'Widget URL',
   'panel.widget.preview.account': 'Sample account',
   'panel.widget.preview.queue': 'Sample queue',
@@ -61,13 +63,20 @@ const COPY = {
   'panel.widget.preview_eyebrow': 'SIMULATED PREVIEW',
   'panel.widget.preview_example': 'Widget example',
   'panel.widget.link_eyebrow': 'ONE-TIME LINK',
-  'panel.widget.link.copied_once': 'Copy this one-time link now. It will not be shown again after you close this dialog.',
-  'panel.widget.link.title': 'One-time widget link',
   'panel.widget.local_widget_url': 'Widget URL',
   'panel.widget.link.copied': 'Link copied.',
-  'panel.widget.link.copy_fallback': 'Select and copy the link. It will not be shown again after closing.',
+  'panel.widget.link.copy_fallback': 'Couldn’t copy automatically. Show the link, select it and copy it before closing — it won’t be shown again.',
+  'panel.widget.link_lifetime_help': 'The link cannot be viewed again after this dialog closes. If you lose it, generate a new link; the previous one will be invalidated.',
+  'panel.widget.link.done': 'Done, I copied the link',
+  'panel.widget.link.show': 'Show link',
+  'panel.widget.link.hide': 'Hide link',
+  'panel.widget.link.hidden_label': 'Link hidden',
+  'panel.widget.link.confirm_close.title': 'Close without copying the link?',
+  'panel.widget.link.confirm_close.body': 'This link can’t be shown again. To use this widget later, generate a new link on its card — this link will then stop working.',
+  'panel.widget.link.confirm_close.back': 'Back to the link',
+  'panel.widget.link.confirm_close.confirm': 'Close anyway',
+  'panel.widget.notice.link_closed_uncopied': 'Link closed without copying. Use “Regenerate link” on the widget card when you need it.',
   'panel.widget.copy_link': 'Copy link',
-  'panel.widget.link.close_loses': 'Closing clears the URL. If you lose it, generate another one.',
   'panel.widget.close': 'Close',
   'panel.widget.obs_help': 'In OBS: add a Browser source, paste the URL, and set Page Permissions to None.',
   'panel.widget.notice.saved': 'Widget saved.',
@@ -145,12 +154,17 @@ describe('Next OBS widget management page', () => {
     await waitFor(() => expect(request).toHaveBeenCalledWith('/api/overlay-widgets', expect.objectContaining({ method: 'POST' })));
     const body = JSON.parse(request.mock.calls.find(([path, options]) => path === '/api/overlay-widgets' && options?.method === 'POST')[1].body);
     expect(body).toMatchObject({ sourceType: 'fixed_text', queueId: null, fixedText: 'Ready', fallbackText: 'Offline', style });
-    expect(await screen.findByDisplayValue(secretUrl)).toBeTruthy();
-    expect(screen.getByText(/not be shown again after you close/i)).toBeTruthy();
+    const dialog = await screen.findByRole('dialog', { name: 'Copy this link to OBS' });
+    expect(dialog.getAttribute('aria-describedby')).toBeTruthy();
+    expect(document.getElementById(dialog.getAttribute('aria-describedby')).textContent).toMatch(/cannot be viewed again/);
+    expect(document.body.innerHTML).not.toContain('one-time-secret');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Show link' }));
+    expect(screen.getByDisplayValue(secretUrl)).toBeTruthy();
     expect(screen.queryByText(secretUrl)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Done, I copied the link' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close anyway' }));
     await waitFor(() => expect(screen.queryByDisplayValue(secretUrl)).toBeNull());
-    expect(document.body.textContent).not.toContain('one-time-secret');
+    expect(document.body.innerHTML).not.toContain('one-time-secret');
   });
 
   it.each(['queue_name', 'queue_state', 'queue_waiting_count'])('keeps %s tied to the selected queue and linked reward', async (sourceType) => {
@@ -205,7 +219,7 @@ describe('Next OBS widget management page', () => {
     expect(screen.queryByRole('dialog', { name: /ONE-TIME LINK/i })).toBeNull();
   });
 
-  it('requires confirmation before regenerating an active capability and clears it when closed', async () => {
+  it('closes the regenerate confirmation before opening the masked link dialog and returns focus to the card', async () => {
     const active = widget();
     const secretUrl = 'https://localhost/overlay.html#replacement-secret';
     const request = vi.fn(async (path, options) => {
@@ -219,28 +233,18 @@ describe('Next OBS widget management page', () => {
     expect(await screen.findByText(/current link will stop working/i)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     await waitFor(() => expect(request).toHaveBeenCalledWith(`/api/overlay-widgets/${active.id}/regenerate`, expect.objectContaining({ method: 'POST' })));
-    expect(JSON.parse(request.mock.calls.find(([path, options]) => path.endsWith('/regenerate'))[1].body)).toEqual({ expectedVersion: 3 });
-    expect(await screen.findByDisplayValue(secretUrl)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    await waitFor(() => expect(screen.queryByDisplayValue(secretUrl)).toBeNull());
-  });
-
-  it('clears the one-time capability when the user clicks outside its dialog', async () => {
-    const secretUrl = 'https://localhost/overlay.html#backdrop-secret';
-    const active = widget();
-    const request = vi.fn(async (path, options) => {
-      if (path.endsWith('/regenerate') && options?.method === 'POST') return { widget: { ...active, version: 4 }, capabilityUrl: secretUrl };
-      if (path === '/api/overlay-widgets') return [active];
-      return {};
-    });
-    renderPage({ request });
-    const card = await screen.findByRole('article');
-    fireEvent.click(within(card).getByRole('button', { name: 'Regenerate link' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }));
-    expect(await screen.findByDisplayValue(secretUrl)).toBeTruthy();
-    fireEvent.mouseDown(document.querySelector('.widget-secret-backdrop'));
-    await waitFor(() => expect(screen.queryByDisplayValue(secretUrl)).toBeNull());
-    expect(document.body.textContent).not.toContain('backdrop-secret');
+    expect(JSON.parse(request.mock.calls.find(([path]) => path.endsWith('/regenerate'))[1].body)).toEqual({ expectedVersion: 3 });
+    await screen.findByRole('dialog', { name: 'Copy this link to OBS' });
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(document.activeElement.textContent).toBe('Copy link');
+    fireEvent.click(screen.getByRole('button', { name: 'Done, I copied the link' }));
+    expect(await screen.findByRole('dialog', { name: 'Close without copying the link?' })).toBeTruthy();
+    expect(document.activeElement.textContent).toBe('Back to the link');
+    fireEvent.click(screen.getByRole('button', { name: 'Close anyway' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByText(/Link closed without copying/)).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(within(screen.getByRole('article')).getByRole('button', { name: 'Regenerate link' })));
+    expect(document.body.innerHTML).not.toContain('replacement-secret');
   });
 
   it('retains the edit draft, shows a diagnostic reference, and offers list refresh on conflict', async () => {
@@ -294,7 +298,8 @@ describe('Next OBS widget management page', () => {
     await screen.findByText('No widgets created');
     fireEvent.click(screen.getByRole('button', { name: 'Create your first widget' }));
     fireEvent.submit(document.querySelector('.widget-editor-form'));
-    expect(await screen.findByDisplayValue('https://localhost/overlay.html#one-time')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'Show link' }));
+    expect(screen.getByDisplayValue('https://localhost/overlay.html#one-time')).toBeTruthy();
     expect(await screen.findByText(/Widget creation was accepted, but the widget list could not refresh/)).toBeTruthy();
     expect(await screen.findByText('Reference: refresh-ref-1')).toBeTruthy();
   });
@@ -326,5 +331,182 @@ describe('Next OBS widget management page', () => {
     renderPage({ request });
     expect(await screen.findByText('Reference: widget-ref-1')).toBeTruthy();
     expect(screen.queryByText('raw storage detail')).toBeNull();
+  });
+});
+
+describe('one-time widget link dialog guards (jsdom stub, not browser evidence)', () => {
+  const secretUrl = 'https://localhost/overlay.html?ref=r1#guarded-secret-value';
+  const active = widget();
+
+  async function openLink({ list = [active] } = {}) {
+    const request = vi.fn(async (path, options) => {
+      if (path.endsWith('/regenerate') && options?.method === 'POST') return { widget: { ...active, version: 4 }, capabilityUrl: secretUrl };
+      if (path === '/api/overlay-widgets' && options?.method === 'POST') return { widget: widget({ id: 'abcdef12-1234-4234-8234-123456789abc' }), capabilityUrl: secretUrl };
+      if (path === '/api/overlay-widgets') return list;
+      return {};
+    });
+    renderPage({ request });
+    const card = await screen.findByRole('article');
+    fireEvent.click(within(card).getByRole('button', { name: 'Regenerate link' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Copy this link to OBS' });
+    return { dialog, request };
+  }
+  const nativeDialog = () => document.querySelector('dialog.widget-link-dialog');
+  const secretLeaks = () => document.body.innerHTML.includes('guarded-secret-value');
+
+  it('uses a guarded native modal dialog with closedby=none and no backdrop dismissal', async () => {
+    const { dialog } = await openLink();
+    expect(nativeDialog()).toBe(dialog);
+    expect(dialog.getAttribute('closedby')).toBe('none');
+    fireEvent.mouseDown(dialog); fireEvent.click(dialog);
+    fireEvent.mouseDown(document.body); fireEvent.click(document.body);
+    expect(screen.getByRole('dialog', { name: 'Copy this link to OBS' })).toBeTruthy();
+  });
+
+  it('routes Escape keydown and cancelable cancel to the confirm view without dropping the link', async () => {
+    const { dialog } = await openLink();
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    dialog.dispatchEvent(escape);
+    expect(escape.defaultPrevented).toBe(true);
+    expect(await screen.findByRole('dialog', { name: 'Close without copying the link?' })).toBeTruthy();
+    expect(screen.getByText(/can’t be shown again/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the link' }));
+    expect(screen.getByRole('dialog', { name: 'Copy this link to OBS' })).toBeTruthy();
+    expect(document.activeElement.textContent).toBe('Copy link');
+    const cancel = new Event('cancel', { cancelable: true });
+    nativeDialog().dispatchEvent(cancel);
+    expect(cancel.defaultPrevented).toBe(true);
+    expect(await screen.findByRole('dialog', { name: 'Close without copying the link?' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the link' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show link' }));
+    expect(screen.getByDisplayValue(secretUrl)).toBeTruthy();
+  });
+
+  it('reopens in the confirm view when the browser closes the dialog after a non-cancelable cancel', async () => {
+    await openLink();
+    const showModal = vi.spyOn(HTMLDialogElement.prototype, 'showModal');
+    nativeDialog().dispatchEvent(new Event('cancel', { cancelable: false }));
+    nativeDialog().close();
+    expect(showModal).toHaveBeenCalled();
+    expect(nativeDialog().hasAttribute('open')).toBe(true);
+    expect(await screen.findByRole('dialog', { name: 'Close without copying the link?' })).toBeTruthy();
+    await waitFor(() => expect(document.activeElement.textContent).toBe('Back to the link'));
+  });
+
+  it('copies with status feedback, then Done closes directly and focus returns to the card', async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(globalThis.navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const { dialog } = await openLink();
+    const status = within(dialog).getByRole('status');
+    const alert = within(dialog).getByRole('alert');
+    expect(status.textContent).toBe('');
+    expect(alert.textContent).toBe('');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }));
+    expect(writeText).toHaveBeenCalledWith(secretUrl);
+    await waitFor(() => expect(status.textContent).toBe('Link copied.'));
+    expect(secretLeaks()).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Done, I copied the link' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.queryByText(/Link closed without copying/)).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(within(screen.getByRole('article')).getByRole('button', { name: 'Regenerate link' })));
+  });
+
+  it('after copying, Escape closes like Done', async () => {
+    Object.defineProperty(globalThis.navigator, 'clipboard', { value: { writeText: vi.fn(async () => undefined) }, configurable: true });
+    const { dialog } = await openLink();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }));
+    await waitFor(() => expect(within(dialog).getByRole('status').textContent).toBe('Link copied.'));
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it.each([
+    ['rejected', () => ({ writeText: vi.fn(async () => { throw new DOMException('denied', 'NotAllowedError'); }) })],
+    ['unavailable', () => undefined],
+  ])('shows the fallback alert when the clipboard is %s and Done still requires confirmation', async (_label, clipboard) => {
+    Object.defineProperty(globalThis.navigator, 'clipboard', { value: clipboard(), configurable: true });
+    const { dialog } = await openLink();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }));
+    await waitFor(() => expect(within(dialog).getByRole('alert').textContent).toMatch(/Couldn’t copy automatically/));
+    expect(within(dialog).getByRole('status').textContent).toBe('');
+    fireEvent.click(screen.getByRole('button', { name: 'Done, I copied the link' }));
+    expect(await screen.findByRole('dialog', { name: 'Close without copying the link?' })).toBeTruthy();
+  });
+
+  it('keeps the secret out of the DOM, attributes and live regions while masked', async () => {
+    const { dialog } = await openLink();
+    expect(secretLeaks()).toBe(false);
+    expect(within(dialog).getByText('Link hidden')).toBeTruthy();
+    const toggle = within(dialog).getByRole('button', { name: 'Show link' });
+    fireEvent.click(toggle);
+    const input = screen.getByDisplayValue(secretUrl);
+    expect(input.getAttribute('type')).toBe('text');
+    expect(input.readOnly).toBe(true);
+    expect(input.getAttribute('autocomplete')).toBe('off');
+    expect(input.getAttribute('spellcheck')).toBe('false');
+    expect(input.getAttribute('dir')).toBe('ltr');
+    expect(input.closest('form')).toBeNull();
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+    for (const element of document.querySelectorAll('*')) {
+      for (const attribute of element.attributes) {
+        if (element === input && attribute.name === 'value') continue;
+        expect(attribute.value).not.toContain('guarded-secret-value');
+      }
+    }
+    for (const region of document.querySelectorAll('[role="status"], [role="alert"], [aria-live]')) expect(region.textContent).not.toContain('guarded-secret-value');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Hide link' }));
+    expect(screen.queryByDisplayValue(secretUrl)).toBeNull();
+    expect(secretLeaks()).toBe(false);
+  });
+
+  it('never logs or persists the secret', async () => {
+    const spies = ['log', 'info', 'warn', 'error', 'debug'].map((method) => vi.spyOn(console, method).mockImplementation(() => {}));
+    const setItem = vi.spyOn(Storage.prototype, 'setItem');
+    Object.defineProperty(globalThis.navigator, 'clipboard', { value: { writeText: vi.fn(async () => { throw new Error('denied'); }) }, configurable: true });
+    const { dialog } = await openLink();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Show link' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }));
+    await waitFor(() => expect(within(dialog).getByRole('alert').textContent).not.toBe(''));
+    fireEvent.click(screen.getByRole('button', { name: 'Done, I copied the link' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close anyway' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    for (const spy of spies) for (const call of spy.mock.calls) expect(JSON.stringify(call)).not.toContain('guarded-secret-value');
+    expect(setItem).not.toHaveBeenCalled();
+    expect(globalThis.location.href).not.toContain('guarded-secret-value');
+    expect(secretLeaks()).toBe(false);
+  });
+
+  it('guards unload only while the link is uncopied', async () => {
+    const add = vi.spyOn(globalThis, 'addEventListener');
+    const remove = vi.spyOn(globalThis, 'removeEventListener');
+    Object.defineProperty(globalThis.navigator, 'clipboard', { value: { writeText: vi.fn(async () => undefined) }, configurable: true });
+    const { dialog } = await openLink();
+    const handler = add.mock.calls.find(([type]) => type === 'beforeunload')?.[1];
+    expect(handler).toBeTypeOf('function');
+    const event = new Event('beforeunload', { cancelable: true });
+    handler(event);
+    expect(event.defaultPrevented).toBe(true);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }));
+    await waitFor(() => expect(remove.mock.calls.some(([type, fn]) => type === 'beforeunload' && fn === handler)).toBe(true));
+  });
+
+  it('returns focus to the new card Edit button after a copied create', async () => {
+    Object.defineProperty(globalThis.navigator, 'clipboard', { value: { writeText: vi.fn(async () => undefined) }, configurable: true });
+    const created = widget({ id: 'abcdef12-1234-4234-8234-123456789abc', sourceType: 'fixed_text', fixedText: 'New' });
+    let listReads = 0;
+    const request = vi.fn(async (path, options) => {
+      if (path === '/api/overlay-widgets' && options?.method === 'POST') return { widget: created, capabilityUrl: secretUrl };
+      if (path === '/api/overlay-widgets') return listReads++ === 0 ? [] : [created];
+      return {};
+    });
+    renderPage({ request });
+    fireEvent.click(await screen.findByRole('button', { name: 'Create your first widget' }));
+    fireEvent.submit(document.querySelector('.widget-editor-form'));
+    const dialog = await screen.findByRole('dialog', { name: 'Copy this link to OBS' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }));
+    await waitFor(() => expect(within(dialog).getByRole('status').textContent).toBe('Link copied.'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done, I copied the link' }));
+    await waitFor(() => expect(document.activeElement).toBe(within(screen.getByRole('article')).getByRole('button', { name: 'Edit' })));
   });
 });
