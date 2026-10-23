@@ -1,0 +1,6 @@
+- [Implementation by @dev](feedback-implementation-by-dev.md) — code changes must be delegated to aiox-dev, not done by Orion
+- [Decisions as pop-ups](feedback-decisions-as-popups.md) — bring recommended decisions via AskUserQuestion, pt-BR
+- [Issues: body only](feedback-issues-body-only.md) — never comment on issues; @devops edits the main body; OPS-20 gates run sequentially
+- [Git via @devops](feedback-git-via-devops.md) — commits authorized but only @devops runs them; push/PR/release need separate OK
+- [QA runs final tests](feedback-qa-runs-final-tests.md) — @qa validates independently and issues a verdict before @devops commits (permanent rule)
+- [Research before decisions](feedback-always-research-web.md) — check docs/research-index.md first; research only for GAP/fired REFRESH; @analyst step

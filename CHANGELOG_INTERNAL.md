@@ -2,6 +2,10 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## OPS-15 Next.js migration in progress — 2026-10-22
+
+- **2026-10-22 — One-time widget link dialog:** The OBS widget link is no longer lost by a backdrop click or Escape. It is masked by default (the URL is not in the page while hidden), has a Copy button with success/failure status, and closing without copying asks for confirmation, says the link cannot be shown again and points to the card's Regenerate link action. Native `<dialog closedby="none">` with Escape, `cancel` and unexpected-`close` guards; focus returns to the widget card. Catalog fixes in en/es/pt-BR (missing `link.copied_once` no longer referenced, `link_lifetime_help` now used, `link.close_loses` removed, 10 new/changed keys). Test-first: 14 unit tests failed before, 23/23 pass now; the new `npm run test:e2e:widget-link:browser-only` passed in Chromium 155 with intercepted API fixtures (copy failure simulated by a page-level rejection). The Compose integration suite, Firefox/WebKit, OBS/CEF and assistive-technology checks were not run.
+
 ## OPS-15 Next.js migration in progress — 2026-10-21
 
 - **2026-10-21 — Shared panel modules (S-01/S-03) and vanilla module fix:** The twelve shared `apps/web/*.mjs` panel modules moved with `git mv` to `apps/shared/panel` (no new workspace); Fastify serves them under the `/shared/panel/` prefix, and an ESLint `no-restricted-imports` rule enforces the import boundary. The vanilla panel was requesting `queue-call-message.mjs` from a path that returned 404; the module now lives in `apps/shared/panel` and its importers were updated. Test-first: `shared-panel-boundary`, `dockerfile-frontend-imports` (Dockerfile `frontend-build` copy contract), `web-route` and the new `web-route-vanilla-modules` tests failed before the change and pass after it. The S-12 dead `/connection/:path*` rewrite filter was removed; `/overlay.html` and the `/`, `/app.js`, `/styles.css` rewrites are kept. `typecheck:web` errors are pre-existing (59 at `HEAD`, 60 now).
