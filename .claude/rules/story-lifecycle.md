@@ -1,6 +1,7 @@
 ---
 paths:
   - "docs/stories/**"
+  - "docs/pt-BR/stories/**"
   - "docs/framework/epics/**"
   - ".aiox-core/development/**"
 ---
@@ -33,7 +34,7 @@ Draft → Ready → InProgress → InReview → Done
 
 **Task:** `create-next-story.md`
 **Inputs:** PRD sharded, epic context
-**Output:** `{epicNum}.{storyNum}.story.md`
+**Output:** `{epicNum}.{storyNum}.story.md` (this project: `docs/stories/<ID>/story.md` + `docs/pt-BR/stories/<ID>/story.md`)
 
 ## Phase 2: Validate (@po)
 
@@ -125,7 +126,7 @@ issues:
 ## QA Loop (Iterative Review-Fix)
 
 ```
-@qa review → verdict → @dev fixes → re-review (max 3 iterations)
+@qa review → verdict → @dev fixes → re-review (max 5 iterations; same limit as workflow-execution.md)
 ```
 
 **Commands:**
@@ -135,7 +136,7 @@ issues:
 - `*escalate-qa-loop` — Force manual escalation
 
 **Escalation triggers:**
-- max_iterations_reached (default: 3)
+- max_iterations_reached (default: 5)
 - verdict_blocked
 - fix_failure (after retries)
 - manual_escalate (user command)

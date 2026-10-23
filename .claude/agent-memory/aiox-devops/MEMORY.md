@@ -1,0 +1,1 @@
+- [Pathspec commits](feedback_pathspec_commits.md) — pre-staged index content leaks into commits; always verify cached list per commit

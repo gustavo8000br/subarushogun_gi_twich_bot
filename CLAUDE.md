@@ -21,7 +21,7 @@ Ao retomar uma sessão, leia primeiro `docs/session-handoff.md` e `docs/pt-BR/se
 
 ## Papéis AIOX
 
-`@aiox-master` (Orion) orquestra e delega. `@dev` implementa; `@qa` valida de forma independente; `@architect` revisa arquitetura; `@data-engineer` coordena todo trabalho de banco de dados; `@analyst` pesquisa (internet, documentação oficial, blogs, fóruns) antes de cada gate de planejamento e de cada desenvolvimento e entrega a nota de pesquisa aos agentes sem acesso à internet; `@ux-design-expert` planeja toda mudança voltada à pessoa usuária; `@devops` cuida de Git remoto, PRs, CI/CD e release. Não alegue que uma persona validou algo sem executar seu fluxo.
+`@aiox-master` (Orion) orquestra e delega. `@dev` implementa; `@qa` valida de forma independente; `@architect` revisa arquitetura; `@data-engineer` coordena todo trabalho de banco de dados; `@analyst` pesquisa (internet, documentação oficial, blogs, fóruns) antes de cada gate de planejamento e de cada desenvolvimento e entrega a nota de pesquisa aos agentes sem acesso à internet; `@ux-design-expert` planeja toda mudança voltada à pessoa usuária; `@devops` cuida de Git remoto, PRs, CI/CD e release. Não alegue que uma persona validou algo sem executar seu fluxo. **Regra permanente (2026-10-22):** a execução final e independente de testes e gates antes de commit, PR ou release é do `@qa` (veredito PASS/CONCERNS/FAIL/WAIVED + lista de grupos prontos); o `@devops` só comita o que o `@qa` liberou. O `@dev` testa durante o desenvolvimento, sem substituir o `@qa`.
 
 ## Decisões do proprietário (invioláveis)
 
@@ -33,6 +33,7 @@ Ao retomar uma sessão, leia primeiro `docs/session-handoff.md` e `docs/pt-BR/se
 
 - Mudança que afete a experiência de pessoas usuárias exige plano e revisão com `aiox-ux-design-expert`, registrados na story, com score mínimo **9,0/10** antes de implementar. O score vale só para o escopo revisado; diferencie revisão estática de validação visual, browser e tecnologia assistiva.
 - Pesquise na internet antes de decisões técnicas (documentação oficial primeiro; comunidade como evidência complementar), cite links e registre limitações. Pesquisa não substitui teste no ambiente do projeto. A pesquisa é feita pelo `@analyst` (ou pelo `@architect`) como etapa explícita do fluxo pesquisa → planejamento → desenvolvimento, porque `@po`, `@data-engineer`, `@dev`, `@qa` e `@ux-design-expert` não têm ferramenta de internet.
+- Regra de ouro (2026-10-22): se o `@analyst` já pesquisou um tema e julgou que não precisa de mais pesquisa, não gaste tokens com nova pesquisa; consulte primeiro `docs/research-index.md` (notas existentes, veredito SUFICIENTE / REVISAR SE / LACUNA) e peça pesquisa nova apenas para uma LACUNA ou um gatilho de revisão que ocorreu.
 - Issues: nunca comente em issues; o `@devops` atualiza sempre o corpo principal (vale para todas as abertas).
 
 ## Evidências e banco de dados
