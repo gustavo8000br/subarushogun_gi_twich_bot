@@ -4,11 +4,16 @@ import { fileURLToPath } from 'node:url';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  ISOLATED_POSTGRES_AFTER_ALL_TIMEOUT_MS, ISOLATED_POSTGRES_CLEANUP_CALL_TIMEOUT_MS, cleanupIsolatedPostgres,
+} from '../helpers/isolated-postgres-cleanup.mjs';
+import {
+  ISOLATED_POSTGRES_BEFORE_ALL_TIMEOUT_MS, ISOLATED_POSTGRES_IMAGE, ISOLATED_POSTGRES_LABEL, ensurePostgresImage, runDockerCommand,
+} from '../helpers/isolated-postgres-image.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const containerName = `queuebot-plan-${process.pid}-${randomUUID().slice(0, 8)}`;
 let prisma;
-let containerStarted = false;
 
 function docker(args) {
   const result = spawnSync('docker', args, { cwd: root, encoding: 'utf8', timeout: 30_000 });
@@ -18,11 +23,11 @@ function docker(args) {
 
 describe('PostgreSQL converted tombstone index plan', () => {
   beforeAll(async () => {
-    docker(['run', '--detach', '--rm', '--name', containerName,
+    ensurePostgresImage();
+    docker(['run', '--detach', '--rm', '--pull', 'never', '--label', ISOLATED_POSTGRES_LABEL, '--name', containerName,
       '--env', 'POSTGRES_USER=queuebot', '--env', 'POSTGRES_PASSWORD=isolated-test-password', '--env', 'POSTGRES_DB=queuebot',
       '--publish', '127.0.0.1::5432', '--tmpfs', '/var/lib/postgresql:rw,noexec,nosuid,size=768m',
-      'postgres:18.6-bookworm']);
-    containerStarted = true;
+      ISOLATED_POSTGRES_IMAGE]);
     const published = docker(['port', containerName, '5432/tcp']).split(':').at(-1);
     const connectionString = `postgresql://queuebot:isolated-test-password@127.0.0.1:${published}/queuebot?schema=public`;
     let ready = false;
@@ -41,12 +46,15 @@ describe('PostgreSQL converted tombstone index plan', () => {
     expect(migration.status, migration.stderr || migration.stdout).toBe(0);
     const adapter = new PrismaPg({ connectionString });
     prisma = new PrismaClient({ adapter });
-  }, 120_000);
+  }, ISOLATED_POSTGRES_BEFORE_ALL_TIMEOUT_MS);
 
   afterAll(async () => {
     await prisma?.$disconnect();
-    if (containerStarted) spawnSync('docker', ['stop', containerName], { cwd: root, encoding: 'utf8', timeout: 30_000 });
-  });
+    await cleanupIsolatedPostgres({
+      containerName,
+      runDocker: (args) => runDockerCommand(args, { timeout: ISOLATED_POSTGRES_CLEANUP_CALL_TIMEOUT_MS }),
+    });
+  }, ISOLATED_POSTGRES_AFTER_ALL_TIMEOUT_MS);
 
   it('naturally selects the partial index for a bounded page in a representative mixed queue table', async () => {
     await prisma.$executeRaw`INSERT INTO queues (
