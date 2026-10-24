@@ -5,6 +5,12 @@ import { fileURLToPath } from 'node:url';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  ISOLATED_POSTGRES_AFTER_ALL_TIMEOUT_MS, ISOLATED_POSTGRES_CLEANUP_CALL_TIMEOUT_MS, cleanupIsolatedPostgres,
+} from '../helpers/isolated-postgres-cleanup.mjs';
+import {
+  ISOLATED_POSTGRES_BEFORE_ALL_TIMEOUT_MS, ISOLATED_POSTGRES_IMAGE, ISOLATED_POSTGRES_LABEL, ensurePostgresImage, runDockerCommand,
+} from '../helpers/isolated-postgres-image.mjs';
 import { createQueueDomainService } from '../../apps/api/src/domain/queue-service.mjs';
 import { normalizeQueueKeys } from '../../apps/api/src/domain/queue-keys.mjs';
 import { createQueueRepository } from '../../apps/api/src/persistence/queue-repository.mjs';
@@ -19,7 +25,6 @@ let prisma;
 let repository;
 let queueService;
 let credentialRepository;
-let containerStarted = false;
 const tombstoneCursorKey = 'twitch_converted_tombstone_reconciliation_cursor';
 
 function docker(args) {
@@ -655,11 +660,11 @@ describe('PostgreSQL queue repository', () => {
   });
 
   beforeAll(async () => {
-    docker(['run', '--detach', '--rm', '--name', containerName,
+    ensurePostgresImage();
+    docker(['run', '--detach', '--rm', '--pull', 'never', '--label', ISOLATED_POSTGRES_LABEL, '--name', containerName,
       '--env', 'POSTGRES_USER=queuebot', '--env', 'POSTGRES_PASSWORD=isolated-test-password', '--env', 'POSTGRES_DB=queuebot',
       '--publish', '127.0.0.1::5432', '--tmpfs', '/var/lib/postgresql:rw,noexec,nosuid,size=512m',
-      'postgres:18.6-bookworm']);
-    containerStarted = true;
+      ISOLATED_POSTGRES_IMAGE]);
     const published = docker(['port', containerName, '5432/tcp']).split(':').at(-1);
     const connectionString = `postgresql://queuebot:isolated-test-password@127.0.0.1:${published}/queuebot?schema=public`;
     let ready = false;
@@ -687,12 +692,15 @@ describe('PostgreSQL queue repository', () => {
     repository = createQueueRepository(prisma);
     queueService = createQueueDomainService({ repository });
     credentialRepository = createTwitchCredentialRepository(prisma);
-  }, 120_000);
+  }, ISOLATED_POSTGRES_BEFORE_ALL_TIMEOUT_MS);
 
   afterAll(async () => {
     await prisma?.$disconnect();
-    if (containerStarted) spawnSync('docker', ['stop', containerName], { cwd: root, encoding: 'utf8', timeout: 30_000 });
-  });
+    await cleanupIsolatedPostgres({
+      containerName,
+      runDocker: (args) => runDockerCommand(args, { timeout: ISOLATED_POSTGRES_CLEANUP_CALL_TIMEOUT_MS }),
+    });
+  }, ISOLATED_POSTGRES_AFTER_ALL_TIMEOUT_MS);
 
   it('appends manual entries and preserves one continuous waiting order', async () => {
     const queue = await repository.createQueue({ slug: `order-${randomUUID().slice(0, 8)}`, title: 'Order', cost: 1 });
