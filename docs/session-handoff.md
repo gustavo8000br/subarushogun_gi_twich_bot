@@ -2,6 +2,10 @@
 
 [Português brasileiro](pt-BR/session-handoff.md)
 
+### Session 2026-10-24 (stopped at quota limit) — read this first
+
+Not committed (needs @qa then @devops): `docs/process/{kanban-research,backlog-inventory,kanban-board-design}.md` (+ pt-BR), research index row 19, test-suite audit, OPS-15 live battery plan (if @qa finished), agent memories. Done outside git: `gh` 2.103.2 (official apt + pin file), Project #5 linked to the repo, OBS 32.2.2 Flatpak with the dev CA in its NSS. Owner decisions: kanban = Project #5 (design approved in full; status update at session end; build it after the live battery); @sm organizes, @devops updates; never mention other clients' Projects; live battery on the real channel with `[TESTE]` items and cleanup, Orion types in the owner's Chrome (Claude Chrome extension not connected yet), OBS left for the owner. Dev instance may still be running (`.local/dev-session.log`). Next: connect the Chrome extension, run the battery from the @qa plan, then @devops builds the board.
+
 ### Session 2026-10-23 (new Ubuntu machine, Claude Code only) — read this first
 
 **State:** the migration is done and the emergency commits were re-validated by `@qa`. Two local commits this session, nothing pushed: `5664ffa` (`.nvmrc`, `npm run sync:skills:claude`, internal changelogs, `@qa` gate) and the session's last commit (Docker test cleanup fix, research note, this handoff and the memory snapshot; see `git log`). The owner asked to stop after that commit.

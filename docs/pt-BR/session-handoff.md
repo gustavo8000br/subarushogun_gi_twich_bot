@@ -2,6 +2,10 @@
 
 [English](../session-handoff.md)
 
+### Sessão 2026-10-24 (parada no limite da cota) — leia isto primeiro
+
+Sem commit (precisa @qa e depois @devops): `docs/process/{kanban-research,backlog-inventory,kanban-board-design}.md` (+ pt-BR), linha 19 do índice de pesquisas, auditoria da suíte, roteiro da bateria real da OPS-15 (se o @qa terminou), memórias de agentes. Feito fora do git: `gh` 2.103.2 (apt oficial + arquivo de preferência), Project #5 vinculado ao repo, OBS 32.2.2 Flatpak com a CA de dev no NSS dele. Decisões do proprietário: kanban = Project #5 (desenho aprovado por inteiro; status update no fim de sessão; montar depois da bateria); @sm organiza, @devops atualiza; nunca mencionar Projects de outros clientes; bateria no canal real com itens `[TESTE]` e limpeza, Orion digita no Chrome do proprietário (extensão do Claude no Chrome ainda não conectada), OBS fica para o proprietário. A instância de dev pode estar no ar (`.local/dev-session.log`). Próximo: conectar a extensão, rodar a bateria pelo roteiro do @qa e depois o @devops monta o quadro.
+
 ### Sessão 2026-10-23 (máquina Ubuntu nova, só Claude Code) — leia isto primeiro
 
 **Estado:** a migração terminou e os commits de emergência foram revalidados pelo `@qa`. Dois commits locais nesta sessão, nada enviado: `5664ffa` (`.nvmrc`, `npm run sync:skills:claude`, changelogs internos, gate do `@qa`) e o último commit da sessão (correção da limpeza do Docker nos testes, nota de pesquisa, este handoff e o snapshot da memória; veja o `git log`). O proprietário pediu para parar depois desse commit.

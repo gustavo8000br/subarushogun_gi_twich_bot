@@ -13,6 +13,8 @@ Owner moved to a fresh Ubuntu install on 2026-10-23. Quirks observed in the @qa 
 - Since the afternoon of 2026-10-23 (owner-authorized): OpenGrep 1.30.0 and actionlint 1.7.12 live in `~/.local/bin` (on PATH); Playwright Chromium is in `~/.cache/ms-playwright`.
 - Browser-only E2Es (`tests/e2e/*-browser-only.mjs`) launch the **system Google Chrome** (`channel: CHROME_CHANNEL ?? 'chrome'`, `/usr/bin/google-chrome`), NOT the Playwright Chromium. Missing Playwright Chromium is never a reason to skip them (the morning 2026-10-23 gate got this wrong).
 - Browser-only E2E needs your own Next dev HTTPS on 127.0.0.1:3000: `next dev apps/frontend --experimental-https` with the key/cert/ca in the gitignored `.local/dev-tls/` (no API/DB needed). Kill it by exact PID, not `pkill -f` (that also matches the calling shell).
+- `.aiox/` is NOT gitignored; scratch/measurement artifacts go in the ignored `.local/` (e.g. `.local/qa-audit/`). Project rule forbids writing to `/tmp`.
+- Several agents (@dev, other @qa rounds) often run suites in the same worktree at once; timing measured then is contended (load ~9 on 4 cores) and must be labeled unreliable. Vitest phase summary needs the default reporter (JSON lacks it).
 
 **Why:** avoids misreading infra failures as functional ones, and avoids wrongly blocking E2E on this machine.
 **How to apply:** check `which opengrep actionlint`, `google-chrome --version` and `docker images` before a gate; verify these still hold.
