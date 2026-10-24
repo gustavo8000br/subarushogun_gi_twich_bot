@@ -2,6 +2,12 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## Migração Next.js da OPS-15 em andamento — 2026-10-23
+
+- **2026-10-23 — Fixação do Node para o nvm:** O novo `.nvmrc` fixa o Node `24.20.0` (o mesmo valor de `engines.node` no `package.json`) para que `nvm use` selecione a versão do projeto no checkout.
+- **2026-10-23 — Script de sincronização dos agentes para o Claude Code:** O novo `npm run sync:skills:claude` (`node .aiox-core/infrastructure/scripts/ide-sync/index.js sync --ide claude-code`) gera as skills e os comandos dos agentes AIOX para o Claude Code em `.claude/skills/AIOX/agents/` e `.claude/commands/AIOX/agents/`, reaproveitando o gerador do framework. `AGENTS.md` e `CLAUDE.md` passaram a citá-lo nas etapas de preparação do ambiente.
+- **2026-10-23 — Gate do @qa após a migração de máquina:** [`docs/pt-BR/stories/OPS-15/qa-gate-2026-10-23.md`](stories/OPS-15/qa-gate-2026-10-23.md) (+ en) registrou CONCERNS, 8,5/10. A suíte passou 162/162 arquivos e 1565/1565 testes nos modos paralelo e serial; a primeira rodada falhou porque o timeout de 30 s do `docker run` expirou enquanto a imagem ausente `postgres:18.6-bookworm` era baixada. O `review:static` ficou bloqueado na hora porque o OpenGrep não estava instalado (ele foi instalado depois).
+
 ## Migração Next.js da OPS-15 em andamento — 2026-10-22
 
 - **2026-10-22 — Diálogo do link de uso único do widget:** O link do widget para o OBS não se perde mais com um clique no backdrop ou com Escape. Ele fica mascarado por padrão (a URL não está na página enquanto oculta), tem botão Copiar com status de sucesso/falha, e fechar sem copiar pede confirmação, avisa que o link não poderá ser exibido de novo e indica a ação Regenerar link do card. `<dialog closedby="none">` nativo com proteções para Escape, `cancel` e `close` inesperado; o foco volta ao card do widget. Correções de catálogo em en/es/pt-BR (a chave ausente `link.copied_once` deixou de ser referenciada, `link_lifetime_help` passou a ser usada, `link.close_loses` foi removida, 10 chaves novas/alteradas). Teste primeiro: 14 testes unitários falhavam antes, 23/23 passam agora; o novo `npm run test:e2e:widget-link:browser-only` passou no Chromium 155 com fixtures de API interceptadas (falha de cópia simulada por rejeição na página). A suíte de integração Compose, Firefox/WebKit, OBS/CEF e as verificações com tecnologia assistiva não foram executados.
