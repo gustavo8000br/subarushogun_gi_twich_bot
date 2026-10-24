@@ -10,7 +10,7 @@ Ao retomar uma sessao de desenvolvimento, leia primeiro o handoff ativo em `docs
 - Abra no VS Code exatamente o caminho retornado por `git rev-parse --show-toplevel` (por exemplo, `code --reuse-window "$(git rev-parse --show-toplevel)"`). Nao use `code .` a partir de outro terminal/cwd presumido.
 - Se o trabalho estiver em uma worktree, tanto o terminal/CLI quanto o VS Code devem abrir essa worktree e sua branch. Nao edite a worktree principal por engano.
 - Ao trocar worktree ou branch de implementacao, atualize a janela do VS Code para o novo caminho e confira a branch no terminal integrado antes de continuar.
-- Dependencias nao sao compartilhadas entre worktrees. Depois de criar uma worktree, instale as dependencias do produto e do AIOX antes de ativar agentes: `npm ci`, `npm ci --prefix .aiox-core`, `npm run sync:skills:codex` e `npm run sync:ide:check`. Nao presuma que `node_modules` da worktree principal esteja disponivel.
+- Dependencias nao sao compartilhadas entre worktrees. Depois de criar uma worktree, instale as dependencias do produto e do AIOX antes de ativar agentes: `npm ci`, `npm ci --prefix .aiox-core`, `npm run sync:skills:codex`, `npm run sync:skills:claude` e `npm run sync:ide:check`. Nao presuma que `node_modules` da worktree principal esteja disponivel.
 - CLI e IDE compartilham estas regras, os mesmos arquivos do repositório e os mesmos limites de autorização; a interface de uso nao altera o fluxo Git aprovado (`main` -> branch Conventional Commits -> PR -> `main`).
 - `npm run sync:ide` e `npm run sync:ide:check` mantêm configuracoes geradas do editor sincronizadas; revise o diff e preserve arquivos/configuracoes do usuario. Nao sobrescreva silenciosamente instrucoes locais existentes.
 
@@ -141,6 +141,7 @@ Depois de qualquer sincronização ou atualização do AIOX: compare o diff dos 
 - `npm run sync:ide`
 - `npm run sync:ide:check`
 - `npm run sync:skills:codex`
+- `npm run sync:skills:claude` (gera as skills e comandos dos agentes AIOX para o Claude Code em `.claude/`)
 - `npm run sync:skills:codex:global` (opcional; neste repo o padrao e local-first)
 - `npm run validate:structure`
 - `npm run validate:agents`

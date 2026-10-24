@@ -1,0 +1,1 @@
+- [New machine env quirks](project_new_machine_env.md) — nvm/sg docker, cold postgres pull, E2E uses system Chrome, own Next HTTPS for browser-only (2026-10-23)

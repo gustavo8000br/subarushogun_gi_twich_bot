@@ -2,6 +2,12 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## OPS-15 Next.js migration in progress — 2026-10-23
+
+- **2026-10-23 — Node pin for nvm:** New `.nvmrc` pins Node `24.20.0` (the same value as `engines.node` in `package.json`) so `nvm use` selects the project version in the checkout.
+- **2026-10-23 — Claude Code agent sync script:** New `npm run sync:skills:claude` (`node .aiox-core/infrastructure/scripts/ide-sync/index.js sync --ide claude-code`) generates the AIOX agent skills and commands for Claude Code in `.claude/skills/AIOX/agents/` and `.claude/commands/AIOX/agents/`, reusing the framework generator. `AGENTS.md` and `CLAUDE.md` now cite it in the environment setup steps.
+- **2026-10-23 — @qa gate after the machine migration:** [`docs/stories/OPS-15/qa-gate-2026-10-23.md`](docs/stories/OPS-15/qa-gate-2026-10-23.md) (+ pt-BR) recorded CONCERNS, 8.5/10. The suite passed 162/162 files and 1565/1565 tests in both parallel and serial modes; the first run failed because the 30 s `docker run` timeout expired while the absent `postgres:18.6-bookworm` image was being pulled. `review:static` was blocked at the time because OpenGrep was not installed (it was installed afterwards).
+
 ## OPS-15 Next.js migration in progress — 2026-10-22
 
 - **2026-10-22 — One-time widget link dialog:** The OBS widget link is no longer lost by a backdrop click or Escape. It is masked by default (the URL is not in the page while hidden), has a Copy button with success/failure status, and closing without copying asks for confirmation, says the link cannot be shown again and points to the card's Regenerate link action. Native `<dialog closedby="none">` with Escape, `cancel` and unexpected-`close` guards; focus returns to the widget card. Catalog fixes in en/es/pt-BR (missing `link.copied_once` no longer referenced, `link_lifetime_help` now used, `link.close_loses` removed, 10 new/changed keys). Test-first: 14 unit tests failed before, 23/23 pass now; the new `npm run test:e2e:widget-link:browser-only` passed in Chromium 155 with intercepted API fixtures (copy failure simulated by a page-level rejection). The Compose integration suite, Firefox/WebKit, OBS/CEF and assistive-technology checks were not run.

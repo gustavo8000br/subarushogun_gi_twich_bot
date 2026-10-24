@@ -7,7 +7,7 @@ Ao retomar uma sessão, leia primeiro `docs/session-handoff.md` e `docs/pt-BR/se
 ## Checkout e ambiente
 
 - Antes de editar, confirme `pwd`, `git rev-parse --show-toplevel` e `git branch --show-current`. A branch de trabalho atual é `feat/ops-15-next-panel`.
-- Dependências não são compartilhadas entre worktrees: `npm ci`, `npm ci --prefix .aiox-core`, `npm run sync:skills:codex`, `npm run sync:ide:check`.
+- Dependências não são compartilhadas entre worktrees: `npm ci`, `npm ci --prefix .aiox-core`, `npm run sync:skills:codex`, `npm run sync:skills:claude`, `npm run sync:ide:check`.
 - Node `24.20.0` (fixado em `package.json`). Não troque a versão.
 - Fluxo Git aprovado: `main` -> branch Conventional Commits -> PR -> `main`. Nunca faça bump de versão, commit, push, cutover ou remoção do painel vanilla sem autorização explícita do proprietário. Push e PR pertencem ao `@devops`.
 

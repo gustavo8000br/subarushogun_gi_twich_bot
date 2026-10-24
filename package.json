@@ -20,6 +20,7 @@
     "sync:ide": "node .aiox-core/infrastructure/scripts/ide-sync/index.js sync",
     "sync:ide:check": "node .aiox-core/infrastructure/scripts/ide-sync/index.js validate --strict",
     "sync:skills:codex": "node .aiox-core/infrastructure/scripts/codex-skills-sync/index.js",
+    "sync:skills:claude": "node .aiox-core/infrastructure/scripts/ide-sync/index.js sync --ide claude-code",
     "test:e2e:overlay": "node tests/e2e/overlay-browser.mjs",
     "test:e2e:overlay:browser-only": "node tests/e2e/overlay-browser-only.mjs",
     "test:e2e:overlay:parity-browser-only": "node tests/e2e/overlay-parity-browser-only.mjs",
