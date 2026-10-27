@@ -1,3 +1,6 @@
+import { getRawData } from '@twurple/common';
+import { twitchHttpError } from './http-error.mjs';
+
 export function normalizeRedemptionStatus(status) {
   const normalized = String(status ?? 'unknown').toUpperCase();
   if (['UNFULFILLED', 'FULFILLED', 'CANCELED'].includes(normalized)) return normalized;
@@ -12,10 +15,23 @@ export function normalizeRewardCreateInput(data) {
   };
 }
 
+function rawRedemptionStatus(value) {
+  // Twurple's HelixCustomRewardRedemption has no `status` getter; Helix's status is in the raw data.
+  try {
+    const raw = getRawData(value);
+    return raw && typeof raw === 'object' && 'status' in raw ? raw.status : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function redemptionStatus(value) {
-  if (value?.isFulfilled === true) return 'FULFILLED';
-  if (value?.isCanceled === true) return 'CANCELED';
-  return normalizeRedemptionStatus(value?.status);
+  if (!value || typeof value !== 'object') return 'UNKNOWN';
+  const raw = rawRedemptionStatus(value);
+  if (raw !== undefined) return normalizeRedemptionStatus(raw);
+  if (value.isFulfilled === true) return 'FULFILLED';
+  if (value.isCanceled === true) return 'CANCELED';
+  return normalizeRedemptionStatus(value.status);
 }
 
 function rewardProjection(reward) {
@@ -120,7 +136,7 @@ export function createTwitchApiAdapter({ api, broadcasterId, authProvider }) {
       try {
         rewards = await api.channelPoints.getCustomRewards(broadcasterId, false);
       } catch (error) {
-        const status = error?.statusCode ?? error?.status;
+        const status = twitchHttpError(error).httpStatus;
         if (status === 401) {
           return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'access_token_invalid', ...identityProjection };
         }

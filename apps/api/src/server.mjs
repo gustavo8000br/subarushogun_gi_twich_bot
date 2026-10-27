@@ -135,7 +135,7 @@ await registerWebRoutes(
   },
 );
 
-runtime = await createApplicationRuntime({ app, pool, prisma, repository, credentialRepository, reportDiagnostic, onError: () => undefined,
+runtime = await createApplicationRuntime({ app, pool, prisma, repository, credentialRepository, reportDiagnostic, logEvent, onError: () => undefined,
   onChatMessage: (event) => {
     chatHandler ??= buildChatHandler(event.broadcasterId);
     return chatHandler(event);

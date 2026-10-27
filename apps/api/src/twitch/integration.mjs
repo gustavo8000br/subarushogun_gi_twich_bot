@@ -8,6 +8,7 @@ import { createRefreshingAuthRuntime } from './auth-runtime.mjs';
 import { createEventSubRuntime } from './eventsub-runtime.mjs';
 import { createTwitchRedemptionProcessor } from './redemption-processor.mjs';
 import { createTwitchReconciler } from './reconciliation.mjs';
+import { twitchHttpError } from './http-error.mjs';
 import { createCredentialFingerprint } from './credential-fingerprint.mjs';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog.mjs';
 
@@ -22,7 +23,7 @@ function retryDelay(attempt, random) {
 
 /**
  * Start Twitch supervision without making local HTTP readiness depend on Twitch availability.
- * @param {{credentialRepository: any, repository: any, domainService: any, onChatMessage?: (event: object) => unknown, onStatus?: (status: object) => void, reportDiagnostic?: (event: object) => string, authRuntimeFactory?: (input: any) => Promise<any>, apiFactory?: (options: any) => any, adapterFactory?: (input: any) => any, eventSubRuntimeFactory?: (input: any) => any, reconcilerFactory?: (input: any) => any, setIntervalImpl?: typeof setInterval, clearIntervalImpl?: typeof clearInterval, setTimeoutImpl?: typeof setTimeout, clearTimeoutImpl?: typeof clearTimeout, random?: () => number, redirectUri?: string, fetchImpl?: typeof fetch, oauthStateStore?: any, authProviderFactory?: (config: any) => any, validateOAuthToken?: (token: string, clientId: string) => Promise<any>}} dependencies
+ * @param {{credentialRepository: any, repository: any, domainService: any, onChatMessage?: (event: object) => unknown, onStatus?: (status: object) => void, reportDiagnostic?: (event: object) => string, authRuntimeFactory?: (input: any) => Promise<any>, apiFactory?: (options: any) => any, adapterFactory?: (input: any) => any, eventSubRuntimeFactory?: (input: any) => any, reconcilerFactory?: (input: any) => any, logEvent?: (event: Record<string, any>) => unknown, setIntervalImpl?: typeof setInterval, clearIntervalImpl?: typeof clearInterval, setTimeoutImpl?: typeof setTimeout, clearTimeoutImpl?: typeof clearTimeout, random?: () => number, redirectUri?: string, fetchImpl?: typeof fetch, oauthStateStore?: any, authProviderFactory?: (config: any) => any, validateOAuthToken?: (token: string, clientId: string) => Promise<any>}} dependencies
  */
 export async function createTwitchIntegration({
   credentialRepository, repository, domainService, onChatMessage = () => undefined,
@@ -33,6 +34,7 @@ export async function createTwitchIntegration({
   adapterFactory = (input) => createTwitchApiAdapter(input),
   eventSubRuntimeFactory = (input) => createEventSubRuntime(input),
   reconcilerFactory = (input) => createTwitchReconciler(input),
+  logEvent = () => undefined,
   setIntervalImpl = setNodeInterval, clearIntervalImpl = clearNodeInterval,
   setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout, random = Math.random,
   redirectUri = process.env.CALLBACK_URL ?? 'https://localhost:3000/callback',
@@ -90,6 +92,26 @@ export async function createTwitchIntegration({
       void initialize();
     }, delay);
   };
+  // OPS-22 FT-24 (AC 5): explain every `degraded` caused by reconciliation with codes and counts only.
+  const logReconciliationDegraded = (trigger, reason, issues, error) => {
+    const issueCounts = {};
+    const httpStatusCounts = {};
+    for (const issue of Array.isArray(issues) ? issues : []) {
+      if (typeof issue?.code === 'string') issueCounts[issue.code] = (issueCounts[issue.code] ?? 0) + 1;
+      if (Number.isInteger(issue?.httpStatus)) httpStatusCounts[issue.httpStatus] = (httpStatusCounts[issue.httpStatus] ?? 0) + 1;
+    }
+    const { httpStatus } = twitchHttpError(error);
+    try {
+      logEvent({
+        event: 'twitch_reconciliation_degraded', level: 'warn', source: 'twitch.reconciliation',
+        ...(httpStatus === null ? {} : { statusCode: httpStatus }),
+        details: {
+          trigger, reason, issueCount: Array.isArray(issues) ? issues.length : 0, issueCounts,
+          ...(Object.keys(httpStatusCounts).length ? { httpStatusCounts } : {}),
+        },
+      });
+    } catch { /* Logging must never change reconciliation behavior. */ }
+  };
   const reconcile = async (trigger) => {
     if (stopped || !reconciler) return null;
     if (reconciliationPromise) return reconciliationPromise;
@@ -100,11 +122,14 @@ export async function createTwitchIntegration({
         if (!stopped) {
           if (typeof result.finishedAt === 'string' && Number.isFinite(Date.parse(result.finishedAt))) lastReconciliationAt = new Date(result.finishedAt).toISOString();
           publishStatus(result.status === 'complete' ? 'connected' : 'degraded', { lastReconciliation: result.finishedAt, issues: result.issues });
+          if (result.status !== 'complete') logReconciliationDegraded(trigger, 'reconciliation_partial', result.issues);
         }
         return result;
-      } catch {
+      } catch (error) {
+        const issues = [{ code: 'reconciliation_failed' }];
+        if (!stopped) logReconciliationDegraded(trigger, 'reconciliation_failed', issues, error);
         publishStatus('degraded', { reason: 'reconciliation_failed' });
-        return { status: 'failed', issues: [{ code: 'reconciliation_failed' }] };
+        return { status: 'failed', issues };
       } finally { reconciliationPromise = null; }
     })();
     return reconciliationPromise;
