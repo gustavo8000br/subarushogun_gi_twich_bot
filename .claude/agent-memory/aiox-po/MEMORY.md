@@ -1,0 +1,1 @@
+- [Ready requires issue](project_ready_requires_issue.md) — Ready = @po GO + existing issue; po-validation.md per story (en/pt-BR); slice gates still apply

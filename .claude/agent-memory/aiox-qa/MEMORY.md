@@ -1,1 +1,1 @@
-- [New machine env quirks](project_new_machine_env.md) — nvm/sg docker, cold postgres pull, system Chrome E2E, `.local/` for artifacts, contended timings (2026-10-23)
+- [New machine env quirks](project_new_machine_env.md) — nvm/sg docker, cold postgres pull, system Chrome E2E, `.local/` for artifacts, zsh no word-split, contended timings

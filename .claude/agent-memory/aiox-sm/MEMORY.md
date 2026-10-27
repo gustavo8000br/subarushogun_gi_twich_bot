@@ -1,0 +1,2 @@
+- [OPS-22/OPS-23 drafts](project_ops22_ops23_drafts.md) — drafted 2026-10-27; inventory IDs ST-15/16, FT-21..29, OW-16
+- [OPS-24 drafts](project_ops24_typescript_biome.md) — TS + Biome, 2026-10-27; ST-17, FT-30..35 (not TS-0x); next story ID OPS-25
