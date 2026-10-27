@@ -123,6 +123,29 @@ O DTO de configuração adiciona somente login/nome de exibição do canal para 
 18. **Aceitação por ambiente:** Evidência de CI e aceitação nativa Windows são registradas separadamente. O workflow atual executa lint/typecheck da aplicação, testes, análise estática e build do container em `ubuntu-24.04`; smoke nativo dos instaladores executa em `ubuntu-24.04`, `macos-15` e `windows-latest`. A aceitação Windows exige runtime Docker real para testes do instalador/Compose com volumes descartáveis, evidência do instalador empacotado com instalação limpa/atualização/desinstalação e preservação de dados, e OBS/CEF nativo. PostgreSQL isolado pode desbloquear somente o smoke de sessão do desenvolvimento local; não substitui Docker para aceite do instalador ou Compose. Pré-requisito do host indisponível ou verificação ignorada fica Pendente, nunca Aprovado.
 
 
+## Fatias FT-21 e FT-22 (acrescentadas em 2026-10-27 pelo `@sm`, GO do `@po`)
+
+São duas fatias pequenas acrescentadas após a bateria ao vivo de 2026-10-26/27. Elas **não alteram** o título, os critérios de aceite acima nem o CA 7; apenas acrescentam critérios testáveis para dois defeitos. O `@po` validou as duas em 2026-10-27 (ver [po-validation.md da OPS-22](../OPS-22/po-validation.md), anexo). Fontes: [revisão do arquiteto](panel-defects-architecture-review.md), seção 4; [resultados da bateria ao vivo](live-battery-2026-10-26-results.md). As classes de evidência seguem separadas (unitário, PostgreSQL isolado com migrations reais); todo comportamento começa com um teste que falha (Red primeiro). O conjunto de escrita das duas é `commands/chat-handler.mjs` (linhas 266 e 207-208): decisão do proprietário de 2026-10-27: após a FT-24 (OPS-22), o `@dev` faz a FT-21 e depois a FT-22 **em sequência**, FT-21 primeiro.
+
+### FT-21 — D-1: confirmação de `!<fila> limpar CONFIRMAR` em qualquer caixa ou idioma (issue #89, P1, tamanho P)
+
+Fonte: LB-35. Sem gate de banco e sem gate de UX (nenhum texto visível novo).
+
+1. **Dado** `limpar` (ou `clear`) seguido do rótulo de confirmação localizado em qualquer caixa ou acento (`CONFIRMAR`, `Confirmar`, `confirmár`; em `en`, `confirm`), **quando** o comando é tratado, **então** `clearConfirmation.confirm` é chamado exatamente uma vez.
+2. **Dado** o rótulo em minúsculas que funciona hoje, **quando** o comando é tratado, **então** continua funcionando (sem regressão).
+3. **Dado** qualquer outra palavra após `limpar`/`clear`, **quando** o comando é tratado, **então** o resultado segue `INVALID_SYNTAX` e nada é limpo.
+4. **Dado** que o handler decide sobre a confirmação, **quando** o código é lido, **então** ele usa o resultado do parser (`confirm: true` ou `args.length === 1`) e nunca uma comparação literal de texto (causa em `chat-handler.mjs:266`).
+5. **Evidência:** testes Red do parser e do handler primeiro; depois a correção; gate do `@qa`.
+
+### FT-22 — D-2: posição na chamada (`(posição ?)`) via `previousPosition` no payload do outbox (issue #90, P1, tamanho P)
+
+Fonte: LB-29 (esperado `1`). Gate: **confirmação escrita do `@data-engineer`** de que o JSON de `outbox.payload` comporta `{ previousPosition }` sem DDL (o `@architect` espera que não haja; o `data-review.md` da OPS-22 informa que não há migration para as tarefas financeiras, mas não cobre este campo). O `@dev` só começa após essa confirmação.
+
+1. **Dado** uma entrada em espera chamada na posição N pelo painel ou pelo chat, **quando** a chamada é enfileirada, **então** `{ previousPosition: N }` é gravado no `payload` do outbox e o aviso mostra `posição N` (LB-29 esperava `1`).
+2. **Dado** que o worker envia o aviso, **quando** ele lê a posição, **então** lê o valor da tarefa reivindicada, não `entry.callPosition`.
+3. **Dado** uma linha antiga do outbox com `payload: {}`, **quando** o worker envia o aviso, **então** recorre à consulta de auditoria de `previousPosition`.
+4. **Evidência:** teste unitário do worker (Red primeiro) mais teste de integração em PostgreSQL isolado com migrations reais (nunca SQLite nem mocks do Prisma).
+
 ## Plano de conclusão da OPS-15 — revisado em 2026-10-19
 
 Esta é a passagem ordenada do trabalho restante da migração. Checkboxes concluídos e histórico TDD abaixo são evidências históricas; não implicam aceite total da OPS-15. A story permanece **In Progress** até todos os critérios obrigatórios e gates de revisão serem fechados.
