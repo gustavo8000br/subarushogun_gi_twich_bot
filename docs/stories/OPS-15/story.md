@@ -122,6 +122,29 @@ The setup DTO adds only the channel login/display name needed to identify the co
 
 18. **Environment-specific acceptance:** CI evidence and Windows-native acceptance are recorded separately. The current workflow runs app lint/typecheck, test, static-analysis, and container-build jobs on `ubuntu-24.04`; native installer smoke runs on `ubuntu-24.04`, `macos-15`, and `windows-latest`. Windows acceptance requires a real Docker runtime for installer/Compose tests and disposable volumes, packaged installer fresh install/update/uninstall and data-preservation evidence, and native OBS/CEF. An isolated PostgreSQL may unblock only the local development session smoke; it is not an alternative to Docker for installer or Compose acceptance. A skipped or unavailable host prerequisite is Pending, never Pass.
 
+## Slices FT-21 and FT-22 (added 2026-10-27 by `@sm`, GO by `@po`)
+
+These are two small slices added after the live battery of 2026-10-26/27. They **do not change** the title, the acceptance criteria above, or AC 7; they only add testable criteria for two defects. `@po` validated both on 2026-10-27 (see [OPS-22 po-validation.md](../OPS-22/po-validation.md), annex). Sources: [architect review](panel-defects-architecture-review.md), section 4; [live-battery results](live-battery-2026-10-26-results.md). Evidence classes stay separate (unit, isolated PostgreSQL with real migrations); every behavior starts with a failing test (Red-first). The write set of both is `commands/chat-handler.mjs` (lines 266 and 207-208): owner decision of 2026-10-27: after FT-24 (OPS-22), the `@dev` does FT-21 and then FT-22 **in sequence**, FT-21 first.
+
+### FT-21 — D-1: confirmation of `!<queue> clear CONFIRM` in any case or language (issue #89, P1, size P)
+
+Source: LB-35. No database gate and no UX gate (no new visible text).
+
+1. **Given** `clear` (or `limpar`) followed by the localized confirmation label in any case or accent (`CONFIRMAR`, `Confirmar`, `confirmár`; in `en`, `confirm`), **when** the command is handled, **then** `clearConfirmation.confirm` is called exactly once.
+2. **Given** the lowercase label that works today, **when** the command is handled, **then** it keeps working (no regression).
+3. **Given** any other word after `clear`/`limpar`, **when** the command is handled, **then** the result stays `INVALID_SYNTAX` and nothing is cleared.
+4. **Given** the handler decides on the confirmation, **when** the code is read, **then** it uses the parser's result (`confirm: true` or `args.length === 1`) and never a literal string comparison (cause at `chat-handler.mjs:266`).
+5. **Evidence:** Red tests for the parser and for the handler first; then the fix; `@qa` gate.
+
+### FT-22 — D-2: call position (`(posição ?)`) through `previousPosition` in the outbox payload (issue #90, P1, size P)
+
+Source: LB-29 (expected `1`). Gate: **`@data-engineer` written confirmation** that `outbox.payload` JSON holds `{ previousPosition }` with no DDL (the `@architect` expects none; `data-review.md` of OPS-22 reports no migration for the financial tasks but does not cover this field). `@dev` starts only after that confirmation.
+
+1. **Given** a waiting entry is called at position N from the panel or from chat, **when** the call is enqueued, **then** `{ previousPosition: N }` is stored in the outbox `payload` and the notice shows `posição N` (LB-29 expected `1`).
+2. **Given** the worker sends the notice, **when** it reads the position, **then** it reads the value of the claimed task, not `entry.callPosition`.
+3. **Given** a legacy outbox row with `payload: {}`, **when** the worker sends the notice, **then** it falls back to the audit `previousPosition` lookup.
+4. **Evidence:** worker unit test (Red first) plus an integration test on isolated PostgreSQL with real migrations (never SQLite or Prisma mocks).
+
 ## OPS-15 completion plan — reviewed 2026-10-19
 
 This is the ordered handoff for remaining migration work. Completed checkboxes and TDD history below are historical evidence; they do not imply full OPS-15 acceptance. The story stays **In Progress** until every mandatory criterion and reviewer gate is closed.
