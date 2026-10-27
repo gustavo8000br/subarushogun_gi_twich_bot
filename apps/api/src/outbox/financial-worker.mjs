@@ -1,3 +1,5 @@
+import { twitchHttpError } from '../twitch/http-error.mjs';
+
 /** @typedef {{id: string, redemptionId: string, rewardId: string, operationType: string, attempts: number, leaseToken: string}} FinancialTask */
 
 const maxRetryMs = 60 * 60 * 1000;
@@ -8,9 +10,14 @@ function expectedRemoteStatus(task) {
   throw Object.assign(new Error('Unsupported financial operation'), { code: 'UNSUPPORTED_OPERATION' });
 }
 
+function httpStatus(error) {
+  return twitchHttpError(error).httpStatus;
+}
+
 function retryDelay(error, attempts, random) {
-  if (error.status === 429 && Number.isFinite(error.retryAfterSeconds)) {
-    return Math.max(0, error.retryAfterSeconds * 1000);
+  const { httpStatus: status, retryAfterSeconds } = twitchHttpError(error);
+  if (status === 429 && retryAfterSeconds !== null) {
+    return retryAfterSeconds * 1000;
   }
   const base = Math.min(maxRetryMs, 1000 * (2 ** Math.min(attempts, 12)));
   return Math.min(maxRetryMs, Math.round(base * (0.5 + random())));
@@ -21,7 +28,8 @@ function errorCode(error, fallback) {
 }
 
 function isPermanentHttpFailure(error) {
-  return Number.isInteger(error?.status) && error.status >= 400 && error.status < 500 && error.status !== 429;
+  const status = httpStatus(error);
+  return status !== null && status >= 400 && status < 500 && status !== 429;
 }
 
 function classifyRemoteState(actual, expected) {
@@ -52,11 +60,11 @@ export function createFinancialOutboxWorker({ repository, twitch, getTwitch, clo
       try {
         actual = await adapter.getRedemptionStatus(task.redemptionId, task.rewardId);
       } catch (error) {
-        if (error.status === 401) {
+        if (httpStatus(error) === 401) {
           await repository.unknown(task.id, 'authorization_required', task.leaseToken);
           return 'blocked_auth';
         }
-        if (error.status === 404) {
+        if (httpStatus(error) === 404) {
           await repository.unknown(task.id, 'remote_state_unavailable', task.leaseToken);
           return 'unknown';
         }
@@ -97,18 +105,18 @@ export function createFinancialOutboxWorker({ repository, twitch, getTwitch, clo
         actual = await adapter.getRedemptionStatus(task.redemptionId, task.rewardId);
       } catch (error) {
         retryError = error;
-        if (error.status === 401) {
+        if (httpStatus(error) === 401) {
           await repository.unknown(task.id, 'authorization_required', task.leaseToken);
           return 'blocked_auth';
         }
         try {
           actual = await adapter.getRedemptionStatus(task.redemptionId, task.rewardId);
         } catch (lookupError) {
-          if (lookupError.status === 401) {
+          if (httpStatus(lookupError) === 401) {
             await repository.unknown(task.id, 'authorization_required', task.leaseToken);
             return 'blocked_auth';
           }
-          if (lookupError.status === 404) {
+          if (httpStatus(lookupError) === 404) {
             await repository.unknown(task.id, 'remote_state_unavailable', task.leaseToken);
             return 'unknown';
           }
@@ -136,7 +144,7 @@ export function createFinancialOutboxWorker({ repository, twitch, getTwitch, clo
         return 'unknown';
       }
 
-      if (retryError.status === 404) {
+      if (httpStatus(retryError) === 404) {
         await repository.unknown(task.id, 'remote_state_unavailable', task.leaseToken);
         return 'unknown';
       }

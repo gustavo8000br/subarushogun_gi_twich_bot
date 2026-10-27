@@ -22,11 +22,12 @@ export async function createApplicationRuntime({
   onChatMessage = () => undefined,
   onError = () => undefined,
   reportDiagnostic = () => undefined,
+  logEvent = () => undefined,
 }) {
   let integration;
   const domainService = createQueueDomainService({ repository, getTwitch: () => integration?.twitch ?? null });
   const credentialRepository = suppliedCredentialRepository ?? dependenciesCredentialRepository(prisma);
-  integration = await integrationFactory({ credentialRepository, repository, domainService, onChatMessage, onStatus: onError, reportDiagnostic });
+  integration = await integrationFactory({ credentialRepository, repository, domainService, onChatMessage, onStatus: onError, reportDiagnostic, logEvent });
   let financialImplementation = financialWorker ?? null;
   let chatImplementation = chatWorker ?? null;
   let rewardImplementation = rewardWorker ?? null;

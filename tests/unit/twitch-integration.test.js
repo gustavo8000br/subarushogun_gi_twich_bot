@@ -18,6 +18,7 @@ function harness({ credential = { clientId: 'client-1', broadcasterId: 'channel-
   const reconciler = { run: vi.fn(async () => ({ status: 'complete' })) };
   const reconcilerFactory = vi.fn(() => reconciler);
   const onStatus = vi.fn();
+  const logEvent = vi.fn();
   const timers = [];
   const integrationPromise = createTwitchIntegration({
     credentialRepository: {
@@ -25,10 +26,10 @@ function harness({ credential = { clientId: 'client-1', broadcasterId: 'channel-
       getPublicStatus: vi.fn(async () => ({ connected: Boolean(credential), clientId: credential?.clientId ?? null, secretConfigured: Boolean(credential) })),
     },
     authRuntimeFactory, apiFactory, adapterFactory, eventSubRuntimeFactory, reconcilerFactory,
-    onStatus, setIntervalImpl: (handler, delay) => { timers.push({ handler, delay }); return timers.length; },
+    onStatus, logEvent, setIntervalImpl: (handler, delay) => { timers.push({ handler, delay }); return timers.length; },
     clearIntervalImpl: vi.fn(),
   });
-  return { integrationPromise, listener, authRuntime, authRuntimeFactory, apiFactory, adapterFactory, eventSubRuntimeFactory, reconcilerFactory, callbacks, reconciler, onStatus, timers };
+  return { integrationPromise, listener, authRuntime, authRuntimeFactory, apiFactory, adapterFactory, eventSubRuntimeFactory, reconcilerFactory, callbacks, reconciler, onStatus, logEvent, timers };
 }
 
 describe('Twitch integration lifecycle', () => {
@@ -492,6 +493,55 @@ describe('Twitch integration lifecycle', () => {
       { status: 'complete', imported: 1, issues: [] }, { status: 'complete', imported: 1, issues: [] },
     ]);
     expect(integration.status).toBe('connected');
+    integration.stop();
+  });
+
+  it('logs why a partial reconciliation publishes degraded, with codes and counts only (OPS-22 FT-24 AC 5)', async () => {
+    const h = harness();
+    const integration = await h.integrationPromise;
+    await integration.ready;
+    h.reconciler.run.mockResolvedValueOnce({ status: 'partial', finishedAt: new Date('2026-10-27T12:00:00Z'), issues: [
+      { queueId: 'queue-1', redemptionId: 'fixture-redemption-1', code: 'redemption_verification_failed', httpStatus: 401 },
+      { queueId: 'queue-1', redemptionId: 'fixture-redemption-2', code: 'redemption_verification_failed', httpStatus: 401 },
+      { queueId: 'queue-2', code: 'reward_configuration_mismatch' },
+    ] });
+    await integration.reconcileNow();
+    expect(integration.status).toBe('degraded');
+    expect(h.logEvent).toHaveBeenCalledWith({
+      event: 'twitch_reconciliation_degraded', level: 'warn', source: 'twitch.reconciliation',
+      details: {
+        trigger: 'operator', reason: 'reconciliation_partial', issueCount: 3,
+        issueCounts: { redemption_verification_failed: 2, reward_configuration_mismatch: 1 },
+        httpStatusCounts: { 401: 2 },
+      },
+    });
+    expect(JSON.stringify(h.logEvent.mock.calls)).not.toMatch(/fixture-redemption|queue-1|queue-2|access-token|refresh-token|client-1/);
+    integration.stop();
+  });
+
+  it('logs a failed reconciliation with its reason and HTTP status but no error message', async () => {
+    const h = harness();
+    const integration = await h.integrationPromise;
+    await integration.ready;
+    h.reconciler.run.mockRejectedValueOnce(Object.assign(new Error('sensitive helix body access-token'), { statusCode: 503 }));
+    await integration.reconcileNow();
+    expect(integration.status).toBe('degraded');
+    expect(h.logEvent).toHaveBeenCalledWith({
+      event: 'twitch_reconciliation_degraded', level: 'warn', source: 'twitch.reconciliation', statusCode: 503,
+      details: { trigger: 'operator', reason: 'reconciliation_failed', issueCount: 1, issueCounts: { reconciliation_failed: 1 } },
+    });
+    expect(JSON.stringify(h.logEvent.mock.calls)).not.toMatch(/sensitive|access-token/);
+    integration.stop();
+  });
+
+  it('does not log a degraded line for a complete reconciliation', async () => {
+    const h = harness();
+    const integration = await h.integrationPromise;
+    await integration.ready;
+    h.logEvent.mockClear();
+    h.reconciler.run.mockResolvedValueOnce({ status: 'complete', issues: [] });
+    await integration.reconcileNow();
+    expect(h.logEvent).not.toHaveBeenCalledWith(expect.objectContaining({ event: 'twitch_reconciliation_degraded' }));
     integration.stop();
   });
 
