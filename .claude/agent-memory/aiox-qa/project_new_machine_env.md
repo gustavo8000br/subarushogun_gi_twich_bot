@@ -16,6 +16,9 @@ Owner moved to a fresh Ubuntu install on 2026-10-23. Quirks observed in the @qa 
 - `.aiox/` is NOT gitignored; scratch/measurement artifacts go in the ignored `.local/` (e.g. `.local/qa-audit/`). Project rule forbids writing to `/tmp`.
 - The Bash tool shell is **zsh**: `$F` holding a file list is NOT word-split (grep sees one bogus path and silently matches nothing), `echo ===` fails (`=` expansion), and `$PIPESTATUS` is `$pipestatus`. Feed file lists with `xargs -d '\n' grep ... < list.txt`, and run `git diff --no-index --check /dev/null "$f"` one file at a time (2026-10-27 gate nearly reported a false-clean secret scan).
 - Vitest output in a non-TTY log only has the final summary (no per-file lines); tail-follow the log with `timeout 590 tail -f log | grep -m1 Duration` to wait for a background run (foreground `sleep` is blocked).
+- 2026-10-27 (evening): the session had the `docker` group, so plain `docker` worked without `sg`; `postgres:18.6-bookworm` was already cached. Still check, do not assume.
+- `git rev-parse --short legacy origin/legacy` (two refs with `--short`) fails with "Needed a single revision"; that is NOT a missing ref. Check each ref separately before reporting.
+- Docs batches edited in the same commit shift each other's `file:line` references (e.g. a new Change Log row moves story lines by +1); compare against `git show HEAD:<file>` to tell drift from wrong references.
 - Several agents (@dev, other @qa rounds) often run suites in the same worktree at once; timing measured then is contended (load ~9 on 4 cores) and must be labeled unreliable. Vitest phase summary needs the default reporter (JSON lacks it).
 
 **Why:** avoids misreading infra failures as functional ones, and avoids wrongly blocking E2E on this machine.

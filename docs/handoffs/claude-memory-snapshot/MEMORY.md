@@ -1,5 +1,7 @@
 - [Always Orion](feedback-always-orion.md) — IMMUTABLE: owner always talks to @aiox-master, who orchestrates and delegates; activate at session start
 - [Backend direction](project-backend-direction.md) — no rewrite; Node goes to TypeScript; Docker mandatory; typing + financial recovery before SSE
+- [Windows/macOS sessions](project-cross-platform-sessions.md) — owner will provide Claude Code sessions on Windows/macOS later for automated tests; no platform result claimed until then
+- [Stage: no users](project-stage-no-users.md) — beta with NO active users: structural/breaking changes (aliases, URLs, formats) are safe until rc/stable
 - [Incremental cutover](project-incremental-cutover.md) — owner EXPRESSLY authorized cutover part by part as each part is validated; legacy abandoned; push/PR/release still need separate OK
 - [Client confidentiality](feedback-client-confidentiality.md) — CONFIDENTIAL: never mention other client Projects/repos of the account (names, people, values) anywhere in this project
 - [Agent concurrency](feedback-agent-concurrency.md) — before parallel dispatch check write sets, same-role twins, Docker/ports/suite, timings; else serialize or use a worktree
