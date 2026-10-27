@@ -34,7 +34,7 @@ A OPS-15 **não** é editada por esta validação. Texto exato proposto, a ser a
 - **CA 7 da OPS-15, linha 105 (en), trocar o início "Existing polling cadence/semantics," por:** "Existing refresh semantics (the 5 s / 2 s polling cadence remains as the fallback of the OPS-23 SSE channel, which a cutover dependency delivers),"
 - **CA 7 da OPS-15, linha 105 (pt-BR), trocar "Polling e semântica atuais," por:** "Semântica atual de atualização (a cadência de polling de 5 s / 2 s permanece como fallback do canal SSE da OPS-23, entregue como dependência do cutover),"
 
-Situação: **decisão do proprietário pendente (OD-23-1)**. Até lá, OPS-15 e OPS-23 só são coerentes lendo SSE como "não é WebSocket"; a DoD da OPS-23 mantém a reconciliação como condição de fechamento.
+Situação: **DECIDIDA e APLICADA em 2026-10-27 (OD-23-1)** — o proprietário abandonou o código legado, autorizou o cutover antecipado parte por parte e escolheu SSE para a atualização do painel, sem contrato de "polling existente". Por isso o texto acima foi **adaptado** antes de ser aplicado: saiu a cláusula "o polling limitado existente ... continuam até a OPS-23". Texto efetivamente aplicado na OPS-15 (pt-BR, linha 44): "As atualizações em tempo real do painel usam Server-Sent Events (SSE), entregues pela OPS-23 (decisão do proprietário de 2026-10-27); o polling de 5 s / 2 s fica apenas como fallback da OPS-23 quando o fluxo estiver indisponível, e não como contrato desta story. A preservação de foco/contexto durante as atualizações continua valendo. Esta story não introduz WebSocket para o painel." O CA 7 (pt-BR, linha 105) agora começa com: "Semântica de atualização em tempo real (SSE entregue pela OPS-23 como dependência do cutover, com o polling de 5 s / 2 s apenas como fallback dela; sem WebSocket no painel),". O en espelha os dois trechos; linha acrescentada ao Change Log da OPS-15 (en e pt-BR).
 
 ## Outras decisões
 
@@ -53,12 +53,16 @@ Situação: **decisão do proprietário pendente (OD-23-1)**. Até lá, OPS-15 e
 ## Correções exigidas
 
 1. (Antes da FT-29) `@architect`/`@qa` fixam a meta de latência e a janela de fallback de 2 s do CA 14 (texto da story pelo `@sm`/`@po`).
-2. (Antes de fechar) Texto da OPS-15 reconciliado após a OD-23-1.
+2. ~~(Antes de fechar) Texto da OPS-15 reconciliado após a OD-23-1.~~ **Feito em 2026-10-27** (ver acima).
 3. (Registro) O `@sm` marca as caixas de GO do `@po` e de issue; inventário/quadro mostram #81.
 
-## Decisões do proprietário pendentes
+## Decisões do proprietário (situação atualizada em 2026-10-27)
 
-- **OD-23-1:** aprovar o texto da OPS-15 acima (recomendado).
+- **OD-23-1 — DECIDIDA e APLICADA (2026-10-27):** linhas 44 e 105 da OPS-15 reconciliadas com o SSE (texto adaptado acima). O desconto do ponto 10 deixa de valer para este item; a nota 9,0/10 fica como registrada (correção de texto não exige nova pontuação).
+- **OD-23-2 — PENDENTE:** confirmar as metas numéricas marcadas como [PROPOSTA] na story (caminho ao vivo 2 s p95; janela de polling de 2 s de 60 s). Precisa ser decidida antes da FT-29.
+- **OD-24-3 — PENDENTE (afeta o início da FT-27):** a OPS-23 espera apenas a TS-0 e a TS-2 (recomendado na validação da OPS-24).
+
+Verificação de contagens: este arquivo não contém contagem do backlog nem do quadro; nada desatualizado a corrigir.
 
 ## Status final
 

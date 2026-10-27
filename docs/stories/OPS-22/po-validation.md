@@ -47,12 +47,12 @@
 2. (Bookkeeping) The planning-gate box "`@po` validation (10 points) and GO" and "`@devops` creates the GitHub issue" can be ticked by `@sm` (this validation was limited to the Status and Change Log fields).
 3. (Bookkeeping) Inventory and board: FT-24 issue #82, OPS-22 parent #80; FT-24 card from "Blocked / Planning @po" to "Ready / Implementation @dev" — `@sm` (inventory) and `@devops` (board).
 
-## Owner decisions pending
+## Owner decisions (status updated 2026-10-27, see the addendum below)
 
-- **OD-22-1:** UX of the new visible text folded into the FT-23 UX plan (recommended) or explicitly waived.
-- **OD-22-2:** confirm "cancel deletion" stays out (recommended).
-- **OD-22-3:** confirm Done without live evidence, with AC 19 as a separate owner acceptance (recommended).
-- **OW-16:** authorize and schedule the live check.
+- **OD-22-1 — DECIDED (owner, 2026-10-27):** the new visible text of OPS-22 joins the FT-23 UX plan (score ≥ 9.0), no gate of its own. Matches the recommendation.
+- **OD-22-2 — DECIDED (owner, 2026-10-27):** "cancel deletion" is **IN** OPS-22 as slice FT-36. Overrules the `@po` recommendation (decision 2 above is superseded).
+- **OD-22-3 — PENDING:** confirm Done without live evidence, with AC 19 as a separate owner acceptance (recommended).
+- **OW-16 — PENDING:** authorize and schedule the live check.
 
 ## Annex — OPS-15 slices FT-21 and FT-22 (validated in the same session)
 
@@ -68,3 +68,35 @@ Write-set note: FT-21 and FT-22 both touch `commands/chat-handler.mjs` (lines 26
 ## Final status
 
 Draft → **Ready** (GO 9.5/10, issue #80). Recorded in the story Change Log (en and pt-BR).
+
+## Addendum 2026-10-27 — re-validation of the widened scope ("cancel deletion", FT-36)
+
+**Validator:** `@po` (Pax), YOLO. **Inputs:** owner decisions of 2026-10-27 relayed by `@aiox-master` (also in `docs/session-handoff.md`), [sm-pending-edits.md](sm-pending-edits.md) E16, the FT-36 inventory row, [architecture-decisions.md](architecture-decisions.md) and [data-review.md](data-review.md) (both written for the earlier scope; neither covers the reverse transition). The story text itself is being edited by `@sm` (E1-E17) and was not changed by `@po`.
+
+**Counts check:** this file contains no backlog or board count, so there was nothing stale to correct. Reference for other documents: inventory **93 items**, board **95 cards** (figures relayed by `@aiox-master` on 2026-10-27; owned by `@sm`/`@devops`).
+
+**The 9.5/10 applies only to the earlier scope (slices FT-24..FT-26).** For the widened scope the verdict is **provisional GO — 7.5/10** (status stays **Ready**; the readiness of FT-24..FT-26 is unchanged):
+
+| # | Point | Provisional | Reason for the deduction |
+|---|---|---|---|
+| 1, 2, 7 | Title, description, value | 1.0 each | Unchanged. |
+| 3 | Testable ACs | 0.5 | The FT-36 AC exists only as a proposal (E16), not yet in the story; the race with an in-flight `reward.delete` is not specified. |
+| 4 | Scope IN/OUT | 0.5 | Until E16 lands, the story still lists "cancel deletion" as an open question / out of scope. |
+| 5 | Dependencies | 1.0 | FT-26 first (same files, deletion states); OPS-21 contract; `@architect`, `@data-engineer`, FT-23 UX plan named. |
+| 6 | Complexity | 0.5 | 19 COMPLEX was scored for three slices; `@architect` must re-score with a fourth slice. |
+| 8 | Risks | 0.5 | Reverse-transition risks (reopening a reward Twitch already deleted, a refund being "undone", a pause revert that cannot be verified) are not yet in the Risks section. |
+| 9 | Definition of Done | 0.5 | DoD does not yet name FT-36 evidence (PostgreSQL per state: pending, blocked, in-flight `reward.delete`, deleted). |
+| 10 | Alignment with owner decisions | 1.0 | OD-22-1 and OD-22-2 are now decided and reflected. |
+
+**E16 AC text (owned by `@po`): accepted as the base**, with two required additions for `@sm` to include when applying E16 (en and pt-BR): (a) **Given** a `reward.delete` that is claimed, in flight, `retry` or `unknown`, **when** the operator asks to cancel, **then** the cancel is refused with an enumerated `code` (or waits for a positive remote read) and the queue is never reopened while the reward's existence on Twitch is unproven; (b) **Given** the pause revert cannot be verified by a read, **then** the queue stays in a visible blocked state with an operator action, never reopened as if the reward were active. `@architect` may refine the mechanism; the "no assumption without a positive read" rule is not negotiable.
+
+**Before FT-36 can go to `@dev` (and before `@po` issues a final score for the widened scope):**
+
+1. `@architect` — design the reverse transition (`deleting` → reopened), the race with an in-flight `reward.delete`/DELETE call, what happens to cancel tasks already `confirmed`/`pending`, the enumerated `code` values, and re-score OPS-22 complexity.
+2. `@data-engineer` — transitions and the PostgreSQL test plan for each state; confirm "no DDL" (expected) in writing; check lease-guarded cancellation of pending `reward.delete`/pause tasks and that canceled redemptions never come back.
+3. `@ux-design-expert` — the "cancel deletion" action, its refusal/blocked messages and confirmation go into the FT-23 plan (≥ 9.0) per OD-22-1.
+4. `@sm` — apply E16 with additions (a) and (b), update Scope, Complexity ("to re-evaluate"), Risks and DoD.
+5. `@devops` — FT-36 issue just-in-time (sub-issue of #80; body only, no comments).
+6. `@qa` — test plan for FT-36.
+
+**Slice readiness, updated:** FT-24 (#82) **delivered** test-first and committed locally (`@qa` CONCERNS 8.6 code / 8.4 docs, no blockers, [qa-gate-2026-10-27.md](qa-gate-2026-10-27.md); no push). FT-25 and FT-26 unchanged (gates in the table above; FT-25 includes the `reward-worker.mjs:316` 404 fix from QA finding C-1 per the handoff). **FT-36: NOT READY** (items 1-6 above). The OPS-15 annex slices FT-21 and FT-22 are ordered by the owner: FT-21 then FT-22 in sequence (same file). Note for `@dev`: with FT-24 delivered, the `Ready → InProgress` transition belongs in the OPS-22 Change Log (owner of that edit: `@dev`/`@sm`, not this validation).

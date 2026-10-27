@@ -34,7 +34,7 @@ OPS-15 is **not** edited by this validation. Proposed exact wording, to be appli
 - **OPS-15 AC 7, line 105 (en), replace the opening "Existing polling cadence/semantics," with:** "Existing refresh semantics (the 5 s / 2 s polling cadence remains as the fallback of the OPS-23 SSE channel, which a cutover dependency delivers),"
 - **OPS-15 AC 7, line 105 (pt-BR), replace "Polling e semântica atuais," with:** "Semântica atual de atualização (a cadência de polling de 5 s / 2 s permanece como fallback do canal SSE da OPS-23, entregue como dependência do cutover),"
 
-Status: **owner decision pending (OD-23-1)**. Until then OPS-15 and OPS-23 are consistent only by reading SSE as "not a WebSocket"; the DoD of OPS-23 keeps the reconciliation as a closing condition.
+Status: **DECIDED and APPLIED on 2026-10-27 (OD-23-1)** — the owner abandoned the legacy code, authorized the part-by-part early cutover and chose SSE for panel updates with no "existing polling" contract. The text above was therefore **adapted** before being applied: the "existing bounded polling ... remain in effect until OPS-23" clause was dropped. Text actually applied to OPS-15 (en, line 44): "Real-time panel updates use Server-Sent Events (SSE), delivered by OPS-23 (owner decision 2026-10-27); the 5 s / 2 s polling is kept only as the OPS-23 fallback when the stream is unavailable, not as a contract of this story. Focus/context preservation during updates remains in effect. This story does not introduce a panel WebSocket." AC 7 (en, line 105) now opens with: "Real-time refresh semantics (SSE delivered by OPS-23 as a cutover dependency, with the 5 s / 2 s polling only as its fallback; no panel WebSocket),". pt-BR mirrors both; OPS-15 Change Log line appended (en and pt-BR).
 
 ## Other decisions
 
@@ -53,12 +53,16 @@ Status: **owner decision pending (OD-23-1)**. Until then OPS-15 and OPS-23 are c
 ## Required corrections
 
 1. (Before FT-29) `@architect`/`@qa` fix the latency target and the 2 s fallback window in AC 14 (story text by `@sm`/`@po`).
-2. (Before closing) OPS-15 wording reconciled after OD-23-1.
+2. ~~(Before closing) OPS-15 wording reconciled after OD-23-1.~~ **Done 2026-10-27** (see above).
 3. (Bookkeeping) `@sm` ticks the `@po` GO and issue boxes; inventory/board show #81.
 
-## Owner decisions pending
+## Owner decisions (status updated 2026-10-27)
 
-- **OD-23-1:** approve the OPS-15 wording above (recommended).
+- **OD-23-1 — DECIDED and APPLIED (2026-10-27):** OPS-15 lines 44 and 105 reconciled with SSE (adapted text above). Point 10 deduction is lifted for this item; the 9.0/10 is kept as recorded (no re-scoring needed for a wording fix).
+- **OD-23-2 — PENDING:** confirm the numeric targets marked [PROPOSAL] in the story (live path 2 s p95; 2 s polling window of 60 s). Must be decided before FT-29.
+- **OD-24-3 — PENDING (affects the start of FT-27):** OPS-23 waits only for TS-0 and TS-2 (recommended in the OPS-24 validation).
+
+Counts check: this file contains no backlog or board count; nothing stale to correct.
 
 ## Final status
 

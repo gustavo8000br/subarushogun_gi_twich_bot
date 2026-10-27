@@ -43,12 +43,14 @@
 | FT-32 (TS-2 `outbox/*`) | NÃO | FT-30, FT-25, FT-26 integradas. |
 | FT-33..FT-35 | NÃO | Conforme "Dependências"; confirmação do `@data-engineer` para a FT-34. |
 
-## Decisões do proprietário pendentes
+## Decisões do proprietário pendentes (situação conferida em 2026-10-27)
 
-- **OD-24-1:** formatação exigida pelo `lint` (`biome check`) após o commit de formatação (recomendado) vs gate `format:check` separado.
-- **OD-24-2:** janela do commit de formatação (recomendada acima) e o fallback "formatador após o cutover".
-- **OD-24-3:** a OPS-23 espera apenas TS-0 e TS-2 (recomendado).
-- **OW-13:** autorização de push para a evidência de CI do CA 9.
+- **OD-24-1 — PENDENTE:** formatação exigida pelo `lint` (`biome check`) após o commit de formatação (recomendado) vs gate `format:check` separado.
+- **OD-24-2 — PENDENTE:** janela do commit de formatação (recomendada acima) e o fallback "formatador após o cutover". Nota: o cutover antecipado parte por parte autorizado pelo proprietário (2026-10-27) torna menos provável "uma janela sem branch aberta em `apps/` antes do congelamento do cutover"; o fallback "formatador após o cutover" passa a ser o caminho provável.
+- **OD-24-3 — PENDENTE:** a OPS-23 espera apenas TS-0 e TS-2 (recomendado). A correção exigida 1 já foi escrita em "Dependências" da story pelo `@sm`, mas não há confirmação explícita do proprietário registrada; as decisões do proprietário de 2026-10-27 (SSE pela OPS-23, cutover antecipado parte por parte, sequência "FT-25/FT-26, depois OPS-24, depois OPS-23" no handoff) são **coerentes** com ela e não a contradizem. Bloqueia apenas o início da FT-27.
+- **OW-13 — PENDENTE:** autorização de push para a evidência de CI do CA 9.
+
+Verificação de contagens: este arquivo não contém contagem do backlog nem do quadro; nada desatualizado a corrigir. Nota e status sem mudança (GO 9,0/10, Ready).
 
 ## Status final
 

@@ -43,12 +43,14 @@
 | FT-32 (TS-2 `outbox/*`) | NO | FT-30, FT-25, FT-26 merged. |
 | FT-33..FT-35 | NO | Per "Dependencies"; `@data-engineer` confirmation for FT-34. |
 
-## Owner decisions pending
+## Owner decisions pending (status checked 2026-10-27)
 
-- **OD-24-1:** formatting enforced through `lint` (`biome check`) after the formatting commit (recommended) vs a separate `format:check` gate.
-- **OD-24-2:** formatting-commit window (recommended above) and the fallback "formatter after the cutover".
-- **OD-24-3:** OPS-23 waits only for TS-0 and TS-2 (recommended).
-- **OW-13:** push authorization for the CI evidence of AC 9.
+- **OD-24-1 — PENDING:** formatting enforced through `lint` (`biome check`) after the formatting commit (recommended) vs a separate `format:check` gate.
+- **OD-24-2 — PENDING:** formatting-commit window (recommended above) and the fallback "formatter after the cutover". Note: the owner's part-by-part early cutover (2026-10-27) makes "a window with no open branch on `apps/` before the cutover freeze" less likely; the fallback "formatter after the cutover" becomes the probable path.
+- **OD-24-3 — PENDING:** OPS-23 waits only for TS-0 and TS-2 (recommended). The required correction 1 is already written into the story "Dependencies" by `@sm`, but no explicit owner confirmation was recorded; the owner decisions of 2026-10-27 (SSE through OPS-23, early cutover part by part, sequence "FT-25/FT-26, then OPS-24, then OPS-23" in the handoff) are **consistent** with it and do not contradict it. Blocks only the start of FT-27.
+- **OW-13 — PENDING:** push authorization for the CI evidence of AC 9.
+
+Counts check: this file contains no backlog or board count; nothing stale to correct. Score and status unchanged (GO 9.0/10, Ready).
 
 ## Final status
 
