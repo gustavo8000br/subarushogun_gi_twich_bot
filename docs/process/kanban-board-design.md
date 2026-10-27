@@ -4,6 +4,12 @@
 
 **Date:** 2026-10-24. **Author:** `@sm` (River). **Branch:** `feat/ops-15-next-panel`. **Scope:** design only. Nothing was created or edited on GitHub; no story, issue or the inventory was changed. `@devops` applies the design on GitHub; `@sm` organizes; `@devops` keeps it up to date.
 
+**Update 2026-10-27 (`@sm`):** the design now reflects the 12 items added to the [inventory](backlog-inventory.md) (ST-15, ST-16, FT-21..FT-29, OW-16): new Fase options OPS-22 and OPS-23, 12 new issues to create now, 33 native links when everything exists, 87 cards. Nothing was created or edited on GitHub.
+
+**Update 2026-10-27, second (`@sm`):** 7 more items from the [inventory](backlog-inventory.md) (ST-17 = OPS-24, and its slices FT-30..FT-35: backend to TypeScript and ESLint to Biome): new Fase option "OPS-24 TypeScript e Biome", 1 more issue to create now (13 in total), 6 more native links (39 when everything exists), Ordem extended to step 16, 94 cards. Nothing was created or edited on GitHub.
+
+**Update 2026-10-27, third (`@sm`):** after the `@po` GO on OPS-22/23/24 and the issues created by `@devops`: cards ST-15, ST-16, ST-17 now show #80, #81, #91 and Situação Pronto; FT-24 shows #82 and Pronto; FT-21 and FT-22 show #89 and #90 (their issues exist; the "issue nova (agora)" label no longer applies). Card count: 95 (one draft added afterwards, FT-36 "cancel pending deletion", owner decision 2026-10-27; 26 issues + 67 drafts + 2 legacy); otherwise only Situação, Etapa and next-step text changed. FT-21 and FT-22 run in sequence after FT-24. `@devops` syncs the Project fields from these rows. Nothing was created or edited on GitHub by this change.
+
 **Inputs:** [inventory](backlog-inventory.md) (IDs ST/FT/GV/TS/OW), [`@analyst` research](kanban-research.md), `.claude/rules/story-lifecycle.md`, and a read-only `gh issue list` on 2026-10-24.
 
 **Owner decisions (2026-10-24):** the board is Project **#5** "SubaruShogun GI Twitch Bot — Planejamento" (owner `gustavo8000br`), reused and already linked to the repository. Today it has only the default `Status` field (Todo/In Progress/Done) and 4 items (#17 Done, #18 Done, #19 In Progress, #48 Todo). The field model follows the structure the owner indicated: single-select **Situação** (status), **Área**, **Fase** (phase), **Responsável** (responsible) and **Prioridade** (priority); the Área, Fase and Responsável options below were defined for this project. The repository is the source of truth; the board is a mirror.
@@ -38,7 +44,7 @@ GitHub limit: 50 fields. This design uses 15 custom fields.
 | # | Field | Type | Options / format | Written by | Why (1 line) |
 |---|---|---|---|---|---|
 | 1 | **Situação** (renamed `Status`) | Single select | Backlog; Rascunho; Aguardando decisão; Pronto; Em andamento; Em revisão; Bloqueado; Concluído | `@devops` | Board column and bridge to the story lifecycle |
-| 2 | **Fase** (phase) | Single select | OPS-15 Migração Next; Estabilização; OPS-21 Contrato da API; OPS-20 Elegibilidade de devolução; Chat e mensagens; Documentação; Instalador; Governança; Qualidade e testes | `@sm` | Groups by delivery line (derived from the inventory and the roadmap order) |
+| 2 | **Fase** (phase) | Single select | OPS-15 Migração Next; Estabilização; OPS-21 Contrato da API; OPS-22 Recuperação financeira; OPS-23 Tempo real; OPS-24 TypeScript e Biome; OPS-20 Elegibilidade de devolução; Chat e mensagens; Documentação; Instalador; Governança; Qualidade e testes | `@sm` | Groups by delivery line (derived from the inventory and the roadmap order) |
 | 3 | **Prioridade** (priority) | Single select | P0 (critical path now); P1 (before cutover); P2 (approved follow-up); P3 (gated / low value) | `@sm` | Inventory criteria; owner request |
 | 4 | **Dificuldade** (difficulty) | Single select | P (up to half a day); M (1-3 days); G (several slices/gates); GG (COMPLEX, score >= 16) | `@sm` | Remaining effort; name requested by the owner (the research called it "Size") |
 | 5 | **Responsável** (responsible) | Single select | @sm; @po; @dev; @qa; @devops; @architect; @data-engineer; @ux-design-expert; @analyst; Proprietário (owner) | `@devops` (from story/handoff) | Who does the NEXT step; the native Assignees field is for people, not agents |
@@ -50,7 +56,7 @@ GitHub limit: 50 fields. This design uses 15 custom fields.
 | 11 | **Evidência** (evidence) | Text | Links to the last `@qa` verdict, research note and PR | `@devops` | Proof of the current state; separates evidence from claim |
 | 12 | **Story** | Text | Path `docs/stories/<ID>/story.md` (or "sem story") | `@sm` | Points to the source of truth instead of copying it |
 | 13 | **Depende de** (depends on) | Text | Inventory IDs and #issues, comma separated | `@sm` | Dependencies of drafts and items without an issue; for issues also use the native "blocked by" link |
-| 14 | **Ordem** (order) | Number | Step of the recommended order (1-15, inventory section 2); ties broken by Prioridade and ID | `@sm` | Orders execution inside a priority |
+| 14 | **Ordem** (order) | Number | Step of the recommended order (1-16, inventory section 2); ties broken by Prioridade and ID | `@sm` | Orders execution inside a priority |
 | 15 | **Atualizado em** (updated on) | Date | YYYY-MM-DD of the last sync | `@devops` | Shows how stale the mirror is |
 
 **Cut as redundant with native fields:** Parent issue and Sub-issues progress (hierarchy, section 3), Linked pull requests (automatic), Labels (`bug`/`enhancement`/`documentation`/`accessibility` already exist on the issue), Milestone (unused in this repository), Assignees and Repository (native), a "Size" field (it is Dificuldade), an "Iteration" field (no sprints) and a dedicated block field (it is the Bloqueado option plus "Depende de").
@@ -61,12 +67,12 @@ Text fields: one line plus links (field length limit not verified).
 
 **Recommendation: card = real issue whenever the item is a story, a roadmap parent issue or a slice about to be implemented; Project draft item for everything else, until it becomes an issue.**
 
-- **Issues (20 inventory cards):** the 13 issues open today (#19, #40, #48, #57, #60, #65, #69, #72, #73, #74, #76, #77, #78) plus **7 new issues** that `@devops` creates now: the OPS-21 issue (ST-09, `Ready` today with no issue, a traceability gap) and the OPS-15 slices already running or ready (FT-01, FT-02, FT-05, FT-06, FT-07, FT-08). Rule: the issue exists before implementation.
-- **Drafts (53 cards):** 14 slices still blocked (FT-03, FT-04, FT-09 to FT-20), 12 governance items (GV), 12 test items (TS) and 15 owner actions (OW). None of these is a new story: governance is audit remediation, tests wait for decision OW-12 and OW-* are human actions. A draft carries title, body with links and the fields; `@devops` converts it to an issue in the UI when the slice leaves `Bloqueado`/enters `Pronto`, or when a GV/TS item gets a story (rule: "every new roadmap/story needs an issue", and a test is only removed with story, issue and owner decision).
+- **Issues (26 inventory cards):** the 13 issues open today (#19, #40, #48, #57, #60, #65, #69, #72, #73, #74, #76, #77, #78) plus **13 new issues** that `@devops` creates now (updated 2026-10-27; the 6 added are OPS-22, OPS-23 and OPS-24 as story parent issues, the OPS-15 slices FT-21 and FT-22, and the OPS-22 slice FT-24): the OPS-21 issue (ST-09, `Ready` today with no issue, a traceability gap) and the OPS-15 slices already running or ready (FT-01, FT-02, FT-05, FT-06, FT-07, FT-08). Rule: the issue exists before implementation.
+- **Drafts (67 cards):** 27 slices still blocked (FT-03, FT-04, FT-09 to FT-20, FT-23, FT-25 to FT-36), 12 governance items (GV), 12 test items (TS) and 16 owner actions (OW). None of these is a new story: governance is audit remediation, tests wait for decision OW-12 and OW-* are human actions. A draft carries title, body with links and the fields; `@devops` converts it to an issue in the UI when the slice leaves `Bloqueado`/enters `Pronto`, or when a GV/TS item gets a story (rule: "every new roadmap/story needs an issue", and a test is only removed with story, issue and owner decision).
 - **Legacy (2 cards):** #17 and #18, already `Done`, stay as they are (the mapping of `Done` to `Concluído` happens when the options are renamed; `@devops` checks it).
-- **Total:** 75 cards on the board (20 issues + 53 inventory drafts + 2 legacy).
+- **Total:** 95 cards on the board (26 issues + 67 inventory drafts + 2 legacy).
 - Drafts take no issue comments, so the "never comment on issues" rule is not at risk; `@devops` edits the draft body. Pull requests are not cards.
-- Inventory item with neither issue nor draft: none. All 73 inventory IDs get one card each.
+- Inventory item with neither issue nor draft: none. All 93 inventory IDs get one card each.
 
 ## 3. Sub-issue hierarchy
 
@@ -79,6 +85,8 @@ Create with `gh issue edit <child> --parent <parent>` (or `--add-sub-issue`), `g
  ├── #77 OPS-18 Current Account as identity overlay
  ├── #78 OPS-19 Confirm reward when service starts
  ├── FT-01 Page polish                  (new issue now)
+ ├── FT-21 D-1 confirmation, FT-22 D-2 position (new issues now)
+ ├── FT-23 D-3/D-4 navigation/messages  (issue when it leaves Bloqueado)
  ├── FT-02 CH-2 placeholder validation  (new issue now)
  ├── FT-05 Catalogs to a neutral place  (new issue now)
  ├── FT-06 Endpoint traceability        (new issue now)
@@ -89,11 +97,20 @@ Create with `gh issue edit <child> --parent <parent>` (or `--add-sub-issue`), `g
 OPS-21 API contract (new issue now)                      (story parent issue)
  └── FT-11 .. FT-17  slices 1 to 7      (issue when the slice becomes ready)
 
+OPS-22 Financial recovery and queue deletion              (story parent issue, new now; native "blocks" the cutover of #69)
+ └── FT-24 (issue now), FT-25, FT-26, FT-36  slices 1 to 4 (issue when the slice becomes ready)
+
+OPS-23 Real-time panel (SSE) and shared state                (story parent issue, new now; native "blocks" the cutover of #69)
+ └── FT-27, FT-28, FT-29  slices 1 to 3 (issue when the slice becomes ready)
+
+OPS-24 Backend to TypeScript and Biome                       (story parent issue, new now; does not block the cutover)
+ └── FT-30 .. FT-35  slices TS-0 to TS-5 (issue when the slice becomes ready)
+
 #76 OPS-20 Refund eligibility                            (story parent issue)
  └── FT-18, FT-19, FT-20  slices 1 to 3 (issue when the slice becomes ready)
 ```
 
-Native links once everything exists: 24 (4 existing under #69, 10 OPS-15 slices, 7 OPS-21 and 3 OPS-20). **Create now: 10** (#72, #74, #77, #78 and the 6 new slices under #69; the OPS-21 issue is born without a parent, as the story's parent issue). The rest are just-in-time.
+Native links once everything exists: 40 (4 existing under #69, 13 OPS-15 slices, 7 OPS-21, 3 OPS-20, 4 OPS-22, 3 OPS-23 and 6 OPS-24; updated 2026-10-27). **Create now: 13** (#72, #74, #77, #78 and the 6 new slices plus FT-21 and FT-22 under #69, and FT-24 under the OPS-22 issue; the OPS-21 issue is born without a parent, as the story's parent issue). The rest are just-in-time.
 
 Without a parent (independent, linked by native "blocked by" and by Depende de): #57 (OPS-13), #19 (FND-9), #65 (OPS-14), #73 (OPS-17), #40 (DOC-2), #48 (DOC-3), #60 (OPS-12). Suggested native dependencies: #65 blocked by #57; #73 by #65; #40 by #19; #48 by #40.
 
@@ -129,7 +146,7 @@ Fill rules (`@devops` loads; no value is invented):
 
 | ID | Card | Situação | Fase | Prio | Dif | Responsável | Área | Gate atual | Ordem | Depende de | Próximo passo |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| ST-01 | #69 | Em andamento | OPS-15 Migração Next | P0 | GG | @dev | Painel Next | Implementação @dev | 8 | FT-01..FT-10, OW-01..OW-11 | Conduzir as fatias; revisões finais @qa/@architect (FT-09) |
+| ST-01 | #69 | Em andamento | OPS-15 Migração Next | P0 | GG | @dev | Painel Next | Implementação @dev | 8 | FT-01..FT-10, FT-21..FT-23, ST-15, ST-16, OW-01..OW-11 | Conduzir as fatias; revisões finais @qa/@architect (FT-09) |
 | ST-02 | #77 | Em andamento | Estabilização | P1 | P | @qa | Overlay/OBS | Gate @qa | 3 | — | @qa mapeia AC a evidências e emite veredito |
 | ST-03 | #78 | Em andamento | Estabilização | P1 | P | @qa | Twitch/worker | Gate @qa | 3 | — | @qa reexecuta a suíte completa e emite veredito |
 | ST-04 | #57 | Em revisão | Estabilização | P1 | P | Proprietário | Overlay/OBS | Aceite do proprietário | 3 | OW-03 | Proprietário retesta o widget no OBS nativo (não fechar com evidência Linux) |
@@ -143,6 +160,9 @@ Fill rules (`@devops` loads; no value is invented):
 | ST-12 | #40 | Bloqueado | Documentação | P3 | M | @dev | Docs/processo | Nenhum | 15 | ST-05, FT-10 | Sem ação até a UI ser aceita |
 | ST-13 | #48 | Bloqueado | Documentação | P3 | G | @po | Docs/processo | Nenhum | 15 | ST-05, ST-12 | Sem ação ainda |
 | ST-14 | #60 | Bloqueado | Instalador | P3 | G | @ux-design-expert | Infra/CI | Nenhum | 15 | `.release-stage` = rc (proprietário) | Nenhuma até a promoção para rc |
+| ST-15 | #80 | Pronto | OPS-22 Recuperação financeira | P1 | GG | @dev | Twitch/worker | Implementação @dev | 4 | ST-01 (dependência do corte) | GO do @po 9,5; @architect e @data-engineer concluídos (ciclo de 6 tentativas 1/4/16/60/60 min, sem migration, 4 defeitos de código a absorver, deps `@twurple/common`/`@twurple/api-call` 8.2.0); falta o plano de testes do @qa; começar pela FT-24 |
+| ST-16 | #81 | Pronto | OPS-23 Tempo real | P1 | GG | @architect | Painel Next | Planejamento @architect | 6 | ST-01, FT-01 | GO do @po 9,0; desenho do @architect e plano @ux >= 9,0; proprietário decide OD-23-1 (texto da OPS-15) e OD-23-2 (metas: caminho ao vivo 2 s p95, janela de 60 s) |
+| ST-17 | #91 | Pronto | OPS-24 TypeScript e Biome | P2 | GG | @architect | API | Planejamento @architect | 16 | ST-15 (OPS-22 primeiro) | GO do @po 9,0; @architect, @data-engineer e @qa concluem seus gates; proprietário decide OD-24-1..3 (a OPS-23 espera só a TS-0 e a TS-2) |
 | FT-01 | issue nova (agora) | Pronto | OPS-15 Migração Next | P0 | G | @ux-design-expert | Painel Next | Planejamento @ux | 8 | FT-02, FT-05 | Planos @ux por página (>= 9,0); depois @dev test-first |
 | FT-02 | issue nova (agora) | Pronto | OPS-15 Migração Next | P1 | P | @dev | API | Implementação @dev | 4 | — | Red em token desconhecido na criação de fila; depois @qa |
 | FT-03 | rascunho | Bloqueado | OPS-15 Migração Next | P1 | G | @qa | Painel Next | Plano de testes @qa | 8 | FT-01 | Escrever E1-E8 após a UI estabilizar (E8 manual do proprietário) |
@@ -152,7 +172,7 @@ Fill rules (`@devops` loads; no value is invented):
 | FT-07 | issue nova (agora) | Em andamento | OPS-15 Migração Next | P1 | M | @qa | Infra/CI | Gate @qa | 5 | FT-05 | Conferir o que a execução de 2026-10-20 cobre e listar a lacuna |
 | FT-08 | issue nova (agora) | Pronto | OPS-15 Migração Next | P2 | P | @qa | API | Gate @qa | 11 | — | Ler a matriz QRA e os testes de rota (QRA-13, QRA-02) |
 | FT-09 | rascunho | Bloqueado | OPS-15 Migração Next | P1 | M | @qa | Painel Next | Gate @qa | 12 | FT-01..FT-08, TS-10 | Revisões independentes @qa e @architect após as fatias |
-| FT-10 | rascunho | Bloqueado | OPS-15 Migração Next | P1 | G | @dev | Painel Next | Aceite do proprietário | 13 | FT-09, OW-01..OW-11, TS-10, TS-12 | Só propor; executar com autorização explícita |
+| FT-10 | rascunho | Bloqueado | OPS-15 Migração Next | P1 | G | @dev | Painel Next | Aceite do proprietário | 13 | FT-09, ST-15, ST-16, FT-21..FT-23, OW-01..OW-11, TS-10, TS-12 | Só propor; executar com autorização explícita |
 | FT-11 | rascunho | Bloqueado | OPS-21 Contrato da API | P1 | M | @devops | API | Plano de testes @qa | 7 | FT-02, ST-09 | Criar sub-issue; @qa plano; depois @dev Red-first |
 | FT-12 | rascunho | Bloqueado | OPS-21 Contrato da API | P2 | M | @dev | API | Planejamento @ux | 7 | FT-11 | Revisão @ux do copy dos catálogos; depois implementar |
 | FT-13 | rascunho | Bloqueado | OPS-21 Contrato da API | P2 | G | @dev | Painel Next | Planejamento @ux | 9 | FT-12, OW-15 | @ux >= 9,0 e decisão 4 do proprietário |
@@ -163,6 +183,22 @@ Fill rules (`@devops` loads; no value is invented):
 | FT-18 | rascunho | Bloqueado | OPS-20 Elegibilidade de devolução | P2 | G | @dev | Banco de dados | Planejamento @data-engineer | 14 | ST-01, FT-11, GV-03 | Só após a migração OPS-15 |
 | FT-19 | rascunho | Bloqueado | OPS-20 Elegibilidade de devolução | P2 | G | @dev | Twitch/worker | Planejamento @data-engineer | 14 | FT-18, OW-05 | Só após FT-18 |
 | FT-20 | rascunho | Bloqueado | OPS-20 Elegibilidade de devolução | P2 | G | @dev | Painel Next | Planejamento @ux | 14 | FT-19 | @ux >= 9,0; textos do painel só quando a fatia sair |
+| FT-21 | #89 | Pronto | OPS-15 Migração Next | P1 | P | @dev | Twitch/worker | Implementação @dev | 4 | FT-24 (sequência) | Red em parser+handler para `CONFIRMAR`/`Confirmar`/rótulo `en`; depois @qa |
+| FT-22 | #90 | Pronto | OPS-15 Migração Next | P1 | P | @data-engineer | Banco de dados | Planejamento @data-engineer | 4 | FT-21 (sequência, mesmo arquivo) | Confirmar `outbox.payload` sem DDL; depois @dev Red-first e @qa em PostgreSQL |
+| FT-23 | rascunho | Bloqueado | OPS-15 Migração Next | P1 | M | @ux-design-expert | Painel Next | Planejamento @ux | 8 | FT-28, FT-26 | Plano @ux >= 9,0 (textos, região viva, foco); depois @dev Red-first |
+| FT-24 | #82 | Pronto | OPS-22 Recuperação financeira | P0 | P | @dev | Twitch/worker | Implementação @dev | 4 | ST-15 | Red de contrato com instâncias reais do Twurple; depois @dev e @qa; acrescenta `@twurple/common` e `@twurple/api-call` 8.2.0 |
+| FT-25 | rascunho | Bloqueado | OPS-22 Recuperação financeira | P1 | G | @data-engineer | Banco de dados | Implementação @dev | 8 | FT-24, ST-15 | Planejamento fechado: ciclo de 6 tentativas (1/4/16/60/60 min), sem migration; absorver `markRedemptionUnknown` e a retentativa manual; Red em PostgreSQL após a FT-24 |
+| FT-26 | rascunho | Bloqueado | OPS-22 Recuperação financeira | P1 | G | @architect | Twitch/worker | Implementação @dev | 8 | FT-25, contrato OPS-21 | Planejamento fechado: estado da exclusão derivado; absorver bloqueios que viram `unknown` e a resolução manual que não destrava; Red em PostgreSQL por estado de resgate após a FT-25 |
+| FT-27 | rascunho | Bloqueado | OPS-23 Tempo real | P1 | G | @analyst | API | Planejamento @architect | 8 | ST-16, `sse-research.md` | Ler a nota de SSE; @architect fixa modelo de eventos, fronteira de processo e proxy |
+| FT-28 | rascunho | Bloqueado | OPS-23 Tempo real | P1 | M | @architect | Painel Next | Planejamento @architect | 8 | ST-16, ordem em relação à FT-01 | Definir a ordem com a FT-01 (mesmo conjunto de escrita); plano @ux >= 9,0 |
+| FT-29 | rascunho | Bloqueado | OPS-23 Tempo real | P1 | M | @ux-design-expert | Painel Next | Planejamento @ux | 8 | FT-27, FT-28 | Plano @ux >= 9,0 (indicador, anúncios, foco); depois @dev Red-first |
+| FT-30 | rascunho | Bloqueado | OPS-24 TypeScript e Biome | P2 | G | @architect | Infra/CI | Planejamento @architect | 16 | ST-17, OW-13 (evidência de CI) | @architect fixa a configuração e o texto do `AGENTS.md`; prova Red por gate; canário `credential-fingerprint.mjs` |
+| FT-31 | rascunho | Bloqueado | OPS-24 TypeScript e Biome | P2 | G | @architect | Twitch/worker | Planejamento @architect | 16 | FT-30, FT-24 | Após a FT-24: medir erros do strict na pasta; depois Red com instâncias reais do Twurple |
+| FT-32 | rascunho | Bloqueado | OPS-24 TypeScript e Biome | P2 | M | @architect | Twitch/worker | Planejamento @architect | 16 | FT-30, FT-25, FT-26 | Após FT-25 e FT-26; testes de outbox em PostgreSQL sem alteração |
+| FT-33 | rascunho | Bloqueado | OPS-24 TypeScript e Biome | P2 | G | @architect | API | Planejamento @architect | 16 | FT-30, FT-27, FT-11, FT-12 | @architect escolhe as 5 rotas com schema e a ordem em relação à FT-27 |
+| FT-34 | rascunho | Bloqueado | OPS-24 TypeScript e Biome | P2 | G | @data-engineer | Banco de dados | Planejamento @data-engineer | 16 | FT-30, FT-26, FT-14 | Contagem de erros do strict pelo @qa; decidir a divisão do repositório com @data-engineer |
+| FT-35 | rascunho | Bloqueado | OPS-24 TypeScript e Biome | P2 | M | @architect | API | Planejamento @architect | 16 | FT-31..FT-34 | Após as fatias de pasta: `strict: true` global e troca da entrada |
+| FT-36 | rascunho | Bloqueado | OPS-22 Recuperação financeira | P1 | G | @architect | Twitch/worker | Planejamento @architect | 8 | FT-26 | Cancelar exclusão pendente (decisão do proprietário 2026-10-27): @architect redesenha estados; @data-engineer transições e testes; texto no plano @ux da FT-23; @po revalida o escopo da OPS-22 |
 | GV-01 | rascunho | Pronto | Governança | P0 | P | @architect | Docs/processo | Planejamento @architect | 1 | — | Reescrever "nunca comentar"; @dev atualiza o teste; @qa valida |
 | GV-02 | rascunho | Pronto | Governança | P2 | P | @architect | Docs/processo | Planejamento @architect | 1 | — | Escrever as exceções de `/tmp` em AGENTS.md e CLAUDE.md |
 | GV-03 | rascunho | Pronto | Governança | P1 | P | @architect | Docs/processo | Planejamento @architect | 2 | GV-01 | Definir Ready; @po reclassifica OPS-21 e OPS-20 (en e pt-BR) |
@@ -202,8 +238,9 @@ Fill rules (`@devops` loads; no value is invented):
 | OW-13 | rascunho | Aguardando decisão | Governança | P2 | P | Proprietário | Infra/CI | Aceite do proprietário | 11 | GV-07 | Autorizar push e PR para a primeira execução de CI |
 | OW-14 | rascunho | Aguardando decisão | Governança | P3 | P | Proprietário | Infra/CI | Aceite do proprietário | 15 | — | Dizer quando `backup/ops-15-before-history-fix` pode ser apagada |
 | OW-15 | rascunho | Aguardando decisão | OPS-21 Contrato da API | P2 | P | Proprietário | API | Aceite do proprietário | 6 | — | Decidir fechar com a fatia 7 aberta, ordem das fatias 3-4 e timeout |
+| OW-16 | rascunho | Aguardando decisão | OPS-22 Recuperação financeira | P1 | M | Proprietário | Twitch/worker | Aceite do proprietário | 10 | ST-15, FT-24, OW-04 | Autorizar e agendar a checagem ao vivo de resgate real (4 checagens do analista) |
 
-**Counts:** 73 inventory items (14 ST, 20 FT, 12 GV, 12 TS, 15 OW) = 20 issues + 53 drafts. By Situação: Backlog 3, Rascunho 2, Aguardando decisão 18, Pronto 18, Em andamento 5, Em revisão 2, Bloqueado 25.
+**Counts (updated 2026-10-27):** 93 inventory items (17 ST, 36 FT, 12 GV, 12 TS, 16 OW) = 26 issues + 67 drafts. By Situação: Backlog 3, Rascunho 2, Aguardando decisão 19, Pronto 24, Em andamento 5, Em revisão 2, Bloqueado 38 (ST-15, ST-16, ST-17 e FT-24 passaram a Pronto após o GO do @po; atualizado em 2026-10-27, terceira). Native dependencies to add: the OPS-22 and OPS-23 issues block the cutover item (FT-10); FT-23 is blocked by FT-28 and FT-26.
 
 ## 6. Maintenance rules
 
@@ -245,8 +282,8 @@ Fill rules (`@devops` loads; no value is invented):
 | # | Decision | `@sm` recommendation |
 |---|---|---|
 | D1 | Rename the default `Status` to **Situação** with the 8 options of section 1.1 (instead of adding a second field)? | Yes: one field, native workflows keep working |
-| D2 | Governance, tests and owner actions (39 items) stay as **drafts** until they become issues? | Yes: they are not new stories; they become issues only when they get a story or code work |
-| D3 | Create **7 new issues** now (OPS-21 + 6 running OPS-15 slices) and the other slices just-in-time? | Yes: satisfies "issue before implementation" without cluttering the repository with 14 idle issues |
+| D2 | Governance, tests and owner actions (40 items) stay as **drafts** until they become issues? | Yes: they are not new stories; they become issues only when they get a story or code work |
+| D3 | Create **13 new issues** now (OPS-21 + 6 running OPS-15 slices + OPS-22, OPS-23, OPS-24, FT-21, FT-22, FT-24; updated 2026-10-27) and the other slices just-in-time? | Yes: satisfies "issue before implementation" without cluttering the repository with 14 idle issues |
 | D4 | #77 (OPS-18) and #78 (OPS-19) as sub-issues of #69, or independent? | Sub-issues of #69: their bodies already treat them as part of the migration; #57 stays independent |
 | D5 | Authorize the `project` scope on `gh` for `@devops` (`gh auth refresh -s project`) | Yes, it is the prerequisite for any board write; note it applies to all Projects of the account |
 | D6 | Use dates/iteration and the Roadmap layout? | Not now: with no planned dates, view 3 by parent issue is enough; revisit if you want deadlines |
