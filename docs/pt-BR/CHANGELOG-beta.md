@@ -14,6 +14,8 @@
 
 ### Alterado
 
+- A página inicial agora é a Visão geral do painel Next. No primeiro acesso, sem conexão com a Twitch, ela mostra um cartão 'Conectar' em vez de abrir direto a Conexão.
+- Os links de widgets OBS agora usam o endereço `/overlay?...` em vez de `/overlay.html?...`. Uma fonte de navegador do OBS ainda configurada com um link antigo `/overlay.html` deixa de carregar o widget: gere o link de novo na página Widgets e cole-o na fonte do OBS.
 - A inicialização de desenvolvimento agora verifica Node.js, dependências e Docker antes de provisionar o banco isolado; o usuário final continua pelo instalador da plataforma com imagem pré-compilada.
 - Chamadas de fila agora tornam o viewer chamado a conta atual automaticamente. O OBS oferece uma única fonte de identidade do jogador, `Conta atual`; widgets antigos de atendimento continuam usando essa mesma fonte.
 - Iniciar o atendimento de um viewer chamado agora solicita imediatamente o fulfillment do resgate de pontos na Twitch. O painel mantém o atendimento ativo e distingue estados pendentes, confirmados e conflitantes da recompensa do encerramento do serviço.
@@ -30,7 +32,7 @@
 
 - A confirmação final de exclusão local agora identifica a fila no aviso, permitindo que o streamer confira qual fila está removendo.
 - As páginas dos widgets OBS são servidas pelo Next.js em produção e desenvolvimento; o overlay continua consultando dados atuais de conta e fila no bot.
-- Links de widgets OBS agora abrem a página local do overlay durante o desenvolvimento, e links locais criados anteriormente continuam funcionando.
+- Links de widgets OBS agora abrem a página local do overlay durante o desenvolvimento; links locais criados antes no formato `/overlay.html?...` deixam de carregar e precisam ser gerados de novo, como descrito em Alterado.
 - Falhas inesperadas nas ações de inclusão manual, atendimento, reenvio de aviso, chamada, reordenação, prioridade e limpeza de fila agora exibem uma referência diagnóstica segura. Se uma chamada puder ter sido aplicada sem uma resposta confiável, os dois controles de chamada ficam bloqueados até uma atualização bem-sucedida da fila; o alerta mantém a referência e oferece nova tentativa da atualização. Uma fila vazia confirmada mantém o resultado “ninguém aguardando”. Confirmações incertas de limpeza continuam exigindo atualização bem-sucedida antes de outra limpeza.
 - A confirmação de exclusão local fica bloqueada enquanto o cancelamento estiver verificando a reward, preservando uma forma segura de retomar a operação.
 - Criação de fila, configurações e inclusão manual que a API já aceitou permanecem visíveis quando a atualização seguinte da lista falha; o painel oferece uma nova leitura sem repetir a mutação nem indicar rejeição indevida.
