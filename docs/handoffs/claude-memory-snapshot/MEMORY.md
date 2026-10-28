@@ -1,5 +1,6 @@
 - [Always Orion](feedback-always-orion.md) — IMMUTABLE: owner always talks to @aiox-master, who orchestrates and delegates; activate at session start
 - [Backend direction](project-backend-direction.md) — no rewrite; Node goes to TypeScript; Docker mandatory; typing + financial recovery before SSE
+- [Quota interruption protocol](feedback-quota-interruption-protocol.md) — PROJECT RULE: when quota is ending, stop agents and save exact stopping point + briefs in a resume file
 - [Windows/macOS sessions](project-cross-platform-sessions.md) — owner will provide Claude Code sessions on Windows/macOS later for automated tests; no platform result claimed until then
 - [Stage: no users](project-stage-no-users.md) — beta with NO active users: structural/breaking changes (aliases, URLs, formats) are safe until rc/stable
 - [Incremental cutover](project-incremental-cutover.md) — owner EXPRESSLY authorized cutover part by part as each part is validated; legacy abandoned; push/PR/release still need separate OK
