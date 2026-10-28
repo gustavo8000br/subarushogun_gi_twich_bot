@@ -36,10 +36,21 @@ describe('Next local development API proxy', () => {
         { source: '/overlay/api/:path*', destination: 'https://localhost:3199/overlay/api/:path*' },
         { source: '/health', destination: 'https://localhost:3199/health' },
         { source: '/callback', destination: 'https://localhost:3199/callback' },
-        ...['/', '/styles.css', '/app.js']
-          .map((source) => ({ source, destination: `https://localhost:3199${source}` })),
       ], afterFiles: [{ source: '/overlay.html', destination: '/overlay' }], fallback: [],
     });
+  });
+
+  it('never rewrites the panel root or a vanilla panel asset to Fastify (OPS-15 cutover wave 1, S-02)', () => {
+    const rules = buildProductionProxyRules({ API_PORT: '3199' });
+    const proxied = [...rules.beforeFiles, ...rules.afterFiles, ...rules.fallback];
+    const vanillaSources = ['/', '/index.html', '/styles.css', '/app.js', '/overlay.js', '/overlay.css'];
+    expect(proxied.filter(({ source }) => vanillaSources.includes(source))).toEqual([]);
+    expect(proxied.filter(({ source }) => source.startsWith('/shared/'))).toEqual([]);
+    const fastifyTargets = proxied
+      .filter(({ destination }) => destination.startsWith('https://localhost:3199'))
+      .map(({ source }) => source);
+    expect(fastifyTargets).toEqual(['/api/:path*', '/overlay/api/:path*', '/health', '/callback']);
+    expect(rules.afterFiles).toEqual([{ source: '/overlay.html', destination: '/overlay' }]);
   });
 
   it('keeps the OAuth result page owned by Next in production while Fastify owns only the callback endpoint', async () => {
@@ -47,7 +58,7 @@ describe('Next local development API proxy', () => {
     const rewrites = await config.rewrites();
     expect(rewrites.beforeFiles).toContainEqual({ source: '/callback', destination: 'https://localhost:3199/callback' });
     expect(rewrites).toEqual(buildProductionProxyRules({ NODE_ENV: 'production', API_PORT: '3199' }));
-    expect(rewrites.beforeFiles.some(({ source }) => source === '/')).toBe(true);
+    expect(rewrites.beforeFiles.some(({ source }) => source === '/')).toBe(false);
   });
 
   it('rejects non-loopback or non-HTTPS production API proxy targets', () => {

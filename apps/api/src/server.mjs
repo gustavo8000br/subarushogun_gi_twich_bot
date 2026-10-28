@@ -5,7 +5,6 @@ import { createDatabaseUrl } from '../../infra/src/database-url.mjs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { createTwitchHealthBridge, registerHealthRoute } from './health-route.mjs';
-import { registerWebRoutes } from './web-route.mjs';
 import { registerLocalSession } from './http/local-session.mjs';
 import { registerQueueRoutes } from './http/queue-routes.mjs';
 import { createQueueRepository } from './persistence/queue-repository.mjs';
@@ -125,15 +124,6 @@ registerLocalizationRoutes(app, {
   writeHostProjection: (localeState) => writeProductLocaleProjection(localeProjectionPath, localeState),
   repository,
 });
-await registerWebRoutes(
-  app,
-  fileURLToPath(new URL('../../web/', import.meta.url)),
-  fileURLToPath(new URL('../../shared/browser/', import.meta.url)),
-  {
-    apiOnly: process.env.API_ONLY === 'true',
-    sharedPanelRoot: fileURLToPath(new URL('../../shared/panel/', import.meta.url)),
-  },
-);
 
 runtime = await createApplicationRuntime({ app, pool, prisma, repository, credentialRepository, reportDiagnostic, logEvent, onError: () => undefined,
   onChatMessage: (event) => {

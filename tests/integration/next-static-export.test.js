@@ -27,9 +27,8 @@ describe('Next.js production overlay server build', () => {
     expect(routes.rewrites.beforeFiles).toContainEqual(expect.objectContaining({
       source: '/api/:path*', destination: 'https://localhost:3109/api/:path*',
     }));
-    expect(routes.rewrites.beforeFiles).toContainEqual(expect.objectContaining({
-      source: '/', destination: 'https://localhost:3109/',
-    }));
+    // OPS-15 cutover wave 1: the Next overview owns `/`; no vanilla document or asset is proxied.
+    expect(routes.rewrites.beforeFiles.filter(({ source }) => ['/', '/styles.css', '/app.js'].includes(source))).toEqual([]);
     expect(routes.rewrites.afterFiles).toContainEqual(expect.objectContaining({
       source: '/overlay.html', destination: '/overlay',
     }));

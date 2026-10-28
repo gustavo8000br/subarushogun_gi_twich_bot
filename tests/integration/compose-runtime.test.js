@@ -369,7 +369,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
     expect(unavailableCandidates.headers['x-error-reference']).toMatch(/^[a-zA-Z0-9_-]{8,}$/);
   }, 30_000);
 
-  it('documents production-like route ownership for migrated Next pages, vanilla root, overlay, and Fastify APIs', async () => {
+  it('documents production-like route ownership: Next owns the root and migrated pages, overlay, and Fastify APIs', async () => {
     await waitForHealthyBot();
     const document = await request('/overlay.html');
     expect(document.status).toBe(200);
@@ -384,11 +384,22 @@ describe('isolated Compose first-run and restart acceptance', () => {
     expect(projection.headers['cache-control']).toContain('no-store');
     expect(projection.json()).toEqual({ error: 'Widget indisponível.' });
 
+    // OPS-15 cutover wave 1: the Next overview is the production home page.
     const panel = await request('/');
     expect(panel.status).toBe(200);
     expect(panel.headers['content-type']).toContain('text/html');
-    expect(panel.body).toContain('class="app-shell"');
-    expect(panel.body).toContain('href="/styles.css"');
+    expect(panel.headers['x-powered-by']).toBe('Next.js');
+    expect(panel.body).toContain('class="panel-shell"');
+    expect(panel.body).toContain('data-next-panel-entry');
+    expect(panel.body).not.toContain('class="app-shell"');
+    expect(panel.body).not.toContain('href="/styles.css"');
+
+    for (const path of ['/app.js', '/styles.css', '/index.html', '/shared/panel/panel-navigation.mjs']) {
+      const vanillaAsset = await request(path);
+      expect(vanillaAsset.status, `${path} is no longer served by Fastify`).toBe(404);
+      expect(vanillaAsset.headers['x-powered-by'], `${path} is answered by Next`).toBe('Next.js');
+      expect(vanillaAsset.headers['content-type'] ?? '').not.toMatch(/javascript|text\/css/);
+    }
 
     const migratedPanelRoutes = ['/queues/', '/new-queue/', '/operations/', '/commands/', '/widgets/', '/settings/'];
     for (const path of migratedPanelRoutes) {
