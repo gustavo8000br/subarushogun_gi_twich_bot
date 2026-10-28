@@ -371,8 +371,20 @@ describe('isolated Compose first-run and restart acceptance', () => {
 
   it('documents production-like route ownership: Next owns the root and migrated pages, overlay, and Fastify APIs', async () => {
     await waitForHealthyBot();
-    const document = await request('/overlay.html');
+    // OPS-15 cutover wave 3: the widget link points at the Next route; the /overlay.html alias
+    // and the vanilla overlay files are gone and answered by Next as a 404, never as a redirect.
+    for (const path of [`/overlay.html?ref=${'a'.repeat(22)}`, '/overlay.html', '/overlay.js', '/overlay.css']) {
+      const retired = await request(path);
+      expect(retired.status, `${path} is retired`).toBe(404);
+      expect(retired.headers['x-powered-by'], `${path} is answered by Next`).toBe('Next.js');
+      expect(retired.headers.location, `${path} is not redirected`).toBeUndefined();
+      expect(retired.body).not.toContain('data-next-overlay-entry');
+      expect(retired.headers['content-type'] ?? '').not.toMatch(/javascript|text\/css/);
+    }
+
+    const document = await request(`/overlay?ref=${'a'.repeat(22)}`);
     expect(document.status).toBe(200);
+    expect(document.headers.location).toBeUndefined();
     expect(document.headers['content-type']).toContain('text/html');
     expect(document.headers['x-powered-by']).toBe('Next.js');
     expect(document.body).toContain('id="overlay-widget"');

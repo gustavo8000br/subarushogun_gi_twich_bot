@@ -31,7 +31,7 @@ const existing = {
 const created = { ...existing, id: '22222222-2222-4222-8222-222222222222', sourceType: 'account_label', fixedText: null, version: 1 };
 
 let secretCounter = 0;
-const nextSecret = (ref) => `${origin.origin}/overlay.html?ref=${ref}#e2e-secret-${String(++secretCounter).padStart(4, '0')}-fixture`;
+const nextSecret = (ref) => `${origin.origin}/overlay?ref=${ref}#e2e-secret-${String(++secretCounter).padStart(4, '0')}-fixture`;
 
 const browser = await chromium.launch({
   channel: process.env.CHROME_CHANNEL ?? 'chrome',

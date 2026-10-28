@@ -67,7 +67,7 @@ try {
       const requestUrl = new URL(request.url());
       if (requestUrl.origin === origin.origin && request.resourceType() === 'script') initialOverlayScripts.add(requestUrl.pathname);
     });
-    await page.goto(`${origin.origin}/overlay.html?ref=${source.ref}#${source.token}`);
+    await page.goto(`${origin.origin}/overlay?ref=${source.ref}#${source.token}`);
     const expectedInitial = source.sourceType === 'queue_state' ? 'Queue open' : source.value;
     await page.getByText(expectedInitial, { exact: true }).waitFor({ timeout: 15_000 });
     assert.equal(new URL(page.url()).hash, '', `source ${source.index + 1} removes its capability fragment`);

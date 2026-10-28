@@ -12,8 +12,8 @@ async function makeHarness() {
     delete: vi.fn(async () => ({ id: 'widget-1', deletedAt: new Date(), version: 2 })),
   };
   const widgetService = {
-    create: vi.fn(async () => ({ widget: { id: 'widget-1', sourceType: 'account_label', version: 1 }, capabilityUrl: 'https://localhost:3000/overlay.html#one-time-secret' })),
-    regenerate: vi.fn(async () => ({ widget: { id: 'widget-1', version: 2 }, capabilityUrl: 'https://localhost:3000/overlay.html#new-one-time-secret' })),
+    create: vi.fn(async () => ({ widget: { id: 'widget-1', sourceType: 'account_label', version: 1 }, capabilityUrl: 'https://localhost:3000/overlay#one-time-secret' })),
+    regenerate: vi.fn(async () => ({ widget: { id: 'widget-1', version: 2 }, capabilityUrl: 'https://localhost:3000/overlay#new-one-time-secret' })),
     revoke: vi.fn(async () => ({ id: 'widget-1', version: 2 })),
   };
   const validCapability = 'v'.repeat(43);

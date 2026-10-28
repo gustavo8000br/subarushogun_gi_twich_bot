@@ -35,6 +35,7 @@ describe('Next runtime routing configuration', () => {
     ]);
     // OPS-15 cutover wave 1: Next serves `/` (the overview); only these four routes reach Fastify.
     expect(rules.beforeFiles.some(({ source }) => source === '/')).toBe(false);
-    expect(rules.afterFiles).toEqual([{ source: '/overlay.html', destination: '/overlay' }]);
+    // OPS-15 cutover wave 3: no /overlay.html alias; Next serves /overlay itself.
+    expect(rules.afterFiles).toEqual([]);
   });
 });

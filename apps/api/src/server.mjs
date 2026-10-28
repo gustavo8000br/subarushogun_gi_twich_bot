@@ -25,7 +25,6 @@ import { createErrorDiagnosticReporter } from './observability/error-diagnostics
 import { createStructuredLogger } from './observability/structured-logger.mjs';
 import { registerSafeHttpErrorHandler } from './http/safe-http-error-handler.mjs';
 import { createTwitchRouteIntegrationProxy } from './twitch/route-integration-proxy.mjs';
-import { registerDevelopmentOverlayAlias } from './http/dev-overlay-alias.mjs';
 import { resolveApiHost } from './runtime-config.mjs';
 
 const databaseUrl = await createDatabaseUrl();
@@ -115,9 +114,6 @@ registerOverlayRoutes(app, {
   widgetService: createOverlayWidgetService({ repository: overlayRepository, origin: process.env.OVERLAY_PUBLIC_BASE_URL ?? publicBaseUrl }),
   projectionService: createOverlayProjectionService({ overlayRepository, queueRepository: repository, getOverlayCatalogs }),
 });
-if (process.env.NODE_ENV === 'development' && process.env.OVERLAY_PUBLIC_BASE_URL) {
-  registerDevelopmentOverlayAlias(app, { origin: process.env.OVERLAY_PUBLIC_BASE_URL });
-}
 registerLocalizationRoutes(app, {
   catalogRoot,
   communityCatalogRoot,

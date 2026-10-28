@@ -132,7 +132,7 @@ async function mutate(session, widget, method, path, payload) {
 
 async function findPagesByValue(expectedValues, excludedIds) {
   const targets = await (await fetch(`${cdpOrigin}/json/list`)).json();
-  const candidates = targets.filter((target) => target.type === 'page' && target.url.startsWith(`${appOrigin}/overlay.html`) && !excludedIds.has(target.id));
+  const candidates = targets.filter((target) => target.type === 'page' && target.url.startsWith(`${appOrigin}/overlay`) && !excludedIds.has(target.id));
   const pages = candidates.map((target) => ({ target, page: new CdpPage(target) }));
   const assigned = new Map();
   for (const { target, page } of pages) {

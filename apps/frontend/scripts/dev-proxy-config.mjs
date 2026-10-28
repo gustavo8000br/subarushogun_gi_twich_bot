@@ -24,7 +24,6 @@ export function buildDevProxyRules(env = process.env) {
     { source: '/overlay/api/:path*', destination: `${origin}/overlay/api/:path*` },
     { source: '/health', destination: `${origin}/health` },
     { source: '/callback', destination: `${origin}/callback` },
-    { source: '/overlay.html', destination: '/overlay' },
   ];
 }
 
@@ -44,7 +43,7 @@ export function buildProductionProxyRules(env = process.env) {
       { source: '/health', destination: `${target.origin}/health` },
       { source: '/callback', destination: `${target.origin}/callback` },
     ],
-    afterFiles: [{ source: '/overlay.html', destination: '/overlay' }],
+    afterFiles: [],
     fallback: [],
   };
 }

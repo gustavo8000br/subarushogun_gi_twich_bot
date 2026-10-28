@@ -34,3 +34,32 @@ describe('API process serves no browser files (OPS-15 cutover wave 1)', () => {
     expect(importers).toEqual([]);
   });
 });
+
+// OPS-15 cutover wave 3: the vanilla overlay and every `/overlay.html` alias are retired
+// (OW-09, no active users until rc). Next serves the overlay at `/overlay` and the widget
+// link points there directly; no redirect, rewrite or static route keeps the old path.
+describe('the /overlay.html alias is retired (OPS-15 cutover wave 3)', () => {
+  it('does not register the development overlay redirect in the API process', () => {
+    const server = readFileSync(join(apiSource, 'server.mjs'), 'utf8');
+    expect(server).not.toMatch(/registerDevelopmentOverlayAlias/);
+    expect(server).not.toMatch(/dev-overlay-alias\.mjs/);
+    expect(existsSync(join(apiSource, 'http/dev-overlay-alias.mjs'))).toBe(false);
+  });
+
+  it('keeps no application module that serves, rewrites or emits the /overlay.html path', () => {
+    const producers = ['apps/api/src', 'apps/frontend', 'apps/shared', 'apps/infra']
+      .flatMap((directory) => listApplicationSources(join(root, directory)))
+      .filter((path) => readFileSync(path, 'utf8').includes('overlay.html'))
+      .map((path) => relative(root, path));
+    expect(producers).toEqual([]);
+  });
+});
+
+function listApplicationSources(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    if (['node_modules', '.next', 'out'].includes(entry.name)) return [];
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return listApplicationSources(path);
+    return /\.(?:mjs|js|cjs|jsx|ts|mts|tsx|json|ya?ml|html)$/.test(entry.name) ? [path] : [];
+  });
+}

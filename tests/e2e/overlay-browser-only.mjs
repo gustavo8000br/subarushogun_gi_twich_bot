@@ -44,9 +44,12 @@ try {
     return route.continue();
   });
 
-  await page.goto(`${appOrigin}/overlay.html?ref=${refs[0]}#${tokens[0]}`);
+  await page.goto(`${appOrigin}/overlay?ref=${refs[0]}#${tokens[0]}`);
   await page.getByText('Account 1').waitFor();
+  assert.equal(new URL(page.url()).pathname, '/overlay', 'the widget link opens the Next overlay route without a redirect');
   assert.equal(new URL(page.url()).hash, '', 'capability fragment is removed from the visible URL');
+  const retiredAlias = await context.request.get(`${appOrigin}/overlay.html?ref=${refs[0]}`, { maxRedirects: 0 });
+  assert.equal(retiredAlias.status(), 404, 'the retired /overlay.html alias is not served or redirected (OPS-15 cutover wave 3)');
   assert.equal(await page.evaluate((key) => sessionStorage.getItem(key), `overlay-capability:${refs[0]}`), tokens[0]);
   const initialCall = calls.find((call) => call.headers.authorization === `Bearer ${tokens[0]}`);
   assert.ok(initialCall, 'widget read carries the fragment capability as a bearer token');
@@ -78,7 +81,7 @@ try {
 
   for (const [modeName, statusCode] of [['unauthorized', 401], ['missing', 404]]) {
     mode = modeName;
-    await page.goto(`${appOrigin}/overlay.html?ref=${refs[0]}#${tokens[0]}`);
+    await page.goto(`${appOrigin}/overlay?ref=${refs[0]}#${tokens[0]}`);
     await page.waitForFunction(() => document.querySelector('#overlay-status')?.textContent === 'Source unavailable');
     await page.waitForFunction((key) => sessionStorage.getItem(key) === null, `overlay-capability:${refs[0]}`);
     assert.equal(await page.locator('#overlay-value').textContent(), '', `HTTP ${statusCode} clears overlay content`);
@@ -96,7 +99,7 @@ try {
       }
       return route.continue();
     });
-    await isolatedPage.goto(`${appOrigin}/overlay.html?ref=${refs[index]}#${tokens[index]}`);
+    await isolatedPage.goto(`${appOrigin}/overlay?ref=${refs[index]}#${tokens[index]}`);
     await isolatedPage.getByText(`Account ${index + 1}`).waitFor();
     isolatedPages.push(isolatedPage);
   }
@@ -105,7 +108,7 @@ try {
     assert.deepEqual(storage, [`overlay-capability:${refs[index]}`], `source ${index + 1} stores only its own reference capability`);
   }
 
-  console.log(`PASS overlay browser-only: exact Next alias, fragment cleanup, bearer without cookies, current account refresh, empty-value fallback, stale recovery, reload, 401/403/404 clearing, and ${refs.length} isolated sources.`);
+  console.log(`PASS overlay browser-only: Next /overlay route without redirect, retired /overlay.html alias, fragment cleanup, bearer without cookies, current account refresh, empty-value fallback, stale recovery, reload, 401/403/404 clearing, and ${refs.length} isolated sources.`);
   console.log('Boundary: API responses are intercepted fixtures; no database, Twitch, Docker, OBS, or CEF interaction was performed.');
 }
 finally {

@@ -12,14 +12,13 @@ afterEach(async () => {
 });
 
 describe('Next local development API proxy', () => {
-  it('proxies API, overlay API, health, callback, and the legacy overlay path only in development', () => {
+  it('proxies API, overlay API, health and callback only in development, with no /overlay.html alias (OPS-15 cutover wave 3)', () => {
     const rules = buildDevProxyRules({ NODE_ENV: 'development', FASTIFY_DEV_ORIGIN: 'https://localhost:3109' });
     expect(rules).toEqual([
       { source: '/api/:path*', destination: 'https://localhost:3109/api/:path*' },
       { source: '/overlay/api/:path*', destination: 'https://localhost:3109/overlay/api/:path*' },
       { source: '/health', destination: 'https://localhost:3109/health' },
       { source: '/callback', destination: 'https://localhost:3109/callback' },
-      { source: '/overlay.html', destination: '/overlay' },
     ]);
     expect(buildDevProxyRules({ NODE_ENV: 'production', FASTIFY_DEV_ORIGIN: 'https://localhost:3109' })).toEqual([]);
   });
@@ -36,21 +35,30 @@ describe('Next local development API proxy', () => {
         { source: '/overlay/api/:path*', destination: 'https://localhost:3199/overlay/api/:path*' },
         { source: '/health', destination: 'https://localhost:3199/health' },
         { source: '/callback', destination: 'https://localhost:3199/callback' },
-      ], afterFiles: [{ source: '/overlay.html', destination: '/overlay' }], fallback: [],
+      ], afterFiles: [], fallback: [],
     });
   });
 
   it('never rewrites the panel root or a vanilla panel asset to Fastify (OPS-15 cutover wave 1, S-02)', () => {
     const rules = buildProductionProxyRules({ API_PORT: '3199' });
     const proxied = [...rules.beforeFiles, ...rules.afterFiles, ...rules.fallback];
-    const vanillaSources = ['/', '/index.html', '/styles.css', '/app.js', '/overlay.js', '/overlay.css'];
+    const vanillaSources = ['/', '/index.html', '/styles.css', '/app.js', '/overlay.html', '/overlay.js', '/overlay.css'];
     expect(proxied.filter(({ source }) => vanillaSources.includes(source))).toEqual([]);
     expect(proxied.filter(({ source }) => source.startsWith('/shared/'))).toEqual([]);
     const fastifyTargets = proxied
       .filter(({ destination }) => destination.startsWith('https://localhost:3199'))
       .map(({ source }) => source);
     expect(fastifyTargets).toEqual(['/api/:path*', '/overlay/api/:path*', '/health', '/callback']);
-    expect(rules.afterFiles).toEqual([{ source: '/overlay.html', destination: '/overlay' }]);
+    // OPS-15 cutover wave 3: the /overlay.html alias is retired; Next serves /overlay directly.
+    expect(rules.afterFiles).toEqual([]);
+  });
+
+  it('keeps no /overlay.html alias in any development or production rule (OPS-15 cutover wave 3)', async () => {
+    const development = buildDevProxyRules({ NODE_ENV: 'development', FASTIFY_DEV_ORIGIN: 'https://localhost:3109' });
+    const production = await buildNextConfig({ NODE_ENV: 'production', API_PORT: '3199' }).rewrites();
+    const all = [...development, ...production.beforeFiles, ...production.afterFiles, ...production.fallback];
+    expect(all.filter(({ source, destination }) => source.includes('overlay.html') || destination.includes('overlay.html'))).toEqual([]);
+    expect(all.filter(({ destination }) => destination === '/overlay')).toEqual([]);
   });
 
   it('keeps the OAuth result page owned by Next in production while Fastify owns only the callback endpoint', async () => {
