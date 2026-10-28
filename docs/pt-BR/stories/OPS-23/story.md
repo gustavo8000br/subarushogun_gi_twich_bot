@@ -114,7 +114,7 @@ O operador vê resgates, comandos e resultados de workers à medida que acontece
 - [x] Revisão e opções de desenho do `@architect` ([panel-defects-architecture-review.md](../OPS-15/panel-defects-architecture-review.md), 2026-10-26; SSE listado como fatia opcional S-G, agora promovida pelo proprietário).
 - [x] Decisões do proprietário registradas (2026-10-27).
 - [x] Nota de SSE do `@analyst`: [sse-research.md](../OPS-15/sse-research.md) (2026-10-27). Achados usados: os rewrites do Next 16.4.1 fazem streaming, mas têm timeout ocioso de proxy de 30 s, então o heartbeat deve ser menor que 30 s (a nota sugere 15 s); o gzip faz buffer do SSE a menos que a resposta tenha `Cache-Control: no-transform`; HTTP/1.1 permite 6 conexões por origem; um `EventSource` fecha de vez em qualquer status diferente de 200, então o cliente precisa de laço próprio de reconexão que renove `/api/session`; o fallback por polling mais lento (15-30 s) da nota difere do 5 s / 2 s do proprietário, e **a decisão do proprietário prevalece**. As verificações de ambiente que ela lista (seis itens) ficam para o `@qa`.
-- [x] Validação do `@po` (10 pontos) e GO (9,0/10, 2026-10-27); a reconciliação do texto da OPS-15 segue pendente de aprovação do proprietário (OD-23-1) e é condição de fechamento.
+- [x] Validação do `@po` (10 pontos) e GO (9,0/10, 2026-10-27); a reconciliação do texto da OPS-15 (OD-23-1) foi decidida pelo proprietário e aplicada em 2026-10-27 (linha 44 e CA 7 da OPS-15; ver o Change Log), então esta condição de fechamento está cumprida.
 - [ ] Desenho do `@architect`: modelo de eventos, fronteira de processo, proxy/autenticação, limite de conexões, metas de latência, janela de fallback, ordem em relação à FT-01 e à fatia 3 da OPS-21.
 - [ ] Plano e revisão do `@ux-design-expert`, **nota ≥ 9,0/10**, registrados nesta story (revisão estática distinta de validação em navegador, visual e tecnologia assistiva): indicador ao vivo/fallback, "atualizado há n s", anúncios, regras de foco.
 - [ ] `@data-engineer` somente se o desenho acrescentar um mecanismo de banco.
@@ -123,7 +123,7 @@ O operador vê resgates, comandos e resultados de workers à medida que acontece
 
 ## Decisões do proprietário pendentes
 
-- **OD-23-1:** aprovar o texto da OPS-15 que reconcilia o CA 7 com esta story (texto exato em [po-validation.md](po-validation.md)); recomendado. A story da OPS-15 não é editada até o proprietário aprovar.
+- **OD-23-1 (DECIDIDA e APLICADA, proprietário, 2026-10-27):** o texto da OPS-15 que reconcilia o CA 7 com esta story (texto em [po-validation.md](po-validation.md)) foi aprovado e aplicado pelo `@po` na linha 44 e no CA 7 da OPS-15: atualização em tempo real por SSE entregue por esta story, polling de 5 s / 2 s apenas como fallback dela, sem WebSocket do painel.
 - **OD-23-2:** confirmar as metas numéricas marcadas [PROPOSTA] em "Critérios de aceite" (caminho ao vivo em até 2 s p95, janela de polling de 2 s de 60 s) ou informar outros valores. Deve ser fechada antes da FT-29 (correção exigida 1 da validação do `@po`). `@architect`/`@qa` confirmam que são testáveis.
 
 ## Definição de pronto

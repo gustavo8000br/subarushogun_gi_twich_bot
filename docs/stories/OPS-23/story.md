@@ -114,7 +114,7 @@ The operator sees redemptions, commands and worker results as they happen, witho
 - [x] `@architect` review and design options ([panel-defects-architecture-review.md](../OPS-15/panel-defects-architecture-review.md), 2026-10-26; SSE listed as optional slice S-G, now promoted by the owner).
 - [x] Owner decisions recorded (2026-10-27).
 - [x] `@analyst` SSE note: [sse-research.md](../OPS-15/sse-research.md) (2026-10-27). Findings used: Next 16.4.1 rewrites stream but have a 30 s idle proxy timeout, so the heartbeat must be below 30 s (the note suggests 15 s); gzip buffers SSE unless the response carries `Cache-Control: no-transform`; HTTP/1.1 allows 6 connections per origin; an `EventSource` closes for good on any non-200, so the client needs its own reconnect loop that renews `/api/session`; the note's slower 15-30 s polling fallback differs from the owner's 5 s / 2 s, and **the owner decision prevails**. The environment checks it lists (six items) remain for `@qa`.
-- [x] `@po` validation (10 points) and GO (9.0/10, 2026-10-27); the reconciliation of the OPS-15 wording stays pending owner approval (OD-23-1) and is a closing condition.
+- [x] `@po` validation (10 points) and GO (9.0/10, 2026-10-27); the reconciliation of the OPS-15 wording (OD-23-1) was decided by the owner and applied on 2026-10-27 (OPS-15 line 44 and AC 7; see the Change Log), so this closing condition is met.
 - [ ] `@architect` design: event model, process boundary, proxy/auth, connection cap, latency targets, fallback window, order against FT-01 and OPS-21 slice 3.
 - [ ] `@ux-design-expert` plan and review, **score ≥ 9.0/10**, recorded in this story (static review distinct from browser, visual and assistive-technology validation): live/fallback indicator, "updated n s ago", announcements, focus rules.
 - [ ] `@data-engineer` only if the design adds a database mechanism.
@@ -123,7 +123,7 @@ The operator sees redemptions, commands and worker results as they happen, witho
 
 ## Owner decisions pending
 
-- **OD-23-1:** approve the OPS-15 wording that reconciles AC 7 with this story (exact text in [po-validation.md](po-validation.md)); recommended. The OPS-15 story is not edited until the owner approves.
+- **OD-23-1 (DECIDED and APPLIED, owner 2026-10-27):** the OPS-15 wording that reconciles AC 7 with this story (text in [po-validation.md](po-validation.md)) was approved and applied by `@po` to OPS-15 line 44 and AC 7: real-time updates by SSE delivered by this story, 5 s / 2 s polling only as its fallback, no panel WebSocket.
 - **OD-23-2:** confirm the numeric targets marked [PROPOSAL] in "Acceptance criteria" (live path within 2 s p95, 2 s polling window of 60 s) or give other values. Must be closed before FT-29 (required correction 1 of the `@po` validation). `@architect`/`@qa` confirm that they are testable.
 
 ## Definition of Done
