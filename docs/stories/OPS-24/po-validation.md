@@ -43,14 +43,14 @@
 | FT-32 (TS-2 `outbox/*`) | NO | FT-30, FT-25, FT-26 merged. |
 | FT-33..FT-35 | NO | Per "Dependencies"; `@data-engineer` confirmation for FT-34. |
 
-## Owner decisions pending (status checked 2026-10-27)
+## Owner decisions (status updated 2026-10-28)
 
-- **OD-24-1 — PENDING:** formatting enforced through `lint` (`biome check`) after the formatting commit (recommended) vs a separate `format:check` gate.
-- **OD-24-2 — PENDING:** formatting-commit window (recommended above) and the fallback "formatter after the cutover". Note: the owner's part-by-part early cutover (2026-10-27) makes "a window with no open branch on `apps/` before the cutover freeze" less likely; the fallback "formatter after the cutover" becomes the probable path.
-- **OD-24-3 — PENDING:** OPS-23 waits only for TS-0 and TS-2 (recommended). The required correction 1 is already written into the story "Dependencies" by `@sm`, but no explicit owner confirmation was recorded; the owner decisions of 2026-10-27 (SSE through OPS-23, early cutover part by part, sequence "FT-25/FT-26, then OPS-24, then OPS-23" in the handoff) are **consistent** with it and do not contradict it. Blocks only the start of FT-27.
-- **OW-13 — PENDING:** push authorization for the CI evidence of AC 9.
+- **OD-24-1 — RESOLVED (owner, 2026-10-27):** Biome through `lint` (`biome check`), no new `format:check` gate (the recommendation). Story test plan item 6 updated; the quality-gate list in `AGENTS.md`/`CLAUDE.md` does not change for formatting. *(Was PENDING: formatting enforced through `lint` vs a separate `format:check` gate.)*
+- **OD-24-2 — RESOLVED (owner, 2026-10-27):** one single formatting-only commit **after OPS-15 cutover Wave 4**, hash in `.git-blame-ignore-revs`; TS-0 ships Biome as linter only until then; it never runs while FT-01/FT-28 branches on `apps/frontend` are open. Replaces the earlier window recommended above (the "formatter after the cutover" path, as this validation had predicted). *(Was PENDING.)*
+- **OD-24-3 — RESOLVED (owner, 2026-10-27, as written):** OPS-23 waits only for TS-0 and TS-2 (recommended). The required correction 1 was already written into the story "Dependencies" by `@sm`; the owner confirmation is now recorded there ("confirmed by the owner on 2026-10-27"). The start of FT-27 is no longer blocked by this decision. *(Was PENDING: no explicit owner confirmation had been recorded.)*
+- **OW-13 — PARTIALLY RESOLVED:** the branch push was done (owner, 2026-10-27), but CI does not run on a branch push, so the CI evidence of AC 9 still needs a separate owner decision (PR or `workflow_dispatch`). AC 9 stays open.
 
-Counts check: this file contains no backlog or board count; nothing stale to correct. Score and status unchanged (GO 9.0/10, Ready).
+Counts check: this file contains no backlog or board count; nothing stale to correct. Score and status unchanged (GO 9.0/10, Ready); decisions updated on 2026-10-28 by `@po`.
 
 ## Final status
 

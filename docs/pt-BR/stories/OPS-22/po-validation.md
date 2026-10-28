@@ -51,8 +51,8 @@
 
 - **OD-22-1 — DECIDIDA (proprietário, 2026-10-27):** os textos visíveis novos da OPS-22 entram no plano de UX da FT-23 (nota ≥ 9,0), sem gate próprio. Coincide com a recomendação.
 - **OD-22-2 — DECIDIDA (proprietário, 2026-10-27):** "cancelar exclusão" **ENTRA** na OPS-22 como fatia FT-36. Revoga a recomendação do `@po` (a decisão 2 acima fica substituída).
-- **OD-22-3 — PENDENTE:** confirmar Done sem evidência ao vivo, com o CA 19 como aceite separado do proprietário (recomendado).
-- **OW-16 — PENDENTE:** autorizar e agendar a verificação ao vivo.
+- **OD-22-3 — DECIDIDA (proprietário, 2026-10-27):** a OPS-22 pode chegar a Done sem evidência ao vivo; o CA 19 é um aceite separado do proprietário. Coincide com a recomendação. *(Estava PENDENTE até 2026-10-27.)*
+- **OW-16 — AUTORIZADA (proprietário, 2026-10-27):** a verificação ao vivo está autorizada; ela roda como validação ao vivo automatizada depois da entrega da FT-25 e da FT-26 (ainda sem data). *(Estava PENDENTE até 2026-10-27.)*
 
 ## Anexo — fatias FT-21 e FT-22 da OPS-15 (validadas na mesma sessão)
 
@@ -100,3 +100,17 @@ Rascunho → **Ready (Pronta)** (GO 9,5/10, issue #80). Registrado no Change Log
 6. `@qa` — plano de testes da FT-36.
 
 **Prontidão das fatias, atualizada:** a FT-24 (#82) foi **entregue** test-first e comitada localmente (`@qa` CONCERNS 8,6 código / 8,4 docs, sem bloqueios, [qa-gate-2026-10-27.md](qa-gate-2026-10-27.md); sem push). FT-25 e FT-26 sem mudança (gates na tabela acima; a FT-25 inclui a correção do 404 em `reward-worker.mjs:316` do achado C-1 do QA, conforme o handoff). **FT-36: NÃO PRONTA** (itens 1-6 acima). As fatias FT-21 e FT-22 do anexo da OPS-15 seguem a ordem do proprietário: FT-21 e depois FT-22, em sequência (mesmo arquivo). Nota para o `@dev`: com a FT-24 entregue, a transição `Ready → InProgress` pertence ao Change Log da OPS-22 (essa edição é do `@dev`/`@sm`, não desta validação).
+
+## Adendo 2026-10-28 — decisões do proprietário de 2026-10-27 registradas (`@po`, Pax)
+
+**Resolvidas (proprietário, 2026-10-27, repassadas pelo `@aiox-master`):**
+
+- **OD-22-3 — RESOLVIDA:** a OPS-22 pode chegar a Done sem evidência ao vivo; o CA 19 passa a ser um aceite separado do proprietário.
+- **OW-16 — RESOLVIDA (autorizada):** a verificação ao vivo está autorizada e vai rodar como validação ao vivo automatizada depois da entrega da FT-25 e da FT-26.
+
+**Ainda pendente (não muda com essas decisões):**
+
+- **Revalidação do escopo ampliado ("cancelar exclusão", FT-36): PENDENTE.** O texto da story já traz o CA 21 com os acréscimos (a) e (b), o risco da transição reversa, a complexidade "a reavaliar" e o CA 21 no plano de testes, então os pontos 3, 4 e 8 da tabela provisória devem subir; o `@po` **não** dá a nota final ainda porque a revisão e a repontuação de complexidade do `@architect`, a revisão do `@data-engineer` e o plano de testes do `@qa` para a FT-36 continuam abertos (caixas dos gates de planejamento ainda desmarcadas). **FT-36: NÃO PRONTA.** O GO provisório 7,5/10 continua valendo para o escopo ampliado; o 9,5/10 continua valendo para a FT-24..FT-26.
+- **Edição exigida do `@sm` (dono da story), en e pt-BR:** a "Definição de pronto" ainda diz que o CA 19 "é executado com o proprietário ou dispensado explicitamente por ele". Alinhar com a OD-22-3: o Done não exige o CA 19; o CA 19 fica registrado como aceite separado do proprietário (execução ao vivo automatizada depois da FT-25/FT-26, OW-16). O `@po` não editou a story (write set desta sessão).
+
+Sem mudança de status (a OPS-22 continua **Ready**; FT-24 entregue).

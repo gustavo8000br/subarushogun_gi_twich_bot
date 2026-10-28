@@ -65,16 +65,18 @@ GitHub limit: 50 fields. This design uses 15 custom fields.
 
 Text fields: one line plus links (field length limit not verified).
 
+**Update 2026-10-27, fifth (`@sm`):** 6 cards added (ST-18, ST-19, GV-13 = issue #94, TS-13, TS-14, OW-17), ST-04 moved to Rascunho (P2) and ST-07 (#74) moved under OPS-22; the resolved decisions are in section 7.1. Cards: 108 (27 issues + 79 drafts + 2 legacy). Nothing was created or edited on GitHub by this change.
+
 ## 2. What becomes a card
 
 **Recommendation: card = real issue whenever the item is a story, a roadmap parent issue or a slice about to be implemented; Project draft item for everything else, until it becomes an issue.**
 
-- **Issues (26 inventory cards):** the 13 issues open today (#19, #40, #48, #57, #60, #65, #69, #72, #73, #74, #76, #77, #78) plus **13 new issues** that `@devops` creates now (updated 2026-10-27; the 6 added are OPS-22, OPS-23 and OPS-24 as story parent issues, the OPS-15 slices FT-21 and FT-22, and the OPS-22 slice FT-24): the OPS-21 issue (ST-09, `Ready` today with no issue, a traceability gap) and the OPS-15 slices already running or ready (FT-01, FT-02, FT-05, FT-06, FT-07, FT-08). Rule: the issue exists before implementation.
-- **Drafts (74 cards):** 34 slices not yet issues (FT-03, FT-04, FT-09 to FT-20, FT-23, FT-25 to FT-43; FT-37 and FT-38 are the waves already in review or ready: because the rule is issue before implementation, `@devops` converts them to sub-issues of #69 before their commit), 12 governance items (GV), 12 test items (TS) and 16 owner actions (OW). None of these is a new story: governance is audit remediation, tests wait for decision OW-12 and OW-* are human actions. A draft carries title, body with links and the fields; `@devops` converts it to an issue in the UI when the slice leaves `Bloqueado`/enters `Pronto`, or when a GV/TS item gets a story (rule: "every new roadmap/story needs an issue", and a test is only removed with story, issue and owner decision).
+- **Issues (27 inventory cards, #94 included):** the 13 issues open today (#19, #40, #48, #57, #60, #65, #69, #72, #73, #74, #76, #77, #78) plus **13 new issues** that `@devops` creates now (updated 2026-10-27; the 6 added are OPS-22, OPS-23 and OPS-24 as story parent issues, the OPS-15 slices FT-21 and FT-22, and the OPS-22 slice FT-24): the OPS-21 issue (ST-09, `Ready` today with no issue, a traceability gap) and the OPS-15 slices already running or ready (FT-01, FT-02, FT-05, FT-06, FT-07, FT-08). Rule: the issue exists before implementation.
+- **Drafts (79 cards, updated 2026-10-27 fifth):** 2 draft stories (ST-18, ST-19), 34 slices not yet issues (FT-03, FT-04, FT-09 to FT-20, FT-23, FT-25 to FT-43; FT-37 and FT-38 are the waves already in review or ready: because the rule is issue before implementation, `@devops` converts them to sub-issues of #69 before their commit), 12 governance items (GV; GV-13 is the issue #94), 14 test items (TS) and 17 owner actions (OW). None of these is a new story: governance is audit remediation, tests wait for decision OW-12 and OW-* are human actions. A draft carries title, body with links and the fields; `@devops` converts it to an issue in the UI when the slice leaves `Bloqueado`/enters `Pronto`, or when a GV/TS item gets a story (rule: "every new roadmap/story needs an issue", and a test is only removed with story, issue and owner decision).
 - **Legacy (2 cards):** #17 and #18, already `Done`, stay as they are (the mapping of `Done` to `Concluído` happens when the options are renamed; `@devops` checks it).
-- **Total:** 102 cards on the board (26 issues + 74 inventory drafts + 2 legacy).
+- **Total:** 108 cards on the board (27 issues + 79 inventory drafts + 2 legacy).
 - Drafts take no issue comments, so the "never comment on issues" rule is not at risk; `@devops` edits the draft body. Pull requests are not cards.
-- Inventory item with neither issue nor draft: none. All 100 inventory IDs get one card each.
+- Inventory item with neither issue nor draft: none. All 106 inventory IDs get one card each.
 
 ## 3. Sub-issue hierarchy
 
@@ -83,7 +85,6 @@ Create with `gh issue edit <child> --parent <parent>` (or `--add-sub-issue`), `g
 ```text
 #69 OPS-15 Panel/overlay migration to Next.js            (roadmap parent issue)
  ├── #72 OPS-16 Explain call-message variables
- ├── #74 Diagnose reconciliation (panel part)
  ├── #77 OPS-18 Current Account as identity overlay
  ├── #78 OPS-19 Confirm reward when service starts
  ├── FT-01 Page polish                  (new issue now)
@@ -101,6 +102,7 @@ OPS-21 API contract (new issue now)                      (story parent issue)
  └── FT-11 .. FT-17  slices 1 to 7      (issue when the slice becomes ready)
 
 OPS-22 Financial recovery and queue deletion              (story parent issue, new now; native "blocks" the cutover of #69)
+ ├── #74 Diagnose reconciliation (sub-issue of #80 since 2026-10-27; left #69)
  └── FT-24 (issue now), FT-25, FT-26, FT-36  slices 1 to 4 (issue when the slice becomes ready)
 
 OPS-23 Real-time panel (SSE) and shared state                (story parent issue, new now; native "blocks" the cutover of #69)
@@ -109,15 +111,18 @@ OPS-23 Real-time panel (SSE) and shared state                (story parent issue
 OPS-24 Backend to TypeScript and Biome                       (story parent issue, new now; does not block the cutover)
  └── FT-30 .. FT-35  slices TS-0 to TS-5 (issue when the slice becomes ready)
 
+#94 ROADMAP Documentation and chat (DOC-2, DOC-3, OPS-14, OPS-17)   (roadmap parent issue, created 2026-10-27)
+ ├── #40 DOC-2, #73 OPS-17, #65 OPS-14, #48 DOC-3
+
 #76 OPS-20 Refund eligibility                            (story parent issue)
  └── FT-18, FT-19, FT-20  slices 1 to 3 (issue when the slice becomes ready)
 ```
 
-Native links once everything exists: 47 (4 existing under #69, 20 OPS-15 slices (the 13 earlier plus the 7 cutover waves), 7 OPS-21, 3 OPS-20, 4 OPS-22, 3 OPS-23 and 6 OPS-24; updated 2026-10-27). **Create now: 13** (#72, #74, #77, #78 and the 6 new slices plus FT-21 and FT-22 under #69, and FT-24 under the OPS-22 issue; the OPS-21 issue is born without a parent, as the story's parent issue). The rest are just-in-time.
+Native links once everything exists: 47 (4 existing under #69, 20 OPS-15 slices (the 13 earlier plus the 7 cutover waves), 7 OPS-21, 3 OPS-20, 4 OPS-22, 3 OPS-23 and 6 OPS-24; updated 2026-10-27; fifth update: #74 moves from #69 to #80 and #94 adds 4 links, so 51). **Create now: 13** (#72, #74, #77, #78 and the 6 new slices plus FT-21 and FT-22 under #69, and FT-24 under the OPS-22 issue; the OPS-21 issue is born without a parent, as the story's parent issue). The rest are just-in-time.
 
-Without a parent (independent, linked by native "blocked by" and by Depende de): #57 (OPS-13), #19 (FND-9), #65 (OPS-14), #73 (OPS-17), #40 (DOC-2), #48 (DOC-3), #60 (OPS-12). Suggested native dependencies: #65 blocked by #57; #73 by #65; #40 by #19; #48 by #40.
+Without a parent (independent, linked by native "blocked by" and by Depende de): #57 (OPS-13), #19 (FND-9), #60 (OPS-12); #65, #73, #40 and #48 have the parent #94 since 2026-10-27, and #57 stays open (ST-04 waits for ST-18). Suggested native dependencies: #65 blocked by #57; #73 by #65; #40 by #19; #48 by #40.
 
-Note: the #69 → #72/#74/#77/#78 relation is textual only in the issue bodies today ([inventory](backlog-inventory.md), section 3); the native link is what the roadmap rule requires.
+Note: the #69 → #72/#77/#78 relation is textual only in the issue bodies today ([inventory](backlog-inventory.md), section 3); the native link is what the roadmap rule requires.
 
 ## 4. Views
 
@@ -152,10 +157,10 @@ Fill rules (`@devops` loads; no value is invented):
 | ST-01 | #69 | Em andamento | OPS-15 Migração Next | P0 | GG | @dev | Painel Next | Implementação @dev | 8 | FT-01..FT-10, FT-21..FT-23, FT-37..FT-43, ST-15, ST-16, OW-01..OW-11 | Conduzir as fatias; revisões finais @qa/@architect (FT-09) |
 | ST-02 | #77 | Em andamento | Estabilização | P1 | P | @qa | Overlay/OBS | Gate @qa | 3 | — | @qa mapeia AC a evidências e emite veredito |
 | ST-03 | #78 | Em andamento | Estabilização | P1 | P | @qa | Twitch/worker | Gate @qa | 3 | — | @qa reexecuta a suíte completa e emite veredito |
-| ST-04 | #57 | Em revisão | Estabilização | P1 | P | Proprietário | Overlay/OBS | Aceite do proprietário | 3 | OW-03 | Proprietário retesta o widget no OBS nativo (não fechar com evidência Linux) |
+| ST-04 | #57 | Rascunho | Estabilização | P2 | P | @po | Overlay/OBS | Planejamento @po | 16 | ST-18, OW-03 | Validação pendente, conduzida pela ST-18 (OPS-25) depois da ST-01; não fechar a #57 com evidência Linux |
 | ST-05 | #19 | Em revisão | Estabilização | P1 | P | Proprietário | Twitch/worker | Aceite do proprietário | 10 | OW-01, OW-04 | @po/@qa reconciliam checkboxes dos AC; proprietário agenda aceite |
 | ST-06 | #65 | Backlog | Chat e mensagens | P2 | G | @sm | Twitch/worker | Planejamento @po | 15 | ST-04, ST-01 | Localizar ou recriar a story bilíngue OPS-14 e validar |
-| ST-07 | #74 | Backlog | OPS-15 Migração Next | P1 | M | @sm | Painel Next | Planejamento @po | 6 | ST-01 | @sm cria a story bilíngue a partir da issue; causa-raiz com @architect |
+| ST-07 | #74 | Backlog | OPS-22 Recuperação financeira | P1 | M | @devops | Twitch/worker | Nenhum | 6 | ST-15 | Incorporada à OPS-22 (#80), sem story própria; acompanhar pela ST-15 e manter a sub-issue sob a #80 |
 | ST-08 | #72 | Backlog | Chat e mensagens | P2 | M | @po | Painel Next | Planejamento @po | 8 | FT-01 | @po valida a story; depois plano @ux >= 9,0 |
 | ST-09 | issue nova (agora) | Rascunho | OPS-21 Contrato da API | P1 | GG | @devops | API | Planejamento @ux | 2 | GV-03 | @devops cria a issue-mãe; @ux e @qa concluem seus gates |
 | ST-10 | #76 | Rascunho | OPS-20 Elegibilidade de devolução | P2 | GG | @po | Banco de dados | Planejamento @po | 14 | ST-01, ST-09, GV-03, OW-05 | Resolver CONCERNS do plano @qa; relabel via GV-03 |
@@ -166,6 +171,8 @@ Fill rules (`@devops` loads; no value is invented):
 | ST-15 | #80 | Pronto | OPS-22 Recuperação financeira | P1 | GG | @dev | Twitch/worker | Implementação @dev | 4 | ST-01 (dependência do corte) | GO do @po 9,5; @architect e @data-engineer concluídos (ciclo de 6 tentativas 1/4/16/60/60 min, sem migration, 4 defeitos de código a absorver, deps `@twurple/common`/`@twurple/api-call` 8.2.0); falta o plano de testes do @qa; começar pela FT-24 |
 | ST-16 | #81 | Pronto | OPS-23 Tempo real | P1 | GG | @architect | Painel Next | Planejamento @architect | 6 | ST-01, FT-01 | GO do @po 9,0; desenho do @architect e plano @ux >= 9,0; proprietário decide OD-23-1 (texto da OPS-15) e OD-23-2 (metas: caminho ao vivo 2 s p95, janela de 60 s) |
 | ST-17 | #91 | Pronto | OPS-24 TypeScript e Biome | P2 | GG | @architect | API | Planejamento @architect | 16 | ST-15 (OPS-22 primeiro) | GO do @po 9,0; @architect, @data-engineer e @qa concluem seus gates; proprietário decide OD-24-1..3 (a OPS-23 espera só a TS-0 e a TS-2) |
+| ST-18 | rascunho | Bloqueado | Estabilização | P2 | M | @po | Overlay/OBS | Planejamento @po | 16 | ST-01, ST-04, redução das tarefas do quadro | Story OPS-25 em Draft: validar o widget da conta no overlay Next (OBS nativo; @qa executa, @ux-design-expert ≥ 9,0); issue pelo @devops quando pronta |
+| ST-19 | rascunho | Bloqueado | Chat e mensagens | P2 | M | @po | Twitch/worker | Planejamento @po | 16 | ST-01 (#69 integrada no main), ST-15 | Story OPS-26 em Draft: `ping` com latência real (D-8) e `status` do streamer; só depois do merge da branch no main; issue pelo @devops quando pronta |
 | FT-01 | issue nova (agora) | Pronto | OPS-15 Migração Next | P0 | G | @ux-design-expert | Painel Next | Planejamento @ux | 8 | FT-02, FT-05 | Planos @ux por página (>= 9,0); depois @dev test-first |
 | FT-02 | issue nova (agora) | Pronto | OPS-15 Migração Next | P1 | P | @dev | API | Implementação @dev | 4 | — | Red em token desconhecido na criação de fila; depois @qa |
 | FT-03 | rascunho | Bloqueado | OPS-15 Migração Next | P1 | G | @qa | Painel Next | Plano de testes @qa | 8 | FT-01 | Escrever E1-E8 após a UI estabilizar (E8 manual do proprietário) |
@@ -221,6 +228,7 @@ Fill rules (`@devops` loads; no value is invented):
 | GV-10 | rascunho | Bloqueado | Governança | P1 | M | @qa | Docs/processo | Gate @qa | 1 | GV-01..GV-07 | Revisão de conteúdo do commit `89c67b8` após as regras finais |
 | GV-11 | rascunho | Pronto | Governança | P2 | P | @devops | Infra/CI | Commit/PR @devops | 11 | — | Confirmar a ausência do hook e instalar ou corrigir o README |
 | GV-12 | rascunho | Pronto | Governança | P2 | P | @po | Docs/processo | Planejamento @po | 1 | — | Confirmar origem com o proprietário; corrigir índice de stories |
+| GV-13 | #94 | Backlog | Documentação | P2 | P | @sm | Docs/processo | Nenhum | 16 | — | Issue-mãe do roadmap Documentação e chat; @devops vincula as sub-issues #40, #73, #65, #48 (ST-12, ST-11, ST-06/OPS-14, ST-13/DOC-3); OPS-14 sem arquivo de story: lacuna de rastreabilidade |
 | TS-01 | rascunho | Aguardando decisão | Qualidade e testes | P2 | P | Proprietário | Painel Next | Aceite do proprietário | 11 | OW-12 | Decidir remoção; depois issue e @dev; executada pela FT-37 (onda 0) sob a autorização do cutover incremental |
 | TS-02 | rascunho | Aguardando decisão | Qualidade e testes | P2 | P | Proprietário | Docs/processo | Aceite do proprietário | 11 | OW-12 | Decidir reescrita ou remoção dos 3 testes |
 | TS-03 | rascunho | Aguardando decisão | Qualidade e testes | P2 | P | Proprietário | Banco de dados | Aceite do proprietário | 11 | OW-12 | Decidir mover o teste com Prisma mockado para unit |
@@ -233,6 +241,8 @@ Fill rules (`@devops` loads; no value is invented):
 | TS-10 | rascunho | Bloqueado | Qualidade e testes | P1 | M | @dev | Painel Next | Implementação @dev | 8 | FT-01 | Portar contratos classe B para testes Next test-first; bloqueia a FT-42 (onda 4) |
 | TS-11 | rascunho | Bloqueado | Qualidade e testes | P2 | P | @dev | Infra/CI | Implementação @dev | 11 | OW-13 | Medir tempos e a primeira execução de CI da branch |
 | TS-12 | rascunho | Bloqueado | Qualidade e testes | P1 | M | @dev | Painel Next | Implementação @dev | 13 | FT-10 | Remover testes classe C e ajustar asserções acopladas no mesmo change |
+| TS-13 | rascunho | Bloqueado | Chat e mensagens | P2 | P | @dev | Twitch/worker | Implementação @dev | 16 | ST-19 | Teste obrigatório do D-8 (LB-23): o ping do chat falha sem o valor em ms havendo medição; casos presente, ausente e Twitch com falha |
+| TS-14 | rascunho | Bloqueado | Chat e mensagens | P2 | M | @dev | Twitch/worker | Implementação @dev | 16 | ST-19, TS-13 | Testes do `status`: permissão do streamer, allowlist de campos, limite do chat por idioma, taxa com fake timers |
 | OW-01 | rascunho | Pronto | OPS-15 Migração Next | P1 | M | Proprietário | Infra/CI | Aceite do proprietário | 10 | — | Agendar ciclo do instalador Windows em Docker real |
 | OW-02 | rascunho | Pronto | OPS-15 Migração Next | P2 | P | Proprietário | Infra/CI | Aceite do proprietário | 10 | — | Agendar `npm run dev` e `dev:start`/`dev:stop` no Windows |
 | OW-03 | rascunho | Pronto | Estabilização | P1 | P | Proprietário | Overlay/OBS | Aceite do proprietário | 3 | — | Retestar o OBS nativo (certificado, transparência, recarga) |
@@ -249,8 +259,9 @@ Fill rules (`@devops` loads; no value is invented):
 | OW-14 | rascunho | Aguardando decisão | Governança | P3 | P | Proprietário | Infra/CI | Aceite do proprietário | 15 | — | Dizer quando `backup/ops-15-before-history-fix` pode ser apagada |
 | OW-15 | rascunho | Aguardando decisão | OPS-21 Contrato da API | P2 | P | Proprietário | API | Aceite do proprietário | 6 | — | Decidir fechar com a fatia 7 aberta, ordem das fatias 3-4 e timeout |
 | OW-16 | rascunho | Aguardando decisão | OPS-22 Recuperação financeira | P1 | M | Proprietário | Twitch/worker | Aceite do proprietário | 10 | ST-15, FT-24, OW-04 | Autorizar e agendar a checagem ao vivo de resgate real (4 checagens do analista) |
+| OW-17 | rascunho | Bloqueado | Chat e mensagens | P2 | P | Proprietário | Twitch/worker | Aceite do proprietário | 16 | ST-19, OW-04 | Checagem ao vivo do `ping` e do `status` no canal, depois da OPS-26 implementada |
 
-**Counts (updated 2026-10-27, fourth):** 100 inventory items (17 ST, 43 FT, 12 GV, 12 TS, 16 OW) = 26 issues + 74 drafts (102 cards with the 2 legacy). By Situação: Backlog 3, Rascunho 2, Aguardando decisão 18, Pronto 25, Em andamento 5, Em revisão 3, Bloqueado 43, Concluído 1 (OW-09). Changes in this update: FT-37..FT-43 added (Em revisão 1, Pronto 1, Bloqueado 5) and OW-09 moved from Aguardando decisão to Concluído. Earlier: ST-15, ST-16, ST-17 and FT-24 became Pronto after the @po GO (third update). Native dependencies to add: the OPS-22 and OPS-23 issues block the cutover item (FT-10); FT-23 is blocked by FT-28 and FT-26.
+**Counts (updated 2026-10-27, fifth):** 106 inventory items (19 ST, 43 FT, 13 GV, 14 TS, 17 OW) = 27 issues + 79 drafts (108 cards with the 2 legacy). By Situação: Backlog 4, Rascunho 3, Aguardando decisão 18, Pronto 25, Em andamento 5, Em revisão 2, Bloqueado 48, Concluído 1 (OW-09). Fifth update: ST-18, ST-19, TS-13, TS-14 and OW-17 added as Bloqueado, GV-13 (#94) added as Backlog, ST-04 moved from Em revisão to Rascunho (validation pending, P2), ST-07 (#74) is incorporated into OPS-22 (Fase OPS-22, no story of its own). Changes in this update: FT-37..FT-43 added (Em revisão 1, Pronto 1, Bloqueado 5) and OW-09 moved from Aguardando decisão to Concluído. Earlier: ST-15, ST-16, ST-17 and FT-24 became Pronto after the @po GO (third update). Native dependencies to add: the OPS-22 and OPS-23 issues block the cutover item (FT-10); FT-23 is blocked by FT-28 and FT-26.
 
 ## 6. Maintenance rules
 
@@ -314,4 +325,13 @@ Recorded in the [cutover plan](../stories/OPS-15/cutover-plan.md), section 5. Th
 | DP-6 | Delete `repository.archiveQueue` with the route | **RESOLVED: yes** (FT-41); `@data-engineer` and `@po` still confirm before the wave |
 | OW-09 | Keep the `/overlay.html` aliases | **RESOLVED: not needed** (no active users, no compatibility shims until `rc`/`stable`); the card is Concluído and the aliases leave in FT-39 after the `@po` rewrites AC 3/AC 8 |
 
-Still open in the plan: DP-3 (catalog path; recommended `apps/shared/localization/catalogs/`), DP-4, DP-5, DP-7 (not blocking waves 0 and 1).
+| DP-3 | Catalog path | **RESOLVED (2026-10-27):** `apps/shared/localization/catalogs/` (wave 2, FT-40) |
+| DP-4 | Who validates focus/layout on the phone | **RESOLVED:** `@ux-design-expert` + `@qa` (wave 4, FT-42) |
+| DP-5 | CI job `web` | **RESOLVED:** renamed to `frontend` (wave 4) |
+| DP-7 | Beta changelog sentence about the first-use difference | **RESOLVED:** already applied |
+| OD-23-2 | SSE targets | **RESOLVED:** p95 <= 2 s live; fallback polling 2 s for 60 s; keep-alive 15 s; aggregation 100-250 ms (the OPS-23 story is the `@po`'s) |
+| OD-24-1 / OD-24-2 | Biome in the gates / formatting | **RESOLVED:** Biome through `lint` (`biome check`); formatting commit after wave 4 |
+| OD-22-3 | May OPS-22 reach Done without the live check | **RESOLVED: yes** (separate acceptance; OW-16 authorized, live run automated after FT-25/FT-26) |
+| OW-13 | Push of the branch | **RESOLVED:** done; CI does not run on branch pushes, so a PR or dispatch is a separate decision |
+| Wave issues | FT-39..FT-43 | **RESOLVED:** an issue only when each wave is ready; wave 3 (FT-39) is ready for the `@dev` and validated manually by the owner; wave 1 (FT-38) is in `bfff2f1`; wave 0 in `0eb4fd2` |
+| #74 / #57 | Issue #74 and issue #57 | **RESOLVED:** #74 incorporated into OPS-22 (sub-issue of #80); #57 stays open, ST-04 waits for ST-18 (OPS-25) |

@@ -59,8 +59,8 @@ Status: **DECIDED and APPLIED on 2026-10-27 (OD-23-1)** — the owner abandoned 
 ## Owner decisions (status updated 2026-10-27)
 
 - **OD-23-1 — DECIDED and APPLIED (2026-10-27):** OPS-15 lines 44 and 105 reconciled with SSE (adapted text above). Point 10 deduction is lifted for this item; the 9.0/10 is kept as recorded (no re-scoring needed for a wording fix).
-- **OD-23-2 — PENDING:** confirm the numeric targets marked [PROPOSAL] in the story (live path 2 s p95; 2 s polling window of 60 s). Must be decided before FT-29.
-- **OD-24-3 — PENDING (affects the start of FT-27):** OPS-23 waits only for TS-0 and TS-2 (recommended in the OPS-24 validation).
+- **OD-23-2 — RESOLVED (owner, 2026-10-27):** targets approved as written — live path p95 ≤ 2 s; fallback polling 2 s for 60 s, then 5 s; keep-alive 15 s; coalescing 100 to 250 ms. The [PROPOSAL] markers were removed from the story (introduction of "Acceptance criteria", AC 12, AC 14; en and pt-BR) and the decision is in its Change Log. The FT-29 precondition "OD-23-2 closed" is met; `@architect`/`@qa` still confirm testability (required correction 1). *(Was PENDING until 2026-10-27.)*
+- **OD-24-3 — RESOLVED (owner, 2026-10-27, as written):** OPS-23 waits only for TS-0 and TS-2. Recorded in OPS-24 "Dependencies" and its validation. *(Was PENDING until 2026-10-27.)*
 
 Counts check: this file contains no backlog or board count; nothing stale to correct.
 

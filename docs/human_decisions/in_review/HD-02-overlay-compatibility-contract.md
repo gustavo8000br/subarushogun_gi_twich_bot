@@ -1,5 +1,7 @@
 # HD-02 — Overlay compatibility contract
 
+> **SUPERSEDED on 2026-10-28 by the owner decision** (no active users until `rc`, OW-09 of 2026-10-27; the `/overlay.html` alias was removed in cutover Wave 3; the overlay route is `/overlay?ref=<reference>#<capability>`, served by Next without redirect, and `/overlay.html` receives Next's 404). See [`docs/stories/OPS-15/cutover-wave-3.md`](../../stories/OPS-15/cutover-wave-3.md). The `/overlay.html` path below is kept unchanged as a historical record. Wave 3 status on 2026-10-28: implemented and validated by `@dev`, awaiting the `@qa` verdict.
+
 **Status:** Owner decision recorded (2026-10-19); production build/runtime and OBS/CEF validation remain pending. Architectural reconciliation with #57 remains open.
 **Português:** [HD-02 — Contrato de compatibilidade do overlay](../../decisoes_humanas/em_revisao/HD-02-contrato-compatibilidade-overlay.md)
 
