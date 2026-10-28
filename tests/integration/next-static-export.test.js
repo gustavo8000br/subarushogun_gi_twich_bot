@@ -29,8 +29,8 @@ describe('Next.js production overlay server build', () => {
     }));
     // OPS-15 cutover wave 1: the Next overview owns `/`; no vanilla document or asset is proxied.
     expect(routes.rewrites.beforeFiles.filter(({ source }) => ['/', '/styles.css', '/app.js'].includes(source))).toEqual([]);
-    expect(routes.rewrites.afterFiles).toContainEqual(expect.objectContaining({
-      source: '/overlay.html', destination: '/overlay',
-    }));
+    // OPS-15 cutover wave 3: the /overlay.html alias is retired; the built Next app serves /overlay itself.
+    const allRewrites = [...routes.rewrites.beforeFiles, ...routes.rewrites.afterFiles, ...routes.rewrites.fallback];
+    expect(allRewrites.filter(({ source }) => source.includes('overlay.html'))).toEqual([]);
   }, 120_000);
 });

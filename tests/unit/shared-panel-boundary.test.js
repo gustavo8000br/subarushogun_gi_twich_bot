@@ -66,12 +66,17 @@ describe('apps/shared/panel module boundary (OPS-15 S-03)', () => {
     expect(unresolved).toEqual([]);
   });
 
-  it('points the vanilla panel and overlay entrypoints at the shared panel prefix', () => {
+  it('points the vanilla panel entrypoint at the shared panel prefix', () => {
     const app = readFileSync(join(root, 'apps/web/app.js'), 'utf8');
-    const overlay = readFileSync(join(root, 'apps/web/overlay.js'), 'utf8');
     for (const name of SHARED_PANEL_MODULES.filter((module) => !module.startsWith('overlay-renderer'))) {
       expect(app).toContain(`from '../shared/panel/${name}'`);
     }
-    expect(overlay).toContain("from '../shared/panel/overlay-renderer.mjs'");
+  });
+
+  it('has no vanilla overlay: the Next /overlay route is the only overlay document (OPS-15 cutover wave 3)', () => {
+    for (const name of ['overlay.html', 'overlay.js', 'overlay.css']) {
+      expect(existsSync(join(root, 'apps/web', name)), `apps/web/${name} must not exist`).toBe(false);
+    }
+    expect(existsSync(join(root, 'apps/frontend/app/(overlay)/overlay/page.jsx'))).toBe(true);
   });
 });

@@ -139,7 +139,7 @@ describe('Next OBS widget management page', () => {
   });
 
   it('creates with the existing payload contract and exposes the capability only in the one-time dialog', async () => {
-    const secretUrl = 'https://localhost:3000/overlay.html?ref=widget-ref#one-time-secret';
+    const secretUrl = 'https://localhost:3000/overlay?ref=widget-ref#one-time-secret';
     const request = vi.fn(async (path, options) => path === '/api/overlay-widgets' && options?.method === 'POST'
       ? { widget: widget({ fixedText: 'Ready' }), capabilityUrl: secretUrl }
       : path === '/api/overlay-widgets' ? [] : {});
@@ -169,7 +169,7 @@ describe('Next OBS widget management page', () => {
 
   it.each(['queue_name', 'queue_state', 'queue_waiting_count'])('keeps %s tied to the selected queue and linked reward', async (sourceType) => {
     const request = vi.fn(async (path, options) => path === '/api/overlay-widgets' && options?.method === 'POST'
-      ? { widget: widget({ sourceType: 'queue_name', queueId: 'queue-1' }), capabilityUrl: 'https://localhost/overlay.html#secret' }
+      ? { widget: widget({ sourceType: 'queue_name', queueId: 'queue-1' }), capabilityUrl: 'https://localhost/overlay#secret' }
       : []);
     renderPage({ request });
     await screen.findByText('No widgets created');
@@ -221,7 +221,7 @@ describe('Next OBS widget management page', () => {
 
   it('closes the regenerate confirmation before opening the masked link dialog and returns focus to the card', async () => {
     const active = widget();
-    const secretUrl = 'https://localhost/overlay.html#replacement-secret';
+    const secretUrl = 'https://localhost/overlay#replacement-secret';
     const request = vi.fn(async (path, options) => {
       if (path.endsWith('/regenerate') && options?.method === 'POST') return { widget: { ...active, version: 4 }, capabilityUrl: secretUrl };
       if (path === '/api/overlay-widgets') return [active];
@@ -290,7 +290,7 @@ describe('Next OBS widget management page', () => {
   it('keeps accepted create feedback distinct when the widget projection refresh fails', async () => {
     let widgetListReads = 0;
     const request = vi.fn(async (path, options) => {
-      if (path === '/api/overlay-widgets' && options?.method === 'POST') return { widget: widget({ fixedText: 'Ready' }), capabilityUrl: 'https://localhost/overlay.html#one-time' };
+      if (path === '/api/overlay-widgets' && options?.method === 'POST') return { widget: widget({ fixedText: 'Ready' }), capabilityUrl: 'https://localhost/overlay#one-time' };
       if (path === '/api/overlay-widgets' && ++widgetListReads > 1) throw Object.assign(new Error('read failed'), { referenceId: 'refresh-ref-1' });
       return [];
     });
@@ -299,7 +299,7 @@ describe('Next OBS widget management page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create your first widget' }));
     fireEvent.submit(document.querySelector('.widget-editor-form'));
     fireEvent.click(await screen.findByRole('button', { name: 'Show link' }));
-    expect(screen.getByDisplayValue('https://localhost/overlay.html#one-time')).toBeTruthy();
+    expect(screen.getByDisplayValue('https://localhost/overlay#one-time')).toBeTruthy();
     expect(await screen.findByText(/Widget creation was accepted, but the widget list could not refresh/)).toBeTruthy();
     expect(await screen.findByText('Reference: refresh-ref-1')).toBeTruthy();
   });
@@ -335,7 +335,7 @@ describe('Next OBS widget management page', () => {
 });
 
 describe('one-time widget link dialog guards (jsdom stub, not browser evidence)', () => {
-  const secretUrl = 'https://localhost/overlay.html?ref=r1#guarded-secret-value';
+  const secretUrl = 'https://localhost/overlay?ref=r1#guarded-secret-value';
   const active = widget();
 
   async function openLink({ list = [active] } = {}) {

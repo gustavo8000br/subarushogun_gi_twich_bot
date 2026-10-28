@@ -104,7 +104,7 @@ describe('local queue and setup API', () => {
 
   it('never replays a one-time OBS capability URL from the idempotency store', async () => {
     const outcomes = new Map();
-    const capabilityUrl = 'https://localhost:3000/overlay.html#one-time-secret-must-not-replay';
+    const capabilityUrl = 'https://localhost:3000/overlay#one-time-secret-must-not-replay';
     const widgetService = { create: vi.fn(async () => ({ widget: { id: 'widget-id', sourceType: 'fixed_text', version: 1 }, capabilityUrl })) };
     let h;
     h = await createHarness({ beforeSession: async ({ app, repository }) => {
