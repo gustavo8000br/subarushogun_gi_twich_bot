@@ -51,8 +51,8 @@
 
 - **OD-22-1 — DECIDED (owner, 2026-10-27):** the new visible text of OPS-22 joins the FT-23 UX plan (score ≥ 9.0), no gate of its own. Matches the recommendation.
 - **OD-22-2 — DECIDED (owner, 2026-10-27):** "cancel deletion" is **IN** OPS-22 as slice FT-36. Overrules the `@po` recommendation (decision 2 above is superseded).
-- **OD-22-3 — PENDING:** confirm Done without live evidence, with AC 19 as a separate owner acceptance (recommended).
-- **OW-16 — PENDING:** authorize and schedule the live check.
+- **OD-22-3 — DECIDED (owner, 2026-10-27):** OPS-22 may reach Done without live evidence; AC 19 is a separate owner acceptance. Matches the recommendation. *(Was PENDING until 2026-10-27.)*
+- **OW-16 — AUTHORIZED (owner, 2026-10-27):** the live check is authorized; it runs as an automated live validation after FT-25 and FT-26 are delivered (not scheduled yet). *(Was PENDING until 2026-10-27.)*
 
 ## Annex — OPS-15 slices FT-21 and FT-22 (validated in the same session)
 
@@ -100,3 +100,17 @@ Draft → **Ready** (GO 9.5/10, issue #80). Recorded in the story Change Log (en
 6. `@qa` — test plan for FT-36.
 
 **Slice readiness, updated:** FT-24 (#82) **delivered** test-first and committed locally (`@qa` CONCERNS 8.6 code / 8.4 docs, no blockers, [qa-gate-2026-10-27.md](qa-gate-2026-10-27.md); no push). FT-25 and FT-26 unchanged (gates in the table above; FT-25 includes the `reward-worker.mjs:316` 404 fix from QA finding C-1 per the handoff). **FT-36: NOT READY** (items 1-6 above). The OPS-15 annex slices FT-21 and FT-22 are ordered by the owner: FT-21 then FT-22 in sequence (same file). Note for `@dev`: with FT-24 delivered, the `Ready → InProgress` transition belongs in the OPS-22 Change Log (owner of that edit: `@dev`/`@sm`, not this validation).
+
+## Addendum 2026-10-28 — owner decisions of 2026-10-27 recorded (`@po`, Pax)
+
+**Resolved (owner, 2026-10-27, relayed by `@aiox-master`):**
+
+- **OD-22-3 — RESOLVED:** OPS-22 may reach Done without live evidence; AC 19 becomes a separate owner acceptance.
+- **OW-16 — RESOLVED (authorized):** the live check is authorized and will run as an automated live validation after FT-25 and FT-26 are delivered.
+
+**Still pending (unchanged by these decisions):**
+
+- **Re-validation of the widened scope ("cancel deletion", FT-36): PENDING.** The story text now carries AC 21 with additions (a) and (b), the reverse-transition risk, the "to re-evaluate" complexity and AC 21 in the test plan, so points 3, 4 and 8 of the provisional table are expected to rise; `@po` does **not** issue the final score yet because the `@architect` re-review and complexity re-score, the `@data-engineer` re-review and the `@qa` test plan for FT-36 are still open (planning-gate boxes still unticked). **FT-36: NOT READY.** The provisional GO 7.5/10 stays in force for the widened scope; the 9.5/10 still applies to FT-24..FT-26.
+- **Required edit for `@sm` (story owner), en and pt-BR:** the "Definition of Done" still says "AC 19 is either executed with the owner or explicitly waived by the owner". Align it with OD-22-3: Done does not require AC 19; AC 19 is recorded as a separate owner acceptance (automated live run after FT-25/FT-26, OW-16). `@po` did not edit the story (write set of this session).
+
+No status change (OPS-22 stays **Ready**; FT-24 delivered).

@@ -65,14 +65,16 @@ Teto do GitHub: 50 campos. Este desenho usa 15 personalizados.
 
 Para campos de texto: uma linha mais links (limite de tamanho do campo não verificado).
 
+**Atualização 2026-10-27, quinta (`@sm`):** 6 cards acrescentados (ST-18, ST-19, GV-13 = issue #94, TS-13, TS-14, OW-17), ST-04 passou para Rascunho (P2) e a ST-07 (#74) passou para baixo da OPS-22; as decisões resolvidas estão na seção 7.1. Cards: 108 (27 issues + 79 rascunhos + 2 legados). Nada foi criado nem editado no GitHub por esta mudança.
+
 ## 2. O que vira card
 
 **Recomendação: card = issue real sempre que o item for uma story, a issue-mãe de um roadmap ou uma fatia prestes a ser implementada; rascunho (draft item) do Project para todo o resto, até virar issue.**
 
-- **Issues (26 cards do inventário):** as 13 issues abertas hoje (#19, #40, #48, #57, #60, #65, #69, #72, #73, #74, #76, #77, #78), mais **13 issues novas** que o `@devops` cria agora (atualizado em 2026-10-27; as 6 acrescentadas são OPS-22, OPS-23 e OPS-24 como issues-mãe de story, as fatias de OPS-15 FT-21 e FT-22 e a fatia FT-24 da OPS-22): a issue de OPS-21 (ST-09, hoje `Ready` sem issue, pendência de rastreabilidade) e as fatias de OPS-15 já em curso ou prontas (FT-01, FT-02, FT-05, FT-06, FT-07, FT-08). Regra: a issue existe antes da implementação.
-- **Rascunhos (74 cards):** 34 fatias que ainda não são issues (FT-03, FT-04, FT-09 a FT-20, FT-23, FT-25 a FT-43; FT-37 e FT-38 são as ondas já em revisão ou prontas: como a regra é issue antes da implementação, o `@devops` as converte em sub-issues da #69 antes do commit), 12 itens de governança (GV), 12 de testes (TS) e 16 ações do proprietário (OW). Nenhum desses é story nova: governança é remediação de auditoria, testes aguardam a decisão OW-12 e OW-* são ações da pessoa. O rascunho carrega título, corpo com links e os campos; o `@devops` o converte em issue pela interface quando a fatia sai de `Bloqueado`/entra em `Pronto`, ou quando um item de GV/TS ganhar story (regra: "todo roadmap/story novo exige issue", e teste só é removido com story, issue e decisão do proprietário).
+- **Issues (27 cards do inventário, #94 incluída):** as 13 issues abertas hoje (#19, #40, #48, #57, #60, #65, #69, #72, #73, #74, #76, #77, #78), mais **13 issues novas** que o `@devops` cria agora (atualizado em 2026-10-27; as 6 acrescentadas são OPS-22, OPS-23 e OPS-24 como issues-mãe de story, as fatias de OPS-15 FT-21 e FT-22 e a fatia FT-24 da OPS-22): a issue de OPS-21 (ST-09, hoje `Ready` sem issue, pendência de rastreabilidade) e as fatias de OPS-15 já em curso ou prontas (FT-01, FT-02, FT-05, FT-06, FT-07, FT-08). Regra: a issue existe antes da implementação.
+- **Rascunhos (79 cards, atualização 2026-10-27, quinta):** 2 stories em rascunho (ST-18, ST-19), 34 fatias que ainda não são issues (FT-03, FT-04, FT-09 a FT-20, FT-23, FT-25 a FT-43; FT-37 e FT-38 são as ondas já em revisão ou prontas: como a regra é issue antes da implementação, o `@devops` as converte em sub-issues da #69 antes do commit), 12 itens de governança (GV; a GV-13 é a issue #94), 14 de testes (TS) e 17 ações do proprietário (OW). Nenhum desses é story nova: governança é remediação de auditoria, testes aguardam a decisão OW-12 e OW-* são ações da pessoa. O rascunho carrega título, corpo com links e os campos; o `@devops` o converte em issue pela interface quando a fatia sai de `Bloqueado`/entra em `Pronto`, ou quando um item de GV/TS ganhar story (regra: "todo roadmap/story novo exige issue", e teste só é removido com story, issue e decisão do proprietário).
 - **Legado (2 cards):** #17 e #18, já `Done`, ficam como estão (o mapeamento de `Done` para `Concluído` acontece ao renomear as opções; o `@devops` confere).
-- **Total:** 102 cards no quadro (26 issues + 74 rascunhos do inventário + 2 legados).
+- **Total:** 108 cards no quadro (27 issues + 79 rascunhos do inventário + 2 legados).
 - Rascunhos não aceitam comentários de issue e não violam a regra de "nunca comentar em issues"; o corpo do rascunho é editado pelo `@devops`. Pull requests não são cards.
 - Item de inventário sem issue e sem rascunho: nenhum. Os 100 IDs do inventário entram, cada um com um card.
 
@@ -83,7 +85,6 @@ Criar com `gh issue edit <filha> --parent <mãe>` (ou `--add-sub-issue`), `gh` 2
 ```text
 #69 OPS-15 Migração do painel/overlay para Next.js        (issue-mãe do roadmap)
  ├── #72 OPS-16 Explicar variáveis da mensagem de chamada
- ├── #74 Diagnosticar reconciliação (parte do painel)
  ├── #77 OPS-18 Conta atual como overlay de identidade
  ├── #78 OPS-19 Confirmar recompensa ao iniciar atendimento
  ├── FT-01 Polimento das páginas        (issue nova agora)
@@ -101,6 +102,7 @@ OPS-21 Contrato da API (issue nova agora)               (issue-mãe da story)
  └── FT-11 .. FT-17  fatias 1 a 7       (issue quando a fatia ficar pronta)
 
 OPS-22 Recuperação financeira e exclusão de fila       (issue-mãe da story, nova agora; "bloqueia" nativamente o corte da #69)
+ ├── #74 Diagnosticar reconciliação (sub-issue da #80 desde 2026-10-27; saiu da #69)
  └── FT-24 (issue agora), FT-25, FT-26, FT-36  fatias 1 a 4 (issue quando a fatia ficar pronta)
 
 OPS-23 Painel em tempo real (SSE) e estado compartilhado     (issue-mãe da story, nova agora; "bloqueia" nativamente o corte da #69)
@@ -109,15 +111,18 @@ OPS-23 Painel em tempo real (SSE) e estado compartilhado     (issue-mãe da stor
 OPS-24 Backend para TypeScript e Biome                       (issue-mãe da story, nova agora; não bloqueia o corte)
  └── FT-30 .. FT-35  fatias TS-0 a TS-5 (issue quando a fatia ficar pronta)
 
+#94 ROADMAP Documentação e chat (DOC-2, DOC-3, OPS-14, OPS-17)   (issue-mãe do roadmap, criada em 2026-10-27)
+ ├── #40 DOC-2, #73 OPS-17, #65 OPS-14, #48 DOC-3
+
 #76 OPS-20 Elegibilidade de devolução                    (issue-mãe da story)
  └── FT-18, FT-19, FT-20  fatias 1 a 3  (issue quando a fatia ficar pronta)
 ```
 
-Total de vínculos nativos quando tudo existir: 47 (4 existentes sob #69, 20 fatias de OPS-15 (as 13 anteriores mais as 7 ondas do cutover), 7 de OPS-21, 3 de OPS-20, 4 de OPS-22, 3 de OPS-23 e 6 de OPS-24; atualizado em 2026-10-27). **Criar agora: 13** (#72, #74, #77, #78 e as 6 fatias novas mais FT-21 e FT-22 sob #69, e FT-24 sob a issue da OPS-22; a issue de OPS-21 nasce sem pai, como issue-mãe da story). As demais entram just-in-time.
+Total de vínculos nativos quando tudo existir: 47 (4 existentes sob #69, 20 fatias de OPS-15 (as 13 anteriores mais as 7 ondas do cutover), 7 de OPS-21, 3 de OPS-20, 4 de OPS-22, 3 de OPS-23 e 6 de OPS-24; atualizado em 2026-10-27; quinta atualização: a #74 passa da #69 para a #80 e a #94 acrescenta 4 vínculos, portanto 51). **Criar agora: 13** (#72, #74, #77, #78 e as 6 fatias novas mais FT-21 e FT-22 sob #69, e FT-24 sob a issue da OPS-22; a issue de OPS-21 nasce sem pai, como issue-mãe da story). As demais entram just-in-time.
 
-Sem pai (independentes, ligadas por dependência nativa "bloqueada por" e pelo campo Depende de): #57 (OPS-13), #19 (FND-9), #65 (OPS-14), #73 (OPS-17), #40 (DOC-2), #48 (DOC-3), #60 (OPS-12). Dependências nativas sugeridas: #65 bloqueada por #57; #73 por #65; #40 por #19; #48 por #40.
+Sem pai (independentes, ligadas por dependência nativa "bloqueada por" e pelo campo Depende de): #57 (OPS-13), #19 (FND-9), #60 (OPS-12); #65, #73, #40 e #48 têm a issue-mãe #94 desde 2026-10-27, e a #57 continua aberta (a ST-04 aguarda a ST-18). Dependências nativas sugeridas: #65 bloqueada por #57; #73 por #65; #40 por #19; #48 por #40.
 
-Observação: a relação #69 → #72/#74/#77/#78 hoje é só textual no corpo das issues ([inventário](backlog-inventory.md), seção 3); o vínculo nativo é o que a lei do roadmap exige.
+Observação: a relação #69 → #72/#77/#78 hoje é só textual no corpo das issues ([inventário](backlog-inventory.md), seção 3); o vínculo nativo é o que a lei do roadmap exige.
 
 ## 4. Views
 
@@ -151,10 +156,10 @@ Regras de preenchimento (@devops carrega; nenhum valor é inventado):
 | ST-01 | #69 | Em andamento | OPS-15 Migração Next | P0 | GG | @dev | Painel Next | Implementação @dev | 8 | FT-01..FT-10, FT-21..FT-23, FT-37..FT-43, ST-15, ST-16, OW-01..OW-11 | Conduzir as fatias; revisões finais @qa/@architect (FT-09) |
 | ST-02 | #77 | Em andamento | Estabilização | P1 | P | @qa | Overlay/OBS | Gate @qa | 3 | — | @qa mapeia AC a evidências e emite veredito |
 | ST-03 | #78 | Em andamento | Estabilização | P1 | P | @qa | Twitch/worker | Gate @qa | 3 | — | @qa reexecuta a suíte completa e emite veredito |
-| ST-04 | #57 | Em revisão | Estabilização | P1 | P | Proprietário | Overlay/OBS | Aceite do proprietário | 3 | OW-03 | Proprietário retesta o widget no OBS nativo (não fechar com evidência Linux) |
+| ST-04 | #57 | Rascunho | Estabilização | P2 | P | @po | Overlay/OBS | Planejamento @po | 16 | ST-18, OW-03 | Validação pendente, conduzida pela ST-18 (OPS-25) depois da ST-01; não fechar a #57 com evidência Linux |
 | ST-05 | #19 | Em revisão | Estabilização | P1 | P | Proprietário | Twitch/worker | Aceite do proprietário | 10 | OW-01, OW-04 | @po/@qa reconciliam checkboxes dos AC; proprietário agenda aceite |
 | ST-06 | #65 | Backlog | Chat e mensagens | P2 | G | @sm | Twitch/worker | Planejamento @po | 15 | ST-04, ST-01 | Localizar ou recriar a story bilíngue OPS-14 e validar |
-| ST-07 | #74 | Backlog | OPS-15 Migração Next | P1 | M | @sm | Painel Next | Planejamento @po | 6 | ST-01 | @sm cria a story bilíngue a partir da issue; causa-raiz com @architect |
+| ST-07 | #74 | Backlog | OPS-22 Recuperação financeira | P1 | M | @devops | Twitch/worker | Nenhum | 6 | ST-15 | Incorporada à OPS-22 (#80), sem story própria; acompanhar pela ST-15 e manter a sub-issue sob a #80 |
 | ST-08 | #72 | Backlog | Chat e mensagens | P2 | M | @po | Painel Next | Planejamento @po | 8 | FT-01 | @po valida a story; depois plano @ux >= 9,0 |
 | ST-09 | issue nova (agora) | Rascunho | OPS-21 Contrato da API | P1 | GG | @devops | API | Planejamento @ux | 2 | GV-03 | @devops cria a issue-mãe; @ux e @qa concluem seus gates |
 | ST-10 | #76 | Rascunho | OPS-20 Elegibilidade de devolução | P2 | GG | @po | Banco de dados | Planejamento @po | 14 | ST-01, ST-09, GV-03, OW-05 | Resolver CONCERNS do plano @qa; relabel via GV-03 |
@@ -165,6 +170,8 @@ Regras de preenchimento (@devops carrega; nenhum valor é inventado):
 | ST-15 | #80 | Pronto | OPS-22 Recuperação financeira | P1 | GG | @dev | Twitch/worker | Implementação @dev | 4 | ST-01 (dependência do corte) | GO do @po 9,5; @architect e @data-engineer concluídos (ciclo de 6 tentativas 1/4/16/60/60 min, sem migration, 4 defeitos de código a absorver, deps `@twurple/common`/`@twurple/api-call` 8.2.0); falta o plano de testes do @qa; começar pela FT-24 |
 | ST-16 | #81 | Pronto | OPS-23 Tempo real | P1 | GG | @architect | Painel Next | Planejamento @architect | 6 | ST-01, FT-01 | GO do @po 9,0; desenho do @architect e plano @ux >= 9,0; proprietário decide OD-23-1 (texto da OPS-15) e OD-23-2 (metas: caminho ao vivo 2 s p95, janela de 60 s) |
 | ST-17 | #91 | Pronto | OPS-24 TypeScript e Biome | P2 | GG | @architect | API | Planejamento @architect | 16 | ST-15 (OPS-22 primeiro) | GO do @po 9,0; @architect, @data-engineer e @qa concluem seus gates; proprietário decide OD-24-1..3 (a OPS-23 espera só a TS-0 e a TS-2) |
+| ST-18 | rascunho | Bloqueado | Estabilização | P2 | M | @po | Overlay/OBS | Planejamento @po | 16 | ST-01, ST-04, redução das tarefas do quadro | Story OPS-25 em Draft: validar o widget da conta no overlay Next (OBS nativo; @qa executa, @ux-design-expert ≥ 9,0); issue pelo @devops quando pronta |
+| ST-19 | rascunho | Bloqueado | Chat e mensagens | P2 | M | @po | Twitch/worker | Planejamento @po | 16 | ST-01 (#69 integrada no main), ST-15 | Story OPS-26 em Draft: `ping` com latência real (D-8) e `status` do streamer; só depois do merge da branch no main; issue pelo @devops quando pronta |
 | FT-01 | issue nova (agora) | Pronto | OPS-15 Migração Next | P0 | G | @ux-design-expert | Painel Next | Planejamento @ux | 8 | FT-02, FT-05 | Planos @ux por página (>= 9,0); depois @dev test-first |
 | FT-02 | issue nova (agora) | Pronto | OPS-15 Migração Next | P1 | P | @dev | API | Implementação @dev | 4 | — | Red em token desconhecido na criação de fila; depois @qa |
 | FT-03 | rascunho | Bloqueado | OPS-15 Migração Next | P1 | G | @qa | Painel Next | Plano de testes @qa | 8 | FT-01 | Escrever E1-E8 após a UI estabilizar (E8 manual do proprietário) |
@@ -220,6 +227,7 @@ Regras de preenchimento (@devops carrega; nenhum valor é inventado):
 | GV-10 | rascunho | Bloqueado | Governança | P1 | M | @qa | Docs/processo | Gate @qa | 1 | GV-01..GV-07 | Revisão de conteúdo do commit `89c67b8` após as regras finais |
 | GV-11 | rascunho | Pronto | Governança | P2 | P | @devops | Infra/CI | Commit/PR @devops | 11 | — | Confirmar a ausência do hook e instalar ou corrigir o README |
 | GV-12 | rascunho | Pronto | Governança | P2 | P | @po | Docs/processo | Planejamento @po | 1 | — | Confirmar origem com o proprietário; corrigir índice de stories |
+| GV-13 | #94 | Backlog | Documentação | P2 | P | @sm | Docs/processo | Nenhum | 16 | — | Issue-mãe do roadmap Documentação e chat; @devops vincula as sub-issues #40, #73, #65, #48 (ST-12, ST-11, ST-06/OPS-14, ST-13/DOC-3); OPS-14 sem arquivo de story: lacuna de rastreabilidade |
 | TS-01 | rascunho | Aguardando decisão | Qualidade e testes | P2 | P | Proprietário | Painel Next | Aceite do proprietário | 11 | OW-12 | Decidir remoção; depois issue e @dev; executada pela FT-37 (onda 0) sob a autorização do cutover incremental |
 | TS-02 | rascunho | Aguardando decisão | Qualidade e testes | P2 | P | Proprietário | Docs/processo | Aceite do proprietário | 11 | OW-12 | Decidir reescrita ou remoção dos 3 testes |
 | TS-03 | rascunho | Aguardando decisão | Qualidade e testes | P2 | P | Proprietário | Banco de dados | Aceite do proprietário | 11 | OW-12 | Decidir mover o teste com Prisma mockado para unit |
@@ -232,6 +240,8 @@ Regras de preenchimento (@devops carrega; nenhum valor é inventado):
 | TS-10 | rascunho | Bloqueado | Qualidade e testes | P1 | M | @dev | Painel Next | Implementação @dev | 8 | FT-01 | Portar contratos classe B para testes Next test-first; bloqueia a FT-42 (onda 4) |
 | TS-11 | rascunho | Bloqueado | Qualidade e testes | P2 | P | @dev | Infra/CI | Implementação @dev | 11 | OW-13 | Medir tempos e a primeira execução de CI da branch |
 | TS-12 | rascunho | Bloqueado | Qualidade e testes | P1 | M | @dev | Painel Next | Implementação @dev | 13 | FT-10 | Remover testes classe C e ajustar asserções acopladas no mesmo change |
+| TS-13 | rascunho | Bloqueado | Chat e mensagens | P2 | P | @dev | Twitch/worker | Implementação @dev | 16 | ST-19 | Teste obrigatório do D-8 (LB-23): o ping do chat falha sem o valor em ms havendo medição; casos presente, ausente e Twitch com falha |
+| TS-14 | rascunho | Bloqueado | Chat e mensagens | P2 | M | @dev | Twitch/worker | Implementação @dev | 16 | ST-19, TS-13 | Testes do `status`: permissão do streamer, allowlist de campos, limite do chat por idioma, taxa com fake timers |
 | OW-01 | rascunho | Pronto | OPS-15 Migração Next | P1 | M | Proprietário | Infra/CI | Aceite do proprietário | 10 | — | Agendar ciclo do instalador Windows em Docker real |
 | OW-02 | rascunho | Pronto | OPS-15 Migração Next | P2 | P | Proprietário | Infra/CI | Aceite do proprietário | 10 | — | Agendar `npm run dev` e `dev:start`/`dev:stop` no Windows |
 | OW-03 | rascunho | Pronto | Estabilização | P1 | P | Proprietário | Overlay/OBS | Aceite do proprietário | 3 | — | Retestar o OBS nativo (certificado, transparência, recarga) |
@@ -248,8 +258,9 @@ Regras de preenchimento (@devops carrega; nenhum valor é inventado):
 | OW-14 | rascunho | Aguardando decisão | Governança | P3 | P | Proprietário | Infra/CI | Aceite do proprietário | 15 | — | Dizer quando `backup/ops-15-before-history-fix` pode ser apagada |
 | OW-15 | rascunho | Aguardando decisão | OPS-21 Contrato da API | P2 | P | Proprietário | API | Aceite do proprietário | 6 | — | Decidir fechar com a fatia 7 aberta, ordem das fatias 3-4 e timeout |
 | OW-16 | rascunho | Aguardando decisão | OPS-22 Recuperação financeira | P1 | M | Proprietário | Twitch/worker | Aceite do proprietário | 10 | ST-15, FT-24, OW-04 | Autorizar e agendar a checagem ao vivo de resgate real (4 checagens do analista) |
+| OW-17 | rascunho | Bloqueado | Chat e mensagens | P2 | P | Proprietário | Twitch/worker | Aceite do proprietário | 16 | ST-19, OW-04 | Checagem ao vivo do `ping` e do `status` no canal, depois da OPS-26 implementada |
 
-**Contagem (atualizada em 2026-10-27, quarta):** 100 itens do inventário (17 ST, 43 FT, 12 GV, 12 TS, 16 OW) = 26 issues + 74 rascunhos (102 cards com os 2 legados). Por Situação: Backlog 3, Rascunho 2, Aguardando decisão 18, Pronto 25, Em andamento 5, Em revisão 3, Bloqueado 43, Concluído 1 (OW-09). Mudanças desta atualização: FT-37..FT-43 acrescentadas (Em revisão 1, Pronto 1, Bloqueado 5) e OW-09 passou de Aguardando decisão para Concluído. Antes: ST-15, ST-16, ST-17 e FT-24 passaram a Pronto após o GO do @po (terceira atualização). Dependências nativas a acrescentar: as issues da OPS-22 e da OPS-23 bloqueiam o item de corte (FT-10); a FT-23 é bloqueada pela FT-28 e pela FT-26.
+**Contagem (atualizada em 2026-10-27, quinta):** 106 itens do inventário (19 ST, 43 FT, 13 GV, 14 TS, 17 OW) = 27 issues + 79 rascunhos (108 cards com os 2 legados). Por Situação: Backlog 4, Rascunho 3, Aguardando decisão 18, Pronto 25, Em andamento 5, Em revisão 2, Bloqueado 48, Concluído 1 (OW-09). Quinta atualização: ST-18, ST-19, TS-13, TS-14 e OW-17 acrescentados como Bloqueado, GV-13 (#94) acrescentada como Backlog, ST-04 passou de Em revisão para Rascunho (validação pendente, P2), ST-07 (#74) incorporada à OPS-22 (Fase OPS-22, sem story própria). Mudanças desta atualização: FT-37..FT-43 acrescentadas (Em revisão 1, Pronto 1, Bloqueado 5) e OW-09 passou de Aguardando decisão para Concluído. Antes: ST-15, ST-16, ST-17 e FT-24 passaram a Pronto após o GO do @po (terceira atualização). Dependências nativas a acrescentar: as issues da OPS-22 e da OPS-23 bloqueiam o item de corte (FT-10); a FT-23 é bloqueada pela FT-28 e pela FT-26.
 
 ## 6. Regras de manutenção
 
@@ -313,4 +324,13 @@ Registradas na seção 5 do [plano de cutover](../stories/OPS-15/cutover-plan.md
 | DP-6 | Apagar `repository.archiveQueue` junto com a rota | **RESOLVIDA: sim** (FT-41); `@data-engineer` e `@po` ainda confirmam antes da onda |
 | OW-09 | Manter os aliases de `/overlay.html` | **RESOLVIDA: não é necessário** (sem usuários ativos, sem shims de compatibilidade até `rc`/`stable`); o card está Concluído e os aliases saem na FT-39 depois que o `@po` reescrever o CA 3/CA 8 |
 
-Ainda abertas no plano: DP-3 (caminho dos catálogos; recomendado `apps/shared/localization/catalogs/`), DP-4, DP-5, DP-7 (não bloqueiam as ondas 0 e 1).
+| DP-3 | Caminho dos catálogos | **RESOLVIDA (2026-10-27):** `apps/shared/localization/catalogs/` (onda 2, FT-40) |
+| DP-4 | Quem valida foco/layout no celular | **RESOLVIDA:** `@ux-design-expert` + `@qa` (onda 4, FT-42) |
+| DP-5 | Job de CI `web` | **RESOLVIDA:** renomeado para `frontend` (onda 4) |
+| DP-7 | Frase do changelog beta sobre a diferença de primeiro uso | **RESOLVIDA:** já aplicada |
+| OD-23-2 | Metas do SSE | **RESOLVIDA:** p95 <= 2 s ao vivo; polling de reserva 2 s por 60 s; keep-alive 15 s; agregação 100-250 ms (a story OPS-23 é do `@po`) |
+| OD-24-1 / OD-24-2 | Biome nos gates / formatação | **RESOLVIDAS:** Biome pelo `lint` (`biome check`); commit de formatação depois da onda 4 |
+| OD-22-3 | A OPS-22 pode chegar a Done sem a checagem ao vivo | **RESOLVIDA: sim** (aceite à parte; OW-16 autorizada, execução ao vivo automatizada depois da FT-25/FT-26) |
+| OW-13 | Push da branch | **RESOLVIDA:** feito; a CI não roda em push de branch, então PR ou dispatch é decisão à parte |
+| Issues de onda | FT-39..FT-43 | **RESOLVIDA:** issue só quando cada onda ficar pronta; a onda 3 (FT-39) está pronta para o `@dev` e validada manualmente pelo proprietário; a onda 1 (FT-38) está em `bfff2f1`; a onda 0 em `0eb4fd2` |
+| #74 / #57 | Issue #74 e issue #57 | **RESOLVIDA:** #74 incorporada à OPS-22 (sub-issue da #80); #57 continua aberta, ST-04 aguarda a ST-18 (OPS-25) |

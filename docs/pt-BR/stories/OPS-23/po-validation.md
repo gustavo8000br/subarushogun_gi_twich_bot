@@ -59,8 +59,8 @@ Situação: **DECIDIDA e APLICADA em 2026-10-27 (OD-23-1)** — o proprietário 
 ## Decisões do proprietário (situação atualizada em 2026-10-27)
 
 - **OD-23-1 — DECIDIDA e APLICADA (2026-10-27):** linhas 44 e 105 da OPS-15 reconciliadas com o SSE (texto adaptado acima). O desconto do ponto 10 deixa de valer para este item; a nota 9,0/10 fica como registrada (correção de texto não exige nova pontuação).
-- **OD-23-2 — PENDENTE:** confirmar as metas numéricas marcadas como [PROPOSTA] na story (caminho ao vivo 2 s p95; janela de polling de 2 s de 60 s). Precisa ser decidida antes da FT-29.
-- **OD-24-3 — PENDENTE (afeta o início da FT-27):** a OPS-23 espera apenas a TS-0 e a TS-2 (recomendado na validação da OPS-24).
+- **OD-23-2 — RESOLVIDA (proprietário, 2026-10-27):** metas aprovadas como escritas — caminho ao vivo p95 ≤ 2 s; polling de reserva de 2 s por 60 s e depois 5 s; keep-alive de 15 s; agregação de 100 a 250 ms. Os marcadores [PROPOSTA] saíram da story (introdução de "Critérios de aceite", CA 12, CA 14; en e pt-BR) e a decisão está no Change Log dela. A pré-condição da FT-29 "OD-23-2 fechada" está cumprida; o `@architect`/`@qa` ainda confirmam que as metas são testáveis (correção exigida 1). *(Estava PENDENTE até 2026-10-27.)*
+- **OD-24-3 — RESOLVIDA (proprietário, 2026-10-27, como escrita):** a OPS-23 espera apenas a TS-0 e a TS-2. Registrada em "Dependências" da OPS-24 e na validação dela. *(Estava PENDENTE até 2026-10-27.)*
 
 Verificação de contagens: este arquivo não contém contagem do backlog nem do quadro; nada desatualizado a corrigir.
 
