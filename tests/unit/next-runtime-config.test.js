@@ -27,13 +27,14 @@ describe('Next runtime routing configuration', () => {
 
   it('proxies production API and overlay requests to the private Fastify listener', async () => {
     const rules = await buildNextConfig({ NODE_ENV: 'production', API_PORT: '3199' }).rewrites();
-    expect(rules.beforeFiles.slice(0, 4)).toEqual([
+    expect(rules.beforeFiles).toEqual([
       { source: '/api/:path*', destination: 'https://localhost:3199/api/:path*' },
       { source: '/overlay/api/:path*', destination: 'https://localhost:3199/overlay/api/:path*' },
       { source: '/health', destination: 'https://localhost:3199/health' },
       { source: '/callback', destination: 'https://localhost:3199/callback' },
     ]);
-    expect(rules.beforeFiles).toContainEqual({ source: '/', destination: 'https://localhost:3199/' });
+    // OPS-15 cutover wave 1: Next serves `/` (the overview); only these four routes reach Fastify.
+    expect(rules.beforeFiles.some(({ source }) => source === '/')).toBe(false);
     expect(rules.afterFiles).toEqual([{ source: '/overlay.html', destination: '/overlay' }]);
   });
 });

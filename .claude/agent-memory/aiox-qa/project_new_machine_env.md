@@ -21,5 +21,11 @@ Owner moved to a fresh Ubuntu install on 2026-10-23. Quirks observed in the @qa 
 - Docs batches edited in the same commit shift each other's `file:line` references (e.g. a new Change Log row moves story lines by +1); compare against `git show HEAD:<file>` to tell drift from wrong references.
 - Several agents (@dev, other @qa rounds) often run suites in the same worktree at once; timing measured then is contended (load ~9 on 4 cores) and must be labeled unreliable. Vitest phase summary needs the default reporter (JSON lacks it).
 
+- `git diff --no-index --check /dev/null <f>` always exits 1 ("files differ"); only printed output means a whitespace error.
+- `npm test` includes `compose-runtime.test.js`, which builds `ghcr.io/...:ops15-accept-<pid>-<uuid8>` and a `queuebot-accept-*` Compose project and removes both in `afterAll`; seeing them mid-run is not a leftover (2026-10-27c gate: clean after).
+- To reproduce a Red without touching the repo: `git archive HEAD <paths> | tar -x -C .local/qa-audit/<dir>`, copy the new test in, run `node_modules/.bin/vitest run --root .` from there (vitest resolves from the parent node_modules), then delete the copy BEFORE the full suite (root vitest include is `tests/**`, not `.local`, but keep it clean).
+- For a "new code" copy, `git apply` run inside `.local/...` (still inside the repo) silently skips every hunk outside that subdir and exits 0; use `patch -p1 < file.patch` and then `diff -r apps <copy>/apps` to prove parity (2026-10-27d). Tests that spawn `node_modules/next/...` relative to the copy root need `ln -s ../../../node_modules <copy>/node_modules`.
+- `tests/e2e/overlay-bundle-boundary.mjs` only reads `apps/frontend/.next`; after a `next dev` it reads dev output, so run `npm run build:frontend` first for a meaningful result. Panel `/` polls, so a Playwright `waitUntil: 'networkidle'` times out; use `load` + wait for `.panel-shell`.
+
 **Why:** avoids misreading infra failures as functional ones, and avoids wrongly blocking E2E on this machine.
 **How to apply:** check `which opengrep actionlint`, `google-chrome --version` and `docker images` before a gate; verify these still hold.

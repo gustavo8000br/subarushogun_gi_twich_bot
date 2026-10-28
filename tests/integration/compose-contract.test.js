@@ -167,8 +167,9 @@ describe('local Compose runtime contract', () => {
     expect(readFileSync(`${root}/apps/infra/scripts/start-product.mjs`, 'utf8')).toContain('apps/frontend/scripts/start-production.mjs');
     expect(readFileSync(`${root}/apps/frontend/scripts/next-runtime-config.mjs`, 'utf8')).toContain('buildProductionProxyRules');
     expect(readFileSync(`${root}/apps/frontend/scripts/next-runtime-config.mjs`, 'utf8')).toContain('trailingSlash: false');
+    // OPS-15 cutover wave 1: Fastify no longer serves the vanilla static root; Next owns `/`.
     expect(readFileSync(`${root}/apps/api/src/server.mjs`, 'utf8'))
-      .toContain("new URL('../../web/', import.meta.url)");
+      .not.toContain("new URL('../../web/', import.meta.url)");
   });
 
   it('allows IMAGE_TAG to select a platform-specific GHCR image explicitly', () => {
