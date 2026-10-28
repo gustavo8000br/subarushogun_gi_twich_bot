@@ -46,7 +46,7 @@ Evidence classes are recorded separately: automated browser (fixtures), native O
 1. **Given** the Next overlay with the account widget link added as an OBS Browser Source on native OBS (Linux), **when** the source is reloaded (refresh button and "refresh cache of the current page"), **then** the Current Account label is shown again, with no black screen and no authorization error. The measured time to show the label is recorded (a target of up to 5 s is proposed; `@qa` confirms it against the first load).
 2. **Given** the same source, **when** it is reloaded 10 times in a row, **then** every reload shows the label.
 3. **Given** the widget link issued before, **when** the panel session has expired and after the API restarts, **then** a reload still shows the label: the widget does not expire by itself and stops working only when the operator revokes it.
-4. **Given** the label is on screen, **when** the current account changes through the chat command `!fila conta`, **then** the label shows the new account without reloading, within the overlay refresh cadence documented in OPS-15 (5 s cache); the observed delay is recorded.
+4. **Given** the label is on screen, **when** the current account changes through the chat command `!fila conta`, **then** the label shows the new account without reloading, within a few seconds of the change, on the basis of the documented cadence (the renderer reads `/overlay/api/widget` once per second with `no-store`: OPS-15 AC 3 and OPS-18; there is no 5 s cache); the observed delay is recorded and `@qa` fixes the exact bound in its execution plan.
 5. **Given** the label is on screen, **when** the current account changes in the panel, **then** the same result as AC 4 holds.
 6. **Given** the operator revokes the widget, **when** the source is reloaded, **then** the overlay shows the safe unauthorized state (no account label, no internals) and a new link works after re-issue.
 7. **Given** the widget is loading, authorized and unauthorized, **when** `@ux-design-expert` reviews these states, **then** the label is legible over a transparent and over a dark background, the unauthorized state is understandable without technical text, and the score is at least 9.0 on the reviewed scope. The record states what the review covers (static review versus visual, browser and assistive-technology validation).
@@ -106,7 +106,7 @@ The widget has no new design here. The review covers the existing states only. A
 4. Self-containment: baseline, assumptions and the removed-baseline risk stated. PASS.
 5. Testing: evidence classes separated; native OBS required. PASS.
 6. Static analysis: documentation-only story; `npm run review:static` listed in the gates. PASS.
-- Result: ready for `@po`. The 5 s target of AC 1 and the refresh cadence of AC 4 are proposals marked as such; no other requirement was invented.
+- Result: ready for `@po`. The 5 s target of AC 1 is a proposal marked as such; AC 4 uses the documented one-second poll (corrected after the `@po` validation); no other requirement was invented.
 
 ## File List
 
@@ -118,3 +118,4 @@ The widget has no new design here. The review covers the existing states only. A
 ## Change Log
 
 - 2026-10-27 — `@sm` (River): story drafted from the owner observation that the OPS-13 / #57 reload bug seems not to occur on the Next overlay. Status Draft. Issue pending.
+- 2026-10-28 — `@sm` (River): applied `@po` required correction 1. AC 4 no longer cites a "5 s cache" (no source supports it); it now states the documented one-second `no-store` poll of `/overlay/api/widget` (OPS-15 AC 3, OPS-18) and leaves the exact bound to the `@qa` execution plan. Status unchanged (Draft; `@po` owns status).

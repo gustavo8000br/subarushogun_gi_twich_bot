@@ -3,9 +3,10 @@
 [English](../../../stories/OPS-15/cutover-wave-3.md)
 
 - **Data:** 2026-10-27 (código); verificação retomada em 2026-10-28 após interrupção por cota
-- **Issue:** ainda não criada (card FT-39); o `@devops` a cria antes do commit
+- **Issue:** #95 (card FT-39), sub-issue da #69
 - **Executor:** `@dev` (Dex). O veredito final é do `@qa`; o commit é do `@devops`.
-- **Branch / base:** `feat/ops-15-next-panel` em `184b259` (árvore de trabalho sem commit; Onda 0 = `0eb4fd2`, Onda 1 = `bfff2f1`).
+- **Veredito do QA:** CONCERNS, 9,0/10 (gate de fatia, 0 problemas bloqueantes para o commit da Onda 3): [`qa-gate-2026-10-28.md`](qa-gate-2026-10-28.md).
+- **Branch / commits:** `feat/ops-15-next-panel`, base `184b259` (Onda 0 = `0eb4fd2`, Onda 1 = `bfff2f1`). Onda 3 comitada pelo `@devops`: `69e9534` (código + docs), seguido de `d97c96c` (docs de arquitetura), `4d2f750` (stories e planejamento) e `75c11c7` (snapshot da memória de governança).
 - **Autorização:** proprietário, 2026-10-27, cutover incremental (beta sem usuários ativos, mudança estrutural segura até `rc`, sem shims de compatibilidade; `legacy` = branch protegida `a9279b2`). OW-09 resolvida: os aliases de `/overlay.html` não precisam ser mantidos. O proprietário conferiu o resultado manualmente com `npm run dev:start` ("Tudo Ok"). Plano: [`cutover-plan.md`](cutover-plan.md), Onda 3.
 - **Escopo:** só a Onda 3. O painel vanilla (`apps/web/app.js`, `index.html`, `styles.css` e seus módulos) e os catálogos de localização não foram tocados (Ondas 2 e 4). `API_ONLY` e `@fastify/static` ficam (Onda 6). Sem mudança em Compose, instaladores, Dockerfile, CI ou `package.json`.
 
