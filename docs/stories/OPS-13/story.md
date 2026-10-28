@@ -3,6 +3,7 @@
 [Português brasileiro](../../pt-BR/stories/OPS-13/story.md)
 
 **Status:** Ready for Review — implementation and automated quality gates pass; owner-side native OBS runtime acceptance remains pending.
+**Board note (2026-10-28, `@sm`):** this status stays "Ready for Review" (the code and the automated gates are done). The board card ST-04 sits in "Rascunho" with priority P2 only because the owner-side validation is pending and is now carried by [OPS-25](../OPS-25/story.md) (issue #57 stays open); the card does not mean the story went back to Draft or "in review", and the P2 of the card is a board priority, not a change of this story's "High".
 **Priority:** High
 **Executor:** `$aiox-dev`.
 **Quality gates:** `$aiox-architect` reviews capability handling and browser lifecycle; independent `$aiox-qa` validates reload, revocation, and account projection behavior.

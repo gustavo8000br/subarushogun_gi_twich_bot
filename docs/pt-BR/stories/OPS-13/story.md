@@ -3,6 +3,7 @@
 [English](../../../stories/OPS-13/story.md)
 
 **Status:** Pronta para revisão — implementação e gates automatizados passaram; ainda falta o aceite do proprietário no runtime OBS nativo.
+**Nota do quadro (2026-10-28, `@sm`):** este status continua "Pronta para revisão" (o código e os gates automatizados estão prontos). O card ST-04 fica em "Rascunho" com prioridade P2 apenas porque a validação do proprietário está pendente e agora é conduzida pela [OPS-25](../OPS-25/story.md) (a issue #57 continua aberta); o card não significa que a story voltou a Draft nem que está "em revisão", e o P2 do card é prioridade de quadro, não uma mudança do "Alta" desta story.
 **Prioridade:** Alta
 **Executor:** `$aiox-dev`.
 **Gates de qualidade:** `$aiox-architect` revisa o tratamento da capacidade e o ciclo de vida do navegador; `$aiox-qa` valida de forma independente recarga, revogação e projeção da conta.

@@ -46,7 +46,7 @@ As classes de evidência são registradas separadamente: navegador automatizado 
 1. **Dado** o overlay Next com o link do widget da conta adicionado como Fonte de Navegador no OBS nativo (Linux), **quando** a fonte é recarregada (botão de atualizar e "atualizar o cache da página atual"), **então** o rótulo da Conta atual volta a aparecer, sem tela preta e sem erro de autorização. O tempo medido até o rótulo aparecer é registrado (propõe-se uma meta de até 5 s; o `@qa` confirma contra o primeiro carregamento).
 2. **Dado** a mesma fonte, **quando** ela é recarregada 10 vezes seguidas, **então** toda recarga mostra o rótulo.
 3. **Dado** o link do widget emitido antes, **quando** a sessão do painel expirou e depois que a API reinicia, **então** uma recarga ainda mostra o rótulo: o widget não expira sozinho e só deixa de funcionar quando o operador o revoga.
-4. **Dado** o rótulo na tela, **quando** a conta atual muda pelo comando de chat `!fila conta`, **então** o rótulo mostra a nova conta sem recarregar, dentro da cadência de atualização do overlay documentada na OPS-15 (cache de 5 s); o atraso observado é registrado.
+4. **Dado** o rótulo na tela, **quando** a conta atual muda pelo comando de chat `!fila conta`, **então** o rótulo mostra a nova conta sem recarregar, em poucos segundos após a mudança, com base na cadência documentada (o renderer lê `/overlay/api/widget` uma vez por segundo com `no-store`: CA 3 da OPS-15 e OPS-18; não existe cache de 5 s); o atraso observado é registrado e o `@qa` fixa o limite exato no seu plano de execução.
 5. **Dado** o rótulo na tela, **quando** a conta atual muda no painel, **então** vale o mesmo resultado do CA 4.
 6. **Dado** que o operador revoga o widget, **quando** a fonte é recarregada, **então** o overlay mostra o estado seguro de não autorizado (sem rótulo de conta, sem detalhes internos) e um link novo funciona após reemissão.
 7. **Dado** o widget carregando, autorizado e não autorizado, **quando** o `@ux-design-expert` revisa esses estados, **então** o rótulo é legível sobre fundo transparente e sobre fundo escuro, o estado não autorizado é compreensível sem texto técnico e a nota é de pelo menos 9,0 no escopo revisado. O registro diz o que a revisão cobre (revisão estática versus validação visual, de navegador e de tecnologia assistiva).
@@ -106,7 +106,7 @@ O widget não recebe desenho novo aqui. A revisão cobre só os estados existent
 4. Autossuficiência: linha de base, premissas e o risco da linha de base removida declarados. PASS.
 5. Testes: classes de evidência separadas; OBS nativo exigido. PASS.
 6. Análise estática: story só de documentação; `npm run review:static` listado nos gates. PASS.
-- Resultado: pronta para o `@po`. A meta de 5 s do CA 1 e a cadência de atualização do CA 4 são propostas marcadas como tal; nenhum outro requisito foi inventado.
+- Resultado: pronta para o `@po`. A meta de 5 s do CA 1 é uma proposta marcada como tal; o CA 4 usa o polling documentado de um segundo (corrigido após a validação do `@po`); nenhum outro requisito foi inventado.
 
 ## File List
 
@@ -118,3 +118,4 @@ O widget não recebe desenho novo aqui. A revisão cobre só os estados existent
 ## Change Log
 
 - 2026-10-27 — `@sm` (River): story redigida a partir da observação do proprietário de que o bug de recarga da OPS-13 / #57 parece não ocorrer no overlay Next. Status Draft. Issue pendente.
+- 2026-10-28 — `@sm` (River): aplicada a correção obrigatória 1 do `@po`. O CA 4 não cita mais "cache de 5 s" (nenhuma fonte o sustenta); agora indica o polling documentado de um segundo com `no-store` em `/overlay/api/widget` (CA 3 da OPS-15, OPS-18) e deixa o limite exato para o plano de execução do `@qa`. Status inalterado (Draft; o status é do `@po`).
