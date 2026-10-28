@@ -1,2 +1,3 @@
 - [OPS-22/OPS-23 drafts](project_ops22_ops23_drafts.md) — drafted 2026-10-27; inventory IDs ST-15/16, FT-21..29, OW-16
 - [OPS-24 drafts](project_ops24_typescript_biome.md) — TS + Biome, 2026-10-27; ST-17, FT-30..35 (not TS-0x); next story ID OPS-25
+- [Inventory counts / TS-15](project_inventory_counts_ts15.md) — 107 items / 109 cards 2026-10-28; next TS-16; OPS-14 story = owner decision
