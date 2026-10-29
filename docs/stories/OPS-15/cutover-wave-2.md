@@ -3,9 +3,11 @@
 [Português brasileiro](../../pt-BR/stories/OPS-15/cutover-wave-2.md)
 
 - **Date:** 2026-10-28
-- **Issue:** not created yet (card FT-40; executes FT-05 and TS-04); `@devops` creates it as a sub-issue of #69.
+- **Issue:** [#96](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/96), sub-issue of [#69](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/69) (card FT-40; executes FT-05 [#85](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/85) and the string-path part of TS-04).
 - **Executor:** `@dev` (Dex). Final verdict belongs to `@qa`; commit belongs to `@devops`.
-- **QA verdict:** pending.
+- **QA verdict:** CONCERNS 9.3/10, 0 blocking issues, all 5 groups READY ([`qa-gate-2026-10-29.md`](qa-gate-2026-10-29.md)). M-1 (Wave 2 bookkeeping in the story, inventory and this record) and the doc nits L-1..L-3 are follow-ups, not blockers.
+- **Commits (by `@devops`, after the `@qa` verdict):** code `bd31ec5` (15 × R100 catalog renames + the new module, consumers, `Dockerfile` and tests; 36 files); docs `3698aef` (architecture, guides, changelog, this record and the QA gate, en + pt-BR; 22 files).
+- **TS-04 status:** partly delivered. The string-path check (case TS-04 in `tests/unit/shared-panel-boundary.test.js`) landed in this wave; merging the duplicated "no `apps/web` import" test (`dockerfile-frontend-imports` with `shared-panel-boundary`) stays in Wave 4 (FT-42), per [`cutover-plan.md`](cutover-plan.md) Wave 4 "Coupled changes".
 - **Branch / base:** `feat/ops-15-next-panel`, base `1f2fe1b` (Wave 3 = `69e9534`). Nothing staged or committed by `@dev`: the move is in the working tree only (15 deletions under `apps/web/localization/catalogs` + 15 untracked files under `apps/shared/localization/catalogs`, byte-identical, so `git add -A` on both paths records them as 100 % renames).
 - **Authorization:** owner, 2026-10-27, incremental cutover (beta with no active users, safe structural changes until `rc`, no compatibility shims; `legacy` = protected branch `a9279b2`). Target path DP-3 = `apps/shared/localization/catalogs/` (no new Dockerfile COPY), recorded as resolved in [`docs/handoffs/resume-agents-2026-10-27.md`](../../handoffs/resume-agents-2026-10-27.md). Plan: [`cutover-plan.md`](cutover-plan.md), Wave 2 (A-05).
 - **Scope:** Wave 2 only. The vanilla panel (`apps/web/app.js`, `index.html`, `styles.css` and its 8 modules) stays (Wave 4). No change in Compose, installers, CI, `package.json`, community catalog mount (`.local/community-catalogs`), product texts or locales.
@@ -14,7 +16,7 @@
 
 | File | Change |
 | --- | --- |
-| `apps/web/localization/catalogs/{chat,lifecycle,overlay,panel,setup}/{en,es,pt-BR}.tsv` → `apps/shared/localization/catalogs/…` | 15 files moved unchanged. SHA-256 of the sorted per-file hash list: `1a4a8e24da8463214a334b63a0ff1054d28babd430ca88134f089b134fbabda7` before and after. `apps/web/localization/` no longer exists. |
+| `apps/web/localization/catalogs/{chat,lifecycle,overlay,panel,setup}/{en,es,pt-BR}.tsv` → `apps/shared/localization/catalogs/…` | 15 files moved unchanged. Aggregate SHA-256 `1a4a8e24da8463214a334b63a0ff1054d28babd430ca88134f089b134fbabda7` before and after, produced by `find . -type f -name '*.tsv' \| sort \| xargs sha256sum \| sha256sum` run inside the catalogs root (the input is the `sha256sum` lines, hash plus relative path, sorted by path; a hash-only sorted list gives a different value). Reproduced by `@po` on 2026-10-28 in `apps/shared/localization/catalogs` (QA gate 2026-10-29 L-2). `apps/web/localization/` no longer exists. |
 | `apps/shared/localization/first-party-catalogs.mjs` (new) | `FIRST_PARTY_CATALOG_DIRECTORY = 'apps/shared/localization/catalogs'` (repository-root-relative) and `resolveFirstPartyCatalogRoot(repositoryRoot)`. Root-relative on purpose: the Next panel pages read the fallback at `next build` through `process.cwd()`, where `import.meta.url` would point into the bundle. |
 | `apps/api/src/server.mjs:42` | `catalogRoot = resolveFirstPartyCatalogRoot(<repo root from import.meta.url>)` instead of `new URL('../../web/localization/catalogs/', …)`. |
 | `apps/infra/scripts/validate-localization.mjs:10` | Default root resolved through the shared constant; an explicit CLI argument still wins. |
@@ -83,7 +85,7 @@ The three E2E need an HTTPS app on loopback. They ran against an isolated `next 
 
 ## Story File List (suggestion for `@po`)
 
-`@dev` did not edit `docs/stories/OPS-15/story.md` (owned by `@po`). Suggested File List / Change Log addition for OPS-15:
+`@dev` did not edit `docs/stories/OPS-15/story.md` (owned by `@po`). Recorded by `@po` on 2026-10-28 as "File List — Wave 2" and a Change Log row in the OPS-15 story (QA gate 2026-10-29 M-1). Original suggestion, kept as history:
 
 - Moved: `apps/web/localization/catalogs/**` (15 TSV) → `apps/shared/localization/catalogs/**`.
 - Created: `apps/shared/localization/first-party-catalogs.mjs`, `tests/unit/first-party-catalog-location.test.js`, `docs/stories/OPS-15/cutover-wave-2.md` (+ pt-BR).
@@ -101,4 +103,4 @@ The three E2E need an HTTPS app on loopback. They ran against an isolated `next 
 
 ## How to revert
 
-Revert the Wave 2 commit (`git revert <commit>`). That moves the 15 catalogs back to `apps/web/localization/catalogs`, restores the literal paths in the three consumers and the `Dockerfile` COPY, deletes `first-party-catalogs.mjs` and restores the previous tests. There is no data, schema, Compose or installer effect; the catalog contents are identical on both sides.
+Revert the Wave 2 code commit (`git revert bd31ec5`; the docs commit `3698aef` can be reverted separately). That moves the 15 catalogs back to `apps/web/localization/catalogs`, restores the literal paths in the three consumers and the `Dockerfile` COPY, deletes `first-party-catalogs.mjs` and restores the previous tests. There is no data, schema, Compose or installer effect; the catalog contents are identical on both sides.

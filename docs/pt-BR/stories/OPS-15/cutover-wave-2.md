@@ -3,9 +3,11 @@
 [English](../../../stories/OPS-15/cutover-wave-2.md)
 
 - **Data:** 2026-10-28
-- **Issue:** ainda não criada (card FT-40; executa a FT-05 e a TS-04); o `@devops` a cria como sub-issue da #69.
+- **Issue:** [#96](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/96), sub-issue da [#69](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/69) (card FT-40; executa a FT-05 [#85](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/85) e a parte de caminho em string da TS-04).
 - **Executor:** `@dev` (Dex). O veredito final é do `@qa`; o commit é do `@devops`.
-- **Veredito do QA:** pendente.
+- **Veredito do QA:** CONCERNS 9,3/10, 0 problemas bloqueantes, os 5 grupos PRONTOS ([`qa-gate-2026-10-29.md`](qa-gate-2026-10-29.md)). O M-1 (registro da Onda 2 na story, no inventário e neste registro) e os detalhes de documentação L-1..L-3 são pendências de acompanhamento, não bloqueios.
+- **Commits (pelo `@devops`, após o veredito do `@qa`):** código `bd31ec5` (15 renomeações R100 dos catálogos + o módulo novo, consumidores, `Dockerfile` e testes; 36 arquivos); docs `3698aef` (arquitetura, guias, changelog, este registro e o gate de QA, en + pt-BR; 22 arquivos).
+- **Situação da TS-04:** entregue em parte. A checagem de caminho em string (caso TS-04 em `tests/unit/shared-panel-boundary.test.js`) entrou nesta onda; a fusão do teste duplicado "nenhum import de `apps/web`" (`dockerfile-frontend-imports` com `shared-panel-boundary`) fica para a Onda 4 (FT-42), conforme as "Mudanças acopladas" da Onda 4 no [`cutover-plan.md`](cutover-plan.md).
 - **Branch / base:** `feat/ops-15-next-panel`, base `1f2fe1b` (Onda 3 = `69e9534`). Nada foi adicionado ao índice nem comitado pelo `@dev`: a movimentação está só no working tree (15 remoções em `apps/web/localization/catalogs` + 15 arquivos não rastreados em `apps/shared/localization/catalogs`, idênticos byte a byte, então `git add -A` nos dois caminhos os registra como renomeações 100 %).
 - **Autorização:** proprietário, 2026-10-27, cutover incremental (beta sem usuários ativos, mudança estrutural segura até `rc`, sem shims de compatibilidade; `legacy` = branch protegida `a9279b2`). Caminho de destino DP-3 = `apps/shared/localization/catalogs/` (sem COPY novo no Dockerfile), registrado como resolvido em [`docs/pt-BR/handoffs/resume-agents-2026-10-27.md`](../../handoffs/resume-agents-2026-10-27.md). Plano: [`cutover-plan.md`](cutover-plan.md), Onda 2 (A-05).
 - **Escopo:** só a Onda 2. O painel vanilla (`apps/web/app.js`, `index.html`, `styles.css` e seus 8 módulos) fica (Onda 4). Sem mudança em Compose, instaladores, CI, `package.json`, montagem de catálogos comunitários (`.local/community-catalogs`), textos ou idiomas do produto.
@@ -14,7 +16,7 @@
 
 | Arquivo | Mudança |
 | --- | --- |
-| `apps/web/localization/catalogs/{chat,lifecycle,overlay,panel,setup}/{en,es,pt-BR}.tsv` → `apps/shared/localization/catalogs/…` | 15 arquivos movidos sem alteração. SHA-256 da lista ordenada de hashes por arquivo: `1a4a8e24da8463214a334b63a0ff1054d28babd430ca88134f089b134fbabda7` antes e depois. `apps/web/localization/` não existe mais. |
+| `apps/web/localization/catalogs/{chat,lifecycle,overlay,panel,setup}/{en,es,pt-BR}.tsv` → `apps/shared/localization/catalogs/…` | 15 arquivos movidos sem alteração. SHA-256 agregado `1a4a8e24da8463214a334b63a0ff1054d28babd430ca88134f089b134fbabda7` antes e depois, produzido por `find . -type f -name '*.tsv' \| sort \| xargs sha256sum \| sha256sum` executado dentro da raiz dos catálogos (a entrada são as linhas do `sha256sum`, hash mais caminho relativo, ordenadas pelo caminho; uma lista ordenada só de hashes dá outro valor). Reproduzido pelo `@po` em 2026-10-28 em `apps/shared/localization/catalogs` (gate de QA 2026-10-29 L-2). `apps/web/localization/` não existe mais. |
 | `apps/shared/localization/first-party-catalogs.mjs` (novo) | `FIRST_PARTY_CATALOG_DIRECTORY = 'apps/shared/localization/catalogs'` (relativo à raiz do repositório) e `resolveFirstPartyCatalogRoot(repositoryRoot)`. Relativo à raiz de propósito: as páginas do painel Next leem o fallback no `next build` por `process.cwd()`, onde `import.meta.url` apontaria para dentro do bundle. |
 | `apps/api/src/server.mjs:42` | `catalogRoot = resolveFirstPartyCatalogRoot(<raiz do repositório a partir de import.meta.url>)` em vez de `new URL('../../web/localization/catalogs/', …)`. |
 | `apps/infra/scripts/validate-localization.mjs:10` | Raiz padrão resolvida pela constante compartilhada; um argumento explícito na CLI continua tendo prioridade. |
@@ -83,7 +85,7 @@ Os três E2E precisam de um app HTTPS em loopback. Rodaram contra um `next dev a
 
 ## File List da story (sugestão para o `@po`)
 
-O `@dev` não editou `docs/stories/OPS-15/story.md` (dono: `@po`). Acréscimo sugerido para File List / Change Log da OPS-15:
+O `@dev` não editou `docs/stories/OPS-15/story.md` (dono: `@po`). Registrado pelo `@po` em 2026-10-28 como "File List — Onda 2" e uma linha no Histórico de alterações da story OPS-15 (gate de QA 2026-10-29 M-1). Sugestão original, mantida como histórico:
 
 - Movidos: `apps/web/localization/catalogs/**` (15 TSV) → `apps/shared/localization/catalogs/**`.
 - Criados: `apps/shared/localization/first-party-catalogs.mjs`, `tests/unit/first-party-catalog-location.test.js`, `docs/stories/OPS-15/cutover-wave-2.md` (+ pt-BR).
@@ -101,4 +103,4 @@ O `@dev` não editou `docs/stories/OPS-15/story.md` (dono: `@po`). Acréscimo su
 
 ## Como reverter
 
-Reverta o commit da Onda 2 (`git revert <commit>`). Isso devolve os 15 catálogos para `apps/web/localization/catalogs`, restaura os caminhos literais nos três consumidores e o COPY no `Dockerfile`, apaga `first-party-catalogs.mjs` e restaura os testes anteriores. Não há efeito em dados, schema, Compose ou instaladores; o conteúdo dos catálogos é idêntico dos dois lados.
+Reverta o commit de código da Onda 2 (`git revert bd31ec5`; o commit de docs `3698aef` pode ser revertido à parte). Isso devolve os 15 catálogos para `apps/web/localization/catalogs`, restaura os caminhos literais nos três consumidores e o COPY no `Dockerfile`, apaga `first-party-catalogs.mjs` e restaura os testes anteriores. Não há efeito em dados, schema, Compose ou instaladores; o conteúdo dos catálogos é idêntico dos dois lados.
