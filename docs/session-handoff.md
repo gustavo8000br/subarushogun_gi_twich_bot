@@ -2,12 +2,10 @@
 
 [Português brasileiro](pt-BR/session-handoff.md)
 
-> **FIRST THING next session (state on 2026-10-28):** the interrupted agents were re-dispatched and finished ([`handoffs/resume-agents-2026-10-27.md`](handoffs/resume-agents-2026-10-27.md) is closed). **Cutover Wave 3 (FT-39, issue #95, sub-issue of #69) is committed locally** (no push): `69e9534` (code), `d97c96c` (architecture notes and beta changelog), `4d2f750` (OPS-15/22/23/24 alignment, new Draft stories OPS-25 and OPS-26), `75c11c7` (memory snapshot). `@qa` gate: **CONCERNS 9.0/10** ([`stories/OPS-15/qa-gate-2026-10-28.md`](stories/OPS-15/qa-gate-2026-10-28.md)); native OBS/CEF and live Twitch remain unproven. Next steps, in order:
-> 1. `@sm` applies the `@po` corrections to OPS-25/OPS-26 (gate item K-3; also L-3, the broken language link in `backlog-inventory.md:3`).
-> 2. `@po` rewords OPS-15 lines 30 and 45 (K-1) and adds the Wave 3 paths to the OPS-15 File List (L-4).
-> 3. `@sm` registers a TS item for the M-1 flakiness of `compose-runtime.test.js` (`waitForResponse` created before `page.reload()`, `:1216-1222`).
-> 4. Cutover Wave 2 (catalogs to `apps/shared/localization/catalogs/`, DP-3).
-> 5. Then FT-21/FT-22 (same file, in sequence), FT-25/FT-26 (OPS-22), OPS-24, OPS-23, and cutover Waves 5, 4 and 6.
+> **FIRST THING next session (state on 2026-10-28, session closed at 85% quota):** no agent was running at close. Committed locally (no push): Wave 3 (FT-39, issue #95) `69e9534`, `d97c96c`, `4d2f750`, `75c11c7`; docs round `034020a`, `05d434d`, `1f2fe1b`. **UNCOMMITTED, waiting for `@qa`:** (a) **Cutover Wave 2 (FT-40, issue not created yet)**: 15 catalogs moved from `apps/web/localization/catalogs/` to `apps/shared/localization/catalogs/` (DP-3), `@dev` Red→Green done (12 files red → green; full suite 164 files/1617 tests; compose-runtime 7/7; 3 catalog E2Es; lint/typecheck/validations/OpenGrep 0), record in [`stories/OPS-15/cutover-wave-2.md`](stories/OPS-15/cutover-wave-2.md); **`@devops` must stage `apps/web/localization` and `apps/shared/localization` together** (100% renames); (b) OPS-26 pt-BR line 20 fix (gate item K-1 of `qa-gate-2026-10-28b.md`); (c) L-2/L-3 fixes (inventory link, OPS-25 CA 4 citation); (d) `.claude/agent-memory/aiox-devops/feedback_pathspec_commits.md`. Next steps, in order:
+> 1. `@qa` single gate: Wave 2 + OPS-26 recheck + L-2/L-3 + this handoff (L-1 refreshed); then `@devops` creates the FT-40 issue (sub-issue of #69), commits by pathspec in groups, syncs Project #5 (FT-40 row in the inventory still says "not started"; `@sm` updates it). `@po` adds Wave 2 to the OPS-15 File List/Change Log.
+> 2. Then FT-21 → FT-22 (same file `chat-handler.mjs`), FT-25/FT-26 (include `reward-worker.mjs:316`), OPS-24, OPS-23, cutover Waves 5, 4 (TS-10 contracts first) and 6; TS-15 (M-1 flake) in Backlog.
+> 3. Owner pending: approve moving HD-02 to done as "Superseded"; decide OPS-14 (#65) story; disable the Project workflow "Close issues when status changes"; #17/#18. The Co-Authored-By line of the Wave 3 commits was left as is (not rewritten).
 >
 > Each item goes `@dev`/`@po`/`@sm` → `@qa` → `@devops`, as usual.
 
