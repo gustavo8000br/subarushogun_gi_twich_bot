@@ -34,13 +34,13 @@ describe('foundation operator documentation contract', () => {
     ]);
     const englishPolicy = english.replaceAll('`', '');
     const portuguesePolicy = portuguese.replaceAll('`', '');
-    expect(englishPolicy).toContain('Increment PATCH for a small fix or documentation-only change.');
-    expect(englishPolicy).toContain('Increment MINOR for a new feature, a large implementation, or a complex fix.');
-    expect(englishPolicy).toContain('Increment MAJOR only for a major product change');
+    expect(englishPolicy).toContain('Increment PATCH only for a fix to something already released.');
+    expect(englishPolicy).toContain('Increment MINOR for a dense, coherent milestone');
+    expect(englishPolicy).toContain('Increment MAJOR for an incompatible change to a public contract');
     expect(englishPolicy).toContain('Only the product owner may change the release stage.');
-    expect(portuguesePolicy).toContain('Incremente PATCH para uma correção pequena ou mudança somente documental.');
-    expect(portuguesePolicy).toContain('Incremente MINOR para uma funcionalidade nova, implementação grande ou correção complexa.');
-    expect(portuguesePolicy).toContain('Incremente MAJOR somente para uma mudança significativa do produto');
+    expect(portuguesePolicy).toContain('Incremente PATCH somente para corrigir algo já lançado.');
+    expect(portuguesePolicy).toContain('Incremente MINOR para um marco denso e coerente');
+    expect(portuguesePolicy).toContain('Incremente MAJOR para uma mudança incompatível de um contrato público');
     expect(portuguesePolicy).toContain('Somente o proprietário do produto decide quando avançar o estágio.');
   });
 
