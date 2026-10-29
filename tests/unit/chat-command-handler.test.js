@@ -205,6 +205,17 @@ describe('Twitch chat command handler', () => {
     expect(h.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringContaining('1 pessoa chamada'));
   });
 
+  it('FT-22: passes previousPosition (and no message text) to the call-notification enqueue for each chat call', async () => {
+    const h = setup();
+    h.domainService.callNext.mockResolvedValue([
+      { id: 'entry-1', twitchUserId: 'viewer-1', userLogin: 'viewer', displayName: 'Viewer', previousPosition: 1, status: 'called' },
+      { id: 'entry-2', twitchUserId: 'viewer-2', userLogin: 'viewer2', displayName: 'Viewer 2', previousPosition: 2, status: 'called' },
+    ]);
+    await h.handler({ id: 'message-ft22', text: '!abismo proximo 2', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+    expect(h.repository.enqueueCallNotification).toHaveBeenNthCalledWith(1, { entryId: 'entry-1', queueId: 'queue-1', previousPosition: 1 });
+    expect(h.repository.enqueueCallNotification).toHaveBeenNthCalledWith(2, { entryId: 'entry-2', queueId: 'queue-1', previousPosition: 2 });
+  });
+
   it('explains that calls are paused while a reward queue switches to manual mode', async () => {
     const h = setup();
     h.domainService.callNext.mockRejectedValue(Object.assign(new Error('internal detail'), { code: 'QUEUE_MODE_TRANSITION_PENDING' }));

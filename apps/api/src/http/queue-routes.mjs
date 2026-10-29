@@ -610,13 +610,13 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
         const entry = await repository.getEntry(body.entryId);
         if (!queue || !entry || entry.queueId !== queue.id || entry.status !== 'waiting') return reply.code(409).send({ error: 'A entrada não está aguardando nesta fila.' });
         const moved = await domainService.callSpecificEntry({ queueId: queue.id, entryId: entry.id, actorId: localRequest.localSession.id });
-        await repository.enqueueCallNotification({ queueId: queue.id, entryId: entry.id });
+        await repository.enqueueCallNotification({ queueId: queue.id, entryId: entry.id, previousPosition: moved.previousPosition });
         return { status: 'called', id: moved.id };
       }
       const count = body.count ?? 1;
       if (!Number.isInteger(count) || count < 1 || count > 10) return reply.code(400).send({ error: 'Escolha de 1 a 10 pessoas.' });
       const called = await domainService.callNext({ queueId: localRequest.params.queueId, count, actorId: localRequest.localSession.id });
-      for (const entry of called) await repository.enqueueCallNotification({ queueId: localRequest.params.queueId, entryId: entry.id });
+      for (const entry of called) await repository.enqueueCallNotification({ queueId: localRequest.params.queueId, entryId: entry.id, previousPosition: entry.previousPosition });
       return { status: 'called', count: called.length };
     } catch (error) {
       if (error?.code === 'QUEUE_MODE_TRANSITION_PENDING') return reply.code(409).send({ code: error.code });

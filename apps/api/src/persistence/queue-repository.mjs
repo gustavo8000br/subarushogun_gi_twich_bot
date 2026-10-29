@@ -15,6 +15,11 @@ function repositoryError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
+// FT-22: a call position is persisted/rendered only as an integer >= 1 (entries.position CHECK > 0).
+function isCallPosition(value) {
+  return Number.isInteger(value) && value >= 1;
+}
+
 function ensureQueueCanBeCalled(queue) {
   if (queue.queueMode === 'channel_points' && ['pending_pause', 'unknown', 'failed'].includes(queue.modeTransitionStatus)) {
     throw repositoryError('QUEUE_MODE_TRANSITION_PENDING', 'Queue calls are blocked while its reward is being paused for manual mode');
@@ -939,13 +944,13 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
 
-    async enqueueCallNotification({ entryId, queueId }) {
+    async enqueueCallNotification({ entryId, queueId, previousPosition }) {
       return prisma.$transaction(async (tx) => {
         const entry = await tx.entry.findUnique({ where: { id: entryId } });
         if (!entry || entry.queueId !== queueId || entry.status !== 'called') return { status: 'cancelled' };
         return tx.outbox.create({ data: {
           operationType: 'chat.call', entityType: 'entry', entityId: entryId,
-          idempotencyKey: `chat.call:${entryId}`, payload: {}, entryId,
+          idempotencyKey: `chat.call:${entryId}`, payload: isCallPosition(previousPosition) ? { previousPosition } : {}, entryId,
         } });
       });
     },
@@ -1014,7 +1019,15 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
             return null;
           }
           const updated = await tx.outbox.update({ where: { id: task.id }, data: { status: 'processing', attempts: { increment: 1 }, leaseUntil: new Date(now.getTime() + leaseMs), leaseToken: randomUUID() } });
-          return { id: updated.id, entryId: updated.entryId, attempts: updated.attempts, leaseToken: updated.leaseToken, entry, callPosition: entry.position };
+          let previousPosition = isCallPosition(task.payload?.previousPosition) ? task.payload.previousPosition : null;
+          if (previousPosition === null) {
+            const transition = await tx.auditLog.findFirst({
+              where: { entryId: entry.id, event: 'entry.transitioned', previousState: 'waiting', nextState: 'called' },
+              orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { safeDetail: true },
+            });
+            previousPosition = isCallPosition(transition?.safeDetail?.previousPosition) ? transition.safeDetail.previousPosition : null;
+          }
+          return { id: updated.id, entryId: updated.entryId, attempts: updated.attempts, leaseToken: updated.leaseToken, entry, previousPosition };
         });
         if (claimed) return claimed;
       }
