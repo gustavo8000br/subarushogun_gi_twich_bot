@@ -1212,14 +1212,35 @@ describe('isolated Compose first-run and restart acceptance', () => {
         },
       });
       await page.getByRole('status').filter({ hasText: 'Fila removida do painel. O status da recompensa Twitch e o histórico foram preservados.' }).waitFor();
-      // Read the body inside the response handler: Chromium discards it once a later navigation replaces the page.
-      const archivedProjectionPromise = page.waitForResponse((response) => {
-        const responseUrl = new URL(response.url());
-        return responseUrl.origin === origin && responseUrl.pathname === '/api/queues'
-          && response.request().method() === 'GET';
-      }).then(async (response) => ({ status: response.status(), body: await response.json() }));
+      // Bind to the projection requested by the reloaded document and read its body inside the response handler:
+      // Chromium discards the body once a navigation replaces the page, and a polling GET issued by the old
+      // document before the reload must never be the one asserted (it is ignored, even when its body is lost).
+      let reloadStarted = false;
+      const reloadProjectionRequests = new Set();
+      let resolveArchivedProjection;
+      const archivedProjectionPromise = new Promise((resolve) => { resolveArchivedProjection = resolve; });
+      const isProjectionRequest = (request) => {
+        const requestUrl = new URL(request.url());
+        return requestUrl.origin === origin && requestUrl.pathname === '/api/queues' && request.method() === 'GET';
+      };
+      const onProjectionRequest = (request) => {
+        if (reloadStarted && isProjectionRequest(request)) reloadProjectionRequests.add(request);
+      };
+      const onProjectionResponse = async (response) => {
+        if (!reloadProjectionRequests.has(response.request())) return;
+        try {
+          resolveArchivedProjection({ status: response.status(), body: await response.json() });
+        } catch {
+          // Body lost to a navigation: this was an old-document request; wait for the reloaded document's one.
+        }
+      };
+      page.on('request', onProjectionRequest);
+      page.on('response', onProjectionResponse);
+      reloadStarted = true;
       await page.reload({ waitUntil: 'domcontentloaded' });
       const archivedProjection = await archivedProjectionPromise;
+      page.off('request', onProjectionRequest);
+      page.off('response', onProjectionResponse);
       expect(archivedProjection.status).toBe(200);
       expect(archivedProjection.body.some(({ id }) => id === dto.id)).toBe(false);
       expect(await page.getByRole('heading', { name: title, exact: true }).count()).toBe(0);
