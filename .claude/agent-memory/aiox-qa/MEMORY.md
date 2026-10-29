@@ -1,1 +1,2 @@
 - [New machine env quirks](project_new_machine_env.md) — nvm/sg docker, cold postgres pull, system Chrome E2E, `.local/` for artifacts, zsh no word-split, contended timings
+- [Board count method](project_board_count_method.md) — kanban "Counts": issues = `#N` + `issue nova`; filter col 4 on Situação; check the issue/draft split
