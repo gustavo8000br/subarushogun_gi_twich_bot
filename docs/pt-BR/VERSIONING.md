@@ -12,7 +12,7 @@ Toda PR que traz um bump recebe a versão escolhida antes do merge. Registre as 
 
 ## Plano atual de release
 
-O alvo atual de distribuição é a versão base do produto `0.2.0`; `.release-stage` continua em `beta` e a identidade não materializada do checkout é `v0.2.0-0000000-beta`. Esta funcionalidade permite que o streamer cancele uma exclusão pendente de fila vinculada a reward depois que o app confirma que a reward exata, gerenciada pela Twitch, existe e continua pausada. Ela preserva as entradas e o histórico financeiro da fila e permite tentar a exclusão novamente com segurança. O proprietário deve testar esta build localmente, incluindo o fluxo de recuperação; testes automatizados não comprovam operações Twitch ao vivo. A publicação da release beta continua sendo acionada manualmente pelo proprietário; este incremento de versão não cria tag Git nem GitHub Release.
+O alvo atual de distribuição é a versão base do produto `0.2.1`; `.release-stage` continua em `beta` e a identidade não materializada do checkout é `v0.2.1-0000000-beta`. Esta correção faz a confirmação final de exclusão local exibir corretamente o nome da fila e o aviso completo. O proprietário deve verificar esta build localmente; testes automatizados não comprovam operações Twitch ao vivo. A publicação da release beta continua sendo acionada manualmente pelo proprietário; este incremento de versão não cria tag Git nem GitHub Release.
 
 ## Conteúdo das GitHub Releases
 

@@ -6,7 +6,6 @@
   "include": [
     "apps/web/**/*.js",
     "apps/web/**/*.mjs",
-    "apps/shared/panel/**/*.mjs",
-    "apps/frontend/**/*.jsx"
+    "apps/shared/panel/**/*.mjs"
   ]
 }

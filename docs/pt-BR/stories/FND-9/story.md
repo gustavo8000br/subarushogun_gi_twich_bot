@@ -195,7 +195,7 @@ Consulte as evidências TDD datadas acima.
 
 ### Notas de conclusão
 
-A implementação anteriormente mesclada da FND-9 recebeu scores independentes @qa e @architect de 10/10. A regressão de conclusão/exclusão e a corrida cancelar/excluir local de 2026-10-14 foram corrigidas e cobertas por casos reais de PostgreSQL; a última correção recebeu 10/10 na re-revisão independente @qa. Suíte completa atual: 106 arquivos / 983 testes aprovados. Lint, typecheck, revisão estática, build, denylist de portas, validadores de localização/versão e sync IDE passaram. Status da story: Ready for Review; os aceites Windows/financeiro Twitch ao vivo pelo proprietário continuam pendentes; não marcar Done nem fechar issue #19.
+A implementação anteriormente mesclada da FND-9 recebeu scores independentes @qa e @architect de 10/10. A regressão de conclusão/exclusão e a corrida cancelar/excluir local de 2026-10-14 foram corrigidas e cobertas por casos reais de PostgreSQL; a última correção recebeu 10/10 na re-revisão independente @qa. Suíte completa atual: 106 arquivos / 986 testes aprovados. Lint, typecheck, análise estática verificada por assinatura (0 achados), build da imagem de produção, denylist de portas, validadores de localização/versão e sync IDE passaram. A correção final da confirmação local recebeu PASS independente @qa 10/10. Status da story: Ready for Review; os aceites Windows/financeiro Twitch ao vivo pelo proprietário continuam pendentes; não marcar Done nem fechar issue #19.
 
 ### Lista de arquivos
 
@@ -231,6 +231,13 @@ A implementação anteriormente mesclada da FND-9 recebeu scores independentes @
 - `docs/pt-BR/VERSIONING.md`
 - `docs/stories/FND-9/story.md`
 - `docs/pt-BR/stories/FND-9/story.md`
+- `apps/web/localization/catalogs/panel/en.tsv`
+- `apps/web/localization/catalogs/panel/es.tsv`
+- `apps/web/localization/catalogs/panel/pt-BR.tsv`
+- `tests/unit/panel-catalog-placeholders.test.js`
+- `CHANGELOG_INTERNAL.md` e `docs/pt-BR/CHANGELOG_INTERNAL.md`
+- `docs/session-handoff.md` e `docs/pt-BR/session-handoff.md`
+- `docs/stories/FND-9/validation.md` e `docs/pt-BR/stories/FND-9/validation.md`
 
 - `tests/unit/release-notes.test.js`
 - `docs/pt-BR/CHANGELOG-beta.md`
@@ -471,6 +478,15 @@ A reavaliação independente @qa do diff corretivo mais recente está em andamen
 - **Correção:** O painel oferece “verificar andamento da exclusão” somente para filas manuais convertidas em exclusão local. A ação reutiliza o endpoint idempotente existente e tem confirmação própria que informa que a reward Twitch permanece pausada e intacta. Ações remotas de reward continuam indisponíveis.
 - **Cobertura:** Adicionadas asserções para projeção de estado, confirmação específica de nova tentativa, rota do painel e contrato dos catálogos. A cobertura PostgreSQL existente valida bloqueios financeiros pendentes e finalização após nova tentativa do operador.
 - **Arquivos:** `apps/web/app.js`, `apps/web/queue-action-state.mjs`, `apps/web/queue-confirmation-copy.mjs`, `apps/web/panel-catalog.mjs`, `apps/shared/localization/discover-catalog-module.mjs`, os três catálogos do painel, `tests/unit/queue-action-state.test.js`, `tests/unit/queue-confirmation-copy.test.js`, `tests/unit/web-route.test.js` e `tests/integration/panel-localization-contract.test.js`.
+
+### Interpolação do diálogo de exclusão local — 2026-10-14
+
+- **Red:** Adicionada regressão para a confirmação final de exclusão local com o nome da fila. `npm test -- --run tests/unit/panel-catalog-placeholders.test.js` falhou porque a lista permitida rejeitava `title` e mostrava o texto genérico de indisponibilidade.
+- **Green:** `title` foi incluído na lista permitida de `panel.queue.confirm.archive_local_uncertain_final`. A suíte focada de placeholders/confirmações/textos passou **18/18** e a validação de localização passou nos três idiomas.
+- **Arquivos:** `apps/web/panel-catalog.mjs`, `tests/unit/panel-catalog-placeholders.test.js` e os changelogs beta em inglês/pt-BR.
+- **Conclusão remota:** O resgate informado continua `unknown` na instância Twitch do proprietário. Código automatizado e testes isolados não comprovam nem diagnosticam o resultado da API ao vivo; mantenha esse aceite pendente até o proprietário fornecer a versão do produto e diagnósticos operacionais sanitizados.
+- **Regressão completa após o bump de versão:** A primeira execução completa revelou um contrato documental de versionamento desatualizado (`0.2.0`); as asserções foram atualizadas para corresponder ao plano bilíngue `0.2.1`. Depois disso, a suíte completa passou em **106 arquivos / 986 testes**. Passaram também `npm run lint`, `npm run typecheck`, `npm run sync:ide:check` (109/109), validações de localização/versão/denylist de portas, `docker compose config --quiet` e `git diff --check`. O build da imagem de produção passou localmente, sem publicação. Nenhuma operação Twitch ao vivo foi executada.
+- **QA independente:** Quinn reavaliou o diff e pontuou esta correção com **10/10 PASS**. OpenGrep 1.30.0 foi verificado por assinatura e reportou **0 achados em 87 arquivos JavaScript**. A story continua Ready for Review até o aceite Windows/Twitch pelo proprietário; esta branch ainda não foi mesclada nem publicada.
 - **Gates de qualidade:** `npm run lint`, `npm run typecheck`, `npm test` (**105 arquivos / 878 testes**), validadores de localização/versão, OpenGrep (**0 achados**), `docker compose config --quiet` e `git diff --check` passaram após este incremento.
 
 ### Correções após revisão independente dos controles de conversão — 2026-10-11

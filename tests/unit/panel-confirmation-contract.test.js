@@ -4,6 +4,7 @@ import { requestPanelConfirmation } from '../../apps/web/panel-confirmation.mjs'
 
 const app = await readFile(new URL('../../apps/web/app.js', import.meta.url), 'utf8');
 const html = await readFile(new URL('../../apps/web/index.html', import.meta.url), 'utf8');
+const nextLifecycle = await readFile(new URL('../../apps/frontend/features/queues/queue-lifecycle-actions.jsx', import.meta.url), 'utf8');
 const catalogs = await Promise.all(['en', 'es', 'pt-BR'].map((locale) =>
   readFile(new URL(`../../apps/shared/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8')));
 
@@ -17,6 +18,13 @@ describe('panel confirmation dialog contract', () => {
       expect(labels['panel.queue.confirm.unarchive']).toMatch(/viewers|espectadores/i);
       expect(labels['panel.queue.unarchive.done']).toMatch(/viewers|espectadores/i);
     }
+  });
+
+  it('passes the queue title to the Next panel final local deletion confirmation', () => {
+    const valuesSet = nextLifecycle.match(/const confirmationValues = new Set\(\[([\s\S]*?)\]\)\.has\(confirmationKey\)/)?.[1] ?? '';
+    expect(valuesSet).toContain("'panel.queue.confirm.archive_local_uncertain_final'");
+    expect(nextLifecycle).toMatch(/\? \{ title: queue\.title, count: activeCount \} : undefined/);
+    expect(nextLifecycle).toMatch(/getQueueConfirmationCopy\(queue, 'archive-local-final'\)/);
   });
 
   it('removes the hide/archive action from normal queue controls and preserves legacy recovery only', () => {
@@ -47,7 +55,7 @@ describe('panel confirmation dialog contract', () => {
       expect(catalog).toMatch(/panel\.queue\.archive_local\.(processing|expired|stale|unavailable)\t\S+/);
       expect(catalog).toMatch(/reward may still exist|todavía puede existir|ainda pode existir/i);
       expect(catalog).toMatch(/panel\.queue\.action\.archive_local_anyway\t(?:Delete from panel anyway|Excluir do painel mesmo assim|Eliminar del panel de todos modos)/);
-      expect(catalog).toMatch(/panel\.queue\.confirm\.archive_local_uncertain_final\t(?:Final confirmation: delete queue|Confirmação final: excluir a fila|Confirmación final: ¿eliminar la cola)/);
+      expect(catalog).toMatch(/panel\.queue\.confirm\.archive_local_uncertain_final\t(?:Final confirmation: delete queue “\{title\}”|Confirmação final: excluir a fila “\{title\}”|Confirmación final: ¿eliminar la cola “\{title\}”)/);
       expect(catalog).not.toMatch(/panel\.queue\.(?:action\.archive_local_anyway|confirm\.archive_local_uncertain_first|confirm\.archive_local_uncertain_final|archive_local\.(?:done|processing|unavailable))\t[^\n]*(?:archive|arquiv|archiv)/i);
       expect(catalog).toMatch(/historical and unverified|histórico e não verificado|histórico y no verificado/i);
       expect(catalog).toMatch(/not an indication that sync is still running|não significa que uma operação continue em execução|no indica que la sincronización continúe en curso/i);

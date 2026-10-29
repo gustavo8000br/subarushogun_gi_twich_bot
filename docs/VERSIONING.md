@@ -12,7 +12,7 @@ Every PR that carries a bump receives its selected version before merge. Record 
 
 ## Current release plan
 
-The current shipping target is product base version `0.2.0`; `.release-stage` remains `beta`, and the unmaterialized checkout identity is `v0.2.0-0000000-beta`. This feature lets a streamer cancel a pending reward-backed queue deletion after the exact managed Twitch reward is verified to exist and remain paused. It preserves the queue's entries and financial history and permits a later safe deletion attempt. The owner must test this build locally, including the recovery flow; no live Twitch operation is claimed by automated tests. Beta release publication remains manually triggered by the owner; this version bump does not create a Git tag or GitHub Release.
+The current shipping target is product base version `0.2.1`; `.release-stage` remains `beta`, and the unmaterialized checkout identity is `v0.2.1-0000000-beta`. This patch fixes the final local queue deletion confirmation so its queue title and full warning render correctly. The owner must verify this build locally; no live Twitch operation is claimed by automated tests. Beta release publication remains manually triggered by the owner; this version bump does not create a Git tag or GitHub Release.
 
 ## GitHub release contents
 

@@ -4,6 +4,12 @@
 
 Types: 🟧 Security · 🟩 Added · 🟦 Changed · 🟨 Deprecated · 🟥 Removed · 🟪 Fixed. Incompatible changes appear first in a warning box.
 
+## v0.2.1-beta
+
+### 🟪 Fixed
+
+- Fixed the final local queue deletion confirmation so the queue title and full warning are displayed instead of an unavailable-text fallback, in both the legacy panel and the Next.js panel.
+
 ## v0.2.0-beta
 
 > [!WARNING]

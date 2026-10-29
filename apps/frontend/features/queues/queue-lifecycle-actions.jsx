@@ -75,6 +75,7 @@ function QueueLifecycleActions({ queue, locale, t, saving, rewardLinkRefreshRequ
   const confirmationValues = new Set([
     'panel.queue.confirm.delete', 'panel.queue.confirm.delete_local',
     'panel.queue.confirm.delete_converted', 'panel.queue.confirm.cancel_delete',
+    'panel.queue.confirm.archive_local_uncertain_final',
   ]).has(confirmationKey) ? { title: queue.title, count: activeCount } : undefined;
   const confirmCopy = t(confirmationKey, { ...(confirmationValues ? { values: confirmationValues } : {}) });
 

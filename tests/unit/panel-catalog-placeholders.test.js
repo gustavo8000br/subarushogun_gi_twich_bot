@@ -9,8 +9,17 @@ const catalog = {
     'panel.reward.candidate_counts': '{compatible} compatíveis de {total}.',
     'panel.reward.mismatch_summary': 'Diferenças: {reasons}.',
     'panel.reward.mismatch.title': 'Nomes diferentes ({count})',
+    'panel.queue.confirm.archive_local_uncertain_final': 'Confirmação final: excluir “{title}” do painel mesmo assim?',
   },
 };
+const shippedPanelCatalogs = Object.fromEntries(await Promise.all(['en', 'es', 'pt-BR'].map(async (locale) => {
+  const contents = await readFile(new URL(`../../apps/shared/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+  const entries = Object.fromEntries(contents.trim().split('\n').map((line) => {
+    const separator = line.indexOf('\t');
+    return [line.slice(0, separator), line.slice(separator + 1)];
+  }));
+  return [locale, entries];
+})));
 
 describe('runtime panel interpolation allowlist', () => {
   it('allows only the documented candidate and reward mismatch placeholders', () => {
@@ -43,6 +52,14 @@ describe('runtime panel interpolation allowlist', () => {
     });
     expect(message).toContain('Fila teste');
     expect(message).not.toContain('unavailable');
+  });
+
+  it.each(['en', 'es', 'pt-BR'])('renders the queue title in the shipped %s final local deletion confirmation', (locale) => {
+    const message = translateCatalog(shippedPanelCatalogs, locale, 'panel.queue.confirm.archive_local_uncertain_final', {
+      values: { title: 'Fila teste' }, placeholders: PANEL_PLACEHOLDERS,
+    });
+    expect(message).not.toContain('unavailable');
+    expect(message).toContain('Fila teste');
   });
 
   it('rejects unexpected interpolation values for these panel messages', () => {

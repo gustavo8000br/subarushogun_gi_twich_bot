@@ -4,6 +4,12 @@
 
 Tipos: 🟧 Segurança · 🟩 Adicionado · 🟦 Alterado · 🟨 Obsoleto · 🟥 Removido · 🟪 Corrigido. Mudanças incompatíveis aparecem primeiro, numa caixa de aviso.
 
+## v0.2.1-beta
+
+### 🟪 Corrigido
+
+- Corrigida a confirmação final de exclusão local da fila para exibir o nome da fila e o aviso completo, em vez do texto de indisponibilidade, tanto no painel legado quanto no painel Next.js.
+
 ## v0.2.0-beta
 
 > [!WARNING]
