@@ -33,7 +33,7 @@ describe('runtime panel interpolation allowlist', () => {
   });
 
   it.each(['en', 'es', 'pt-BR'])('renders the queue title in the shipped %s final local deletion confirmation', async (locale) => {
-    const contents = await readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+    const contents = await readFile(new URL(`../../apps/shared/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
     const catalog = Object.fromEntries(contents.trim().split('\n').map((line) => {
       const separator = line.indexOf('\t');
       return [line.slice(0, separator), line.slice(separator + 1)];

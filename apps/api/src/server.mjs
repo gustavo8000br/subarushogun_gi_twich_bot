@@ -19,6 +19,7 @@ import { createOverlayProjectionService } from './domain/overlay-projection-serv
 import { registerOverlayRoutes } from './http/overlay-routes.mjs';
 import { registerLocalizationRoutes } from './http/localization-routes.mjs';
 import { discoverCatalogBundle } from '../../shared/localization/discover-catalog-bundle.mjs';
+import { resolveFirstPartyCatalogRoot } from '../../shared/localization/first-party-catalogs.mjs';
 import { writeProductLocaleProjection } from '../../infra/src/product-locale-projection.mjs';
 import { fileURLToPath } from 'node:url';
 import { createErrorDiagnosticReporter } from './observability/error-diagnostics.mjs';
@@ -38,7 +39,7 @@ registerSafeHttpErrorHandler(app, { reportDiagnostic });
 const productVersion = (await readFile(new URL('../../../VERSION', import.meta.url), 'utf8')).trim();
 const port = Number(process.env.PUBLIC_PORT ?? process.env.APP_PORT ?? 3000);
 const apiPort = Number(process.env.API_PORT ?? process.env.APP_PORT ?? 3000);
-const catalogRoot = fileURLToPath(new URL('../../web/localization/catalogs/', import.meta.url));
+const catalogRoot = resolveFirstPartyCatalogRoot(fileURLToPath(new URL('../../../', import.meta.url)));
 const communityCatalogRoot = fileURLToPath(new URL('../../../.local/community-catalogs/', import.meta.url));
 const getCatalogModule = async (moduleName) => {
   const bundle = await discoverCatalogBundle(catalogRoot, { communityCatalogRoot });

@@ -83,10 +83,11 @@ describe('Dockerfile frontend build stage', () => {
     expect(webTargets).toEqual([]);
   });
 
-  it('copies no individual apps/web module into the frontend build stage (only the catalogs until step C)', () => {
+  it('copies nothing from apps/web into the frontend build stage: the catalogs ship inside apps/shared (OPS-15 cutover wave 2)', () => {
     const webSources = frontendBuildCopySources().filter((source) => source.startsWith('apps/web'));
-    expect(webSources).toEqual(['apps/web/localization/catalogs']);
+    expect(webSources).toEqual([]);
     expect(frontendBuildCopySources()).toContain('apps/shared');
+    expect(readFileSync(join(root, 'Dockerfile'), 'utf8')).not.toMatch(/apps\/web/);
   });
 
   it('only resolves imports to files that exist', () => {

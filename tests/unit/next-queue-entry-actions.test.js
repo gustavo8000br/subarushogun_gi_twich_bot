@@ -56,7 +56,7 @@ describe('Next queue entry actions', () => {
     ['es', 'Es posible que la llamada se haya registrado. Actualiza la cola antes de intentarlo de nuevo.'],
     ['pt-BR', 'A chamada pode ter sido registrada. Atualize a fila antes de tentar novamente.'],
   ])('uses clear uncertain-call guidance in the %s catalog', async (locale, message) => {
-    const catalog = await readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+    const catalog = await readFile(new URL(`../../apps/shared/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
     expect(catalog).toContain(`panel.queue.action_result.uncertain\t${message}`);
   });
 
@@ -65,7 +65,7 @@ describe('Next queue entry actions', () => {
     ['es', 'Actualizar cola'],
     ['pt-BR', 'Atualizar fila'],
   ])('provides localized call-refresh controls in the %s catalog', async (locale, label) => {
-    const catalog = await readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+    const catalog = await readFile(new URL(`../../apps/shared/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
     expect(catalog).toContain(`panel.queue.call_next.refresh\t${label}`);
     expect(catalog).toContain('panel.queue.call_next.refresh_required\t');
     expect(catalog).toContain('panel.queue.call_next.reference\t');
@@ -105,7 +105,7 @@ describe('Next queue entry actions', () => {
     ['es', 'queue_unavailable', 'Esta cola no acepta entradas ahora. Actualiza el panel para ver su estado actual.'],
     ['pt-BR', 'queue_unavailable', 'Esta fila não está aceitando entradas agora. Atualize o painel para ver o estado atual.'],
   ])('ships the %s %s manual-entry message', async (locale, name, message) => {
-    const catalog = await readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+    const catalog = await readFile(new URL(`../../apps/shared/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
     expect(catalog).toContain(`panel.entry.error.${name}\t${message}`);
   });
 
@@ -119,7 +119,7 @@ describe('Next queue entry actions', () => {
     ['es', 'No se pudo añadir a la persona. Revisa el usuario y si ya está en la cola; si todo está bien, actualiza el panel.'],
     ['pt-BR', 'Não foi possível adicionar a pessoa. Confira o login e se ela já está na fila; se estiver tudo certo, atualize o painel.'],
   ])('ships the reviewed code-less fallback message in the %s catalog', async (locale, expectedMessage) => {
-    const catalog = await readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+    const catalog = await readFile(new URL(`../../apps/shared/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
     expect(catalog).toContain(`panel.entry.error.unavailable\t${expectedMessage}`);
   });
 
@@ -223,7 +223,7 @@ describe('Next queue entry actions', () => {
     ['es', 'Se solicitó reenviar la llamada. Se conservó el plazo de ausencia.', 'La llamada ya está en la cola de envío.'],
     ['pt-BR', 'Reenvio solicitado. O prazo de ausência foi mantido.', 'A chamada já está na fila de envio.'],
   ])('keeps resend and already-queued messages explicit in the %s catalog', async (locale, sent, alreadyQueued) => {
-    const catalog = await readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+    const catalog = await readFile(new URL(`../../apps/shared/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
     expect(catalog).toContain(`panel.notice.call_resent\t${sent}`);
     expect(catalog).toContain(`panel.notice.call_already_queued\t${alreadyQueued}`);
   });

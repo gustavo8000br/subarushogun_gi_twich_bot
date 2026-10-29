@@ -1,7 +1,8 @@
-import { resolve } from 'node:path';
 import { discoverCatalogBundle } from '../../../shared/localization/discover-catalog-bundle.mjs';
+import { resolveFirstPartyCatalogRoot } from '../../../shared/localization/first-party-catalogs.mjs';
 
-const firstPartyCatalogRoot = resolve(process.cwd(), 'apps/web/localization/catalogs');
+// Root-relative on purpose: the panel pages are prerendered by `next build` from the repository (or image `/app`) root.
+const firstPartyCatalogRoot = resolveFirstPartyCatalogRoot(process.cwd());
 
 export async function loadFirstPartyPanelFallback() {
   const bundle = await discoverCatalogBundle(firstPartyCatalogRoot);

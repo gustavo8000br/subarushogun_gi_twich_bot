@@ -160,7 +160,8 @@ describe('local Compose runtime contract', () => {
     expect(dockerfile).toMatch(/^COPY apps\/shared \.\/apps\/shared$/m);
     // OPS-15 S-03: modules shared with Next live in apps/shared/panel and are covered by the apps/shared COPY.
     expect(dockerfile).not.toMatch(/^COPY apps\/web\/[^\s]+\.mjs /m);
-    expect(dockerfile).toMatch(/^COPY apps\/web\/localization\/catalogs \.\/apps\/web\/localization\/catalogs$/m);
+    // OPS-15 cutover wave 2: the first-party catalogs live in apps/shared/localization/catalogs (same COPY).
+    expect(dockerfile).not.toMatch(/apps\/web/);
     expect(dockerfile).toContain('RUN npm run build:frontend');
     expect(dockerfile).toMatch(/^COPY --from=frontend-build \/app\/apps\/frontend\/\.next \.\/apps\/frontend\/\.next$/m);
     expect(dockerfile).toContain('CMD ["node", "apps/infra/scripts/start-product.mjs"]');

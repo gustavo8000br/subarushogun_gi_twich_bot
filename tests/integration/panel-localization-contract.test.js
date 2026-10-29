@@ -29,7 +29,7 @@ describe('panel catalog contract', () => {
   });
 
   it('offers contextual queue and financial empty-state guidance in every panel locale', async () => {
-    const catalogRoot = fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url));
+    const catalogRoot = fileURLToPath(new URL('../../apps/shared/localization/catalogs/', import.meta.url));
     const catalogs = await discoverCatalogModule(catalogRoot, 'panel');
     for (const locale of ['pt-BR', 'en', 'es']) {
       expect(catalogs.catalogs[locale]['panel.queue.empty.hint']).not.toMatch(/form above|formul[aá]rio acima|formulario de arriba/i);
@@ -58,7 +58,7 @@ describe('panel catalog contract', () => {
     expect(css).toContain('.command-policy-grid');
     expect(css).toContain('#command-catalog-form>[type="submit"]{margin-top:24px}');
     expect(css).toContain('@media(max-width:900px){.command-policy-grid{grid-template-columns:minmax(0,1fr)}}');
-    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url)), 'panel');
+    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/shared/localization/catalogs/', import.meta.url)), 'panel');
     for (const locale of ['pt-BR', 'en', 'es']) {
       for (const key of ['panel.commands.group.configurable', 'panel.commands.group.moderator', 'panel.commands.group.streamer', 'panel.command.audience.everyone_includes']) {
         expect(catalogs.catalogs[locale]).toHaveProperty(key);
@@ -77,7 +77,7 @@ describe('panel catalog contract', () => {
     expect(app).toContain("panelTextPlural('panel.operation.attempts'");
     expect(app).toContain("panelTextPlural('panel.reconciliation.complete'");
     expect(app).toContain("panelTextPlural('panel.reconciliation.issues'");
-    const catalogRoot = fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url));
+    const catalogRoot = fileURLToPath(new URL('../../apps/shared/localization/catalogs/', import.meta.url));
     const catalogs = await discoverCatalogModule(catalogRoot, 'panel');
     for (const locale of ['pt-BR', 'en', 'es']) {
       for (const key of ['panel.operation.attempts', 'panel.reconciliation.complete', 'panel.reconciliation.issues']) {
@@ -188,7 +188,7 @@ describe('panel catalog contract', () => {
   });
 
   it('explains why a reward with a matching title may still be unavailable for recovery', async () => {
-    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url)), 'panel');
+    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/shared/localization/catalogs/', import.meta.url)), 'panel');
     for (const locale of ['pt-BR', 'en', 'es']) {
       const message = catalogs.catalogs[locale]['panel.reward.no_candidates'];
       expect(message).toMatch(/paused|pausad|pausad/i);
@@ -201,7 +201,7 @@ describe('panel catalog contract', () => {
     const management = await readFile(fileURLToPath(new URL('../../apps/frontend/features/widgets/widget-management.mjs', import.meta.url)), 'utf8');
     const page = await readFile(fileURLToPath(new URL('../../apps/frontend/features/widgets/widgets-page-content.jsx', import.meta.url)), 'utf8');
     const html = await readFile(fileURLToPath(new URL('../../apps/web/index.html', import.meta.url)), 'utf8');
-    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url)), 'panel');
+    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/shared/localization/catalogs/', import.meta.url)), 'panel');
     for (const key of [
       'panel.widget.source.account', 'panel.widget.source.queue_name', 'panel.widget.source.queue_state',
       'panel.widget.source.queue_count', 'panel.widget.source.called_name', 'panel.widget.source.called_position',
@@ -256,7 +256,7 @@ describe('panel catalog contract', () => {
       expect(element, `Expected #${id} to be populated from runtime state or a catalog`).toBeTruthy();
       expect(element, `#${id} must not be overwritten by static localization`).not.toMatch(/\\bdata-i18n=/);
     }
-    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url)), 'panel');
+    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/shared/localization/catalogs/', import.meta.url)), 'panel');
     for (const locale of ['pt-BR', 'en', 'es']) {
       for (const key of ['panel.health.database.checking', 'panel.health.ping_unavailable', 'panel.overview.connect_title', 'panel.overview.create_title', 'panel.overview.queues_title', 'panel.overview.check_title', 'panel.operations.empty_hint']) {
         expect(catalogs.catalogs[locale]).toHaveProperty(key);
@@ -271,7 +271,7 @@ describe('panel catalog contract', () => {
     const app = await readFile(fileURLToPath(new URL('../../apps/web/app.js', import.meta.url)), 'utf8');
     expect(app).toContain('panel.command.description.${commandKey}');
     expect(app).toContain('panel.command.syntax.${commandKey}');
-    const catalogRoot = fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url));
+    const catalogRoot = fileURLToPath(new URL('../../apps/shared/localization/catalogs/', import.meta.url));
     const catalogs = await discoverCatalogModule(catalogRoot, 'panel');
     for (const key of ['panel.command.description.queue_lista', 'panel.command.syntax.queue_lista', 'panel.command.description.global_queue_ping', 'panel.command.syntax.global_queue_ping']) {
       for (const locale of ['pt-BR', 'en', 'es']) expect(catalogs.catalogs[locale]).toHaveProperty(key);
@@ -287,7 +287,7 @@ describe('panel catalog contract', () => {
     ]) expect(app).toContain(key);
     expect(app).not.toContain('operation.lastError');
     expect(app).toContain('const statusKey = `panel.operation.status.${operation.status}`');
-    const catalogRoot = fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url));
+    const catalogRoot = fileURLToPath(new URL('../../apps/shared/localization/catalogs/', import.meta.url));
     const catalogs = await discoverCatalogModule(catalogRoot, 'panel');
     for (const status of ['pending', 'retry', 'processing', 'unknown', 'conflict', 'failed', 'confirmed', 'resolved_manual', 'cancelled']) {
       for (const locale of ['pt-BR', 'en', 'es']) expect(catalogs.catalogs[locale]).toHaveProperty(`panel.operation.status.${status}`);
@@ -302,7 +302,7 @@ describe('panel catalog contract', () => {
     const queueConfirmationCopy = await readFile(fileURLToPath(new URL('../../apps/shared/panel/queue-confirmation-copy.mjs', import.meta.url)), 'utf8');
     const queueActionState = await readFile(fileURLToPath(new URL('../../apps/shared/panel/queue-action-state.mjs', import.meta.url)), 'utf8');
     const html = await readFile(fileURLToPath(new URL('../../apps/web/index.html', import.meta.url)), 'utf8');
-    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url)), 'panel');
+    const catalogs = await discoverCatalogModule(fileURLToPath(new URL('../../apps/shared/localization/catalogs/', import.meta.url)), 'panel');
     const app = `${queueForm}\n${queueSettings}\n${queueList}\n${lifecycle}`;
     for (const key of ['panel.queue.onboarding.reward_pending', 'panel.queue.onboarding.activate_next', 'panel.queue.onboarding.activate_waiting', 'panel.queue.onboarding.reward_diverged', 'panel.reward.loading_candidates', 'panel.notice.queue_settings_saved', 'panel.notice.reward_update_pending', 'panel.entry.reason_required', 'panel.entry.priority_audit_hint', 'panel.priority.marked', 'panel.queue.delete.pending', 'panel.reward.no_candidates', 'panel.queue.clear.confirm', 'panel.queue.clear.changed', 'panel.queue.clear.done', 'panel.account.prompt.current', 'panel.account.prompt.default']) {
       for (const locale of ['pt-BR', 'en', 'es']) expect(catalogs.catalogs[locale]).toHaveProperty(key);
@@ -338,7 +338,7 @@ describe('panel catalog contract', () => {
   });
 
   it('covers every static text and accessible-label key in the panel for each first-party locale', async () => {
-    const catalogRoot = fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url));
+    const catalogRoot = fileURLToPath(new URL('../../apps/shared/localization/catalogs/', import.meta.url));
     const html = await readFile(fileURLToPath(new URL('../../apps/web/index.html', import.meta.url)), 'utf8');
     const frontendSources = await Promise.all([
       '../../apps/frontend/features/queues/new-queue-form.jsx',

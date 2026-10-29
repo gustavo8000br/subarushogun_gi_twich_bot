@@ -507,7 +507,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
 
     const moduleNames = ['chat', 'lifecycle', 'overlay', 'panel', 'setup'];
     for (const moduleName of moduleNames) {
-      const source = join(root, 'apps', 'web', 'localization', 'catalogs', moduleName, 'en.tsv');
+      const source = join(root, 'apps', 'shared', 'localization', 'catalogs', moduleName, 'en.tsv');
       const contents = readFileSync(source, 'utf8').replace(/\r\n/g, '\n');
       writeFileSync(join(communityCatalogDirectory, moduleName, 'de.tsv'), contents);
     }

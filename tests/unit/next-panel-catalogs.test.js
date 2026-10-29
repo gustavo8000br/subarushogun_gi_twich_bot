@@ -11,7 +11,7 @@ describe('Next runtime panel catalogs', () => {
       'pt-BR': 'Parcial, em andamento ou desconhecido',
     };
     const actual = Object.fromEntries(Object.entries({ en: 'en', es: 'es', 'pt-BR': 'pt-BR' }).map(([locale, file]) => {
-      const catalog = parseTsvCatalog(readFileSync(new URL(`../../apps/web/localization/catalogs/panel/${file}.tsv`, import.meta.url), 'utf8'));
+      const catalog = parseTsvCatalog(readFileSync(new URL(`../../apps/shared/localization/catalogs/panel/${file}.tsv`, import.meta.url), 'utf8'));
       return [locale, catalog['panel.health.legend.partial']];
     }));
     expect(actual).toEqual(expected);

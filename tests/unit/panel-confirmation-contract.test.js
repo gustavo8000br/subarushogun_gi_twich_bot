@@ -5,7 +5,7 @@ import { requestPanelConfirmation } from '../../apps/web/panel-confirmation.mjs'
 const app = await readFile(new URL('../../apps/web/app.js', import.meta.url), 'utf8');
 const html = await readFile(new URL('../../apps/web/index.html', import.meta.url), 'utf8');
 const catalogs = await Promise.all(['en', 'es', 'pt-BR'].map((locale) =>
-  readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8')));
+  readFile(new URL(`../../apps/shared/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8')));
 
 describe('panel confirmation dialog contract', () => {
   it('removes hide/archive copy and labels legacy recovery as show-to-viewers', () => {

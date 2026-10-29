@@ -9,7 +9,7 @@ assert.ok(['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname), 'APP_OR
 
 const csrfToken = 'csrf-token-for-widget-link-browser-test-00001';
 // The shipped English panel catalog is the source of truth for the copy asserted below.
-const catalog = Object.fromEntries(readFileSync(new URL('../../apps/web/localization/catalogs/panel/en.tsv', import.meta.url), 'utf8')
+const catalog = Object.fromEntries(readFileSync(new URL('../../apps/shared/localization/catalogs/panel/en.tsv', import.meta.url), 'utf8')
   .split('\n').filter((line) => line.includes('\t')).map((line) => {
     const index = line.indexOf('\t');
     return [line.slice(0, index), line.slice(index + 1)];
