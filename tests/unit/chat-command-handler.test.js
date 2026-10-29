@@ -375,6 +375,66 @@ describe('Twitch chat command handler', () => {
     expect(h.twitch.sendChatMessage).toHaveBeenLastCalledWith(expect.stringContaining('reembolsos solicitados e pendentes'));
   });
 
+  describe('FT-21 (D-1): clear confirmation in any case, accent or locale label', () => {
+    function setupWithClearSpy(locale = 'pt-BR') {
+      const h = setup();
+      h.repository.getProductLocale = vi.fn(async () => ({ locale, revision: 1 }));
+      const clearConfirmation = {
+        request: vi.fn(async () => ({ status: 'confirmation_required', count: 2, refundsRequested: 1 })),
+        confirm: vi.fn(async () => ({ status: 'cleared', count: 2, refundsRequested: 1 })),
+      };
+      h.handler = createChatCommandHandler({ repository: h.repository, domainService: h.domainService, twitch: h.twitch, settings: h.settings, clearConfirmation, broadcasterId: 'broadcaster-1' });
+      return { ...h, clearConfirmation };
+    }
+    const mod = { userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] };
+
+    it.each([
+      ['pt-BR', '!abismo limpar CONFIRMAR'],
+      ['pt-BR', '!abismo limpar Confirmar'],
+      ['pt-BR', '!abismo limpar confirmár'],
+      ['pt-BR', '!abismo limpar confirmar'],
+      ['en', '!abismo clear confirm'],
+      ['en', '!abismo clear CONFIRM'],
+    ])('[%s] "%s" confirms exactly once and never re-requests', async (locale, text) => {
+      const h = setupWithClearSpy(locale);
+      await h.handler({ id: `ft21-${locale}-${text}`, text, ...mod });
+      expect(h.clearConfirmation.confirm).toHaveBeenCalledOnce();
+      expect(h.clearConfirmation.request).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['pt-BR', '!abismo limpar sim'],
+      ['pt-BR', '!abismo limpar confirma'],
+      ['en', '!abismo clear yes'],
+      ['en', '!abismo clear confirmar'],
+    ])('[%s] "%s" stays INVALID_SYNTAX and clears nothing', async (locale, text) => {
+      const h = setupWithClearSpy(locale);
+      await h.handler({ id: `ft21-invalid-${locale}-${text}`, text, ...mod });
+      expect(h.clearConfirmation.confirm).not.toHaveBeenCalled();
+      expect(h.clearConfirmation.request).not.toHaveBeenCalled();
+      expect(h.repository.clearActiveEntries).not.toHaveBeenCalled();
+    });
+
+    it('bare "!abismo limpar" only requests confirmation and never confirms (M-2)', async () => {
+      const h = setupWithClearSpy();
+      await h.handler({ id: 'ft21-bare-1', text: '!abismo limpar', ...mod });
+      expect(h.clearConfirmation.request).toHaveBeenCalledOnce();
+      expect(h.clearConfirmation.confirm).not.toHaveBeenCalled();
+      expect(h.repository.clearActiveEntries).not.toHaveBeenCalled();
+    });
+
+    it('a second bare "!abismo limpar" by the same moderator within the TTL does not clear; only the confirmation label does (M-2)', async () => {
+      const h = setup();
+      await h.handler({ id: 'ft21-bare-a', text: '!abismo limpar', ...mod });
+      expect(h.repository.clearActiveEntries).not.toHaveBeenCalled();
+      await h.handler({ id: 'ft21-bare-b', text: '!abismo limpar', ...mod });
+      expect(h.repository.clearActiveEntries).not.toHaveBeenCalled();
+      expect(h.twitch.sendChatMessage).toHaveBeenLastCalledWith(expect.stringContaining('2 pessoas'));
+      await h.handler({ id: 'ft21-bare-c', text: '!abismo limpar confirmar', ...mod });
+      expect(h.repository.clearActiveEntries).toHaveBeenCalledOnce();
+    });
+  });
+
   it('answers global ping for a moderator using cached health and the running version', async () => {
     const h = setup();
     await h.handler({ id: 'ping-mod', text: '!fila ping', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });

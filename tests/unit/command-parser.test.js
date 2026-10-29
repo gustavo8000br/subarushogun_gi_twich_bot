@@ -1,6 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import { parseChatCommand } from '../../apps/api/src/commands/parser.mjs';
 
+describe('FT-21 (D-1): clear confirmation label normalization in the parser', () => {
+  it.each([
+    ['pt-BR', '!abismo limpar CONFIRMAR', 'CONFIRMAR'],
+    ['pt-BR', '!abismo limpar Confirmar', 'Confirmar'],
+    ['pt-BR', '!abismo limpar confirmár', 'confirmár'],
+    ['pt-BR', '!abismo limpar confirmar', 'confirmar'],
+    ['en', '!abismo clear confirm', 'confirm'],
+    ['en', '!abismo clear CONFIRM', 'CONFIRM'],
+    ['es', '!abismo limpiar CONFIRMAR', 'CONFIRMAR'],
+  ])('[%s] accepts "%s" as a one-argument clear confirmation', (locale, text, arg) => {
+    expect(parseChatCommand(text, { locale })).toEqual({ kind: 'command', scope: 'queue', queueKey: 'abismo', command: 'limpar', args: [arg] });
+  });
+
+  it.each([
+    ['pt-BR', '!abismo limpar sim'],
+    ['pt-BR', '!abismo limpar confirma'],
+    ['pt-BR', '!abismo limpar confirmar agora'],
+    ['en', '!abismo clear yes'],
+    ['en', '!abismo clear confirmar'],
+  ])('[%s] rejects "%s" as INVALID_SYNTAX', (locale, text) => {
+    expect(parseChatCommand(text, { locale })).toEqual({ kind: 'invalid', code: 'INVALID_SYNTAX' });
+  });
+});
+
 describe('pure pt-BR chat command parser', () => {
   it('parses queue-first commands and normalizes case and repeated whitespace', () => {
     expect(parseChatCommand('  !AbIsMo   PróXimo   2 ')).toEqual({
