@@ -1,6 +1,6 @@
 # Backlog inventory
 
-[Português brasileiro](../../pt-BR/process/backlog-inventory.md)
+[Português brasileiro](../pt-BR/process/backlog-inventory.md)
 
 **Date:** 2026-10-24. **Author:** `@sm` (River). **Branch:** `feat/ops-15-next-panel`. **Purpose:** tool-independent inventory so that the kanban keeps each implementation's line of thought. `@sm` organizes the board (priority, requirements, difficulty, dependencies, order); `@devops` keeps it updated. This file is a snapshot: it changes no story, issue or code.
 
