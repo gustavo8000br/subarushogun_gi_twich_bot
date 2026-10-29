@@ -1,6 +1,10 @@
 # Handoff de desenvolvimento — 2026-10-15
 
+> **SEGURANÇA 2026-10-29:** histórico reescrito para remover a URL da sessão; hashes anteriores a esta data mudaram (mapa local em `.local/hash-map-2026-10-29.tsv`); o merge de origin/main foi DESFEITO e deve ser refeito pelo @dev (patch em `.local/merge-in-progress-2026-10-29.patch`); o PR #97 foi substituído por um novo PR em rascunho.
+
 [English](../session-handoff.md)
+
+> **PAROU NO MEIO DO TRABALHO COM 90% DA COTA (2026-10-29) — LEIA PRIMEIRO:** [`handoffs/resume-agents-2026-10-29.md`](handoffs/resume-agents-2026-10-29.md). Um `git merge origin/main` está EM ANDAMENTO (4 arquivos `UU`, edições não verificadas, nada com `git add`) e o `@dev` que o resolvia foi parado. Redisparar com o brief desse arquivo ANTES de qualquer trabalho novo; não aborte nem comite o merge antes das verificações.
 
 > **ATUALIZAÇÃO (81% de cota, `@devops` concluiu) — PRIMEIRO PASSO DA PRÓXIMA SESSÃO: resolver o conflito do PR.** Feito: FT-22 comitada (`e099516`, `7683272`), branch enviada (origin em sincronia), **PR #97 em rascunho** aberto, issues #98 (FT-25), #99 (FT-26) e #100 (FT-36) criadas sob a #80, quadro sincronizado (109 cards, 0 conflitos). **Bloqueio:** a `main` tem um commit que a branch não tem, o `a9279b2` (PR #70, correção do painel vanilla "render queue title in final delete confirmation"); merge-base `845a58f`. O merge conflita em 4 arquivos: `CHANGELOG-beta.md`, `docs/pt-BR/CHANGELOG-beta.md`, `tests/unit/panel-catalog-placeholders.test.js` e `tests/unit/panel-confirmation-contract.test.js`. O PR #97 está `CONFLICTING`, então o GitHub NÃO roda CI até resolver. Conforme "bloqueios primeiro": o `@dev` resolve (a parte vanilla do #70 some na Onda 4; manter o comportamento do Next da branch e portar a intenção do #70 para o painel Next e os testes de contrato se ainda não estiver lá; changelog: acrescentar a entrada do #70 no formato novo), o `@qa` dá um gate (suíte completa + contratos de classe B) e o `@devops` comita o merge, faz push e confere o CI do PR #97. Depois, o plano abaixo. Nota: as mudanças em `AGENTS.md`/`CLAUDE.md` na árvore são edição do próprio Orion (não de outro agente).
 
@@ -776,15 +780,21 @@ O desktop antigo tem o disco rígido falhando; o proprietário está migrando pa
 ## Workspace anterior FND-9
 
 - Repositório/worktree: `/workspaces/fnd9-fulfilled-delete`
-- As alterações de cancelamento de exclusão e nomenclatura da FND-9 foram mescladas na `main` pela PR #67, commit `44484f5e4c35be1aba939eccfd3e254eaa1cad6b`. Após mesclar esta atualização do handoff, retorne esta worktree para `main`.
+- Branch atual: `fix/fnd9-final-delete-confirmation`, baseada na `main` em `845a58f`. Corrige o fallback de texto indisponível na confirmação final de exclusão local da fila. Preserve o arquivo não rastreado `.aiox/project-status-3e3351d9.yaml`; não execute scripts de saudação/status nem o edite.
 - A worktree separada `/workspaces/subarushogun_gi_twich_bot` continua em `feat/ops-14-localized-queue-chat-messages`; preserve suas alterações OPS-14/UX não relacionadas.
 - Dependências do produto e AIOX estão instaladas nesta worktree; a validação das projeções IDE passou 109/109. Preserve o arquivo não rastreado `.aiox/project-status-3e3351d9.yaml`; não execute scripts de saudação/status nem o edite.
 
 ## Objetivo anterior FND-9
 
-A implementação foi mesclada e a distribuição beta está pronta. O proprietário deve instalar o artefato Windows e testar o cancelamento/recuperação da exclusão FND-9 e a nomenclatura da página de operações. Mantenha issue #19 e FND-9 como Ready for Review até registrar o aceite do proprietário no Windows e a validação autorizada ao vivo da Twitch. Não execute operações financeiras Twitch ao vivo em nome do proprietário.
+Conclua a validação e a QA independente da correção da confirmação de exclusão local e prepare uma build `0.2.1-beta` para a main. Em separado, investigue o resgate ao vivo que continua `unknown`; isso requer diagnósticos sanitizados da instância do proprietário. Não execute operações financeiras Twitch ao vivo nem acesse a base ativa do produto. Mantenha FND-9 e issue #19 abertas até registrar o aceite do proprietário.
 
 ## Incremento mais recente
+
+- A confirmação final de exclusão local agora permite e exibe o nome da fila nos três idiomas. Red reproduziu o fallback indisponível; a suíte completa retomada passou em **106 arquivos / 986 testes** após atualizar um contrato de versionamento antigo (`0.2.0`) para corresponder a `0.2.1`. Lint, typecheck, sync IDE estrito (109/109), validadores de localização/versão/denylist de portas, configuração Compose, build da imagem de produção e `git diff --check` passaram. OpenGrep verificado por assinatura reportou 0 achados em 87 arquivos JS. QA independente pontuou esta correção com **10/10 PASS**. A imagem compilada localmente não foi publicada.
+- O resgate `56dec18c-e2cf-4f3e-8319-4781827592ed` informado pelo proprietário continua `unknown` após duas tentativas e a Twitch ainda o mostra como não concluído. A correção já na main preserva a intenção durável de conclusão durante a exclusão, mas não comprova conclusão Twitch ao vivo. Solicitar a versão em execução e diagnósticos operacionais sanitizados para identificar a falha remota.
+- Alvo atual de patch: `v0.2.1-0000000-beta`. Ainda não há PR, merge, artefato de build publicado ou release desta branch. Depois que o Codespace parou, o banco isolado de `/workspaces/fnd9-next-panel` continuava saudável; a instância `npm run dev` foi reiniciada, não encontrou migrations pendentes e Next/API retornaram HTTP 200. Mantenha essa instância ativa para a prévia do proprietário.
+
+### Entrega mesclada anterior
 
 - PR #67: https://github.com/gustavo8000br/subarushogun_gi_twich_bot/pull/67 — mesclada por squash. A QA independente pontuou a correção da corrida cancelar/excluir local em **10/10 PASS**.
 - O painel agora distingue sincronização com a Twitch, devolução de Pontos do Canal aos espectadores e confirmação de resgates em inglês, espanhol e pt-BR. A confirmação de exclusão é bloqueada enquanto a verificação da reward Twitch para cancelamento estiver em andamento, preservando a fila, evidências da outbox e o challenge para recuperação.

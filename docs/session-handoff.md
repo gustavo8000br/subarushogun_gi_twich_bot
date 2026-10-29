@@ -1,6 +1,10 @@
 # Development Handoff — 2026-10-15
 
+> **SECURITY 2026-10-29:** history rewritten to remove the session URL; hashes before this date changed (local map in `.local/hash-map-2026-10-29.tsv`); the merge of origin/main was UNDONE and must be redone by `@dev` (patch in `.local/merge-in-progress-2026-10-29.patch`); PR #97 was replaced by a new draft PR.
+
 [Português brasileiro](pt-BR/session-handoff.md)
+
+> **STOPPED MID-WORK AT 90% QUOTA (2026-10-29) — READ FIRST:** [`handoffs/resume-agents-2026-10-29.md`](handoffs/resume-agents-2026-10-29.md). A `git merge origin/main` is IN PROGRESS (4 files `UU`, edits unverified, nothing `git add`ed) and the `@dev` that was resolving it was stopped. Re-dispatch it with the brief in that file BEFORE any new work; do not abort or commit the merge before its checks.
 
 > **UPDATE (81% quota, `@devops` finished) — FIRST STEP NEXT SESSION: resolve the PR conflict.** Done: FT-22 committed (`e099516`, `7683272`), branch pushed (origin in sync), **draft PR #97** open, issues #98 (FT-25), #99 (FT-26), #100 (FT-36) created under #80, board synced (109 cards, 0 conflicts). **Blocker:** `main` has one commit the branch lacks, `a9279b2` (PR #70, vanilla panel fix "render queue title in final delete confirmation"); merge-base `845a58f`. Merging conflicts in 4 files: `CHANGELOG-beta.md`, `docs/pt-BR/CHANGELOG-beta.md`, `tests/unit/panel-catalog-placeholders.test.js`, `tests/unit/panel-confirmation-contract.test.js`. PR #97 is `CONFLICTING`, so GitHub runs NO CI until it is resolved. Per "blockers first": `@dev` resolves it (the vanilla part of #70 disappears in Wave 4; keep the branch's Next behavior and port the intent of #70 to the Next panel/contract tests if it is not already there; changelog: add the #70 entry in the new format), `@qa` one gate (full suite + class B contracts), `@devops` commits the merge, pushes and checks CI on PR #97. Then the plan below. Note: the `AGENTS.md`/`CLAUDE.md` changes in the working tree are Orion's own edit (not another agent).
 
@@ -776,15 +780,21 @@ The old desktop has a failing hard drive; the owner is moving to a clean native 
 ## Previous FND-9 workspace
 
 - Repository/worktree: `/workspaces/fnd9-fulfilled-delete`
-- The FND-9 deletion cancellation and terminology changes merged to `main` in PR #67, commit `44484f5e4c35be1aba939eccfd3e254eaa1cad6b`. After this handoff update merges, return this checkout to `main`.
+- Current branch: `fix/fnd9-final-delete-confirmation`, based on `main` at `845a58f`. It fixes the unavailable-text fallback in the final local queue deletion dialog. Preserve untracked `.aiox/project-status-3e3351d9.yaml`; do not run greeting/status scripts or edit it.
 - Separate worktree `/workspaces/subarushogun_gi_twich_bot` remains on `feat/ops-14-localized-queue-chat-messages`; preserve its unrelated OPS-14/UX changes.
 - Product and AIOX dependencies are installed in this worktree; IDE projection validation passed 109/109. Preserve untracked `.aiox/project-status-3e3351d9.yaml`; do not run greeting/status scripts or edit it.
 
 ## Previous FND-9 objective
 
-The implementation is merged and beta distribution is ready. The owner should install the Windows artifact and test the FND-9 deletion cancellation/recovery behavior and the operations-page terminology. Keep issue #19 and FND-9 at Ready for Review until owner-side Windows and authorized live Twitch acceptance is recorded. Do not perform live Twitch financial operations on the owner's behalf.
+Finish validation and independent QA for the local deletion confirmation fix, then prepare a `0.2.1-beta` main build. Separately investigate the owner's live redemption fulfillment that remains `unknown`; this requires sanitized diagnostics from the owner runtime. Do not perform live Twitch financial operations or access the active product database. Keep FND-9 and issue #19 open until owner acceptance is recorded.
 
 ## Latest increment
+
+- Local final-deletion confirmation now allows and displays the queue title in all three languages. Red reproduced the unavailable fallback; the resumed full suite passed **106 files / 986 tests** after updating one stale `0.2.0` versioning contract to match `0.2.1`. Lint, typecheck, strict IDE sync (109/109), localization/version/port-denylist validation, Compose config, production image build and `git diff --check` passed. Signature-verified OpenGrep reported 0 findings across 87 JS files. Independent QA scored this correction **10/10 PASS**. The locally built image was not published.
+- The owner's redemption `56dec18c-e2cf-4f3e-8319-4781827592ed` still shows `unknown` after two attempts and Twitch still shows it unfulfilled. The main-branch fix preserves the durable fulfillment intent during deletion but cannot prove a live Twitch fulfillment. Request the running product version and sanitized operation diagnostics to identify the remote failure.
+- Current patch target is `v0.2.1-0000000-beta`. No PR, merge, published build artifact or release exists for this branch yet. After the Codespace stopped, the isolated `/workspaces/fnd9-next-panel` database remained healthy; its `npm run dev` instance was restarted, found no pending migrations, and Next/API both returned HTTP 200. Keep that instance running for the owner preview.
+
+### Previous merged delivery
 
 - PR #67: https://github.com/gustavo8000br/subarushogun_gi_twich_bot/pull/67 — merged by squash. Independent QA scored the cancellation/local-delete race correction **10/10 PASS**.
 - The panel now distinguishes Twitch synchronization, Channel Points refunds to viewers, and redemption fulfillment in English, Spanish, and pt-BR. Deletion confirmation is blocked while Twitch reward verification for cancellation is in progress, preserving the queue, outbox evidence, and challenge for recovery.
