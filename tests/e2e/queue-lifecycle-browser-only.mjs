@@ -38,7 +38,8 @@ try {
   await page.route('**/*', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
-    if (url.origin !== parsedOrigin.origin || !url.pathname.startsWith('/api/')) return route.continue();
+    if (url.origin !== parsedOrigin.origin) return route.abort();
+    if (!url.pathname.startsWith('/api/') && url.pathname !== '/health') return route.continue();
 
     calls.push({ path: url.pathname, method: request.method(), headers: await request.allHeaders() });
     if (url.pathname === '/api/session') {
@@ -47,6 +48,11 @@ try {
     if (url.pathname === '/api/localization/catalogs') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
         locales: ['pt-BR'], modules: { panel: { catalogs: { 'pt-BR': catalog } } },
+      }) });
+    }
+    if (url.pathname === '/health') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+        status: 'ok', dependencies: { database: 'connected', twitch_api: 'connected', twitch_chat: 'connected' },
       }) });
     }
     if (url.pathname === '/api/state') {
