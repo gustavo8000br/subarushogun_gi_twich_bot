@@ -26,7 +26,7 @@ export function createChatOutboxWorker({ repository, twitch, getTwitch, clock = 
       const message = String(queue.callMessage || '{user}, sua vez!')
         .replaceAll('{user}', `@${entry.userLogin}`)
         .replaceAll('{queue}', queue.title)
-        .replaceAll('{position}', String(entry.callPosition ?? '?'))
+        .replaceAll('{position}', Number.isInteger(task.previousPosition) && task.previousPosition >= 1 ? String(task.previousPosition) : '?')
         .replaceAll('{uid}', uid)
         .replaceAll('{account}', account.label);
       try {

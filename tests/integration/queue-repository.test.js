@@ -14,6 +14,7 @@ import {
 import { createQueueDomainService } from '../../apps/api/src/domain/queue-service.mjs';
 import { normalizeQueueKeys } from '../../apps/api/src/domain/queue-keys.mjs';
 import { createQueueRepository } from '../../apps/api/src/persistence/queue-repository.mjs';
+import { createChatOutboxWorker } from '../../apps/api/src/outbox/chat-worker.mjs';
 import { createTwitchCredentialRepository } from '../../apps/api/src/persistence/twitch-credential-repository.mjs';
 import { createCredentialFingerprint } from '../../apps/api/src/twitch/credential-fingerprint.mjs';
 import { createTwitchRedemptionProcessor } from '../../apps/api/src/twitch/redemption-processor.mjs';
@@ -51,6 +52,46 @@ async function expectConvertedTombstoneInReconciliationPage(queueId) {
   const page = await repository.claimConvertedTombstoneReconciliationPage({ limit: 100 });
   expect(page.queues.some(({ id }) => id === queueId)).toBe(true);
   expect(await repository.completeConvertedTombstoneReconciliationPage({ leaseId: page.leaseId, lastQueueId: page.queues.at(-1)?.id ?? null })).toBe(true);
+}
+
+// FT-22: claims only the given chat.call task by parking every other eligible chat.call row, then restores them.
+async function claimOnlyChatTask(taskId, now = new Date()) {
+  const others = await prisma.outbox.findMany({
+    where: { operationType: 'chat.call', id: { not: taskId }, status: { in: ['pending', 'retry', 'processing'] } },
+    select: { id: true, nextAttemptAt: true, leaseUntil: true },
+  });
+  const parked = new Date(now.getTime() + 365 * 86_400_000);
+  for (const other of others) await prisma.outbox.update({ where: { id: other.id }, data: { nextAttemptAt: parked, leaseUntil: other.leaseUntil ? parked : null } });
+  try {
+    return await repository.claimNextChatNotification({ now });
+  } finally {
+    for (const other of others) await prisma.outbox.update({ where: { id: other.id }, data: { nextAttemptAt: other.nextAttemptAt, leaseUntil: other.leaseUntil } });
+  }
+}
+
+// FT-22: runs the real chat worker against the real repository for one task; only the Twitch adapter is a fake.
+async function deliverChatTask(taskId) {
+  const sent = [];
+  const twitch = { sendChatMessage: async (message) => { sent.push(message); return { sent: true }; } };
+  const worker = createChatOutboxWorker({ repository: { ...repository, claimNextChatNotification: () => claimOnlyChatTask(taskId) }, twitch });
+  const outcome = await worker.processOne();
+  return { outcome, sent, task: await prisma.outbox.findUnique({ where: { id: taskId } }) };
+}
+
+async function chatCallRow(entryId) {
+  const [row] = await prisma.$queryRaw`SELECT id, payload, jsonb_typeof(payload->'previousPosition') AS kind FROM outbox WHERE idempotency_key = ${`chat.call:${entryId}`}`;
+  return row;
+}
+
+async function positionQueue(label, waitingCount) {
+  const queue = await repository.createQueue({ slug: `ft22-${label}-${randomUUID().slice(0, 8)}`, title: `FT22 ${label}`, cost: 1 });
+  await prisma.queue.update({ where: { id: queue.id }, data: { callMessage: '{user} (posição {position})' } });
+  const entries = [];
+  for (let index = 0; index < waitingCount; index += 1) {
+    const added = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `ft22-${label}-${index}-${randomUUID()}`, userLogin: `ft22${label}${index}`, displayName: `FT22 ${index}` });
+    entries.push(added.entry);
+  }
+  return { queue, entries };
 }
 
 describe('PostgreSQL queue repository', () => {
@@ -1171,6 +1212,108 @@ describe('PostgreSQL queue repository', () => {
     await queueService.callSpecificEntry({ queueId: queue.id, entryId: viewer.entry.id, actorId: 'operator' });
 
     expect(await prisma.entry.findUnique({ where: { id: viewer.entry.id } })).toMatchObject({ status: 'called', callAcknowledgedAt: null, callNotifiedAt: null, callDeadlineAt: null });
+  });
+
+  it('FT-22 (1): a panel call of a specific entry stores the numeric previousPosition and the notice shows it', async () => {
+    const { queue, entries } = await positionQueue('panel', 2);
+    const moved = await queueService.callSpecificEntry({ queueId: queue.id, entryId: entries[1].id, actorId: 'operator' });
+    await repository.enqueueCallNotification({ queueId: queue.id, entryId: entries[1].id, previousPosition: moved.previousPosition });
+
+    const row = await chatCallRow(entries[1].id);
+    expect(row.payload).toEqual({ previousPosition: 2 });
+    expect(row.kind).toBe('number');
+    const delivered = await deliverChatTask(row.id);
+    expect(delivered).toMatchObject({ outcome: 'confirmed', sent: ['@ft22panel1 (posição 2)'], task: { status: 'confirmed', payload: { previousPosition: 2 } } });
+  });
+
+  it('FT-22 (2): a group call stores each entry position, matching the audit of the same entry', async () => {
+    const { queue, entries } = await positionQueue('group', 3);
+    const called = await queueService.callNext({ queueId: queue.id, count: 2, actorId: 'operator' });
+    for (const entry of called) await repository.enqueueCallNotification({ queueId: queue.id, entryId: entry.id, previousPosition: entry.previousPosition });
+
+    for (const [index, entry] of entries.slice(0, 2).entries()) {
+      const row = await chatCallRow(entry.id);
+      const audit = await prisma.auditLog.findFirst({ where: { entryId: entry.id, event: 'entry.transitioned', previousState: 'waiting', nextState: 'called' } });
+      expect(row.payload).toEqual({ previousPosition: index + 1 });
+      expect(row.kind).toBe('number');
+      expect(audit.safeDetail.previousPosition).toBe(index + 1);
+      expect((await deliverChatTask(row.id)).sent).toEqual([`@ft22group${index} (posição ${index + 1})`]);
+    }
+    expect(await chatCallRow(entries[2].id)).toBeUndefined();
+  });
+
+  it('FT-22 (3): calling the next single entry (chat !fila proximo path) notifies position 1 (LB-29)', async () => {
+    const { queue, entries } = await positionQueue('next', 2);
+    const [called] = await queueService.callNext({ queueId: queue.id, count: 1, actorId: 'mod-1' });
+    await repository.enqueueCallNotification({ entryId: called.id, queueId: queue.id, previousPosition: called.previousPosition });
+
+    const row = await chatCallRow(entries[0].id);
+    expect(row.payload).toEqual({ previousPosition: 1 });
+    expect((await deliverChatTask(row.id)).sent).toEqual(['@ft22next0 (posição 1)']);
+  });
+
+  it('FT-22 (4): a legacy row with an empty payload falls back to the audit previousPosition', async () => {
+    const { queue, entries } = await positionQueue('legacy', 2);
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: entries[1].id, actorId: 'operator' });
+    await prisma.outbox.create({ data: {
+      operationType: 'chat.call', entityType: 'entry', entityId: entries[1].id,
+      idempotencyKey: `chat.call:${entries[1].id}`, payload: {}, entryId: entries[1].id,
+    } });
+
+    const row = await chatCallRow(entries[1].id);
+    expect(row.payload).toEqual({});
+    expect(await deliverChatTask(row.id)).toMatchObject({ outcome: 'confirmed', sent: ['@ft22legacy1 (posição 2)'], task: { payload: {} } });
+  });
+
+  it('FT-22 (5): with no payload value and no audit transition the notice keeps ? and the task still finishes', async () => {
+    const { queue, entries } = await positionQueue('nodata', 1);
+    await prisma.entry.update({ where: { id: entries[0].id }, data: { status: 'called', position: null, calledAt: new Date() } });
+    await repository.enqueueCallNotification({ queueId: queue.id, entryId: entries[0].id });
+
+    const row = await chatCallRow(entries[0].id);
+    expect(row.payload).toEqual({});
+    expect(await deliverChatTask(row.id)).toMatchObject({ outcome: 'confirmed', sent: ['@ft22nodata0 (posição ?)'], task: { status: 'confirmed' } });
+  });
+
+  it('FT-22 (6): a panel resend after a failure keeps the payload and the position', async () => {
+    const { queue, entries } = await positionQueue('resend', 2);
+    const moved = await queueService.callSpecificEntry({ queueId: queue.id, entryId: entries[1].id, actorId: 'operator' });
+    await repository.enqueueCallNotification({ queueId: queue.id, entryId: entries[1].id, previousPosition: moved.previousPosition });
+    const row = await chatCallRow(entries[1].id);
+    await prisma.outbox.update({ where: { id: row.id }, data: { status: 'failed', attempts: 5, lastError: 'chat_send_failed' } });
+
+    expect(await repository.resendCallNotification({ entryId: entries[1].id, actorId: 'operator' })).toMatchObject({ status: 'queued' });
+    expect(await prisma.outbox.findUnique({ where: { id: row.id } })).toMatchObject({ status: 'pending', payload: { previousPosition: 2 } });
+    expect((await deliverChatTask(row.id)).sent).toEqual(['@ft22resend1 (posição 2)']);
+  });
+
+  it('FT-22 (7): after a UID-hidden change empties the payload, a resend falls back to the audit position', async () => {
+    const queue = await repository.createQueue({ slug: `ft22-uid-${randomUUID().slice(0, 8)}`, title: 'FT22 uid', cost: 1, uidMode: 'visible' });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `ft22-reward-${randomUUID()}`, remoteSyncStatus: 'synced', callMessage: '{user} (posição {position})' } });
+    await repository.addManualEntry({ queueId: queue.id, twitchUserId: `ft22-uid-a-${randomUUID()}`, userLogin: 'ft22uida', displayName: 'A' });
+    const target = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `ft22-uid-b-${randomUUID()}`, userLogin: 'ft22uidb', displayName: 'B', uid: '123456789' });
+    const moved = await queueService.callSpecificEntry({ queueId: queue.id, entryId: target.entry.id, actorId: 'operator' });
+    await repository.enqueueCallNotification({ queueId: queue.id, entryId: target.entry.id, previousPosition: moved.previousPosition });
+    const { version } = await prisma.queue.findUnique({ where: { id: queue.id }, select: { version: true } });
+
+    await repository.updateQueueRewardSettings({ queueId: queue.id, expectedVersion: version, settings: { uidMode: 'hidden' } });
+
+    const row = await chatCallRow(target.entry.id);
+    expect(await prisma.outbox.findUnique({ where: { id: row.id } })).toMatchObject({ status: 'cancelled', payload: {} });
+    expect(await repository.resendCallNotification({ entryId: target.entry.id, actorId: 'operator' })).toMatchObject({ status: 'queued' });
+    expect((await deliverChatTask(row.id)).sent).toEqual(['@ft22uidb (posição 2)']);
+  });
+
+  it('FT-22 (8): a missing or invalid previousPosition is stored as an empty payload, never null', async () => {
+    const invalid = [undefined, null, 0, -1, 1.5, '2', Number.NaN];
+    const { queue, entries } = await positionQueue('invalid', invalid.length);
+    for (const [index, previousPosition] of invalid.entries()) {
+      await prisma.entry.update({ where: { id: entries[index].id }, data: { status: 'called', position: null, calledAt: new Date() } });
+      await repository.enqueueCallNotification({ queueId: queue.id, entryId: entries[index].id, previousPosition });
+      const row = await chatCallRow(entries[index].id);
+      expect(row.payload).toEqual({});
+      expect(row.kind).toBeNull();
+    }
   });
 
   it('resolves a viewer entry strictly by Twitch identity and moves only waiting entries', async () => {

@@ -1467,6 +1467,22 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('FT-22: passes each called entry previousPosition to the call-notification enqueue (panel batch and specific entry)', async () => {
+    const domainService = {
+      callNext: vi.fn(async () => [{ id: 'entry-1', status: 'called', previousPosition: 1 }, { id: 'entry-2', status: 'called', previousPosition: 2 }]),
+      callSpecificEntry: vi.fn(async () => ({ id: 'entry-id', status: 'called', previousPosition: 3 })),
+    };
+    const h = await createHarness({ domainService });
+    const group = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/call', headers: h.headers, payload: { count: 2 } });
+    expect(group.statusCode).toBe(200);
+    expect(h.repository.enqueueCallNotification).toHaveBeenNthCalledWith(1, { queueId: 'queue-id', entryId: 'entry-1', previousPosition: 1 });
+    expect(h.repository.enqueueCallNotification).toHaveBeenNthCalledWith(2, { queueId: 'queue-id', entryId: 'entry-2', previousPosition: 2 });
+    const single = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/call', headers: h.headers, payload: { entryId: 'entry-id' } });
+    expect(single.statusCode).toBe(200);
+    expect(h.repository.enqueueCallNotification).toHaveBeenNthCalledWith(3, { queueId: 'queue-id', entryId: 'entry-id', previousPosition: 3 });
+    await h.app.close();
+  });
+
   it('returns a stable conflict code when reward-to-manual conversion blocks calls', async () => {
     const conflict = async () => { throw Object.assign(new Error('internal detail'), { code: 'QUEUE_MODE_TRANSITION_PENDING' }); };
     const domainService = { callNext: vi.fn(conflict), callSpecificEntry: vi.fn(conflict) };

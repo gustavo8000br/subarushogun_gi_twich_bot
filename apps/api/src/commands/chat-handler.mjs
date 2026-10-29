@@ -203,9 +203,7 @@ export function createChatCommandHandler({ repository, domainService = repositor
         const selected = await domainService.callNext({ queueId: queue.id, count: requested, actorId: authorized.actorId });
         if (!selected.length) return reply(message, t('chat.queue.nobody_waiting'));
         for (const entry of selected) {
-          const uid = queue.uidMode === 'visible' && queue.showUidOnCall && entry.uid ? ` · UID ${entry.uid}` : '';
-          const messageText = (queue.callMessage || '{user}, sua vez!').replaceAll('{user}', `@${entry.userLogin}`).replaceAll('{queue}', queue.title).replaceAll('{position}', String(entry.previousPosition)).replaceAll('{uid}', uid).replaceAll('{account}', (await settings.getAccount?.())?.label ?? 'Streamer');
-          await repository.enqueueCallNotification?.({ entryId: entry.id, queueId: queue.id, message: messageText });
+          await repository.enqueueCallNotification?.({ entryId: entry.id, queueId: queue.id, previousPosition: entry.previousPosition });
         }
         return reply(message, selected.length === 1 ? t('chat.queue.called_one') : tPlural('chat.queue.called_many', selected.length));
       }

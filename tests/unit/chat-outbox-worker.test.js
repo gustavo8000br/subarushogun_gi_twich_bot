@@ -3,7 +3,7 @@ import { createChatOutboxWorker } from '../../apps/api/src/outbox/chat-worker.mj
 
 function harness({ sent = true, status = 'called', uidMode = 'hidden', showUidOnCall = false } = {}) {
   const repository = {
-    claimNextChatNotification: vi.fn(async () => ({ id: 'task', entry: { id: 'entry', status, userLogin: 'viewer', uid: '123456789', callPosition: 3, queue: { title: 'Abyss', uidMode, showUidOnCall, callMessage: '{user} {queue} {position}{uid}', callTimeoutMin: 10 } } })),
+    claimNextChatNotification: vi.fn(async () => ({ id: 'task', previousPosition: 3, entry: { id: 'entry', status, userLogin: 'viewer', uid: '123456789', position: null, queue: { title: 'Abyss', uidMode, showUidOnCall, callMessage: '{user} {queue} {position}{uid}', callTimeoutMin: 10 } } })),
     recordCallNotificationResult: vi.fn(async () => undefined),
     finishCallNotification: vi.fn(async () => undefined),
     getCurrentAccount: vi.fn(async () => ({ label: 'World' })),
@@ -34,10 +34,28 @@ describe('chat call outbox', () => {
     expect(h.repository.finishCallNotification).toHaveBeenCalledWith('task', { status: 'cancelled', errorCode: 'entry_not_called' });
   });
 
+  it('FT-22: renders the claimed task previousPosition, not an entry field (called entries have no position)', async () => {
+    const h = harness();
+    h.repository.claimNextChatNotification.mockResolvedValue({ id: 'task', previousPosition: 1, entry: { id: 'entry', status: 'called', userLogin: 'viewer', uid: null, position: null, callPosition: 9, queue: { title: 'Abyss', uidMode: 'hidden', showUidOnCall: false, callMessage: '{user} (posição {position})', callTimeoutMin: 10 } } });
+
+    expect(await h.worker.processOne()).toBe('confirmed');
+    expect(h.twitch.sendChatMessage).toHaveBeenCalledWith('@viewer (posição 1)');
+  });
+
+  it('FT-22: keeps ? when the claimed task carries no valid previousPosition', async () => {
+    for (const previousPosition of [undefined, null, 0, 1.5, '2']) {
+      const h = harness();
+      h.repository.claimNextChatNotification.mockResolvedValue({ id: 'task', previousPosition, entry: { id: 'entry', status: 'called', userLogin: 'viewer', uid: null, position: null, queue: { title: 'Abyss', uidMode: 'hidden', showUidOnCall: false, callMessage: '(posição {position})', callTimeoutMin: 10 } } });
+
+      expect(await h.worker.processOne()).toBe('confirmed');
+      expect(h.twitch.sendChatMessage).toHaveBeenCalledWith('(posição ?)');
+    }
+  });
+
   it('backs off after unconfirmed delivery instead of retrying chat immediately', async () => {
     const h = harness({ sent: false });
     const now = new Date('2026-10-06T12:00:00.000Z');
-    h.repository.claimNextChatNotification.mockResolvedValue({ id: 'task', attempts: 3, entry: { id: 'entry', status: 'called', userLogin: 'viewer', uid: null, callPosition: 3, queue: { title: 'Abyss', uidMode: 'hidden', showUidOnCall: false, callMessage: '{user} {queue} {position}', callTimeoutMin: 10 } } });
+    h.repository.claimNextChatNotification.mockResolvedValue({ id: 'task', attempts: 3, previousPosition: 3, entry: { id: 'entry', status: 'called', userLogin: 'viewer', uid: null, position: null, queue: { title: 'Abyss', uidMode: 'hidden', showUidOnCall: false, callMessage: '{user} {queue} {position}', callTimeoutMin: 10 } } });
     const worker = createChatOutboxWorker({ repository: h.repository, twitch: h.twitch, clock: () => now, random: () => 0 });
 
     expect(await worker.processOne()).toBe('retry');
