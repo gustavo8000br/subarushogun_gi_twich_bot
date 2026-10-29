@@ -263,7 +263,9 @@ export function createChatCommandHandler({ repository, domainService = repositor
       case 'limpar': {
         if (!clearConfirmation) return reply(message, t('chat.queue.clear_unavailable'));
         const input = { actorId: authorized.actorId, channelId: message.channelId, queueId: queue.id, origin: 'chat' };
-        const result = args[0] === 'confirmar'
+        // The parser accepts exactly one argument for `limpar` only when it is the localized
+        // confirmation label (any case/accent), so the arity is the confirmation signal (FT-21).
+        const result = args.length === 1
           ? await clearConfirmation.confirm(input)
           : await clearConfirmation.request(input);
         if (result.status === 'empty') return reply(message, t('chat.queue.empty'));
