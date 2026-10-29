@@ -36,7 +36,7 @@ describe('Next panel parity with vanilla class-1 contracts', () => {
 
   it('keeps hide/archive wording out of the shipped catalogs', async () => {
     for (const locale of ['en', 'es', 'pt-BR']) {
-      const catalog = await readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+      const catalog = await readFile(new URL(`../../apps/shared/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
       expect(catalog).not.toMatch(/^panel\.queue\.(action|confirm)\.archive\t/m);
     }
   });

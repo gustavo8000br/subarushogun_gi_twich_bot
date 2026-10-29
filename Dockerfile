@@ -6,7 +6,6 @@ RUN npm ci
 
 FROM dependencies AS frontend-build
 COPY apps/frontend ./apps/frontend
-COPY apps/web/localization/catalogs ./apps/web/localization/catalogs
 COPY apps/shared ./apps/shared
 RUN npm run build:frontend
 

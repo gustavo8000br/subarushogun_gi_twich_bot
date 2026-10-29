@@ -58,6 +58,25 @@ describe('apps/shared/panel module boundary (OPS-15 S-03)', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('spells no apps/web path as a string in Next, shared, API or infra code (TS-04, OPS-15 cutover wave 2)', () => {
+    // Imports are covered above; this catches filesystem paths such as process.cwd() + 'apps/web/...'
+    // or new URL('../../web/...', import.meta.url), which no import check can see.
+    const scannedExtensions = [...sourceExtensions, '.css', '.md', '.prisma', '.ps1', '.sh', '.sql', '.toml'];
+    const listFiles = (directory) => readdirSync(directory).flatMap((name) => {
+      if (name === 'node_modules' || name === '.next' || name === 'out') return [];
+      const path = join(directory, name);
+      if (statSync(path).isDirectory()) return listFiles(path);
+      return scannedExtensions.some((extension) => name.endsWith(extension)) ? [path] : [];
+    });
+    const files = ['apps/frontend', 'apps/shared', 'apps/api', 'apps/infra'].flatMap((directory) => listFiles(join(root, directory)));
+    expect(files.length).toBeGreaterThan(100);
+    const webPath = /apps[\\/]web\b|['"`](?:\.\.\/)+web\/|['"`]apps['"`]\s*,\s*['"`]web['"`]/;
+    const offenders = files.flatMap((file) => readFileSync(file, 'utf8').split('\n')
+      .map((line, index) => (webPath.test(line) ? `${toRepoPath(file)}:${index + 1}` : null))
+      .filter(Boolean));
+    expect(offenders).toEqual([]);
+  });
+
   it('resolves every relative import of apps, the vanilla entrypoints and tests to an existing file', () => {
     const files = ['apps', 'tests'].flatMap((directory) => listSources(join(root, directory)));
     const unresolved = files.flatMap((file) => importsOf(file)

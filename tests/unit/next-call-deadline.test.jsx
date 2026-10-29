@@ -7,7 +7,7 @@ import CallDeadline from '../../apps/frontend/features/queues/call-deadline.jsx'
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const catalog = Object.fromEntries(readFileSync(join(process.cwd(), 'apps/web/localization/catalogs/panel/en.tsv'), 'utf8')
+const catalog = Object.fromEntries(readFileSync(join(process.cwd(), 'apps/shared/localization/catalogs/panel/en.tsv'), 'utf8')
   .split('\n').filter((line) => line.includes('\t')).map((line) => { const i = line.indexOf('\t'); return [line.slice(0, i), line.slice(i + 1)]; }));
 const t = (key, options) => (catalog[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => options?.values?.[name] ?? '');
 
