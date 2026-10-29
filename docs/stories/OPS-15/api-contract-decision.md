@@ -1,7 +1,7 @@
 # OPS-15 — API contract decision (S-04, S-05, S-06, S-14)
 
 - Date: 2026-10-22 · Author: @architect (Aria) · Type: planning gate (no code, no migrations, no issue changes)
-- Inputs: `api-contract-research.md` (@analyst), `structural-review.md` S-04/S-05/S-06/S-14, code at `feat/ops-15-next-panel` HEAD `4a44468`.
+- Inputs: `api-contract-research.md` (@analyst), `structural-review.md` S-04/S-05/S-06/S-14, code at `feat/ops-15-next-panel` HEAD `d4f3d05`.
 - Labels: **VERIFIED** (read in code or official source this session), **PARTIAL** (incomplete or secondary source), **UNVERIFIED** (inference; needs a test in this project).
 - Limit: desk review only. Nothing here ran against PostgreSQL, a restarted API, a browser or OBS. Every "decision" below is a contract to be proven Red-first; it is not evidence that anything works.
 

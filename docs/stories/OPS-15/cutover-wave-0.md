@@ -4,7 +4,7 @@
 
 - **Date:** 2026-10-27
 - **Executor:** `@dev` (Dex). Final verdict belongs to `@qa`; commit belongs to `@devops`.
-- **Branch / base:** `feat/ops-15-next-panel` at `5ac8472` (uncommitted working tree).
+- **Branch / base:** `feat/ops-15-next-panel` at `fb828d3` (uncommitted working tree).
 - **Authorization:** owner, 2026-10-27, incremental cutover (beta with no active users; `legacy` = protected branch `a9279b2`). Plan: [`cutover-plan.md`](cutover-plan.md), Wave 0, items A-06 and A-11.
 - **Scope:** Wave 0 only. No route, rewrite, alias or `/overlay.html` handling changed (that is Wave 3). Nothing from Wave 1 was done.
 

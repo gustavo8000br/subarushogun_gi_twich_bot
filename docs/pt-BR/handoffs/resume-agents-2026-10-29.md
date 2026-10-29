@@ -3,8 +3,8 @@
 O dono avisou 90% da cota de sessão (limite seguro 85%). O agente em execução foi parado; nada mais rodava. **Primeira coisa na próxima sessão: redisparar o agente abaixo com o brief, antes de qualquer trabalho novo.**
 
 ## Estado do repositório na parada
-- Branch `feat/ops-15-next-panel`; enviada até `7683272` (FT-22). O PR #97 em rascunho está aberto e `CONFLICTING` com a `main`, então o GitHub não roda CI.
-- O commit `996ac98` (docs/governança: `AGENTS.md`, `CLAUDE.md`, handoff, duas memórias de agentes) existe SÓ LOCALMENTE e NÃO foi enviado.
+- Branch `feat/ops-15-next-panel`; enviada até `e01fce3` (FT-22). O PR #101 em rascunho está aberto e `CONFLICTING` com a `main`, então o GitHub não roda CI.
+- O commit `879c569` (docs/governança: `AGENTS.md`, `CLAUDE.md`, handoff, duas memórias de agentes) existe SÓ LOCALMENTE e NÃO foi enviado.
 - **Um merge de `origin/main` (`a9279b2`, PR #70 + bump 0.2.1 da main) está EM ANDAMENTO** (`.git/MERGE_HEAD` existe; `git merge --no-commit --no-ff` do `@devops`). NÃO rode `git merge --abort` a menos que o trabalho vá ser refeito; NÃO comite o merge antes das verificações abaixo.
 - Arquivos ainda `UU` (marcadores de conflito já removidos pelo `@dev`, edições NÃO verificadas e SEM `git add`): `CHANGELOG-beta.md`, `docs/pt-BR/CHANGELOG-beta.md`, `tests/unit/panel-catalog-placeholders.test.js`, `tests/unit/panel-confirmation-contract.test.js`. `CHANGELOG_INTERNAL.md` (+pt-BR) aparecem `MM` (mesclados pelo git e depois editados pelo `@dev`).
 - Nenhum teste, lint ou actionlint rodou depois das edições. Docker limpo, nenhum servidor de desenvolvimento rodando.
@@ -19,6 +19,6 @@ Parou logo depois de gravar as resoluções dos changelogs (última ação: "Now
 Regras: o `@dev` NÃO executa `git add/commit/merge/push`; sem suíte completa; nada fora do projeto; sem servidores. Verificações locais enxutas: sem marcadores de conflito, lint, typecheck, validate:version/localization/port-denylist, review:static, `git diff --check`, vitest nos arquivos tocados e nos testes de contrato (documentation-contract, ci-workflow-contract, release-notes, panel-catalog-placeholders, panel-confirmation-contract, next-panel-catalogs, localization-parity). Reportar resoluções, mudanças de workflow, resultados e os caminhos exatos para o `@devops` dar `git add`.
 
 ## Depois (decisão do dono em 2026-10-29: esta rodada pula o `@qa`; o GitHub Actions o substitui)
-- `@devops`: `git add` dos caminhos que o `@dev` listar, concluir o commit do merge, enviar a branch (sem force; a delegação cobre push/PR, NÃO o merge na `main`), acompanhar o CI do PR #97 e reportar.
+- `@devops`: `git add` dos caminhos que o `@dev` listar, concluir o commit do merge, enviar a branch (sem force; a delegação cobre push/PR, NÃO o merge na `main`), acompanhar o CI do PR #101 e reportar.
 - **DÉBITO:** o veredito independente do `@qa` continua devido para o commit do merge, `AGENTS.md`, `CLAUDE.md`, o handoff e as mudanças de workflow; o primeiro gate depois do reset da cota os cobre usando o resultado do CI como evidência.
 - Depois, o plano em `docs/session-handoff.md`: `@sm` (lotes de junções), `@po` (OPS-22 como pacote + FT-05/FT-07 pela FT-40), `@devops` (quadro/issues), `@ux-design-expert` (um plano FT-23 + FT-36), `@dev` (OPS-22 + FT-23 num ciclo), `@qa` + `@devops`.

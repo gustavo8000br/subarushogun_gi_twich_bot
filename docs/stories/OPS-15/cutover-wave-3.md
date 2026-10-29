@@ -6,7 +6,7 @@
 - **Issue:** #95 (card FT-39), sub-issue of #69
 - **Executor:** `@dev` (Dex). Final verdict belongs to `@qa`; commit belongs to `@devops`.
 - **QA verdict:** CONCERNS, 9.0/10 (slice gate, 0 blocking issues for the Wave 3 commit): [`qa-gate-2026-10-28.md`](qa-gate-2026-10-28.md).
-- **Branch / commits:** `feat/ops-15-next-panel`, base `184b259` (Wave 0 = `0eb4fd2`, Wave 1 = `bfff2f1`). Wave 3 committed by `@devops`: `69e9534` (code + docs), followed by `d97c96c` (architecture docs), `4d2f750` (stories and planning) and `75c11c7` (governance memory snapshot).
+- **Branch / commits:** `feat/ops-15-next-panel`, base `0224bce` (Wave 0 = `08e84cb`, Wave 1 = `384a7e7`). Wave 3 committed by `@devops`: `906fd5c` (code + docs), followed by `8e20277` (architecture docs), `0604799` (stories and planning) and `0e5f1c9` (governance memory snapshot).
 - **Authorization:** owner, 2026-10-27, incremental cutover (beta with no active users, safe structural changes until `rc`, no compatibility shims; `legacy` = protected branch `a9279b2`). OW-09 resolved: the `/overlay.html` aliases do not need to be kept. The owner checked the result manually with `npm run dev:start` ("Tudo Ok"). Plan: [`cutover-plan.md`](cutover-plan.md), Wave 3.
 - **Scope:** Wave 3 only. The vanilla panel (`apps/web/app.js`, `index.html`, `styles.css` and its modules) and the localization catalogs are untouched (Waves 2 and 4). `API_ONLY` and `@fastify/static` stay (Wave 6). No Compose, installer, Dockerfile, CI or `package.json` change.
 
@@ -50,7 +50,7 @@ New and changed tests (the new contract):
 - `overlay-browser-only.mjs`: opens `/overlay?ref=...#token`, asserts the page stays on `/overlay` (no redirect) and that `/overlay.html` = 404 with redirects disabled.
 - Fixture-only updates (no new contract): `overlay-renderer`, `overlay-routes`, `queue-routes`, `next-widgets-page`, `overlay-parity-browser-only.mjs`, `overlay-browser.mjs` (CDP page filter), `widget-link-dialog-browser-only.mjs` now use `/overlay` URLs.
 
-**Red** (tests as above, production files temporarily restored to `HEAD` `184b259`: the three changed modules plus the four deleted files; then the Wave 3 versions were put back and checked by SHA-256):
+**Red** (tests as above, production files temporarily restored to `HEAD` `0224bce`: the three changed modules plus the four deleted files; then the Wave 3 versions were put back and checked by SHA-256):
 
 - `npx vitest run tests/unit/overlay-widget-service.test.js tests/unit/next-dev-proxy.test.js tests/unit/api-static-surface-contract.test.js tests/unit/shared-panel-boundary.test.js tests/unit/next-runtime-config.test.js tests/unit/orphan-module-contract.test.js` → 5 files failed / 1 passed, **10 failed / 18 passed**: 2 `overlay-widget-service` (link path), 4 `next-dev-proxy` (alias rules present), 1 `next-runtime-config`, 2 `api-static-surface-contract` (`server.mjs` registers the alias; `dev-overlay-alias.mjs` emits `overlay.html`), 1 `shared-panel-boundary` (`apps/web/overlay.html` exists). `orphan-module-contract` passes in both states (the overlay files referenced each other, so it never flagged them).
 - `npx vitest run tests/integration/compose-runtime.test.js -t "route ownership"` → exit 1, 1 failed / 6 skipped, at `compose-runtime.test.js:378`: `/overlay.html?ref=aaaaaaaaaaaaaaaaaaaaaa is retired: expected 200 to be 404` (the old `afterFiles` rewrite served the overlay).

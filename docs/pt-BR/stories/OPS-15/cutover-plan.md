@@ -25,7 +25,7 @@ Antes de planejar ondas, é preciso descrever com precisão a topologia atual de
 
 1. Passar `/` para o Next é uma **correção**, não um risco de paridade: nada utilizável se perde.
 2. Os defeitos abertos do Next (D-3, D-4, D-7, D-5) são defeitos do painel que as pessoas usuárias já usam em todas as rotas internas. Manter `apps/web` não os atenua. Eles bloqueiam a **conclusão da OPS-15 e o aceite de paridade** (AC 1, AC 7), não a **remoção do código**.
-3. O que de fato condiciona a remoção de `apps/web` é a **cobertura de testes** (contratos de classe B ainda verificados só contra arquivos vanilla) e **uma dependência de runtime**: os catálogos de primeira parte ficam em `apps/web/localization/catalogs` (`apps/api/src/server.mjs:41`; linha 43 quando este plano foi escrito, 41 após o commit `69e9534` da Onda 3; `Dockerfile:9`, `apps/infra/scripts/validate-localization.mjs:9`, `apps/frontend/lib/i18n/load-first-party-panel-fallback.mjs:4`).
+3. O que de fato condiciona a remoção de `apps/web` é a **cobertura de testes** (contratos de classe B ainda verificados só contra arquivos vanilla) e **uma dependência de runtime**: os catálogos de primeira parte ficam em `apps/web/localization/catalogs` (`apps/api/src/server.mjs:41`; linha 43 quando este plano foi escrito, 41 após o commit `906fd5c` da Onda 3; `Dockerfile:9`, `apps/infra/scripts/validate-localization.mjs:9`, `apps/frontend/lib/i18n/load-first-party-panel-fallback.mjs:4`).
 
 Este plano separa três vereditos por parte: **runtime** (quem atende), **remoção do código** (o arquivo vanilla e seus testes podem ser apagados?) e **aceite de paridade** (a OPS-15 pode dar a superfície como concluída?). Só os dois primeiros são "cutover"; o terceiro continua sendo gate da OPS-15.
 
@@ -212,4 +212,4 @@ O `@qa` também deve declarar, por onda, quais classes de evidência foram execu
 
 ## Não executado
 
-Nenhuma operação de teste, build, servidor, Docker, navegador, GitHub ou Twitch. A tarefa de diagnóstico SYNAPSE anexada ao pedido está fora desta missão de arquitetura somente de leitura e não foi executada. Os números de linha foram lidos em `feat/ops-15-next-panel` no `28cd87a` (árvore limpa) em 2026-10-27; outros agentes estão editando stories e inventários agora, então referências a linhas da story podem se deslocar.
+Nenhuma operação de teste, build, servidor, Docker, navegador, GitHub ou Twitch. A tarefa de diagnóstico SYNAPSE anexada ao pedido está fora desta missão de arquitetura somente de leitura e não foi executada. Os números de linha foram lidos em `feat/ops-15-next-panel` no `9ca394b` (árvore limpa) em 2026-10-27; outros agentes estão editando stories e inventários agora, então referências a linhas da story podem se deslocar.

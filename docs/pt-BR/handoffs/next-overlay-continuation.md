@@ -23,7 +23,7 @@ O teste Chromium browser-only `tests/e2e/queue-creation-uncertain-browser-only.m
 **Data:** 2026-10-19
 **Repositório:** SubaruShogun Twitch Queue Bot
 **Branch:** `feat/ops-15-next-panel`
-**Checkpoint inicial:** `38cc55e`
+**Checkpoint inicial:** `b3eeb9a`
 **Story:** OPS-15 — **In Progress**
 **Público:** GitHub Copilot e Claude Code
 

@@ -1,7 +1,7 @@
 # OPS-15 — Decisão de contrato da API (S-04, S-05, S-06, S-14)
 
 - Data: 2026-10-22 · Autoria: @architect (Aria) · Tipo: gate de planejamento (sem código, sem migrations, sem alterações em issues)
-- Entradas: `api-contract-research.md` (@analyst), `structural-review.md` S-04/S-05/S-06/S-14, código em `feat/ops-15-next-panel` HEAD `4a44468`.
+- Entradas: `api-contract-research.md` (@analyst), `structural-review.md` S-04/S-05/S-06/S-14, código em `feat/ops-15-next-panel` HEAD `d4f3d05`.
 - Rótulos: **VERIFICADO** (lido no código ou em fonte oficial nesta sessão), **PARCIAL** (fonte incompleta ou secundária), **NÃO VERIFICADO** (inferência; precisa de teste neste projeto).
 - Limite: revisão de mesa. Nada aqui foi executado contra PostgreSQL, API reiniciada, navegador ou OBS. Cada "decisão" abaixo é um contrato a ser provado com Red primeiro; não é evidência de que algo funciona.
 

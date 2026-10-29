@@ -3,8 +3,8 @@
 Owner warned at 90% session quota (safe limit 85%). The running agent was stopped; nothing else was running. **First thing next session: re-dispatch the agent below with its brief, before any new work.**
 
 ## State of the repository at the stop
-- Branch `feat/ops-15-next-panel`; pushed up to `7683272` (FT-22). Draft PR #97 is open and `CONFLICTING` with `main`, so GitHub runs no CI.
-- Commit `996ac98` (docs/governance: `AGENTS.md`, `CLAUDE.md`, handoff, two agent memories) exists LOCALLY and is NOT pushed.
+- Branch `feat/ops-15-next-panel`; pushed up to `e01fce3` (FT-22). Draft PR #101 is open and `CONFLICTING` with `main`, so GitHub runs no CI.
+- Commit `879c569` (docs/governance: `AGENTS.md`, `CLAUDE.md`, handoff, two agent memories) exists LOCALLY and is NOT pushed.
 - **A merge of `origin/main` (`a9279b2`, PR #70 + main's bump to 0.2.1) is IN PROGRESS** (`.git/MERGE_HEAD` exists; `git merge --no-commit --no-ff` by `@devops`). Do NOT run `git merge --abort` unless the work is to be redone; do NOT commit the merge before the checks below.
 - Files still `UU` (conflict markers already removed by `@dev`, edits NOT verified and NOT `git add`ed): `CHANGELOG-beta.md`, `docs/pt-BR/CHANGELOG-beta.md`, `tests/unit/panel-catalog-placeholders.test.js`, `tests/unit/panel-confirmation-contract.test.js`. `CHANGELOG_INTERNAL.md` (+pt-BR) show `MM` (merged by git, then edited by `@dev`).
 - No test, lint or actionlint was run after the edits. Docker clean, no dev server running.
@@ -19,6 +19,6 @@ Stopped right after writing the changelog resolutions (last action: "Now write t
 Rules: `@dev` does NOT run `git add/commit/merge/push`; no full suite; nothing outside the project; no servers. Lean local checks: no conflict markers, lint, typecheck, validate:version/localization/port-denylist, review:static, `git diff --check`, vitest on touched files and contract tests (documentation-contract, ci-workflow-contract, release-notes, panel-catalog-placeholders, panel-confirmation-contract, next-panel-catalogs, localization-parity). Report resolutions, workflow changes, results and the exact paths for `@devops` to `git add`.
 
 ## Then (owner decision of 2026-10-29: this round skips `@qa`; GitHub Actions replaces it)
-- `@devops`: `git add` the paths `@dev` lists, conclude the merge commit, push the branch (no force; the PR delegation covers push/PR, NOT merge to `main`), watch the CI of PR #97 and report.
+- `@devops`: `git add` the paths `@dev` lists, conclude the merge commit, push the branch (no force; the PR delegation covers push/PR, NOT merge to `main`), watch the CI of PR #101 and report.
 - **DEBT:** the independent `@qa` verdict is still owed for the merge commit, `AGENTS.md`, `CLAUDE.md`, the handoff and the workflow changes; the first gate after the quota reset covers them using the CI result as evidence.
 - Then the plan in `docs/session-handoff.md`: `@sm` (merge batches), `@po` (OPS-22 as one package + FT-05/FT-07 via FT-40), `@devops` (board/issues), `@ux-design-expert` (one plan FT-23 + FT-36), `@dev` (OPS-22 + FT-23 in one cycle), `@qa` + `@devops`.

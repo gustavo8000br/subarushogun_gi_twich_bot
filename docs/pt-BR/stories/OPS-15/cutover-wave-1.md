@@ -5,7 +5,7 @@
 - **Data:** 2026-10-27
 - **Issue:** #93 (FT-38)
 - **Executor:** `@dev` (Dex). O veredito final é do `@qa`; o commit é do `@devops`.
-- **Branch / base:** `feat/ops-15-next-panel` em `80efb98` (árvore de trabalho sem commit; a Onda 0 é o commit `0eb4fd2`).
+- **Branch / base:** `feat/ops-15-next-panel` em `0362c36` (árvore de trabalho sem commit; a Onda 0 é o commit `08e84cb`).
 - **Autorização:** proprietário, 2026-10-27, cutover incremental (beta sem usuários ativos, sem shims de compatibilidade; `legacy` = branch protegida `a9279b2`). Decisões do proprietário: DP-0 (OPS-22/OPS-23/FT-23 bloqueiam só a conclusão da OPS-15, não esta onda), DP-1 (a Visão geral do Next é a página inicial de produção; no primeiro uso sem conexão ela mostra o cartão "conectar" em vez de abrir a Conexão), DP-2 (apagar `registerWebRoutes` e `web-route.mjs`, não desligar). Plano: [`cutover-plan.md`](cutover-plan.md), Onda 1, itens A-01 e A-02.
 - **Escopo:** só a Onda 1. `apps/web/**`, os arquivos do overlay vanilla e os aliases de `/overlay.html` não foram tocados (Ondas 3 e 4). `API_ONLY` e a dependência `@fastify/static` ficam (Onda 6). Sem mudança em Compose, instaladores, Dockerfile ou CI.
 
@@ -22,7 +22,7 @@
 
 Nenhum código de interface mudou. A Visão geral do Next (`apps/frontend/app/(panel)/page.jsx`) já existia e já era a página em todas as rotas internas; o cartão "conectar canal" do primeiro uso é o comportamento existente de `getOverviewNextAction` (`apps/shared/panel/panel-navigation.mjs:9-14`).
 
-## Buscas de consumidores (antes da mudança, em `80efb98`)
+## Buscas de consumidores (antes da mudança, em `0362c36`)
 
 ```text
 git grep -n -I "registerWebRoutes\|web-route\|API_ONLY\|apiOnly\|fastify/static\|sharedPanelRoot\|sharedBrowserRoot" -- . ':!docs' ':!package-lock.json'

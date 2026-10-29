@@ -5,7 +5,7 @@
 - **Date:** 2026-10-27
 - **Issue:** #93 (FT-38)
 - **Executor:** `@dev` (Dex). Final verdict belongs to `@qa`; commit belongs to `@devops`.
-- **Branch / base:** `feat/ops-15-next-panel` at `80efb98` (uncommitted working tree; Wave 0 is commit `0eb4fd2`).
+- **Branch / base:** `feat/ops-15-next-panel` at `0362c36` (uncommitted working tree; Wave 0 is commit `08e84cb`).
 - **Authorization:** owner, 2026-10-27, incremental cutover (beta with no active users, no compatibility shims; `legacy` = protected branch `a9279b2`). Owner decisions: DP-0 (OPS-22/OPS-23/FT-23 block only OPS-15 completion, not this wave), DP-1 (the Next Overview is the production home page; on first use without a connection it shows the "connect" card instead of opening Connection), DP-2 (delete `registerWebRoutes` and `web-route.mjs`, do not switch them off). Plan: [`cutover-plan.md`](cutover-plan.md), Wave 1, items A-01 and A-02.
 - **Scope:** Wave 1 only. `apps/web/**`, the vanilla overlay files and the `/overlay.html` aliases are untouched (Waves 3 and 4). `API_ONLY` and the `@fastify/static` dependency stay (Wave 6). No Compose, installer, Dockerfile or CI change.
 
@@ -22,7 +22,7 @@
 
 No UI code changed. The Next Overview (`apps/frontend/app/(panel)/page.jsx`) already existed and was already the page at every deep route; the first-run "connect channel" card is the existing `getOverviewNextAction` behavior (`apps/shared/panel/panel-navigation.mjs:9-14`).
 
-## Consumer searches (before the change, at `80efb98`)
+## Consumer searches (before the change, at `0362c36`)
 
 ```text
 git grep -n -I "registerWebRoutes\|web-route\|API_ONLY\|apiOnly\|fastify/static\|sharedPanelRoot\|sharedBrowserRoot" -- . ':!docs' ':!package-lock.json'

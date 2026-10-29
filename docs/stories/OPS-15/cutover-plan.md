@@ -25,7 +25,7 @@ Before planning waves, the current production topology must be stated precisely,
 
 1. Moving `/` to Next is a **fix**, not a risk to parity: nothing usable is lost.
 2. The open Next defects (D-3, D-4, D-7, D-5) are defects of the panel that users already run on every deep route. Keeping `apps/web` does not mitigate them. They block **OPS-15 completion and parity acceptance** (AC 1, AC 7), not **source removal**.
-3. What really gates the deletion of `apps/web` is **test coverage** (class B contracts still only asserted against vanilla files) and **one runtime dependency**: the first-party catalogs live in `apps/web/localization/catalogs` (`apps/api/src/server.mjs:41`; line 43 when this plan was written, 41 after Wave 3 commit `69e9534`; `Dockerfile:9`, `apps/infra/scripts/validate-localization.mjs:9`, `apps/frontend/lib/i18n/load-first-party-panel-fallback.mjs:4`).
+3. What really gates the deletion of `apps/web` is **test coverage** (class B contracts still only asserted against vanilla files) and **one runtime dependency**: the first-party catalogs live in `apps/web/localization/catalogs` (`apps/api/src/server.mjs:41`; line 43 when this plan was written, 41 after Wave 3 commit `906fd5c`; `Dockerfile:9`, `apps/infra/scripts/validate-localization.mjs:9`, `apps/frontend/lib/i18n/load-first-party-panel-fallback.mjs:4`).
 
 This plan separates three verdicts per part: **runtime** (who serves it), **source removal** (can the vanilla file and its tests be deleted) and **parity acceptance** (can OPS-15 count the surface as done). Only the first two are "cutover"; the third remains an OPS-15 gate.
 
@@ -212,4 +212,4 @@ Common gates for every wave (run by `@qa`, serially, with nothing else using Doc
 
 ## Not executed
 
-No test, build, server, Docker, browser, GitHub or Twitch operation. The SYNAPSE diagnostic task attached to the request is outside this read-only architecture mission and was not run. Line numbers were read on `feat/ops-15-next-panel` at `28cd87a` (clean tree) on 2026-10-27; other agents are editing stories and inventories now, so story line references may shift.
+No test, build, server, Docker, browser, GitHub or Twitch operation. The SYNAPSE diagnostic task attached to the request is outside this read-only architecture mission and was not run. Line numbers were read on `feat/ops-15-next-panel` at `9ca394b` (clean tree) on 2026-10-27; other agents are editing stories and inventories now, so story line references may shift.

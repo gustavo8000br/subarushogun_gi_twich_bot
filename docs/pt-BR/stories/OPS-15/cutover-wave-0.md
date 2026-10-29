@@ -4,7 +4,7 @@
 
 - **Data:** 2026-10-27
 - **Executor:** `@dev` (Dex). O veredito final é do `@qa`; o commit é do `@devops`.
-- **Branch / base:** `feat/ops-15-next-panel` em `5ac8472` (árvore de trabalho não comitada).
+- **Branch / base:** `feat/ops-15-next-panel` em `fb828d3` (árvore de trabalho não comitada).
 - **Autorização:** proprietário, 2026-10-27, cutover incremental (beta sem usuários ativos; `legacy` = branch protegida `a9279b2`). Plano: [`cutover-plan.md`](cutover-plan.md), Onda 0, itens A-06 e A-11.
 - **Escopo:** somente a Onda 0. Nenhuma rota, rewrite, alias ou tratamento de `/overlay.html` mudou (isso é a Onda 3). Nada da Onda 1 foi feito.
 
