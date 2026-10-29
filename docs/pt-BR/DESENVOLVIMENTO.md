@@ -88,7 +88,7 @@ apps/api/    API Fastify, domínio, schema e migrations Prisma
 apps/infra/  Compose e scripts operacionais
 apps/frontend/ App Router Next.js do painel e do overlay OBS
 apps/web/      Arquivos do painel vanilla (não servidos desde a Onda 1 do cutover; removidos na Onda 4)
-apps/shared/    Módulos compartilhados por Next e API (`apps/shared/panel` contém os helpers de painel/overlay e `apps/shared/localization/catalogs`, os catálogos de primeira parte desde a Onda 2 do cutover; o Next não pode importar `apps/web`)
+apps/shared/    Módulos compartilhados por Next e API (`apps/shared/panel` contém apenas os helpers de painel/overlay; os catálogos de primeira parte ficam em `apps/shared/localization/catalogs/`, fora de `apps/shared/panel`, desde a Onda 2 do cutover; o Next não pode importar `apps/web`)
 tests/       Testes unitários, integração e aceite de navegador
 docs/        Stories e guias específicos de usuário/desenvolvimento
 ```
