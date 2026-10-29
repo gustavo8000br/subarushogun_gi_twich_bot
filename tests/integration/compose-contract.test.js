@@ -99,13 +99,13 @@ describe('local Compose runtime contract', () => {
     expect(config.services.bot.volumes).toContainEqual(expect.objectContaining({
       type: 'bind', source: resolve(root, '.local'), target: '/app/.local',
     }));
-    expect(config.services.bot.volumes).toContainEqual(expect.objectContaining({
-      type: 'bind',
-      source: resolve(root, '.local/community-catalogs'),
-      target: '/app/.local/community-catalogs',
-      read_only: true,
-      bind: { create_host_path: false },
-    }));
+    const communityCatalogMount = config.services.bot.volumes.find((volume) => volume.target === '/app/.local/community-catalogs');
+    expect(communityCatalogMount).toMatchObject({
+      type: 'bind', source: resolve(root, '.local/community-catalogs'), read_only: true,
+    });
+    // Optional folder, ignored by git: it must not be required to exist (fresh clone, CI, new install).
+    // Compose versions render the default differently (`{}` vs `true`), so only an explicit `false` is wrong.
+    expect(communityCatalogMount.bind?.create_host_path).not.toBe(false);
     expect(config.services.bot.group_add).toContain('10001');
   });
 

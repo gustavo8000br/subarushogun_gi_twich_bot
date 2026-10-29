@@ -93,7 +93,7 @@ describe('single-file lifecycle installer', () => {
         source: '${LOCAL_COMMUNITY_CATALOG_DIRECTORY:-./.local/community-catalogs}',
         target: '/app/.local/community-catalogs',
         read_only: true,
-        bind: { create_host_path: false },
+        bind: { create_host_path: true },
       }));
       const installerSource = executableSource;
       if (platform === 'windows') {

@@ -74,7 +74,8 @@ services:
         target: /app/.local/community-catalogs
         read_only: true
         bind:
-          create_host_path: false
+          # Optional folder: Docker creates it when absent (fresh clone, CI). `false` made `run`/`up` fail.
+          create_host_path: true
     depends_on:
       db:
         condition: service_healthy
