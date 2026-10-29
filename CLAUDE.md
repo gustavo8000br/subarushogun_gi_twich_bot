@@ -9,7 +9,7 @@ Ao retomar uma sessão, leia primeiro `docs/session-handoff.md` e `docs/pt-BR/se
 - Antes de editar, confirme `pwd`, `git rev-parse --show-toplevel` e `git branch --show-current`. A branch de trabalho atual é `feat/ops-15-next-panel`.
 - Dependências não são compartilhadas entre worktrees: `npm ci`, `npm ci --prefix .aiox-core`, `npm run sync:skills:codex`, `npm run sync:skills:claude`, `npm run sync:ide:check`.
 - Node `24.20.0` (fixado em `package.json`). Não troque a versão.
-- Fluxo Git aprovado: `main` -> branch Conventional Commits -> PR -> `main`. Nunca faça commit, push, cutover ou remoção do painel vanilla sem autorização explícita do proprietário. Push e PR pertencem ao `@devops`. Bumps de versão seguem a política do `AGENTS.md` (alpha/beta: o Orion decide e o `@devops` executa, avisando o proprietário; rc/stable: OK expresso do proprietário a cada bump; push/PR/tag/release com OK separado).
+- Fluxo Git aprovado: `main` -> branch Conventional Commits -> PR -> `main`. Commits, push e PR pertencem ao `@devops`, somente com o veredito do `@qa`; desde 2026-10-29 o proprietário delegou ao orquestrador o push da branch e a criação/atualização de PRs. Continuam exigindo autorização explícita do proprietário: merge na `main`, tag, release, bumps a partir de `rc`, cutover destrutivo fora do plano aprovado e remoção de dados. Bumps de versão seguem a política do `AGENTS.md` (alpha/beta: o Orion decide e o `@devops` executa, avisando o proprietário; rc/stable: OK expresso a cada bump). Operação em série, bloqueios primeiro e prioridade de cota estão em "Operação do orquestrador e dos agentes" no `AGENTS.md`; a memória pessoal do orquestrador não é acessível aos demais agentes e não vale como regra.
 
 ## Regras centrais
 
