@@ -88,7 +88,7 @@ apps/api/    Fastify API, domain, Prisma schema and migrations
 apps/infra/  Compose and operational scripts
 apps/frontend/ Next.js App Router panel and OBS overlay
 apps/web/      Vanilla panel files (not served since cutover Wave 1; removed in Wave 4)
-apps/shared/    Modules shared by Next and the API (`apps/shared/panel` holds the panel/overlay helpers, `apps/shared/localization/catalogs` the first-party catalogs since cutover Wave 2; Next must not import `apps/web`)
+apps/shared/    Modules shared by Next and the API (`apps/shared/panel` holds only the panel/overlay helpers; the first-party catalogs live in `apps/shared/localization/catalogs/`, outside `apps/shared/panel`, since cutover Wave 2; Next must not import `apps/web`)
 tests/       Unit, integration, and browser acceptance tests
 docs/        Stories and focused user/developer references
 ```
