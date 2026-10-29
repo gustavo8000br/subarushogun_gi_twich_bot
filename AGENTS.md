@@ -45,6 +45,26 @@ Ao retomar uma sessao de desenvolvimento, leia primeiro o handoff ativo em `docs
 - Em cada changelog de estágio, mantenha a seção da versão mais recente primeiro, imediatamente após o título e a linha explicativa/de links. As versões anteriores vêm em ordem decrescente; os changelogs em inglês e pt-BR devem permanecer equivalentes.
 - Antes de qualquer commit, atualize os changelogs de estágio afetados em inglês e pt-BR e confira a equivalência e a ordenação das entradas mais recentes.
 
+## Política de bumps de versão (proprietário, 2026-10-29)
+
+- Formato: `vMAJOR.MINOR.PATCH-<estágio>` (`alpha`, `beta`, `rc`, `stable`). A base vem de `package.json` e `.release-stage`; a identidade runtime acrescenta o commit (`vX.Y.Z-HHHHHHH-<estágio>`).
+- Autoridade: em `alpha` e `beta`, o `@aiox-master` (Orion) decide o bump e manda o `@devops` executá-lo, avisando o proprietário, sem OK por bump. A partir de `rc` e em `stable`, cada bump exige OK expresso do proprietário, com mais cautela. Push, PR, tag e release continuam exigindo OK separado em qualquer estágio.
+- Bumps são densos: nunca por onda, por story isolada, por mudança só de documentação ou por refatoração interna. MINOR = marco denso e coerente, com veredito do `@qa` e changelogs en+pt-BR; PATCH = somente correção do que já foi lançado; MAJOR = mudança incompatível de contrato público e pode subir já na beta.
+- Na troca de estágio a versão zera. `v1.0.0-beta` só quando tudo estiver validado e funcional (inclusive Windows, macOS, OBS nativo e Twitch ao vivo); até lá, `0.N.0-beta` (plano, não compromisso: cutover = `0.3.0-beta`; financeiro + SSE + TypeScript = `0.4.0-beta`). Depois, `v1.0.0-rc` e `v1.0.0-stable` (o sufixo `-stable` é mantido). `validate:version`, `materialize:version` e `create-release-notes.mjs` aceitam a volta a `v1.0.0` na troca de estágio (não exigem versão crescente entre estágios).
+- Antes de bumpar: `npm run validate:version` verde; `CHANGELOG-<estágio>.md` e `docs/pt-BR/CHANGELOG-<estágio>.md` atualizados juntos; veredito do `@qa`; PR com CI verde na `main`.
+- Onde `docs/VERSIONING.md` divergir desta política (por exemplo, PATCH para mudança só documental), esta seção prevalece até o alinhamento daquele documento.
+
+## Formato dos changelogs públicos (proprietário, 2026-10-29)
+
+Base: Keep a Changelog 1.1.0 e a nota [`docs/research/changelog-color-research.md`](docs/research/changelog-color-research.md). Vale para `CHANGELOG-<estágio>.md` e `docs/pt-BR/CHANGELOG-<estágio>.md`, não para o `CHANGELOG_INTERNAL.md`.
+
+- Versão mais recente primeiro. O título da versão é exatamente `## vMAJOR.MINOR.PATCH-<estágio>`; nunca ponha data, emoji, selo ou link nessa linha, e nunca use `## ` dentro de uma versão (`apps/infra/scripts/create-release-notes.mjs` depende disso). Logo abaixo pode vir uma linha simples `Released: AAAA-MM-DD` (en) / `Lançado em: AAAA-MM-DD` (pt-BR), com a issue pública como URL absoluta.
+- Se a versão tiver mudanças incompatíveis (algo que deixa de funcionar ou exige ação da pessoa usuária depois da atualização), comece a versão com um único bloco `> [!WARNING]` intitulado **Incompatible changes** / **Mudanças incompatíveis**, um item por mudança com a ação necessária; use `> [!CAUTION]` só para risco de perda de dados ou de segurança. Não repita esses itens abaixo. Nenhum outro alerta.
+- Depois, as categorias nesta ordem, omitindo as vazias, com o quadrado colorido Unicode antes do texto: `### 🟧 Security` / `### 🟧 Segurança`, `### 🟩 Added` / `### 🟩 Adicionado`, `### 🟦 Changed` / `### 🟦 Alterado`, `### 🟨 Deprecated` / `### 🟨 Obsoleto`, `### 🟥 Removed` / `### 🟥 Removido`, `### 🟪 Fixed` / `### 🟪 Corrigido`. Cada item aparece uma vez; remoções vão em Removido, não em Corrigido.
+- A cor nunca é o único sinal: mantenha o texto da categoria e a linha de legenda abaixo do título do arquivo. Não use blocos `diff`, matemática `$\color{}$`, selos, `:shortcodes:` nem estilo HTML inline.
+- Links no corpo das versões são absolutos (o corpo é colado na GitHub Release, onde links relativos quebram).
+- Inglês e pt-BR permanecem espelhados: mesmas versões, blocos, categorias, emoji e ordem dos itens; só as palavras mudam.
+
 ## Autoridade e sequência oficial dos papéis AIOX
 
 `$aiox-master` (Orion) é a persona principal e o orquestrador de todo o desenvolvimento. Não substitua o Master ao coordenar o trabalho. Ative especialistas AIOX somente para as responsabilidades correspondentes; a implementação pertence ao `$aiox-dev`, e a validação independente de qualidade, coerência e concisão pertence ao `$aiox-qa`.

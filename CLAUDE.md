@@ -9,14 +9,14 @@ Ao retomar uma sessão, leia primeiro `docs/session-handoff.md` e `docs/pt-BR/se
 - Antes de editar, confirme `pwd`, `git rev-parse --show-toplevel` e `git branch --show-current`. A branch de trabalho atual é `feat/ops-15-next-panel`.
 - Dependências não são compartilhadas entre worktrees: `npm ci`, `npm ci --prefix .aiox-core`, `npm run sync:skills:codex`, `npm run sync:skills:claude`, `npm run sync:ide:check`.
 - Node `24.20.0` (fixado em `package.json`). Não troque a versão.
-- Fluxo Git aprovado: `main` -> branch Conventional Commits -> PR -> `main`. Nunca faça bump de versão, commit, push, cutover ou remoção do painel vanilla sem autorização explícita do proprietário. Push e PR pertencem ao `@devops`.
+- Fluxo Git aprovado: `main` -> branch Conventional Commits -> PR -> `main`. Nunca faça commit, push, cutover ou remoção do painel vanilla sem autorização explícita do proprietário. Push e PR pertencem ao `@devops`. Bumps de versão seguem a política do `AGENTS.md` (alpha/beta: o Orion decide e o `@devops` executa, avisando o proprietário; rc/stable: OK expresso do proprietário a cada bump; push/PR/tag/release com OK separado).
 
 ## Regras centrais
 
 1. Siga a Constitution em `.aiox-core/constitution.md`; prioridade `CLI First -> Observability Second -> UI Third`.
 2. Trabalhe por stories em `docs/stories/` (en) e `docs/pt-BR/stories/` (pt-BR); não invente requisitos.
 3. Todo roadmap/story novo exige issue GitHub (e roadmap exige issue-mãe com sub-issues nativas), criada pelo `@devops` antes da implementação.
-4. Changelogs de estágio: versão mais recente primeiro; atualize en e pt-BR juntos antes de qualquer commit.
+4. Changelogs de estágio: versão mais recente primeiro; atualize en e pt-BR juntos antes de qualquer commit; siga o formato público do `AGENTS.md` (título `## vX.Y.Z-<estágio>` exato, bloco `> [!WARNING]` para incompatibilidades, categorias com quadrado colorido).
 5. Documentação, story e handoff sempre em inglês e português.
 
 ## Papéis AIOX
