@@ -4,25 +4,27 @@
 
 ## Restrições da arquitetura
 
-Uma instalação local, uma broadcaster/app Twitch, um processo de bot, PostgreSQL local via Compose, sem backend público/armazenamento remoto/telemetria. Runtime do produto em JavaScript ESM e assets vanilla; `.env.example` continua sendo scaffolding do framework AIOX. Código em `apps/*`.
+Uma instalação local, uma broadcaster/app Twitch, um processo de bot, PostgreSQL local via Compose, sem backend público/armazenamento remoto/telemetria. Runtime do produto em JavaScript ESM; o código do navegador é uma aplicação Next.js App Router (JavaScript ESM com JSDoc) servida pelo servidor de produção do Next.js, com o Fastify como processo de API separado em loopback no mesmo contêiner. `.env.example` continua sendo scaffolding do framework AIOX. Código em `apps/*`.
 
 ## Topologia de runtime
 
 ```mermaid
 flowchart LR
-  Browser[Navegador local da operadora] -->|127.0.0.1:3000| Web[assets estáticos apps/web]
-  Web --> API[apps/api Fastify + domínio]
+  Browser[Navegador local da operadora] -->|https://127.0.0.1:3000| Next[servidor Next.js apps/frontend :3000]
+  OBS[OBS Browser Source] -->|/overlay?ref=...#token| Next
+  Next -->|rewrites /api, /overlay/api, /health, /callback| API[apps/api Fastify + domínio, loopback :3109]
   API --> DB[(PostgreSQL / Prisma)]
   API --> Twitch[Adaptadores Twurple: OAuth, Helix, EventSub WS]
   API --> Outbox[Workers da outbox PostgreSQL]
   Infra[apps/infra bootstrap/versão/saúde] --> DB
 ```
 
-`Dockerfile` e `compose.yaml` na raiz são pontos de entrada do produto. Serviços Compose: `bootstrap` de execução única; `db` persistente e saudável; `migrate` de execução única após a saúde do banco; `bot` sem root e iniciado só após migrations concluídas. O host publica somente `127.0.0.1:3000:3000`; Fastify escuta `0.0.0.0` no contêiner. Banco sem porta publicada. Volumes mantêm banco e segredos operacionais.
+`Dockerfile` e `compose.yaml` pull-only na raiz são entrypoints do runtime; `compose.build.yaml` adiciona contextos de build local somente para CI/manutenção. O instalador da plataforma incorpora o manifest de runtime e baixa imagem pré-compilada. Serviços Compose: `bootstrap` de execução única; `db` persistente e saudável; `migrate` de execução única após a saúde do banco; `bot` sem root e iniciado só após migrations concluídas. `apps/infra/scripts/start-product.mjs` inicia o servidor Next.js (`PANEL_HOST` `0.0.0.0`, `PANEL_PORT` 3000) e o Fastify (`APP_HOST` `127.0.0.1`, `API_PORT` 3109) e encerra ambos quando qualquer um termina. O host publica somente `127.0.0.1:${APP_PORT:-3000}` para a porta 3000 do contêiner; a porta do Fastify não é publicada. Banco sem porta publicada. Volumes mantêm banco e segredos operacionais. Desenvolvedores executam `npm ci` uma vez e depois `npm run dev` para Next HMR/Fastify watch e PostgreSQL descartável isolado por worktree.
 
 ## Módulos da aplicação
 
-- `apps/web`: painel HTML/CSS/JS vanilla; consome projeções explícitas da API e usa APIs seguras para texto.
+- `apps/frontend`: painel do operador em Next.js App Router e rota isolada do overlay OBS; consome projeções explícitas da API e renderiza texto com segurança.
+- `apps/web`: arquivos do painel vanilla, não mais servidos desde a Onda 1 do cutover (a `/` de produção é a Visão geral do Next) e removidos na Onda 4 do cutover (os arquivos do overlay vanilla foram removidos na Onda 3); `apps/frontend` não o importa mais; os módulos compartilhados foram para `apps/shared/panel` (S-03) e os catálogos de localização foram para `apps/shared/localization/catalogs` na Onda 2.
 - `apps/api`: composição do processo Fastify, segurança local, handlers, serviços de domínio, adaptadores de persistência e Twitch, EventSub e workers duráveis.
 - `apps/api/prisma`: schema/configuração Prisma 6, geração do client e migrations PostgreSQL, incluindo restrições SQL não representadas no schema Prisma.
 - `apps/infra`: helper de segredo bootstrap, validação/materialização da versão do produto, saúde e utilitários operacionais.

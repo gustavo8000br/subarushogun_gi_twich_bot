@@ -1,13 +1,14 @@
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : 'linux';
 const extension = { windows: 'bat', macos: 'command', linux: 'sh' }[platform];
 const artifactName = `subarushogun_twich_bot_setup.${extension}`;
 const root = new URL('../../', import.meta.url);
-const packager = new URL('../../apps/infra/scripts/package-installer.mjs', import.meta.url);
+const packager = fileURLToPath(new URL('../../apps/infra/scripts/package-installer.mjs', import.meta.url));
 const fixtureRoot = await mkdtemp(join(tmpdir(), 'queuebot native installer path '));
 const output = join(fixtureRoot, 'downloaded artifact');
 const installHome = join(fixtureRoot, 'application data', 'product');
@@ -19,7 +20,7 @@ const expectedImageTag = process.env.QUEUEBOT_EXPECTED_IMAGE_TAG ?? 'main';
 
 try {
   if (!process.env.QUEUEBOT_PREBUILT_INSTALLER) {
-    const packageResult = spawnSync(process.execPath, [packager.pathname, '--platform', platform, '--output', output], { cwd: root, encoding: 'utf8' });
+    const packageResult = spawnSync(process.execPath, [packager, '--platform', platform, '--output', output], { cwd: root, encoding: 'utf8' });
     if (packageResult.status !== 0) throw new Error(packageResult.stderr || 'Installer packaging failed');
   }
   await (await import('node:fs/promises')).mkdir(bin, { recursive: true });
@@ -84,6 +85,29 @@ try {
   };
   const result = launch('2\n1\n3100\n0\n');
   if (result.status !== 0) throw new Error(`Native installer failed (${result.status}):\n${result.stdout}\n${result.stderr}`);
+  const communityCatalogDirectory = join(installHome, '.local', 'community-catalogs');
+  try { await stat(communityCatalogDirectory); }
+  catch { throw new Error(`Native ${platform} installer did not create the community catalog directory: ${communityCatalogDirectory}`); }
+  const customCommunityCatalogDirectory = join(fixtureRoot, 'custom community catalogs');
+  const customInstallHome = join(fixtureRoot, 'custom install home');
+  const customDirectoryEnv = { ...env, QUEUEBOT_INSTALL_HOME: customInstallHome, LOCAL_COMMUNITY_CATALOG_DIRECTORY: customCommunityCatalogDirectory };
+  const customDirectoryInstall = launch('', '--silent install', customDirectoryEnv);
+  if (customDirectoryInstall.status !== 0) throw new Error(`Native ${platform} installer failed with a custom catalog directory:\n${customDirectoryInstall.stdout}\n${customDirectoryInstall.stderr}`);
+  try { await stat(customCommunityCatalogDirectory); }
+  catch { throw new Error(`Native ${platform} installer did not create the configured community catalog directory: ${customCommunityCatalogDirectory}`); }
+  const customConfigPath = join(customInstallHome, '.env');
+  let customConfig;
+  try { customConfig = await readFile(customConfigPath, 'utf8'); }
+  catch { throw new Error(`Native installer did not save custom-path configuration:\n${customDirectoryInstall.stdout}\n${customDirectoryInstall.stderr}`); }
+  if (!customConfig.includes(`LOCAL_COMMUNITY_CATALOG_DIRECTORY=${customCommunityCatalogDirectory}`)) {
+    throw new Error(`Installer did not persist the configured community catalog directory:\n${customConfig}`);
+  }
+  const cleanEnvironmentStart = launch('', '--silent install', { ...env, QUEUEBOT_INSTALL_HOME: customInstallHome });
+  if (cleanEnvironmentStart.status !== 0) throw new Error(`Native ${platform} installer could not restart with a clean environment:\n${cleanEnvironmentStart.stdout}\n${cleanEnvironmentStart.stderr}`);
+  customConfig = await readFile(customConfigPath, 'utf8');
+  if (!customConfig.includes(`LOCAL_COMMUNITY_CATALOG_DIRECTORY=${customCommunityCatalogDirectory}`)) {
+    throw new Error(`Installer configuration lost the custom community catalog directory after a clean-environment restart:\n${customConfig}`);
+  }
   let config;
   try {
     config = await readFile(join(installHome, '.env'), 'utf8');

@@ -31,6 +31,24 @@ describe('structured logger', () => {
     expect(line).not.toMatch(/secret|raw/);
   });
 
+  it('keeps only known reconciliation issue codes and HTTP status counts in diagnostic details (OPS-22 FT-24)', () => {
+    const write = vi.fn();
+    const log = createStructuredLogger({ level: 'info', write });
+    log({ event: 'twitch_reconciliation_degraded', level: 'warn', source: 'twitch.reconciliation', details: {
+      trigger: 'periodic', reason: 'reconciliation_partial', issueCount: 3,
+      issueCounts: { redemption_verification_failed: 2, reward_configuration_mismatch: 1, viewer_login_leak: 4, 'Bearer abc': 1 },
+      httpStatusCounts: { 401: 2, 999: 1, abc: 1, 503: -1 },
+      redemptionId: 'fixture-redemption-1', userLogin: 'fixture_viewer', accessToken: 'secret-token',
+    } });
+    const line = write.mock.calls[0][0];
+    expect(JSON.parse(line).details).toEqual({
+      trigger: 'periodic', reason: 'reconciliation_partial', issueCount: 3,
+      issueCounts: { redemption_verification_failed: 2, reward_configuration_mismatch: 1 },
+      httpStatusCounts: { 401: 2 },
+    });
+    expect(line).not.toMatch(/fixture|secret|Bearer|leak/);
+  });
+
   it('falls back to info for unknown configured levels', () => {
     expect(resolveLogLevel('made-up')).toBe('info');
   });

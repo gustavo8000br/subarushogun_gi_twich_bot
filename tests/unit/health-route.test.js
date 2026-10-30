@@ -61,6 +61,7 @@ describe('local health response contract', () => {
     expect(response.json()).toEqual({
       status: 'ok',
       product_version: 'v0.1.0-0000000-alpha',
+      last_reconciliation_at: null,
       dependencies: { database: 'connected', twitch_api: 'not_configured', twitch_integration: 'not_configured', twitch_api_ping_ms: null, twitch_chat: 'not_configured', twitch_rewards: 'not_configured' },
     });
     expect(pool.query).toHaveBeenCalledWith('SELECT 1');
@@ -77,6 +78,7 @@ describe('local health response contract', () => {
     expect(response.json()).toEqual({
       status: 'unavailable',
       product_version: 'v0.1.0-0000000-alpha',
+      last_reconciliation_at: null,
       dependencies: { database: 'unavailable', twitch_api: 'not_configured', twitch_integration: 'unknown', twitch_api_ping_ms: null, twitch_chat: 'not_configured', twitch_rewards: 'not_configured' },
     });
     expect(response.body).not.toContain('private database details');
@@ -178,5 +180,25 @@ describe('local health response contract', () => {
     expect(response.json().dependencies.twitch_api_ping_ms).toBeNull();
     expect(response.body).not.toContain('private token details');
     await app.close();
+  });
+
+  it('exposes only a valid last-reconciliation timestamp for the runtime overview', async () => {
+    const app = Fastify();
+    healthModule.registerHealthRoute(app, {
+      pool: { query: vi.fn().mockResolvedValue({ rows: [] }) }, productVersion: 'v0.2.0-0000000-beta',
+      getLastReconciliationAt: () => '2026-10-15T18:00:00.000Z',
+    });
+    const response = await app.inject({ method: 'GET', url: '/health' });
+    expect(response.json().last_reconciliation_at).toBe('2026-10-15T18:00:00.000Z');
+    await app.close();
+
+    const invalidApp = Fastify();
+    healthModule.registerHealthRoute(invalidApp, {
+      pool: { query: vi.fn().mockResolvedValue({ rows: [] }) }, productVersion: 'v0.2.0-0000000-beta',
+      getLastReconciliationAt: () => 'not-a-date',
+    });
+    const invalidResponse = await invalidApp.inject({ method: 'GET', url: '/health' });
+    expect(invalidResponse.json().last_reconciliation_at).toBeNull();
+    await invalidApp.close();
   });
 });

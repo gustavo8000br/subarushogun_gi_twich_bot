@@ -52,6 +52,15 @@ function catalogShape(catalog) {
   return { regularKeys: sorted(regularKeys), pluralGroups };
 }
 
+/** Return the locale-independent key structure used to validate community translations. */
+export function catalogKeyShape(catalog) {
+  const shape = catalogShape(catalog);
+  return Object.freeze({
+    regularKeys: shape.regularKeys,
+    pluralGroups: sorted(shape.pluralGroups.keys()),
+  });
+}
+
 function getPlaceholderNames(template, key) {
   const names = [...template.matchAll(PLACEHOLDER_PATTERN)].map((match) => match[1]);
   if (/[{}]/.test(template.replace(PLACEHOLDER_PATTERN, ''))) {

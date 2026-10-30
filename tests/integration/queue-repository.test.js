@@ -5,10 +5,18 @@ import { fileURLToPath } from 'node:url';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  ISOLATED_POSTGRES_AFTER_ALL_TIMEOUT_MS, ISOLATED_POSTGRES_CLEANUP_CALL_TIMEOUT_MS, cleanupIsolatedPostgres,
+} from '../helpers/isolated-postgres-cleanup.mjs';
+import {
+  ISOLATED_POSTGRES_BEFORE_ALL_TIMEOUT_MS, ISOLATED_POSTGRES_IMAGE, ISOLATED_POSTGRES_LABEL, ensurePostgresImage, runDockerCommand,
+} from '../helpers/isolated-postgres-image.mjs';
 import { createQueueDomainService } from '../../apps/api/src/domain/queue-service.mjs';
 import { normalizeQueueKeys } from '../../apps/api/src/domain/queue-keys.mjs';
 import { createQueueRepository } from '../../apps/api/src/persistence/queue-repository.mjs';
+import { createChatOutboxWorker } from '../../apps/api/src/outbox/chat-worker.mjs';
 import { createTwitchCredentialRepository } from '../../apps/api/src/persistence/twitch-credential-repository.mjs';
+import { createCredentialFingerprint } from '../../apps/api/src/twitch/credential-fingerprint.mjs';
 import { createTwitchRedemptionProcessor } from '../../apps/api/src/twitch/redemption-processor.mjs';
 import { createTwitchReconciler } from '../../apps/api/src/twitch/reconciliation.mjs';
 
@@ -18,7 +26,6 @@ let prisma;
 let repository;
 let queueService;
 let credentialRepository;
-let containerStarted = false;
 const tombstoneCursorKey = 'twitch_converted_tombstone_reconciliation_cursor';
 
 function docker(args) {
@@ -45,6 +52,46 @@ async function expectConvertedTombstoneInReconciliationPage(queueId) {
   const page = await repository.claimConvertedTombstoneReconciliationPage({ limit: 100 });
   expect(page.queues.some(({ id }) => id === queueId)).toBe(true);
   expect(await repository.completeConvertedTombstoneReconciliationPage({ leaseId: page.leaseId, lastQueueId: page.queues.at(-1)?.id ?? null })).toBe(true);
+}
+
+// FT-22: claims only the given chat.call task by parking every other eligible chat.call row, then restores them.
+async function claimOnlyChatTask(taskId, now = new Date()) {
+  const others = await prisma.outbox.findMany({
+    where: { operationType: 'chat.call', id: { not: taskId }, status: { in: ['pending', 'retry', 'processing'] } },
+    select: { id: true, nextAttemptAt: true, leaseUntil: true },
+  });
+  const parked = new Date(now.getTime() + 365 * 86_400_000);
+  for (const other of others) await prisma.outbox.update({ where: { id: other.id }, data: { nextAttemptAt: parked, leaseUntil: other.leaseUntil ? parked : null } });
+  try {
+    return await repository.claimNextChatNotification({ now });
+  } finally {
+    for (const other of others) await prisma.outbox.update({ where: { id: other.id }, data: { nextAttemptAt: other.nextAttemptAt, leaseUntil: other.leaseUntil } });
+  }
+}
+
+// FT-22: runs the real chat worker against the real repository for one task; only the Twitch adapter is a fake.
+async function deliverChatTask(taskId) {
+  const sent = [];
+  const twitch = { sendChatMessage: async (message) => { sent.push(message); return { sent: true }; } };
+  const worker = createChatOutboxWorker({ repository: { ...repository, claimNextChatNotification: () => claimOnlyChatTask(taskId) }, twitch });
+  const outcome = await worker.processOne();
+  return { outcome, sent, task: await prisma.outbox.findUnique({ where: { id: taskId } }) };
+}
+
+async function chatCallRow(entryId) {
+  const [row] = await prisma.$queryRaw`SELECT id, payload, jsonb_typeof(payload->'previousPosition') AS kind FROM outbox WHERE idempotency_key = ${`chat.call:${entryId}`}`;
+  return row;
+}
+
+async function positionQueue(label, waitingCount) {
+  const queue = await repository.createQueue({ slug: `ft22-${label}-${randomUUID().slice(0, 8)}`, title: `FT22 ${label}`, cost: 1 });
+  await prisma.queue.update({ where: { id: queue.id }, data: { callMessage: '{user} (posição {position})' } });
+  const entries = [];
+  for (let index = 0; index < waitingCount; index += 1) {
+    const added = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `ft22-${label}-${index}-${randomUUID()}`, userLogin: `ft22${label}${index}`, displayName: `FT22 ${index}` });
+    entries.push(added.entry);
+  }
+  return { queue, entries };
 }
 
 describe('PostgreSQL queue repository', () => {
@@ -654,11 +701,11 @@ describe('PostgreSQL queue repository', () => {
   });
 
   beforeAll(async () => {
-    docker(['run', '--detach', '--rm', '--name', containerName,
+    ensurePostgresImage();
+    docker(['run', '--detach', '--rm', '--pull', 'never', '--label', ISOLATED_POSTGRES_LABEL, '--name', containerName,
       '--env', 'POSTGRES_USER=queuebot', '--env', 'POSTGRES_PASSWORD=isolated-test-password', '--env', 'POSTGRES_DB=queuebot',
       '--publish', '127.0.0.1::5432', '--tmpfs', '/var/lib/postgresql:rw,noexec,nosuid,size=512m',
-      'postgres:18.6-bookworm']);
-    containerStarted = true;
+      ISOLATED_POSTGRES_IMAGE]);
     const published = docker(['port', containerName, '5432/tcp']).split(':').at(-1);
     const connectionString = `postgresql://queuebot:isolated-test-password@127.0.0.1:${published}/queuebot?schema=public`;
     let ready = false;
@@ -686,12 +733,15 @@ describe('PostgreSQL queue repository', () => {
     repository = createQueueRepository(prisma);
     queueService = createQueueDomainService({ repository });
     credentialRepository = createTwitchCredentialRepository(prisma);
-  }, 120_000);
+  }, ISOLATED_POSTGRES_BEFORE_ALL_TIMEOUT_MS);
 
   afterAll(async () => {
     await prisma?.$disconnect();
-    if (containerStarted) spawnSync('docker', ['stop', containerName], { cwd: root, encoding: 'utf8', timeout: 30_000 });
-  });
+    await cleanupIsolatedPostgres({
+      containerName,
+      runDocker: (args) => runDockerCommand(args, { timeout: ISOLATED_POSTGRES_CLEANUP_CALL_TIMEOUT_MS }),
+    });
+  }, ISOLATED_POSTGRES_AFTER_ALL_TIMEOUT_MS);
 
   it('appends manual entries and preserves one continuous waiting order', async () => {
     const queue = await repository.createQueue({ slug: `order-${randomUUID().slice(0, 8)}`, title: 'Order', cost: 1 });
@@ -1164,6 +1214,108 @@ describe('PostgreSQL queue repository', () => {
     expect(await prisma.entry.findUnique({ where: { id: viewer.entry.id } })).toMatchObject({ status: 'called', callAcknowledgedAt: null, callNotifiedAt: null, callDeadlineAt: null });
   });
 
+  it('FT-22 (1): a panel call of a specific entry stores the numeric previousPosition and the notice shows it', async () => {
+    const { queue, entries } = await positionQueue('panel', 2);
+    const moved = await queueService.callSpecificEntry({ queueId: queue.id, entryId: entries[1].id, actorId: 'operator' });
+    await repository.enqueueCallNotification({ queueId: queue.id, entryId: entries[1].id, previousPosition: moved.previousPosition });
+
+    const row = await chatCallRow(entries[1].id);
+    expect(row.payload).toEqual({ previousPosition: 2 });
+    expect(row.kind).toBe('number');
+    const delivered = await deliverChatTask(row.id);
+    expect(delivered).toMatchObject({ outcome: 'confirmed', sent: ['@ft22panel1 (posição 2)'], task: { status: 'confirmed', payload: { previousPosition: 2 } } });
+  });
+
+  it('FT-22 (2): a group call stores each entry position, matching the audit of the same entry', async () => {
+    const { queue, entries } = await positionQueue('group', 3);
+    const called = await queueService.callNext({ queueId: queue.id, count: 2, actorId: 'operator' });
+    for (const entry of called) await repository.enqueueCallNotification({ queueId: queue.id, entryId: entry.id, previousPosition: entry.previousPosition });
+
+    for (const [index, entry] of entries.slice(0, 2).entries()) {
+      const row = await chatCallRow(entry.id);
+      const audit = await prisma.auditLog.findFirst({ where: { entryId: entry.id, event: 'entry.transitioned', previousState: 'waiting', nextState: 'called' } });
+      expect(row.payload).toEqual({ previousPosition: index + 1 });
+      expect(row.kind).toBe('number');
+      expect(audit.safeDetail.previousPosition).toBe(index + 1);
+      expect((await deliverChatTask(row.id)).sent).toEqual([`@ft22group${index} (posição ${index + 1})`]);
+    }
+    expect(await chatCallRow(entries[2].id)).toBeUndefined();
+  });
+
+  it('FT-22 (3): calling the next single entry (chat !fila proximo path) notifies position 1 (LB-29)', async () => {
+    const { queue, entries } = await positionQueue('next', 2);
+    const [called] = await queueService.callNext({ queueId: queue.id, count: 1, actorId: 'mod-1' });
+    await repository.enqueueCallNotification({ entryId: called.id, queueId: queue.id, previousPosition: called.previousPosition });
+
+    const row = await chatCallRow(entries[0].id);
+    expect(row.payload).toEqual({ previousPosition: 1 });
+    expect((await deliverChatTask(row.id)).sent).toEqual(['@ft22next0 (posição 1)']);
+  });
+
+  it('FT-22 (4): a legacy row with an empty payload falls back to the audit previousPosition', async () => {
+    const { queue, entries } = await positionQueue('legacy', 2);
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: entries[1].id, actorId: 'operator' });
+    await prisma.outbox.create({ data: {
+      operationType: 'chat.call', entityType: 'entry', entityId: entries[1].id,
+      idempotencyKey: `chat.call:${entries[1].id}`, payload: {}, entryId: entries[1].id,
+    } });
+
+    const row = await chatCallRow(entries[1].id);
+    expect(row.payload).toEqual({});
+    expect(await deliverChatTask(row.id)).toMatchObject({ outcome: 'confirmed', sent: ['@ft22legacy1 (posição 2)'], task: { payload: {} } });
+  });
+
+  it('FT-22 (5): with no payload value and no audit transition the notice keeps ? and the task still finishes', async () => {
+    const { queue, entries } = await positionQueue('nodata', 1);
+    await prisma.entry.update({ where: { id: entries[0].id }, data: { status: 'called', position: null, calledAt: new Date() } });
+    await repository.enqueueCallNotification({ queueId: queue.id, entryId: entries[0].id });
+
+    const row = await chatCallRow(entries[0].id);
+    expect(row.payload).toEqual({});
+    expect(await deliverChatTask(row.id)).toMatchObject({ outcome: 'confirmed', sent: ['@ft22nodata0 (posição ?)'], task: { status: 'confirmed' } });
+  });
+
+  it('FT-22 (6): a panel resend after a failure keeps the payload and the position', async () => {
+    const { queue, entries } = await positionQueue('resend', 2);
+    const moved = await queueService.callSpecificEntry({ queueId: queue.id, entryId: entries[1].id, actorId: 'operator' });
+    await repository.enqueueCallNotification({ queueId: queue.id, entryId: entries[1].id, previousPosition: moved.previousPosition });
+    const row = await chatCallRow(entries[1].id);
+    await prisma.outbox.update({ where: { id: row.id }, data: { status: 'failed', attempts: 5, lastError: 'chat_send_failed' } });
+
+    expect(await repository.resendCallNotification({ entryId: entries[1].id, actorId: 'operator' })).toMatchObject({ status: 'queued' });
+    expect(await prisma.outbox.findUnique({ where: { id: row.id } })).toMatchObject({ status: 'pending', payload: { previousPosition: 2 } });
+    expect((await deliverChatTask(row.id)).sent).toEqual(['@ft22resend1 (posição 2)']);
+  });
+
+  it('FT-22 (7): after a UID-hidden change empties the payload, a resend falls back to the audit position', async () => {
+    const queue = await repository.createQueue({ slug: `ft22-uid-${randomUUID().slice(0, 8)}`, title: 'FT22 uid', cost: 1, uidMode: 'visible' });
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `ft22-reward-${randomUUID()}`, remoteSyncStatus: 'synced', callMessage: '{user} (posição {position})' } });
+    await repository.addManualEntry({ queueId: queue.id, twitchUserId: `ft22-uid-a-${randomUUID()}`, userLogin: 'ft22uida', displayName: 'A' });
+    const target = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `ft22-uid-b-${randomUUID()}`, userLogin: 'ft22uidb', displayName: 'B', uid: '123456789' });
+    const moved = await queueService.callSpecificEntry({ queueId: queue.id, entryId: target.entry.id, actorId: 'operator' });
+    await repository.enqueueCallNotification({ queueId: queue.id, entryId: target.entry.id, previousPosition: moved.previousPosition });
+    const { version } = await prisma.queue.findUnique({ where: { id: queue.id }, select: { version: true } });
+
+    await repository.updateQueueRewardSettings({ queueId: queue.id, expectedVersion: version, settings: { uidMode: 'hidden' } });
+
+    const row = await chatCallRow(target.entry.id);
+    expect(await prisma.outbox.findUnique({ where: { id: row.id } })).toMatchObject({ status: 'cancelled', payload: {} });
+    expect(await repository.resendCallNotification({ entryId: target.entry.id, actorId: 'operator' })).toMatchObject({ status: 'queued' });
+    expect((await deliverChatTask(row.id)).sent).toEqual(['@ft22uidb (posição 2)']);
+  });
+
+  it('FT-22 (8): a missing or invalid previousPosition is stored as an empty payload, never null', async () => {
+    const invalid = [undefined, null, 0, -1, 1.5, '2', Number.NaN];
+    const { queue, entries } = await positionQueue('invalid', invalid.length);
+    for (const [index, previousPosition] of invalid.entries()) {
+      await prisma.entry.update({ where: { id: entries[index].id }, data: { status: 'called', position: null, calledAt: new Date() } });
+      await repository.enqueueCallNotification({ queueId: queue.id, entryId: entries[index].id, previousPosition });
+      const row = await chatCallRow(entries[index].id);
+      expect(row.payload).toEqual({});
+      expect(row.kind).toBeNull();
+    }
+  });
+
   it('resolves a viewer entry strictly by Twitch identity and moves only waiting entries', async () => {
     const queue = await repository.createQueue({ slug: `viewer-ops-${randomUUID().slice(0, 8)}`, title: 'Viewer ops', cost: 1 });
     const first = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `v-${randomUUID()}`, userLogin: 'first', displayName: 'First' });
@@ -1184,7 +1336,7 @@ describe('PostgreSQL queue repository', () => {
 
   it('persists manual account changes and resets to the configured default', async () => {
     const changed = await repository.setCurrentAccount('Spiral Abyss', 'operator-1');
-    expect(changed).toMatchObject({ label: 'Spiral Abyss', source: 'manual', ownerEntryId: null });
+    expect(changed).toMatchObject({ label: 'Spiral Abyss', source: 'manual', ownerEntryId: expect.any(String) });
     expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Spiral Abyss', source: 'manual' });
     expect(await repository.resetCurrentAccount('operator-1')).toMatchObject({ label: 'Streamer', source: 'default', ownerEntryId: null });
   });
@@ -1216,9 +1368,9 @@ describe('PostgreSQL queue repository', () => {
     expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Streamer', source: 'default', ownerEntryId: null });
   });
 
-  it('switches account and updates the overlay after an individual call when enabled', async () => {
+  it('switches the current account and overlay after an individual call regardless of the legacy auto-switch setting', async () => {
     await repository.resetCurrentAccount('operator');
-    const queue = await repository.createQueue({ slug: `as-${randomUUID().slice(0, 8)}`, title: 'Account specific', cost: 1, autoSwitchAccount: true });
+    const queue = await repository.createQueue({ slug: `as-${randomUUID().slice(0, 8)}`, title: 'Account specific', cost: 1, autoSwitchAccount: false });
     const viewer = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `specific-${randomUUID()}`, userLogin: 'specific', displayName: 'Specific Viewer' });
 
     await queueService.callSpecificEntry({ queueId: queue.id, entryId: viewer.entry.id, actorId: 'operator' });
@@ -1228,7 +1380,7 @@ describe('PostgreSQL queue repository', () => {
     await repository.resetCurrentAccount('operator');
   });
 
-  it('keeps the current account unchanged after an individual call when auto-switch is disabled', async () => {
+  it('updates current account after an individual call when the legacy auto-switch setting is disabled', async () => {
     await repository.resetCurrentAccount('operator');
     await repository.setCurrentAccount('Manual Account', 'operator');
     const queue = await repository.createQueue({ slug: `aso-${randomUUID().slice(0, 8)}`, title: 'Account specific off', cost: 1, autoSwitchAccount: false });
@@ -1236,7 +1388,8 @@ describe('PostgreSQL queue repository', () => {
 
     await queueService.callSpecificEntry({ queueId: queue.id, entryId: viewer.entry.id, actorId: 'operator' });
 
-    expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Manual Account', source: 'manual', ownerEntryId: null });
+    expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Specific Viewer', source: 'queue_auto', ownerEntryId: viewer.entry.id });
+    await expect(repository.getOverlaySourceValue({ sourceType: 'account_label' })).resolves.toBe('Specific Viewer');
     await repository.resetCurrentAccount('operator');
   });
 
@@ -1468,6 +1621,100 @@ describe('PostgreSQL queue repository', () => {
     expect(await repository.getQueueDeletionBlockers(queue.id)).toEqual({ pending: 1, blocked: 0 });
   });
 
+  it('requests Twitch fulfillment when service starts and reuses the same intent through completion', async () => {
+    const queue = await repository.createQueue({ slug: `start-fulfill-${randomUUID().slice(0, 8)}`, title: 'Start fulfillment', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'synced', isOpen: true } });
+    const redemptionId = `start-fulfill-r-${randomUUID()}`;
+    const imported = await repository.importRedemption({
+      id: redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: `viewer-${randomUUID()}`,
+      userLogin: 'startviewer', displayName: 'Start Viewer', userInput: '', redeemedAt: new Date(), status: 'UNFULFILLED',
+    });
+    await queueService.transitionEntry({ entryId: imported.entryId, to: 'called', origin: 'panel', reason: 'operator_call' });
+
+    const started = await queueService.transitionEntry({ entryId: imported.entryId, to: 'in_progress', origin: 'panel', reason: 'service_started' });
+    const firstIntent = await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${redemptionId}` } });
+    expect(started).toMatchObject({ status: 'in_progress', financialDecision: 'request_fulfill' });
+    expect(firstIntent).toMatchObject({ operationType: 'redemption.fulfill', status: 'pending', redemptionId });
+    expect(await prisma.redemption.findUnique({ where: { redemptionId } })).toMatchObject({ expectedStatus: 'FULFILLED', remoteStatus: 'UNFULFILLED', syncStatus: 'pending' });
+
+    const completed = await queueService.transitionEntry({ entryId: imported.entryId, to: 'completed', origin: 'panel', reason: 'service_completed' });
+    expect(completed).toMatchObject({ status: 'completed', financialDecision: 'no_operation' });
+    expect(await prisma.outbox.count({ where: { redemptionId, operationType: { in: ['redemption.fulfill', 'redemption.cancel'] } } })).toBe(1);
+    expect(await prisma.outbox.findUnique({ where: { id: firstIntent.id } })).toMatchObject({ operationType: 'redemption.fulfill', status: 'pending' });
+  });
+
+  it('does not replace a started service fulfillment with a cancellation on later viewer removal', async () => {
+    const queue = await repository.createQueue({ slug: `start-no-cancel-${randomUUID().slice(0, 8)}`, title: 'Started no cancel', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'synced', isOpen: true, refundIfViewerLeavesCalled: true } });
+    const redemptionId = `start-no-cancel-r-${randomUUID()}`;
+    const imported = await repository.importRedemption({
+      id: redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: `viewer-${randomUUID()}`,
+      userLogin: 'leavingviewer', displayName: 'Leaving Viewer', userInput: '', redeemedAt: new Date(), status: 'UNFULFILLED',
+    });
+    await queueService.transitionEntry({ entryId: imported.entryId, to: 'called', origin: 'panel', reason: 'operator_call' });
+    await queueService.transitionEntry({ entryId: imported.entryId, to: 'in_progress', origin: 'panel', reason: 'service_started' });
+
+    await queueService.transitionEntry({ entryId: imported.entryId, to: 'removed', origin: 'viewer', reason: 'viewer_left' });
+
+    expect(await prisma.outbox.count({ where: { redemptionId, operationType: { in: ['redemption.fulfill', 'redemption.cancel'] } } })).toBe(1);
+    expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${redemptionId}` } })).toMatchObject({ operationType: 'redemption.fulfill', status: 'pending' });
+    expect(await prisma.redemption.findUnique({ where: { redemptionId } })).toMatchObject({ expectedStatus: 'FULFILLED', syncStatus: 'pending' });
+  });
+
+  it('syncs Twitch fulfillment without completing the active service or resetting its current account', async () => {
+    await repository.setDefaultAccountLabel('Streamer', 'operator');
+    await repository.resetCurrentAccount('operator');
+    const queue = await repository.createQueue({ slug: `start-event-${randomUUID().slice(0, 8)}`, title: 'Start event fulfillment', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'synced', isOpen: true, autoSwitchAccount: true } });
+    const redemptionId = `start-event-r-${randomUUID()}`;
+    const imported = await repository.importRedemption({
+      id: redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: `viewer-${randomUUID()}`,
+      userLogin: 'activeviewer', displayName: 'Active Viewer', userInput: '', redeemedAt: new Date(), status: 'UNFULFILLED',
+    });
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: imported.entryId, actorId: 'operator' });
+    await queueService.transitionEntry({ entryId: imported.entryId, to: 'in_progress', origin: 'panel', reason: 'service_started' });
+    const processor = createTwitchRedemptionProcessor({ repository, domainService: queueService, broadcasterId: 'broadcaster-1' });
+
+    await processor.onRedemptionUpdate({
+      id: redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: 'ignored', status: 'FULFILLED',
+    });
+
+    expect(await repository.getEntry(imported.entryId)).toMatchObject({ status: 'in_progress', finishedAt: null });
+    expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Active Viewer', ownerEntryId: imported.entryId });
+    expect(await prisma.redemption.findUnique({ where: { redemptionId } })).toMatchObject({ expectedStatus: 'FULFILLED', remoteStatus: 'FULFILLED', syncStatus: 'confirmed' });
+    expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${redemptionId}` } })).toMatchObject({ operationType: 'redemption.fulfill', status: 'confirmed' });
+    await repository.resetCurrentAccount('operator');
+  });
+
+  it('keeps an in-progress service active and marks an opposing Twitch cancellation as conflict', async () => {
+    await repository.setDefaultAccountLabel('Streamer', 'operator');
+    await repository.resetCurrentAccount('operator');
+    const queue = await repository.createQueue({ slug: `start-conflict-${randomUUID().slice(0, 8)}`, title: 'Start conflict', cost: 1 });
+    const rewardId = `managed-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, remoteSyncStatus: 'synced', isOpen: true, autoSwitchAccount: true } });
+    const redemptionId = `start-conflict-r-${randomUUID()}`;
+    const imported = await repository.importRedemption({
+      id: redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: `viewer-${randomUUID()}`,
+      userLogin: 'conflictviewer', displayName: 'Conflict Viewer', userInput: '', redeemedAt: new Date(), status: 'UNFULFILLED',
+    });
+    await queueService.callSpecificEntry({ queueId: queue.id, entryId: imported.entryId, actorId: 'operator' });
+    await queueService.transitionEntry({ entryId: imported.entryId, to: 'in_progress', origin: 'panel', reason: 'service_started' });
+    const processor = createTwitchRedemptionProcessor({ repository, domainService: queueService, broadcasterId: 'broadcaster-1' });
+
+    await expect(processor.onRedemptionUpdate({
+      id: redemptionId, broadcasterId: 'broadcaster-1', rewardId, userId: 'ignored', status: 'CANCELED',
+    })).resolves.toMatchObject({ status: 'conflict' });
+
+    expect(await repository.getEntry(imported.entryId)).toMatchObject({ status: 'in_progress', finishedAt: null });
+    expect(await repository.getCurrentAccount()).toMatchObject({ label: 'Conflict Viewer', ownerEntryId: imported.entryId });
+    expect(await prisma.redemption.findUnique({ where: { redemptionId } })).toMatchObject({ expectedStatus: 'FULFILLED', remoteStatus: 'CANCELED', syncStatus: 'conflict' });
+    expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${redemptionId}` } })).toMatchObject({ operationType: 'redemption.fulfill', status: 'conflict' });
+    await repository.resetCurrentAccount('operator');
+  });
+
   it.each(['pending', 'retry', 'processing', 'unknown', 'failed', 'conflict'])('preserves %s fulfillment during reward deletion reconciliation', async (status) => {
     const suffix = randomUUID().slice(0, 8);
     const queue = await repository.createQueue({ slug: `del-${suffix}`, title: 'Deletion fulfillment state', cost: 1 });
@@ -1527,6 +1774,41 @@ describe('PostgreSQL queue repository', () => {
     const operations = await repository.listFinancialOperations();
 
     expect(operations.some(({ id }) => id === deletion.id)).toBe(true);
+  });
+
+  it('counts unresolved financial outbox work beyond the 200-row history window', async () => {
+    const suffix = randomUUID();
+    const before = await repository.getFinancialOperationSummary();
+    const oldUnresolved = await prisma.outbox.create({ data: {
+      operationType: 'redemption.fulfill', entityType: 'redemption', entityId: `old-${suffix}`,
+      idempotencyKey: `old-unresolved:${suffix}`, payload: {}, status: 'unknown',
+      createdAt: new Date(Date.now() - 120_000), updatedAt: new Date(Date.now() - 120_000),
+    } });
+    await prisma.outbox.createMany({ data: Array.from({ length: 205 }, (_, index) => ({
+      operationType: 'redemption.cancel', entityType: 'redemption', entityId: `terminal-${suffix}-${index}`,
+      idempotencyKey: `terminal:${suffix}:${index}`, payload: {}, status: 'confirmed',
+    })) });
+
+    const history = await repository.listFinancialOperations();
+    const summary = await repository.getFinancialOperationSummary();
+
+    expect(history.some(({ id }) => id === oldUnresolved.id)).toBe(false);
+    expect(summary).toEqual({ total: before.total + 1, needsReview: before.needsReview + 1 });
+  });
+
+  it('projects deletion-pause intent as a safe confirmation flag without exposing outbox payload', async () => {
+    const queue = await repository.createQueue({ slug: `delete-intent-${randomUUID().slice(0, 8)}`, title: 'Delete intent', cost: 1 });
+    await prisma.queue.update({ where: { id: queue.id }, data: { lifecycleStatus: 'deleting' } });
+    const task = await prisma.outbox.create({ data: {
+      operationType: 'reward.set_open', entityType: 'queue', entityId: queue.id,
+      idempotencyKey: `queue:${queue.id}:delete-pause`, payload: { isOpen: false, deleteAfterConfirm: true, internalNote: 'must not leak' }, status: 'unknown',
+    } });
+
+    const operations = await repository.listFinancialOperations();
+    const operation = operations.find(({ id }) => id === task.id);
+
+    expect(operation).toMatchObject({ requiresDeleteConfirmation: true, operationType: 'reward.set_open' });
+    expect(operation).not.toHaveProperty('payload');
   });
 
   it('starts reward deletion directly only when the managed reward is already confirmed paused', async () => {
@@ -2131,7 +2413,9 @@ describe('PostgreSQL queue repository', () => {
   });
 
   it('updates operator queue settings without changing Twitch reward privacy', async () => {
-    const queue = await repository.createQueue({ slug: `settings-${randomUUID().slice(0, 8)}`, title: 'Settings', cost: 1, uidMode: 'visible', showUidOnCall: true });
+    const slug = `settings-${randomUUID().slice(0, 8)}`;
+    const alias = `${slug}-alt`;
+    const queue = await repository.createQueue({ slug, aliases: [alias], title: 'Settings', cost: 1, uidMode: 'visible', showUidOnCall: true });
     const entry = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `settings-user-${randomUUID()}`, userLogin: 'settings_user', displayName: 'Settings User', uid: '123456789' });
     const notification = await prisma.outbox.create({ data: {
       operationType: 'chat.call', entityType: 'entry', entityId: entry.entry.id,
@@ -2144,7 +2428,7 @@ describe('PostgreSQL queue repository', () => {
       settings: { callTimeoutMin: null, showUidOnCall: true, autoSwitchAccount: true },
     });
 
-    expect(updated).toMatchObject({ version: 2, callTimeoutMin: null, uidMode: 'visible', showUidOnCall: true, autoSwitchAccount: true });
+    expect(updated).toMatchObject({ aliases: [alias], version: 2, callTimeoutMin: null, uidMode: 'visible', showUidOnCall: true, autoSwitchAccount: true });
     expect(await prisma.entry.findUnique({ where: { id: entry.entry.id } })).toMatchObject({ uid: '123456789' });
     expect(await prisma.outbox.findUnique({ where: { id: notification.id } })).toMatchObject({ status: 'pending', payload: { text: '123456789' } });
     expect(await prisma.auditLog.findFirst({ where: { queueId: queue.id, event: 'queue.settings_updated' } }))
@@ -2374,6 +2658,96 @@ describe('PostgreSQL queue repository', () => {
     }
   });
 
+  it('stores scope-only consent exactly and rejects stale OAuth callbacks without changing policy state', async () => {
+    const priorCredential = await credentialRepository.getAuthRecord();
+    const createdCredentialForTest = !priorCredential;
+    const clientId = priorCredential?.clientId ?? `oauth-scope-${randomUUID()}`;
+    const broadcasterId = priorCredential?.broadcasterId ?? 'scope-test-channel';
+    const policyRecordBefore = await prisma.setting.findUnique({ where: { key: 'chat_command_policies' } });
+    const policyStateBefore = await repository.getCommandPolicyState();
+    const policyAuditsBefore = await prisma.auditLog.count({ where: { event: 'command.policies_updated' } });
+    try {
+      if (!priorCredential) await credentialRepository.saveValidatedApplication({ clientId, clientSecret: 'scope-test-secret' });
+      const generationBeforeConsent = await credentialRepository.getAuthRecord();
+      const expectedCredentialFingerprint = createCredentialFingerprint(generationBeforeConsent);
+      const grantedScopes = ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'moderator:read:followers'];
+
+      await credentialRepository.storeTokens({
+        clientId, broadcasterId, accessToken: 'scope-consent-access', refreshToken: 'scope-consent-refresh',
+        scopes: grantedScopes, expiresIn: 3600, obtainmentTimestamp: Date.now(), expectedCredentialFingerprint,
+      });
+
+      const afterConsent = await credentialRepository.getAuthRecord();
+      expect(afterConsent).toMatchObject({
+        accessToken: 'scope-consent-access', refreshToken: 'scope-consent-refresh', scopes: grantedScopes,
+      });
+      expect(await repository.getCommandPolicyState()).toEqual(policyStateBefore);
+      expect(await prisma.setting.findUnique({ where: { key: 'chat_command_policies' } })).toEqual(policyRecordBefore);
+      expect(await prisma.auditLog.count({ where: { event: 'command.policies_updated' } })).toBe(policyAuditsBefore);
+
+      await expect(credentialRepository.storeTokens({
+        clientId, broadcasterId, accessToken: 'stale-policy-access', refreshToken: 'stale-policy-refresh',
+        scopes: ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat'],
+        expiresIn: 3600, obtainmentTimestamp: Date.now(), expectedCredentialFingerprint,
+        commitAdditional: (tx) => repository.updateCommandPoliciesInTransaction(tx, {
+          expectedVersion: policyStateBefore.version,
+          policies: { 'queue:lista': { minimumRole: 'subscriber' } },
+          actorId: 'stale-oauth-callback', origin: 'oauth_follower_consent',
+        }),
+      })).rejects.toMatchObject({ code: 'OAUTH_CREDENTIAL_STALE' });
+
+      const afterStaleCallback = await credentialRepository.getAuthRecord();
+      expect(afterStaleCallback).toMatchObject({
+        accessToken: 'scope-consent-access', refreshToken: 'scope-consent-refresh', scopes: grantedScopes,
+      });
+      expect(await repository.getCommandPolicyState()).toEqual(policyStateBefore);
+      expect(await prisma.auditLog.count({ where: { event: 'command.policies_updated' } })).toBe(policyAuditsBefore);
+    } finally {
+      if (policyRecordBefore) await prisma.setting.upsert({ where: { key: policyRecordBefore.key }, create: policyRecordBefore, update: { value: policyRecordBefore.value } });
+      else await prisma.setting.deleteMany({ where: { key: 'chat_command_policies' } });
+      if (createdCredentialForTest) await prisma.oAuthCredential.deleteMany({ where: { clientId } });
+      else await prisma.oAuthCredential.update({ where: { clientId }, data: {
+        clientSecret: priorCredential.clientSecret, broadcasterId: priorCredential.broadcasterId,
+        accessToken: priorCredential.accessToken, refreshToken: priorCredential.refreshToken,
+        scopes: priorCredential.scopes, tokenExpiresAt: priorCredential.tokenExpiresAt,
+        authStatus: priorCredential.authStatus, updatedAt: priorCredential.updatedAt,
+      } });
+    }
+  });
+
+  it('allows only one of two concurrent callbacks based on the same credential snapshot', async () => {
+    const priorCredential = await credentialRepository.getAuthRecord();
+    const createdCredentialForTest = !priorCredential;
+    const clientId = priorCredential?.clientId ?? `oauth-cas-${randomUUID()}`;
+    const broadcasterId = priorCredential?.broadcasterId ?? 'oauth-cas-channel';
+    try {
+      if (!priorCredential) await credentialRepository.saveValidatedApplication({ clientId, clientSecret: 'oauth-cas-secret' });
+      const initialRecord = await credentialRepository.getAuthRecord();
+      const expectedCredentialFingerprint = createCredentialFingerprint(initialRecord);
+      const attempts = [
+        { accessToken: 'oauth-cas-first', refreshToken: 'oauth-cas-first-refresh', scopes: ['user:read:chat'] },
+        { accessToken: 'oauth-cas-second', refreshToken: 'oauth-cas-second-refresh', scopes: ['user:write:chat', 'moderator:read:followers'] },
+      ];
+      const outcomes = await Promise.allSettled(attempts.map((tokens) => credentialRepository.storeTokens({
+        clientId, broadcasterId, ...tokens, expiresIn: 3600, obtainmentTimestamp: Date.now(), expectedCredentialFingerprint,
+      })));
+
+      expect(outcomes.filter(({ status }) => status === 'fulfilled')).toHaveLength(1);
+      expect(outcomes.filter(({ status, reason }) => status === 'rejected' && reason?.code === 'OAUTH_CREDENTIAL_STALE')).toHaveLength(1);
+      const current = await credentialRepository.getAuthRecord();
+      const winner = attempts.find(({ accessToken }) => accessToken === current.accessToken);
+      expect(winner).toBeDefined();
+      expect(current.scopes).toEqual(winner.scopes);
+    } finally {
+      if (createdCredentialForTest) await prisma.oAuthCredential.deleteMany({ where: { clientId } });
+      else await prisma.oAuthCredential.update({ where: { clientId }, data: {
+        broadcasterId: priorCredential.broadcasterId, accessToken: priorCredential.accessToken, refreshToken: priorCredential.refreshToken,
+        scopes: priorCredential.scopes, tokenExpiresAt: priorCredential.tokenExpiresAt, authStatus: priorCredential.authStatus,
+        updatedAt: priorCredential.updatedAt,
+      } });
+    }
+  });
+
   it('allows same-app secret rotation but locks app/channel switching when product data exists', async () => {
     const current = await credentialRepository.getAuthRecord();
     const clientId = current?.clientId ?? 'bound-client';
@@ -2492,6 +2866,7 @@ describe('PostgreSQL queue repository', () => {
     expect(await repository.recordExternalRedemptionState({ id: opposingId, broadcasterId: 'broadcaster', rewardId: 'reward', userId: opposingId, status: 'FULFILLED', redeemedAt: new Date() })).toMatchObject({ status: 'conflict' });
     expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${matchingId}` } })).toMatchObject({ status: 'confirmed' });
     expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${opposingId}` } })).toMatchObject({ status: 'conflict' });
+    expect(await prisma.redemption.findUnique({ where: { redemptionId: opposingId } })).toMatchObject({ remoteStatus: 'FULFILLED', expectedStatus: 'CANCELED', syncStatus: 'conflict' });
   });
 
   it('exposes sanitized financial operation status and allows only explicit manual retry of terminal uncertainty', async () => {

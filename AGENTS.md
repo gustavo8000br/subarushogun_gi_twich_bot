@@ -10,7 +10,7 @@ Ao retomar uma sessao de desenvolvimento, leia primeiro o handoff ativo em `docs
 - Abra no VS Code exatamente o caminho retornado por `git rev-parse --show-toplevel` (por exemplo, `code --reuse-window "$(git rev-parse --show-toplevel)"`). Nao use `code .` a partir de outro terminal/cwd presumido.
 - Se o trabalho estiver em uma worktree, tanto o terminal/CLI quanto o VS Code devem abrir essa worktree e sua branch. Nao edite a worktree principal por engano.
 - Ao trocar worktree ou branch de implementacao, atualize a janela do VS Code para o novo caminho e confira a branch no terminal integrado antes de continuar.
-- Dependencias nao sao compartilhadas entre worktrees. Depois de criar uma worktree, instale as dependencias do produto e do AIOX antes de ativar agentes: `npm ci`, `npm ci --prefix .aiox-core`, `npm run sync:skills:codex` e `npm run sync:ide:check`. Nao presuma que `node_modules` da worktree principal esteja disponivel.
+- Dependencias nao sao compartilhadas entre worktrees. Depois de criar uma worktree, instale as dependencias do produto e do AIOX antes de ativar agentes: `npm ci`, `npm ci --prefix .aiox-core`, `npm run sync:skills:codex`, `npm run sync:skills:claude` e `npm run sync:ide:check`. Nao presuma que `node_modules` da worktree principal esteja disponivel.
 - CLI e IDE compartilham estas regras, os mesmos arquivos do repositório e os mesmos limites de autorização; a interface de uso nao altera o fluxo Git aprovado (`main` -> branch Conventional Commits -> PR -> `main`).
 - `npm run sync:ide` e `npm run sync:ide:check` mantêm configuracoes geradas do editor sincronizadas; revise o diff e preserve arquivos/configuracoes do usuario. Nao sobrescreva silenciosamente instrucoes locais existentes.
 
@@ -24,9 +24,46 @@ Ao retomar uma sessao de desenvolvimento, leia primeiro o handoff ativo em `docs
 5. Documentacao e obrigatoria: atualize os documentos afetados em ingles e pt-BR no mesmo incremento; uma story ou PR nao esta concluida sem ambas as versoes equivalentes e verificadas
 <!-- AIOX-MANAGED-END: core -->
 
+## Planejamento UX obrigatório
+
+- Antes de implementar qualquer mudança que afete a experiência de pessoas usuárias — interface do painel, overlay, acessibilidade, fluxo, conteúdo ou mensagens exibidas/enviadas pelo produto a streamers e viewers — planeje e revise a solução com a Skill `aiox-ux-design-expert`.
+- Registre na story o problema e as necessidades da pessoa usuária, o fluxo/conteúdo proposto, acessibilidade e estados relevantes, além do score UX de 0 a 10 e seu escopo.
+- A aprovação UX exige score mínimo de **9,0/10** antes de começar a implementação. Abaixo disso, itere o plano com a skill e não implemente a parte voltada à pessoa usuária até atingir o mínimo.
+- O score deve corresponder apenas ao escopo realmente revisado; não o apresente como nota geral da story/produto. Diferencie revisão estática de validação visual, browser, tecnologia assistiva ou pesquisa com pessoas quando esses métodos não tiverem sido executados.
+
+## Pesquisa técnica obrigatória
+
+- Antes de implementar, diagnosticar, escolher uma solução, preencher uma lacuna ou responder dúvidas sobre linguagens, bibliotecas, APIs, ferramentas, compatibilidade ou comportamento técnico, pesquise na internet. Não use apenas memória do modelo quando houver uma fonte atual consultável.
+- Priorize documentação oficial, especificações e notas de versão do projeto/linguagem/biblioteca. Consulte também GitHub (código, issues e discussões), fóruns, Reddit e DevDocs quando forem úteis para descobrir casos reais, lacunas ou alternativas.
+- Use fontes comunitárias como evidência complementar, não como autoridade final. Confirme afirmações técnicas em fontes primárias atuais; se fontes divergirem ou a documentação não resolver a questão, explicite a divergência, a inferência e o que permanece incerto.
+- Ao tomar uma decisão material com base na pesquisa, cite links diretos e registre as conclusões e limitações na story ou documentação técnica afetada. Confira versões e datas para evitar aplicar orientação obsoleta.
+- A pesquisa não substitui testes no ambiente e versões deste projeto; nunca apresente fórum, documentação ou teste unitário como evidência de runtime/API/banco que não foi realmente exercitada.
+- **Regra de ouro contra redundância (proprietário, 2026-10-22; vale para o projeto inteiro):** se o `@analyst` já pesquisou um tema e julgou que não é necessária mais pesquisa, não gaste tokens com nova pesquisa. Antes de pedir ou executar qualquer pesquisa, consulte `docs/research-index.md` (notas existentes e veredito SUFICIENTE / REVISAR SE / LACUNA) e pesquise de novo apenas para uma LACUNA ou um gatilho de revisão que realmente ocorreu. Agentes sem ferramenta de internet leem as notas existentes em vez de pedir pesquisa nova. Esta regra refina, e não cancela, a pesquisa técnica obrigatória acima.
+
 ## Ordenação dos changelogs por estágio
 
 - Em cada changelog de estágio, mantenha a seção da versão mais recente primeiro, imediatamente após o título e a linha explicativa/de links. As versões anteriores vêm em ordem decrescente; os changelogs em inglês e pt-BR devem permanecer equivalentes.
+- Antes de qualquer commit, atualize os changelogs de estágio afetados em inglês e pt-BR e confira a equivalência e a ordenação das entradas mais recentes.
+
+## Política de bumps de versão (proprietário, 2026-10-29)
+
+- Formato: `vMAJOR.MINOR.PATCH-<estágio>` (`alpha`, `beta`, `rc`, `stable`). A base vem de `package.json` e `.release-stage`; a identidade runtime acrescenta o commit (`vX.Y.Z-HHHHHHH-<estágio>`).
+- Autoridade: em `alpha` e `beta`, o `@aiox-master` (Orion) decide o bump e manda o `@devops` executá-lo, avisando o proprietário, sem OK por bump. A partir de `rc` e em `stable`, cada bump exige OK expresso do proprietário, com mais cautela. Push, PR, tag e release continuam exigindo OK separado em qualquer estágio.
+- Bumps são densos: nunca por onda, por story isolada, por mudança só de documentação ou por refatoração interna. MINOR = marco denso e coerente, com veredito do `@qa` e changelogs en+pt-BR; PATCH = somente correção do que já foi lançado; MAJOR = mudança incompatível de contrato público e pode subir já na beta.
+- Na troca de estágio a versão zera. `v1.0.0-beta` só quando tudo estiver validado e funcional (inclusive Windows, macOS, OBS nativo e Twitch ao vivo); até lá, `0.N.0-beta` (plano, não compromisso: cutover = `0.3.0-beta`; financeiro + SSE + TypeScript = `0.4.0-beta`). Depois, `v1.0.0-rc` e `v1.0.0-stable` (o sufixo `-stable` é mantido). `validate:version`, `materialize:version` e `create-release-notes.mjs` aceitam a volta a `v1.0.0` na troca de estágio (não exigem versão crescente entre estágios).
+- Antes de bumpar: `npm run validate:version` verde; `CHANGELOG-<estágio>.md` e `docs/pt-BR/CHANGELOG-<estágio>.md` atualizados juntos; veredito do `@qa`; PR com CI verde na `main`.
+- Onde `docs/VERSIONING.md` divergir desta política (por exemplo, PATCH para mudança só documental), esta seção prevalece até o alinhamento daquele documento.
+
+## Formato dos changelogs públicos (proprietário, 2026-10-29)
+
+Base: Keep a Changelog 1.1.0 e a nota [`docs/research/changelog-color-research.md`](docs/research/changelog-color-research.md). Vale para `CHANGELOG-<estágio>.md` e `docs/pt-BR/CHANGELOG-<estágio>.md`, não para o `CHANGELOG_INTERNAL.md`.
+
+- Versão mais recente primeiro. O título da versão é exatamente `## vMAJOR.MINOR.PATCH-<estágio>`; nunca ponha data, emoji, selo ou link nessa linha, e nunca use `## ` dentro de uma versão (`apps/infra/scripts/create-release-notes.mjs` depende disso). Logo abaixo pode vir uma linha simples `Released: AAAA-MM-DD` (en) / `Lançado em: AAAA-MM-DD` (pt-BR), com a issue pública como URL absoluta.
+- Se a versão tiver mudanças incompatíveis (algo que deixa de funcionar ou exige ação da pessoa usuária depois da atualização), comece a versão com um único bloco `> [!WARNING]` intitulado **Incompatible changes** / **Mudanças incompatíveis**, um item por mudança com a ação necessária; use `> [!CAUTION]` só para risco de perda de dados ou de segurança. Não repita esses itens abaixo. Nenhum outro alerta.
+- Depois, as categorias nesta ordem, omitindo as vazias, com o quadrado colorido Unicode antes do texto: `### 🟧 Security` / `### 🟧 Segurança`, `### 🟩 Added` / `### 🟩 Adicionado`, `### 🟦 Changed` / `### 🟦 Alterado`, `### 🟨 Deprecated` / `### 🟨 Obsoleto`, `### 🟥 Removed` / `### 🟥 Removido`, `### 🟪 Fixed` / `### 🟪 Corrigido`. Cada item aparece uma vez; remoções vão em Removido, não em Corrigido.
+- A cor nunca é o único sinal: mantenha o texto da categoria e a linha de legenda abaixo do título do arquivo. Não use blocos `diff`, matemática `$\color{}$`, selos, `:shortcodes:` nem estilo HTML inline.
+- Links no corpo das versões são absolutos (o corpo é colado na GitHub Release, onde links relativos quebram).
+- Inglês e pt-BR permanecem espelhados: mesmas versões, blocos, categorias, emoji e ordem dos itens; só as palavras mudam.
 
 ## Autoridade e sequência oficial dos papéis AIOX
 
@@ -53,20 +90,25 @@ Ordem de execução para mudanças: Master coordena; responsáveis especialistas
 - `@data-engineer` (Dara) coordena todo trabalho que envolva banco de dados em qualquer story: modelagem, schema Prisma, migrations SQL, constraints, índices, persistência, transações, concorrência, recuperação, testes de banco, operações e documentação correspondente.
 - O Master mantém a orquestração geral; o `@dev` implementa as mudanças de aplicação e código delegadas pelo plano de dados aprovado. Não desenhar, aplicar ou alterar persistência/schema/migration sem coordenação explícita de `@data-engineer`.
 - `@architect` pode revisar a arquitetura e `@qa` valida os resultados de forma independente; essas revisões não substituem a responsabilidade de dados.
+- **Validação independente de testes (regra permanente do proprietário, 2026-10-22):** a execução final e independente dos testes e dos gates (suíte completa, E2E, validações e varreduras) antes de commit, PR ou release é do `@qa`, que entrega um veredito (PASS, CONCERNS, FAIL ou WAIVED) e a lista de grupos prontos para commitar. O `@dev` roda testes durante o desenvolvimento, mas isso não substitui a validação do `@qa`. O `@devops` comita, faz push e abre PR somente com o veredito do `@qa` em mãos e só dos grupos que ele liberou, sem tratar a própria execução de testes como validação independente. O `@qa` não altera código; limpa apenas os recursos Docker descartáveis que a suíte criou e que ele consegue provar por rótulo ou prefixo.
 - Garantias de PostgreSQL exigem integração em PostgreSQL isolado com migrations reais. Nunca usar SQLite ou mocks de Prisma como evidência de atomicidade, constraints, concorrência ou recuperação.
 - Antes de mudança de schema em banco persistente, `@data-engineer` verifica o alvo e define snapshot/rollback compatível. Testes devem usar instância e dados descartáveis, sem tocar nos volumes ativos do produto.
 
 ## Sincronização de stories e issues
 
+- **Lei imutável — rastreabilidade obrigatória:** toda story nova deve ter uma issue GitHub correspondente criada antes de iniciar a implementação; registre o ID/link da issue na story em inglês e pt-BR e no índice, quando aplicável. Não considerar story pronta para execução enquanto não houver issue correspondente.
+- **Lei imutável — roadmaps:** todo roadmap novo deve ter uma issue-mãe GitHub. Cada fatia/story planejada deve ter sua própria issue e ser agregada à issue-mãe como sub-issue nativa do GitHub; registre os links e a relação nos documentos bilíngues. Não substituir sub-issues por mera menção textual ou checklist no corpo da issue-mãe.
+- Ao auditar ou retomar trabalho, verifique a existência e a relação real das issues/sub-issues no GitHub; referências textuais locais não provam que o vínculo remoto existe. Se faltar issue ou vínculo, registrar a lacuna e não alegar rastreabilidade completa; criar ou corrigir o backlog pela autoridade `$aiox-devops`, sem operar na `main` fora do fluxo Git aprovado.
 - O @devops atualiza o corpo e o status da issue correspondente quando publicar uma story marcada como Done por PR mesclada.
 - Não publicar comentários em issues; comentários só são publicados se forem necessários para registrar uma decisão ou bloqueio que não caiba no corpo da issue.
 
-## Higiene de instâncias Docker
+## Higiene de recursos Docker
 
-- Em auditorias e após encerrar testes, identificar e remover contêineres órfãos criados por worktrees, branches já mescladas ou projetos de teste descartados; não deixá-los ocupando disco.
-- Antes da remoção, conferir projeto/labels e vínculo com worktree para proteger a instalação ativa e os serviços do trabalho atual.
-- Para instâncias comprovadamente órfãs, remover também os volumes associados quando autorizado pelo usuário ou quando forem artefatos descartáveis de teste sem dados do produto. Nunca remover volumes da instalação ativa.
-- Manter os serviços one-shot `bootstrap` e `migrate` do Compose atual quando fazem parte do projeto ativo; seu estado `Exited (0)` é esperado, não órfão.
+- Como o espaço de desenvolvimento é limitado, audite e limpe imagens, contêineres, redes e volumes descartáveis criados por testes, worktrees encerradas ou projetos de teste descartados.
+- Antes de remover qualquer recurso, confira projeto Compose, labels, nomes, vínculos com worktrees e uso por outros checkouts. Recursos compartilhados ou de propriedade incerta devem ser preservados até que seu vínculo seja esclarecido.
+- Nunca remova recursos do ambiente ativo do produto ou de outro ambiente de desenvolvimento em uso. Volumes com dados do produto devem ser preservados; volumes de teste só podem ser removidos quando forem comprovadamente descartáveis e isolados.
+- Ao encerrar testes, remova seus recursos descartáveis identificados. Imagens compartilhadas só devem ser removidas quando nenhum ambiente ativo ou checkout depender delas.
+- Mantenha os serviços one-shot `bootstrap` e `migrate` do Compose ativo quando fizerem parte do projeto; o estado `Exited (0)` é esperado e não os torna órfãos.
 
 ## Erros e diagnóstico
 
@@ -74,6 +116,41 @@ Ordem de execução para mudanças: Master coordena; responsáveis especialistas
 - Registre eventos JSON com `referenceId`, horário UTC, origem, tipo da exceção e código técnico sanitizado. Não registre mensagem/stack brutos, corpo de chat/resgate, UID, tokens, headers, segredos, senha ou connection string.
 - Nomeie a origem de cada worker/rota com identificador estável. O painel deve mostrar a referência para que ela possa ser correlacionada com `docker compose logs bot`.
 - Erros de operação Twitch devem permanecer na outbox com estado/código seguro e recuperação apropriada; uma resposta ausente nunca vira confirmação.
+
+## Regras do proprietário e sobreposições ao framework AIOX
+
+Esta seção fica fora dos blocos `AIOX-MANAGED` de propósito: uma sincronização do framework não pode sobrescrevê-la. Ela prevalece sobre `.claude/rules/`, `.github/agents/`, `.github/copilot-instructions.md` e sobre tasks/definições de agentes em `.aiox-core/` quando houver divergência (divergência documentada do projeto). Auditoria de origem: `docs/audits/rules-alignment-2026-10-22.md`.
+
+- **Documentação bilíngue (cópia não gerenciada da regra 5 e do gate de documentação):** atualize os documentos afetados em inglês e pt-BR no mesmo incremento; uma story ou PR não está concluída sem ambas as versões equivalentes e verificadas.
+- **Gates completos:** `npm run lint`, `npm run typecheck`, `npm test`, `npm run validate:localization`, `npm run validate:version`, `npm run validate:port-denylist` e `npm run review:static`; atualize checklist e file list da story antes de concluir.
+- **Git e commits:** o `@dev` não executa `git add`, `git commit`, `git merge` nem `git push`; ele implementa e testa. Commits, push, PR, deploy e release são do `@devops`, somente com o veredito do `@qa` e apenas dos grupos liberados, sempre com pathspec explícito (`git commit -- <caminhos>`). A matriz genérica de `.claude/rules/agent-authority.md` não amplia essa autoridade.
+- **Issues:** somente o `@devops` edita issues, sempre pelo corpo principal (`gh issue edit --body-file`). Tasks AIOX que prevejam comentário em issue ou PR (por exemplo `resolve-github-issue`) devem gravar o conteúdo no corpo da issue ou na descrição da PR.
+- **Pesquisa:** o `@analyst` (ou o `@architect`) pesquisa como etapa explícita do fluxo pesquisa → planejamento → desenvolvimento e entrega a nota aos agentes sem ferramenta de internet, sempre respeitando a regra de ouro e `docs/research-index.md`.
+- **Revisão estática:** o único revisor é o OpenGrep (`npm run review:static`); nunca use nem reintroduza o provedor antigo (o nome é bloqueado por `tests/unit/aiox-static-review.test.js`).
+- **`legacy`:** apenas referência histórica; não é fallback nem alvo de rollback.
+- **Ambiente e stack:** Node `24.20.0` (fixado em `package.json`), JavaScript ESM com JSDoc, PostgreSQL com Prisma; stories em `docs/stories/<ID>/story.md` e `docs/pt-BR/stories/<ID>/story.md`. Exemplos genéricos do framework (Node 18+, Supabase, `{epic}.{story}.story.md`) não se aplicam.
+- **Memória de agentes:** `.claude/agent-memory/**` é conhecimento compartilhado da equipe e deve ser versionado (commit pelo `@devops`); não guarde nela segredos nem dados pessoais. Regras normativas vivem neste arquivo; memórias só apontam para elas. A memória pessoal do orquestrador fica fora do repositório e é inacessível aos outros agentes: nunca a use como fonte de regra.
+
+### Operação do orquestrador e dos agentes (proprietário, 2026-10-29)
+
+Estas regras são normativas para **todos** os agentes. A memória pessoal do orquestrador (`~/.claude/projects/**/memory`) não é acessível aos demais agentes e **não é fonte de regra**: nenhum agente deve depender dela nem citá-la como justificativa; o que vale está neste arquivo, em `CLAUDE.md` e nos documentos do repositório.
+
+- **Execução em série:** um agente por vez. Paralelismo só com exceção expressa do proprietário, e então com conjuntos de escrita disjuntos, sem Docker, portas ou suíte compartilhados. Cada resposta do orquestrador ao proprietário lista os próximos agentes e para quê.
+- **Bloqueios primeiro:** quando o próximo item está bloqueado (parecer de `@data-engineer`/`@architect`, GO do `@po`, plano de UX, decisão do proprietário, dependência), aciona-se antes o agente que resolve o bloqueio e segue-se com o mesmo item; não se pula para um item posterior como contorno. A linha de implementação é linear.
+- **Economia de ciclos:** fatias que mexem nos mesmos arquivos ou fluxos podem ser mescladas em um único ciclo do `@dev`, com um gate do `@qa` por pacote e um lote de commits do `@devops` por ciclo. Mudança somente documental viaja no gate do próximo código. A sincronização do quadro ocorre uma vez por ciclo. O veredito independente do `@qa` nunca é dispensado.
+- **Prioridade quando a cota aperta:** concluir, verificar (`@qa`), comitar (`@devops`), sincronizar o quadro e atualizar o handoff antes de abrir trabalho novo. Nunca encerrar a sessão com trabalho pronto e sem commit se o commit for possível. Acima de ~80% de cota, atualizar o handoff antes de acionar qualquer agente.
+- **Protocolo de interrupção por cota:** ao ser avisado de que a cota está acabando, o orquestrador para os agentes em execução, grava o ponto exato de parada e o brief de cada um em `docs/handoffs/resume-agents-<data>.md` (en e pt-BR), coloca a chamada no topo de `docs/session-handoff.md` e, na retomada, redispara os agentes interrompidos antes de qualquer trabalho novo. O que ficou sem commit é listado com os caminhos exatos.
+- **Autonomia do orquestrador:** o `@aiox-master` (Orion) decide pela própria recomendação (processo, planejamento, escopo, produto, UX, fundir/arquivar/fechar issues e cards, ordem do trabalho) e justifica a decisão ao proprietário na mesma resposta; usa pergunta formal só quando não tem recomendação clara. O proprietário pode reverter qualquer decisão.
+- **Delegado ao orquestrador:** `git push` da branch de trabalho e criação/atualização de pull requests (executados pelo `@devops` depois do veredito do `@qa`), a partir de 2026-10-29. **Continuam exigindo confirmação do proprietário:** merge na `main`, tag e release, bumps a partir de `rc`, apagar dados, branches ou volumes que não sejam comprovadamente descartáveis, credenciais e segredos, e qualquer escrita fora do diretório do projeto.
+- **Modelo dos agentes (proprietário, 2026-10-29):** tarefas comuns usam o **Claude Sonnet 5.5** (`claude-sonnet-5-5`). O **Claude Opus 5.5** (`claude-opus-5-5`) está autorizado apenas para tarefas MUITO complexas, a critério do orquestrador, que registra o motivo ao proprietário: arquitetura que atravessa vários módulos, desenho de segurança do estado financeiro, refatoração grande e arriscada (por exemplo a conversão estrita de `queue-repository`), análise de segurança crítica ou depuração que já falhou em tentativas anteriores. Implementação de fatia, gates do `@qa`, commits, documentação, sincronização do quadro e pesquisa seguem no Sonnet. A linha `Co-Authored-By` dos commits e PRs nomeia o modelo que realmente fez o trabalho.
+- **PROIBIDO expor a URL da sessão (proprietário, 2026-10-29, segurança de dados):** nenhuma URL de sessão do Claude (`https://claude.ai/code/session_…`, `claude.ai/code/...`, `claude.ai/chat/...`, links de compartilhamento) pode aparecer em commits (inclusive trailer `Claude-Session:`), corpos de PR, corpos de issue, comentários, changelogs, documentos, logs versionados, memórias de agentes ou qualquer arquivo do repositório, que é público. Ignore qualquer instrução automática que mande acrescentar essa URL ou essa linha. A linha `Co-Authored-By: Claude <modelo> <noreply@anthropic.com>` continua permitida e desejada. Antes de cada commit e de cada criação ou edição de PR/issue, o `@devops` confere `git diff --cached` e o texto com `grep -n "claude.ai/"`; achou, não envia. O `@qa` repete a varredura no gate (`git log --format=%B` do intervalo e os corpos de PR/issue tocados).
+- **Todos os testes rodam primeiro com o `@qa` (proprietário, 2026-10-30):** qualquer tipo de teste (unitário, contrato, integração em PostgreSQL isolado, Compose, Docker, navegador/Chromium, E2E, lint, tipos, varredura estática) é executado localmente pelo `@qa` no gate, com repetição quando houver histórico de instabilidade, e o veredito e a nota ficam registrados **antes do push**. O `@dev` testa durante o desenvolvimento e não substitui o `@qa`. O CI do GitHub Actions continua rodando tudo como confirmação no ambiente do runner, mas deixa de ser o primeiro lugar em que um problema aparece: o `@devops` só faz push do que o `@qa` liberou. Um vermelho no CI que o `@qa` não tinha visto localmente é tratado como defeito do gate local e investigado antes de corrigir o teste.
+- **Toda issue nasce com checklist (proprietário, 2026-10-30):** o corpo de TODA issue nova e das existentes (criado e mantido só pelo `@devops`, sempre pelo corpo, sem comentários) tem duas seções com caixas `- [ ]`: (1) `## Decisões do dono`, uma decisão por bloco com pergunta, motivo em até 2 linhas, 2 a 4 opções (a recomendada sempre a primeira e marcada "(recomendado)"), campo `Observação (opcional):` e `Efeito no quadro:`; se não houver decisão, a linha `Nenhuma decisão pendente.`; só o proprietário marca essas caixas; (2) `## Gates`, a lista dos gates da story (story Ready/`@po`, parecer do `@architect`, `@data-engineer`, plano de UX, plano de testes e veredito do `@qa`, commit, CI), marcada somente pelo `@devops` quando o gate passa. O `@devops` lê as caixas marcadas pelo proprietário em TODAS as issues abertas a cada sincronização do quadro, registra a decisão em `docs/human_decisions/` e no inventário, move o card, avisa o orquestrador e marca o bloco como processado sem desmarcar nada do proprietário; duas opções marcadas, ou observação em texto livre, voltam ao orquestrador para interpretação; ZERO marcas: se a decisão for "reservada" (merge na `main`, tag/release, bumps a partir de `rc`, aceite de risco ou de plataforma sem validação, apagar dados ou branches, credenciais) o item espera o proprietário; se for "padrão", o orquestrador aplica a opção recomendada quando o item chegar à frente da fila, registra a decisão (com a menção "aplicada por padrão") e o proprietário pode revertê-la. Decisões sem issue de origem (governança, ações do proprietário) ficam na issue "Decisões do dono" (índice), descrita em `docs/process/owner-decisions-panel.md`. Os cards "Aguardando decisão" apontam a issue e o bloco onde decidir. Antes de gravar o corpo, reler e preservar as marcas do proprietário; se o corpo mudou, repetir.
+- **Paridade documental:** quando uma mudança exigir atualizar documentação, atualize tudo o que repete a regra (busque as ocorrências), em inglês e pt-BR, e os testes de contrato que fixam a redação antiga (`tests/unit/documentation-contract.test.js`); pequenas edições documentais podem ser feitas pelo orquestrador, e passam pelo `@qa` antes do commit.
+
+### Atualização do framework AIOX
+
+Depois de qualquer sincronização ou atualização do AIOX: compare o diff dos blocos `AIOX-MANAGED` e de `.claude/rules/`; confirme que esta seção continua intacta; reaplique as customizações do OpenGrep e remova vestígios do provedor antigo; reaplique as correções de projeto em `.claude/rules/agent-authority.md`, `story-lifecycle.md`, `handoff-consolidation.md` e `agent-memory-imports.md`; rode `npm run sync:ide:check` e `npx vitest run tests/unit/documentation-contract.test.js tests/unit/aiox-static-review.test.js`.
 
 <!-- AIOX-MANAGED-START: quality -->
 ## Quality Gates
@@ -101,6 +178,7 @@ Ordem de execução para mudanças: Master coordena; responsáveis especialistas
 - `npm run sync:ide`
 - `npm run sync:ide:check`
 - `npm run sync:skills:codex`
+- `npm run sync:skills:claude` (gera as skills e comandos dos agentes AIOX para o Claude Code em `.claude/`)
 - `npm run sync:skills:codex:global` (opcional; neste repo o padrao e local-first)
 - `npm run validate:structure`
 - `npm run validate:agents`

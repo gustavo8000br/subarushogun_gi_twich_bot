@@ -9,7 +9,7 @@ Este guia explica como contribuir com traduções do produto. O locale-fonte é 
 Adicione um arquivo TSV UTF-8 sem BOM para cada módulo suportado:
 
 ```text
-apps/web/localization/catalogs/<module>/<locale>.tsv
+apps/shared/localization/catalogs/<module>/<locale>.tsv
 ```
 
 Use o identificador canônico do locale no nome (por exemplo, `de` ou `fr-CA`). Copie o arquivo `pt-BR.tsv` correspondente ao módulo, preserve todas as chaves e traduza somente o valor depois da tabulação. Nomes, descrições de recompensa e templates escritos pelo streamer ficam fora dos catálogos de produto; a aplicação os preserva exatamente como foram escritos.

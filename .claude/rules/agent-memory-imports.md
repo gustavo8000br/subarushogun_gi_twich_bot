@@ -13,3 +13,7 @@ These are the canonical locations — agents should read their memory on activat
 @import .aiox-core/development/agents/devops/MEMORY.md
 @import .aiox-core/development/agents/pm/MEMORY.md
 @import .aiox-core/development/agents/po/MEMORY.md
+@import .aiox-core/development/agents/analyst/MEMORY.md
+@import .aiox-core/development/agents/data-engineer/MEMORY.md
+@import .aiox-core/development/agents/sm/MEMORY.md
+@import .aiox-core/development/agents/ux/MEMORY.md

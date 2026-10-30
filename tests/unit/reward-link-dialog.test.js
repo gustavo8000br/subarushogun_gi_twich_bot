@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeRewardCandidates } from '../../apps/web/reward-link-dialog.mjs';
+import { normalizeRewardCandidates } from '../../apps/shared/panel/reward-link-dialog.mjs';
 
 describe('reward link dialog candidate projection', () => {
   it('keeps a successful empty Twitch result distinct from a lookup failure', () => {

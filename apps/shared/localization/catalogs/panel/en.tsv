@@ -1,0 +1,800 @@
+translation.unavailable	Product text unavailable.
+panel.document.title	Local Queue · Twitch
+panel.brand.home	Local Queue home
+panel.runtime.version	Local version
+panel.runtime.local_data	Data on this computer
+panel.sidebar.title	STREAMER PANEL
+panel.navigation.label	Main navigation
+panel.navigation.overview	Overview
+panel.navigation.queues	Queues and service
+panel.navigation.new_queue	New queue
+panel.navigation.operations	Twitch sync & point refunds
+panel.navigation.commands	Chat commands
+panel.navigation.widgets	OBS widgets
+panel.navigation.settings	Settings
+panel.navigation.connection	Twitch connection
+panel.sidebar.local_note	The panel and data stay on this computer.
+panel.section.local	LOCAL
+panel.migration.note	The panel structure is being migrated. Other screens will be enabled as each flow passes parity validation.
+panel.health.label	Installation health
+panel.health.legend.label	Health status legend
+panel.health.legend.functional	Functional
+panel.health.legend.partial	Partial, in progress, or unknown
+panel.health.legend.nonfunctional	Unavailable or not configured
+panel.health.database	Database
+panel.health.twitch_api	Twitch API
+panel.health.twitch_integration	Twitch integration
+panel.health.database.connected	Connected
+panel.health.database.unavailable	Unavailable
+panel.health.database.checking	Checking
+panel.health.twitch.connected	Connected
+panel.health.twitch.not_configured	Not configured
+panel.health.twitch.connecting	Connecting
+panel.health.twitch.reconciling	Reconciling
+panel.health.twitch.degraded	Unstable
+panel.health.twitch.retrying	Reconnecting
+panel.health.twitch.reconnect_required	Reconnect required
+panel.health.twitch.ineligible	Channel ineligible
+panel.health.twitch.stopped	Disconnected
+panel.health.twitch.unknown	Unknown state
+panel.health.ping_unavailable	No measurement
+panel.health.overall.operational	Operational
+panel.health.overall.check	Check connection
+panel.summary.label	Operation summary
+panel.summary.queues	QUEUES
+panel.summary.configured	configured
+panel.summary.waiting	WAITING
+panel.summary.viewers_waiting	viewers in queue
+panel.summary.in_service	IN SERVICE
+panel.summary.called_or_started	called or started
+panel.overview.eyebrow	OVERVIEW
+panel.overview.next_eyebrow	NEXT STEP
+panel.overview.ready	Next step
+panel.overview.description	The panel will suggest an action based on your connection and queues.
+panel.overview.open_queues	Open queues
+panel.overview.connect_title	Connect your channel
+panel.overview.connect_description	Connect Twitch to finish setup.
+panel.overview.connect_channel	Connect channel
+panel.overview.create_title	Create your first queue
+panel.overview.create_description	Your channel is connected and can use Channel Points rewards.
+panel.overview.create_first_queue	Create queue
+panel.overview.queues_title	Manage your queues
+panel.overview.queues_description	Follow the wait list, calls, and active services.
+panel.overview.check_title	Review your channel connection
+panel.overview.check_description	This channel cannot use Channel Points rewards. Review the connection details.
+panel.overview.check_channel	View connection
+panel.queues.eyebrow	LIVE
+panel.queues.title	Queues and service
+panel.queues.description	Track people waiting, called, and currently in service.
+panel.new_queue.eyebrow	SET UP YOUR STREAM
+panel.new_queue.title	New queue
+panel.new_queue.description	Choose between a Channel Points queue and a local queue with manual entries.
+panel.operations.eyebrow	POINTS AND RECOVERY
+panel.operations.title	Twitch sync & point refunds
+panel.operations.description	Track communication with Twitch separately from Channel Points refunds to viewers and redemption fulfillment.
+panel.operations.group.twitch_sync	Twitch communication
+panel.operations.group.points_refund	Channel Points refunds
+panel.operations.group.redemption_fulfillment	Redemption fulfillment
+panel.operations.loading	Loading operations…
+panel.operations.refresh	Refresh
+panel.operations.refreshing	Refreshing…
+panel.operations.refresh_failed	Could not refresh operations. The last loaded results remain visible.
+panel.operations.action_retry_pending	Retry requested. Twitch has not confirmed the result.
+panel.operations.action_manual_resolution	Manual resolution recorded. This does not confirm the result with Twitch.
+panel.operations.action_refresh_failed	The action was accepted, but the list could not refresh. Reload before trying again.
+panel.operations.action_failed	Could not complete this action. Refresh the operations and review their current status.
+panel.operations.reconcile_failed	Could not reconcile with Twitch. Check the connection and review the operations.
+panel.commands.eyebrow	LIVE CHAT
+panel.commands.title	Available commands
+panel.commands.description	Set a minimum audience level. Higher roles inherit access; fixed management commands stay locked.
+panel.widgets.eyebrow	STREAM SOURCES
+panel.widgets.title	OBS widgets
+panel.widgets.description	Each widget shows one data point in OBS through a local HTTPS connection. OBS and the bot must run on this computer.
+panel.settings.eyebrow	PREFERENCES
+panel.settings.title	Settings
+panel.settings.description	Adjust the account labels used during service.
+panel.settings.current_section_title	During service
+panel.settings.default_section_title	After reset
+panel.settings.default_eyebrow	DEFAULT ACCOUNT
+panel.settings.current_label	Current account label
+panel.settings.default_help	Used when automatic account switching is off or the current account is reset.
+panel.settings.save	Save
+panel.settings.saving	Saving…
+panel.settings.cancel	Cancel
+panel.settings.unsaved	Unsaved changes
+panel.settings.no_changes	All settings are saved.
+panel.settings.saved	Account label saved.
+panel.settings.saved_refresh_failed	Saved, but the panel could not refresh. Reload to verify the current values.
+panel.settings.invalid	Enter a non-empty label of up to 60 characters.
+panel.connection.eyebrow	TWITCH
+panel.connection.title	Channel connection
+panel.connection.description	The assistant appears during setup or when reconnection is needed.
+panel.locale.label	Language
+panel.locale.save	Save
+panel.locale.eyebrow	PRODUCT LANGUAGE
+panel.locale.title	Panel language
+panel.locale.description	The selected language is also used for bot messages. Complete community catalogs appear automatically.
+panel.locale.available	Available language
+panel.error.generic	Could not complete the action. Try again.
+panel.error.local_load	Could not connect to the local API. Check that the service is running, then refresh the page.
+panel.error.reference	Reference: {id}
+panel.error.locale_conflict	The language changed in another request. Refresh the page.
+panel.form.queue_name	Queue name
+panel.form.create_queue	Create queue
+panel.widget.appearance	Appearance
+panel.widget.save	Save widget
+panel.entry.add	Add to queue
+panel.entry.added	Viewer added to the queue.
+panel.entry.add.refresh_failed	The API accepted {user} at position {position}, but the queue list could not refresh. Refresh before retrying.
+panel.entry.error.invalid	Check the Twitch login, UID and verified benefit fields.
+panel.entry.error.unavailable	The viewer could not be added. Check the login and whether they're already in the queue; if both look right, refresh the panel.
+panel.entry.error.failed	The viewer could not be added. Refresh the panel and check the queue and login.
+panel.entry.error.already_active	@{user} is already in this queue. Nothing was changed.
+panel.entry.error.twitch_user_not_found	We couldn't find @{user} on Twitch. Check the login spelling (not the display name) and try again.
+panel.entry.error.queue_unavailable	This queue isn't accepting entries right now. Refresh the panel to see its current state.
+panel.form.command	Command
+panel.form.command_placeholder	abyss
+panel.form.aliases	Aliases
+panel.form.aliases_placeholder	abyss, spiral
+panel.form.cost	Points cost
+panel.form.max_per_stream	Per-stream limit (optional)
+panel.form.max_per_viewer	Per-viewer limit per stream (optional)
+panel.form.cooldown	Global cooldown in seconds (optional)
+panel.form.no_limit	No limit
+panel.form.no_cooldown	No cooldown
+panel.form.twitch_limits_hint	Twitch enforces these limits. Leave blank to disable.
+panel.form.reward_description	Reward description
+panel.form.reward_prompt_placeholder	Redeem to join the queue. UID only if requested.
+panel.form.uid_mode	UID mode
+panel.form.uid_hidden	Hidden
+panel.form.uid_visible	Request UID
+panel.form.call_timeout	Call timeout (min)
+panel.form.section_call_message	Viewer call message
+panel.form.call_message	Message sent in Twitch chat when a viewer is called
+panel.form.call_preview_label	Preview (example only)
+panel.form.call_preview_user	Alex
+panel.form.call_preview_queue	Cozy queue
+panel.form.call_preview_account	Streamer
+panel.form.call_preview_uid_note	The UID is sent only when you select “Request UID” above and later enable “Show UID on call” in queue settings.
+panel.form.call_message_invalid	Use up to 350 characters on one line and only the supported fields listed above.
+panel.dialog.close	Close
+panel.queue_settings.title	Queue options
+panel.queue_settings.call_deadline	Time to start service (minutes; blank disables)
+panel.queue_settings.call_message	Call message
+panel.queue_settings.call_placeholders	Accepted fields: {user}, {queue}, {position}, {uid}, {account}.
+panel.queue_settings.show_uid_list	Show UID in chat list
+panel.queue_settings.show_uid_overlay	Allow UID in overlay projection
+panel.queue_settings.show_uid_call	Show UID in call message
+panel.queue_settings.refund_removed	Request a refund when removing a called or in-service person
+panel.queue_settings.refund_no_show	Request a refund after a no-show
+panel.queue_settings.refund_viewer_leave	Request a refund if a called viewer leaves
+panel.reward_settings.title	Edit reward
+panel.reward_settings.twitch_limits_hint	Twitch applies these limits and cooldown. Changes remain pending until the API confirms them.
+panel.entry.priority_toggle	Priority verified by me
+panel.priority.dialog_title	Confirm priority benefit
+panel.entry.reason_select	Select a verified benefit
+panel.entry.reason_required	Select a benefit to record why this entry has priority.
+panel.entry.priority_audit_hint	Your action is audited. The bot does not verify payments or subscriptions and does not store receipts. Priority entries follow FIFO within the priority lane and do not create points operations.
+panel.entry.reason_external	External payment (e.g. PIX)
+panel.entry.reason_bits	Bits
+panel.entry.reason_sub	Subscription
+panel.entry.reason_other	Other verified benefit
+panel.reward.manual_association_hint	This list is read directly from Twitch. Select a reward managed by this app that matches the queue settings; the link is audited. The association is recorded locally and does not confirm the original reward-creation request.
+panel.commands.policy_title	How permissions work
+panel.commands.policy_help	The streamer can always use configurable commands. Higher audience levels inherit access. VIP requires the existing VIP toggle. Follower access needs an extra Twitch permission and is checked live.
+panel.commands.group.configurable	Audience access
+panel.commands.group.moderator	Streamer and moderator only
+panel.commands.group.streamer	Streamer only
+panel.commands.group.fixed	Fixed access
+panel.commands.loading	Loading catalog…
+panel.commands.save	Save permissions
+panel.widgets.list_eyebrow	YOUR WIDGETS
+panel.widgets.list_title	Independent sources
+panel.widgets.create	Create widget
+panel.widgets.link_help	The link is shown once when created or regenerated. Save it in the OBS Browser source settings. Set Page Permissions to None.
+panel.widgets.empty	Open this page to load your widgets.
+panel.settings.account_eyebrow	CURRENT ACCOUNT
+panel.settings.edit_account	Change current account
+panel.settings.account_help	The current label can be linked to a called person. The default label is used when no automatic switch is active.
+panel.settings.default_account	Default account
+panel.settings.edit_default	Edit default
+panel.connection.setup_eyebrow	GETTING STARTED
+panel.connection.connect_channel	Connect channel
+panel.connection.confidential_app_help	Create a confidential app in the Twitch console. This panel callback URL is:
+panel.connection.open_console	Open developer console ↗
+panel.connection.connect	Connect to Twitch
+panel.connection.oauth_declined	Twitch authorization was declined. You are still in the panel.
+panel.connection.oauth_error	Twitch could not be connected. You are still in the panel.
+panel.connection.oauth_success	Twitch connected successfully.
+panel.connection.credentials_required	Validate and save your app credentials before connecting the channel.
+panel.connection.authorized_eyebrow	AUTHORIZED CHANNEL
+panel.connection.connected_fallback	Channel connected
+panel.connection.connected	Twitch is connected to this local panel.
+panel.connection.reconnect	Reconnect to Twitch
+panel.connection.reconcile	Reconcile now
+panel.credentials.eyebrow	CONFIDENTIAL APPLICATION
+panel.credentials.title	Twitch credentials
+panel.credentials.client_id	Client ID
+panel.credentials.client_secret	Client Secret
+panel.credentials.client_id_placeholder	Your Client ID
+panel.credentials.secret_configured	Secret is set. To replace it, enter a new Secret and validate it before saving.
+panel.credentials.secret_empty	No application secret has been saved yet.
+panel.credentials.validate_save	Validate and save app
+panel.widget.editor_eyebrow	WIDGET SETTINGS
+panel.widget.source_label	What to display
+panel.widget.queue_label	Queue / linked reward
+panel.widget.source.help	For queue data, choose the specific queue below. Its linked Channel Points reward is included when applicable.
+panel.widget.queue.help	This widget reads data from the selected queue.
+panel.widget.queue.empty	No active queues are available to select.
+panel.widget.queue.create	Create a queue
+panel.widget.queue.create_hint	Opens in a new tab so this widget draft stays open.
+panel.widget.fallback_label	Fallback text when no value is available
+panel.widget.link_lifetime_help	The link cannot be viewed again after this dialog closes. If you lose it, generate a new link; the previous one will be invalidated.
+panel.widget.copy_link	Copy link
+panel.widget.obs_help	In OBS: add a Browser source, paste the URL, set its dimensions, and set Page Permissions to None. Never bypass certificate errors or switch to HTTP.
+panel.widget.close	Close
+panel.locale.incomplete	The saved language is incomplete. Brazilian Portuguese is active temporarily.
+panel.locale.updated	Product language updated.
+panel.locale.saving	Saving language…
+panel.connection.channel_connected	Channel connected
+panel.connection.channel_not_connected	Twitch is not connected yet
+panel.connection.channel_disconnected	Channel disconnected
+panel.connection.pill_connected	CONNECTED
+panel.connection.pill_reconnect	RECONNECT
+panel.runtime.refreshed	Updated
+panel.queue.group.waiting	Waiting
+panel.queue.group.called	Called
+panel.queue.group.in_service	In service
+panel.queue.empty.title	No queues created
+panel.queue.empty.hint	People waiting and active services will appear here after you create a queue.
+panel.queue.empty.connect	Connect channel
+panel.queue.empty.create	Create first queue
+panel.queue.empty.check_channel	Review channel connection
+panel.queue.empty_group	No one right now
+panel.queue.status.open	OPEN
+panel.queue.status.closed	CLOSED
+panel.queue.status.pending_delete	Deletion pending: waiting for redemption cancellations and reward confirmation.
+panel.queue.status.pending_local_delete	Local deletion pending: waiting for all known redemptions and related Twitch cancellation/refund results to be confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The paused reward will be preserved.
+panel.queue.action.delete	Delete queue
+panel.queue.action.cancel_delete	Cancel deletion
+panel.queue.action.retry_local_delete	Check deletion progress
+panel.queue.action.configure	Configure
+panel.queue.action.edit_reward	Edit reward
+panel.queue.action.unarchive	Show to viewers
+panel.queue.action.next	Next
+panel.queue.action.clear	Clear queue
+panel.queue.action.add	Add
+panel.queue.action.open	Open
+panel.queue.action.close	Close
+panel.queue.action.activate	Activate queue
+panel.queue.action.pause	Pause queue
+panel.queue.action_result.saving	Saving…
+panel.queue.action_result.confirmed	Queue state updated.
+panel.queue.action_result.pending	Request saved. Waiting for Twitch confirmation.
+panel.queue.action_result.failed	The queue state could not be updated. Try again.
+panel.queue.action_result.uncertain	The call may have been recorded. Refresh the queue before trying again.
+panel.queue.call_next.refresh_required	The queue could not be refreshed. Refresh it before calling again.
+panel.queue.call_next.reference	Call reference: {id}
+panel.queue.call_next.refresh	Refresh queue
+panel.queue.call_next.refreshing	Refreshing queue…
+panel.queue.call_next.refreshed	Queue updated. Review the waiting entries before calling again.
+panel.queue.call_next.refresh_failed	The queue could not be refreshed. Try again before calling anyone.
+panel.queue.clear.uncertain	The clear may have been applied. Check the refreshed queue before trying again.
+panel.queue.clear.refresh_required	We could not verify whether the clear was applied. Refresh the queue before trying again.
+panel.queue.clear.refresh	Refresh queue
+panel.queue.clear.refreshing	Refreshing queue…
+panel.queue.clear.refreshed	Queue updated. Review it before starting another clear.
+panel.queue.clear.refresh_failed	The queue could not be refreshed. Try refreshing again before clearing.
+panel.queue.action_result.no_waiting	No one is waiting in this queue.
+panel.queue.creation_result.created_local	Local queue created. It is paused until you activate it.
+panel.queue.creation_result.created_remote	Queue created and Twitch reward synchronized.
+panel.queue.creation_result.pending	Queue saved. Twitch reward creation is awaiting confirmation; check its status before retrying.
+panel.queue.creation_result.review	Queue is present, but Twitch synchronization needs review before activation.
+panel.queue.creation_result.recovered	A matching queue was found after an interrupted response. It was not created again; review its status.
+panel.queue.creation_result.refresh_failed	Queue created, but the list could not refresh. Open queues and reload before retrying.
+panel.queue.creation_result.open_queues	Open queues
+panel.queue.creation_result.uncertain	The result could not be confirmed. Do not submit again yet; open queues and reload to check whether it was created.
+panel.queue.creation_result.key_conflict	That command or one of its aliases is already in use. Choose another and try again.
+panel.queue.entry_action_result.saved	The service action was recorded in the panel.
+panel.queue.entry_action_result.refresh_failed	The action was recorded, but the queue could not refresh. Reload the page to see its current state.
+panel.queue.entry_action_result.fulfillment_pending	Service started. The Twitch reward is being confirmed; this panel will show its confirmed or unresolved status.
+panel.queue.entry_action_result.fulfillment_refresh_failed	Service started and Twitch confirmation was queued, but the queue could not refresh. Reload the panel to check the latest status.
+panel.queue.action.resolve_reward	Link reward
+panel.queue.action_blocked.reward_unresolved	Queue controls are paused until you link and confirm a Twitch reward. Use “Link reward” to continue.
+panel.queue.action_blocked.reward_creation_pending	Queue controls will be available after Twitch confirms reward creation.
+panel.queue.action_blocked.remote_operation_pending	Queue controls are waiting for the pending Twitch operation to finish.
+panel.queue.action_blocked.queue_mode_transition_pending	Calling and queue controls are paused until Twitch confirms the reward is paused. Manual entry remains available while this change is unresolved.
+panel.queue.action_blocked.queue_not_active	This queue is being deleted and cannot be changed.
+panel.queue.delete_blocked.reward_unresolved	Deletion is unavailable because the reward is unidentified. Resolve the link first to avoid deleting the wrong reward.
+panel.queue.delete_blocked.reward_creation_pending	Deletion is unavailable while Twitch confirms reward creation.
+panel.queue.delete_blocked.remote_operation_pending	Deletion is unavailable while a Twitch operation is pending.
+panel.queue.delete_blocked.queue_mode_transition_pending	Deletion is unavailable while the queue mode is changing.
+panel.queue.delete_blocked.queue_not_active	This queue is already being deleted or has been deleted.
+panel.queue.history.title	Recent history
+panel.queue.history.loading	Loading recent history…
+panel.queue.history.failed	Recent history could not be loaded.
+panel.queue.history.retry	Try again
+panel.queue.history.empty	There are no completed services yet.
+panel.queue.history.date_unavailable	Date unavailable
+panel.entry.action.call	call
+panel.entry.action.call_aria	Call {user}
+panel.entry.action.move_up	Move ↑
+panel.entry.action.move_down	Move ↓
+panel.entry.action.remove_priority	Remove priority
+panel.entry.action.mark_priority	Mark as priority
+panel.entry.action.attend	start service
+panel.entry.action.attend_aria	Start service for {user}
+panel.entry.action.complete	complete
+panel.entry.action.complete_aria	Complete service for {user}
+panel.entry.action.resend	Resend call
+panel.entry.action.resend_aria	Resend the call for {user}
+panel.entry.action.remove	remove
+panel.entry.action.remove_aria	Remove {user} from the queue
+panel.entry.priority_badge	Priority · verified by operator
+panel.entry.uid_label	UID
+panel.queue.points	points
+panel.queue.sync.synced	Twitch synced
+panel.queue.sync.manual	reward linked manually
+panel.queue.sync.pending	sync pending
+panel.queue.sync.unknown	unknown result · review in the panel
+panel.queue.sync.failed	sync failed · review in the panel
+panel.queue.sync.not_synced	no confirmed sync
+panel.queue.sync.diverged	Twitch settings differ · review required
+panel.queue.onboarding.reward_pending	The queue is saved and closed. Twitch still has to confirm its reward; activation stays unavailable until then.
+panel.queue.onboarding.reward_diverged	The queue is saved and closed, but its Twitch reward differs from the saved settings. Review the mismatch before continuing.
+panel.queue.onboarding.reward_failed	The queue is saved and closed, but Twitch could not create its reward. Activation stays unavailable.
+panel.queue.onboarding.activate_next	Settings saved. Review the queue below; it stays closed until you activate it.
+panel.queue.onboarding.activate_waiting	Settings saved. The queue stays closed while Twitch confirms its reward.
+panel.command.role.everyone	Everyone
+panel.command.role.follower	Followers
+panel.command.role.subscriber	Subscribers
+panel.command.role.vip	VIPs
+panel.command.role.moderator	Moderators
+panel.command.role.streamer	streamer
+panel.command.role_join	and
+panel.command.access_fixed	Fixed access:
+panel.command.marked_roles	The selected role and higher roles can use this command.
+panel.command.threshold_label	Minimum audience
+panel.command.threshold.select	Choose a minimum audience
+panel.command.threshold.help	The selected audience and higher roles inherit access.
+panel.command.audience.proposed	After saving: {roles}.
+panel.command.audience.everyone_includes	Everyone (including {roles})
+panel.command.follower_scope_required	Requires Twitch follower permission.
+panel.command.follower_consent_only	This authorizes Twitch follower lookups only. It will not change saved command permissions.
+panel.command.follower_authorize	Authorize follower access
+panel.command.no_changes	No permission changes to save.
+panel.widget.source.account	Current account
+panel.widget.source.queue_name	Queue name
+panel.widget.source.queue_state	Whether a queue is open or closed
+panel.widget.source.queue_count	Number waiting in a queue
+panel.widget.source.called_name	Called person
+panel.widget.source.called_position	Called person’s original position
+panel.widget.source.fixed_text	Fixed text
+panel.widget.source.unknown	Widget
+panel.widget.status.unavailable	Widget unavailable
+panel.widget.status.active	Link active
+panel.widget.status.revoked	Revoked
+panel.widget.empty.title	No widgets created
+panel.widget.empty.hint	Create a source with one piece of stream data to add it to OBS.
+panel.widget.create_first	Create your first widget
+panel.widget.action.edit	Edit
+panel.widget.action.regenerate	Regenerate link
+panel.widget.action.revoke	Revoke
+panel.widget.action.generate	Generate link
+panel.widget.action.delete	Delete
+panel.widget.confirm.regenerate	The current link will stop working. Generate a new link now?
+panel.widget.confirm.revoke	The OBS source will stop receiving data. Revoke this link?
+panel.widget.confirm.delete	Delete this widget? Its current URL will be invalidated and cannot be recovered.
+panel.widget.link.copied	Link copied.
+panel.widget.link.copy_fallback	Couldn't copy automatically. Show the link, select it and copy it before closing — it won't be shown again.
+panel.widget.queue.select	Select a queue
+panel.widget.editor.create	Create widget
+panel.widget.editor.edit	Edit widget
+panel.widget.preview_example	Widget example
+panel.widget.preview.waiting	4 waiting
+panel.widget.preview.open	Open
+panel.widget.preview.called	Viewer called
+panel.widget.fixed_text_label	Fixed text
+panel.widget.text_color	Text color
+panel.widget.background_color	Background color
+panel.widget.background_opacity	Background opacity (%)
+panel.widget.font	Font
+panel.widget.font.system	System
+panel.widget.font.arial	Arial
+panel.widget.font.verdana	Verdana
+panel.widget.font.georgia	Georgia
+panel.widget.font.courier	Courier New
+panel.widget.alignment	Alignment
+panel.widget.alignment.left	Left
+panel.widget.alignment.center	Center
+panel.widget.alignment.right	Right
+panel.widget.effect	Effect
+panel.widget.effect.none	None
+panel.widget.effect.outline	Outline
+panel.widget.effect.shadow	Shadow
+panel.widget.overflow	Long text
+panel.widget.overflow.wrap	Wrap
+panel.widget.overflow.clip	Clip
+panel.widget.overflow.ellipsis	Ellipsis
+panel.widget.preview_eyebrow	SIMULATED PREVIEW
+panel.widget.link_eyebrow	ONE-TIME LINK
+panel.widget.copy_now	Copy now
+panel.widget.local_widget_url	Local widget URL
+panel.command.description.queue_lista	View people waiting, called, and in service.
+panel.command.description.queue_presente	Confirm your presence after being called.
+panel.command.syntax.queue_lista	!<queue> [list]
+panel.command.syntax.queue_presente	!<queue> present
+panel.command.description.queue_comandos	View commands available to your role.
+panel.command.syntax.queue_comandos	!<queue> commands
+panel.command.description.queue_posicao	Check your position or status in the queue.
+panel.command.syntax.queue_posicao	!<queue> position
+panel.command.description.queue_sair	Leave your own active entry.
+panel.command.syntax.queue_sair	!<queue> leave
+panel.command.description.queue_add	Manually add a person.
+panel.command.syntax.queue_add	!<queue> add <user> [UID]
+panel.command.description.queue_remover	Remove a person from the queue.
+panel.command.syntax.queue_remover	!<queue> remove <user>
+panel.command.description.queue_proximo	Call the next people.
+panel.command.syntax.queue_proximo	!<queue> next [1-10]
+panel.command.description.queue_atender	Start a called service.
+panel.command.syntax.queue_atender	!<queue> attend [user]
+panel.command.description.queue_concluir	Complete a service.
+panel.command.syntax.queue_concluir	!<queue> complete [user]
+panel.command.description.queue_mover	Change a waiting person’s position.
+panel.command.syntax.queue_mover	!<queue> move <user> <position>
+panel.command.description.queue_abrir	Open the queue reward.
+panel.command.syntax.queue_abrir	!<queue> open
+panel.command.description.queue_fechar	Pause the queue reward.
+panel.command.syntax.queue_fechar	!<queue> close
+panel.command.description.queue_limpar	Preview or confirm clearing the queue.
+panel.command.syntax.queue_limpar	!<queue> clear [confirm]
+panel.command.description.global_filas	List available queues.
+panel.command.syntax.global_filas	!queue queues
+panel.command.description.global_conta_read	Check the current account label.
+panel.command.syntax.global_conta_read	!queue account
+panel.command.description.global_conta_set	Set the current account label.
+panel.command.syntax.global_conta_set	!queue account <name>
+panel.command.description.global_conta_reset	Restore the default account label.
+panel.command.syntax.global_conta_reset	!queue account reset
+panel.command.description.global_queue_comandos	List the commands available to your role.
+panel.command.syntax.global_queue_comandos	!queue commands
+panel.command.description.global_queue_ping	Check the bot, its version, and Twitch latency.
+panel.command.syntax.global_queue_ping	!queue ping
+panel.commands.unavailable	The command catalog is not available yet.
+panel.command.roles_for	Roles allowed to use
+panel.settings.current_default	Current default
+panel.operations.empty	No pending operations.
+panel.operations.empty_hint	Twitch synchronization requests, points refunds, and redemption fulfillment appear here until each result is confirmed or needs review.
+panel.operation.type.refund	POINTS REFUND
+panel.operation.type.fulfillment	REDEMPTION FULFILLMENT
+panel.operation.type.reward_update	TWITCH REWARD SYNC
+panel.operation.type.queue_delete	TWITCH REWARD DELETION
+panel.operation.type.other	TWITCH OPERATION
+panel.operation.status.pending	Pending
+panel.operation.status.retry	Retry scheduled
+panel.operation.status.processing	In progress
+panel.operation.status.unknown	Unknown state · review in the panel
+panel.operation.status.conflict	Conflict · review required
+panel.operation.status.failed	Failed · review required
+panel.operation.status.confirmed	Confirmed by Twitch
+panel.operation.status.resolved_manual	Resolved manually · Twitch did not confirm
+panel.operation.status.cancelled	Cancelled
+panel.operation.status.cancel_verification	Checking whether the deletion can be cancelled
+panel.operation.attempts.one	{count} attempt
+panel.operation.attempts.other	{count} attempts
+panel.operation.action.resolve	Record manual resolution
+panel.operation.action.retry	Reconcile / retry
+panel.operation.action.continue_delete	Continue deletion
+panel.operation.confirm.resolve	Twitch has not confirmed this redemption operation. Record that you reviewed it and stop automatic tracking? This does not confirm a refund or fulfillment, and there will be no further automatic attempts.
+panel.operation.confirm.continue_delete	Try to continue deleting this queue and its Twitch reward? The app will recheck pending redemptions, Twitch communication, and points refunds. If the reward state and every required refund result are confirmed, the reward may be deleted and cannot be restored. Choose Cancel deletion on the queue to keep it for later.
+panel.reconciliation.running	Reconciliation in progress…
+panel.reconciliation.complete.one	Reconciliation complete. Imported {count} redemption.
+panel.reconciliation.complete.other	Reconciliation complete. Imported {count} redemptions.
+panel.reconciliation.issues.one	Reconciliation completed with {count} issue. Review notices and operations.
+panel.reconciliation.issues.other	Reconciliation completed with {count} issues. Review notices and operations.
+panel.reconciliation.refresh_failed	Reconciliation completed, but the operations list could not refresh. Refresh the list before relying on it.
+panel.entry.status.completed	Completed
+panel.entry.status.removed	Removed
+panel.entry.status.no_show	No-show
+panel.commands.saved	Command permissions updated.
+panel.notice.queue_created	Queue saved. Twitch reward creation is pending; follow its status below.
+panel.notice.queue_settings_saved	Queue settings saved.
+panel.queue.settings_result.refresh_failed	Settings were saved, but the queue list could not refresh. Reload the page to verify the current values.
+panel.notice.reward_update_pending	Change requested. The queue will show a pending sync until Twitch confirms it.
+panel.reward.settings_refresh_failed	The reward update was accepted, but the queue could not refresh. Accepted settings are shown; refresh to verify its Twitch status.
+panel.notice.call_already_queued	The call is already waiting to be sent.
+panel.notice.call_resent	Call resend requested. The no-show deadline was preserved.
+panel.priority.marked	Priority was recorded and audited. The operator verified the benefit.
+panel.priority.removed	Priority removed.
+panel.queue.action.archive_local_anyway	Delete from panel anyway
+panel.queue.action.archive_local_review	Continue to final deletion confirmation
+panel.queue.confirm.archive_local_uncertain_first	This will remove the queue from this app only; it will not delete the Twitch reward. The reward may still exist, and active entries and financial records will be preserved. The current Twitch sync status will be retained as historical and unverified; it does not mean an operation is still running. Continue to review the final deletion confirmation?
+panel.queue.confirm.archive_local_uncertain_final	Final confirmation: delete queue “{title}” from this panel anyway? This removes only the local queue; it will not delete the Twitch reward, which may still exist and receive redemptions. The queue history and financial records will be preserved. The remote sync status will remain historical and unverified, not an indication that sync is still running.
+panel.queue.archive_local.done	Queue removed from the panel. Twitch reward status and history were preserved.
+panel.queue.archive_local.processing	A Twitch reward operation is still processing. Wait for it to finish, then retry removing the queue from the panel.
+panel.queue.archive_local.expired	The confirmation expired. Start both deletion confirmation steps again.
+panel.queue.archive_local.stale	The queue changed after confirmation began. Refresh the panel and start both deletion steps again.
+panel.queue.archive_local.unavailable	The queue is no longer eligible for local deletion. Refresh the panel and review its sync status.
+panel.queue.confirm.unarchive	Show this queue to viewers? It will remain paused until you activate it.
+panel.queue.unarchive.done	Queue shown to viewers and remains paused until you activate it.
+panel.queue.confirm.delete	Delete queue “{title}” and its Twitch reward? {count} active entries will be removed and their redemptions will be cancellation requests. The reward is deleted only after every cancellation is confirmed. This may remain pending if Twitch does not confirm.
+panel.queue.confirm.cancel_delete	Cancel deletion of “{title}” and keep the queue for later? The app will verify that the exact Twitch reward still exists and is paused. The queue will remain closed and hidden from viewers. Existing redemption records and points refund requests will continue unchanged. If Twitch cannot confirm the reward state, deletion will stay pending.
+panel.queue.delete.cancelled	Deletion cancelled. The reward was verified as present and paused; the queue remains closed and hidden. Redemption records and points refund requests were preserved. You can request deletion again later.
+panel.queue.delete.cancel.already_deleted	Twitch has already confirmed that the reward was deleted. The queue cannot be restored by cancelling this operation.
+panel.queue.delete.cancel.reward_absent	Cancellation was not confirmed because Twitch no longer reports this reward. The queue remains in deletion recovery.
+panel.queue.delete.cancel.reward_diverged	Cancellation was not confirmed because the Twitch reward does not match the paused queue configuration. The queue remains in deletion recovery.
+panel.queue.delete.cancel.unverified	Twitch could not confirm the reward state, so deletion was not cancelled. The queue remains in recovery; retry cancellation later.
+panel.queue.delete.cancel.stale	The deletion state changed before cancellation could be confirmed. Refresh the panel and review the current queue state before retrying.
+panel.queue.delete.cancel.processing	A Twitch reward operation is still processing, so deletion was not cancelled. Wait for it to finish, then refresh and review the queue before retrying.
+panel.queue.delete.cancel.uncertain	We could not confirm whether cancellation completed. Refresh the panel and review the queue's deletion status before trying again.
+panel.queue.confirm.delete_local	Delete local queue “{title}”? {count} active entries will be removed. This queue has no linked Twitch reward or redemption.
+panel.queue.confirm.delete_converted	Delete manual queue “{title}”? {count} active entries will be removed. Deletion will remain pending until all known redemptions, Twitch synchronization requests, and related points refunds are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.
+panel.queue.confirm.retry_delete_converted	Check whether all known pending redemptions, Twitch sync requests, and related points refunds are confirmed. If they are, the local queue will be deleted. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.
+panel.queue.delete.pending	Local deletion started. The queue remains pending until all known redemptions, Twitch synchronization requests, and related points refunds are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain untouched.
+panel.queue.delete.done	Queue deleted. Redemption history was preserved and the Twitch reward remains paused.
+panel.reward.no_candidates	The lookup succeeded, but no reward managed by this app, paused, and matching every queue setting was found. Actions such as delete stay blocked until ownership is confirmed. Review the differences below and refresh the list.
+panel.queue.clear.empty	The queue is already empty.
+panel.queue.clear.failed	The queue could not be cleared. Refresh and try again.
+panel.queue.clear.loading	Calculating the current queue…
+panel.queue.clear.clearing	Clearing queue…
+panel.queue.clear.confirm	Clear queue “{title}”? {count} people will be removed and {refunds} refunds requested. Confirmation is valid for 15 seconds.
+panel.queue.clear.changed	The queue changed. Review the new confirmation for {count} people.
+panel.queue.clear.done	Removed {count} people; requested {refunds} refunds.
+panel.account.prompt.current	Current live account label (up to 60 characters):
+panel.account.prompt.default	Default account label (up to 60 characters):
+panel.overview.headline	Your queues,
+panel.overview.headline_emphasis	your pace.
+panel.overview.lead	Follow your stream, integration status, and queue activity.
+panel.connection.starting	Twitch is not connected yet
+panel.connection.starting_hint	Connect your channel to enable rewards.
+panel.connection.starting_state	DISCONNECTED
+panel.queue.loading	Preparing your queues
+panel.queue.loading_hint	They will appear here as you set up the panel.
+panel.locale.loading	Loading languages…
+panel.footer.brand	Local Queue · local-first operation
+panel.runtime.refreshing	Refreshing status
+panel.queue_settings.local_eyebrow	LOCAL SETTINGS
+panel.queue_settings.uid_policy_hint	Edit the UID policy and reward under “Edit reward”; changes are shown as synchronized only after Twitch confirms them.
+panel.queue_settings.save	Save settings
+panel.widget.font_size	Size (px)
+panel.widget.font_weight	Weight
+panel.widget.width	Width (px or auto)
+panel.widget.height	Height (px or auto)
+panel.widget.margin_top	Top margin
+panel.widget.margin_right	Right margin
+panel.widget.margin_bottom	Bottom margin
+panel.widget.margin_left	Left margin
+panel.widget.outline_width	Outline (px)
+panel.widget.shadow_blur	Shadow blur
+panel.widget.shadow_offset_x	Shadow X offset
+panel.widget.shadow_offset_y	Shadow Y offset
+panel.reward_settings.eyebrow	QUEUE CUSTOM REWARD
+panel.reward_settings.reward_name	Reward name
+panel.reward_settings.cost	Points cost
+panel.reward_settings.description	Description
+panel.reward_settings.uid_field	UID field
+panel.reward_settings.no_uid	Do not request UID
+panel.reward_settings.stream_limit	Per-stream limit (blank disables)
+panel.reward_settings.viewer_limit	Per-person per-stream limit
+panel.reward_settings.cooldown	Global cooldown in seconds
+panel.reward_settings.submit	Request Twitch update
+panel.reward_settings.group.reward	Reward details
+panel.reward_settings.group.viewer	Viewer input and privacy
+panel.reward_settings.group.limits	Twitch limits
+panel.reward_settings.uid_removal_warning	Hiding UID removes UID values already stored for this queue and cancels pending call notifications.
+panel.entry.dialog_eyebrow	ADD MANUALLY
+panel.entry.dialog_title	Queue entry
+panel.entry.twitch_login	Twitch login
+panel.entry.uid_optional	UID (optional)
+panel.entry.benefit	Verified benefit
+panel.reward.dialog_eyebrow	REWARD RECOVERY
+panel.reward.dialog_title	Find this queue's reward
+panel.reward.lookup_error_title	Could not read Twitch rewards
+panel.reward.link_error_title	Could not link the reward
+panel.reward.link_success	Reward linked and association recorded.
+panel.reward.link_refresh_failed	Reward link saved, but the queue view could not refresh. Refresh the queue before linking another reward.
+panel.reward.link_refreshed	Queue updated. Review the current reward link before continuing.
+panel.reward.refresh_queue	Refresh queue
+panel.reward.refreshing_queue	Refreshing queue…
+panel.reward.candidates_found_title	Lookup complete
+panel.reward.compatible_rewards	Matching rewards
+panel.reward.loading_candidates	Reading manageable rewards from Twitch…
+panel.reward.refresh_candidates	Refresh Twitch list
+panel.reward.link_selected	Link selected reward
+panel.reward.no_candidates_title	No reward matches this queue
+panel.reward.candidate_counts	{compatible} compatible out of {total} manageable rewards checked.
+panel.reward.mismatch_summary	Differences found: {reasons}.
+panel.reward.mismatch_overlap	Counts can overlap because one reward may have multiple differences. Details from incompatible rewards are not shown.
+panel.reward.mismatch.title	Different title ({count})
+panel.reward.mismatch.cost	Different points cost ({count})
+panel.reward.mismatch.prompt	Different description ({count})
+panel.reward.mismatch.uid	Different text-input rule ({count})
+panel.reward.mismatch.stream_limit	Different per-stream limit ({count})
+panel.reward.mismatch.viewer_limit	Different per-viewer limit ({count})
+panel.reward.mismatch.cooldown	Different global cooldown ({count})
+panel.reward.mismatch.auto_fulfill	Automatic fulfillment enabled ({count})
+panel.reward.mismatch.skip_queue	Skip-request-queue enabled ({count})
+panel.reward.mismatch.disabled	Reward is disabled ({count})
+panel.reward.mismatch.not_paused	Reward is not paused ({count})
+panel.reward.step.title	Check the title and cost configured in the queue and Twitch.
+panel.reward.step.settings	Check the description, text input, and reward limits.
+panel.reward.step.paused	Keep the reward enabled and paused for redemption, then refresh the list.
+panel.form.queue_name_placeholder	e.g. Spiral Abyss
+panel.settings.account_fallback	Streamer
+panel.entry.login_placeholder	@username
+panel.entry.uid_placeholder	9 digits
+panel.connection.starting_pill	CHECKING
+panel.error.locale_unavailable	That language is unavailable. Refresh the catalogs and try again.
+panel.error.catalogs_unavailable	Local catalogs could not be loaded. Fix the files and try again.
+panel.error.channel_locked	This app is already bound to another channel. Use a separate installation.
+panel.error.twitch_credentials	Twitch rejected the app. Check the Client ID and Client Secret.
+panel.error.twitch_authorization	Twitch authorization failed. Reconnect the channel.
+panel.error.oauth_return	The authorization response expired or does not match this session. Start the connection again.
+panel.error.widget_link	This widget link cannot be shown again. Generate a new link.
+panel.error.invalid_action	The state changed. Refresh the panel and try again.
+panel.error.invalid_queue_settings	Review the queue settings and try again.
+panel.error.invalid_call_template	Use only the call fields listed in the help text.
+panel.error.invalid_reward_settings	Review the reward title, cost, description, and limits.
+panel.error.invalid_local_queue_setting	Change UID and reward options in the Twitch reward editor.
+panel.error.stale_queue_settings	The queue changed while you were editing. Your draft stays open; copy your changes, close the editor, and refresh the panel before trying again.
+panel.error.queue_not_found	This queue no longer exists. Refresh the panel.
+panel.error.queue_not_available	This queue is being deleted and cannot be changed.
+panel.error.reward_update_pending	A reward update is already in progress. Refresh the panel to check its status.
+panel.error.reward_not_ready	This queue reward is not confirmed yet. Refresh the panel and review pending reward operations.
+panel.widget.preview.account	Asia 1
+panel.widget.card_details	{queue}{width} × {height} · Widget {id}
+panel.widget.auto	auto
+panel.queue_settings.call_message_default	{user}, it’s your turn! Use {command} to confirm your presence.
+panel.command.follower_scope_lost	Follower access is configured, but Twitch follower permission is unavailable. Reauthorize to restore it.
+panel.command.follower_reauthorize	Reauthorize follower access
+panel.commands.revision	Catalog revision {version}
+panel.commands.empty	No chat commands are registered.
+panel.commands.cancel	Discard changes
+panel.health.twitch_chat	Twitch chat / EventSub
+panel.health.twitch_rewards	Channel Points rewards
+panel.health.chat.connected	Connected
+panel.health.chat.not_configured	Not configured
+panel.health.chat.connecting	Connecting
+panel.health.chat.degraded	Unstable
+panel.health.chat.retrying	Reconnecting
+panel.health.chat.reconnect_required	Reconnect required
+panel.health.chat.stopped	Stopped
+panel.health.chat.unknown	Unknown state
+panel.health.rewards.available	Available
+panel.health.rewards.not_configured	Not configured
+panel.health.rewards.unsupported	Unavailable for this channel
+panel.health.rewards.unknown	Checking
+panel.health.rewards.reconnect_required	Authorization required
+panel.health.rewards.stopped	Disabled
+panel.form.queue_mode	Queue type
+panel.form.mode_channel_points	Channel Points with a bot-owned reward
+panel.form.mode_manual	Local, with free manual entries
+panel.queue.mode.manual	Local queue · free manual entry
+panel.queue.sync.local	local queue
+panel.queue.action.manual_mode	Use local queue
+panel.queue.action.manual_mode_retry	Retry safe pause request
+panel.queue.confirm.manual_mode	The reward will be paused on Twitch; existing redemptions and their points refund requests will be preserved. The queue switches to manual only after Twitch confirms the pause. Continue?
+panel.queue.confirm.manual_mode_retry	Retry the safe pause request for this Twitch reward? The queue remains reward-backed until Twitch confirms the pause; existing redemption records and points refund requests remain preserved.
+panel.queue.mode_transition.pending	Twitch pause pending; redemptions during the switch will be canceled.
+panel.queue.mode_transition.unknown	Twitch has not confirmed the pause. Reconnect, then retry; local mode starts only after confirmation.
+panel.queue.mode_transition.failed	Twitch did not confirm the pause. Check the connection, then retry; the queue remains reward-backed until confirmation.
+panel.queue.mode_transition.done	Queue switched to local mode. Existing redemptions remain preserved.
+panel.queue.mode.converted	Converted from a Twitch reward · historical reward remains paused
+panel.error.queue_mode_transition_pending	This queue is switching modes. Wait until the Twitch pause is confirmed.
+panel.error.queue_mode_transition_unavailable	This queue cannot switch modes in its current state. Refresh the panel and review its operations.
+panel.entry.call.awaiting_delivery	Deadline has not started; waiting for delivery confirmation.
+panel.entry.call.no_deadline	No automatic deadline to start service.
+panel.entry.call.remaining	Time to start service: {time} remaining.
+panel.entry.call.expired	Deadline passed; waiting for the service status to update.
+panel.entry.call.expired_announcement	Call deadline passed for {user}.
+panel.confirmation.title	Confirm action
+panel.confirmation.cancel	Cancel
+panel.confirmation.accept	OK
+panel.queue.status.pending_local_delete_diverged	Local deletion is paused because the Twitch reward state needs verification. Redemptions, Twitch communication, and related points refunds remain under recovery; later Twitch redemptions will be detected and recorded for cancellation. This app will not change the Twitch reward.
+panel.queue.confirm.retry_delete_converted_diverged	Check deletion progress. The queue will remain pending until Twitch confirms the historical reward is paused and all currently known redemptions, Twitch synchronization requests, and related points refunds are resolved. Later Twitch redemptions will still be detected and recorded for cancellation. This action will not change the Twitch reward.
+panel.queue.status.deletion_complete	Queue deletion is complete.
+panel.accessibility.skip_to_content	Skip to main content
+panel.form.section_identity	Queue identity
+panel.form.section_entry	How viewers join
+panel.form.section_reward	Channel Points reward
+panel.form.section_handling	Privacy and attendance
+panel.form.command_hint	The chat command uses this name after !. It is suggested from the queue title.
+panel.form.aliases_hint	Optional alternate command names, separated by commas.
+panel.form.mode_channel_points_hint	Viewers redeem a Twitch reward to enter. The bot creates and manages the reward.
+panel.form.mode_manual_hint	The queue stays local. The streamer adds viewers from the queue page.
+panel.form.twitch_setup_required	Twitch is not connected. The manual queue works locally; connect Twitch to create a Channel Points reward.
+panel.form.twitch_setup_link	Set up Twitch connection
+panel.form.cancel	Cancel
+panel.overview.next_empty_title	Create your first queue
+panel.overview.next_empty_description	Choose Channel Points or a local queue to begin accepting viewers.
+panel.overview.next_empty_action	Create a queue
+panel.overview.next_queues_title	Review your queues
+panel.overview.next_queues_description	Manage queue availability and continue viewer attendance from the live queue view.
+panel.overview.next_queues_action	Open queues
+panel.overview.next_unavailable_title	Checking local data
+panel.overview.next_unavailable_description	The next action will appear after the local panel finishes loading.
+panel.overview.context_label	Operation context
+panel.overview.current_account	Current account
+panel.overview.pending_operations	Unresolved operations
+panel.overview.needs_review	{count} need review
+panel.overview.refresh	Refresh overview
+panel.overview.refreshing	Refreshing overview…
+panel.overview.refreshed	Overview updated.
+panel.overview.refresh_failed	Could not refresh the overview. The last loaded data remains visible.
+panel.overview.last_updated	Last updated at {time}
+panel.overview.last_reconciliation	Last Twitch reconciliation (this run)
+panel.overview.reconciliation_not_run	Not run in this run
+panel.health.bot	Bot API
+panel.health.bot.connected	Available
+panel.health.bot.unavailable	Unavailable
+panel.health.bot.unknown	Unknown state
+panel.health.database.unknown	Unknown state
+panel.health.ping_ms	{ms} ms
+panel.queue_settings.section_attendance	Call and attendance
+panel.queue_settings.section_privacy	Viewer UID privacy
+panel.queue_settings.section_points	Account and points policies
+panel.queue_settings.unsaved	Unsaved changes
+panel.queue_settings.no_changes	All settings are saved.
+panel.credentials.validating	Validating credentials…
+panel.credentials.saved	App credentials validated and saved.
+panel.connection.saved_refresh_failed	Credentials were saved, but connection details could not be refreshed. Reload to verify the status.
+panel.health.twitch.eligibility_unknown	Checking eligibility
+panel.widgets.loading	Loading widgets…
+panel.widgets.load_failed	Could not load widgets. Your saved widgets were not changed.
+panel.widgets.refresh	Try again
+panel.widget.saving	Saving…
+panel.widget.link.title	Copy this link to OBS
+panel.widget.preview.queue	Queue name
+panel.widget.preview.position	Called person position
+panel.widget.style.text_color	Text color
+panel.widget.style.background_color	Background color
+panel.widget.style.background_opacity	Background opacity (%)
+panel.widget.style.font_family	Font family
+panel.widget.style.font_size	Font size (px)
+panel.widget.style.font_weight	Font weight
+panel.widget.style.alignment	Text alignment
+panel.widget.style.effect	Text effect
+panel.widget.style.outline_width	Outline width (px)
+panel.widget.style.shadow_blur	Shadow blur (px)
+panel.widget.style.shadow_x	Shadow offset X (px)
+panel.widget.style.shadow_y	Shadow offset Y (px)
+panel.widget.style.width	Width (px or auto)
+panel.widget.style.height	Height (px or auto)
+panel.widget.style.margin_top	Top margin (px)
+panel.widget.style.margin_right	Right margin (px)
+panel.widget.style.margin_bottom	Bottom margin (px)
+panel.widget.style.margin_left	Left margin (px)
+panel.widget.style.overflow	Text overflow
+panel.dialog.confirm_action	CONFIRM ACTION
+panel.widget.notice.saved	Widget saved.
+panel.widget.notice.created	Widget created.
+panel.widget.notice.revoked	Widget link revoked.
+panel.widget.notice.deleted	Widget deleted.
+panel.widget.notice.conflict	This widget changed. Review your draft and reload before saving.
+panel.widget.notice.error	Could not complete. Try again.
+panel.widget.notice.reference	Reference: {id}
+panel.widget.notice.conflict_refreshed	Latest widget list loaded. Your draft is unchanged; review the current widget before trying again.
+panel.widget.notice.conflict_missing	This widget is no longer in the list. Your draft is unchanged; close it without saving.
+panel.widget.notice.conflict_replaced	Latest widget values loaded into the form. Review them, make your changes, then save.
+panel.widget.notice.refresh_failed	{action} was accepted, but the widget list could not refresh. Refresh before repeating this action.
+panel.widget.notice.action_created	Widget creation
+panel.widget.notice.action_saved	Widget update
+panel.widget.notice.action_revoked	Link revocation
+panel.widget.notice.action_deleted	Widget deletion
+panel.widget.conflict.refresh	Refresh widget list
+panel.widget.conflict.refresh_hint	Your draft will stay open. Review the latest widget before saving again.
+panel.widget.conflict.latest_title	Current version on the server
+panel.widget.conflict.replace_draft	Replace my draft with this version
+panel.widget.close_without_saving	Close without saving
+panel.widget.link.done	Done, I copied the link
+panel.widget.link.show	Show link
+panel.widget.link.hide	Hide link
+panel.widget.link.hidden_label	Link hidden
+panel.widget.link.confirm_close.title	Close without copying the link?
+panel.widget.link.confirm_close.body	This link can't be shown again. To use this widget later, generate a new link on its card — this link will then stop working.
+panel.widget.link.confirm_close.back	Back to the link
+panel.widget.link.confirm_close.confirm	Close anyway
+panel.widget.notice.link_closed_uncopied	Link closed without copying. Use "Regenerate link" on the widget card when you need it.
+panel.widget.cancel	Cancel
+panel.dialog.confirm	Confirm
+panel.dialog.cancel	Cancel

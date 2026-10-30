@@ -305,7 +305,9 @@ function Clear-InstallerScreen {
   if (-not $TestMode -and -not [Console]::IsOutputRedirected) { Clear-Host }
 }
 function Write-ComposeFile {
-  New-Item -ItemType Directory -Force -Path (Join-Path $InstallHome '.local') | Out-Null
+  $communityCatalogDirectory = if ($env:LOCAL_COMMUNITY_CATALOG_DIRECTORY) { $env:LOCAL_COMMUNITY_CATALOG_DIRECTORY } else { '.local\community-catalogs' }
+  if (-not [IO.Path]::IsPathRooted($communityCatalogDirectory)) { $communityCatalogDirectory = Join-Path $InstallHome $communityCatalogDirectory }
+  New-Item -ItemType Directory -Force -Path $communityCatalogDirectory | Out-Null
   [IO.File]::WriteAllBytes($ComposeFile, [Convert]::FromBase64String($ComposeBase64))
 }
 function Read-Port {
@@ -327,7 +329,22 @@ function Read-Port {
 }
 function Save-Config([int]$Port) {
   New-Item -ItemType Directory -Force -Path $InstallHome | Out-Null
-  Set-Content -LiteralPath $EnvFile -Encoding ascii -Value @("APP_PORT=$Port","IMAGE_TAG=$ReleaseImageTag","PRODUCT_INITIAL_LOCALE=$script:Locale")
+  if (-not (Test-Path $EnvFile)) {
+    $communityCatalogDirectory = if ($env:LOCAL_COMMUNITY_CATALOG_DIRECTORY) { $env:LOCAL_COMMUNITY_CATALOG_DIRECTORY } else { '.local\community-catalogs' }
+    if (-not [IO.Path]::IsPathRooted($communityCatalogDirectory)) { $communityCatalogDirectory = Join-Path $InstallHome $communityCatalogDirectory }
+    Set-Content -LiteralPath $EnvFile -Encoding ascii -Value @("APP_PORT=$Port","IMAGE_TAG=$ReleaseImageTag","PRODUCT_INITIAL_LOCALE=$script:Locale","LOCAL_COMMUNITY_CATALOG_DIRECTORY=$communityCatalogDirectory")
+    return
+  }
+
+  $communityCatalogDirectory = Get-Content -LiteralPath $EnvFile | Where-Object { $_ -match '^LOCAL_COMMUNITY_CATALOG_DIRECTORY=' } | Select-Object -First 1
+  if (-not $communityCatalogDirectory) {
+    $directory = if ($env:LOCAL_COMMUNITY_CATALOG_DIRECTORY) { $env:LOCAL_COMMUNITY_CATALOG_DIRECTORY } else { '.local\community-catalogs' }
+    if (-not [IO.Path]::IsPathRooted($directory)) { $directory = Join-Path $InstallHome $directory }
+    $communityCatalogDirectory = "LOCAL_COMMUNITY_CATALOG_DIRECTORY=$directory"
+  }
+  $lines = @(Get-Content -LiteralPath $EnvFile | Where-Object { $_ -notmatch '^(APP_PORT|IMAGE_TAG|PRODUCT_INITIAL_LOCALE)=' })
+  $preservedLines = @($lines | Where-Object { $_ -notmatch '^LOCAL_COMMUNITY_CATALOG_DIRECTORY=' })
+  Set-Content -LiteralPath $EnvFile -Encoding ascii -Value @("APP_PORT=$Port","IMAGE_TAG=$ReleaseImageTag","PRODUCT_INITIAL_LOCALE=$script:Locale",$communityCatalogDirectory,$preservedLines)
   Write-ComposeFile
 }
 function Save-ImageTag {

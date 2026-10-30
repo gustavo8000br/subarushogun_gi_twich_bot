@@ -1,10 +1,10 @@
-# Front-End Architecture: 
+# Front-End Architecture: `apps/frontend`
 [Português brasileiro](../pt-BR/front-end-architecture/index.md)
 
 
 ## Table of Contents
 
-- [Front-End Architecture: ](#table-of-contents)
+- [Front-End Architecture: `apps/frontend`](#table-of-contents)
   - [Runtime and boundaries](./runtime-and-boundaries.md)
   - [Files and modules](./files-and-modules.md)
   - [Screen model](./screen-model.md)

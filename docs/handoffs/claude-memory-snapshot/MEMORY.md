@@ -1,0 +1,16 @@
+- [Always Orion](feedback-always-orion.md) — IMMUTABLE: owner always talks to @aiox-master, who orchestrates and delegates; activate at session start
+- [Backend direction](project-backend-direction.md) — no rewrite; Node goes to TypeScript; Docker mandatory; typing + financial recovery before SSE
+- [Quota interruption protocol](feedback-quota-interruption-protocol.md) — PROJECT RULE: when quota is ending, stop agents and save exact stopping point + briefs in a resume file
+- [Windows/macOS sessions](project-cross-platform-sessions.md) — owner will provide Claude Code sessions on Windows/macOS later for automated tests; no platform result claimed until then
+- [Stage: no users](project-stage-no-users.md) — beta with NO active users: structural/breaking changes (aliases, URLs, formats) are safe until rc/stable
+- [Incremental cutover](project-incremental-cutover.md) — owner EXPRESSLY authorized cutover part by part as each part is validated; legacy abandoned; push/PR/release still need separate OK
+- [Client confidentiality](feedback-client-confidentiality.md) — CONFIDENTIAL: never mention other client Projects/repos of the account (names, people, values) anywhere in this project
+- [Agent concurrency](feedback-agent-concurrency.md) — before parallel dispatch check write sets, same-role twins, Docker/ports/suite, timings; else serialize or use a worktree
+- [Kanban governance](feedback-kanban-governance.md) — @sm organizes the board (priority, requirements, difficulty); @devops keeps it updated; Orion never edits it
+- [Implementation by @dev](feedback-implementation-by-dev.md) — code changes must be delegated to aiox-dev, not done by Orion
+- [Decisions as pop-ups](feedback-decisions-as-popups.md) — bring recommended decisions via AskUserQuestion, pt-BR
+- [Issues: body only](feedback-issues-body-only.md) — never comment on issues; @devops edits the main body; OPS-20 gates run sequentially
+- [Git via @devops](feedback-git-via-devops.md) — commits authorized but only @devops runs them; push/PR/release need separate OK
+- [QA runs final tests](feedback-qa-runs-final-tests.md) — @qa validates independently and issues a verdict before @devops commits (permanent rule)
+- [Research before decisions](feedback-always-research-web.md) — check docs/research-index.md first; research only for GAP/fired REFRESH; @analyst step
+- [Dev DB is disposable](feedback-dev-db-disposable.md) — never migrate/restore the dev DB volume; dev:start creates a fresh one

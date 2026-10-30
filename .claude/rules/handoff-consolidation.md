@@ -30,8 +30,8 @@ Pipelines are grouped by:
 ### Step 2 — Create RUN-LOG.md (if not exists)
 
 Location options (in priority order):
-1. `business-ai-first/docs/stories/epics/{epic-folder}/RUN-LOG.md` (preferred for epic-bound pipelines)
-2. `business-ai-first/docs/runlogs/{pipeline-slug}-RUN-LOG.md` (for cross-epic pipelines)
+1. `docs/stories/{story-id}/RUN-LOG.md` + `docs/pt-BR/stories/{story-id}/RUN-LOG.md` (preferred for story/roadmap-bound pipelines in this project)
+2. `docs/runlogs/{pipeline-slug}-RUN-LOG.md` + `docs/pt-BR/runlogs/{pipeline-slug}-RUN-LOG.md` (for cross-story pipelines)
 3. `.aiox/run-logs/{pipeline-slug}-RUN-LOG.md` (for framework-level pipelines)
 
 ### Step 3 — Append summarized waves
@@ -111,7 +111,7 @@ The **most recent** handoff for an active pipeline stays as `handoff-{latest}.ya
         ├── handoff-2026-05-12-wave4.yaml
         └── handoff-2026-05-14-wave5.yaml
 
-business-ai-first/docs/stories/epics/epic-013-portal-replacement/
+docs/stories/OPS-15/
 └── RUN-LOG.md   (waves 1-5 consolidated, narrative form)
 ```
 

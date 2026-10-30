@@ -4,12 +4,12 @@ import { discoverCatalogBundle } from '../../../shared/localization/discover-cat
  * Register the authenticated local projection of product translation catalogs.
  * Catalog contents are plain text and are rendered by the browser with textContent.
  * @param {import('fastify').FastifyInstance} app
- * @param {{catalogRoot: string, writeHostProjection?:(state:{locale:string,revision:number})=>Promise<unknown>, repository?: {setProductLocale?: (input: {locale: string, expectedRevision: number, actorId: string|null}) => Promise<{locale: string, revision: number}>}}} options
+ * @param {{catalogRoot: string, communityCatalogRoot?: string, writeHostProjection?:(state:{locale:string,revision:number})=>Promise<unknown>, repository?: {setProductLocale?: (input: {locale: string, expectedRevision: number, actorId: string|null}) => Promise<{locale: string, revision: number}>}}} options
  */
-export function registerLocalizationRoutes(app, { catalogRoot, repository = {}, writeHostProjection = async () => undefined }) {
+export function registerLocalizationRoutes(app, { catalogRoot, communityCatalogRoot, repository = {}, writeHostProjection = async () => undefined }) {
   app.get('/api/localization/catalogs', async (_request, reply) => {
     try {
-      const catalogs = await discoverCatalogBundle(catalogRoot);
+      const catalogs = await discoverCatalogBundle(catalogRoot, { communityCatalogRoot });
       reply.header('cache-control', 'no-store');
       return catalogs;
     } catch {
@@ -28,7 +28,7 @@ export function registerLocalizationRoutes(app, { catalogRoot, repository = {}, 
     }
 
     let bundle;
-    try { bundle = await discoverCatalogBundle(catalogRoot); }
+    try { bundle = await discoverCatalogBundle(catalogRoot, { communityCatalogRoot }); }
     catch {
       return reply.code(503).send({ code: 'LOCALIZATION_CATALOGS_UNAVAILABLE', error: 'Os idiomas do produto estão temporariamente indisponíveis.' });
     }

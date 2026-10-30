@@ -1,0 +1,29 @@
+name: queuebot-next-development
+
+services:
+  db:
+    image: postgres:18.6-bookworm
+    environment:
+      POSTGRES_USER: queuebot
+      POSTGRES_DB: queuebot
+      POSTGRES_PASSWORD_FILE: /run/secrets/dev_db_password
+    ports:
+      - "127.0.0.1:${DEV_DATABASE_PORT:-55432}:5432"
+    secrets:
+      - dev_db_password
+    volumes:
+      - next_dev_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U queuebot -d queuebot"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+
+secrets:
+  dev_db_password:
+    file: ./.local/dev-db/password
+
+volumes:
+  next_dev_postgres_data:

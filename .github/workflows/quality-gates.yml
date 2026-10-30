@@ -169,12 +169,12 @@ jobs:
           PRODUCT_VERSION="$(cat "$RUNNER_TEMP/VERSION")"
           printf 'PRODUCT_VERSION=%s\n' "$PRODUCT_VERSION" >> "$GITHUB_ENV"
       - name: Validate Compose configuration
-        run: docker compose config --quiet
+        run: docker compose -f compose.yaml -f compose.build.yaml config --quiet
       - name: Build application image
-        run: docker compose build bot
+        run: docker compose -f compose.yaml -f compose.build.yaml build bot
       - name: Verify materialized version inside image
         run: |
-          IMAGE_VERSION="$(docker compose run --rm --no-deps --entrypoint cat bot /app/VERSION)"
+          IMAGE_VERSION="$(docker compose -f compose.yaml -f compose.build.yaml run --rm --no-deps --entrypoint cat bot /app/VERSION)"
           test "$IMAGE_VERSION" = "$PRODUCT_VERSION"
 
   quality-gate:

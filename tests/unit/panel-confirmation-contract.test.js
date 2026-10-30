@@ -4,8 +4,9 @@ import { requestPanelConfirmation } from '../../apps/web/panel-confirmation.mjs'
 
 const app = await readFile(new URL('../../apps/web/app.js', import.meta.url), 'utf8');
 const html = await readFile(new URL('../../apps/web/index.html', import.meta.url), 'utf8');
+const nextLifecycle = await readFile(new URL('../../apps/frontend/features/queues/queue-lifecycle-actions.jsx', import.meta.url), 'utf8');
 const catalogs = await Promise.all(['en', 'es', 'pt-BR'].map((locale) =>
-  readFile(new URL(`../../apps/web/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8')));
+  readFile(new URL(`../../apps/shared/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8')));
 
 describe('panel confirmation dialog contract', () => {
   it('removes hide/archive copy and labels legacy recovery as show-to-viewers', () => {
@@ -17,6 +18,13 @@ describe('panel confirmation dialog contract', () => {
       expect(labels['panel.queue.confirm.unarchive']).toMatch(/viewers|espectadores/i);
       expect(labels['panel.queue.unarchive.done']).toMatch(/viewers|espectadores/i);
     }
+  });
+
+  it('passes the queue title to the Next panel final local deletion confirmation', () => {
+    const valuesSet = nextLifecycle.match(/const confirmationValues = new Set\(\[([\s\S]*?)\]\)\.has\(confirmationKey\)/)?.[1] ?? '';
+    expect(valuesSet).toContain("'panel.queue.confirm.archive_local_uncertain_final'");
+    expect(nextLifecycle).toMatch(/\? \{ title: queue\.title, count: activeCount \} : undefined/);
+    expect(nextLifecycle).toMatch(/getQueueConfirmationCopy\(queue, 'archive-local-final'\)/);
   });
 
   it('removes the hide/archive action from normal queue controls and preserves legacy recovery only', () => {

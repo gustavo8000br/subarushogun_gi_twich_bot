@@ -55,4 +55,22 @@ describe('OBS widget read-only projection service', () => {
       messages: { 'overlay.state.open': 'Open', 'overlay.state.closed': 'Closed' },
     });
   });
+
+  it('normalizes a previously saved in-service widget to the shared current-account source', async () => {
+    const projectWithActiveCapability = vi.fn(async (_hash, project) => project({
+      sourceType: 'in_service_viewer_display_name', queueId: null, fixedText: null,
+      fallbackText: '', style: {},
+    }, {}));
+    const getOverlaySourceValue = vi.fn(async ({ sourceType }) => {
+      expect(sourceType).toBe('account_label');
+      return 'Viewer Account';
+    });
+    const service = createOverlayProjectionService({
+      overlayRepository: { projectWithActiveCapability }, queueRepository: { getOverlaySourceValue },
+    });
+
+    await expect(service.readWithCapability('s'.repeat(43))).resolves.toMatchObject({
+      sourceType: 'account_label', value: 'Viewer Account',
+    });
+  });
 });

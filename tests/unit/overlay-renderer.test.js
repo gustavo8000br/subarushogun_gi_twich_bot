@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { mountOverlayWidget } from '../../apps/web/overlay-renderer.mjs';
+import { mountOverlayWidget } from '../../apps/shared/panel/overlay-renderer.mjs';
 
 function createDocument() {
   const listeners = new Map();
@@ -30,10 +30,10 @@ describe('OBS overlay renderer', () => {
     const fetch = vi.fn(async () => response(200, { sourceType: 'fixed_text', value: 'Olá', fallbackText: '', style: {} }));
     const history = { replaceState: vi.fn() };
 
-    const renderer = mountOverlayWidget({ document, fetch, location: { hash: `#${'a'.repeat(43)}`, pathname: '/overlay.html', search: '?view=1' }, history });
+    const renderer = mountOverlayWidget({ document, fetch, location: { hash: `#${'a'.repeat(43)}`, pathname: '/overlay', search: '?view=1' }, history });
     await renderer.pollNow();
 
-    expect(history.replaceState).toHaveBeenCalledWith(null, '', '/overlay.html?view=1');
+    expect(history.replaceState).toHaveBeenCalledWith(null, '', '/overlay?view=1');
     expect(fetch).toHaveBeenCalledWith('/overlay/api/widget', expect.objectContaining({ headers: { authorization: `Bearer ${'a'.repeat(43)}` }, cache: 'no-store' }));
     expect(document.elements.value.textContent).toBe('Olá');
   });
@@ -49,17 +49,17 @@ describe('OBS overlay renderer', () => {
     const token = 'r'.repeat(43);
     const fetch = vi.fn(async () => response(200, { sourceType: 'account_label', value: 'Viewer', fallbackText: '', style: {} }));
     const reference = 'a'.repeat(22);
-    const location = { hash: `#${token}`, pathname: '/overlay.html', search: `?ref=${reference}` };
+    const location = { hash: `#${token}`, pathname: '/overlay', search: `?ref=${reference}` };
     const history = { replaceState: vi.fn() };
 
     const firstLoad = mountOverlayWidget({ document, fetch, location, history, sessionStorage });
     await firstLoad.pollNow();
     expect(sessionStorage.setItem).toHaveBeenCalledWith(`overlay-capability:${reference}`, token);
-    expect(history.replaceState).toHaveBeenCalledWith(null, '', `/overlay.html?ref=${reference}`);
+    expect(history.replaceState).toHaveBeenCalledWith(null, '', `/overlay?ref=${reference}`);
 
     const reloaded = mountOverlayWidget({
       document: createDocument(), fetch,
-      location: { hash: '', pathname: '/overlay.html', search: `?ref=${reference}` },
+      location: { hash: '', pathname: '/overlay', search: `?ref=${reference}` },
       history, sessionStorage,
     });
     await reloaded.pollNow();
@@ -78,7 +78,7 @@ describe('OBS overlay renderer', () => {
       .mockResolvedValueOnce(response(200, { sourceType: 'account_label', value: 'Second Viewer', fallbackText: '', style: {} }));
     const renderer = mountOverlayWidget({
       document, fetch,
-      location: { hash: `#${'t'.repeat(43)}`, pathname: '/overlay.html', search: `?ref=${'b'.repeat(22)}` },
+      location: { hash: `#${'t'.repeat(43)}`, pathname: '/overlay', search: `?ref=${'b'.repeat(22)}` },
       history: { replaceState() {} }, sessionStorage: { setItem() {}, getItem() { return null; }, removeItem() {} },
     });
 
@@ -101,7 +101,7 @@ describe('OBS overlay renderer', () => {
     const fetch = vi.fn(async () => response(404, { error: 'unavailable' }));
     const renderer = mountOverlayWidget({
       document, fetch,
-      location: { hash: '', pathname: '/overlay.html', search: `?ref=${rejectedReference}` },
+      location: { hash: '', pathname: '/overlay', search: `?ref=${rejectedReference}` },
       history: { replaceState() {} }, sessionStorage,
     });
 
@@ -126,14 +126,14 @@ describe('OBS overlay renderer', () => {
     const oldFetch = vi.fn(async () => response(404, { error: 'revoked' }));
     const oldSource = mountOverlayWidget({
       document: createDocument(), fetch: oldFetch,
-      location: { hash: `#${oldToken}`, pathname: '/overlay.html', search: `?ref=${oldReference}` },
+      location: { hash: `#${oldToken}`, pathname: '/overlay', search: `?ref=${oldReference}` },
       history: { replaceState() {} }, sessionStorage,
     });
 
     const newFetch = vi.fn(async () => response(200, { sourceType: 'account_label', value: 'Current', fallbackText: '', style: {} }));
     const newSource = mountOverlayWidget({
       document: createDocument(), fetch: newFetch,
-      location: { hash: `#${newToken}`, pathname: '/overlay.html', search: `?ref=${newReference}` },
+      location: { hash: `#${newToken}`, pathname: '/overlay', search: `?ref=${newReference}` },
       history: { replaceState() {} }, sessionStorage,
     });
     await newSource.pollNow();
@@ -143,7 +143,7 @@ describe('OBS overlay renderer', () => {
     expect(values.has(`overlay-capability:${oldReference}`)).toBe(false);
     const newReload = mountOverlayWidget({
       document: createDocument(), fetch: newFetch,
-      location: { hash: '', pathname: '/overlay.html', search: `?ref=${newReference}` },
+      location: { hash: '', pathname: '/overlay', search: `?ref=${newReference}` },
       history: { replaceState() {} }, sessionStorage,
     });
     await newReload.pollNow();
@@ -159,7 +159,7 @@ describe('OBS overlay renderer', () => {
   it('renders remote values as inert text and applies only constrained style properties', async () => {
     const document = createDocument();
     const fetch = vi.fn(async () => response(200, { sourceType: 'fixed_text', value: '<img src=x onerror=alert(1)>', fallbackText: '', style: { textColor: '#12ABEF', fontSize: 48, fontFamily: 'Arial, sans-serif', effect: 'shadow', shadowOffsetX: 2, shadowOffsetY: 3, shadowBlur: 4, arbitraryCss: 'url(https://evil.test)' } }));
-    const renderer = mountOverlayWidget({ document, fetch, location: { hash: `#${'b'.repeat(43)}`, pathname: '/overlay.html', search: '' }, history: { replaceState() {} } });
+    const renderer = mountOverlayWidget({ document, fetch, location: { hash: `#${'b'.repeat(43)}`, pathname: '/overlay', search: '' }, history: { replaceState() {} } });
     await renderer.pollNow();
 
     expect(document.elements.value.textContent).toBe('<img src=x onerror=alert(1)>');
@@ -177,7 +177,7 @@ describe('OBS overlay renderer', () => {
       { sourceType: 'queue_state', value: 'open', fallbackText: 'Indisponível', style: {} },
     ];
     const fetch = vi.fn(async () => response(200, payloads.shift()));
-    const renderer = mountOverlayWidget({ document, fetch, location: { hash: `#${'c'.repeat(43)}`, pathname: '/overlay.html', search: '' }, history: { replaceState() {} } });
+    const renderer = mountOverlayWidget({ document, fetch, location: { hash: `#${'c'.repeat(43)}`, pathname: '/overlay', search: '' }, history: { replaceState() {} } });
     await renderer.pollNow();
     expect(document.elements.value.textContent).toBe('Sem pessoas aguardando');
     await renderer.pollNow();
@@ -191,7 +191,7 @@ describe('OBS overlay renderer', () => {
       sourceType: 'queue_state', value: 'open', fallbackText: '', style: {}, productLocale: 'en',
       messages: { 'overlay.document.title': 'Local widget', 'overlay.state.open': 'Open', 'overlay.status.stale': 'Update delayed' },
     }));
-    const renderer = mountOverlayWidget({ document, fetch, location: { hash: `#${'g'.repeat(43)}`, pathname: '/overlay.html', search: '' }, history: { replaceState() {} } });
+    const renderer = mountOverlayWidget({ document, fetch, location: { hash: `#${'g'.repeat(43)}`, pathname: '/overlay', search: '' }, history: { replaceState() {} } });
     await renderer.pollNow();
     expect(document.documentElement.lang).toBe('en');
     expect(document.elements.value.textContent).toBe('Open');
@@ -204,7 +204,7 @@ describe('OBS overlay renderer', () => {
       .mockResolvedValueOnce(response(200, { sourceType: 'fixed_text', value: 'Fila: 3', fallbackText: '', style: {} }))
       .mockResolvedValueOnce(response(503, { error: 'unavailable' }))
       .mockResolvedValueOnce(response(200, { sourceType: 'fixed_text', value: 'Fila: 2', fallbackText: '', style: {} }));
-    const renderer = mountOverlayWidget({ document, fetch, location: { hash: `#${'d'.repeat(43)}`, pathname: '/overlay.html', search: '' }, history: { replaceState() {} } });
+    const renderer = mountOverlayWidget({ document, fetch, location: { hash: `#${'d'.repeat(43)}`, pathname: '/overlay', search: '' }, history: { replaceState() {} } });
     await renderer.pollNow();
     await renderer.pollNow();
     expect(document.elements.value.textContent).toBe('Fila: 3');
@@ -221,7 +221,7 @@ describe('OBS overlay renderer', () => {
     const fetch = vi.fn()
       .mockResolvedValueOnce(response(200, { sourceType: 'fixed_text', value: 'Pessoa chamada', fallbackText: '', style: {} }))
       .mockResolvedValueOnce(response(statusCode, { error: 'unavailable' }));
-    const renderer = mountOverlayWidget({ document, fetch, location: { hash: `#${'e'.repeat(43)}`, pathname: '/overlay.html', search: '' }, history: { replaceState() {} } });
+    const renderer = mountOverlayWidget({ document, fetch, location: { hash: `#${'e'.repeat(43)}`, pathname: '/overlay', search: '' }, history: { replaceState() {} } });
     await renderer.pollNow();
     await renderer.pollNow();
     expect(document.elements.value.textContent).toBe('');
@@ -233,12 +233,12 @@ describe('OBS overlay renderer', () => {
     const fetch = vi.fn(async () => response(200, { sourceType: 'fixed_text', value: 'OK', fallbackText: '', style: {} }));
     const setInterval = vi.fn(() => 17);
     const clearInterval = vi.fn();
-    const renderer = mountOverlayWidget({ document, fetch, location: { hash: '#invalid', pathname: '/overlay.html', search: '' }, history: { replaceState() {} }, setInterval, clearInterval });
+    const renderer = mountOverlayWidget({ document, fetch, location: { hash: '#invalid', pathname: '/overlay', search: '' }, history: { replaceState() {} }, setInterval, clearInterval });
     await renderer.pollNow();
     expect(fetch).not.toHaveBeenCalled();
     expect(document.elements.status.textContent).toBe('Fonte indisponível');
 
-    const valid = mountOverlayWidget({ document, fetch, location: { hash: `#${'f'.repeat(43)}`, pathname: '/overlay.html', search: '' }, history: { replaceState() {} }, setInterval, clearInterval });
+    const valid = mountOverlayWidget({ document, fetch, location: { hash: `#${'f'.repeat(43)}`, pathname: '/overlay', search: '' }, history: { replaceState() {} }, setInterval, clearInterval });
     expect(setInterval).toHaveBeenCalledWith(expect.any(Function), 1000);
     document.visibilityState = 'visible';
     document.dispatch('visibilitychange');

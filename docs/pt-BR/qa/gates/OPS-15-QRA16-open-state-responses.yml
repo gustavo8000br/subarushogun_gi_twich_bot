@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'Somente validação de isOpen inválido e assertions da resposta QUEUE_NOT_FOUND em POST /api/queues/:queueId/open-state QRA-16'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (respostas open-state QRA-16, não commitada)'
+updated: '2026-10-19'
+status_reason: 'O handler rejeita isOpen não booleano antes de acessar o repositório. QUEUE_NOT_FOUND mapeia para HTTP 404 e mantém o corpo de erro genérico existente; detalhes privados da exceção não aparecem na resposta. A matriz bilíngue de rotas corresponde ao contrato testado. Este PASS limita-se às assertions de resposta QRA-16; OPS-15 permanece In Progress e o gate final da story não foi satisfeito.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 83 testes passaram'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 83 testes passaram'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  diff_check: 'git diff --check passou (avisos de normalização de fim de linha em arquivos existentes da worktree)'
+  response_review: 'isOpen inválido retorna corpo 400 exato antes de acessar o repositório; QUEUE_NOT_FOUND retorna 404 com o corpo genérico existente e omite detalhes privados da exceção.'
+  bilingual_docs: 'As matrizes de resposta/assertions de rota QRA-16 foram atualizadas em inglês e pt-BR.'
+limitations:
+  - 'Não foram validados persistência PostgreSQL, rollback ou projeção Twitch confirmada posterior.'
+  - 'Não foram executados browser/runtime Next, instalador, Twitch ou OBS/CEF nativo.'
+  - 'Esta não é QA geral da OPS-15, não encerra a story e não autoriza cutover do painel.'

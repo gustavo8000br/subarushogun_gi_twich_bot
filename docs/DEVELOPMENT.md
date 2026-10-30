@@ -13,6 +13,9 @@
 
 ```sh
 npm ci
+
+**Platform status (2026-10-21):** validated by a person on Ubuntu Linux only. Windows is planned and will be accepted by the owner. **macOS has not been validated** (no macOS host available); it shares the Unix base with Linux, so the same flow may work, but that is an assumption. CI runs only the installer smoke on `macos-15`.
+
 npm run build
 npm run lint
 npm run typecheck
@@ -37,6 +40,38 @@ The prepared image includes the tools needed for the existing project gates. The
 
 ### Focused checks
 
+#### Next.js and Fastify development
+
+`npm run dev` names its disposable PostgreSQL Compose project after the last 28 characters of the checkout path. If two checkouts end in the same text, set `DEV_COMPOSE_PROJECT` (lowercase letters, digits, `-`, `_`; up to 63 characters) in each one so they do not share a database volume. Leaving it unset keeps the current name and data.
+
+```sh
+npm ci
+npm run dev
+```
+
+Run `npm ci` once after cloning or when dependencies need reinstalling; it installs exact lockfile dependencies and is not required for each start. Before creating local files or provisioning/migrating a database, `npm run dev` checks Node.js `24.20.0`, local Next/Prisma dependencies and (when `DATABASE_URL` is empty) Docker Compose v2 plus an accessible Docker Engine. A failed check names the missing prerequisite and recovery step. It then starts an isolated PostgreSQL service, snapshots before migrations, launches Fastify in API-only watch mode at `127.0.0.1:${APP_PORT:-3109}`, and Next with HTTPS/HMR at `https://localhost:${NEXT_DEV_PORT:-3000}`. In Codespaces, forward port `3000` to preview the frontend. Next proxies `/api/*`, `/overlay/api/*`, `/health`, and `/callback` to local Fastify (`apps/frontend/scripts/dev-proxy-config.mjs:19-28`); the OBS overlay is the Next `/overlay` route itself and there is no `/overlay.html` alias (removed in OPS-15 cutover Wave 3). The dev configuration allows loopback and the exact Codespaces hostname and passes the matching HTTPS origin for session/CSRF validation. Restart after changing the development origin or Next config. First run creates ignored `.env.product.local` from `.env.product.example` without replacing an existing file. Leave `DATABASE_URL` empty to use the managed DB, bound to host loopback port `55432`, in a worktree-specific Compose project/volume; its password and pre-migration snapshots are stored under `.local/dev-db/`. These are separate from product `compose.yaml`. Use `npm run dev:db:stop` to stop while preserving data and `npm run dev:db:start` to start only the DB. Never use `docker compose down -v` unless you intend to delete development data. An explicit `DATABASE_URL` skips Docker and automatic migrations; use only a disposable database. Set `APP_PORT` and `FASTIFY_DEV_ORIGIN` together when changing the API port. For end users, use the platform installer with a prebuilt image; maintainers build locally with `npm run build` (runtime Compose plus `compose.build.yaml`). `npm run build:frontend` builds the frontend export independently.
+
+Local Compose images use `IMAGE_TAG=dev` by default. Do not push this tag as a main/release artifact; only the validated main-branch workflow promotes `IMAGE_TAG=main`, while installers pin a validated versioned image/digest.
+
+```sh
+npm run dev:db:start
+npm run dev
+# when finished:
+npm run dev:db:stop
+```
+
+`npm run dev:start` is the same entry point as `npm run dev` (both keep working). While running, it records its own PID and the API/Next child PIDs in ignored `.local/dev-server/state.json`; the file is removed on exit.
+
+`npm run dev:stop` stops the processes recorded by `dev:start` (SIGTERM, SIGKILL after 10 seconds; on Linux it first confirms the recorded PID is still `dev-server.mjs`) and then runs `docker compose -f compose.dev.yaml -p <dev project> down --volumes --rmi local` for the development project only. Before removing anything it refuses (non-zero exit) unless the file is `compose.dev.yaml` at the repository root, the project is the one resolved by `DEV_COMPOSE_PROJECT` or the checkout path and uses the `queuebot-dev-` prefix, and every container/volume carries the matching `com.docker.compose.project` label (containers must also point to that `compose.dev.yaml`). It prints the removed containers, volumes and images, and exits 0 with a message when nothing is running. "Images" means only images built locally for the dev project (`--rmi local`); today `compose.dev.yaml` builds none, so the shared pulled `postgres` image is kept. With an explicit `DATABASE_URL`, only the processes are stopped.
+
+> **Warning:** `npm run dev:stop` DELETES the development database volume, including all development data. The pre-migration snapshots under `.local/dev-db/backups/` are kept.
+
+To stop everything while keeping the data, run `npm run dev:stop -- --keep-data` (the `--` passes the flag through npm). It stops the dev server processes and only the `db` container (`stop db`), preserving volumes and images, with the same file/project/label guards; it never runs `down`. Any other option is rejected before anything is stopped. Refused projects without the `queuebot-dev-` prefix get a message explaining how to remove them manually.
+
+To run the safe Chromium overlay smoke against the active Next preview, use `npm run test:e2e:overlay:browser-only`. It requires local Chrome and intercepts every overlay API response with browser fixtures; it never writes to PostgreSQL, Twitch, Docker, or OBS. This is frontend browser evidence only, not native OBS/CEF or live API acceptance. The separate `npm run test:e2e:overlay` remains the full OBS-connected scenario and may create/remove OBS sources and disposable Compose data.
+
+For the QRA-23 queue deletion-cancellation browser smoke, run `npm run test:e2e:queue-lifecycle:browser-only` against the active loopback Next preview. It intercepts panel API responses and asserts the processing conflict, accessible localized alert, safe diagnostic reference, and same-origin CSRF/idempotency headers. It does not write to the product API/database or Twitch and is not persisted-operation evidence.
+
 ```sh
 npm run lint:api && npm run typecheck:api
 npm run lint:infra && npm run typecheck:infra
@@ -44,14 +79,16 @@ npm run lint:web && npm run typecheck:web
 npm test -- --run tests/unit/<test-file>.test.js
 ```
 
-`npm run build` builds the deployable bot image with Docker Compose. The vanilla web app is checked directly and does not have a separate frontend bundler step. GitHub Actions [CI](../.github/workflows/ci.yml) runs on pull requests and calls the shared quality gates. Main image publication and tagged releases are separate workflows; see the [CI/CD guide](CI-CD.md) for triggers, permissions, image tags, and recovery.
+`compose.yaml` is pull-only runtime configuration consumed by the installer. `npm run build` explicitly combines it with `compose.build.yaml` to build the deployable image; CI uses the same pair. GitHub Actions [CI](../.github/workflows/ci.yml) runs on pull requests and calls the shared quality gates. Main image publication and tagged releases are separate workflows; see the [CI/CD guide](CI-CD.md) for triggers, permissions, image tags, and recovery.
 
 ## Project layout
 
 ```text
 apps/api/    Fastify API, domain, Prisma schema and migrations
 apps/infra/  Compose and operational scripts
-apps/web/    Static browser panel and localization catalogs
+apps/frontend/ Next.js App Router panel and OBS overlay
+apps/web/      Vanilla panel files (not served since cutover Wave 1; removed in Wave 4)
+apps/shared/    Modules shared by Next and the API (`apps/shared/panel` holds only the panel/overlay helpers; the first-party catalogs live in `apps/shared/localization/catalogs/`, outside `apps/shared/panel`, since cutover Wave 2; Next must not import `apps/web`)
 tests/       Unit, integration, and browser acceptance tests
 docs/        Stories and focused user/developer references
 ```

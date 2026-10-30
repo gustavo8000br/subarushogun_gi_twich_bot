@@ -12,8 +12,8 @@ async function makeHarness() {
     delete: vi.fn(async () => ({ id: 'widget-1', deletedAt: new Date(), version: 2 })),
   };
   const widgetService = {
-    create: vi.fn(async () => ({ widget: { id: 'widget-1', sourceType: 'account_label', version: 1 }, capabilityUrl: 'https://localhost:3000/overlay.html#one-time-secret' })),
-    regenerate: vi.fn(async () => ({ widget: { id: 'widget-1', version: 2 }, capabilityUrl: 'https://localhost:3000/overlay.html#new-one-time-secret' })),
+    create: vi.fn(async () => ({ widget: { id: 'widget-1', sourceType: 'account_label', version: 1 }, capabilityUrl: 'https://localhost:3000/overlay#one-time-secret' })),
+    regenerate: vi.fn(async () => ({ widget: { id: 'widget-1', version: 2 }, capabilityUrl: 'https://localhost:3000/overlay#new-one-time-secret' })),
     revoke: vi.fn(async () => ({ id: 'widget-1', version: 2 })),
   };
   const validCapability = 'v'.repeat(43);
@@ -55,6 +55,15 @@ describe('local OBS widget routes', () => {
     expect(list.body).not.toContain('capabilityHash');
     const noCsrf = await h.app.inject({ method: 'POST', url: '/api/overlay-widgets', headers: h.sessionHeaders, payload: { sourceType: 'account_label' } });
     expect(noCsrf.statusCode).toBe(403);
+    await h.app.close();
+  });
+
+  it('projects saved legacy in-service widget records as the current-account source', async () => {
+    const h = await makeHarness();
+    h.repository.list.mockResolvedValueOnce([{ id: 'legacy-widget', sourceType: 'in_service_viewer_display_name', style: {}, version: 1 }]);
+    const response = await h.app.inject({ method: 'GET', url: '/api/overlay-widgets', headers: h.sessionHeaders });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()[0]).toMatchObject({ id: 'legacy-widget', sourceType: 'account_label' });
     await h.app.close();
   });
 

@@ -1,20 +1,26 @@
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { createConnection } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createOverlayWidgetRepository } from '../../apps/api/src/persistence/overlay-widget-repository.mjs';
 import { createQueueRepository } from '../../apps/api/src/persistence/queue-repository.mjs';
-import { cleanupIsolatedPostgres } from '../helpers/isolated-postgres-cleanup.mjs';
+import {
+  ISOLATED_POSTGRES_AFTER_ALL_TIMEOUT_MS, ISOLATED_POSTGRES_CLEANUP_CALL_TIMEOUT_MS, cleanupIsolatedPostgres,
+} from '../helpers/isolated-postgres-cleanup.mjs';
+import {
+  ISOLATED_POSTGRES_BEFORE_ALL_TIMEOUT_MS, ISOLATED_POSTGRES_IMAGE, ISOLATED_POSTGRES_LABEL, ensurePostgresImage, runDockerCommand,
+} from '../helpers/isolated-postgres-image.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const containerName = `queuebot-overlay-${process.pid}-${randomUUID().slice(0, 8)}`;
 const volumeName = `queuebot-overlay-data-${process.pid}-${randomUUID().slice(0, 8)}`;
 let prisma;
 let repository;
-let containerStarted = false;
 let connectionString;
+let publishedPort;
 
 function docker(args) {
   const result = spawnSync('docker', args, { cwd: root, encoding: 'utf8', timeout: 30_000 });
@@ -24,10 +30,24 @@ function docker(args) {
 
 async function waitForPostgres() {
   for (let attempt = 0; attempt < 60; attempt += 1) {
-    const probe = spawnSync('docker', ['exec', containerName, 'pg_isready', '-U', 'queuebot', '-d', 'queuebot'], {
+    const probe = spawnSync('docker', [
+      'exec', containerName, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-Atqc', 'SELECT 1',
+    ], {
       cwd: root, encoding: 'utf8', timeout: 3000,
     });
-    if (probe.status === 0) return;
+    if (probe.status === 0 && probe.stdout.trim() === '1') {
+      const hostPortReady = await new Promise((resolve) => {
+        const socket = createConnection({ host: '127.0.0.1', port: publishedPort });
+        const finish = (ready) => {
+          socket.destroy();
+          resolve(ready);
+        };
+        socket.once('connect', () => finish(true));
+        socket.once('error', () => finish(false));
+        socket.setTimeout(1000, () => finish(false));
+      });
+      if (hostPortReady) return;
+    }
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   throw new Error('isolated PostgreSQL did not become healthy');
@@ -35,34 +55,35 @@ async function waitForPostgres() {
 
 describe('PostgreSQL OBS widget persistence contract', () => {
   beforeAll(async () => {
-    docker(['run', '--detach', '--rm', '--name', containerName,
+    ensurePostgresImage();
+    docker(['run', '--detach', '--rm', '--pull', 'never', '--label', ISOLATED_POSTGRES_LABEL, '--name', containerName,
       '--env', 'POSTGRES_USER=queuebot', '--env', 'POSTGRES_PASSWORD=isolated-test-password', '--env', 'POSTGRES_DB=queuebot',
       '--publish', '127.0.0.1::5432', '--volume', `${volumeName}:/var/lib/postgresql`,
-      'postgres:18.6-bookworm']);
-    containerStarted = true;
-    const published = docker(['port', containerName, '5432/tcp']).split(':').at(-1);
-    connectionString = `postgresql://queuebot:isolated-test-password@127.0.0.1:${published}/queuebot?schema=public`;
+      ISOLATED_POSTGRES_IMAGE]);
+    publishedPort = Number(docker(['port', containerName, '5432/tcp']).split(':').at(-1));
+    expect(Number.isInteger(publishedPort)).toBe(true);
+    connectionString = `postgresql://queuebot:isolated-test-password@127.0.0.1:${publishedPort}/queuebot?schema=public`;
     await waitForPostgres();
     const migration = spawnSync(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy'], {
       cwd: root, encoding: 'utf8', timeout: 60_000,
       env: { ...process.env, DATABASE_URL: connectionString },
     });
-    expect(migration.status, migration.stderr || migration.stdout).toBe(0);
+    const migrationOutput = `${migration.stdout ?? ''}\n${migration.stderr ?? ''}`
+      .replaceAll(connectionString, '[DATABASE_URL REDACTED]');
+    const databaseLogs = migration.status === 0 ? '' : docker(['logs', containerName]);
+    expect(migration.status, `${migrationOutput}\nDisposable PostgreSQL logs:\n${databaseLogs}`).toBe(0);
     prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
     repository = createOverlayWidgetRepository(prisma);
-  }, 120_000);
+  }, ISOLATED_POSTGRES_BEFORE_ALL_TIMEOUT_MS);
 
   afterAll(async () => {
     await prisma?.$disconnect();
-    if (containerStarted) {
-      cleanupIsolatedPostgres({
-        containerName,
-        volumeName,
-        runDocker: (args) => spawnSync('docker', args, { cwd: root, encoding: 'utf8', timeout: 30_000 }),
-      });
-      containerStarted = false;
-    }
-  });
+    await cleanupIsolatedPostgres({
+      containerName,
+      volumeName,
+      runDocker: (args) => runDockerCommand(args, { timeout: ISOLATED_POSTGRES_CLEANUP_CALL_TIMEOUT_MS }),
+    });
+  }, ISOLATED_POSTGRES_AFTER_ALL_TIMEOUT_MS);
 
   it('creates the durable widget table and required capability/source columns through real migrations', async () => {
     const table = await prisma.$queryRaw`SELECT to_regclass('public.overlay_widgets')::text AS table_name`;
@@ -207,9 +228,10 @@ describe('PostgreSQL OBS widget persistence contract', () => {
     const widget = await repository.create({ sourceType: 'fixed_text', fixedText: 'Genshin ready', capabilityHash: hash });
     await prisma.$disconnect();
     docker(['restart', containerName]);
+    publishedPort = Number(docker(['port', containerName, '5432/tcp']).split(':').at(-1));
+    expect(Number.isInteger(publishedPort)).toBe(true);
     await waitForPostgres();
-    const publishedAfterRestart = docker(['port', containerName, '5432/tcp']).split(':').at(-1);
-    connectionString = `postgresql://queuebot:isolated-test-password@127.0.0.1:${publishedAfterRestart}/queuebot?schema=public`;
+    connectionString = `postgresql://queuebot:isolated-test-password@127.0.0.1:${publishedPort}/queuebot?schema=public`;
     prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
     repository = createOverlayWidgetRepository(prisma);
     await expect(repository.getById(widget.id)).resolves.toMatchObject({
@@ -232,7 +254,7 @@ describe('PostgreSQL OBS widget persistence contract', () => {
     await expect(queueRepository.getOverlaySourceValue({ sourceType: 'queue_waiting_count', queueId: queue.id })).resolves.toBe(1);
     await expect(queueRepository.getOverlaySourceValue({ sourceType: 'called_viewer_display_name' })).resolves.toBe('Called Player');
     await expect(queueRepository.getOverlaySourceValue({ sourceType: 'called_viewer_position' })).resolves.toBe(7);
-    await expect(queueRepository.getOverlaySourceValue({ sourceType: 'in_service_viewer_display_name' })).resolves.toBe('Active Player');
+    await expect(queueRepository.getOverlaySourceValue({ sourceType: 'in_service_viewer_display_name' })).resolves.toBe('Asia 1');
     expect(waiting.uid).toBeNull();
   });
 

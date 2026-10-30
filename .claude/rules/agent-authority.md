@@ -42,8 +42,8 @@
 
 | Allowed | Blocked |
 |---------|---------|
-| `git add`, `git commit`, `git status` | `git push` (delegate to @devops) |
-| `git branch`, `git checkout`, `git merge` (local) | `gh pr create/merge` (delegate to @devops) |
+| `git status`, `git branch`, `git checkout` | `git add`, `git commit`, `git merge`, `git push` (project override: delegate to @devops after the @qa verdict — see AGENTS.md "Regras do proprietário") |
+| — | `gh pr create/merge` (delegate to @devops) |
 | `git stash`, `git diff`, `git log` | MCP management |
 | Story file updates (File List, checkboxes) | Story file updates (AC, scope, title) |
 

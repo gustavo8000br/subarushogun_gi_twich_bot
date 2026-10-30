@@ -685,10 +685,20 @@ Quality Gate Plan:
       - API contract consistency with spec
       - Migration reversibility
 
+  Self-Healing Configuration:
+    Expected Self-Healing:
+      - Primary Agent: @dev (light mode)
+      - Max Iterations: 2
+      - Timeout: 15 minutes
+      - Severity Filter: CRITICAL only
+
+    Predicted Behavior:
+      - CRITICAL issues: auto_fix (up to 2 iterations)
+      - HIGH issues: document_only (noted in Dev Notes)
 ```
 
 **Log Completion:**
-- After populating this section, log: "✅ Story type analysis complete: [Primary Type] | Agents assigned: [agent list] | Quality gates: [gate count] | Static analysis: [command or N/A]"
+- After populating this section, log: "✅ Story type analysis complete: [Primary Type] | Agents assigned: [agent list] | Quality gates: [gate count] | Self-healing: [mode]"
 
 - **`Dev Notes` section (CRITICAL):**
   - CRITICAL: This section MUST contain ONLY information extracted from architecture documents. NEVER invent or assume technical details.

@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseCatalogBytes } from './parse-catalog-bytes.mjs';
-import { validateCatalogSet } from './validate-catalog-set.mjs';
+import { catalogKeyShape, validateCatalogSet } from './validate-catalog-set.mjs';
 
 const DEFAULT_REQUIRED_LOCALES = Object.freeze(['pt-BR', 'en', 'es']);
 const MODULE_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -27,13 +27,26 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'lifecycle.uninstall.confirm_prompt': Object.freeze(['word']),
   }),
   panel: Object.freeze({
+    'panel.overview.last_updated': Object.freeze(['time']),
+    'panel.overview.needs_review': Object.freeze(['count']),
+    'panel.health.ping_ms': Object.freeze(['ms']),
     'panel.command.audience.everyone_includes': Object.freeze(['roles']),
     'panel.command.audience.proposed': Object.freeze(['roles']),
+    'panel.commands.revision': Object.freeze(['version']),
     'panel.queue_settings.call_placeholders': Object.freeze(['user', 'queue', 'position', 'uid', 'account']),
     'panel.queue.confirm.delete_local': Object.freeze(['title', 'count']),
     'panel.queue.confirm.delete_converted': Object.freeze(['title', 'count']),
     'panel.queue.confirm.retry_delete_converted': Object.freeze([]),
-    'panel.queue_settings.call_message_default': Object.freeze(['user']),
+    'panel.entry.action.call_aria': Object.freeze(['user']),
+    'panel.entry.call.expired_announcement': Object.freeze(['user']),
+    'panel.entry.action.attend_aria': Object.freeze(['user']),
+    'panel.entry.action.complete_aria': Object.freeze(['user']),
+    'panel.entry.action.resend_aria': Object.freeze(['user']),
+    'panel.entry.action.remove_aria': Object.freeze(['user']),
+    'panel.entry.add.refresh_failed': Object.freeze(['user', 'position']),
+    'panel.entry.error.already_active': Object.freeze(['user']),
+    'panel.entry.error.twitch_user_not_found': Object.freeze(['user']),
+    'panel.queue_settings.call_message_default': Object.freeze(['user', 'command']),
     'panel.operation.attempts': Object.freeze(['count']),
     'panel.reconciliation.complete': Object.freeze(['count']),
     'panel.reconciliation.issues': Object.freeze(['count']),
@@ -44,8 +57,23 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'panel.queue.clear.changed': Object.freeze(['count']),
     'panel.queue.clear.done': Object.freeze(['count', 'refunds']),
     'panel.widget.card_details': Object.freeze(['queue', 'width', 'height', 'id']),
+    'panel.widget.notice.reference': Object.freeze(['id']),
+    'panel.widget.notice.refresh_failed': Object.freeze(['action']),
+    'panel.widget.notice.conflict_refreshed': Object.freeze([]),
+    'panel.widget.notice.conflict_missing': Object.freeze([]),
+    'panel.widget.link.done': Object.freeze([]),
+    'panel.widget.link.show': Object.freeze([]),
+    'panel.widget.link.hide': Object.freeze([]),
+    'panel.widget.link.hidden_label': Object.freeze([]),
+    'panel.widget.link.copy_fallback': Object.freeze([]),
+    'panel.widget.link.confirm_close.title': Object.freeze([]),
+    'panel.widget.link.confirm_close.body': Object.freeze([]),
+    'panel.widget.link.confirm_close.back': Object.freeze([]),
+    'panel.widget.link.confirm_close.confirm': Object.freeze([]),
+    'panel.widget.notice.link_closed_uncopied': Object.freeze([]),
     'panel.entry.call.remaining': Object.freeze(['time']),
     'panel.error.reference': Object.freeze(['id']),
+    'panel.queue.call_next.reference': Object.freeze(['id']),
     'panel.reward.candidate_counts': Object.freeze(['compatible', 'total']),
     'panel.reward.mismatch_summary': Object.freeze(['reasons']),
     'panel.reward.mismatch.title': Object.freeze(['count']),
@@ -130,6 +158,56 @@ export async function discoverCatalogModule(catalogRoot, moduleName, options = {
         locales: requiredLocales,
         placeholders,
       });
+      catalogs[locale] = catalog;
+    } catch {
+      rejectedLocales.push({ locale, reason: 'invalid-catalog' });
+    }
+  }
+
+  const orderedLocales = Object.keys(catalogs).sort();
+  return Object.freeze({
+    catalogs: Object.freeze(catalogs),
+    locales: Object.freeze(orderedLocales),
+    rejectedLocales: Object.freeze(rejectedLocales),
+  });
+}
+
+/**
+ * Merge complete host-managed locale catalogs into one first-party module.
+ * First-party locales always win; community locales must match the exact key
+ * and placeholder contract of the shipped module.
+ * @param {string} catalogRoot
+ * @param {string} communityCatalogRoot
+ * @param {string} moduleName
+ * @param {{requiredLocales?: readonly string[], placeholders?: Record<string, string[]>}} [options]
+ */
+export async function discoverCatalogModuleWithCommunity(catalogRoot, communityCatalogRoot, moduleName, options = {}) {
+  const firstParty = await discoverCatalogModule(catalogRoot, moduleName, options);
+  let communityEntries;
+  try {
+    communityEntries = await readdir(resolve(communityCatalogRoot, moduleName), { withFileTypes: true });
+  } catch {
+    return firstParty;
+  }
+
+  const requiredLocales = options.requiredLocales ?? DEFAULT_REQUIRED_LOCALES;
+  const baseLocale = requiredLocales.includes('pt-BR') ? 'pt-BR' : requiredLocales[0];
+  const firstPartyShape = catalogKeyShape(firstParty.catalogs[baseLocale]);
+  const placeholders = options.placeholders ?? MODULE_PLACEHOLDERS[moduleName] ?? {};
+  const catalogs = { ...firstParty.catalogs };
+  const rejectedLocales = [...firstParty.rejectedLocales];
+
+  for (const entry of communityEntries) {
+    if (!entry.isFile() || !entry.name.endsWith('.tsv')) continue;
+    const locale = entry.name.slice(0, -4);
+    if (!isCanonicalLocale(locale) || Object.hasOwn(catalogs, locale)) continue;
+    try {
+      const catalog = parseCatalogBytes(await readFile(join(resolve(communityCatalogRoot, moduleName), entry.name)));
+      const shape = catalogKeyShape(catalog);
+      if (JSON.stringify(shape) !== JSON.stringify(firstPartyShape)) {
+        throw new Error('Community catalog keys differ from first-party module');
+      }
+      validateCatalogSet({ [locale]: catalog }, { locales: [locale], placeholders });
       catalogs[locale] = catalog;
     } catch {
       rejectedLocales.push({ locale, reason: 'invalid-catalog' });

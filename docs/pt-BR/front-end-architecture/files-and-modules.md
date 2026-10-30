@@ -2,11 +2,23 @@
 [English](../../front-end-architecture/files-and-modules.md)
 
 
+O código Next.js fica em `apps/frontend/`; os arquivos do frontend vanilla que ainda estão em `apps/web/` não são mais servidos desde a Onda 1 do cutover; os arquivos do overlay vanilla foram removidos na Onda 3, os catálogos foram para `apps/shared/localization/catalogs` na Onda 2 e o painel vanilla é removido na Onda 4. O novo código da aplicação continua em JavaScript ESM com JSDoc:
+
 ```text
-apps/web/public/
-  index.html       estrutura semântica e regiões nomeadas
-  styles.css       estilos responsivos do painel local
-  app.js           cliente API com sessão, renderização e handlers
+apps/frontend/
+  app/                 composição App Router; layouts raiz separados para painel e overlay
+  features/            setup, visão geral, filas, operações, configurações, widgets, overlay
+  components/ui/       componentes visuais compartilhados e acessíveis
+  lib/api/             cliente same-origin e contratos JSDoc
+  lib/i18n/            carga de catálogos runtime, seleção de locale e formatação
+  styles/              tokens, estilos globais e por feature
+  scripts/             configuração runtime do Next, servidor HTTPS de produção, launcher de desenvolvimento
+  features/panel-shell/ inicialização da sessão local, navegação e composição do shell
+  features/overview/    resumos read-only e apresentação de projeções
+apps/shared/localization/catalogs/  catálogos TSV de primeira parte (desde a Onda 2)
+apps/web/               arquivos do frontend vanilla, não servidos desde a Onda 1; removidos na Onda 4
 ```
 
-`app.js` renderiza projeções explícitas da API usando construção DOM e `textContent`. Não passar nomes/mensagens não confiáveis por `innerHTML`. Consultar estado local em intervalo limitado; não adicionar WebSocket ao painel. Mutações são requisições explícitas com token CSRF, chave de idempotência e revisão aplicável.
+O shell do painel inicializa `/api/session` antes das leituras protegidas, carrega as projeções allowlisted de `/api/state` e do operador `/api/queues`, e consulta `/api/localization/catalogs` em runtime. Somente o catálogo first-party pt-BR é embutido como fallback de renderização estática; a API runtime fornece o conjunto completo de idiomas instalados e é a autoridade para a seleção persistida. Projeção de fila inválida mostra erro de API em vez de resumo vazio. Mutações preservam CSRF, idempotência e revisão esperada.
+
+O estágio Docker do frontend executa `npm run build:frontend` e a imagem de runtime contém `apps/frontend/.next`, servido pelo servidor de produção do Next.js; não há export `out/`. Os módulos compartilhados de painel/overlay ficam em `apps/shared/panel/` e chegam ao build pela única linha `COPY apps/shared`, que desde a Onda 2 também leva os catálogos de primeira parte (`apps/shared/localization/catalogs`); o estágio do frontend não copia nada de `apps/web` (revisão estrutural S-03). A rota dedicada do overlay monta o renderer somente leitura existente em sua própria entrada client, preservando o comportamento de capability no fragmento, polling e revogação; os links de widget usam `/overlay?ref=...#token` (`apps/api/src/domain/overlay-widget-service.mjs:41`) e o alias `/overlay.html` foi removido na Onda 3 do cutover. Desde a Onda 1 do cutover, a `/` de produção é a Visão geral do Next (`apps/frontend/app/(panel)/page.jsx:8`); nenhum rewrite de produção envia `/` ao Fastify (`apps/frontend/scripts/dev-proxy-config.mjs:41-46`). Mantenha rotas/layouts finos e decisões de domínio nos serviços atuais do backend. Renderize conteúdo com segurança textual; nunca coloque nomes/mensagens não confiáveis em HTML bruto. Preserve polling limitado e não adicione WebSocket ao painel. Painel e overlay devem gerar bundles de entrada separados.

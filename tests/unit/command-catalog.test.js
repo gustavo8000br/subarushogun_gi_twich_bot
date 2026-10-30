@@ -23,6 +23,16 @@ describe('canonical chat command access contract', () => {
     }
   });
 
+  it('defaults configurable commands to followers while preserving explicit everyone overrides', () => {
+    const definition = getCommandDefinition({ scope: 'queue', command: 'lista' });
+    expect(definition.access).toEqual({ kind: 'configurable', minimumRole: 'follower' });
+    expect(resolveCommandPolicy(definition, {}).minimumRole).toBe('follower');
+    expect(resolveCommandAccess({ definition, roles: ['viewer'] }).allowed).toBe(false);
+    expect(resolveCommandAccess({ definition, roles: ['follower'] }).allowed).toBe(true);
+    expect(resolveCommandPolicy(definition, { [definition.key]: { minimumRole: 'everyone' } }).minimumRole).toBe('everyone');
+    expect(resolveCommandAccess({ definition, policy: { minimumRole: 'everyone' }, roles: ['viewer'] }).allowed).toBe(true);
+  });
+
   it('keeps VIP authorization behind the global toggle', () => {
     const definition = getCommandDefinition({ scope: 'queue', command: 'lista' });
     const policy = { minimumRole: 'vip' };

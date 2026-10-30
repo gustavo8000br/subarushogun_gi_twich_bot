@@ -17,7 +17,7 @@ function setup({ getTwitchHealth } = {}) {
     listEntriesByStatus: vi.fn(async () => [{ id: 'entry-1', version: 1, status: 'waiting', source: 'redemption', redemptionId: 'redemption-1' }, { id: 'entry-2', version: 1, status: 'called', source: 'manual', redemptionId: null }]),
     clearActiveEntries: vi.fn(async ({ snapshot }) => ({ status: 'cleared', count: snapshot.length, refundsRequested: 1 })),
   };
-  const twitch = { sendChatMessage: vi.fn(async () => ({ sent: true })), getUserByLogin: vi.fn(async () => ({ id: 'viewer-1', login: 'viewer', displayName: 'Viewer' })) };
+  const twitch = { sendChatMessage: vi.fn(async () => ({ sent: true })), getUserByLogin: vi.fn(async () => ({ id: 'viewer-1', login: 'viewer', displayName: 'Viewer' })), checkFollower: vi.fn(async () => 'follower') };
   const settings = { getAccount: vi.fn(async () => ({ label: 'Streamer' })), setAccount: vi.fn(async (label) => ({ label })), resetAccount: vi.fn(async () => ({ label: 'Streamer' })) };
   const domainService = {
     transitionEntry: vi.fn(async ({ to }) => ({ id: 'entry-1', status: to, financialDecision: 'no_operation' })),
@@ -46,7 +46,7 @@ describe('Twitch chat command handler', () => {
     expect(unknown.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringMatching(/não foi possível verificar|não foi poss[ií]vel verificar/i));
   });
 
-  it('does not query Twitch for subscriber inheritance and marks follower-dependent help as unverifiable when needed', async () => {
+  it('does not query Twitch for subscriber inheritance and fails closed for follower help when status is unknown', async () => {
     const subscriber = setup();
     subscriber.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { minimumRole: 'follower' } }));
     subscriber.twitch.checkFollower = vi.fn();
@@ -58,7 +58,7 @@ describe('Twitch chat command handler', () => {
     help.repository.getCommandPolicies = vi.fn(async () => ({ 'queue:lista': { minimumRole: 'follower' } }));
     help.twitch.checkFollower = vi.fn(async () => 'unknown');
     await help.handler({ id: 'follower-help-unknown', text: '!fila comandos', userId: 'help-1', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
-    expect(help.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringMatching(/não foi possível verificar|não foi poss[ií]vel verificar/i));
+    expect(help.twitch.sendChatMessage).not.toHaveBeenCalled();
     expect(help.twitch.sendChatMessage).not.toHaveBeenCalledWith(expect.stringContaining('!<fila> lista'));
   });
 
@@ -205,6 +205,17 @@ describe('Twitch chat command handler', () => {
     expect(h.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringContaining('1 pessoa chamada'));
   });
 
+  it('FT-22: passes previousPosition (and no message text) to the call-notification enqueue for each chat call', async () => {
+    const h = setup();
+    h.domainService.callNext.mockResolvedValue([
+      { id: 'entry-1', twitchUserId: 'viewer-1', userLogin: 'viewer', displayName: 'Viewer', previousPosition: 1, status: 'called' },
+      { id: 'entry-2', twitchUserId: 'viewer-2', userLogin: 'viewer2', displayName: 'Viewer 2', previousPosition: 2, status: 'called' },
+    ]);
+    await h.handler({ id: 'message-ft22', text: '!abismo proximo 2', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+    expect(h.repository.enqueueCallNotification).toHaveBeenNthCalledWith(1, { entryId: 'entry-1', queueId: 'queue-1', previousPosition: 1 });
+    expect(h.repository.enqueueCallNotification).toHaveBeenNthCalledWith(2, { entryId: 'entry-2', queueId: 'queue-1', previousPosition: 2 });
+  });
+
   it('explains that calls are paused while a reward queue switches to manual mode', async () => {
     const h = setup();
     h.domainService.callNext.mockRejectedValue(Object.assign(new Error('internal detail'), { code: 'QUEUE_MODE_TRANSITION_PENDING' }));
@@ -276,6 +287,25 @@ describe('Twitch chat command handler', () => {
     await h.handler({ id: 'exit-1', text: '!abismo sair', userId: 'viewer-exit-1', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
     expect(h.domainService.transitionEntry).toHaveBeenCalledWith({ entryId: 'entry-1', to: 'removed', origin: 'viewer', actorId: 'viewer-exit-1', reason: 'viewer_left' });
     expect(h.repository.transitionEntry).not.toHaveBeenCalled();
+  });
+
+  it('reports that Twitch confirmation is pending when a moderator starts redemption service in chat', async () => {
+    const h = setup();
+    h.repository.getProductLocale = vi.fn(async () => ({ locale: 'en', revision: 1 }));
+    h.repository.listEntriesByStatus.mockResolvedValue([{ id: 'entry-1', status: 'called', source: 'redemption', redemptionId: 'redemption-1' }]);
+    h.domainService.transitionEntry.mockResolvedValue({ id: 'entry-1', status: 'in_progress', financialDecision: 'request_fulfill' });
+    h.handler = createChatCommandHandler({
+      repository: h.repository, domainService: h.domainService, twitch: h.twitch, settings: h.settings,
+      broadcasterId: 'broadcaster-1',
+      getChatCatalogs: async () => ({ en: { 'chat.queue.service_started_pending': 'Service started. Twitch redemption confirmation is pending.' } }),
+    });
+
+    await h.handler({ id: 'start-pending', text: '!abismo serve', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
+
+    expect(h.domainService.transitionEntry).toHaveBeenCalledWith({
+      entryId: 'entry-1', to: 'in_progress', origin: 'chat', actorId: 'mod-1', reason: 'service_started',
+    });
+    expect(h.twitch.sendChatMessage).toHaveBeenCalledWith('Service started. Twitch redemption confirmation is pending.');
   });
 
   it.each([
@@ -354,6 +384,66 @@ describe('Twitch chat command handler', () => {
     await h.handler({ id: 'clear-3', text: '!abismo limpar confirmar', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
     expect(h.repository.clearActiveEntries).toHaveBeenCalledOnce();
     expect(h.twitch.sendChatMessage).toHaveBeenLastCalledWith(expect.stringContaining('reembolsos solicitados e pendentes'));
+  });
+
+  describe('FT-21 (D-1): clear confirmation in any case, accent or locale label', () => {
+    function setupWithClearSpy(locale = 'pt-BR') {
+      const h = setup();
+      h.repository.getProductLocale = vi.fn(async () => ({ locale, revision: 1 }));
+      const clearConfirmation = {
+        request: vi.fn(async () => ({ status: 'confirmation_required', count: 2, refundsRequested: 1 })),
+        confirm: vi.fn(async () => ({ status: 'cleared', count: 2, refundsRequested: 1 })),
+      };
+      h.handler = createChatCommandHandler({ repository: h.repository, domainService: h.domainService, twitch: h.twitch, settings: h.settings, clearConfirmation, broadcasterId: 'broadcaster-1' });
+      return { ...h, clearConfirmation };
+    }
+    const mod = { userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] };
+
+    it.each([
+      ['pt-BR', '!abismo limpar CONFIRMAR'],
+      ['pt-BR', '!abismo limpar Confirmar'],
+      ['pt-BR', '!abismo limpar confirmár'],
+      ['pt-BR', '!abismo limpar confirmar'],
+      ['en', '!abismo clear confirm'],
+      ['en', '!abismo clear CONFIRM'],
+    ])('[%s] "%s" confirms exactly once and never re-requests', async (locale, text) => {
+      const h = setupWithClearSpy(locale);
+      await h.handler({ id: `ft21-${locale}-${text}`, text, ...mod });
+      expect(h.clearConfirmation.confirm).toHaveBeenCalledOnce();
+      expect(h.clearConfirmation.request).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['pt-BR', '!abismo limpar sim'],
+      ['pt-BR', '!abismo limpar confirma'],
+      ['en', '!abismo clear yes'],
+      ['en', '!abismo clear confirmar'],
+    ])('[%s] "%s" stays INVALID_SYNTAX and clears nothing', async (locale, text) => {
+      const h = setupWithClearSpy(locale);
+      await h.handler({ id: `ft21-invalid-${locale}-${text}`, text, ...mod });
+      expect(h.clearConfirmation.confirm).not.toHaveBeenCalled();
+      expect(h.clearConfirmation.request).not.toHaveBeenCalled();
+      expect(h.repository.clearActiveEntries).not.toHaveBeenCalled();
+    });
+
+    it('bare "!abismo limpar" only requests confirmation and never confirms (M-2)', async () => {
+      const h = setupWithClearSpy();
+      await h.handler({ id: 'ft21-bare-1', text: '!abismo limpar', ...mod });
+      expect(h.clearConfirmation.request).toHaveBeenCalledOnce();
+      expect(h.clearConfirmation.confirm).not.toHaveBeenCalled();
+      expect(h.repository.clearActiveEntries).not.toHaveBeenCalled();
+    });
+
+    it('a second bare "!abismo limpar" by the same moderator within the TTL does not clear; only the confirmation label does (M-2)', async () => {
+      const h = setup();
+      await h.handler({ id: 'ft21-bare-a', text: '!abismo limpar', ...mod });
+      expect(h.repository.clearActiveEntries).not.toHaveBeenCalled();
+      await h.handler({ id: 'ft21-bare-b', text: '!abismo limpar', ...mod });
+      expect(h.repository.clearActiveEntries).not.toHaveBeenCalled();
+      expect(h.twitch.sendChatMessage).toHaveBeenLastCalledWith(expect.stringContaining('2 pessoas'));
+      await h.handler({ id: 'ft21-bare-c', text: '!abismo limpar confirmar', ...mod });
+      expect(h.repository.clearActiveEntries).toHaveBeenCalledOnce();
+    });
   });
 
   it('answers global ping for a moderator using cached health and the running version', async () => {

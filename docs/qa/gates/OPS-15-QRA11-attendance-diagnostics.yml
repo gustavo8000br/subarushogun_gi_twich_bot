@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'QRA-11 unexpected attendance-transition diagnostics, safe reference propagation/rendering, and bilingual route inventory update only'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (QRA-11 attendance diagnostics, uncommitted)'
+updated: '2026-10-19'
+status_reason: 'Unexpected transition failures use a generic response and stable diagnostic source/reference; known domain errors retain their existing mapping. Next validates the reference token and renders it only with the generic localized action alert. EN/pt-BR inventory rows match. This scoped PASS is not overall OPS-15 QA.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js tests/unit/next-queue-entry-actions.test.js tests/unit/next-queue-list.test.js; 3 files / 115 tests passed'
+  local_focused_tests: 'Same focused route/action/list command; 3 files / 115 tests passed'
+  lint: 'npm run lint passed'
+  typecheck: 'npm run typecheck passed'
+  localization: 'npm run validate:localization passed for en, es, and pt-BR'
+  diff_check: 'git diff --check passed'
+  ux_review: 'Reused the previously reviewed inline diagnostic-reference pattern; no new interaction, layout, retry, or success copy was introduced'
+limitations:
+  - 'The static-analysis command could not start because opengrep is not installed on this Windows host.'
+  - 'No PostgreSQL, browser, Next preview, Docker, installer, Twitch, or native OBS/CEF validation was performed.'
+  - 'This is not an overall OPS-15 implementation QA score and does not close OPS-15 or authorize panel cutover.'

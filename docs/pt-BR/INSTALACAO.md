@@ -11,7 +11,7 @@ Este guia cobre requisitos do computador, primeira inicialização, confiança H
 - Navegador atual no mesmo computador que possa confiar em uma autoridade certificadora local.
 - Internet para baixar imagens do GHCR e conectar à Twitch.
 - O repositório-fonte é público. O acesso à imagem GHCR é controlado separadamente; faça um pull anônimo para confirmar se o pacote é público. Se não for, o pull exige uma conta GitHub autorizada e um token clássico com `read:packages`. Nunca salve o token nos arquivos do projeto. O repositório público, por si só, não libera uma imagem privada.
-- Node.js, PostgreSQL, Git e compilador não são necessários no host para executar pelo Compose. Node.js `24.20.0` roda no contêiner e só é necessário no host para desenvolvimento.
+- Node.js, npm, PostgreSQL, Git e compilador não são necessários no host para usar o instalador do usuário final. Ele baixa uma imagem pré-compilada; o usuário não compila o aplicativo localmente. Node.js `24.20.0` só é necessário para desenvolvimento.
 
 ### Sistemas host
 
@@ -28,7 +28,7 @@ Estes são valores **aproximados para a alpha atual**, não mínimos garantidos.
 - Disco: cerca de 10 GB livres para imagens baixadas, volumes de banco/segredos, logs e atualizações.
 - Não é necessária GPU dedicada.
 
-Compilar a imagem localmente é necessário apenas para desenvolvimento e pode exigir CPU, memória e disco adicionais para o cache; consulte o [guia de desenvolvimento](../DEVELOPMENT.md).
+Compilar imagem localmente é necessário somente para CI/manutenção e pode exigir CPU, memória e disco adicionais para o cache; desenvolvimento comum usa `npm run dev`. Usuários finais baixam imagem pré-compilada pelo instalador. Consulte o [guia de desenvolvimento](../DEVELOPMENT.md).
 
 Os valores para Windows também refletem requisitos do Docker Desktop. Consulte os guias atuais de [Windows](https://docs.docker.com/desktop/setup/install/windows-install/), [Docker Engine no Ubuntu](https://docs.docker.com/engine/install/ubuntu/), [pós-instalação Linux](https://docs.docker.com/engine/install/linux-postinstall/) e [plugin Compose](https://docs.docker.com/compose/install/linux/).
 

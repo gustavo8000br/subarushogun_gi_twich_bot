@@ -1,0 +1,23 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'Diagnósticos das rotas clear-preview QRA-14 e clear-confirm QRA-15, confirmação da mesma sessão vinculada ao snapshot, resultados aceitos empty/cleared/renovados no cliente, recuperação de resultado incerto e bloqueio da limpeza com projeção desatualizada somente'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (confirmação de limpeza QRA-14/15, não commitada)'
+updated: '2026-10-19'
+status_reason: 'As rotas vinculam desafios de preview à sessão local ativa, ao canal e à fila, exigem fila ativa e retornam diagnóstico 503 genérico sanitizado com referência/header seguros para falhas inesperadas do serviço. O cliente valida as projeções de preview e confirmação, incluindo empty após challenge consumido. Resultados ambíguos da confirmação fecham o challenge antigo e reconciliam a projeção da fila; se a reconciliação falhar, a UI mostra ação localizada de atualização e bloqueia novos previews/confirmações até uma atualização bem-sucedida. A redação do inventário bilíngue corresponde a esses contratos. Este PASS é limitado a QRA-14/15; OPS-15 permanece In Progress e o gate final da story não foi satisfeito.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js tests/unit/next-queue-clear.test.js tests/unit/next-queue-clear-ui.test.jsx tests/unit/next-queue-list.test.js; 4 arquivos / 105 testes passaram'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  localization: 'npm run validate:localization passou para en, es e pt-BR'
+  diff_check: 'git diff --check passou'
+  route_security_review: 'Preview/confirm usam o ator da sessão do servidor e o canal fixo local-panel; filas ausentes/inativas retornam 404. Falhas inesperadas do serviço retornam respostas INTERNAL_ERROR genéricas com x-error-reference e referenceId; os corpos testados não expõem texto privado da exceção.'
+  client_recovery_review: 'Respostas malformadas de preview/confirmação são rejeitadas. Respostas empty, cleared e confirmação renovada são tratadas sem declarar sucesso para empty/incerto. Falha na reconciliação após a confirmação ativa estado compartilhado que exige atualização; a UI fecha qualquer challenge antigo, bloqueia novas limpezas, oferece ação acessível Atualizar fila e só reabilita após refresh bem-sucedido da projeção.'
+  bilingual_docs: 'O inventário de rotas/ações QRA-14/15 em inglês e pt-BR registra os mesmos resultados empty/cleared/renovados e comportamento de atualização obrigatória.'
+limitations:
+  - 'Não foi executado PostgreSQL isolado; persistência de limpeza aceita, rollback/atomicidade, expiração, substituição do snapshot e comportamento entre sessões continuam sem verificação runtime.'
+  - 'Não foram executados runtime Docker Compose, browser/prévia Next, Twitch, instalador ou OBS/CEF nativo.'
+  - 'Esta não é QA geral da OPS-15, não encerra a story, não satisfaz seu gate final e não autoriza cutover do painel.'

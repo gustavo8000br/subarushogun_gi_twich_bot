@@ -4,8 +4,8 @@
 
 ## Código da aplicação
 
-- JavaScript ESM, `type: module`, Node.js 24.20.0 LTS e JSDoc; sem TypeScript de aplicação, transpiler ou bundler.
-- Fastify 5.12.5 e `@fastify/static` 10.1.5; HTML/CSS/JavaScript sem framework em `apps/web/public`.
+- JavaScript ESM, `type: module`, Node.js 24.20.0 LTS e JSDoc; sem TypeScript de aplicação. A OPS-15 permite Next.js e transpilation/bundling em build somente para gerar assets estáticos do navegador.
+- Fastify 5.12.5 e `@fastify/static` 10.1.5 continuam como único servidor HTTP de runtime. A OPS-15 migra `apps/web` para export estático Next.js App Router; o Fastify serve a saída localmente.
 - `@twurple/auth`, `@twurple/api` e `@twurple/eventsub-ws` 8.2.0, fixados juntos.
 - Prisma CLI, `@prisma/client` e `@prisma/adapter-pg` 6.19.3; `pg` 8.23.1; PostgreSQL 18.6.
 - Vitest 5.0.3; `package-lock.json` versionado e Docker instala com `npm ci`.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getQueueActionState, getQueueVisibilityAction } from '../../apps/web/queue-action-state.mjs';
+import { getQueueActionState, getQueueVisibilityAction } from '../../apps/shared/panel/queue-action-state.mjs';
 
 describe('queue action visibility and safety', () => {
   it('offers cancellation while a managed reward deletion is pending', () => {

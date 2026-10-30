@@ -32,10 +32,17 @@ async function createCatalogRoot() {
   return root;
 }
 
-async function createApp(catalogRoot, repository = {}, writeHostProjection = async () => undefined) {
+async function createCommunityCatalogRoot() {
+  const root = await mkdtemp(join(tmpdir(), 'queuebot-community-catalog-route-'));
+  roots.push(root);
+  await Promise.all(['setup', 'chat'].map((moduleName) => mkdir(join(root, moduleName))));
+  return root;
+}
+
+async function createApp(catalogRoot, repository = {}, writeHostProjection = async () => undefined, communityCatalogRoot) {
   const app = Fastify();
   registerLocalSession(app, { port: 3000, secure: false });
-  registerLocalizationRoutes(app, { catalogRoot, repository, writeHostProjection });
+  registerLocalizationRoutes(app, { catalogRoot, communityCatalogRoot, repository, writeHostProjection });
   const session = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
   const cookie = session.cookies[0];
   const sessionHeaders = { host: 'localhost:3000', cookie: `${cookie.name}=${cookie.value}` };
@@ -67,15 +74,16 @@ describe('localization catalog API', () => {
 
   it('detects and interprets a complete community locale file added while the panel is running', async () => {
     const root = await createCatalogRoot();
-    const { app, headers } = await createApp(root);
+    const communityRoot = await createCommunityCatalogRoot();
+    const { app, headers } = await createApp(root, {}, async () => undefined, communityRoot);
     const before = await app.inject({ method: 'GET', url: '/api/localization/catalogs', headers });
     expect(before.json().locales).not.toContain('de');
 
     const germanSetup = 'translation.unavailable\tProdukttext nicht verfügbar.\nsetup.title\tKanal verbinden\nsetup.callback.success_message\tKanal {channel}\nsetup.callback.return_message\tZurück in {seconds}\n';
     const germanChat = 'translation.unavailable\tProdukttext nicht verfügbar.\nchat.account.current\tAktuelles Konto: {label}.\nchat.ping.response\tPong · {version} · {latency}\nchat.queue.position\t@{user}: {position}\nchat.queue.viewer_called\t@{user} gerufen\nchat.queue.viewer_in_progress\t@{user} im Dienst\nchat.queue.presence_confirmed\t{user}, Anwesenheit bestätigt. Warte darauf, dass der Streamer deinen Service startet.\nchat.queue.more.one\t und {count} weitere\nchat.queue.more.other\t und {count} weitere\nchat.queue.called_many.one\t{count} gerufen\nchat.queue.called_many.other\t{count} gerufen\nchat.queue.added\t@{user} hinzugefügt\nchat.queue.clear_confirm\t!{queue} {clear_command} {confirm_command} {count} {refunds}\nchat.queue.clear_done\t{count} {refunds}\n';
     await Promise.all([
-      writeFile(join(root, 'setup', 'de.tsv'), germanSetup),
-      writeFile(join(root, 'chat', 'de.tsv'), germanChat),
+      writeFile(join(communityRoot, 'setup', 'de.tsv'), germanSetup),
+      writeFile(join(communityRoot, 'chat', 'de.tsv'), germanChat),
     ]);
 
     const after = await app.inject({ method: 'GET', url: '/api/localization/catalogs', headers });

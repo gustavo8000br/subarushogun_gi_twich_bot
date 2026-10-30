@@ -1,0 +1,23 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'QRA-13 queue-call diagnostics, partial batch-enqueue failure behavior, safe reference display, and call-next uncertain-result feedback including transport rejection, unreadable 2xx responses, and pre-POST session distinctions only'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (QRA-13 call diagnostics and uncertain-result handling, uncommitted)'
+updated: '2026-10-19'
+status_reason: 'Unexpected call-service/enqueue failures return generic sanitized diagnostics with a stable source and reference. The partial batch failure is covered after prior transitions. For call-next, rejected POST transport and invalid/unreadable 2xx responses use localized uncertain-result guidance; pre-POST session initialization failures and local request validation remain distinct, and the known transition-pending 409 retains its specific feedback. The shared alert exposes only a validated reference. This PASS applies only to QRA-13; OPS-15 remains In Progress and the final story gate is not satisfied.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js tests/unit/next-queue-entry-actions.test.js tests/unit/next-queue-list.test.js tests/unit/next-api-client.test.js; 4 files / 136 tests passed'
+  lint: 'npm run lint passed'
+  typecheck: 'npm run typecheck passed'
+  localization: 'npm run validate:localization passed for en, es, and pt-BR'
+  diff_check: 'git diff --check passed'
+  route_diagnostic_review: 'Call service and selected-entry enqueue failures plus second enqueue failure after a two-entry batch transition return sanitized 500 INTERNAL_ERROR, referenceId, and x-error-reference without leaking private error text; stable source is http.queue.call'
+  api_client_review: 'Endpoint fetch rejection is sanitized to REQUEST_FAILED/status 0; unreadable successful JSON reaches INVALID_QUEUE_ENTRY_ACTION_RESPONSE; pre-POST session failures use SESSION_INITIALIZATION_FAILED and do not issue the call POST'
+  ux_review: 'UX reviewed the distinction between uncertain call outcomes and pre-POST/session or local validation failures; localized refresh-before-retry guidance appears without a success state'
+limitations:
+  - 'The configured static scan could not run because OpenGrep is not installed or recognized on this Windows host.'
+  - 'No runtime, PostgreSQL/database, browser/Next preview, Twitch, installer, or native OBS/CEF validation was performed.'
+  - 'This is not overall OPS-15 QA, does not close the story, and does not satisfy the final OPS-15 gate or authorize panel cutover.'

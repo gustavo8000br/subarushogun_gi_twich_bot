@@ -76,6 +76,7 @@ const CHAT_FALLBACKS = Object.freeze({
   'chat.queue.select_user': 'Informe o usuário porque há mais de uma pessoa possível.',
   'chat.queue.person_not_active': 'Essa pessoa não está ativa nesta fila.',
   'chat.queue.complete_pending': 'Atendimento concluído. O consumo dos pontos está pendente de confirmação.',
+  'chat.queue.service_started_pending': 'Atendimento iniciado. A confirmação do resgate na Twitch está pendente.',
   'chat.queue.service_started': 'Atendimento iniciado.',
   'chat.queue.service_completed': 'Atendimento concluído.',
   'chat.queue.move_failed': 'Não foi possível mover essa pessoa.',
@@ -202,9 +203,7 @@ export function createChatCommandHandler({ repository, domainService = repositor
         const selected = await domainService.callNext({ queueId: queue.id, count: requested, actorId: authorized.actorId });
         if (!selected.length) return reply(message, t('chat.queue.nobody_waiting'));
         for (const entry of selected) {
-          const uid = queue.uidMode === 'visible' && queue.showUidOnCall && entry.uid ? ` · UID ${entry.uid}` : '';
-          const messageText = (queue.callMessage || '{user}, sua vez!').replaceAll('{user}', `@${entry.userLogin}`).replaceAll('{queue}', queue.title).replaceAll('{position}', String(entry.previousPosition)).replaceAll('{uid}', uid).replaceAll('{account}', (await settings.getAccount?.())?.label ?? 'Streamer');
-          await repository.enqueueCallNotification?.({ entryId: entry.id, queueId: queue.id, message: messageText });
+          await repository.enqueueCallNotification?.({ entryId: entry.id, queueId: queue.id, previousPosition: entry.previousPosition });
         }
         return reply(message, selected.length === 1 ? t('chat.queue.called_one') : tPlural('chat.queue.called_many', selected.length));
       }
@@ -223,7 +222,9 @@ export function createChatCommandHandler({ repository, domainService = repositor
         if (!entry) return reply(message, t('chat.queue.person_not_active'));
         const to = parsed.command === 'atender' ? 'in_progress' : 'completed';
         const result = await domainService.transitionEntry({ entryId: entry.id, to, origin: 'chat', actorId: authorized.actorId, reason: parsed.command === 'atender' ? 'service_started' : 'service_completed' });
-        return reply(message, result.financialDecision === 'request_fulfill' ? t('chat.queue.complete_pending') : parsed.command === 'atender' ? t('chat.queue.service_started') : t('chat.queue.service_completed'));
+        return reply(message, result.financialDecision === 'request_fulfill'
+          ? t(parsed.command === 'atender' ? 'chat.queue.service_started_pending' : 'chat.queue.complete_pending')
+          : parsed.command === 'atender' ? t('chat.queue.service_started') : t('chat.queue.service_completed'));
       }
       case 'mover': {
         const user = await twitch.getUserByLogin(normalizedLogin(args[0]));
@@ -260,7 +261,9 @@ export function createChatCommandHandler({ repository, domainService = repositor
       case 'limpar': {
         if (!clearConfirmation) return reply(message, t('chat.queue.clear_unavailable'));
         const input = { actorId: authorized.actorId, channelId: message.channelId, queueId: queue.id, origin: 'chat' };
-        const result = args[0] === 'confirmar'
+        // The parser accepts exactly one argument for `limpar` only when it is the localized
+        // confirmation label (any case/accent), so the arity is the confirmation signal (FT-21).
+        const result = args.length === 1
           ? await clearConfirmation.confirm(input)
           : await clearConfirmation.request(input);
         if (result.status === 'empty') return reply(message, t('chat.queue.empty'));
