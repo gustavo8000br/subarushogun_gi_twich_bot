@@ -1,9 +1,9 @@
 # HD-02 — Overlay compatibility contract
 
-> **SUPERSEDED on 2026-10-28 by the owner decision** (no active users until `rc`, OW-09 of 2026-10-27; the `/overlay.html` alias was removed in cutover Wave 3; the overlay route is `/overlay?ref=<reference>#<capability>`, served by Next without redirect, and `/overlay.html` receives Next's 404). See [`docs/stories/OPS-15/cutover-wave-3.md`](../../stories/OPS-15/cutover-wave-3.md). The `/overlay.html` path below is kept unchanged as a historical record. Wave 3 status on 2026-10-28: QA CONCERNS 9.0 ([`qa-gate-2026-10-28.md`](../../stories/OPS-15/qa-gate-2026-10-28.md)), Wave 3 committed (`906fd5c`).
+> **SUPERSEDED on 2026-10-28 by the owner decision** (no active users until `rc`, OW-09 of 2026-10-27; the `/overlay.html` alias was removed in cutover Wave 3; the overlay route is `/overlay?ref=<reference>#<capability>`, served by Next without redirect, and `/overlay.html` receives Next's 404). See [`docs/stories/OPS-15/cutover-wave-3.md`](../../stories/OPS-15/cutover-wave-3.md). The `/overlay.html` path below is kept unchanged as a historical record. Wave 3 state: committed (`906fd5c`), `@qa` CONCERNS 9.0 ([`qa-gate-2026-10-28.md`](../../stories/OPS-15/qa-gate-2026-10-28.md)), PR #101 open. Moved from `in_review` to `done` on 2026-10-30 (`@po`, under the Orion's delegated decision).
 
-**Status:** Owner decision recorded (2026-10-19); production build/runtime and OBS/CEF validation remain pending. Architectural reconciliation with #57 remains open.
-**Português:** [HD-02 — Contrato de compatibilidade do overlay](../../decisoes_humanas/em_revisao/HD-02-contrato-compatibilidade-overlay.md)
+**Status:** **Superseded** (2026-10-28). Original status: owner decision recorded (2026-10-19) for option A. The production build/runtime and native OBS/CEF validation of the successor route stay tracked by HD-03 and the OPS-15 story; the reconciliation with #57 is now the follow-up of OPS-25 (`/overlay.html` contract below is historical).
+**Português:** [HD-02 — Contrato de compatibilidade do overlay](../../decisoes_humanas/concluidas/HD-02-contrato-compatibilidade-overlay.md)
 
 ## Problem
 

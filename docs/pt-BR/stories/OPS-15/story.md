@@ -674,7 +674,7 @@ Esta é a passagem ordenada do trabalho restante da migração. Checkboxes concl
 - `apps/frontend/scripts/dev-runtime-config.mjs` — Next dev usa HTTPS com a CA local, bind local em loopback e define a origem HTTPS Next das capabilities.
 - `apps/api/src/server.mjs`, `apps/api/src/http/dev-overlay-alias.mjs` — URLs de widgets usam a origem que serve o documento; links antigos de desenvolvimento na origem da API recebem redirect temporário sem expor o fragmento.
 - `tests/unit/dev-overlay-alias.test.js`, `tests/unit/next-dev-runtime-config.test.js` — cobrem HTTPS loopback, separação de portas/origens, validação de query no redirect e bind local/Codespaces.
-- `docs/decisoes_humanas/em_revisao/HD-02-contrato-compatibilidade-overlay.md`, `docs/human_decisions/in_review/HD-02-overlay-compatibility-contract.md` — revisam o contrato bilíngue de origem por modo; reconciliação independente do Architect com #57 e reconfirmação do proprietário continuam abertas.
+- `docs/decisoes_humanas/concluidas/HD-02-contrato-compatibilidade-overlay.md`, `docs/human_decisions/done/HD-02-overlay-compatibility-contract.md` (movidos para concluídas como Superada em 2026-10-30) — revisam o contrato bilíngue de origem por modo; reconciliação independente do Architect com #57 e reconfirmação do proprietário continuam abertas.
 
 ## File List do incremento — feedback do callback OAuth pertencente ao frontend
 

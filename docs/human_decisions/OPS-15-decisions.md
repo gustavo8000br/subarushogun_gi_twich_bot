@@ -13,10 +13,11 @@ Reply with decision IDs and option letters when a choice is requested. A choice 
 
 - [HD-01 — Windows runtime path](done/HD-01-windows-runtime-path.md)
 - [Recorded project decisions](done/recorded-project-decisions.md)
+- [HD-02 — Overlay compatibility contract](done/HD-02-overlay-compatibility-contract.md) — **Superseded** (2026-10-28, OW-09 and cutover Wave 3)
 
 ## In review
 
-- [HD-02 — Overlay compatibility contract](in_review/HD-02-overlay-compatibility-contract.md)
+No decision is in review.
 
 ## Awaiting
 

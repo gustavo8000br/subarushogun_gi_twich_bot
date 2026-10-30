@@ -32,7 +32,7 @@ O teste Chromium browser-only `tests/e2e/queue-creation-uncertain-browser-only.m
 1. `AGENTS.md`
 2. `docs/session-handoff.md` e `docs/pt-BR/session-handoff.md`
 3. `docs/stories/OPS-15/story.md` e `docs/pt-BR/stories/OPS-15/story.md`
-4. Este handoff e `docs/decisoes_humanas/em_revisao/HD-02-contrato-compatibilidade-overlay.md`
+4. Este handoff e `docs/decisoes_humanas/concluidas/HD-02-contrato-compatibilidade-overlay.md` (Superada pela OW-09 e pela Onda 3; registro histórico)
 
 Antes de editar, informe `pwd`, `git rev-parse --show-toplevel`, `git branch --show-current` e `git rev-parse --short HEAD`. Mantenha este checkout em `feat/ops-15-next-panel`; preserve todas as modificações locais e artefatos não rastreados existentes. Não troque para `main`, descarte/reset alterações, crie PR ou faça merge. Não execute geradores de status ou greeting. Nunca adicione `.env.product.local`, segredos, artefatos de build ou `.aiox/project-status-43a81ec8.yaml` ao Git.
 

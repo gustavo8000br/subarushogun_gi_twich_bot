@@ -689,7 +689,7 @@ This is the ordered handoff for remaining migration work. Completed checkboxes a
 - `apps/frontend/scripts/dev-runtime-config.mjs` — run Next dev over HTTPS with the local CA, bind local development to loopback, and set the overlay capability origin to Next HTTPS.
 - `apps/api/src/server.mjs`, `apps/api/src/http/dev-overlay-alias.mjs` — issue widget URLs from the document-serving origin and temporarily redirect older development API-origin links without exposing the fragment.
 - `tests/unit/dev-overlay-alias.test.js`, `tests/unit/next-dev-runtime-config.test.js` — cover HTTPS loopback, port/origin separation, redirect query validation, and local/Codespaces binding.
-- `docs/decisoes_humanas/em_revisao/HD-02-contrato-compatibilidade-overlay.md`, `docs/human_decisions/in_review/HD-02-overlay-compatibility-contract.md` — revise the bilingual mode-specific origin contract; independent Architect reconciliation with #57 and owner reconfirmation remain open.
+- `docs/decisoes_humanas/concluidas/HD-02-contrato-compatibilidade-overlay.md`, `docs/human_decisions/done/HD-02-overlay-compatibility-contract.md` (moved to done as Superseded on 2026-10-30) — revise the bilingual mode-specific origin contract; independent Architect reconciliation with #57 and owner reconfirmation remain open.
 
 ## Increment File List — Next-served dynamic overlay and production runtime split
 

@@ -1,9 +1,9 @@
 # HD-02 — Contrato de compatibilidade do overlay
 
-> **SUPERADA em 2026-10-28 pela decisão do proprietário** (sem usuários ativos até o `rc`, OW-09 de 2026-10-27; o alias `/overlay.html` foi removido na Onda 3 do cutover; a rota do overlay é `/overlay?ref=<referência>#<capability>`, servida pelo Next sem redirecionamento, e `/overlay.html` recebe o 404 do Next). Veja [`docs/pt-BR/stories/OPS-15/cutover-wave-3.md`](../../pt-BR/stories/OPS-15/cutover-wave-3.md) (em inglês: `docs/stories/OPS-15/cutover-wave-3.md`). O caminho `/overlay.html` abaixo permanece inalterado como registro histórico. Situação da Onda 3 em 2026-10-28: QA CONCERNS 9,0 ([`qa-gate-2026-10-28.md`](../../pt-BR/stories/OPS-15/qa-gate-2026-10-28.md)), Onda 3 comitada (`906fd5c`).
+> **SUPERADA em 2026-10-28 pela decisão do proprietário** (sem usuários ativos até o `rc`, OW-09 de 2026-10-27; o alias `/overlay.html` foi removido na Onda 3 do cutover; a rota do overlay é `/overlay?ref=<referência>#<capability>`, servida pelo Next sem redirecionamento, e `/overlay.html` recebe o 404 do Next). Veja [`docs/pt-BR/stories/OPS-15/cutover-wave-3.md`](../../pt-BR/stories/OPS-15/cutover-wave-3.md) (em inglês: `docs/stories/OPS-15/cutover-wave-3.md`). O caminho `/overlay.html` abaixo permanece inalterado como registro histórico. Estado da Onda 3: comitada (`906fd5c`), `@qa` CONCERNS 9,0 ([`qa-gate-2026-10-28.md`](../../pt-BR/stories/OPS-15/qa-gate-2026-10-28.md)), PR #101 aberto. Movida de `em_revisao` para `concluidas` em 2026-10-30 (`@po`, por decisão delegada ao Orion).
 
-**Status:** Decisão do proprietário registrada (2026-10-19); build/runtime de produção e validação OBS/CEF continuam pendentes. A reconciliação arquitetural com #57 continua aberta.
-**English:** [HD-02 — Overlay compatibility contract](../../human_decisions/in_review/HD-02-overlay-compatibility-contract.md)
+**Status:** **Superada** (2026-10-28). Status original: decisão do proprietário registrada (2026-10-19) pela opção A. O build/runtime de produção e a validação OBS/CEF nativa da rota sucessora seguem na HD-03 e na story OPS-15; a reconciliação com #57 agora é o acompanhamento da OPS-25 (o contrato `/overlay.html` abaixo é histórico).
+**English:** [HD-02 — Overlay compatibility contract](../../human_decisions/done/HD-02-overlay-compatibility-contract.md)
 
 ## Problema
 
