@@ -5,7 +5,7 @@
 **Status:** Draft (drafted by `@sm` on 2026-10-27; not yet validated by `@po`). **Issue:** pending (`@devops` creates it when the story is ready; no issue comments).
 **Source:** defect **D-8** found in the live battery of 2026-10-26: the chat answered `Pong 🏓 Bot ativo · v0.2.0-0000000-beta · Twitch: latência indisponível` ([live-battery-2026-10-26-results.md](../OPS-15/live-battery-2026-10-26-results.md), LB-23) while `/health` reported `twitch_api_ping_ms: 219` on the same instance (owner report, 2026-10-27); the owner has seen "unavailable" several times. Owner request of 2026-10-27: a streamer-only `status` command.
 **Related:** OPS-15 (the Next panel; this story starts only after its branch is merged); OPS-22 (financial operations shown by `status`); OPS-23 (SSE; none of its code is reused here); OPS-14 / #65 (localized chat behavior, no story file in the repository); the command catalog and localization catalogs (pt-BR, en, es).
-**Registered items:** inventory ST-19 (this story, which carries defect D-8), TS-13 and TS-14 (tests), OW-17 (owner live check of `ping`/`status`); see [backlog-inventory](../../process/backlog-inventory.md).
+**Registered items:** inventory ST-19 (this story, which carries defect D-8), TS-13 and TS-14 (tests; part of this story since 2026-10-30, with no cards of their own), OW-17 (owner live check of `ping`/`status`); see [backlog-inventory](../../process/backlog-inventory.md).
 **Why LB-23 is PASS and D-8 is a defect:** the live battery graded LB-23 **PASS** because it checked only that the bot answers `ping`; on 2026-10-27 the owner classified the missing latency (`latência indisponível` while `/health` showed 219 ms) as defect D-8. Both statements are true; the battery result is not rewritten.
 **Coordination required:** `$aiox-po` (validation, exact version format), `$aiox-architect` (how to measure latency without rate-limit pressure or cost; where `status` reads its data), `$aiox-ux-design-expert` (chat texts and formats, score >= 9.0 on the reviewed scope), independent `$aiox-qa`, `$aiox-devops` (issue). `$aiox-analyst` only if a GAP appears (a light Helix endpoint to measure latency): check [research-index.md](../../research-index.md) first.
 
@@ -62,6 +62,7 @@ Evidence classes stay separate: unit, integration (PostgreSQL where data is read
 
 - **Depends on:** ST-01 / issue #69 integrated in `main` (explicit); `@po` GO and `@devops` issue; `@architect` decision on measurement and data source; `@ux-design-expert` plan; OPS-22 delivered or stable for the operations part of `status`.
 - **Write set:** chat command handlers, the command catalog and the three chat catalogs (after cutover wave 2 / DP-3 they live in `apps/shared/localization/catalogs/`; the story starts after the merge, so use that path); coordinate with OPS-24 (TypeScript) if files were converted by then.
+- **TS-13 and TS-14 are part of this story (owner, 2026-10-30):** TS-13 (the mandatory D-8 test, AC 1-2) and TS-14 (the `status` tests, AC 3 and 5-8) are written Red-first by `@dev` inside this story; they are no longer separate items on the board. No AC change.
 
 ## Risks
 
@@ -123,3 +124,4 @@ The streamer sees a truthful latency and the whole bot status inside the chat, a
 - 2026-10-27 — `@sm` (River): story drafted from defect D-8 (LB-23) and the owner request for the streamer-only `status` command. Status Draft. Blocked until the branch is merged into `main`.
 - 2026-10-28 — `@sm` (River): applied `@po` required corrections 1-3 and should-fix 1-2. AC 1 now fixes the version form (`vMAJOR.MINOR.PATCH-stage`, no commit segment); D-8 and OW-17 are named with their inventory IDs (ST-19, TS-13, TS-14, OW-17, already in the inventory since the fifth update); the LB-23 PASS versus D-8 explanation is in the header; the write set names the post-wave-2 catalog path; AC 5 states the 500-character bound. Status unchanged (Draft; `@po` owns status).
 - 2026-10-28 — `@sm` (River): pt-BR decision 2 aligned to the en text (version form fixed without the commit segment; removed the stale "with or without the commit segment" wording that contradicted AC 1). No change to the en body.
+- 2026-10-30 — `@sm` (River): recorded that inventory items TS-13 and TS-14 are part of this story (owner-approved merge); no AC, scope or status change.
