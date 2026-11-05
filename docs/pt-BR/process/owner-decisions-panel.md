@@ -860,7 +860,7 @@ Sem gates próprios: issue índice, sem story.
 
 ## 7. Contagens
 
-15 decisões (D-01..D-15) e 8 ações do proprietário (A-01..A-08) em 34 issues abertas mais a issue índice. As contagens do quadro não mudam: 66 ativos, 46 arquivados, 110 itens do inventário; a D-14, se aprovada, moveria #17 e #18 para arquivados (64 ativos, 48 arquivados).
+15 decisões (D-01..D-15) e 8 ações do proprietário (A-01..A-08) em 34 issues abertas mais a issue índice. Contagens do quadro antes das marcações de 2026-10-30: 66 ativos, 46 arquivados, 110 itens do inventário. Depois que o proprietário marcou a D-14 = A (2026-10-30), registrada em 2026-11-04: **64 ativos, 48 arquivados** (#17 e #18 passaram a arquivados), 110 itens do inventário, 112 cards no total. Também marcadas: D-01 = B (ST-11 a Rascunho), D-12 = A (TS-02 a Pronto), D-13 = A (TS-07 a Pronto, a TS-11 mede primeiro). Contagens atuais depois do levantamento de melhorias de 2026-11-04 (12 itens novos, nenhuma decisão do proprietário criada): 122 itens do inventário, **76 ativos**, 48 arquivados, 124 cards no total ([inventário](backlog-inventory.md)).
 
 ## Decisões reservadas e decisões padrão (regra do dono, 2026-10-30)
 

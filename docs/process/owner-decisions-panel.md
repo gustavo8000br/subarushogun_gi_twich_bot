@@ -860,7 +860,7 @@ Sem gates próprios: issue índice, sem story.
 
 ## 7. Counts
 
-15 decisions (D-01..D-15) and 8 owner actions (A-01..A-08) over 34 open issues plus the index issue. Board counts are unchanged: 66 active, 46 archived, 110 inventory items; D-14, if approved, would move #17 and #18 to archived (64 active, 48 archived).
+15 decisions (D-01..D-15) and 8 owner actions (A-01..A-08) over 34 open issues plus the index issue. Board counts before the ticks of 2026-10-30: 66 active, 46 archived, 110 inventory items. After the owner ticked D-14 = A (2026-10-30), recorded 2026-11-04: **64 active, 48 archived** (#17 and #18 moved to archived), 110 inventory items, 112 cards in total. Also ticked: D-01 = B (ST-11 to Rascunho), D-12 = A (TS-02 to Pronto), D-13 = A (TS-07 to Pronto, TS-11 measures first). Current counts after the improvement survey of 2026-11-04 (12 new items, no owner decision created): 122 inventory items, **76 active**, 48 archived, 124 cards in total ([inventory](backlog-inventory.md)).
 
 ## Reserved vs default decisions (owner rule, 2026-10-30)
 
