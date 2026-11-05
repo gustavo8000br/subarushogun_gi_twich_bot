@@ -19,3 +19,10 @@
 - **2026-10-30 — A-08 (issue #102), Feito:** o workflow do Project "Close issues when status changes" foi desligado.
 - **2026-10-30 — D-15 e OW-14 (issue #102), resolvidas sem ação do dono:** a branch remota `backup/ops-15-before-history-fix` já foi apagada na limpeza de 2026-10-29, então não resta nada a decidir. Registrada como resolvida sem marcar a caixa em nome do dono.
 - Registro mecânico sem gate do `@qa` (decisão do dono com a cota em 90%); o gate retroativo do `@qa` continua DEVIDO.
+
+## Marcas do dono registradas em 2026-11-05 (issue #69, lidas em 2026-11-04)
+
+- **D-04 (issue #69), registrada como opção A (adiar):** o dono marcou B ("aceitar após teste nativo bem-sucedido") antes de rodar qualquer teste e depois esclareceu que marcou antes de testar. Registrada como A pelo esclarecimento dele; a caixa dele na issue continua marcada como ele deixou. Efeito: a HD-03 segue pendente, a ação A-02 (rodar a matriz nativa do overlay) continua com o dono e nenhuma evidência de OBS/CEF nativo é afirmada.
+- **D-05 (issue #69), opção B:** conseguir um Mac e validar antes do `rc`. Efeito: OW-07 fica Bloqueado até haver acesso a um Mac; nenhum resultado de macOS é afirmado.
+- **D-06 (issue #69), opção A:** aguardar. Efeito: nenhum merge do PR #101 agora; o merge segue reservado ao dono e o Orion volta a perguntar quando o veredito final do `@qa` e a CI estiverem verdes.
+- **D-07 (issue #69), opção A:** adiar. Efeito: nenhuma tag nem release da `v0.3.0-beta` até o fim do cutover e o merge do PR.
