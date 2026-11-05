@@ -12,6 +12,7 @@ Tipos: 🟧 Segurança · 🟩 Adicionado · 🟦 Alterado · 🟨 Obsoleto · �
 
 ### 🟪 Corrigido
 
+- Excluir uma fila de Pontos do Canal não trava mais quando uma devolução de pontos precisa da sua revisão: a exclusão espera, retoma sozinha assim que a devolução é confirmada ou que você a resolve em Operações, e a recompensa só é excluída depois que a Twitch não mostra nenhum resgate em aberto. Se a conexão com a Twitch expirar durante uma exclusão, a exclusão retoma depois que você reconectar.
 - Corrigida a confirmação final de exclusão local da fila para exibir o nome da fila e o aviso completo, em vez do texto de indisponibilidade, tanto no painel legado quanto no painel Next.js.
 
 ## v0.2.0-beta

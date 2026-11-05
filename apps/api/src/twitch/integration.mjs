@@ -337,6 +337,9 @@ export async function createTwitchIntegration({
           });
         },
       });
+      // OPS-22 FT-26 (AC 16): the tokens are stored, so work held by a 401 resumes in its current cycle.
+      try { await repository?.rearmAuthorizationBlockedOperations?.(); }
+      catch (error) { reportDiagnostic({ source: 'twitch.reauthorization_rearm', error }); }
       credential = await credentialRepository.getAuthRecord();
       authLost = false; retryAttempt = 0;
       clearSession();

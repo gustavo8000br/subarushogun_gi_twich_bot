@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { twitchHttpError } from '../../apps/api/src/twitch/http-error.mjs';
 import { twurpleHttpError } from '../helpers/twurple-real-instances.mjs';
@@ -31,5 +32,17 @@ describe('twitchHttpError', () => {
   it('ignores an invalid Retry-After', () => {
     expect(twitchHttpError({ statusCode: 429, retryAfterSeconds: -1 }).retryAfterSeconds).toBeNull();
     expect(twitchHttpError({ statusCode: 429, retryAfterSeconds: Number.NaN }).retryAfterSeconds).toBeNull();
+  });
+});
+
+// OPS-22 FT-26 (#99), C26-02 / AC 22: the reward worker never reads a Twitch status by itself.
+describe('reward worker status reads (C26-02)', () => {
+  const source = readFileSync(new URL('../../apps/api/src/outbox/reward-worker.mjs', import.meta.url), 'utf8');
+
+  it('has no local status reader and no direct `.status ===` check on an error', () => {
+    expect(source).not.toMatch(/function\s+httpStatus\s*\(/);
+    expect(source).not.toMatch(/\b(?:error|lookupError|err)\??\.status\b/);
+    expect(source).not.toMatch(/\.statusCode\b/);
+    expect(source).toMatch(/import\s*\{[^}]*\btwitchHttpError\b[^}]*\}\s*from\s*'\.\.\/twitch\/http-error\.mjs'/);
   });
 });

@@ -1057,7 +1057,7 @@ describe('local queue and setup API', () => {
     expect(domainService.deleteQueue).not.toHaveBeenCalled();
     const missingConfirmation = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: {} });
     expect(missingConfirmation.statusCode).toBe(400);
-    expect(missingConfirmation.json()).toEqual({ error: 'Confirme explicitamente a exclusão desta fila.' });
+    expect(missingConfirmation.json()).toEqual({ code: 'QUEUE_DELETE_CONFIRMATION_REQUIRED', error: 'Confirme explicitamente a exclusão desta fila.' });
     expect(domainService.deleteQueue).not.toHaveBeenCalled();
     const accepted = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: { confirm: true } });
     expect(accepted.statusCode).toBe(200);
@@ -1080,6 +1080,77 @@ describe('local queue and setup API', () => {
     expect(accepted.statusCode).toBe(200);
     expect(accepted.json()).toMatchObject({ status: 'cancelled', queue: { lifecycleStatus: 'active', isArchived: true, isOpen: false } });
     expect(domainService.cancelQueueDeletion).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' });
+    await h.app.close();
+  });
+
+  // OPS-22 FT-26 (#99), C26-01 / AC 15, 18: code-only deletion contract.
+  it('C26-01: projects the deletion state of deleting queues with enumerated values only', async () => {
+    const h = await createHarness({ domainService: {} });
+    const deletingQueue = (id, deletion) => ({
+      id, slug: id, title: 'Deleting', cost: 1, uidMode: 'hidden', queueMode: 'channel_points', rewardId: `reward-${id}`,
+      lifecycleStatus: 'deleting', remoteSyncStatus: 'delete_pending', isArchived: true, isOpen: false, version: 3, entries: [], deletion,
+    });
+    h.repository.listQueueProjection.mockResolvedValue([
+      deletingQueue('q-blocked', { rewardDelete: { status: 'retry', lastError: 'queue_deletion_blocked_by_review' }, rewardPause: null, rewardTaskProcessing: false, blockingOperations: 2, authorizationBlocked: false, secret: 'must-not-leak' }),
+      deletingQueue('q-pending', { rewardDelete: { status: 'cancel_verification', lastError: 'queue_deletion_internal_detail' }, rewardPause: null, rewardTaskProcessing: false, blockingOperations: 0, authorizationBlocked: false }),
+      { id: 'q-active', slug: 'active', title: 'Active', cost: 1, uidMode: 'hidden', lifecycleStatus: 'active', remoteSyncStatus: 'synced', isArchived: false, isOpen: true, version: 1, entries: [] },
+    ]);
+
+    const response = await h.app.inject({ method: 'GET', url: '/api/queues', headers: h.headers });
+
+    expect(response.statusCode).toBe(200);
+    const [blocked, pending, active] = response.json();
+    expect(blocked).toMatchObject({ deletionState: 'blocked', blockReason: 'financial_review_required', blockingOperations: 2, canCancelDeletion: true, cancellationInProgress: false });
+    expect(pending).toMatchObject({ deletionState: 'pending', blockReason: null, blockingOperations: 0, canCancelDeletion: true, cancellationInProgress: true });
+    for (const queue of [blocked, pending]) {
+      expect(['deleted', 'pending', 'blocked']).toContain(queue.deletionState);
+      expect(queue).not.toHaveProperty('deletion');
+    }
+    expect(active).not.toHaveProperty('deletionState');
+    expect(active).not.toHaveProperty('canCancelDeletion');
+    expect(response.body).not.toContain('must-not-leak');
+    expect(response.body).not.toContain('queue_deletion_internal_detail');
+    expect(response.body).not.toContain('queue_deletion_blocked_by_review');
+    await h.app.close();
+  });
+
+  it('C26-01: a deletion request answers with the projected deletion state', async () => {
+    const domainService = { deleteQueue: vi.fn(async () => ({ status: 'pending', activeRemoved: 0, refundsRequested: 0, queue: { id: 'queue-id', queueMode: 'channel_points', rewardId: 'reward-1', lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_pending' } })) };
+    const h = await createHarness({ domainService });
+    h.repository.getQueueDeletionFacts = vi.fn(async () => new Map([['queue-id', { rewardDelete: { status: 'retry', lastError: 'queue_deletion_blocked_by_review' }, rewardPause: null, rewardTaskProcessing: false, blockingOperations: 1, authorizationBlocked: false }]]));
+
+    const blocked = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: { confirm: true } });
+    expect(blocked.statusCode).toBe(200);
+    expect(blocked.json()).toMatchObject({ status: 'pending', deletionState: 'blocked', queue: { deletionState: 'blocked', blockReason: 'financial_review_required', blockingOperations: 1 } });
+    expect(h.repository.getQueueDeletionFacts).toHaveBeenCalledWith(['queue-id']);
+
+    // A failing projection after a started deletion never turns into an error or a success promise.
+    h.repository.getQueueDeletionFacts = vi.fn(async () => { throw new Error('private database detail'); });
+    const pending = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: { confirm: true } });
+    expect(pending.statusCode).toBe(200);
+    expect(pending.json()).toMatchObject({ status: 'pending', deletionState: 'pending' });
+    expect(pending.body).not.toContain('private database detail');
+
+    domainService.deleteQueue.mockResolvedValueOnce({ status: 'deleted', activeRemoved: 0, refundsRequested: 0, queue: { id: 'queue-id', lifecycleStatus: 'deleted', isArchived: true, isOpen: false, remoteSyncStatus: 'local_only' } });
+    const deleted = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: { confirm: true } });
+    expect(deleted.json()).toMatchObject({ status: 'deleted', deletionState: 'deleted' });
+    await h.app.close();
+  });
+
+  it('C26-01: every non-2xx answer of the deletion request carries an enumerated code', async () => {
+    const reportDiagnostic = vi.fn(() => '22222222-2222-4222-8222-222222222222');
+    const domainService = { deleteQueue: vi.fn() };
+    const h = await createHarness({ domainService, reportDiagnostic });
+    const responses = [await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: {} })];
+    for (const code of ['QUEUE_NOT_FOUND', 'QUEUE_REWARD_NOT_READY', 'QUEUE_NOT_AVAILABLE', 'UNEXPECTED_PRIVATE_CODE']) {
+      domainService.deleteQueue.mockRejectedValueOnce(Object.assign(new Error('private'), { code }));
+      responses.push(await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: { confirm: true } }));
+    }
+    for (const response of responses) {
+      expect(response.statusCode).toBeGreaterThanOrEqual(400);
+      expect(response.json().code).toMatch(/^[A-Z][A-Z0-9_]+$/);
+      expect(response.json().code).not.toBe('UNEXPECTED_PRIVATE_CODE');
+    }
     await h.app.close();
   });
 

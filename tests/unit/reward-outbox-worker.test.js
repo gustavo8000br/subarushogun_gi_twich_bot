@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createRewardOutboxWorker } from '../../apps/api/src/outbox/reward-worker.mjs';
+import { twurpleHttpError } from '../helpers/twurple-real-instances.mjs';
 
 function makeHarness({ attempts = 1, payload = {}, eligibility, managedRewards = [], createError = null, updateError = null, onDiagnostic = vi.fn() } = {}) {
   const queue = { id: 'queue-1', title: 'Abismo', cost: 250, rewardPrompt: 'Envie somente UID.', uidMode: 'visible', rewardId: null, lifecycleStatus: 'active' };
@@ -362,5 +363,191 @@ describe('managed reward settings update outbox worker', () => {
     await expect(h.worker.processOne()).resolves.toBe('unknown');
     expect(h.twitch.updateReward).not.toHaveBeenCalled();
     expect(h.repository.unknownRewardOperation).toHaveBeenCalledWith('update-outbox', 'reward_update_reward_diverged', 'lease-update');
+  });
+});
+
+// OPS-22 FT-26 (#99), group G2 of the `@qa` plan: deletion order and states in the reward worker.
+describe('OPS-22 FT-26 queue deletion worker', () => {
+  const NOW = new Date('2026-11-04T12:00:00.000Z');
+  const FIVE_MINUTES = 5 * 60_000;
+  const CANARY = 'oauth:canary-secret-token canary_viewer_login';
+
+  function deletionHarness({ payload = {}, attempts = 3, blockers = [{ pending: 0, blocked: 0 }], settled = [], unfulfilled = [[]], twitch: overrides = {} } = {}) {
+    const queue = { id: 'queue-del', title: 'Delete', cost: 250, rewardPrompt: '', uidMode: 'hidden', rewardId: 'reward-managed', lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_pending' };
+    const task = { id: 'delete-task', operationType: 'reward.delete', attempts, leaseToken: 'delete-lease', payload: { requestMayHaveReachedTwitch: false, safeToDelete: false, ...payload }, queue };
+    const reward = { id: queue.rewardId, title: queue.title, cost: queue.cost, prompt: '', userInputRequired: false, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true };
+    const calls = [];
+    const blockerResults = [...blockers];
+    const listResults = [...unfulfilled];
+    const repository = {
+      claimNextRewardOperation: vi.fn(async () => task),
+      recordQueueDeletionRedemptions: vi.fn(async ({ redemptions }) => { calls.push('record'); return { status: 'recorded', recorded: redemptions.length, conflicts: 0 }; }),
+      getQueueDeletionBlockers: vi.fn(async () => { calls.push('blockers'); return blockerResults.length > 1 ? blockerResults.shift() : blockerResults[0]; }),
+      listManuallySettledDeletionTasks: vi.fn(async () => { calls.push('settled'); return settled; }),
+      prepareRewardDelete: vi.fn(async () => { calls.push('prepare'); task.payload = { ...task.payload, safeToDelete: true, requestMayHaveReachedTwitch: true }; return true; }),
+      completeQueueDeletion: vi.fn(async () => { calls.push('complete'); return true; }),
+      retryRewardOperation: vi.fn(async () => true),
+      unknownRewardOperation: vi.fn(async () => true),
+      failedRewardOperation: vi.fn(async () => true),
+    };
+    const twitch = {
+      getReward: vi.fn(async () => { calls.push('getReward'); return reward; }),
+      listUnfulfilledRedemptions: vi.fn(async () => { calls.push('list'); return listResults.length > 1 ? listResults.shift() : listResults[0]; }),
+      deleteReward: vi.fn(async () => { calls.push('delete'); }),
+      ...overrides,
+    };
+    const onDiagnostic = vi.fn();
+    const worker = createRewardOutboxWorker({ repository, twitch, clock: () => NOW, random: () => 0, onDiagnostic });
+    return { worker, repository, twitch, task, queue, reward, calls, onDiagnostic };
+  }
+
+  it.each([
+    ['a real Twurple HttpStatusCodeError', () => twurpleHttpError(404, 'Not Found')],
+    ['a plain error with statusCode', () => Object.assign(new Error('not found'), { statusCode: 404 })],
+    ['a legacy adapter error with status', () => Object.assign(new Error('not found'), { status: 404 })],
+  ])('U26-01: a 404 on the post-delete lookup (%s) means the reward is already gone', async (_name, makeError) => {
+    const h = deletionHarness({
+      twitch: { deleteReward: vi.fn(async () => { throw new Error('response lost'); }) },
+    });
+    h.twitch.getReward = vi.fn().mockResolvedValueOnce(h.reward).mockRejectedValueOnce(makeError());
+
+    await expect(h.worker.processOne()).resolves.toBe('confirmed');
+
+    expect(h.repository.completeQueueDeletion).toHaveBeenCalledWith('delete-task', 'delete-lease');
+    expect(h.repository.unknownRewardOperation).not.toHaveBeenCalled();
+  });
+
+  it('U26-02: the worker reads every Twitch HTTP status through the shared twitchHttpError (statusCode before status)', async () => {
+    const queue = { id: 'queue-open', title: 'Abismo', cost: 250, rewardPrompt: '', uidMode: 'hidden', rewardId: 'reward-managed', lifecycleStatus: 'active', isArchived: false, isOpen: true, remoteSyncStatus: 'pending_open' };
+    const task = { id: 'open-task', operationType: 'reward.set_open', attempts: 1, leaseToken: 'open-lease', payload: { isOpen: true, queueVersion: 1, requestMayHaveReachedTwitch: false }, queue };
+    const reward = { id: queue.rewardId, title: queue.title, cost: queue.cost, prompt: '', userInputRequired: false, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true };
+    const repository = {
+      claimNextRewardOperation: vi.fn(async () => task), prepareRewardOpen: vi.fn(async () => true),
+      retryRewardOperation: vi.fn(async () => true), unknownRewardOperation: vi.fn(async () => true), failedRewardOperation: vi.fn(async () => true),
+    };
+    // A Twurple-shaped error carries `statusCode`; a stale `status` must never win over it.
+    const twitch = { getReward: vi.fn(async () => reward), setRewardOpen: vi.fn(async () => { throw Object.assign(new Error('unauthorized'), { statusCode: 401, status: 503 }); }) };
+    const worker = createRewardOutboxWorker({ repository, twitch, clock: () => NOW, random: () => 0 });
+
+    await expect(worker.processOne()).resolves.toBe('retry');
+
+    expect(repository.retryRewardOperation).toHaveBeenCalledWith('open-task', expect.objectContaining({ errorCode: 'twitch_authorization_required' }), 'open-lease');
+    expect(repository.unknownRewardOperation).not.toHaveBeenCalled();
+  });
+
+  it('U26-03: financial blockers move reward.delete to retry(queue_deletion_blocked_by_review) every 5 min, never unknown', async () => {
+    const h = deletionHarness({ attempts: 99, blockers: [{ pending: 1, blocked: 2 }] });
+
+    await expect(h.worker.processOne()).resolves.toBe('retry');
+
+    expect(h.repository.retryRewardOperation).toHaveBeenCalledTimes(1);
+    expect(h.repository.retryRewardOperation).toHaveBeenCalledWith('delete-task', expect.objectContaining({
+      errorCode: 'queue_deletion_blocked_by_review', nextAttemptAt: new Date(NOW.getTime() + FIVE_MINUTES),
+      blockers: { blockedCount: 2, pendingCount: 1 },
+    }), 'delete-lease');
+    expect(h.repository.unknownRewardOperation).not.toHaveBeenCalled();
+    expect(h.twitch.deleteReward).not.toHaveBeenCalled();
+    expect(h.repository.prepareRewardDelete).not.toHaveBeenCalled();
+  });
+
+  it('U26-03: a blocker found by the final re-list also keeps reward.delete in retry, never unknown', async () => {
+    const open = { id: 'r-final', broadcasterId: 'b', rewardId: 'reward-managed', userId: 'v', redeemedAt: NOW, status: 'UNFULFILLED' };
+    const h = deletionHarness({ blockers: [{ pending: 0, blocked: 0 }, { pending: 0, blocked: 1 }], unfulfilled: [[], [open]] });
+
+    await expect(h.worker.processOne()).resolves.toBe('retry');
+
+    expect(h.repository.retryRewardOperation).toHaveBeenCalledWith('delete-task', expect.objectContaining({ errorCode: 'queue_deletion_blocked_by_review' }), 'delete-lease');
+    expect(h.repository.unknownRewardOperation).not.toHaveBeenCalled();
+    expect(h.twitch.deleteReward).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['the reward read', 'getReward'],
+    ['the redemption list', 'listUnfulfilledRedemptions'],
+    ['the DELETE itself', 'deleteReward'],
+  ])('U26-04: a real 401 during %s keeps the deletion blocked by authorization (retry, no unknown, no budget)', async (_name, method) => {
+    const h = deletionHarness({ attempts: 50 });
+    h.twitch[method] = vi.fn(async () => { throw twurpleHttpError(401, 'Unauthorized'); });
+
+    await expect(h.worker.processOne()).resolves.toBe('retry');
+
+    expect(h.repository.retryRewardOperation).toHaveBeenCalledWith('delete-task', expect.objectContaining({
+      errorCode: 'twitch_authorization_required', nextAttemptAt: new Date(NOW.getTime() + FIVE_MINUTES),
+    }), 'delete-lease');
+    expect(h.repository.unknownRewardOperation).not.toHaveBeenCalled();
+    expect(h.repository.failedRewardOperation).not.toHaveBeenCalled();
+    expect(h.repository.completeQueueDeletion).not.toHaveBeenCalled();
+  });
+
+  it('U26-05: auto-resume touches only a reward.delete in retry of a queue that is still deleting (I7)', async () => {
+    const { isResumableQueueDeletion, QUEUE_DELETION_BLOCKED_RECHECK_MS } = await import('../../apps/api/src/outbox/queue-deletion-policy.mjs');
+    expect(QUEUE_DELETION_BLOCKED_RECHECK_MS).toBe(FIVE_MINUTES);
+    expect(isResumableQueueDeletion({ lifecycleStatus: 'deleting' }, { operationType: 'reward.delete', status: 'retry' })).toBe(true);
+    for (const status of ['pending', 'processing', 'unknown', 'failed', 'conflict', 'confirmed', 'cancelled', 'cancel_verification']) {
+      expect(isResumableQueueDeletion({ lifecycleStatus: 'deleting' }, { operationType: 'reward.delete', status }), status).toBe(false);
+    }
+    for (const lifecycleStatus of ['active', 'deleted']) {
+      expect(isResumableQueueDeletion({ lifecycleStatus }, { operationType: 'reward.delete', status: 'retry' }), lifecycleStatus).toBe(false);
+    }
+    expect(isResumableQueueDeletion({ lifecycleStatus: 'deleting' }, { operationType: 'reward.set_open', status: 'retry' })).toBe(false);
+    expect(isResumableQueueDeletion(null, { operationType: 'reward.delete', status: 'retry' })).toBe(false);
+  });
+
+  it('U26-07: deletion order is read, list, record cancels, wait for refunds, re-list, delete; a 404 on delete means already gone', async () => {
+    const open = { id: 'r-open', broadcasterId: 'b', rewardId: 'reward-managed', userId: 'v', redeemedAt: NOW, status: 'UNFULFILLED' };
+    const waiting = deletionHarness({ blockers: [{ pending: 1, blocked: 0 }], unfulfilled: [[open]] });
+    await expect(waiting.worker.processOne()).resolves.toBe('retry');
+    expect(waiting.calls).toEqual(['getReward', 'list', 'record', 'blockers']);
+    expect(waiting.repository.recordQueueDeletionRedemptions).toHaveBeenCalledWith({ queueId: 'queue-del', redemptions: [open] });
+    expect(waiting.repository.retryRewardOperation).toHaveBeenCalledWith('delete-task', expect.objectContaining({ errorCode: 'queue_deletion_waiting_for_refunds' }), 'delete-lease');
+
+    const settled = deletionHarness({ unfulfilled: [[], []] });
+    await expect(settled.worker.processOne()).resolves.toBe('confirmed');
+    expect(settled.calls).toEqual(['getReward', 'list', 'record', 'blockers', 'settled', 'list', 'prepare', 'delete', 'complete']);
+
+    const gone = deletionHarness({ twitch: { deleteReward: vi.fn(async () => { throw twurpleHttpError(404, 'Not Found'); }) } });
+    gone.twitch.getReward = vi.fn().mockResolvedValueOnce(gone.reward).mockResolvedValueOnce(null);
+    await expect(gone.worker.processOne()).resolves.toBe('confirmed');
+    expect(gone.repository.completeQueueDeletion).toHaveBeenCalledWith('delete-task', 'delete-lease');
+
+    const notPaused = deletionHarness();
+    notPaused.twitch.getReward = vi.fn(async () => ({ ...notPaused.reward, isPaused: false }));
+    await expect(notPaused.worker.processOne()).resolves.toBe('unknown');
+    expect(notPaused.twitch.deleteReward).not.toHaveBeenCalled();
+    expect(notPaused.twitch.listUnfulfilledRedemptions).not.toHaveBeenCalled();
+  });
+
+  it('U26-07: manually settled tasks seen before the final re-list are handed to the delete guard', async () => {
+    const h = deletionHarness({ settled: ['settled-task-1'] });
+
+    await expect(h.worker.processOne()).resolves.toBe('confirmed');
+
+    expect(h.calls.indexOf('settled')).toBeLessThan(h.calls.lastIndexOf('list'));
+    expect(h.repository.prepareRewardDelete).toHaveBeenCalledWith('delete-task', 'delete-lease', { settledManualTaskIds: ['settled-task-1'] });
+  });
+
+  it('U26-08: deletion diagnostics and repository arguments carry only enumerated codes and counts', async () => {
+    const leaking = Object.assign(new Error(CANARY), { statusCode: 503, body: CANARY, headers: { authorization: CANARY } });
+    const h = deletionHarness({ blockers: [{ pending: 0, blocked: 1 }] });
+    await h.worker.processOne();
+    const failing = deletionHarness({ twitch: { listUnfulfilledRedemptions: vi.fn(async () => { throw leaking; }) } });
+    await failing.worker.processOne();
+    const deleteFails = deletionHarness({ twitch: { deleteReward: vi.fn(async () => { throw leaking; }) } });
+    deleteFails.twitch.getReward = vi.fn().mockResolvedValueOnce(deleteFails.reward).mockRejectedValueOnce(leaking);
+    await deleteFails.worker.processOne();
+
+    for (const harness of [h, failing, deleteFails]) {
+      expect(harness.onDiagnostic).toHaveBeenCalled();
+      for (const [event] of harness.onDiagnostic.mock.calls) {
+        expect(Object.keys(event).sort()).toEqual(['errorCode', 'errorType', 'source']);
+        expect(event.errorCode).toMatch(/^[a-z][a-z0-9_]{1,63}$/);
+      }
+      const serialized = JSON.stringify([
+        harness.onDiagnostic.mock.calls, harness.repository.retryRewardOperation.mock.calls, harness.repository.unknownRewardOperation.mock.calls,
+      ]);
+      expect(serialized).not.toContain('canary');
+    }
+    const [, blockedRetry] = h.repository.retryRewardOperation.mock.calls[0];
+    expect(Object.keys(blockedRetry.blockers).sort()).toEqual(['blockedCount', 'pendingCount']);
   });
 });

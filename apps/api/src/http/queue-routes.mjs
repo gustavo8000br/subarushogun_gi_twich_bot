@@ -4,6 +4,7 @@ import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES, resolveCommandPolicy } fro
 import { createErrorDiagnosticReporter } from '../observability/error-diagnostics.mjs';
 import { financialOperationHealth } from '../outbox/financial-retry-policy.mjs';
 import { evaluatePendingQueueRewardCompatibility, summarizePendingQueueRewardCompatibility } from '../twitch/pending-queue-reward-compatibility.mjs';
+import { getQueueDeletionProjection } from '../../../shared/panel/queue-action-state.mjs';
 
 function canonicalValue(value) {
   if (Array.isArray(value)) return value.map(canonicalValue);
@@ -56,6 +57,8 @@ function queueDto(queue, { operator = false } = {}) {
     refundOnNoShow: queue.refundOnNoShow, refundIfViewerLeavesCalled: queue.refundIfViewerLeavesCalled,
     isOpen: queue.isOpen, isArchived: queue.isArchived, lifecycleStatus: queue.lifecycleStatus,
     version: queue.version, remoteSyncStatus: queue.remoteSyncStatus,
+    // OPS-22 FT-26 (AC 15, F17): enumerated deletion projection for the operator panel; never the raw outbox facts.
+    ...(operator ? getQueueDeletionProjection(queue, queue.deletion) ?? {} : {}),
     entries: (queue.entries ?? []).map((entry) => ({
       id: entry.id, userId: entry.userId, userLogin: entry.userLogin, displayName: entry.displayName,
       status: entry.status, position: entry.position, version: entry.version,
@@ -772,10 +775,10 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     /** @type {any} */
     const localRequest = request;
     const body = /** @type {Record<string, any>} */ (request.body && typeof request.body === 'object' ? request.body : {});
-    if (body.confirm !== true) return reply.code(400).send({ error: 'Confirme explicitamente a exclusão desta fila.' });
+    if (body.confirm !== true) return reply.code(400).send({ code: 'QUEUE_DELETE_CONFIRMATION_REQUIRED', error: 'Confirme explicitamente a exclusão desta fila.' });
+    let result;
     try {
-      const result = await domainService.deleteQueue({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
-      return { status: result.status, activeRemoved: result.activeRemoved, refundsRequested: result.refundsRequested, queue: queueDto(result.queue, { operator: true }) };
+      result = await domainService.deleteQueue({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
     } catch (error) {
       if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code: 'QUEUE_NOT_FOUND', error: 'Fila não encontrada.' });
       if (error?.code === 'QUEUE_REWARD_NOT_READY') return reply.code(409).send({ code: 'QUEUE_REWARD_NOT_READY', error: 'A recompensa ainda não foi confirmada.' });
@@ -784,6 +787,17 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       reply.header('x-error-reference', referenceId);
       return reply.code(503).send({ code: 'QUEUE_DELETE_UNAVAILABLE', error: 'A exclusão não pôde ser iniciada.', referenceId });
     }
+    // OPS-22 FT-26 (AC 15): the answer names the deletion state; a failing projection read falls back to `pending`
+    // (never an error after the request was accepted, never a promise of success).
+    let deletion = null;
+    if (result.queue?.lifecycleStatus === 'deleting') {
+      try { deletion = (await repository.getQueueDeletionFacts?.([result.queue.id]))?.get(result.queue.id) ?? null; } catch { deletion = null; }
+    }
+    const queue = queueDto({ ...result.queue, deletion }, { operator: true });
+    return {
+      status: result.status, activeRemoved: result.activeRemoved, refundsRequested: result.refundsRequested,
+      deletionState: queue.deletionState ?? null, queue,
+    };
   });
   app.post('/api/queues/:queueId/delete/cancel', async (request, reply) => {
     /** @type {any} */

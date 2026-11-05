@@ -12,6 +12,7 @@ Types: 🟧 Security · 🟩 Added · 🟦 Changed · 🟨 Deprecated · 🟥 Re
 
 ### 🟪 Fixed
 
+- Deleting a Channel Points queue no longer gets stuck when a points refund needs your review: the deletion waits, resumes by itself once the refund is confirmed or you resolve it in Operations, and the reward is deleted only after Twitch shows no open redemption. If the Twitch connection expires during a deletion, the deletion resumes after you reconnect.
 - Fixed the final local queue deletion confirmation so the queue title and full warning are displayed instead of an unavailable-text fallback, in both the legacy panel and the Next.js panel.
 
 ## v0.2.0-beta

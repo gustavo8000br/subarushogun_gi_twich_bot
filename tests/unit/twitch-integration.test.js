@@ -398,6 +398,58 @@ describe('Twitch integration lifecycle', () => {
     integration.stop();
   });
 
+  // OPS-22 FT-26 (#99), U26-04 / AC 16: work blocked by a 401 re-arms after the operator re-authorizes.
+  describe('re-arm after re-authorization (AC 16)', () => {
+    function reauthorization({ storeTokens = vi.fn(async () => undefined), rearm = vi.fn(async () => ({ financial: 1, reward: 1 })) } = {}) {
+      const authRecord = { id: 'credential-reauth', clientId: 'client-1', clientSecret: 'secret', broadcasterId: 'channel-1',
+        accessToken: null, refreshToken: null, scopes: [], authStatus: 'reconnect_required', updatedAt: new Date('2026-11-04T12:00:00.000Z') };
+      const credentialRepository = { getAuthRecord: vi.fn(async () => authRecord), assertCanBind: vi.fn(async () => undefined), storeTokens };
+      const repository = { rearmAuthorizationBlockedOperations: rearm };
+      const reportDiagnostic = vi.fn(() => 'reference-id');
+      const oauthStateStore = { take: vi.fn(() => ({
+        clientId: 'client-1', redirectUri: 'https://localhost:3000/callback', scopes: [],
+        context: { kind: 'account_authorization', expectedCredentialFingerprint: createCredentialFingerprint(authRecord) },
+      })) };
+      const integrationPromise = createTwitchIntegration({ credentialRepository, repository, oauthStateStore, reportDiagnostic,
+        fetchImpl: vi.fn(async () => ({ ok: true, json: async () => ({ access_token: 'access', refresh_token: 'refresh', expires_in: 3600 }) })),
+        validateOAuthToken: async () => ({ clientId: 'client-1', userId: 'channel-1', login: 'channel', displayName: 'Channel', scopes: [] }),
+      });
+      return { integrationPromise, credentialRepository, repository, reportDiagnostic };
+    }
+
+    it('re-arms authorization-blocked operations once, after the new tokens are stored', async () => {
+      const h = reauthorization();
+      const integration = await h.integrationPromise;
+
+      await integration.completeAuthorization({ sessionId: 'session-1', state: 'state', code: 'code' });
+
+      expect(h.repository.rearmAuthorizationBlockedOperations).toHaveBeenCalledTimes(1);
+      expect(h.credentialRepository.storeTokens.mock.invocationCallOrder[0])
+        .toBeLessThan(h.repository.rearmAuthorizationBlockedOperations.mock.invocationCallOrder[0]);
+      integration.stop();
+    });
+
+    it('never re-arms when the tokens were not stored', async () => {
+      const h = reauthorization({ storeTokens: vi.fn(async () => { throw Object.assign(new Error('stale'), { code: 'OAUTH_CREDENTIAL_STALE' }); }) });
+      const integration = await h.integrationPromise;
+
+      await expect(integration.completeAuthorization({ sessionId: 'session-1', state: 'state', code: 'code' })).rejects.toMatchObject({ code: 'OAUTH_CREDENTIAL_STALE' });
+
+      expect(h.repository.rearmAuthorizationBlockedOperations).not.toHaveBeenCalled();
+      integration.stop();
+    });
+
+    it('keeps the authorization successful and diagnosed when the re-arm fails', async () => {
+      const h = reauthorization({ rearm: vi.fn(async () => { throw new Error('private database detail'); }) });
+      const integration = await h.integrationPromise;
+
+      await expect(integration.completeAuthorization({ sessionId: 'session-1', state: 'state', code: 'code' })).resolves.toMatchObject({ broadcasterId: 'channel-1' });
+
+      expect(h.reportDiagnostic).toHaveBeenCalledWith(expect.objectContaining({ source: 'twitch.reauthorization_rearm', error: expect.any(Error) }));
+      integration.stop();
+    });
+  });
+
   it('stays available but unconfigured without credentials', async () => {
     const h = harness({ credential: null });
     const integration = await h.integrationPromise;
