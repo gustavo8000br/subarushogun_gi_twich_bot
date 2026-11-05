@@ -520,9 +520,8 @@ panel.queue.archive_local.stale	The queue changed after confirmation began. Refr
 panel.queue.archive_local.unavailable	The queue is no longer eligible for local deletion. Refresh the panel and review its sync status.
 panel.queue.confirm.unarchive	Show this queue to viewers? It will remain paused until you activate it.
 panel.queue.unarchive.done	Queue shown to viewers and remains paused until you activate it.
-panel.queue.confirm.delete	Delete queue “{title}” and its Twitch reward? {count} active entries will be removed and their redemptions will be cancellation requests. The reward is deleted only after every cancellation is confirmed. This may remain pending if Twitch does not confirm.
-panel.queue.confirm.cancel_delete	Cancel deletion of “{title}” and keep the queue for later? The app will verify that the exact Twitch reward still exists and is paused. The queue will remain closed and hidden from viewers. Existing redemption records and points refund requests will continue unchanged. If Twitch cannot confirm the reward state, deletion will stay pending.
-panel.queue.delete.cancelled	Deletion cancelled. The reward was verified as present and paused; the queue remains closed and hidden. Redemption records and points refund requests were preserved. You can request deletion again later.
+panel.queue.confirm.cancel_delete	Cancel the deletion of “{title}”? The app reads the exact reward on Twitch and cancels only if it exists and is paused. If Twitch cannot confirm it, nothing changes and the deletion stays as it is.
+panel.queue.delete.cancelled	Deletion cancelled. Twitch confirmed that the reward exists and is paused. The queue is closed and hidden from viewers, and the reward stays paused until you show the queue to viewers and open it again. The people who were in the queue were removed and do not come back; refunds already requested keep going.
 panel.queue.delete.cancel.already_deleted	Twitch has already confirmed that the reward was deleted. The queue cannot be restored by cancelling this operation.
 panel.queue.delete.cancel.reward_absent	Cancellation was not confirmed because Twitch no longer reports this reward. The queue remains in deletion recovery.
 panel.queue.delete.cancel.reward_diverged	Cancellation was not confirmed because the Twitch reward does not match the paused queue configuration. The queue remains in deletion recovery.
@@ -530,8 +529,6 @@ panel.queue.delete.cancel.unverified	Twitch could not confirm the reward state, 
 panel.queue.delete.cancel.stale	The deletion state changed before cancellation could be confirmed. Refresh the panel and review the current queue state before retrying.
 panel.queue.delete.cancel.processing	A Twitch reward operation is still processing, so deletion was not cancelled. Wait for it to finish, then refresh and review the queue before retrying.
 panel.queue.delete.cancel.uncertain	We could not confirm whether cancellation completed. Refresh the panel and review the queue's deletion status before trying again.
-panel.queue.confirm.delete_local	Delete local queue “{title}”? {count} active entries will be removed. This queue has no linked Twitch reward or redemption.
-panel.queue.confirm.delete_converted	Delete manual queue “{title}”? {count} active entries will be removed. Deletion will remain pending until all known redemptions, Twitch synchronization requests, and related points refunds are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.
 panel.queue.confirm.retry_delete_converted	Check whether all known pending redemptions, Twitch sync requests, and related points refunds are confirmed. If they are, the local queue will be deleted. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.
 panel.queue.delete.pending	Local deletion started. The queue remains pending until all known redemptions, Twitch synchronization requests, and related points refunds are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain untouched.
 panel.queue.delete.done	Queue deleted. Redemption history was preserved and the Twitch reward remains paused.
@@ -801,3 +798,30 @@ panel.widget.notice.link_closed_uncopied	Link closed without copying. Use "Regen
 panel.widget.cancel	Cancel
 panel.dialog.confirm	Confirm
 panel.dialog.cancel	Cancel
+panel.queue.confirm.delete.other	Delete the queue “{title}” and its Twitch reward? {count} active entries will be removed and a points refund will be requested for each redemption. The reward is deleted only after every refund is confirmed, and Twitch may leave it pending. Removed entries do not come back, even if you cancel the deletion later.
+panel.queue.confirm.delete.one	Delete the queue “{title}” and its Twitch reward? {count} active entry will be removed and a points refund will be requested for its redemption. The reward is deleted only after every refund is confirmed, and Twitch may leave it pending. Removed entries do not come back, even if you cancel the deletion later.
+panel.outcome.created.channel_points	Queue created. The Twitch reward status appears on the card below; check it before sharing the command with viewers.
+panel.outcome.deleted.reward	Queue deleted. Twitch confirmed that the reward was deleted. Redemption history was kept.
+panel.outcome.deleted.local	Queue deleted. It had no Twitch reward. History was kept.
+panel.outcome.delete_pending.reward	Deletion pending. Twitch has not confirmed it yet. Active entries were removed and points refunds were requested; the reward is deleted only after every refund is confirmed. Refresh to see the current state.
+panel.queue.deletion.blocked.one	Deletion blocked: {count} operation needs your review before it can continue.
+panel.queue.deletion.blocked.other	Deletion blocked: {count} operations need your review before it can continue.
+panel.queue.deletion.blocked.generic	Deletion blocked: Twitch has not confirmed a step. Review the operations or cancel the deletion.
+panel.queue.deletion.blocked_link	Review the operations
+panel.queue.deletion.cancelling	Checking the reward on Twitch to cancel the deletion. If this takes long, use Cancel deletion again to resume.
+panel.queue.confirm.cancel_delete_if_ok	If it works, the queue goes back hidden from viewers and closed. The reward stays paused until you show the queue to viewers and open it again; both steps are yours.
+panel.queue.confirm.cancel_delete_not_restored	The people who were in the queue were already removed and do not come back. Refunds already requested keep going and are not undone. Nothing is erased.
+panel.queue.dialog.title.delete	Delete the queue “{title}”?
+panel.queue.dialog.title.cancel_delete	Cancel the deletion of “{title}”?
+panel.queue.dialog.back	Back
+panel.queue.delete.cancel.reward_not_paused	Cancellation was not confirmed because the Twitch reward is not paused. For safety the queue was not reopened and the deletion continues. Review the reward on Twitch or the operations.
+panel.queue.delete.cancel.authorization_required	Twitch refused the authorization, so the reward could not be read and the deletion was not cancelled. Reconnect the channel on the Twitch connection page and try again.
+panel.queue.delete.cancel.pause_in_progress	The reward is still being paused on Twitch, so the deletion was not cancelled yet. Wait a few seconds and try again.
+panel.queue.delete.cancel.remote_delete_attempted	The request to delete the reward may already have reached Twitch, and the read did not confirm that the reward exists and is paused. For safety the deletion was not cancelled. Let it finish or review the operations.
+panel.outcome.dismiss	Dismiss message
+panel.outcome.action.refresh	Refresh queues
+panel.outcome.refreshed	Queues refreshed.
+panel.queue.confirm.delete_local.other	Delete local queue “{title}”? {count} active entries will be removed. This queue has no linked Twitch reward or redemption.
+panel.queue.confirm.delete_local.one	Delete local queue “{title}”? {count} active entry will be removed. This queue has no linked Twitch reward or redemption.
+panel.queue.confirm.delete_converted.other	Delete manual queue “{title}”? {count} active entries will be removed. Deletion will remain pending until all known redemptions, Twitch synchronization requests, and related points refunds are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.
+panel.queue.confirm.delete_converted.one	Delete manual queue “{title}”? {count} active entry will be removed. Deletion will remain pending until all known redemptions, Twitch synchronization requests, and related points refunds are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.

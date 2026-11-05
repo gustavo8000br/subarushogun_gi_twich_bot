@@ -207,3 +207,14 @@ describe('Next queue creation form', () => {
     expect(markup).not.toContain('Product text unavailable.');
   });
 });
+
+describe('FT-23: an uncertain create result is announced in the alert element', () => {
+  it('renders the uncertain feedback with role="alert" and keeps the submit disabled with the Open queues link', () => {
+    const markup = renderToStaticMarkup(React.createElement(NewQueueForm, {
+      t, saving: false, feedback: { status: 'uncertain', key: 'panel.queue.creation_result.uncertain' }, onCreate: async () => true,
+    }));
+    expect(markup).toMatch(/class="queue-creation-feedback[^"]*"[^>]*role="alert"/);
+    expect(markup).not.toMatch(/queue-creation-feedback[^>]*role="status"/);
+    expect(markup).toMatch(/<button[^>]*type="submit"[^>]*disabled=""/);
+  });
+});

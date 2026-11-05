@@ -21,9 +21,10 @@ describe('panel confirmation dialog contract', () => {
   });
 
   it('passes the queue title to the Next panel final local deletion confirmation', () => {
-    const valuesSet = nextLifecycle.match(/const confirmationValues = new Set\(\[([\s\S]*?)\]\)\.has\(confirmationKey\)/)?.[1] ?? '';
-    expect(valuesSet).toContain("'panel.queue.confirm.archive_local_uncertain_final'");
-    expect(nextLifecycle).toMatch(/\? \{ title: queue\.title, count: activeCount \} : undefined/);
+    // FT-23: the title-only confirmations (final local deletion, cancel deletion) are listed explicitly and receive only {title}.
+    const titleOnly = nextLifecycle.match(/const TITLE_ONLY_CONFIRMATIONS = new Set\(\[([\s\S]*?)\]\)/)?.[1] ?? '';
+    expect(titleOnly).toContain("'panel.queue.confirm.archive_local_uncertain_final'");
+    expect(nextLifecycle).toMatch(/TITLE_ONLY_CONFIRMATIONS\.has\(key\) \? \{ values: \{ title: queue\.title \} \}/);
     expect(nextLifecycle).toMatch(/getQueueConfirmationCopy\(queue, 'archive-local-final'\)/);
   });
 

@@ -239,3 +239,48 @@ describe('Next Operations page', () => {
     expect(screen.getByText('Pending work appears here until confirmed or requiring review.')).toBeTruthy();
   });
 });
+
+// OPS-22 / FT-23 (E23-08, plan 3.6): the three texts created by FT-25/FT-26 are shown on the Operations page.
+describe('Next Operations page: deletion-related texts (FT-25 / FT-26)', () => {
+  const QUEUE_ID = '0b1f1ef0-0ac0-4e63-b71c-e608f5aa1b20';
+  const extra = {
+    ...COPY,
+    'panel.operation.blocks_deletion': 'Blocks the deletion of “{title}”',
+    'panel.operation.attempts_exhausted': 'Automatic attempts ended and Twitch confirmed nothing.',
+    'panel.operation.manual_contradicted': 'Twitch still lists this redemption as open after your manual resolution.',
+  };
+  const tx = (key, options = {}) => (extra[key] ?? key).replace(/\{([a-z]+)\}/g, (_, name) => String(options.values?.[name] ?? `{${name}}`));
+  const render2 = (operations, queues = [{ id: QUEUE_ID, title: 'Arena' }]) => {
+    const request = vi.fn(async (path) => { if (path === '/api/operations') return operations; throw new Error(path); });
+    render(React.createElement(OperationsPageContent, { t: tx, locale: 'en', request, queues }));
+  };
+
+  it('shows attempts_exhausted for a terminal financial operation and offers the existing retry action', async () => {
+    render2([{ ...refund, reason: 'attempts_exhausted', attempts: 6 }]);
+    expect(await screen.findByText('Automatic attempts ended and Twitch confirmed nothing.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reconcile / retry' })).toBeTruthy();
+  });
+
+  it('tags an operation that blocks the deletion of a queue, using the queue title from the projection', async () => {
+    render2([{ ...refund, blockingQueueId: QUEUE_ID }]);
+    expect(await screen.findByText('Blocks the deletion of “Arena”')).toBeTruthy();
+  });
+
+  it('does not invent a title for an unknown blocking queue and shows no tag for an unblocked operation', async () => {
+    render2([{ ...refund, blockingQueueId: '7c9d3f10-1d2e-4a55-9a43-0a8f1f6d2b11' }, { ...fulfillment }]);
+    await screen.findByText('POINTS REFUND');
+    expect(screen.queryByText(/Blocks the deletion/)).toBeNull();
+  });
+
+  it('shows manual_contradicted when the projection reports it', async () => {
+    render2([{ ...refund, reason: 'manual_contradicted' }]);
+    expect(await screen.findByText(/Twitch still lists this redemption as open after your manual resolution/)).toBeTruthy();
+  });
+
+  it('shows no deletion-related note for an operation without a reason', async () => {
+    render2([{ ...refund }]);
+    await screen.findByText('POINTS REFUND');
+    expect(screen.queryByText(/Automatic attempts ended/)).toBeNull();
+    expect(screen.queryByText(/Twitch still lists/)).toBeNull();
+  });
+});

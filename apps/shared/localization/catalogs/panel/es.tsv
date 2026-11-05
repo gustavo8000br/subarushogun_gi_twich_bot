@@ -523,9 +523,8 @@ panel.queue.archive_local.stale	La cola cambió después de iniciar la confirmac
 panel.queue.archive_local.unavailable	La cola ya no se puede eliminar localmente en este estado. Actualiza el panel y revisa la sincronización.
 panel.queue.confirm.unarchive	¿Mostrar esta cola a los espectadores? Permanecerá pausada hasta que la actives.
 panel.queue.unarchive.done	Cola visible para los espectadores y permanece pausada hasta que la actives.
-panel.queue.confirm.delete	¿Eliminar la cola “{title}” y su recompensa de Twitch? Se quitarán {count} entradas activas y se solicitará cancelar sus canjes. La recompensa solo se eliminará cuando se confirmen todas las cancelaciones. Puede quedar pendiente si Twitch no confirma.
-panel.queue.confirm.cancel_delete	¿Cancelar la eliminación de “{title}” y conservar la cola para más adelante? La aplicación verificará que la recompensa exacta de Twitch aún exista y esté pausada. La cola permanecerá cerrada y oculta para los espectadores. Las operaciones de canje y financieras existentes seguirán sin cambios. Si Twitch no confirma el estado de la recompensa, la eliminación seguirá pendiente.
-panel.queue.delete.cancelled	Eliminación cancelada. Se verificó que la recompensa existe y está pausada; la cola permanece cerrada y oculta. Se conservaron los registros de canje y las solicitudes de devolución de puntos. Puedes solicitar la eliminación más adelante.
+panel.queue.confirm.cancel_delete	¿Cancelar la eliminación de “{title}”? La aplicación lee la recompensa exacta en Twitch y cancela solo si existe y está pausada. Si Twitch no puede confirmarlo, no cambia nada y la eliminación sigue como está.
+panel.queue.delete.cancelled	Eliminación cancelada. Twitch confirmó que la recompensa existe y está pausada. La cola queda cerrada y oculta para los espectadores, y la recompensa sigue pausada hasta que muestres la cola a los espectadores y la abras de nuevo. Las personas que estaban en la cola ya se quitaron y no vuelven; las devoluciones ya solicitadas continúan.
 panel.queue.delete.cancel.already_deleted	Twitch ya confirmó que se eliminó la recompensa. No se puede restaurar la cola cancelando esta operación.
 panel.queue.delete.cancel.reward_absent	No se confirmó la cancelación porque Twitch ya no encuentra esta recompensa. La cola permanece en recuperación de eliminación.
 panel.queue.delete.cancel.reward_diverged	No se confirmó la cancelación porque la recompensa de Twitch no coincide con la configuración pausada de la cola. La cola permanece en recuperación de eliminación.
@@ -533,8 +532,6 @@ panel.queue.delete.cancel.unverified	Twitch no pudo confirmar el estado de la re
 panel.queue.delete.cancel.stale	El estado de la eliminación cambió antes de poder confirmar la cancelación. Actualiza el panel y revisa el estado actual de la cola antes de volver a intentarlo.
 panel.queue.delete.cancel.processing	Una operación de la recompensa de Twitch sigue en curso, por lo que no se canceló la eliminación. Espera a que termine, actualiza el panel y revisa la cola antes de volver a intentarlo.
 panel.queue.delete.cancel.uncertain	No pudimos confirmar si se completó la cancelación. Actualiza el panel y revisa el estado de eliminación de la cola antes de intentarlo de nuevo.
-panel.queue.confirm.delete_local	¿Eliminar la cola local “{title}”? Se quitarán {count} entradas activas. Esta cola no tiene recompensas ni canjes de Twitch vinculados.
-panel.queue.confirm.delete_converted	¿Eliminar la cola manual “{title}”? Se quitarán {count} entradas activas. La eliminación seguirá pendiente hasta confirmar todos los canjes conocidos y la comunicación con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
 panel.queue.confirm.retry_delete_converted	Comprueba si se confirmaron todos los canjes conocidos pendientes y la comunicación con Twitch y las devoluciones de puntos relacionadas. Si es así, se eliminará la cola local. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
 panel.queue.delete.pending	Se inició la eliminación local. La cola seguirá pendiente hasta que se confirmen todos los canjes conocidos, las solicitudes de sincronización con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá intacta.
 panel.queue.delete.done	Cola eliminada. Se conservó el historial de canjes y la recompensa de Twitch sigue pausada.
@@ -804,3 +801,34 @@ panel.widget.notice.link_closed_uncopied	Enlace cerrado sin copiar. Usa "Regener
 panel.widget.cancel	Cancelar
 panel.dialog.confirm	Confirmar
 panel.dialog.cancel	Cancelar
+panel.queue.confirm.delete.many	¿Eliminar la cola “{title}” y su recompensa de Twitch? Se quitarán {count} entradas activas y se solicitará la devolución de puntos de cada canje. La recompensa se elimina solo cuando se confirme cada devolución, y Twitch puede dejarla pendiente. Las entradas quitadas no vuelven, aunque canceles la eliminación más adelante.
+panel.queue.confirm.delete.other	¿Eliminar la cola “{title}” y su recompensa de Twitch? Se quitarán {count} entradas activas y se solicitará la devolución de puntos de cada canje. La recompensa se elimina solo cuando se confirme cada devolución, y Twitch puede dejarla pendiente. Las entradas quitadas no vuelven, aunque canceles la eliminación más adelante.
+panel.queue.confirm.delete.one	¿Eliminar la cola “{title}” y su recompensa de Twitch? Se quitará {count} entrada activa y se solicitará la devolución de puntos de su canje. La recompensa se elimina solo cuando se confirme cada devolución, y Twitch puede dejarla pendiente. Las entradas quitadas no vuelven, aunque canceles la eliminación más adelante.
+panel.outcome.created.channel_points	Cola creada. El estado de la recompensa de Twitch aparece en la tarjeta de abajo; revísalo antes de compartir el comando con los espectadores.
+panel.outcome.deleted.reward	Cola eliminada. Twitch confirmó que la recompensa se eliminó. Se conservó el historial de canjes.
+panel.outcome.deleted.local	Cola eliminada. No tenía recompensa de Twitch. Se conservó el historial.
+panel.outcome.delete_pending.reward	Eliminación pendiente. Twitch aún no la ha confirmado. Se quitaron las entradas activas y se solicitó la devolución de puntos; la recompensa se elimina solo cuando se confirme cada devolución. Actualiza para ver el estado actual.
+panel.queue.deletion.blocked.one	Eliminación bloqueada: {count} operación necesita tu revisión para continuar.
+panel.queue.deletion.blocked.many	Eliminación bloqueada: {count} operaciones necesitan tu revisión para continuar.
+panel.queue.deletion.blocked.other	Eliminación bloqueada: {count} operaciones necesitan tu revisión para continuar.
+panel.queue.deletion.blocked.generic	Eliminación bloqueada: Twitch no ha confirmado un paso. Revisa las operaciones o cancela la eliminación.
+panel.queue.deletion.blocked_link	Revisar las operaciones
+panel.queue.deletion.cancelling	Comprobando la recompensa en Twitch para cancelar la eliminación. Si tarda, usa Cancelar eliminación de nuevo para continuar.
+panel.queue.confirm.cancel_delete_if_ok	Si funciona, la cola vuelve oculta para los espectadores y cerrada. La recompensa sigue pausada hasta que muestres la cola a los espectadores y la abras de nuevo; ambos pasos son tuyos.
+panel.queue.confirm.cancel_delete_not_restored	Las personas que estaban en la cola ya se quitaron y no vuelven. Las devoluciones ya solicitadas continúan y no se deshacen. No se borra nada.
+panel.queue.dialog.title.delete	¿Eliminar la cola “{title}”?
+panel.queue.dialog.title.cancel_delete	¿Cancelar la eliminación de “{title}”?
+panel.queue.dialog.back	Volver
+panel.queue.delete.cancel.reward_not_paused	No se confirmó la cancelación porque la recompensa de Twitch no está pausada. Por seguridad la cola no se reabrió y la eliminación continúa. Revisa la recompensa en Twitch o las operaciones.
+panel.queue.delete.cancel.authorization_required	Twitch rechazó la autorización, así que no se pudo leer la recompensa y la eliminación no se canceló. Reconecta el canal en la página de conexión de Twitch e inténtalo de nuevo.
+panel.queue.delete.cancel.pause_in_progress	La recompensa aún se está pausando en Twitch, así que la eliminación todavía no se canceló. Espera unos segundos e inténtalo de nuevo.
+panel.queue.delete.cancel.remote_delete_attempted	La solicitud para eliminar la recompensa puede haber llegado ya a Twitch, y la lectura no confirmó que exista y esté pausada. Por seguridad no se canceló la eliminación. Déjala terminar o revisa las operaciones.
+panel.outcome.dismiss	Descartar el mensaje
+panel.outcome.action.refresh	Actualizar colas
+panel.outcome.refreshed	Colas actualizadas.
+panel.queue.confirm.delete_local.many	¿Eliminar la cola local “{title}”? Se quitarán {count} entradas activas. Esta cola no tiene recompensas ni canjes de Twitch vinculados.
+panel.queue.confirm.delete_local.other	¿Eliminar la cola local “{title}”? Se quitarán {count} entradas activas. Esta cola no tiene recompensas ni canjes de Twitch vinculados.
+panel.queue.confirm.delete_local.one	¿Eliminar la cola local “{title}”? Se quitará {count} entrada activa. Esta cola no tiene recompensas ni canjes de Twitch vinculados.
+panel.queue.confirm.delete_converted.many	¿Eliminar la cola manual “{title}”? Se quitarán {count} entradas activas. La eliminación seguirá pendiente hasta confirmar todos los canjes conocidos y la comunicación con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
+panel.queue.confirm.delete_converted.other	¿Eliminar la cola manual “{title}”? Se quitarán {count} entradas activas. La eliminación seguirá pendiente hasta confirmar todos los canjes conocidos y la comunicación con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
+panel.queue.confirm.delete_converted.one	¿Eliminar la cola manual “{title}”? Se quitará {count} entrada activa. La eliminación seguirá pendiente hasta confirmar todos los canjes conocidos y la comunicación con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.

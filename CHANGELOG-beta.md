@@ -6,8 +6,16 @@ Types: 🟧 Security · 🟩 Added · 🟦 Changed · 🟨 Deprecated · 🟥 Re
 
 ## v0.2.1-beta
 
+### 🟩 Added
+
+- After you create a queue, the panel now opens the queue list on the new queue and tells you what happened, without promising that Twitch already accepted the reward. After you delete your last queue, it opens New queue with the result.
+- The result of deleting a queue or cancelling its deletion now stays in one message area at the top of the page, so it no longer disappears with the queue card. It says whether the deletion is done, pending or blocked (with a link to Operations), and the text matches the queue type: Channel Points, local or converted. Each reason Twitch gives for not cancelling a deletion has its own message.
+- Operations now shows when automatic attempts ended, which operation blocks the deletion of which queue, and the note that Twitch still lists a redemption after a manual resolution.
+
 ### 🟦 Changed
 
+- The delete and cancel-deletion windows have their own title and buttons ("Back" and the action) instead of "Cancel" and "Confirm", and the delete window now says that removed entries do not come back even if you cancel the deletion later. "1 entries" now reads correctly as "1 entry" in all three languages.
+- The "Cancel deletion" button appears only when the app confirms the deletion can be cancelled.
 - When Twitch cannot confirm a points refund or a redemption fulfillment, the app now checks it again automatically up to 6 times over about two hours, reading Twitch before any change, and only then asks for your review in Operations. "Reconcile / retry" starts a new cycle of 6 checks and is recorded with who requested it.
 
 ### 🟪 Fixed

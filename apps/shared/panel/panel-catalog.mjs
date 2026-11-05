@@ -4,6 +4,8 @@ export const PANEL_PLACEHOLDERS = Object.freeze({
   'panel.operation.attempts': ['count'], 'panel.operation.blocks_deletion': ['title'], 'panel.reconciliation.complete': ['count'], 'panel.reconciliation.issues': ['count'],
   'panel.queue.confirm.delete': ['title', 'count'], 'panel.queue.confirm.delete_local': ['title', 'count'],
   'panel.queue.confirm.cancel_delete': ['title'],
+  'panel.queue.dialog.title.delete': ['title'], 'panel.queue.dialog.title.cancel_delete': ['title'],
+  'panel.queue.deletion.blocked': ['count'],
   'panel.queue.confirm.archive_local_uncertain_final': ['title'],
   'panel.queue.confirm.delete_converted': ['title', 'count'],
   'panel.queue.confirm.retry_delete_converted': [],

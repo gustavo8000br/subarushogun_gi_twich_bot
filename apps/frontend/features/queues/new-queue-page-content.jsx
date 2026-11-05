@@ -8,7 +8,7 @@ export default function NewQueuePageContent() {
   return (
     <>
       <div className="page-heading">
-        <div><p className="eyebrow">{t('panel.new_queue.eyebrow')}</p><h1>{t('panel.new_queue.title')}</h1><p className="page-description">{t('panel.new_queue.description')}</p></div>
+        <div><p className="eyebrow">{t('panel.new_queue.eyebrow')}</p><h1 tabIndex={-1}>{t('panel.new_queue.title')}</h1><p className="page-description">{t('panel.new_queue.description')}</p></div>
       </div>
       <section className="panel create-panel" aria-label={t('panel.new_queue.title')}>
         <NewQueueForm t={t} saving={saving} feedback={queueCreation} twitchConnected={setupState?.connected === true} onCreate={createQueue} />

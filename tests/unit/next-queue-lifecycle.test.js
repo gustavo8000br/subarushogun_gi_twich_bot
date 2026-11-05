@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getQueueLifecycleFailureFeedback, isQueueLifecycleActionAvailable, performQueueLifecycleAction } from '../../apps/frontend/features/queues/queue-lifecycle.mjs';
+import { getQueueLifecycleFailureFeedback, getQueueLifecycleOutcome, isQueueLifecycleActionAvailable, performQueueLifecycleAction } from '../../apps/frontend/features/queues/queue-lifecycle.mjs';
 
 describe('Next queue lifecycle actions', () => {
   it.each([
@@ -76,5 +76,72 @@ describe('Next queue lifecycle actions', () => {
     expect(isQueueLifecycleActionAvailable({ ...local, isArchived: true }, 'unarchive')).toBe(true);
     expect(isQueueLifecycleActionAvailable({ ...local, isOpen: true, isArchived: true }, 'unarchive')).toBe(false);
     expect(isQueueLifecycleActionAvailable({ ...local, queueMode: 'channel_points', rewardId: 'r', remoteSyncStatus: 'synced', modeTransitionStatus: 'none' }, 'manual-mode')).toBe(true);
+  });
+});
+
+// OPS-22 / FT-23 (#103, UX-3, UX-4, R6): the cancel mapper table of the UX plan, section 3.4.
+describe('FT-23 cancel-deletion outcome mapper (ux-plan 3.4)', () => {
+  const rewardQueue = { id: 'q', queueMode: 'channel_points', rewardId: 'reward-1' };
+  it.each([
+    [{ code: 'QUEUE_DELETION_ALREADY_COMPLETED', status: 409 }, 'panel.queue.delete.cancel.already_deleted'],
+    [{ code: 'QUEUE_DELETION_PAUSE_IN_PROGRESS', status: 409 }, 'panel.queue.delete.cancel.pause_in_progress'],
+    [{ code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', status: 409 }, 'panel.queue.delete.cancel.remote_delete_attempted'],
+    [{ code: 'QUEUE_REWARD_OPERATION_PROCESSING', status: 409 }, 'panel.queue.delete.cancel.processing'],
+    [{ code: 'QUEUE_DELETION_NOT_PENDING', status: 409 }, 'panel.queue.delete.cancel.stale'],
+    [{ code: 'QUEUE_DELETION_CANCELLATION_STALE', status: 409 }, 'panel.queue.delete.cancel.stale'],
+    [{ code: 'QUEUE_DELETION_CANCELLATION_UNVERIFIED', status: 409 }, 'panel.queue.delete.cancel.unverified'],
+    [{ code: 'QUEUE_NOT_FOUND', status: 404 }, 'panel.error.queue_not_found'],
+    [{ code: 'QUEUE_DELETE_CANCEL_CONFIRMATION_REQUIRED', status: 400 }, 'panel.error.generic'],
+    [{ code: 'SOMETHING_NEW', status: 418 }, 'panel.error.generic'],
+    [{ code: 'INTERNAL_ERROR', status: 503, referenceId: 'ref-1' }, 'panel.queue.delete.cancel.uncertain'],
+    [{ code: 'REQUEST_FAILED', status: 0 }, 'panel.queue.delete.cancel.uncertain'],
+    [{ code: 'INVALID_QUEUE_LIFECYCLE_RESPONSE' }, 'panel.queue.delete.cancel.uncertain'],
+  ])('U23-05: %j maps to %s, always in the alert element', (error, key) => {
+    const outcome = getQueueLifecycleOutcome({ action: 'cancel-delete', error, queue: rewardQueue });
+    expect(outcome.key).toBe(key);
+    expect(outcome.element).toBe('alert');
+  });
+
+  it('U23-05: the real 409 codes of the FT-36 API are all known (none falls back to the generic text)', () => {
+    for (const code of ['QUEUE_DELETION_ALREADY_COMPLETED', 'QUEUE_DELETION_PAUSE_IN_PROGRESS', 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED']) {
+      expect(getQueueLifecycleFailureFeedback({ code, status: 409 }, { action: 'cancel-delete' }).key).not.toBe('panel.error.generic');
+    }
+  });
+
+  it.each([
+    ['queue_delete_reward_absent', 'panel.queue.delete.cancel.reward_absent', 'operations'],
+    ['queue_delete_reward_diverged', 'panel.queue.delete.cancel.reward_diverged', 'operations'],
+    ['queue_delete_cancel_reward_not_paused', 'panel.queue.delete.cancel.reward_not_paused', 'operations'],
+    ['queue_deletion_cancel_verification_unavailable', 'panel.queue.delete.cancel.unverified', undefined],
+    ['authorization_required', 'panel.queue.delete.cancel.authorization_required', 'connection'],
+    ['something_new', 'panel.queue.delete.cancel.unverified', undefined],
+    [undefined, 'panel.queue.delete.cancel.unverified', undefined],
+  ])('U23-05: not_cancelled reason %s maps to %s (alert)', (reason, key, action) => {
+    const outcome = getQueueLifecycleOutcome({ action: 'cancel-delete', result: { status: 'not_cancelled', reason }, queue: rewardQueue });
+    expect(outcome).toMatchObject({ key, element: 'alert' });
+    expect(outcome.action).toBe(action);
+  });
+
+  it('U23-07: cancelled goes to the status element; every refusal goes to alert; no refusal claims the queue is safe or reopened', () => {
+    expect(getQueueLifecycleOutcome({ action: 'cancel-delete', result: { status: 'cancelled' }, queue: rewardQueue })).toMatchObject({ key: 'panel.queue.delete.cancelled', element: 'status' });
+    for (const reason of ['queue_delete_reward_absent', 'queue_delete_reward_diverged', 'queue_delete_cancel_reward_not_paused', 'authorization_required', 'x']) {
+      expect(getQueueLifecycleOutcome({ action: 'cancel-delete', result: { status: 'not_cancelled', reason }, queue: rewardQueue }).element).toBe('alert');
+    }
+  });
+
+  it('U23-08 / R6: already_deleted comes from the 409 code, never from a 200 status', () => {
+    const fromCode = getQueueLifecycleOutcome({ action: 'cancel-delete', error: { code: 'QUEUE_DELETION_ALREADY_COMPLETED', status: 409 }, queue: rewardQueue });
+    expect(fromCode.key).toBe('panel.queue.delete.cancel.already_deleted');
+    const from200 = getQueueLifecycleOutcome({ action: 'cancel-delete', result: { status: 'already_deleted' }, queue: rewardQueue });
+    expect(from200.key).not.toBe('panel.queue.delete.cancel.already_deleted');
+    expect(from200.element).toBe('alert');
+  });
+
+  it('never renders the API free-text error and only a safe reference id', () => {
+    const outcome = getQueueLifecycleOutcome({ action: 'cancel-delete', error: { code: 'INTERNAL_ERROR', status: 503, error: 'Falha privada do servidor', message: 'secret', referenceId: 'ok-1' }, queue: rewardQueue });
+    expect(JSON.stringify(outcome)).not.toMatch(/privada|secret/);
+    expect(outcome.referenceId).toBe('ok-1');
+    const unsafe = getQueueLifecycleOutcome({ action: 'cancel-delete', error: { code: 'INTERNAL_ERROR', status: 503, referenceId: 'private SQL details' }, queue: rewardQueue });
+    expect(unsafe.referenceId).toBeUndefined();
   });
 });

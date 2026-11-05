@@ -6,8 +6,16 @@ Tipos: 🟧 Segurança · 🟩 Adicionado · 🟦 Alterado · 🟨 Obsoleto · �
 
 ## v0.2.1-beta
 
+### 🟩 Adicionado
+
+- Depois de criar uma fila, o painel agora abre a lista de filas na fila nova e diz o que aconteceu, sem prometer que a Twitch já aceitou a recompensa. Depois de excluir a sua última fila, ele abre Nova fila com o resultado.
+- O resultado de excluir uma fila ou de cancelar a exclusão agora fica numa única área de mensagem no topo da página, e não some mais junto com o cartão da fila. Ele diz se a exclusão foi concluída, está pendente ou bloqueada (com um link para Operações), e o texto acompanha o tipo da fila: Pontos do Canal, local ou convertida. Cada motivo que a Twitch dá para não cancelar uma exclusão tem a sua própria mensagem.
+- Operações agora mostra quando as tentativas automáticas terminaram, qual operação bloqueia a exclusão de qual fila, e o aviso de que a Twitch ainda lista um resgate depois de uma resolução manual.
+
 ### 🟦 Alterado
 
+- As janelas de excluir e de cancelar a exclusão têm título e botões próprios ("Voltar" e a ação) em vez de "Cancelar" e "Confirmar", e a janela de excluir agora diz que as entradas removidas não voltam, mesmo que você cancele a exclusão depois. "1 entradas" agora aparece corretamente como "1 entrada" nos três idiomas.
+- O botão "Cancelar exclusão" só aparece quando o app confirma que a exclusão pode ser cancelada.
 - Quando a Twitch não consegue confirmar uma devolução de pontos ou o atendimento de um resgate, o app agora confere de novo automaticamente até 6 vezes ao longo de cerca de duas horas, lendo a Twitch antes de qualquer mudança, e só então pede a sua revisão em Operações. "Reconciliar / tentar novamente" inicia um novo ciclo de 6 conferências e fica registrado com quem pediu.
 
 ### 🟪 Corrigido

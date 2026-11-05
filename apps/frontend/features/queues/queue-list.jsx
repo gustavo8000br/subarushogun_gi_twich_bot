@@ -285,7 +285,7 @@ function QueueClearAction({ queue, t, saving, onPreview, onConfirm, onRefreshQue
 }
 
 /** @param {{queues: Array<any>, locale: string, t: (key:string, options?:object)=>string}} props */
-export default function QueueList({ queues, locale, t, lifecycleNotice = null, onToggleQueue, onEntryAction, onManualEntry, onSaveSettings, onLoadHistory, onPreviewClear, onConfirmClear, onRefreshQueue, onRefreshCallQueue, onRefreshProjection, clearRefreshRequired = false, queueCallRefreshRequired = false, queueCallRecovery = null, onLifecycleAction, onLoadRewardCandidates, onResolveReward, onSaveRewardSettings, saving = false, queueAction = null, queueSettingsAction = null }) {
+export default function QueueList({ queues, locale, t, lifecycleNotice = null, onToggleQueue, onEntryAction, onManualEntry, onSaveSettings, onLoadHistory, onPreviewClear, onConfirmClear, onRefreshQueue, onRefreshCallQueue, onRefreshProjection, clearRefreshRequired = false, queueCallRefreshRequired = false, queueCallRecovery = null, onLifecycleAction, onOutcome, onLoadRewardCandidates, onResolveReward, onSaveRewardSettings, saving = false, queueAction = null, queueSettingsAction = null }) {
   const [expiryAnnouncement, setExpiryAnnouncement] = useState('');
   function announceExpiry(entry) {
     setExpiryAnnouncement(t('panel.entry.call.expired_announcement', { values: { user: entry.displayName || entry.userLogin || '' } }));
@@ -339,7 +339,7 @@ export default function QueueList({ queues, locale, t, lifecycleNotice = null, o
           <article className="queue-list-card" key={queue.id} aria-labelledby={`queue-title-${queue.id}`}>
             <header className="queue-list-heading">
               <div>
-                <h2 id={`queue-title-${queue.id}`}>{queue.title}</h2>
+                <h2 id={`queue-title-${queue.id}`} tabIndex={-1}>{queue.title}</h2>
                 <p>!{queue.slug}</p>
               </div>
               <span className={`queue-state ${queue.lifecycleStatus === 'deleting' ? 'is-pending' : queue.isOpen ? 'is-open' : 'is-closed'}`}>
@@ -353,7 +353,7 @@ export default function QueueList({ queues, locale, t, lifecycleNotice = null, o
               </button> : null}
               {canManageEntries ? <button type="button" className="button button-secondary" disabled={!actionState.canCallEntries || waitingCount === 0 || saving || queueCallRefreshRequired} onClick={() => onEntryAction?.(queue.id, null, 'call-next')}>{t('panel.queue.action.next')}</button> : null}
               {canManageEntries ? <QueueClearAction queue={queue} t={t} saving={saving} onPreview={onPreviewClear} onConfirm={onConfirmClear} onRefreshQueue={onRefreshQueue} clearRefreshRequired={clearRefreshRequired} /> : null}
-              <QueueLifecycleActions queue={queue} locale={locale} t={t} saving={saving} rewardLinkRefreshRequired={queueAction?.queueId === queue.id && queueAction.key === 'panel.reward.link_refresh_failed'} onAction={onLifecycleAction} onLoadRewardCandidates={onLoadRewardCandidates} onResolveReward={onResolveReward} />
+              <QueueLifecycleActions queue={queue} locale={locale} t={t} saving={saving} rewardLinkRefreshRequired={queueAction?.queueId === queue.id && queueAction.key === 'panel.reward.link_refresh_failed'} onAction={onLifecycleAction} onOutcome={onOutcome} onLoadRewardCandidates={onLoadRewardCandidates} onResolveReward={onResolveReward} />
               {queue.queueMode !== 'manual_only' && queue.rewardId
                 && ['synced', 'synced_manual'].includes(queue.remoteSyncStatus)
                 && queue.lifecycleStatus === 'active' && !queue.isArchived

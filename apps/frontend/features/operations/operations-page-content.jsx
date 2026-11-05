@@ -29,12 +29,14 @@ function safeReferenceId(error) {
     ? error.referenceId : null;
 }
 
-function OperationCard({ operation, locale, t, saving, anySaving, onAction }) {
+function OperationCard({ operation, queues, locale, t, saving, anySaving, onAction }) {
   const count = operation.attempts;
   const pluralCategory = count === 0 ? 'other' : new Intl.PluralRules(locale).select(count);
   const pluralKey = `panel.operation.attempts.${pluralCategory}`;
   const attemptText = t(pluralKey, { values: { count: new Intl.NumberFormat(locale).format(count) } });
   const statusClass = STATUS_CLASSES.has(operation.status) ? operation.status : 'unknown';
+  // FT-26: a financial operation that blocks a queue deletion is tagged with that queue's title (never an invented one).
+  const blockedQueue = typeof operation.blockingQueueId === 'string' ? queues.find((queue) => queue.id === operation.blockingQueueId) : null;
   const actionKeys = {
     resolve_unknown: 'panel.operation.action.resolve',
     retry: 'panel.operation.action.retry',
@@ -51,6 +53,9 @@ function OperationCard({ operation, locale, t, saving, anySaving, onAction }) {
         <code>{getOperationIdentifier(operation)}</code>
         <span>{attemptText}</span>
       </div>
+      {blockedQueue ? <p className="operation-card-note operation-blocks-deletion">{t('panel.operation.blocks_deletion', { values: { title: blockedQueue.title } })}</p> : null}
+      {operation.reason === 'attempts_exhausted' ? <p className="operation-card-note">{t('panel.operation.attempts_exhausted')}</p> : null}
+      {operation.reason === 'manual_contradicted' ? <p className="operation-card-note">{t('panel.operation.manual_contradicted')}</p> : null}
       {getOperationActions(operation).length ? (
         <div className="operation-card-actions">
           {getOperationActions(operation).map((action) => (
@@ -65,7 +70,7 @@ function OperationCard({ operation, locale, t, saving, anySaving, onAction }) {
 }
 
 /** @param {{t:(key:string, options?:object)=>string, locale:string, request?:(path:string, options?:object)=>Promise<any>}} props */
-export default function OperationsPageContent({ t, locale, request = apiClient.request }) {
+export default function OperationsPageContent({ t, locale, request = apiClient.request, queues = [] }) {
   const [operations, setOperations] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingOperationId, setSavingOperationId] = useState(null);
@@ -249,6 +254,7 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
             {group.items.map((operation) => <OperationCard
               key={operation.id}
               operation={operation}
+              queues={queues}
               locale={locale}
               t={t}
               saving={savingOperationId === operation.id}
@@ -278,6 +284,6 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
 }
 
 export function OperationsPanelPageContent() {
-  const { t, localeState } = usePanel();
-  return <OperationsPageContent t={t} locale={localeState.locale} />;
+  const { t, localeState, queueProjection } = usePanel();
+  return <OperationsPageContent t={t} locale={localeState.locale} queues={queueProjection} />;
 }

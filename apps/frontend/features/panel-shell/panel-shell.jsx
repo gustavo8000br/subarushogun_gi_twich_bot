@@ -6,6 +6,7 @@ import QueueSummaryCards from '../overview/queue-summary-cards.jsx';
 import { getRuntimeHealthSeverity, projectRuntimeHealth, summarizeUnresolvedOperations } from '../overview/queue-summary.mjs';
 import { PanelProvider, usePanel } from './panel-provider.jsx';
 import { getOverviewNextAction } from '../../../shared/panel/panel-navigation.mjs';
+import OutcomeRegion from './outcome-region.jsx';
 
 const NAVIGATION = Object.freeze([
   ['overview', 'panel.navigation.overview', true, '/'],
@@ -20,7 +21,7 @@ const NAVIGATION = Object.freeze([
 
 function PanelFrame({ activePage, children }) {
   const activeNavigationItem = useRef(null);
-  const { status, error, runtimeState, setupState, healthState, queueSummary, localeState, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t } = usePanel();
+  const { status, error, runtimeState, setupState, healthState, queueSummary, localeState, refreshing, refreshNotice, lastRefreshAt, refreshOverview, panelOutcome, dismissPanelOutcome, refreshFromOutcome, t } = usePanel();
   const currentLabel = NAVIGATION.find(([id]) => id === activePage)?.[1] ?? 'panel.navigation.overview';
   const nextAction = status === 'ready' ? getOverviewNextAction(setupState, queueSummary.queues) : null;
   const nextStep = !nextAction
@@ -87,6 +88,7 @@ function PanelFrame({ activePage, children }) {
           </div>
         </header>
         <main className="page-content" id="main-content">
+          <OutcomeRegion outcome={panelOutcome} t={t} locale={localeState.locale} onDismiss={dismissPanelOutcome} onRefresh={refreshFromOutcome} />
           {status === 'loading' ? <p className="status-card" role="status">{t('panel.health.database.checking')}…</p> : null}
           {status === 'unavailable' ? <p className="status-card error-card" role="alert">{t(error)}</p> : null}
           {activePage === 'overview' ? <>

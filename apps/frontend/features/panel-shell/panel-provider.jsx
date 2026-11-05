@@ -9,6 +9,8 @@ import { summarizeQueues } from '../overview/queue-summary.mjs';
 import { getQueueLifecycleFailureFeedback, loadQueueProjection, performQueueLifecycleAction, requestQueueOpenState } from '../queues/queue-lifecycle.mjs';
 import { getManualQueueEntryFailureKey, getQueueEntryActionFailureFeedback, getQueueEntryActionFeedback, performQueueEntryActionWithRefresh, queueCallRequiresRefresh } from '../queues/queue-entry-actions.mjs';
 import { createQueueWithRefresh, getQueueCreationFailureKey, getQueueCreationFeedback } from '../queues/queue-creation.mjs';
+import { getOutcomeFromCode, navigateTo, resolvePostActionRoute } from './post-action-route.mjs';
+import { readOutcomeFromLocation } from './outcome-url.mjs';
 import { getQueueSettingsFailureKey, getQueueSettingsFeedback, saveQueueSettingsWithRetry } from '../queues/queue-settings.mjs';
 import { loadQueueHistory as fetchQueueHistory } from '../queues/queue-history.mjs';
 import { confirmQueueClear as confirmQueueClearRequest, getQueueClearFailureFeedback, previewQueueClear as previewQueueClearRequest } from '../queues/queue-clear.mjs';
@@ -41,6 +43,10 @@ export function PanelProvider({ children, fallbackCatalog }) {
   const [refreshNotice, setRefreshNotice] = useState(null);
   const [lastRefreshAt, setLastRefreshAt] = useState(null);
   const refreshInFlight = useRef(false);
+  const [panelOutcome, setPanelOutcome] = useState(null);
+  const [focusRequest, setFocusRequest] = useState(null);
+  const projectionRef = useRef([]);
+  useEffect(() => { projectionRef.current = queueProjection; }, [queueProjection]);
 
   useEffect(() => {
     let alive = true;
@@ -65,6 +71,26 @@ export function PanelProvider({ children, fallbackCatalog }) {
     });
     return () => { alive = false; };
   }, []);
+
+  // FT-23 (AC 2, 6): a message that traveled in the URL as a closed-list code + UUID is applied after the first render,
+  // so the live elements already exist and are empty; both parameters are removed at once so a reload never replays it.
+  useEffect(() => {
+    const arrival = readOutcomeFromLocation();
+    const outcome = arrival ? getOutcomeFromCode(arrival.code) : null;
+    if (!arrival || !outcome) return;
+    setPanelOutcome(outcome);
+    setFocusRequest({ candidates: arrival.code.startsWith('queue_created') ? [`queue-title-${arrival.queueId}`] : [] });
+  }, []);
+
+  // Focus is moved once, after the message is written and the projection is ready; the fallback is the page h1.
+  useEffect(() => {
+    if (!focusRequest || status !== 'ready') return;
+    const target = focusRequest.candidates.map((id) => document.getElementById(id)).find(Boolean) ?? document.querySelector('main h1');
+    if (!target) return;
+    target.focus();
+    target.scrollIntoView?.({ block: 'nearest' });
+    setFocusRequest(null);
+  }, [focusRequest, status, queueProjection, panelOutcome]);
 
   const refreshOverview = useCallback(async ({ quiet = false } = {}) => {
     if (refreshInFlight.current || status !== 'ready') return false;
@@ -293,6 +319,31 @@ export function PanelProvider({ children, fallbackCatalog }) {
     }
   }, [queueClearRefreshRequired, refreshQueueProjection, saving]);
 
+  // FT-23 (AC 3-5, 7): the result of a delete / cancel-deletion becomes ONE page-level outcome. A delete that leaves no queue
+  // navigates (through the single `navigateTo` seam) with the message carried as a closed-list code + UUID.
+  const reportQueueOutcome = useCallback((descriptor) => {
+    const route = resolvePostActionRoute(descriptor, projectionRef.current);
+    if (!route) return null;
+    setPanelOutcome(route.outcome);
+    if (route.href) {
+      navigateTo(route.href);
+      return route;
+    }
+    setFocusRequest({ candidates: [descriptor.invokerId, descriptor.queue?.id ? `queue-title-${descriptor.queue.id}` : null].filter(Boolean) });
+    return route;
+  }, []);
+
+  const dismissPanelOutcome = useCallback(() => {
+    setPanelOutcome(null);
+    setFocusRequest({ candidates: [] });
+  }, []);
+
+  const refreshFromOutcome = useCallback(async () => {
+    const refreshed = await refreshQueueProjection({ purpose: 'general' });
+    setPanelOutcome(refreshed ? { key: 'panel.outcome.refreshed', element: 'status' } : { key: 'panel.error.local_load', element: 'alert' });
+    setFocusRequest({ candidates: [] });
+  }, [refreshQueueProjection]);
+
   const runQueueLifecycleAction = useCallback(async (queueId, action, context = {}) => {
     if (saving) return null;
     setSaving(true);
@@ -307,6 +358,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
       try {
         const refreshed = loadQueueProjection(apiClient.request);
         const queues = await refreshed;
+        projectionRef.current = queues;
         setQueueProjection(queues);
         setQueueSummary(summarizeQueues(queues));
       } catch {
@@ -321,7 +373,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
               : 'panel.queue.archive_local.unavailable';
         return { status: 'error', key };
       }
-      if (action === 'cancel-delete') return getQueueLifecycleFailureFeedback(requestError, { action });
+      if (action === 'cancel-delete' || action === 'delete') return getQueueLifecycleFailureFeedback(requestError, { action });
       return null;
     } finally {
       setSaving(false);
@@ -457,6 +509,14 @@ export function PanelProvider({ children, fallbackCatalog }) {
         setQueueProjection(queues);
         setQueueSummary(summarizeQueues(queues));
       }
+      // FT-23 (AC 2): a confirmed creation leaves the form for /queues/; an uncertain result never navigates.
+      const route = resolvePostActionRoute({ action: 'create', result }, []);
+      if (route?.href) {
+        setQueueCreation({ status: 'navigating', key: 'panel.queue.action_result.saving' });
+        setPanelOutcome(route.outcome);
+        navigateTo(route.href);
+        return true;
+      }
       setQueueCreation({
         ...getQueueCreationFeedback(result),
         ...(result.referenceId ? { referenceId: result.referenceId } : {}),
@@ -505,7 +565,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
     }
   }, [saving, queueProjection]);
 
-  const value = useMemo(() => ({ catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueLifecycleNotice, queueCallRecovery, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, runQueueLifecycleAction, loadQueueRewardCandidates, resolveQueueReward, saveQueueRewardSettings, addManualQueueEntry, loadQueueHistory, previewQueueClear, confirmQueueClear, refreshQueueProjection, queueClearRefreshRequired, queueCallRefreshRequired, createQueue, saveQueueSettings }), [catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueLifecycleNotice, queueCallRecovery, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, runQueueLifecycleAction, loadQueueRewardCandidates, resolveQueueReward, saveQueueRewardSettings, addManualQueueEntry, loadQueueHistory, previewQueueClear, confirmQueueClear, refreshQueueProjection, queueClearRefreshRequired, queueCallRefreshRequired, createQueue, saveQueueSettings]);
+  const value = useMemo(() => ({ panelOutcome, dismissPanelOutcome, refreshFromOutcome, reportQueueOutcome, catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueLifecycleNotice, queueCallRecovery, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, runQueueLifecycleAction, loadQueueRewardCandidates, resolveQueueReward, saveQueueRewardSettings, addManualQueueEntry, loadQueueHistory, previewQueueClear, confirmQueueClear, refreshQueueProjection, queueClearRefreshRequired, queueCallRefreshRequired, createQueue, saveQueueSettings }), [panelOutcome, dismissPanelOutcome, refreshFromOutcome, reportQueueOutcome, catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueLifecycleNotice, queueCallRecovery, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, runQueueLifecycleAction, loadQueueRewardCandidates, resolveQueueReward, saveQueueRewardSettings, addManualQueueEntry, loadQueueHistory, previewQueueClear, confirmQueueClear, refreshQueueProjection, queueClearRefreshRequired, queueCallRefreshRequired, createQueue, saveQueueSettings]);
   return <PanelContext.Provider value={value}>{children}</PanelContext.Provider>;
 }
 

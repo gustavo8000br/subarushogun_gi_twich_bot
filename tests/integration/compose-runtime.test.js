@@ -641,16 +641,25 @@ describe('isolated Compose first-run and restart acceptance', () => {
       await page.getByRole('textbox', { name: 'Nome da fila', exact: true }).fill(title);
       await page.getByRole('textbox', { name: 'Apelidos' }).fill(alias);
       const slug = await page.locator('input[name="slug"]').inputValue();
-      const createResponsePromise = page.waitForResponse((response) => {
-        const requestUrl = new URL(response.url());
-        return requestUrl.origin === origin && requestUrl.pathname === '/api/queues'
-          && response.request().method() === 'POST';
+      // M-1 (QA gate 2026-11-05): the page leaves for /queues/ right after the 201, so the body must be captured
+      // while the response is still being fulfilled to the page; reading it afterwards fails with "navigated away".
+      let resolveCreated;
+      const createdCapture = new Promise((resolve) => { resolveCreated = resolve; });
+      await page.route((url) => url.origin === origin && url.pathname === '/api/queues', async (route) => {
+        if (route.request().method() !== 'POST') {
+          await route.fallback();
+          return;
+        }
+        const upstream = await route.fetch();
+        const captured = { status: upstream.status(), dto: await upstream.json() };
+        await route.fulfill({ response: upstream });
+        resolveCreated(captured);
       });
       await createButton.click();
 
-      const created = await createResponsePromise;
-      expect(created.status()).toBe(201);
-      const dto = await created.json();
+      const created = await createdCapture;
+      expect(created.status).toBe(201);
+      const dto = created.dto;
       expect(dto).toMatchObject({
         slug,
         aliases: [alias],
@@ -670,10 +679,12 @@ describe('isolated Compose first-run and restart acceptance', () => {
         'refundIfViewerLeavesCalled', 'isOpen', 'isArchived', 'lifecycleStatus', 'version', 'remoteSyncStatus', 'entries',
       ].sort());
 
-      const feedback = page.getByRole('status').filter({ hasText: 'Fila local criada. Ela está pausada até você ativá-la.' });
+      // FT-23 (#103, AC 2): a confirmed creation leaves the form for /queues/; the message lives in the persistent region,
+      // both URL parameters are removed once applied, and focus lands on the created queue's title.
+      await page.waitForURL((candidate) => /^\/queues\/?$/.test(candidate.pathname) && candidate.search === '', { timeout: 15_000 });
+      const feedback = page.locator('.outcome-region').getByRole('status').filter({ hasText: 'Fila local criada. Ela está pausada até você ativá-la.' });
       await feedback.waitFor({ timeout: 10_000 });
-      expect(await feedback.getByRole('link', { name: 'Abrir filas' }).count()).toBe(1);
-      expect(await createButton.isEnabled()).toBe(true);
+      await page.waitForFunction((id) => globalThis.document.activeElement?.id === `queue-title-${id}`, dto.id);
       const cookies = await context.cookies(origin);
       const sessionCookie = cookies.find(({ name }) => name === 'queuebot_session');
       expect(sessionCookie).toBeTruthy();
@@ -684,8 +695,6 @@ describe('isolated Compose first-run and restart acceptance', () => {
       expect(list.json().find(({ id }) => id === dto.id)).toEqual(dto);
 
       await page.setViewportSize({ width: 390, height: 844 });
-      await feedback.getByRole('link', { name: 'Abrir filas' }).click();
-      await page.waitForURL('**/queues');
       const queueCard = page.locator('.queue-list-card').filter({
         has: page.getByRole('heading', { name: title, exact: true }),
       });
@@ -1135,7 +1144,10 @@ describe('isolated Compose first-run and restart acceptance', () => {
           && response.request().method() === 'POST';
       }).then(async (response) => ({ status: response.status(), request: response.request().postDataJSON(), body: await response.json() }));
       await queueCard.getByRole('button', { name: 'Excluir fila', exact: true }).click();
-      await page.getByRole('dialog').getByRole('button', { name: 'Confirmar', exact: true }).click();
+      // FT-23 (R5): the delete dialog has its own title and the buttons "Voltar" / "Excluir fila" instead of "Cancelar" / "Confirmar".
+      const deleteDialog = page.getByRole('dialog');
+      expect(await deleteDialog.getByRole('heading').textContent()).toBe(`Excluir a fila “${title}”?`);
+      await deleteDialog.getByRole('button', { name: 'Excluir fila', exact: true }).click();
       const deleteResponse = await deleteResponsePromise;
       expect(deleteResponse.status).toBe(200);
       expect(deleteResponse.request).toEqual({ confirm: true });

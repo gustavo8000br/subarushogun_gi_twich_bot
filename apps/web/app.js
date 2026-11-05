@@ -75,9 +75,9 @@ function panelText(key, values = {}) {
   return translateCatalog(catalogs, activeProductLocale(), key, { values, placeholders: PANEL_PLACEHOLDERS });
 }
 
-function panelTextPlural(key, count) {
+function panelTextPlural(key, count, values = {}) {
   const catalogs = state.localizationCatalogs?.modules?.panel?.catalogs ?? {};
-  return translatePluralCatalog(catalogs, activeProductLocale(), key, count, { placeholders: PANEL_PLACEHOLDERS });
+  return translatePluralCatalog(catalogs, activeProductLocale(), key, count, { values, placeholders: PANEL_PLACEHOLDERS });
 }
 
 function confirmPanelAction(message, { acceptLabelKey = 'panel.confirmation.accept', cancelLabelKey = 'panel.confirmation.cancel' } = {}) {
@@ -1041,7 +1041,12 @@ async function boot() {
       if (actionName === 'delete-queue') {
         const queue = state.queues.find((item) => item.id === queueId);
         const activeCount = (queue?.entries ?? []).filter((entry) => ['waiting', 'called', 'in_progress'].includes(entry.status)).length;
-        const accepted = await confirmPanelAction(panelText(getQueueConfirmationCopy(queue, 'delete'), { title: queue?.title ?? '', count: activeCount }));
+        // FT-23 (R7): the three delete confirmations are plural groups; the retry copies stay plain keys.
+        const deleteCopyKey = getQueueConfirmationCopy(queue, 'delete');
+        const pluralDeleteCopy = ['panel.queue.confirm.delete', 'panel.queue.confirm.delete_local', 'panel.queue.confirm.delete_converted'].includes(deleteCopyKey);
+        const accepted = await confirmPanelAction(pluralDeleteCopy
+          ? panelTextPlural(deleteCopyKey, activeCount, { title: queue?.title ?? '' })
+          : panelText(deleteCopyKey, { title: queue?.title ?? '', count: activeCount }));
         if (!accepted) return;
         const result = await request(`/api/queues/${queueId}/delete`, { method: 'POST', body: JSON.stringify({ confirm: true }) });
         toast(panelText(result.status === 'pending' ? 'panel.queue.delete.pending' : 'panel.queue.delete.done'), result.status === 'pending' ? 'warning' : 'success');

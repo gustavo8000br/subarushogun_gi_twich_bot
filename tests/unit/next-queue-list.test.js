@@ -68,9 +68,12 @@ const messages = {
   'panel.reward.refreshing_queue': 'Atualizando fila…',
   'panel.queue.confirm.archive_local_uncertain_first': 'Isto remove somente localmente; continuar?',
   'panel.queue.confirm.archive_local_uncertain_final': 'Confirmação final da exclusão local.',
-  'panel.queue.confirm.delete': 'Excluir “{title}”? {count} pessoas.',
-  'panel.queue.confirm.delete_local': 'Excluir fila local “{title}”? {count} pessoas.',
-  'panel.queue.confirm.delete_converted': 'Excluir fila convertida “{title}”? {count} pessoas.',
+  'panel.queue.confirm.delete.one': 'Excluir “{title}”? {count} pessoa.',
+  'panel.queue.confirm.delete.other': 'Excluir “{title}”? {count} pessoas.',
+  'panel.queue.confirm.delete_local.one': 'Excluir fila local “{title}”? {count} pessoa.',
+  'panel.queue.confirm.delete_local.other': 'Excluir fila local “{title}”? {count} pessoas.',
+  'panel.queue.confirm.delete_converted.one': 'Excluir fila convertida “{title}”? {count} pessoa.',
+  'panel.queue.confirm.delete_converted.other': 'Excluir fila convertida “{title}”? {count} pessoas.',
   'panel.queue.confirm.cancel_delete': 'Cancelar exclusão de “{title}”?',
   'panel.queue.confirm.manual_mode': 'Pausar a recompensa Twitch e trocar para local?',
   'panel.queue.confirm.manual_mode_retry': 'Repetir pausa segura da recompensa?',
@@ -227,7 +230,7 @@ describe('Next queue list', () => {
     const queues = [
       { id: 'local', slug: 'local', title: 'Local', queueMode: 'manual_only', rewardOrigin: 'none', lifecycleStatus: 'active', isOpen: false, isArchived: false, remoteSyncStatus: 'local_only', entries: [] },
       { id: 'archived', slug: 'archived', title: 'Archived', queueMode: 'manual_only', rewardOrigin: 'none', lifecycleStatus: 'active', isOpen: false, isArchived: true, remoteSyncStatus: 'local_only', entries: [] },
-      { id: 'deleting', slug: 'deleting', title: 'Deleting', queueMode: 'channel_points', rewardOrigin: 'bot_created', rewardId: 'reward-1', lifecycleStatus: 'deleting', isOpen: false, remoteSyncStatus: 'delete_failed', entries: [] },
+      { id: 'deleting', slug: 'deleting', title: 'Deleting', queueMode: 'channel_points', rewardOrigin: 'bot_created', rewardId: 'reward-1', lifecycleStatus: 'deleting', isOpen: false, remoteSyncStatus: 'delete_failed', entries: [], deletionState: 'pending', canCancelDeletion: true },
     ];
     const markup = renderToStaticMarkup(React.createElement(QueueList, { queues, locale: 'pt-BR', t }));
     expect(markup).toContain('Excluir fila');

@@ -70,7 +70,8 @@ describe('Next panel language picker', () => {
 
     fireEvent.change(picker, { target: { value: 'en' } });
 
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Não foi possível concluir.'));
+    // The persistent outcome region keeps an always-mounted (empty) alert element (FT-23 R4): look at the alerts that carry text.
+    await waitFor(() => expect(screen.getAllByRole('alert').map((element) => element.textContent).join(' ')).toContain('Não foi possível concluir.'));
     expect(screen.getByRole('combobox', { name: 'Idioma' })).toHaveProperty('value', 'pt-BR');
     expect(screen.getAllByText('Visão geral').length).toBeGreaterThan(0);
   });

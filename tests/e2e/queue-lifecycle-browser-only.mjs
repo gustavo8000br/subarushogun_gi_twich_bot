@@ -20,15 +20,19 @@ const queue = {
   id: 'queue-1', slug: 'arena', title: 'Arena', isOpen: false, version: 4, lifecycleStatus: 'deleting',
   queueMode: 'channel_points', rewardOrigin: 'twitch', rewardId: 'reward-1', remoteSyncStatus: 'delete_pending',
   modeTransitionStatus: 'none', isArchived: false, entries: [],
+  deletionState: 'pending', blockReason: null, blockingOperations: 0, canCancelDeletion: true, cancellationInProgress: false,
 };
 const catalog = {
   'panel.queues.title': 'Filas e atendimentos',
   'panel.queue.status.pending_delete': 'Exclusão pendente',
   'panel.queue.action.cancel_delete': 'Cancelar exclusão',
-  'panel.confirmation.title': 'Confirmar ação',
-  'panel.dialog.cancel': 'Voltar',
-  'panel.dialog.confirm': 'Confirmar',
-  'panel.queue.confirm.cancel_delete': 'Confirme o cancelamento da exclusão de “{title}”.',
+  'panel.queue.dialog.title.cancel_delete': 'Cancelar a exclusão de “{title}”?',
+  'panel.queue.dialog.back': 'Voltar',
+  'panel.queue.confirm.cancel_delete': 'Primeiro parágrafo.',
+  'panel.queue.confirm.cancel_delete_if_ok': 'Segundo parágrafo.',
+  'panel.queue.confirm.cancel_delete_not_restored': 'Terceiro parágrafo.',
+  'panel.outcome.dismiss': 'Dispensar a mensagem',
+  'panel.outcome.action.refresh': 'Atualizar filas',
   'panel.queue.delete.cancel.processing': 'Uma operação da reward ainda está em andamento. Aguarde, atualize o painel e confira a fila antes de tentar novamente.',
   'panel.queue.delete.cancel.uncertain': 'Não foi possível confirmar se o cancelamento foi concluído. Atualize o painel e confira o estado da exclusão antes de tentar novamente.',
   'panel.error.reference': 'Referência: {id}',
@@ -84,9 +88,10 @@ try {
   await page.goto(`${appOrigin}/queues/`);
   await page.getByRole('button', { name: 'Cancelar exclusão' }).waitFor();
   await page.getByRole('button', { name: 'Cancelar exclusão' }).click();
-  await page.getByRole('button', { name: 'Confirmar' }).click();
+  assert.equal(await page.locator('dialog[open] h2').textContent(), 'Cancelar a exclusão de “Arena”?', 'R5: specific dialog title');
+  await page.locator('dialog[open]').getByRole('button', { name: 'Cancelar exclusão' }).click();
 
-  const alert = page.locator('.queue-action-feedback[role="alert"]');
+  const alert = page.locator('.outcome-region [role="alert"]');
   await alert.waitFor();
   const conflictText = await alert.textContent();
   assert.match(conflictText, /Uma operação da reward ainda está em andamento/);
@@ -95,8 +100,8 @@ try {
 
   cancelMode = 'uncertain';
   await page.getByRole('button', { name: 'Cancelar exclusão' }).click();
-  await page.getByRole('button', { name: 'Confirmar' }).click();
-  await page.waitForFunction(() => document.querySelector('.queue-action-feedback[role="alert"]')?.textContent.includes('Não foi possível confirmar se o cancelamento foi concluído'));
+  await page.locator('dialog[open]').getByRole('button', { name: 'Cancelar exclusão' }).click();
+  await page.waitForFunction(() => document.querySelector('.outcome-region [role="alert"]')?.textContent.includes('Não foi possível confirmar se o cancelamento foi concluído'));
   const uncertainText = await alert.textContent();
   assert.match(uncertainText, /Referência: cancel-op-17/);
   assert.doesNotMatch(uncertainText, /private server copy|Exclusão cancelada/);

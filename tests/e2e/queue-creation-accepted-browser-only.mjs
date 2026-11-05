@@ -73,7 +73,7 @@ const payload = {
   rewardPrompt: 'Redeem to join Arena Queue.',
 };
 const acceptedQueue = {
-  id: 'browser-qra02-channel-points-queue-0001',
+  id: '5d7a3c1e-9b24-4f6a-8c10-3e2b7a9d4f55',
   slug: payload.slug,
   aliases: payload.aliases,
   title: payload.title,
@@ -174,9 +174,12 @@ try {
   await createButton.click();
 
   const pendingText = 'Queue saved. Twitch reward creation is awaiting confirmation; check its status before retrying.';
-  const feedback = page.getByRole('status').filter({ hasText: pendingText });
+  // FT-23 (AC 2): a confirmed creation leaves the form and lands on /queues/ with the message in the persistent region.
+  await page.waitForURL((url) => /^\/queues\/?$/.test(url.pathname), { timeout: 10_000 });
+  const feedback = page.locator('.outcome-region').getByRole('status').filter({ hasText: pendingText });
   await feedback.waitFor({ timeout: 10_000 });
-  assert.equal(await feedback.getByRole('link', { name: 'Open queues' }).count(), 1);
+  assert.equal(new URL(page.url()).search, '', 'the outcome parameters are removed after they are applied');
+  await page.waitForFunction((id) => document.activeElement?.id === id, `queue-title-${acceptedQueue.id}`);
   assert.doesNotMatch(await feedback.innerText(), /Reward created successfully|Twitch confirmed|Product text unavailable\./);
   assert.equal(postCount, 1, 'accepted creation sends one POST');
   assert.deepEqual(postBody, payload, 'the form sends the exact normalized Channel Points DTO');

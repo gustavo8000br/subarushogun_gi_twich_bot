@@ -140,13 +140,15 @@ try {
   await createButton.click();
 
   const uncertainText = 'The result could not be confirmed. Do not submit again yet; open queues and reload to check whether it was created.';
-  const feedback = page.getByRole('status').filter({ hasText: uncertainText });
+  // FT-23: an uncertain result is announced in the alert element and never navigates away from the form.
+  const feedback = page.getByRole('alert').filter({ hasText: uncertainText });
   await feedback.waitFor({ timeout: 10_000 });
   assert.equal(await feedback.getByText('Reference: queue-create-42').count(), 1);
   assert.doesNotMatch(await feedback.innerText(), /private create failure|Queue created successfully|Queue saved\.|Product text unavailable\./);
   assert.equal(await page.getByRole('textbox', { name: 'Queue name' }).inputValue(), 'Arena Queue', 'uncertain result preserves the operator draft');
   assert.equal(await page.locator('input[name="slug"]').inputValue(), 'arena');
   assert.equal(await createButton.isDisabled(), true, 'uncertain result blocks duplicate creation');
+  assert.match(new URL(page.url()).pathname, /\/new-queue\/?$/, 'an uncertain create result does not navigate');
   assert.equal(postCount, 1, 'only one create request is sent');
   assert.equal(queueReadsAfterPost, 1, 'the existing queue list is checked once to reconcile the uncertain result');
 

@@ -523,9 +523,8 @@ panel.queue.archive_local.stale	A fila mudou depois que a confirmação começou
 panel.queue.archive_local.unavailable	A fila não pode mais ser excluída localmente neste estado. Atualize o painel e confira a sincronização.
 panel.queue.confirm.unarchive	Mostrar esta fila para viewers? Ela continuará pausada até você ativá-la.
 panel.queue.unarchive.done	Fila mostrada para viewers e continua pausada até você ativá-la.
-panel.queue.confirm.delete	Excluir a fila “{title}” e sua recompensa Twitch? {count} entradas ativas serão removidas e seus resgates terão cancelamento solicitado. A recompensa só será excluída depois da confirmação de todos os cancelamentos. A operação pode ficar pendente se a Twitch não confirmar.
-panel.queue.confirm.cancel_delete	Cancelar a exclusão de “{title}” e manter a fila para depois? O app verificará se a reward exata da Twitch ainda existe e está pausada. A fila continuará fechada e oculta dos espectadores. Os registros de resgate e os pedidos de devolução de pontos existentes continuarão sem alteração. Se a Twitch não confirmar o estado da reward, a exclusão continuará pendente.
-panel.queue.delete.cancelled	Exclusão cancelada. A reward foi confirmada como existente e pausada; a fila continua fechada e oculta. Os registros de resgate e os pedidos de devolução de pontos foram preservados. Você pode solicitar a exclusão novamente depois.
+panel.queue.confirm.cancel_delete	Cancelar a exclusão de “{title}”? O app lê a recompensa exata na Twitch e só cancela se ela existir e estiver pausada. Se a Twitch não puder confirmar, nada muda e a exclusão continua como está.
+panel.queue.delete.cancelled	Exclusão cancelada. A Twitch confirmou que a recompensa existe e está pausada. A fila fica fechada e oculta dos espectadores, e a recompensa continua pausada até você mostrar a fila aos espectadores e abri-la de novo. As pessoas que estavam na fila foram removidas e não voltam; as devoluções de pontos já solicitadas continuam.
 panel.queue.delete.cancel.already_deleted	A Twitch já confirmou que a reward foi excluída. Não é possível restaurar a fila cancelando esta operação.
 panel.queue.delete.cancel.reward_absent	O cancelamento não foi confirmado porque a Twitch não encontrou mais esta reward. A fila continua em recuperação de exclusão.
 panel.queue.delete.cancel.reward_diverged	O cancelamento não foi confirmado porque a reward da Twitch não corresponde à configuração pausada da fila. A fila continua em recuperação de exclusão.
@@ -533,8 +532,6 @@ panel.queue.delete.cancel.unverified	A Twitch não conseguiu confirmar o estado 
 panel.queue.delete.cancel.stale	O estado da exclusão mudou antes de ser possível confirmar o cancelamento. Atualize o painel e confira o estado atual da fila antes de tentar novamente.
 panel.queue.delete.cancel.processing	Uma operação da reward na Twitch ainda está em andamento, então a exclusão não foi cancelada. Aguarde a operação terminar, atualize o painel e confira a fila antes de tentar novamente.
 panel.queue.delete.cancel.uncertain	Não foi possível confirmar se o cancelamento foi concluído. Atualize o painel e confira o estado da exclusão antes de tentar novamente.
-panel.queue.confirm.delete_local	Excluir a fila local “{title}”? {count} entradas ativas serão removidas. Não há reward ou resgate Twitch vinculado a esta fila.
-panel.queue.confirm.delete_converted	Excluir a fila manual “{title}”? {count} entradas ativas serão removidas. A exclusão ficará pendente até a confirmação de todos os resgates conhecidos, das solicitações de sincronização com a Twitch e das devoluções de pontos relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá pausada e intacta.
 panel.queue.confirm.retry_delete_converted	Verifique se todos os resgates conhecidos pendentes e as solicitações de sincronização com a Twitch e as devoluções de pontos relacionadas foram confirmados. Se sim, a fila local será excluída. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá pausada e intacta.
 panel.queue.delete.pending	Exclusão local iniciada. A fila ficará pendente até a confirmação de todos os resgates conhecidos, das solicitações de sincronização com a Twitch e das devoluções de pontos relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá intacta.
 panel.queue.delete.done	Fila excluída. O histórico dos resgates foi preservado e a reward Twitch continua pausada.
@@ -804,3 +801,34 @@ panel.widget.notice.link_closed_uncopied	Link fechado sem copiar. Use "Regenerar
 panel.widget.cancel	Cancelar
 panel.dialog.confirm	Confirmar
 panel.dialog.cancel	Cancelar
+panel.queue.confirm.delete.many	Excluir a fila “{title}” e a recompensa dela na Twitch? {count} entradas ativas serão removidas e a devolução dos pontos de cada resgate será solicitada. A recompensa só é excluída depois que cada devolução for confirmada, e a Twitch pode deixá-la pendente. As entradas removidas não voltam, mesmo que você cancele a exclusão depois.
+panel.queue.confirm.delete.other	Excluir a fila “{title}” e a recompensa dela na Twitch? {count} entradas ativas serão removidas e a devolução dos pontos de cada resgate será solicitada. A recompensa só é excluída depois que cada devolução for confirmada, e a Twitch pode deixá-la pendente. As entradas removidas não voltam, mesmo que você cancele a exclusão depois.
+panel.queue.confirm.delete.one	Excluir a fila “{title}” e a recompensa dela na Twitch? {count} entrada ativa será removida e a devolução dos pontos do resgate será solicitada. A recompensa só é excluída depois que cada devolução for confirmada, e a Twitch pode deixá-la pendente. As entradas removidas não voltam, mesmo que você cancele a exclusão depois.
+panel.outcome.created.channel_points	Fila criada. O estado da recompensa na Twitch aparece no cartão abaixo; confira antes de divulgar o comando aos espectadores.
+panel.outcome.deleted.reward	Fila excluída. A Twitch confirmou que a recompensa foi excluída. O histórico dos resgates foi preservado.
+panel.outcome.deleted.local	Fila excluída. Ela não tinha recompensa na Twitch. O histórico foi preservado.
+panel.outcome.delete_pending.reward	Exclusão pendente. A Twitch ainda não confirmou. As entradas ativas foram removidas e a devolução dos pontos foi solicitada; a recompensa só é excluída depois que cada devolução for confirmada. Atualize para ver o estado atual.
+panel.queue.deletion.blocked.one	Exclusão bloqueada: {count} operação precisa da sua revisão para continuar.
+panel.queue.deletion.blocked.many	Exclusão bloqueada: {count} operações precisam da sua revisão para continuar.
+panel.queue.deletion.blocked.other	Exclusão bloqueada: {count} operações precisam da sua revisão para continuar.
+panel.queue.deletion.blocked.generic	Exclusão bloqueada: a Twitch não confirmou uma etapa. Revise as operações ou cancele a exclusão.
+panel.queue.deletion.blocked_link	Revisar as operações
+panel.queue.deletion.cancelling	Verificando a recompensa na Twitch para cancelar a exclusão. Se demorar, use Cancelar exclusão de novo para retomar.
+panel.queue.confirm.cancel_delete_if_ok	Se der certo, a fila volta oculta dos espectadores e fechada. A recompensa continua pausada até você mostrar a fila aos espectadores e abri-la de novo; os dois passos são seus.
+panel.queue.confirm.cancel_delete_not_restored	As pessoas que estavam na fila já foram removidas e não voltam. As devoluções de pontos já solicitadas continuam e não são desfeitas. Nada é apagado.
+panel.queue.dialog.title.delete	Excluir a fila “{title}”?
+panel.queue.dialog.title.cancel_delete	Cancelar a exclusão de “{title}”?
+panel.queue.dialog.back	Voltar
+panel.queue.delete.cancel.reward_not_paused	O cancelamento não foi confirmado porque a recompensa na Twitch não está pausada. Por segurança a fila não foi reaberta e a exclusão continua. Revise a recompensa na Twitch ou as operações.
+panel.queue.delete.cancel.authorization_required	A Twitch recusou a autorização, então a recompensa não pôde ser lida e a exclusão não foi cancelada. Reconecte o canal na página Conexão Twitch e tente de novo.
+panel.queue.delete.cancel.pause_in_progress	A recompensa ainda está sendo pausada na Twitch, então a exclusão ainda não foi cancelada. Aguarde alguns segundos e tente de novo.
+panel.queue.delete.cancel.remote_delete_attempted	O pedido para excluir a recompensa pode já ter chegado à Twitch, e a leitura não confirmou que ela existe e está pausada. Por segurança a exclusão não foi cancelada. Deixe-a terminar ou revise as operações.
+panel.outcome.dismiss	Dispensar a mensagem
+panel.outcome.action.refresh	Atualizar filas
+panel.outcome.refreshed	Filas atualizadas.
+panel.queue.confirm.delete_local.many	Excluir a fila local “{title}”? {count} entradas ativas serão removidas. Não há reward ou resgate Twitch vinculado a esta fila.
+panel.queue.confirm.delete_local.other	Excluir a fila local “{title}”? {count} entradas ativas serão removidas. Não há reward ou resgate Twitch vinculado a esta fila.
+panel.queue.confirm.delete_local.one	Excluir a fila local “{title}”? {count} entrada ativa será removida. Não há reward ou resgate Twitch vinculado a esta fila.
+panel.queue.confirm.delete_converted.many	Excluir a fila manual “{title}”? {count} entradas ativas serão removidas. A exclusão ficará pendente até a confirmação de todos os resgates conhecidos, das solicitações de sincronização com a Twitch e das devoluções de pontos relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá pausada e intacta.
+panel.queue.confirm.delete_converted.other	Excluir a fila manual “{title}”? {count} entradas ativas serão removidas. A exclusão ficará pendente até a confirmação de todos os resgates conhecidos, das solicitações de sincronização com a Twitch e das devoluções de pontos relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá pausada e intacta.
+panel.queue.confirm.delete_converted.one	Excluir a fila manual “{title}”? {count} entrada ativa será removida. A exclusão ficará pendente até a confirmação de todos os resgates conhecidos, das solicitações de sincronização com a Twitch e das devoluções de pontos relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A reward Twitch permanecerá pausada e intacta.

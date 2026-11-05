@@ -146,7 +146,8 @@ describe('Next overview runtime parity', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Refresh overview' }).disabled).toBe(false));
     runtime.failHealth(true);
     fireEvent.click(screen.getByRole('button', { name: 'Refresh overview' }));
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Could not refresh the overview.'));
+    // The persistent outcome region keeps an always-mounted (empty) alert element (FT-23 R4): look at the alerts that carry text.
+    await waitFor(() => expect(screen.getAllByRole('alert').map((element) => element.textContent).join(' ')).toContain('Could not refresh the overview.'));
     expect(screen.getByText('Conta secundária')).toBeTruthy();
     expect(screen.getAllByText('Connected').length).toBeGreaterThan(0);
     expect(screen.queryByText('Unavailable')).toBeNull();
