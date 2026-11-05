@@ -3,6 +3,7 @@ import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { validateUidInput } from '../domain/uid.mjs';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog.mjs';
 import { matchesManagedRewardState } from '../twitch/reward-state.mjs';
+import { FINANCIAL_MAX_ATTEMPTS, FINANCIAL_REASON_CLASSES, FINANCIAL_TERMINAL_REASON, freshCycleStart } from '../outbox/financial-retry-policy.mjs';
 
 /** @typedef {Record<string, any>} PrismaClientLike */
 
@@ -43,6 +44,35 @@ async function lockProcessingRewardTask(tx, { outboxId, leaseToken, operationTyp
   await tx.$queryRaw`SELECT id FROM outbox WHERE id = ${outboxId}::uuid FOR UPDATE`;
   const task = await tx.outbox.findFirst({ where: { ...where, entityId: candidate.entityId } });
   return task?.entityId === candidate.entityId ? task : null;
+}
+
+// OPS-22 FT-25 (DATA C2/C3): financial transitions are lease-guarded, locked and merge `payload` (never replace it).
+const financialOperationTypes = ['redemption.cancel', 'redemption.fulfill'];
+const manualRetryStatuses = ['unknown', 'conflict', 'failed'];
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value) {
+  return typeof value === 'string' && UUID_PATTERN.test(value);
+}
+
+function payloadObject(payload) {
+  return payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+}
+
+function safeAuditCode(code) {
+  return typeof code === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(code) ? code : null;
+}
+
+/** Locks one processing financial task that still holds `leaseToken`; null when the lease was lost. */
+async function lockProcessingFinancialTask(tx, outboxId, leaseToken) {
+  if (!isUuid(outboxId) || !isUuid(leaseToken)) return null;
+  const rows = await tx.$queryRaw`
+    SELECT id FROM outbox
+    WHERE id = ${outboxId}::uuid AND status = 'processing' AND lease_token = ${leaseToken}::uuid
+      AND operation_type IN ('redemption.cancel', 'redemption.fulfill')
+    FOR UPDATE`;
+  if (!rows.length) return null;
+  return tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken }, include: { redemption: { select: { redemptionId: true, queueId: true } } } });
 }
 
 async function lockCurrentAccount(tx) {
@@ -310,14 +340,34 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async listFinancialOperations() {
+      // OPS-22 FT-25/FT-26 follow-up: a re-armed manual resolution is read from its audit fact (no raw field leaves the repository).
+      const flagContradictedResolutions = async (operations) => {
+        const live = operations.filter(({ status, redemptionId }) => ['pending', 'retry', 'processing'].includes(status) && redemptionId);
+        if (!live.length) return operations;
+        const rows = await prisma.auditLog.findMany({
+          where: { event: 'financial.manual_resolution_contradicted', redemptionId: { in: live.map(({ redemptionId }) => redemptionId) } },
+          select: { redemptionId: true },
+        });
+        const contradicted = new Set(rows.map(({ redemptionId }) => redemptionId));
+        return operations.map((operation) => (contradicted.has(operation.redemptionId) && live.includes(operation)
+          ? { ...operation, manualContradicted: true } : operation));
+      };
       const deletingQueues = await prisma.queue.findMany({ where: { lifecycleStatus: 'deleting' }, select: { id: true } });
       const [financialOperations, deletionOperations, rewardUpdates] = await Promise.all([
         prisma.outbox.findMany({
           where: { operationType: { in: ['redemption.cancel', 'redemption.fulfill'] } },
-          select: { id: true, operationType: true, entityId: true, redemptionId: true, status: true, attempts: true, nextAttemptAt: true, lastError: true, createdAt: true, updatedAt: true },
+          select: {
+            id: true, operationType: true, entityId: true, redemptionId: true, status: true, attempts: true, nextAttemptAt: true, lastError: true, createdAt: true, updatedAt: true,
+            redemption: { select: { queueId: true, queue: { select: { lifecycleStatus: true } } } },
+          },
           orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
           take: 200,
-        }),
+        }).then((operations) => operations.map(({ redemption, ...operation }) => ({
+          ...operation,
+          // OPS-22 FT-25 (AC 11): a financial task that needs review on a queue being deleted blocks that deletion.
+          ...(reviewableFinancialStatuses.includes(operation.status) && redemption?.queue?.lifecycleStatus === 'deleting' && redemption.queueId
+            ? { blockingQueueId: redemption.queueId } : {}),
+        }))).then(flagContradictedResolutions),
         deletingQueues.length ? prisma.outbox.findMany({
           where: { operationType: { in: ['reward.set_open', 'reward.delete'] }, entityId: { in: deletingQueues.map(({ id }) => id) } },
           select: { id: true, operationType: true, entityId: true, redemptionId: true, status: true, attempts: true, nextAttemptAt: true, lastError: true, payload: true, createdAt: true, updatedAt: true },
@@ -1417,8 +1467,9 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     async markRedemptionUnknown(redemptionId, reason) {
       if (!isSafeReason(reason)) throw repositoryError('INVALID_AUDIT_REASON', 'Unknown redemption reason is invalid');
       return prisma.$transaction(async (tx) => {
+        // OPS-22 FT-25 (known gap 1, DATA C4): reconciliation marks the redemption and audits; it never moves outbox
+        // rows, so it cannot steal a live lease or spend the worker's attempt budget.
         const redemption = await tx.redemption.update({ where: { redemptionId }, data: { syncStatus: 'unknown' } });
-        await tx.outbox.updateMany({ where: { redemptionId, status: { in: ['pending', 'retry', 'processing'] } }, data: { status: 'unknown', leaseToken: null, leaseUntil: null, lastError: reason } });
         await tx.auditLog.create({ data: { queueId: redemption.queueId, redemptionId, event: 'redemption.state_unknown', origin: 'reconciliation', reason, safeDetail: {} } });
         return { status: 'unknown', redemptionId };
       });
@@ -2151,7 +2202,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         FROM candidate, redemptions AS redemption
         WHERE task.id = candidate.id AND redemption.redemption_id = task.redemption_id
         RETURNING task.id, task.redemption_id AS "redemptionId", task.operation_type AS "operationType",
-          task.attempts, task.status, task.lease_token AS "leaseToken", redemption.reward_id AS "rewardId"
+          task.attempts, task.status, task.lease_token AS "leaseToken", redemption.reward_id AS "rewardId", task.payload
       `;
       return rows[0] ?? null;
     },
@@ -2165,20 +2216,54 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           data: { status: 'confirmed', leaseUntil: null, leaseToken: null, lastError: null },
         });
         if (!updated.count) return false;
+        let redemption = null;
         if (task.redemptionId) {
-          await tx.redemption.update({
+          redemption = await tx.redemption.update({
             where: { redemptionId: task.redemptionId },
             data: { remoteStatus, syncStatus: 'confirmed' },
           });
+        }
+        // OPS-22 FT-25 (AC 7, DATA §3): a confirmation after a non-conclusive attempt is audited in the same transaction.
+        if (financialOperationTypes.includes(task.operationType) && payloadObject(task.payload).firstNonConclusiveAt) {
+          await tx.auditLog.create({ data: {
+            queueId: redemption?.queueId ?? null, redemptionId: task.redemptionId ?? null,
+            event: 'financial.operation_confirmed_by_reverification', origin: 'system',
+            previousState: 'processing', nextState: 'confirmed', reason: 'remote_read_positive',
+            safeDetail: { operationType: task.operationType, attempts: task.attempts, remoteConfirmed: true, remoteStatus },
+          } });
         }
         return true;
       });
     },
 
-    async retry(outboxId, { nextAttemptAt, errorCode }, leaseToken) {
-      return prisma.outbox.updateMany({
-        where: { id: outboxId, status: 'processing', leaseToken },
-        data: { status: 'retry', nextAttemptAt, leaseUntil: null, leaseToken: null, lastError: errorCode },
+    /** OPS-22 FT-25: non-conclusive or transient attempt inside the cycle budget (one guarded transaction, DATA C2). */
+    async retry(outboxId, { nextAttemptAt, errorCode, reasonClass = null, attempt = null, cycleAttempt = null, httpStatus = null }, leaseToken) {
+      return prisma.$transaction(async (tx) => {
+        const task = await lockProcessingFinancialTask(tx, outboxId, leaseToken);
+        if (!task) return { count: 0 };
+        const current = payloadObject(task.payload);
+        const payload = reasonClass
+          ? { ...current, reasonClass, firstNonConclusiveAt: current.firstNonConclusiveAt ?? clock().toISOString() }
+          : current;
+        const updated = await tx.outbox.updateMany({
+          where: { id: outboxId, status: 'processing', leaseToken },
+          data: { status: 'retry', nextAttemptAt, leaseUntil: null, leaseToken: null, lastError: errorCode, payload },
+        });
+        if (updated.count !== 1) return { count: 0 };
+        if (task.redemptionId) await tx.redemption.updateMany({ where: { redemptionId: task.redemptionId }, data: { syncStatus: 'pending' } });
+        await tx.auditLog.create({ data: {
+          queueId: task.redemption?.queueId ?? null, redemptionId: task.redemptionId ?? null,
+          event: 'financial.operation_retry_scheduled', origin: 'system', previousState: 'processing', nextState: 'retry',
+          reason: safeAuditCode(errorCode),
+          safeDetail: {
+            operationType: task.operationType, attempt: Number.isSafeInteger(attempt) ? attempt : task.attempts,
+            cycleAttempt: Number.isSafeInteger(cycleAttempt) ? cycleAttempt : null, maxAttempts: FINANCIAL_MAX_ATTEMPTS,
+            nextAttemptAt: nextAttemptAt instanceof Date ? nextAttemptAt.toISOString() : null,
+            httpStatus: Number.isInteger(httpStatus) ? httpStatus : null,
+            reasonClass: FINANCIAL_REASON_CLASSES.includes(reasonClass) ? reasonClass : null,
+          },
+        } });
+        return { count: 1 };
       });
     },
 
@@ -2189,7 +2274,45 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       });
     },
 
-    async unknown(outboxId, errorCode, leaseToken) {
+    async unknown(outboxId, errorCode, leaseToken, { reasonClass = null } = {}) {
+      if (errorCode === 'authorization_required') {
+        // OPS-22 FT-25 (DATA C3): a 401 gives back the claimed attempt in the SAME statement that moves the task,
+        // keeping 0 <= cycleStartAttempts <= attempts; every other payload key is preserved.
+        if (!isUuid(outboxId) || !isUuid(leaseToken)) return { count: 0 };
+        const count = await prisma.$executeRaw`
+          UPDATE outbox SET status = 'unknown', last_error = 'authorization_required', lease_until = NULL, lease_token = NULL,
+            updated_at = now(),
+            payload = (CASE WHEN jsonb_typeof(payload) = 'object' THEN payload ELSE '{}'::jsonb END) || jsonb_build_object(
+              'cycleStartAttempts', LEAST(
+                (CASE WHEN jsonb_typeof(payload -> 'cycleStartAttempts') = 'number' THEN GREATEST((payload ->> 'cycleStartAttempts')::numeric::int, 0) ELSE 0 END) + 1,
+                attempts))
+          WHERE id = ${outboxId}::uuid AND status = 'processing' AND lease_token = ${leaseToken}::uuid
+            AND operation_type IN ('redemption.cancel', 'redemption.fulfill')`;
+        return { count };
+      }
+      if (errorCode === FINANCIAL_TERMINAL_REASON) {
+        // OPS-22 FT-25 (AC 8, DATA C2): exhaustion is terminal `unknown`, audited, with the redemption marked unknown.
+        return prisma.$transaction(async (tx) => {
+          const task = await lockProcessingFinancialTask(tx, outboxId, leaseToken);
+          if (!task) return { count: 0 };
+          const current = payloadObject(task.payload);
+          const safeReasonClass = FINANCIAL_REASON_CLASSES.includes(reasonClass) ? reasonClass : (current.reasonClass ?? null);
+          const payload = { ...current, ...(safeReasonClass ? { reasonClass: safeReasonClass } : {}), firstNonConclusiveAt: current.firstNonConclusiveAt ?? clock().toISOString() };
+          const updated = await tx.outbox.updateMany({
+            where: { id: outboxId, status: 'processing', leaseToken },
+            data: { status: 'unknown', leaseUntil: null, leaseToken: null, lastError: FINANCIAL_TERMINAL_REASON, payload },
+          });
+          if (updated.count !== 1) return { count: 0 };
+          if (task.redemptionId) await tx.redemption.updateMany({ where: { redemptionId: task.redemptionId }, data: { syncStatus: 'unknown' } });
+          await tx.auditLog.create({ data: {
+            queueId: task.redemption?.queueId ?? null, redemptionId: task.redemptionId ?? null,
+            event: 'financial.operation_attempts_exhausted', origin: 'system', previousState: 'processing', nextState: 'unknown',
+            reason: FINANCIAL_TERMINAL_REASON,
+            safeDetail: { operationType: task.operationType, attempts: task.attempts, firstNonConclusiveAt: payload.firstNonConclusiveAt, reasonClass: safeReasonClass },
+          } });
+          return { count: 1 };
+        });
+      }
       return prisma.outbox.updateMany({
         where: { id: outboxId, status: 'processing', leaseToken },
         data: { status: 'unknown', leaseUntil: null, leaseToken: null, lastError: errorCode },
@@ -2234,15 +2357,39 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       }
     },
 
-    async retryOutboxManually(outboxId) {
+    /** OPS-22 FT-25 (AC 20, DATA C3): audited "retry now"; a financial task gets a fresh cycle of 6, `attempts` stays monotonic. */
+    async retryOutboxManually(outboxId, { actorId = null } = {}) {
+      if (typeof actorId !== 'string' || !actorId) throw repositoryError('ACTOR_REQUIRED', 'Manual retry requires the operator');
+      if (!isUuid(outboxId)) return { count: 0 };
       return prisma.$transaction(async (tx) => {
-        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: { in: ['unknown', 'conflict', 'failed'] } } });
+        const locked = await tx.$queryRaw`
+          SELECT id FROM outbox WHERE id = ${outboxId}::uuid AND status IN ('unknown', 'conflict', 'failed') FOR UPDATE`;
+        if (!locked.length) return { count: 0 };
+        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: { in: manualRetryStatuses } } });
         if (!task) return { count: 0 };
+        const financial = financialOperationTypes.includes(task.operationType);
+        const cycleStartAttempts = financial ? freshCycleStart(task) : null;
         const updated = await tx.outbox.updateMany({
           where: { id: outboxId, status: task.status },
-          data: { status: 'pending', nextAttemptAt: clock(), lastError: null, leaseUntil: null, leaseToken: null },
+          data: {
+            status: 'pending', nextAttemptAt: clock(), lastError: null, leaseUntil: null, leaseToken: null,
+            ...(financial ? { payload: { ...payloadObject(task.payload), cycleStartAttempts } } : {}),
+          },
         });
-        if (!updated.count || !task.entityId) return updated;
+        if (updated.count !== 1) return { count: 0 };
+        const redemption = financial && task.redemptionId
+          ? await tx.redemption.findUnique({ where: { redemptionId: task.redemptionId }, select: { queueId: true } })
+          : null;
+        const auditQueueId = financial ? redemption?.queueId ?? null : (task.entityId && isUuid(task.entityId) ? task.entityId : null);
+        await tx.auditLog.create({ data: {
+          queueId: auditQueueId, redemptionId: financial ? task.redemptionId ?? null : null,
+          event: 'financial.operation_retry_requested', actorId, origin: 'panel',
+          previousState: task.status, nextState: 'pending', reason: 'operator_retry_now',
+          safeDetail: financial
+            ? { operationType: task.operationType, previousAttempts: task.attempts, cycleStartAttempts }
+            : { operationType: task.operationType, previousAttempts: task.attempts },
+        } });
+        if (!task.entityId) return updated;
         const queue = ['reward.delete', 'reward.set_open', 'reward.update'].includes(task.operationType)
           ? await tx.queue.findUnique({ where: { id: task.entityId } })
           : null;

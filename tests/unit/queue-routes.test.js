@@ -1345,8 +1345,62 @@ describe('local queue and setup API', () => {
     expect(retried.json()).toEqual({ status: 'pending' });
     expect(unavailable.statusCode).toBe(409);
     expect(unavailable.body).not.toContain('op-2');
-    expect(h.repository.retryOutboxManually).toHaveBeenNthCalledWith(1, 'op-1');
-    expect(h.repository.retryOutboxManually).toHaveBeenNthCalledWith(2, 'op-2');
+    // OPS-22 FT-25 (AC 20): the audited "retry now" always carries the operator; refusals carry an enumerated code.
+    expect(unavailable.json()).toMatchObject({ code: 'OPERATION_RETRY_UNAVAILABLE' });
+    const actorId = h.headers.cookie.split('=')[1];
+    expect(h.repository.retryOutboxManually).toHaveBeenNthCalledWith(1, 'op-1', { actorId });
+    expect(h.repository.retryOutboxManually).toHaveBeenNthCalledWith(2, 'op-2', { actorId });
+    await h.app.close();
+  });
+
+  it('C25-02b projects manual_contradicted only for a live financial task flagged by the repository, never over an existing reason or a terminal status', async () => {
+    const h = await createHarness();
+    h.repository.listFinancialOperations = vi.fn(async () => [
+      { id: 'rearmed', operationType: 'redemption.cancel', redemptionId: 'r-1', status: 'pending', attempts: 7, lastError: null, manualContradicted: true, nextAttemptAt: null },
+      { id: 'rearmed-retry', operationType: 'redemption.fulfill', redemptionId: 'r-2', status: 'retry', attempts: 8, lastError: 'Helix said: secret body', manualContradicted: true },
+      { id: 'exhausted-again', operationType: 'redemption.cancel', redemptionId: 'r-3', status: 'unknown', attempts: 13, lastError: 'attempts_exhausted', manualContradicted: true },
+      { id: 'done', operationType: 'redemption.cancel', redemptionId: 'r-4', status: 'confirmed', attempts: 8, lastError: null, manualContradicted: true },
+      { id: 'forged', operationType: 'redemption.cancel', redemptionId: 'r-5', status: 'pending', attempts: 1, lastError: null, manualContradicted: 'yes' },
+      { id: 'reward', operationType: 'reward.update', entityId: 'e-1', redemptionId: null, status: 'pending', attempts: 0, lastError: null, manualContradicted: true },
+    ]);
+
+    const response = await h.app.inject({ method: 'GET', url: '/api/operations', headers: h.sessionHeaders });
+    const byId = Object.fromEntries(response.json().map((operation) => [operation.id, operation]));
+
+    expect(byId.rearmed.reason).toBe('manual_contradicted');
+    expect(byId['rearmed-retry'].reason).toBe('manual_contradicted');
+    expect(byId['exhausted-again'].reason).toBe('attempts_exhausted');
+    expect(byId.done.reason).toBeUndefined();
+    expect(byId.forged.reason).toBeUndefined();
+    expect(byId.reward.reason).toBeUndefined();
+    expect(response.json().every((operation) => !('manualContradicted' in operation))).toBe(true);
+    expect(response.body).not.toContain('Helix');
+    await h.app.close();
+  });
+
+  it('C25-02 projects financial operations with enumerated reason, health and blocking effect only, and codes on every refusal', async () => {
+    const h = await createHarness();
+    h.repository.listFinancialOperations = vi.fn(async () => [
+      { id: 'exhausted', operationType: 'redemption.cancel', redemptionId: 'r-1', status: 'unknown', attempts: 6, lastError: 'attempts_exhausted', blockingQueueId: '10000000-0000-4000-8000-000000000001', payload: { firstNonConclusiveAt: 'x' } },
+      { id: 'auth', operationType: 'redemption.fulfill', redemptionId: 'r-2', status: 'unknown', attempts: 2, lastError: 'authorization_required' },
+      { id: 'retrying', operationType: 'redemption.cancel', redemptionId: 'r-3', status: 'retry', attempts: 2, lastError: 'remote_lookup_failed', nextAttemptAt: null },
+      { id: 'leaky', operationType: 'redemption.cancel', redemptionId: 'r-4', status: 'failed', attempts: 1, lastError: 'Helix said: secret body', blockingQueueId: 'not-a-uuid' },
+    ]);
+    h.repository.resolveUnknownFinancialOperation = vi.fn(async () => ({ status: 'not_unknown' }));
+
+    const response = await h.app.inject({ method: 'GET', url: '/api/operations', headers: h.sessionHeaders });
+    const resolve = await h.app.inject({ method: 'POST', url: '/api/operations/op-id/resolve-unknown', headers: h.headers, payload: {} });
+
+    expect(response.json()).toEqual([
+      { id: 'exhausted', type: 'redemption.cancel', redemptionId: 'r-1', status: 'unknown', attempts: 6, nextAttemptAt: null, health: 'needs_review', reason: 'attempts_exhausted', blockingQueueId: '10000000-0000-4000-8000-000000000001' },
+      { id: 'auth', type: 'redemption.fulfill', redemptionId: 'r-2', status: 'unknown', attempts: 2, nextAttemptAt: null, health: 'needs_review', reason: 'authorization_required' },
+      { id: 'retrying', type: 'redemption.cancel', redemptionId: 'r-3', status: 'retry', attempts: 2, nextAttemptAt: null, health: 'degraded' },
+      { id: 'leaky', type: 'redemption.cancel', redemptionId: 'r-4', status: 'failed', attempts: 1, nextAttemptAt: null, health: 'needs_review' },
+    ]);
+    expect(response.body).not.toContain('Helix');
+    expect(response.body).not.toContain('firstNonConclusiveAt');
+    expect(resolve.statusCode).toBe(409);
+    expect(resolve.json()).toMatchObject({ code: 'OPERATION_RESOLUTION_UNAVAILABLE' });
     await h.app.close();
   });
 

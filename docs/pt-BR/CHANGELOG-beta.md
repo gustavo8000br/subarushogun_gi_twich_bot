@@ -6,6 +6,10 @@ Tipos: 🟧 Segurança · 🟩 Adicionado · 🟦 Alterado · 🟨 Obsoleto · �
 
 ## v0.2.1-beta
 
+### 🟦 Alterado
+
+- Quando a Twitch não consegue confirmar uma devolução de pontos ou o atendimento de um resgate, o app agora confere de novo automaticamente até 6 vezes ao longo de cerca de duas horas, lendo a Twitch antes de qualquer mudança, e só então pede a sua revisão em Operações. "Reconciliar / tentar novamente" inicia um novo ciclo de 6 conferências e fica registrado com quem pediu.
+
 ### 🟪 Corrigido
 
 - Corrigida a confirmação final de exclusão local da fila para exibir o nome da fila e o aviso completo, em vez do texto de indisponibilidade, tanto no painel legado quanto no painel Next.js.

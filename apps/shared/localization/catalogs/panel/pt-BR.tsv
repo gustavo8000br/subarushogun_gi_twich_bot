@@ -488,6 +488,9 @@ panel.operation.action.retry	Reconciliar / tentar novamente
 panel.operation.action.continue_delete	Continuar exclusão
 panel.operation.confirm.resolve	A Twitch ainda não confirmou esta operação de resgate. Registrar que você a revisou e encerrar o acompanhamento automático? Isso não confirma reembolso nem atendimento e não haverá novas tentativas automáticas.
 panel.operation.confirm.continue_delete	Tentar continuar a exclusão desta fila e da reward Twitch? O app verificará novamente os resgates pendentes, a comunicação com a Twitch e as devoluções de pontos. Se o estado da reward e todas as devoluções necessárias forem confirmados, ela poderá ser excluída sem possibilidade de restauração. Escolha Cancelar exclusão na fila para mantê-la para depois.
+panel.operation.blocks_deletion	Bloqueia a exclusão de “{title}”
+panel.operation.attempts_exhausted	As tentativas automáticas terminaram e a Twitch não confirmou nada. Use Reconciliar / tentar novamente para iniciar um novo ciclo de 6 tentativas, ou registre uma resolução manual.
+panel.operation.manual_contradicted	A Twitch ainda lista este resgate como aberto depois da sua resolução manual, então o acompanhamento automático foi retomado.
 panel.reconciliation.running	Sincronização em andamento…
 panel.reconciliation.complete.one	Sincronização concluída. {count} resgate importado.
 panel.reconciliation.complete.many	Sincronização concluída. {count} resgates importados.

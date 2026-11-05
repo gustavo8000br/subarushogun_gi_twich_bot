@@ -487,6 +487,9 @@ panel.operation.action.retry	Reconcile / retry
 panel.operation.action.continue_delete	Continue deletion
 panel.operation.confirm.resolve	Twitch has not confirmed this redemption operation. Record that you reviewed it and stop automatic tracking? This does not confirm a refund or fulfillment, and there will be no further automatic attempts.
 panel.operation.confirm.continue_delete	Try to continue deleting this queue and its Twitch reward? The app will recheck pending redemptions, Twitch communication, and points refunds. If the reward state and every required refund result are confirmed, the reward may be deleted and cannot be restored. Choose Cancel deletion on the queue to keep it for later.
+panel.operation.blocks_deletion	Blocks the deletion of “{title}”
+panel.operation.attempts_exhausted	Automatic attempts ended and Twitch confirmed nothing. Use Reconcile / retry to start a new cycle of 6 attempts, or record a manual resolution.
+panel.operation.manual_contradicted	Twitch still lists this redemption as open after your manual resolution, so automatic tracking was resumed.
 panel.reconciliation.running	Reconciliation in progress…
 panel.reconciliation.complete.one	Reconciliation complete. Imported {count} redemption.
 panel.reconciliation.complete.other	Reconciliation complete. Imported {count} redemptions.

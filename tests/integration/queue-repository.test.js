@@ -1758,7 +1758,7 @@ describe('PostgreSQL queue repository', () => {
 
     expect(await repository.unknownRewardOperation(task.id, 'reward_open_result_unknown', leaseToken)).toBe(true);
     expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ remoteSyncStatus: 'close_unknown', lifecycleStatus: 'deleting' });
-    expect((await repository.retryOutboxManually(task.id)).count).toBe(1);
+    expect((await repository.retryOutboxManually(task.id, { actorId: 'operator-123' })).count).toBe(1);
 
     expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ remoteSyncStatus: 'pending_close', lifecycleStatus: 'deleting' });
     expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'pending' });
@@ -1854,7 +1854,7 @@ describe('PostgreSQL queue repository', () => {
     expect(reserved).toMatchObject({ status: 'verification_required', operationId: deletion.id });
     await repository.claimNextRewardOperation();
     expect(await prisma.outbox.findUnique({ where: { id: deletion.id } })).toMatchObject({ status: 'cancel_verification', leaseToken: null, leaseUntil: null });
-    expect(await repository.retryOutboxManually(deletion.id)).toMatchObject({ count: 0 });
+    expect(await repository.retryOutboxManually(deletion.id, { actorId: 'operator-123' })).toMatchObject({ count: 0 });
 
     const cancelled = await cancelService.cancelQueueDeletion({ queueId: queue.id, actorId: 'operator-cancel' });
 
@@ -2875,7 +2875,7 @@ describe('PostgreSQL queue repository', () => {
     await prisma.redemption.create({ data: { redemptionId, broadcasterId: 'broadcaster', rewardId: 'reward', userId: 'viewer', queueId: queue.id, redeemedAt: new Date(), expectedStatus: 'CANCELED', syncStatus: 'unknown' } });
     const task = await prisma.outbox.create({ data: { operationType: 'redemption.cancel', entityType: 'redemption', entityId: redemptionId, idempotencyKey: `financial:${redemptionId}`, redemptionId, status: 'unknown', lastError: 'remote_history_unavailable', payload: {} } });
     expect((await repository.listFinancialOperations()).find(({ id }) => id === task.id)).toMatchObject({ id: task.id, status: 'unknown', lastError: 'remote_history_unavailable', redemptionId });
-    expect(await repository.retryOutboxManually(task.id)).toMatchObject({ count: 1 });
+    expect(await repository.retryOutboxManually(task.id, { actorId: 'operator-123' })).toMatchObject({ count: 1 });
     expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'pending', lastError: null });
   });
 
@@ -2891,7 +2891,7 @@ describe('PostgreSQL queue repository', () => {
     expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'resolved_manual', attempts: 0 });
     expect(await prisma.redemption.findUnique({ where: { redemptionId } })).toMatchObject({ remoteStatus: 'UNFULFILLED', expectedStatus: 'CANCELED', syncStatus: 'operator_resolved' });
     expect(await prisma.auditLog.findFirst({ where: { redemptionId, event: 'financial.operation_resolved_manually' } })).toMatchObject({ actorId: 'operator-123', origin: 'panel', previousState: 'unknown', nextState: 'resolved_manual', reason: 'operator_acknowledged_unknown', safeDetail: { remoteConfirmed: false, expectedStatus: 'CANCELED' } });
-    expect(await repository.retryOutboxManually(task.id)).toMatchObject({ count: 0 });
+    expect(await repository.retryOutboxManually(task.id, { actorId: 'operator-123' })).toMatchObject({ count: 0 });
     const claimed = await repository.claimNext();
     expect(claimed?.id).not.toBe(task.id);
     expect(await prisma.outbox.findUnique({ where: { id: task.id } })).toMatchObject({ status: 'resolved_manual', attempts: 0 });

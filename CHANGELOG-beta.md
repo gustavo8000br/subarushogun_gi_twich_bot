@@ -6,6 +6,10 @@ Types: 🟧 Security · 🟩 Added · 🟦 Changed · 🟨 Deprecated · 🟥 Re
 
 ## v0.2.1-beta
 
+### 🟦 Changed
+
+- When Twitch cannot confirm a points refund or a redemption fulfillment, the app now checks it again automatically up to 6 times over about two hours, reading Twitch before any change, and only then asks for your review in Operations. "Reconcile / retry" starts a new cycle of 6 checks and is recorded with who requested it.
+
 ### 🟪 Fixed
 
 - Fixed the final local queue deletion confirmation so the queue title and full warning are displayed instead of an unavailable-text fallback, in both the legacy panel and the Next.js panel.

@@ -488,6 +488,9 @@ panel.operation.action.retry	Conciliar / reintentar
 panel.operation.action.continue_delete	Continuar eliminación
 panel.operation.confirm.resolve	Twitch aún no confirmó esta operación de canje. ¿Registrar que la revisaste y detener el seguimiento automático? Esto no confirma un reembolso ni el consumo, y no habrá más intentos automáticos.
 panel.operation.confirm.continue_delete	¿Intentar continuar la eliminación de esta cola y su recompensa de Twitch? La aplicación volverá a comprobar los canjes pendientes, la comunicación con Twitch y las devoluciones de puntos. Si se confirman el estado de la recompensa y todas las devoluciones necesarias, la recompensa podría eliminarse y no se podrá restaurar. Elige Cancelar eliminación en la cola para conservarla para más adelante.
+panel.operation.blocks_deletion	Bloquea la eliminación de “{title}”
+panel.operation.attempts_exhausted	Los intentos automáticos terminaron y Twitch no confirmó nada. Usa Reconciliar / reintentar para iniciar un nuevo ciclo de 6 intentos, o registra una resolución manual.
+panel.operation.manual_contradicted	Twitch sigue listando este canje como abierto tras tu resolución manual, así que se reanudó el seguimiento automático.
 panel.reconciliation.running	Sincronización en curso…
 panel.reconciliation.complete.one	Sincronización completada. Se importó {count} canje.
 panel.reconciliation.complete.many	Sincronización completada. Se importaron {count} canjes.

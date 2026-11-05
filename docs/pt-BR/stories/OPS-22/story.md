@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-22/story.md)
 
-**Status:** Ready (Pronta; GO do `@po` em 2026-10-27, ver [po-validation.md](po-validation.md)). Implementação somente após GO do `@po`, os gates de planejamento abaixo, issue criada pelo `@devops` e ordem explícita na sequência da OPS-15. **Issue:** #80; fatia 1 FT-24 = #82 (criada pelo `@devops`; sem comentários em issues). As fatias FT-25 = #98, FT-26 = #99 e FT-36 = #100 (criadas pelo `@devops`; sem comentários em issues).
+**Status:** InProgress (Em andamento; o `@dev` iniciou o ciclo único em 2026-11-04 pela FT-25; antes Ready, GO do `@po` em 2026-10-27, ver [po-validation.md](po-validation.md)). Implementação somente após GO do `@po`, os gates de planejamento abaixo, issue criada pelo `@devops` e ordem explícita na sequência da OPS-15. **Issue:** #80; fatia 1 FT-24 = #82 (criada pelo `@devops`; sem comentários em issues). As fatias FT-25 = #98, FT-26 = #99 e FT-36 = #100 (criadas pelo `@devops`; sem comentários em issues).
 **Origem:** Bateria ao vivo, rodada 1, defeitos D-5 e D-6 ([live-battery-2026-10-26-results.md](../OPS-15/live-battery-2026-10-26-results.md)); pesquisa de causa-raiz do `@analyst` ([redemption-sync-research.md](../OPS-15/redemption-sync-research.md), veredito SUFICIENTE); revisão do `@architect`, seção 5 e fatia S-F ([panel-defects-architecture-review.md](../OPS-15/panel-defects-architecture-review.md)); decisões do proprietário de 2026-10-27 (abaixo); decisões do `@architect` ([architecture-decisions.md](architecture-decisions.md), citado "ARCH §n", achados F1-F14) e do `@data-engineer` ([data-review.md](data-review.md), citado "DATA §n", condições C1-C8) de 2026-10-27; gate do `@qa` da fatia 1 ([qa-gate-2026-10-27.md](qa-gate-2026-10-27.md)).
 **Relacionadas:** OPS-15 (migração do painel Next — esta story é dependência do cutover, decisão do proprietário de 2026-10-27); FND-3 (outbox durável e recuperação financeira); FND-9 (ciclo de fila/recompensa); OPS-21 (contrato da API do painel — idempotência de qualquer mutação nova); OPS-20 (elegibilidade de devolução — depois, ver riscos); OPS-23 (painel em tempo real — independente, sem conjunto de escrita em comum, salvo onde indicado); **issue [#74](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/74) (diagnosticar a reconciliação e tornar as operações da Twitch acionáveis), incorporada a esta story em 2026-10-27 como sub-issue da #80 (saiu da #69) e sem story própria**.
 **Coordenação necessária:** `$aiox-po` (validação), `$aiox-architect` (máquina de estados e ordem de exclusão), `$aiox-data-engineer` (persistência do contador de tentativas e toda migration), `$aiox-analyst` (plano de confirmação ao vivo, ver gates), `$aiox-qa` independente, `$aiox-devops` (issue). `$aiox-ux-design-expert`: sem gate próprio nesta story; os textos visíveis novos entram no plano de UX da FT-23 (ver "Nota de UX").
@@ -148,6 +148,12 @@ Os pontos de canal dos espectadores são liquidados de forma confiável; uma lei
 4. **Twitch ao vivo:** somente o CA 19, sob autorização do proprietário, registrado à parte.
 5. **Gates antes de fechar:** `npm run lint`, `npm run typecheck`, `npm test`, `npm run validate:localization`, `npm run validate:version`, `npm run validate:port-denylist`, `npm run review:static` (somente OpenGrep; registrar comando, resultado e achados aceitos). O `@qa` executa os gates finais independentes e emite o veredito antes de o `@devops` commitar.
 
+## Plano de execução do ciclo único (`@po` 2026-11-04)
+
+Ordem: **FT-25 -> FT-26 -> FT-36 -> FT-23**, um ponto de controle do `@dev` por fatia (CP-1..CP-4, Red e depois Green, ver [qa-test-plan.md](qa-test-plan.md)), **um único gate do `@qa` no final** (G1..G4 dentro de um só veredito), depois quatro commits atômicos do `@devops`.
+
+**Estratégia de commits para arquivos compartilhados (risco R-1 do plano do `@qa` aceito, 2026-11-04).** `queue-repository.mjs` e vários arquivos de teste são editados por mais de uma fatia, então commits só por pathspec são impossíveis. O `@dev` salva um patch acumulado em cada ponto de controle em `.local/ops22/cp-N.patch` (não rastreado, por exemplo `git diff > .local/ops22/cp-1.patch`; arquivos novos devem entrar, por exemplo com `git add -N` antes do diff). O `@devops` monta os quatro commits aplicando com `git apply --cached` a diferença entre patches consecutivos (`cp-1`; `cp-2` menos `cp-1`; `cp-3` menos `cp-2`; `cp-4` menos `cp-3`). Cada commit deve ser revertível sozinho e a árvore depois do quarto deve ser igual à árvore de trabalho final. Commit, push e PR continuam com o `@devops` depois do veredito do `@qa`.
+
 ## Gates de planejamento antes da implementação
 
 - [x] Pesquisa do `@analyst`: causa-raiz e comportamento da Twitch ([redemption-sync-research.md](../OPS-15/redemption-sync-research.md), 2026-10-26; SUFICIENTE; as checagens ao vivo são confirmação, não mais pesquisa).
@@ -157,12 +163,12 @@ Os pontos de canal dos espectadores são liquidados de forma confiável; uma lei
 - [x] Confirmação do `@architect` sobre valores de espera, nomes de estados, regra de cancelar na exclusão, interação com OPS-21 e OPS-20 (fechada em 2026-10-27, [architecture-decisions.md](architecture-decisions.md)); cobre somente as fatias FT-24, FT-25 e FT-26.
 - [x] Resposta do `@data-engineer` sobre persistência (CA 12) — GO com condições C1-C8, sem migration (fechada em 2026-10-27, [data-review.md](data-review.md)); cobre somente FT-24 a FT-26.
 - [x] O `@devops` cria a issue no GitHub: mãe #80, FT-24 = #82 (sem comentários em issues). As issues da FT-25, FT-26 e FT-36 são criadas sob demanda.
-- [ ] Plano de testes do `@qa` (PostgreSQL isolado, instâncias reais do Twurple, separação de evidências).
+- [x] Plano de testes do `@qa` (PostgreSQL isolado, instâncias reais do Twurple, separação de evidências).
 - [ ] Proprietário: autorizar e agendar a checagem ao vivo (OW-16).
-- [ ] Nova revisão do `@architect` para a FT-36 (estados, corridas, tarefas de cancelamento `confirmed`/`pending`) e **reavaliação da complexidade da OPS-22**.
-- [ ] Nova revisão do `@data-engineer` das transições e testes da FT-36 (esperado ainda sem DDL), e atualização do DATA C3 (novo ciclo de 6) mais o fechamento dos "Itens em aberto" abaixo.
-- [ ] Revalidação do `@po` do escopo alterado: texto dos CAs 13 e 14, novos CAs 20-22, fatia 4 (FT-36) e o fechamento das perguntas abertas.
-- [ ] O plano da FT-23 do `@ux-design-expert` inclui os textos da OPS-22 (exclusão pendente/bloqueada, contagem de bloqueios, redação da resolução manual, confirmação de cancelar exclusão), nota >= 9,0, antes de a parte de interface da FT-25, FT-26 e FT-36 sair.
+- [x] Nova revisão do `@architect` para a FT-36 (estados, corridas, tarefas de cancelamento `confirmed`/`pending`) e **reavaliação da complexidade da OPS-22**.
+- [x] Nova revisão do `@data-engineer` das transições e testes da FT-36 (esperado ainda sem DDL), e atualização do DATA C3 (novo ciclo de 6) mais o fechamento dos "Itens em aberto" abaixo.
+- [x] Revalidação do `@po` do escopo alterado: texto dos CAs 13 e 14, novos CAs 20-22, fatia 4 (FT-36) e o fechamento das perguntas abertas.
+- [x] O plano da FT-23 do `@ux-design-expert` inclui os textos da OPS-22 (exclusão pendente/bloqueada, contagem de bloqueios, redação da resolução manual, confirmação de cancelar exclusão), nota >= 9,0, antes de a parte de interface da FT-25, FT-26 e FT-36 sair.
 
 ## Nota de UX
 
@@ -189,6 +195,16 @@ Divergências entre `@architect` e `@data-engineer` registradas em 2026-10-27; o
 - CAs 1-18 e 20-22 com evidência Red-first registrada por classe; o CA 19 **não** é exigido para o Done (decisão do proprietário OD-22-3, 2026-10-27): fica registrado como aceite separado do proprietário (execução ao vivo automatizada depois da FT-25/FT-26, OW-16).
 - Todos os quality gates verdes; veredito do `@qa` registrado; File List e checklists atualizados em inglês e pt-BR.
 - Nenhum `unknown` vira confirmação sem leitura remota positiva.
+- **Condições de UX do plano ([ux-plan-ft23-ft36.md](ux-plan-ft23-ft36.md), seção 8; condições do gate do `@qa`, `@po` 2026-11-04).** A nota de UX 9,1/10 só vale se **R1, R2, R3, R5 e R6 passarem no gate do `@qa`**; R4, R7 e R8 também são checados ali. Nenhum CA muda; são condições sobre como os CAs 13-15, 21 e os critérios da FT-23 são cumpridos:
+  - **R1:** os textos de exclusão de fila são escolhidos por tipo de fila; para filas de Pontos do Canal nenhum texto diz que a reward "continua pausada" ou "intacta" (chaves de catálogo específicas por tipo, no lugar das genéricas `panel.queue.delete.done` / `.pending`).
+  - **R2:** o botão "Cancelar exclusão" é governado pelos campos do servidor `canCancelDeletion` e `cancellationInProgress`, não pela heurística de `remoteSyncStatus`.
+  - **R3:** `tabindex="-1"` nos títulos de fila e nos dois `h1` de página (alvos de foco).
+  - **R4:** a região de resultado é um contêiner persistente com dois elementos vivos sempre montados, `status` (sucesso/pendente) e `alert` (recusas); aceito pelo `@po` como cumprimento de "uma região `role=status`" do critério 1 da FT-23.
+  - **R5:** diálogos específicos para excluir e cancelar exclusão, com os botões "Voltar" / "Cancelar exclusão", sem dupla negação e sem o diálogo genérico "Confirmar ação".
+  - **R6:** `already_deleted` é mapeado pelo código 409 `QUEUE_DELETION_ALREADY_COMPLETED`.
+  - **R7:** formas de plural para contagens de entradas e de operações bloqueadas em en, es e pt-BR.
+  - **R8:** texto da região de resultado >= 14 px e contraste medido >= 4,5:1 antes de a UI sair.
+  - **Limite da evidência:** a nota 9,1 é revisão estática. Validação visual, em navegador real, de leitura humana e com tecnologia assistiva **NÃO foi feita** e continua sendo ação do proprietário (A-05).
 
 ## Validação de rascunho do SM (story-draft-checklist, 2026-10-27)
 
@@ -224,6 +240,43 @@ Os arquivos de implementação serão listados aqui pelo `@dev` após os gates.
 - `tests/unit/twitch-integration.test.js`, `tests/unit/structured-logger.test.js`, `tests/unit/runtime-composition.test.js` (casos novos)
 - `CHANGELOG_INTERNAL.md`, `docs/pt-BR/CHANGELOG_INTERNAL.md`
 
+### Fatia 2 — FT-25 (#98), `@dev` 2026-11-04 (ponto de controle CP-1)
+
+- [x] Módulo puro da política de nova tentativa: 6 tentativas por ciclo contando a primeira, esperas de 1/4/16/60/60 min, jitter x0,8..x1,2 a partir de um `random` injetado, constantes exportadas, sem variável de ambiente (CA 6).
+- [x] Worker: `UNKNOWN`, 5xx, rede/timeout e 404 na leitura viram `retry` dentro do orçamento; a sexta tentativa não conclusiva vira `unknown('attempts_exhausted')` terminal; 401 é `unknown('authorization_required')` e nunca consome o orçamento; uma escrita protegida que afeta 0 linhas é `lease_lost`; uma linha de log `financial.attempt` por tentativa (CAs 6-8, 10).
+- [x] Repositório: `claimNext` devolve `payload`; `retry`, esgotamento e reverificação positiva rodam, cada um, numa transação protegida pelo lease que atualiza `outbox` + `redemptions.sync_status` + `audit_logs`; a devolução do 401 é um único comando; o payload é mesclado, nunca substituído (CAs 7-9, 12; DATA C2/C3).
+- [x] "Tentar agora": ator obrigatório, ciclo novo de 6 (`payload.cycleStartAttempts = attempts`, `attempts` só cresce), auditoria `financial.operation_retry_requested` na mesma transação sob `FOR UPDATE` (CA 20).
+- [x] `markRedemptionUnknown` não mexe mais em linhas da outbox (lacuna conhecida 1, DATA C4).
+- [x] Projeção de Operações: `reason` enumerado (`attempts_exhausted`, `authorization_required`), `health` derivado (`degraded`/`needs_review`) e `blockingQueueId`; as recusas levam `code` (CAs 8, 11).
+- [x] Chaves de catálogo `panel.operation.blocks_deletion`, `panel.operation.attempts_exhausted`, `panel.operation.manual_contradicted` em en, es e pt-BR; `{title}` registrado nos dois mapas de placeholders.
+- [ ] Exibir esses textos na página de Operações: adiado para o CP-4 (FT-23, teste E23-08), ver Dev Notes.
+- [ ] Rearmar automaticamente `authorization_required` depois da reautorização: FT-26 (CA 16), ver Dev Notes.
+
+Arquivos (CP-1, patch acumulado `.local/ops22/cp-1.patch`, arquivos novos listados em `.local/ops22/cp-1.files`):
+
+- `apps/api/src/outbox/financial-retry-policy.mjs` (novo)
+- `apps/api/src/outbox/financial-worker.mjs`
+- `apps/api/src/persistence/queue-repository.mjs` (compartilhado com FT-26/FT-36)
+- `apps/api/src/http/queue-routes.mjs` (compartilhado)
+- `apps/api/src/observability/structured-logger.mjs`, `apps/api/src/runtime.mjs`
+- `apps/shared/localization/catalogs/panel/{en,es,pt-BR}.tsv`, `apps/shared/panel/panel-catalog.mjs`, `apps/shared/localization/discover-catalog-module.mjs`
+- `tests/unit/financial-retry-policy.test.js` (novo), `tests/integration/financial-retry-postgres.test.js` (novo)
+- `tests/unit/financial-outbox-worker.test.js`, `tests/unit/twitch-reconciliation.test.js`, `tests/unit/queue-routes.test.js`, `tests/unit/structured-logger.test.js`, `tests/unit/runtime-composition.test.js`, `tests/unit/panel-catalog-placeholders.test.js`, `tests/unit/twitch-redemption-contract.test.js`, `tests/integration/queue-repository.test.js`
+- `CHANGELOG_INTERNAL.md`, `docs/pt-BR/CHANGELOG_INTERNAL.md`, `CHANGELOG-beta.md`, `docs/pt-BR/CHANGELOG-beta.md`, esta story (en, pt-BR)
+
+### Dev Notes — FT-25 (CP-1, 2026-11-04)
+
+- **Classes de evidência.** Unitária (Vitest; `HttpStatusCodeError` real da Twurple via `tests/helpers/twurple-real-instances.mjs`; relógio e `random` injetados). Contrato/localização (DTO da rota, varredura estática de nomes, catálogos entregues). PostgreSQL 18.6 isolado com as migrations reais (`tests/integration/financial-retry-postgres.test.js`, label `queuebot.test=disposable`; corridas com dois `PrismaClient` e uma barreira, 50 rodadas, sem sleep; falhas forçadas por triggers só de teste no banco descartável). Sem evidência de navegador, Compose, Twitch ao vivo ou OBS.
+- **Red (antes do código).** Unitário: 15 falharam em 7 arquivos (módulo da política ausente; o worker mandava `UNKNOWN` e 404 de leitura para `unknown`, sem limite, sem linha de log, sem `lease_lost`; a reconciliação movia linhas da outbox; rota sem ator e sem `code`; o logger descartava os campos da tentativa; o runtime não repassava `logEvent`; 3 chaves de catálogo ausentes). PostgreSQL (só com o módulo da política presente): 11 de 14 falharam por comportamento (`unknown` em vez de `retry`, sem esgotamento, `retryOutboxManually` sem ciclo e sem exigir ator, `markRedemptionUnknown` movia um lease vivo, sem devolução do 401, sem payload no `claimNext`); PG25-01, PG25-02 e PG25-08 já passavam (protegem semântica existente).
+- **Green.** Suíte unitária 144 arquivos / 1378 testes; `financial-retry-postgres` 14/14; `queue-repository`, `qra-postgres-fixtures` e `queue-repository-chat` 173/173; `npm test` completo na entrada do Change Log abaixo.
+- **Mutações do G1 provadas (aplicada, teste falhando mostrado, revertida, `diff` vazio):** M7 confirmar em `UNKNOWN` → U25-09, U25-10, PG25-04; M13 "tentar agora" dá 1 tentativa → PG25-07, PG25-11; M14 401 sem devolução → PG25-11, PG25-12, PG25-14; M15 payload substituído → PG25-12; M16 `markRedemptionUnknown` volta a mover tarefas → U25-13, PG25-06.
+- **Testes existentes alterados (para o novo CA; nenhuma asserção removida sem outra mais forte).** `financial-outbox-worker`: o caso de 404 na leitura agora espera nova tentativa limitada (CA 6), o caso 429 espera `max(agenda, Retry-After)` (ARCH §1). `twitch-redemption-contract` (FT-24): status desconhecido e 404 real agora esperam `retry` sem escrita e sem confirmação; 429/5xx reais esperam a nova agenda. `queue-routes`: "tentar agora" é chamado com o operador e o 409 leva `OPERATION_RETRY_UNAVAILABLE`. `queue-repository` (integração): as quatro chamadas de `retryOutboxManually` passam um operador.
+- **[AUTO-DECISION]** Exibir os três textos novos na página de Operações do Next → adiado para o CP-4/FT-23 (motivo: o plano do `@qa` põe a prova visível E23-08 no G4 e o pathspec do G4 é dono de `apps/frontend/`; a FT-25 entrega os campos da API e as chaves de catálogo aprovadas).
+- **[AUTO-DECISION]** Rearme automático de `authorization_required` depois da reautorização → fora da FT-25 (motivo: o ARCH §1 o liga ao CA 16, fatia FT-26, com os testes U26-04/PG26-06; a FT-25 mantém a devolução para que o rearme retome o mesmo ciclo; até lá o operador usa "tentar agora"). O PG25-11 simula o rearme com um `UPDATE` direto e diz isso.
+- **[AUTO-DECISION]** "Tentar agora" numa tarefa `reward.*` grava o mesmo evento de auditoria com `{ operationType, previousAttempts }` e sem mudar ciclo (motivo: recomendação da ft-36-data-engineer-confirmation (d); tarefas de recompensa não têm limite por ciclo).
+- **[AUTO-DECISION]** A auditoria de confirmação `financial.operation_confirmed_by_reverification` é gravada quando a tarefa teve uma tentativa não conclusiva antes (`payload.firstNonConclusiveAt` presente) (motivo: essa é a reverificação do DATA §3; a confirmação na primeira leitura mantém o comportamento de hoje).
+- **Mantido como está:** 403 na leitura continua `failed('remote_lookup_rejected')` (contrato da FT-24); a auditoria da resolução manual mantém `reason = operator_acknowledged_unknown` (teste existente). `getFinancialOperationSummary` não mudou.
+
 ## Change Log
 
 - 2026-10-27 — `@sm` (River): story redigida a partir da evidência D-5/D-6, da pesquisa do `@analyst`, da revisão do `@architect` e das decisões do proprietário de 2026-10-27. Status Rascunho.
@@ -236,3 +289,5 @@ Os arquivos de implementação serão listados aqui pelo `@dev` após os gates.
 - 2026-10-30 — `@sm` (River): registrado o ciclo único de entrega aprovado pelo proprietário (FT-25 #98 + FT-26 #99 + FT-36 #100, com a FT-23) e a dependência do plano de UX compartilhado; números de issue preenchidos. Sem mudança de CA, escopo nem status (status é do `@po`).
 - 2026-10-30 — `@po` (Pax): revalidou o pacote único (FT-25 + FT-26 + FT-36, com a FT-23): escopo e CAs **GO 8,5/10**, despacho do `@dev` **NO-GO** até fechar os gates abertos (plano de UX compartilhado do `@ux-design-expert`, revisão da FT-36 pelo `@architect` com reavaliação de complexidade e itens abertos 1, 2, 4, 5, confirmação da FT-36 pelo `@data-engineer`, plano de testes do `@qa`; issue da FT-23 pelo `@devops`; ordem da FT-23 frente à FT-28). Status continua Ready. Nenhum CA alterado. Detalhes: [po-validation.md](po-validation.md), adendo de 2026-10-30.
 - 2026-10-30 — `@po` (Pax): CA 21 alterado com a decisão do Orion (cancelamento permitido com leitura somente-leitura `cancel_verification` positiva; `QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED` só quando inconclusiva/negativa após tentativa de DELETE; supera F21/D-36-6); registrado o desacoplamento da FT-23 da FT-28 (D-23-1); gates do `@architect` e do `@data-engineer` FECHADOS; nota 9,0/10; despacho do `@dev` segue NO-GO enquanto UX e plano de testes do `@qa` estiverem abertos. CAs 8 e 20 sem alteração (não citam recusa nem reabertura). Status continua Ready. Detalhes: [po-validation.md](po-validation.md).
+- 2026-11-04 — `@po` (Pax): pacote único revalidado depois do plano de UX (9,1/10) e do plano de testes do `@qa` (108 testes, 22 mutações): escopo e CAs **GO 9,1/10**; todos os gates de planejamento fechados, exceto a checagem ao vivo do proprietário (OW-16, não bloqueia o Done). Status **Ready** confirmado e **liberada para o `@dev`** com a ordem FT-25 -> FT-26 -> FT-36 -> FT-23, um ponto de controle por fatia e um gate do `@qa` no final. Acrescentadas à Definição de pronto as condições de UX R1-R8 como condições do gate do `@qa` (nota só vale se R1, R2, R3, R5, R6 passarem) e a estratégia de commits atômicos por patches acumulados (`.local/ops22/cp-N.patch`, R-1). Nenhum CA alterado. Apenas revisão estática de UX; validação visual/humana/assistiva não feita (ação do proprietário A-05). Detalhes: [po-validation.md](po-validation.md), adendo de 2026-11-04.
+- 2026-11-04 | 0.2.1 | Desenvolvimento iniciado (modo YOLO) — Status: Ready → InProgress | `@dev` (Dex): ciclo único iniciado pela FT-25 (#98), ponto de controle CP-1 Red e depois Green (ver "Fatia 2 — FT-25" na File List e as Dev Notes). O status só passa a InReview quando as quatro fatias (FT-25, FT-26, FT-36, FT-23) terminarem. Nenhum CA, escopo ou título mudou.

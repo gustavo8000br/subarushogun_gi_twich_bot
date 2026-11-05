@@ -75,8 +75,10 @@ describe('Helix redemption read contract with real Twurple instances (AC 1-3)', 
     const updateRedemptionStatusByIds = vi.fn();
     const twitch = createTwitchApiAdapter({ api: { channelPoints: { getRedemptionById, updateRedemptionStatusByIds } }, broadcasterId: '100000001' });
     const h = financialHarness({ twitch });
-    expect(await h.worker.processOne()).toBe('unknown');
-    expect(h.repository.unknown).toHaveBeenCalledWith('outbox-1', 'remote_state_unavailable', 'lease-1');
+    // OPS-22 FT-25 (AC 6): an unrecognized status is non-conclusive: a bounded retry, never a confirmation or a write.
+    expect(await h.worker.processOne()).toBe('retry');
+    expect(h.repository.retry).toHaveBeenCalledWith('outbox-1', expect.objectContaining({ errorCode: 'remote_status_unrecognized', reasonClass: 'remote_read_unrecognized' }), 'lease-1');
+    expect(h.repository.unknown).not.toHaveBeenCalled();
     expect(h.repository.confirm).not.toHaveBeenCalled();
     expect(updateRedemptionStatusByIds).not.toHaveBeenCalled();
   });
@@ -102,11 +104,14 @@ describe('real Twurple HttpStatusCodeError classification in the financial worke
     expect(h.repository.retry).not.toHaveBeenCalled();
   });
 
+  // OPS-22 FT-25 (AC 6): a real 404 on the read reaches the not-found branch, which is now a non-conclusive retry.
   it('sends a real 404 to the not-found branch', async () => {
     const h = workerFailingLookup(404);
-    expect(await h.worker.processOne()).toBe('unknown');
-    expect(h.repository.unknown).toHaveBeenCalledWith('outbox-1', 'remote_state_unavailable', 'lease-1');
-    expect(h.repository.retry).not.toHaveBeenCalled();
+    expect(await h.worker.processOne()).toBe('retry');
+    expect(h.repository.retry).toHaveBeenCalledWith('outbox-1', expect.objectContaining({ errorCode: 'remote_redemption_not_found', reasonClass: 'remote_not_found' }), 'lease-1');
+    expect(h.repository.unknown).not.toHaveBeenCalled();
+    expect(h.repository.confirm).not.toHaveBeenCalled();
+    expect(h.twitch.setRedemptionStatus).not.toHaveBeenCalled();
   });
 
   it('treats a real 403 as a permanent rejection, not a transient retry', async () => {
@@ -116,16 +121,17 @@ describe('real Twurple HttpStatusCodeError classification in the financial worke
     expect(h.repository.retry).not.toHaveBeenCalled();
   });
 
+  // OPS-22 FT-25 (ARCH §1): wait = max(schedule, supplied Retry-After); the first scheduled wait is 60 s x 0.8 here.
   it('honors Retry-After on a real 429', async () => {
-    const h = workerFailingLookup(429, { retryAfterSeconds: 17 });
+    const h = workerFailingLookup(429, { retryAfterSeconds: 170 });
     expect(await h.worker.processOne()).toBe('retry');
-    expect(h.repository.retry).toHaveBeenCalledWith('outbox-1', expect.objectContaining({ delayMs: 17_000 }), 'lease-1');
+    expect(h.repository.retry).toHaveBeenCalledWith('outbox-1', expect.objectContaining({ delayMs: 170_000 }), 'lease-1');
   });
 
   it.each([500, 502, 503])('treats a real %s as transient', async (statusCode) => {
     const h = workerFailingLookup(statusCode);
     expect(await h.worker.processOne()).toBe('retry');
-    expect(h.repository.retry).toHaveBeenCalledWith('outbox-1', expect.objectContaining({ delayMs: 500, errorCode: 'remote_lookup_failed' }), 'lease-1');
+    expect(h.repository.retry).toHaveBeenCalledWith('outbox-1', expect.objectContaining({ delayMs: 48_000, errorCode: 'remote_lookup_failed' }), 'lease-1');
     expect(h.repository.failed).not.toHaveBeenCalled();
     expect(h.repository.unknown).not.toHaveBeenCalled();
   });

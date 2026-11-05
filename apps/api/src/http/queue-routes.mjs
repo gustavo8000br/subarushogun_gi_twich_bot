@@ -2,6 +2,7 @@ import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { createHash } from 'node:crypto';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES, resolveCommandPolicy } from '../commands/catalog.mjs';
 import { createErrorDiagnosticReporter } from '../observability/error-diagnostics.mjs';
+import { financialOperationHealth } from '../outbox/financial-retry-policy.mjs';
 import { evaluatePendingQueueRewardCompatibility, summarizePendingQueueRewardCompatibility } from '../twitch/pending-queue-reward-compatibility.mjs';
 
 function canonicalValue(value) {
@@ -65,13 +66,25 @@ function queueDto(queue, { operator = false } = {}) {
   };
 }
 
+// OPS-22 FT-25 (AC 8, 11): only enumerated reasons the panel has text for; never the raw `lastError`.
+const PROJECTED_FINANCIAL_REASONS = new Set(['attempts_exhausted', 'authorization_required']);
+const QUEUE_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function operationDto(operation) {
+  const financial = operation.operationType.startsWith('redemption.');
+  const health = financial ? financialOperationHealth({ status: operation.status }) : null;
   return {
     id: operation.id, type: operation.operationType, redemptionId: operation.redemptionId,
     ...(operation.operationType.startsWith('reward.') ? { entityId: operation.entityId } : {}),
     ...(operation.requiresDeleteConfirmation === true ? { requiresDeleteConfirmation: true } : {}),
     status: operation.status, attempts: operation.attempts,
     nextAttemptAt: operation.nextAttemptAt ?? null,
+    ...(health ? { health } : {}),
+    ...(financial && PROJECTED_FINANCIAL_REASONS.has(operation.lastError) ? { reason: operation.lastError }
+      : financial && operation.manualContradicted === true && ['pending', 'retry', 'processing'].includes(operation.status)
+        ? { reason: 'manual_contradicted' } : {}),
+    ...(financial && typeof operation.blockingQueueId === 'string' && QUEUE_ID_PATTERN.test(operation.blockingQueueId)
+      ? { blockingQueueId: operation.blockingQueueId } : {}),
   };
 }
 
@@ -267,14 +280,15 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   });
   app.get('/api/operations', async () => (await repository.listFinancialOperations?.() ?? []).map(operationDto));
   app.post('/api/operations/:operationId/retry', async (request, reply) => {
-    const result = await repository.retryOutboxManually(/** @type {any} */ (request.params).operationId);
-    if (!result.count) return reply.code(409).send({ error: 'Esta operação não está disponível para nova tentativa manual.' });
+    const localRequest = /** @type {any} */ (request);
+    const result = await repository.retryOutboxManually(localRequest.params.operationId, { actorId: localRequest.localSession?.id ?? null });
+    if (!result.count) return reply.code(409).send({ code: 'OPERATION_RETRY_UNAVAILABLE', error: 'Esta operação não está disponível para nova tentativa manual.' });
     return { status: 'pending' };
   });
   app.post('/api/operations/:operationId/resolve-unknown', async (request, reply) => {
     const localRequest = /** @type {any} */ (request);
     const result = await repository.resolveUnknownFinancialOperation?.(localRequest.params.operationId, localRequest.localSession?.id);
-    if (!result || result.status !== 'resolved_manual') return reply.code(409).send({ error: 'Esta operação não está disponível para resolução manual.' });
+    if (!result || result.status !== 'resolved_manual') return reply.code(409).send({ code: 'OPERATION_RESOLUTION_UNAVAILABLE', error: 'Esta operação não está disponível para resolução manual.' });
     return { status: 'resolved_manual', remoteConfirmed: false };
   });
   app.post('/api/reconciliation', async (_request, reply) => {

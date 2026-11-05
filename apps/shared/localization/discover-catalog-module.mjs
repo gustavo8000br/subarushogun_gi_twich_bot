@@ -48,6 +48,7 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'panel.entry.error.twitch_user_not_found': Object.freeze(['user']),
     'panel.queue_settings.call_message_default': Object.freeze(['user', 'command']),
     'panel.operation.attempts': Object.freeze(['count']),
+    'panel.operation.blocks_deletion': Object.freeze(['title']),
     'panel.reconciliation.complete': Object.freeze(['count']),
     'panel.reconciliation.issues': Object.freeze(['count']),
     'panel.queue.confirm.delete': Object.freeze(['title', 'count']),

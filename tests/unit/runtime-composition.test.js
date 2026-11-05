@@ -30,6 +30,17 @@ describe('application runtime composition', () => {
     await runtime.stop();
   });
 
+  it('hands the structured logger to the financial worker so each attempt is logged (OPS-22 FT-25, AC 10)', async () => {
+    const logEvent = vi.fn();
+    const integration = { status: 'connected', stop: vi.fn(), twitch: { getRedemptionStatus: vi.fn() } };
+    const financialWorkerFactory = vi.fn(() => ({ processOne: async () => 'idle' }));
+    const runtime = await createApplicationRuntime({ app: {}, pool: {}, prisma: {}, repository: {}, credentialRepository: { getAuthRecord: vi.fn(async () => null) },
+      integrationFactory: async () => integration, financialWorkerFactory, loopFactory: () => ({ start() {}, stop() {} }), timeoutLoopFactory: () => ({ start() {}, stop() {} }), logEvent });
+    await runtime.financialWorker.processOne();
+    expect(financialWorkerFactory).toHaveBeenCalledWith(expect.objectContaining({ logEvent }));
+    await runtime.stop();
+  });
+
   it('reports runtime Twitch state dynamically after integration status changes', async () => {
     const app = { close: vi.fn() };
     const integration = { status: 'connecting', stop: vi.fn() };

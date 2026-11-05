@@ -67,4 +67,35 @@ describe('runtime panel interpolation allowlist', () => {
       values: { reasons: 'x', token: 'secret' }, placeholders: PANEL_PLACEHOLDERS,
     })).toBe('Texto indisponível.');
   });
+
+  // OPS-22 FT-25: approved texts of the shared UX plan (ux-plan-ft23-ft36.md, section 4.2), in the three catalogs.
+  const ft25Texts = {
+    en: {
+      'panel.operation.blocks_deletion': 'Blocks the deletion of “{title}”',
+      'panel.operation.attempts_exhausted': 'Automatic attempts ended and Twitch confirmed nothing. Use Reconcile / retry to start a new cycle of 6 attempts, or record a manual resolution.',
+      'panel.operation.manual_contradicted': 'Twitch still lists this redemption as open after your manual resolution, so automatic tracking was resumed.',
+    },
+    es: {
+      'panel.operation.blocks_deletion': 'Bloquea la eliminación de “{title}”',
+      'panel.operation.attempts_exhausted': 'Los intentos automáticos terminaron y Twitch no confirmó nada. Usa Reconciliar / reintentar para iniciar un nuevo ciclo de 6 intentos, o registra una resolución manual.',
+      'panel.operation.manual_contradicted': 'Twitch sigue listando este canje como abierto tras tu resolución manual, así que se reanudó el seguimiento automático.',
+    },
+    'pt-BR': {
+      'panel.operation.blocks_deletion': 'Bloqueia a exclusão de “{title}”',
+      'panel.operation.attempts_exhausted': 'As tentativas automáticas terminaram e a Twitch não confirmou nada. Use Reconciliar / tentar novamente para iniciar um novo ciclo de 6 tentativas, ou registre uma resolução manual.',
+      'panel.operation.manual_contradicted': 'A Twitch ainda lista este resgate como aberto depois da sua resolução manual, então o acompanhamento automático foi retomado.',
+    },
+  };
+
+  it.each(['en', 'es', 'pt-BR'])('ships the FT-25 Operations texts in %s with registered placeholders only', (locale) => {
+    for (const [key, text] of Object.entries(ft25Texts[locale])) expect(shippedPanelCatalogs[locale][key]).toBe(text);
+    expect(PANEL_PLACEHOLDERS['panel.operation.blocks_deletion']).toEqual(['title']);
+    expect(PANEL_PLACEHOLDERS['panel.operation.attempts_exhausted']).toBeUndefined();
+    expect(PANEL_PLACEHOLDERS['panel.operation.manual_contradicted']).toBeUndefined();
+    const message = translateCatalog(shippedPanelCatalogs, locale, 'panel.operation.blocks_deletion', {
+      values: { title: 'Fila teste' }, placeholders: PANEL_PLACEHOLDERS,
+    });
+    expect(message).toContain('Fila teste');
+    expect(message).not.toContain('{title}');
+  });
 });

@@ -11,6 +11,20 @@ const SAFE_ISSUE_CODES = new Set(RECONCILIATION_ISSUE_CODES);
 const HTTP_STATUS = /^[1-5][0-9]{2}$/;
 const SAFE_DETAIL_KEYS = new Set(['errorType', 'errorCode', 'statusCode', 'stage', 'managedRewardCount', 'candidateCount', 'rejectedRewardCount', 'queueMode', 'remoteSyncStatus', 'trigger', 'reason', 'issueCount']);
 
+// OPS-22 FT-25 (AC 10): the `financial.attempt` fields, each with its own value rule; nothing else from an attempt.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+const SAFE_CODE = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
+const FINANCIAL_ATTEMPT_DETAILS = Object.freeze({
+  operationType: (value) => value === 'redemption.cancel' || value === 'redemption.fulfill',
+  outboxId: (value) => typeof value === 'string' && UUID.test(value),
+  attempt: (value) => Number.isSafeInteger(value) && value >= 0,
+  httpStatus: (value) => value === null || (Number.isInteger(value) && value >= 100 && value <= 599),
+  twitchErrorCode: (value) => value === null || (typeof value === 'string' && SAFE_CODE.test(value)),
+  nextAttemptAt: (value) => value === null || (typeof value === 'string' && ISO_TIMESTAMP.test(value)),
+  outcome: (value) => typeof value === 'string' && SAFE_REASON.test(value),
+});
+
 function safeCounts(value, isSafeKey) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const counts = Object.fromEntries(Object.entries(value).filter(([key, count]) => isSafeKey(key) && Number.isSafeInteger(count) && count >= 0));
@@ -34,6 +48,8 @@ function safeDetails(details) {
     } else if (key === 'httpStatusCounts') {
       const counts = safeCounts(value, (status) => HTTP_STATUS.test(status));
       if (counts) safe.httpStatusCounts = counts;
+    } else if (Object.hasOwn(FINANCIAL_ATTEMPT_DETAILS, key)) {
+      if (FINANCIAL_ATTEMPT_DETAILS[key](value)) safe[key] = value;
     } else if (SAFE_DETAIL_KEYS.has(key) && ((Number.isSafeInteger(value) && value >= 0) || (typeof value === 'string' && IDENTIFIER.test(value)))) {
       safe[key] = value;
     }

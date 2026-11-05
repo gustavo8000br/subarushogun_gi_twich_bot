@@ -34,7 +34,7 @@ export async function createApplicationRuntime({
   const financial = {
     async processOne() {
       if (!integration.twitch) return 'idle';
-      financialImplementation ??= financialWorkerFactory({ repository, getTwitch: () => integration.twitch, twitch: integration.twitch });
+      financialImplementation ??= financialWorkerFactory({ repository, getTwitch: () => integration.twitch, twitch: integration.twitch, logEvent });
       return financialImplementation.processOne();
     },
   };

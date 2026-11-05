@@ -1,7 +1,7 @@
 export const PANEL_PLACEHOLDERS = Object.freeze({
   'panel.overview.last_updated': ['time'], 'panel.overview.needs_review': ['count'],
   'panel.health.ping_ms': ['ms'],
-  'panel.operation.attempts': ['count'], 'panel.reconciliation.complete': ['count'], 'panel.reconciliation.issues': ['count'],
+  'panel.operation.attempts': ['count'], 'panel.operation.blocks_deletion': ['title'], 'panel.reconciliation.complete': ['count'], 'panel.reconciliation.issues': ['count'],
   'panel.queue.confirm.delete': ['title', 'count'], 'panel.queue.confirm.delete_local': ['title', 'count'],
   'panel.queue.confirm.cancel_delete': ['title'],
   'panel.queue.confirm.archive_local_uncertain_final': ['title'],
