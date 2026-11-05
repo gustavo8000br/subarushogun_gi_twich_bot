@@ -20,7 +20,7 @@ Como streamer, quero selecionar o idioma do produto durante a instalação e alt
 - A OPS-5 agora entrega um instalador unificado por sistema operacional. O menu localizado oferece Instalar / Iniciar, Atualizar e Desinstalar; essas ações não são arquivos nem downloads separados.
 - Colisões existentes de chaves de fila com `fila`, `queue` ou `cola` bloqueiam somente a raiz conflitante até renomeação explícita no painel; renomeação automática é proibida.
 - Superfícies-alvo: painel e assistente/callback; sintaxe, ajuda e respostas dos comandos de chat; editor de widget OBS e rótulos/fallbacks gerados pelo produto; ferramentas de iniciar/instalar, atualizar e desinstalar.
-- A implementação continua local-first e em JavaScript ESM vanilla, sem serviço de tradução em runtime, framework de frontend, TypeScript ou bundler.
+- O contrato de localização permanece local-first e em JavaScript ESM/JSDoc. A OPS-15 migra as superfícies do navegador para export estático Next.js e permite bundling/transpilation somente nesse build; não adiciona serviço de tradução em runtime, código de aplicação TypeScript nem servidor Next.js em runtime.
 - PostgreSQL é a autoridade escolhida para o locale; `.local/product-locale.state` é uma projeção local legível pelo host, atômica, com revisão monotônica e fallback para o último valor válido offline. A arquitetura ainda requer testes de contrato.
 - Catálogos compartilhados usam TSV UTF-8 sem BOM, texto literal e placeholders allowlistados. Um decoder ESM compartilhado já rejeita BOM/UTF-8 inválido em testes Node; ainda faltam testes de paridade para browser ESM, shell POSIX e PowerShell.
 

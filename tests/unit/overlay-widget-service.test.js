@@ -16,7 +16,10 @@ describe('OBS widget capability service', () => {
     const service = createOverlayWidgetService({ repository, origin: 'https://localhost:3000', tokenFactory: () => 'x'.repeat(43) });
     const result = await service.create({ sourceType: 'account_label' });
     const secret = new URL(result.capabilityUrl).hash.slice(1);
-    expect(result.capabilityUrl).toContain(`https://localhost:3000/overlay.html?ref=`);
+    // OPS-15 cutover wave 3: the link points at the Next overlay route; the /overlay.html alias is retired.
+    expect(result.capabilityUrl).toMatch(/^https:\/\/localhost:3000\/overlay\?ref=[A-Za-z0-9_-]{22}#/);
+    expect(new URL(result.capabilityUrl).pathname).toBe('/overlay');
+    expect(result.capabilityUrl).not.toContain('overlay.html');
     expect(result.capabilityUrl).toContain(`#${secret}`);
     expect(secret).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(new URL(result.capabilityUrl).searchParams.get('ref')).toMatch(/^[A-Za-z0-9_-]{22}$/);
@@ -34,6 +37,7 @@ describe('OBS widget capability service', () => {
     const second = await service.regenerate({ id: 'widget-1', expectedVersion: 1 });
     expect(first.capabilityUrl).toContain('a'.repeat(43));
     expect(second.capabilityUrl).toContain('b'.repeat(43));
+    expect(new URL(second.capabilityUrl).pathname).toBe('/overlay');
     expect(new URL(first.capabilityUrl).searchParams.get('ref')).not.toBe(new URL(second.capabilityUrl).searchParams.get('ref'));
     expect(repository.rotateCapability).toHaveBeenCalledWith(expect.objectContaining({
       id: 'widget-1', expectedVersion: 1,

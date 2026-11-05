@@ -2,7 +2,7 @@
 
 [English](../INSTALLERS.md) · [Voltar ao README](../../README.pt-BR.md)
 
-O projeto oferece um único arquivo de instalador por sistema operacional suportado. Ele reúne **Instalar / Iniciar**, **Atualizar** e **Desinstalar** em um menu. Você não precisa clonar o repositório-fonte. Um instalador de release instala e atualiza para a imagem GHCR correspondente à identidade da própria release; a imagem `main` continua sendo o padrão para builds de CI/desenvolvimento.
+O projeto oferece um único arquivo de instalador por sistema operacional suportado. Ele reúne **Instalar / Iniciar**, **Atualizar** e **Desinstalar** em um menu. Você não precisa instalar Node.js/npm, clonar o repositório-fonte ou compilar a imagem: o instalador baixa a imagem GHCR pré-compilada correspondente à release. A imagem `main` serve para builds de CI/manutenção, não é o padrão de instalação do usuário final.
 
 ## Baixar uma release
 

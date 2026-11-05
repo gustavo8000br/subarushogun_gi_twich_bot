@@ -1,7 +1,7 @@
 function safeWidgetDto(widget) {
   return {
     id: widget.id,
-    sourceType: widget.sourceType,
+    sourceType: widget.sourceType === 'in_service_viewer_display_name' ? 'account_label' : widget.sourceType,
     queueId: widget.queueId ?? null,
     fixedText: widget.fixedText ?? null,
     fallbackText: widget.fallbackText,

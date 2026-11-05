@@ -104,8 +104,8 @@ sections:
   - id: quality-gate-plan
     title: Quality Gate Plan
     instruction: |
-      Define appropriate human review gates and any static analysis checks for
-      code or configuration artifacts produced by this design/research work.
+      Define quality gates and specialized agent assignments for design/research work.
+      Even though this is not code, quality standards still apply.
     elicit: true
     owner: po
     editors: [po, sm]

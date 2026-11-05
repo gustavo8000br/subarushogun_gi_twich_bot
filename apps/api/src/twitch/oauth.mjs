@@ -112,7 +112,8 @@ export async function completeOAuthAuthorization({
     });
     return { broadcasterId: identity.userId, login: identity.login, displayName: identity.displayName };
   } catch (error) {
-    if (error?.code === 'TWITCH_AUTHORIZATION_MISMATCH' || error?.code === 'CHANNEL_BINDING_LOCKED') throw error;
+    if (error?.code === 'TWITCH_AUTHORIZATION_MISMATCH' || error?.code === 'CHANNEL_BINDING_LOCKED'
+      || error?.code === 'OAUTH_CREDENTIAL_STALE' || error?.code === 'COMMAND_POLICY_VERSION_CONFLICT') throw error;
     throw Object.assign(new Error('Twitch authorization failed'), { code: 'TWITCH_AUTHORIZATION_FAILED' });
   }
 }

@@ -1,0 +1,28 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.1/10
+scope: 'Somente recuperação de chamada selecionada/próxima QRA-13, aviso separado e persistente, referência segura, atualização/retry, foco e resultado de fila vazia confirmada'
+reviewer: Quinn (Test Architect)
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (recuperação QRA-13, não commitada)'
+updated: '2026-10-19'
+status_reason: 'A revisão considerou fechado o risco de retry com projeção desatualizada: chamadas incertas ou aceitas com falha de atualização bloqueiam os dois controles até carregar uma projeção válida, enquanto o aviso separado preserva referência segura e retry após outras ações e no estado vazio. O resultado count: 0 confirmado continua como no_waiting sem recuperação desnecessária; este PASS delimitado não conclui OPS-15.'
+top_issues: []
+waiver: { active: false }
+quality_score: 91
+evidence:
+  tests_reviewed: 227
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 11, 13]
+    ac_gaps: [3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16]
+  focused_tests: 'npm test -- --run tests/unit/next-queue-entry-actions.test.js tests/unit/next-queue-list.test.js tests/unit/queue-routes.test.js tests/unit/next-api-client.test.js; 4 arquivos / 227 testes passaram'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  localization: 'npm run validate:localization passou para en, es e pt-BR'
+  diff_check: 'git diff --check passou'
+  ux_review: 'Revisão UX delimitada não encontrou bloqueios restantes; o aviso de recuperação é independente do feedback comum, mantém referência segura e retry visíveis e move o foco para o status atualizado ou botão de retry habilitado.'
+limitations:
+  - 'Não foram executados build Next, browser/runtime nem acesso a .next.'
+  - 'Docker/PostgreSQL, Compose semelhante à produção, instalador Windows real, OBS/CEF nativo, rollback isolado, auditoria completa dos testes legados e paridade integral do painel continuam Pendentes.'
+  - 'Este gate delimitado não autoriza remoção do painel vanilla, cutover nem conclusão da story.'

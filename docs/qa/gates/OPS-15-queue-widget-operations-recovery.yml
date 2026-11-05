@@ -1,0 +1,35 @@
+story: OPS-15
+gate: queue-widget-operations-recovery
+status: PASS
+score: 9.2/10
+reviewer: aiox-qa
+independence: independent review; no implementation edits
+scope:
+  - queue creation call-message template validation and localized preview
+  - reward association refresh failure, diagnostic reference, retry, and relink guard
+  - widget accepted-mutation refresh failure, version conflict and removed-widget recovery, one-time capability dismissal
+  - operations initial load, reconciliation refresh, and accepted-action diagnostics
+evidence:
+  independent_qa_run:
+    result: 8 focused files / 89 tests passed
+    files:
+      - tests/unit/next-queue-creation.test.js
+      - tests/unit/next-queue-creation-form.test.js
+      - tests/unit/next-widgets-page.test.jsx
+      - tests/unit/next-queue-reward-resolution.test.js
+      - tests/unit/next-queue-reward-recovery.test.jsx
+      - tests/unit/next-queue-list.test.js
+      - tests/unit/next-operations-page.test.jsx
+      - tests/unit/next-connection-page.test.jsx
+  developer_run: 8 focused files / 79 tests passed; its file set included reward-settings-dialog tests instead of next-connection-page tests
+  lint: passed
+  typecheck: passed
+  localization: passed
+  diff_check: passed
+findings: []
+limitations:
+  - OpenGrep unavailable on this host
+  - no browser, Twitch, OBS/CEF, or production runtime validation
+  - no build run and .next was not touched
+  - this scoped result does not change overall OPS-15 QA status or close its acceptance gates
+overall_ops15: CONCERNS 8.0/10; In Progress

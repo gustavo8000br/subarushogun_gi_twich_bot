@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { projectMinimumRoleAudience, projectCommandCatalog, collectCommandPolicies, mergeCommandPolicyState, followerAuthorizationRequest, groupCommandPolicies } from '../../apps/web/command-catalog-view.mjs';
+import { projectMinimumRoleAudience, projectCommandCatalog, collectCommandPolicies, mergeCommandPolicyState, followerAuthorizationRequest, groupCommandPolicies } from '../../apps/shared/panel/command-catalog-view.mjs';
 
 describe('command catalog view contract', () => {
   it('projects the complete inherited audience for each configurable threshold', () => {
@@ -17,6 +17,11 @@ describe('command catalog view contract', () => {
     expect(groups.map(({ key, commands }) => [key, commands.map(({ key: command }) => command)])).toEqual([
       ['configurable', ['queue:list']], ['moderator', ['queue:add']], ['streamer', ['account:set']],
     ]);
+  });
+
+  it('keeps fixed commands with non-management roles visible in a fixed group', () => {
+    expect(groupCommandPolicies([{ key: 'queue:presente', access: { kind: 'fixed', minimumRole: 'everyone' } }]))
+      .toEqual([{ key: 'fixed', commands: [{ key: 'queue:presente', access: { kind: 'fixed', minimumRole: 'everyone' } }] }]);
   });
 
   it('projects one minimum threshold and submits only changed configurable policies', () => {
@@ -47,12 +52,12 @@ describe('command catalog view contract', () => {
     expect(collectCommandPolicies(catalog, [section])).toEqual({ 'queue:lista': { minimumRole: 'vip' } });
   });
 
-  it('requests follower authorization for saved follower thresholds only', () => {
+  it('requests follower scope consent without materializing implicit policy defaults', () => {
     const request = followerAuthorizationRequest({ version: 9, followerScopeReady: false, commands: [
-      { key: 'queue:lista', access: { kind: 'configurable' }, policy: { minimumRole: 'follower' } },
-      { key: 'queue:add', access: { kind: 'fixed' }, policy: { minimumRole: 'follower' } },
+      { key: 'queue:lista', access: { kind: 'configurable' }, policy: { minimumRole: 'follower' }, policyOverridden: true },
+      { key: 'queue:posicao', access: { kind: 'configurable' }, policy: { minimumRole: 'follower' }, policyOverridden: false },
     ] });
-    expect(request).toEqual({ expectedVersion: 9, policies: { 'queue:lista': { minimumRole: 'follower' } } });
+    expect(request).toEqual({ expectedVersion: 9, policies: {}, scopeOnly: true });
     expect(followerAuthorizationRequest({ version: 9, followerScopeReady: true, commands: [] })).toBeNull();
   });
 

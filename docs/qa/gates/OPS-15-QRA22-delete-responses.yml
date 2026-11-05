@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'QRA-22 POST /api/queues/:queueId/delete missing confirmation, known 404/409 outcomes, accepted arguments, and unexpected diagnostic coverage only'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (QRA-22 delete responses, uncommitted)'
+updated: '2026-10-19'
+status_reason: 'Missing confirm:true returns the exact 400 body before domain access. QUEUE_NOT_FOUND maps to exact 404, QUEUE_REWARD_NOT_READY and QUEUE_NOT_AVAILABLE map to their exact safe 409 responses, and private exception details are omitted. Accepted actor/queue/origin arguments and the existing unexpected 503 QUEUE_DELETE_UNAVAILABLE diagnostic/reference are covered. This PASS is limited to QRA-22 response assertions; OPS-15 remains In Progress and the final story gate is not satisfied.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 file / 108 tests passed'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 file / 108 tests passed'
+  lint: 'npm run lint passed'
+  typecheck: 'npm run typecheck passed'
+  diff_check: 'git diff --check passed (line-ending normalization warnings on existing working-tree files)'
+  response_review: 'Exact missing-confirmation 400 before domain call; exact 404/409 status/code/body and no private details; accepted arguments and unexpected 503 diagnostic are covered.'
+  bilingual_docs: 'QRA-22 route response and assertion matrix is aligned in EN and pt-BR.'
+limitations:
+  - 'No disposable PostgreSQL or test Twitch operation was run; remote cancellation/refund outcomes remain unverified.'
+  - 'No browser/Next runtime, installer, or native OBS/CEF validation was performed.'
+  - 'This is not overall OPS-15 QA, does not close the story, and does not authorize panel cutover.'

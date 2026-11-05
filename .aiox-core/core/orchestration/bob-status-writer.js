@@ -71,7 +71,7 @@ const BOB_STATUS_VERSION = '1.0';
 const DEFAULT_PIPELINE_STAGES = [
   'validation',
   'development',
-  'static_review',
+  'self_healing',
   'quality_gate',
   'push',
   'checkpoint',

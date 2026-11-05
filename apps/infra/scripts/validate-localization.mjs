@@ -1,12 +1,13 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { discoverCatalogBundle } from '../../shared/localization/discover-catalog-bundle.mjs';
+import { resolveFirstPartyCatalogRoot } from '../../shared/localization/first-party-catalogs.mjs';
 
 /** @param {string[]} [argumentsList] */
 export async function validateLocalizationCatalogs(argumentsList = process.argv.slice(2)) {
   const catalogRoot = argumentsList[0]
     ? resolve(argumentsList[0])
-    : fileURLToPath(new URL('../../web/localization/catalogs/', import.meta.url));
+    : resolveFirstPartyCatalogRoot(fileURLToPath(new URL('../../../', import.meta.url)));
   const bundle = await discoverCatalogBundle(catalogRoot);
   return {
     status: 'valid',

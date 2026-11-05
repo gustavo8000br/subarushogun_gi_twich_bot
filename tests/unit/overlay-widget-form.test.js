@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildOverlayWidgetPayload, countOverlayTextCodePoints } from '../../apps/web/overlay-widget-form.mjs';
+import { buildOverlayWidgetPayload, countOverlayTextCodePoints } from '../../apps/shared/panel/overlay-widget-form.mjs';
 
 function values(overrides = {}) {
   return new Map(Object.entries({ sourceType: 'account_label', queueId: '', fixedText: '', fallbackText: '', width: '640', height: '100', textColor: '#FFFFFF', backgroundColor: '#000000', backgroundOpacity: '0', fontFamily: 'system-ui', fontSize: '32', fontWeight: '700', alignment: 'center', effect: 'none', outlineWidth: '1', shadowBlur: '0', shadowOffsetX: '0', shadowOffsetY: '0', marginTop: '8', marginRight: '8', marginBottom: '8', marginLeft: '8', overflow: 'wrap', ...overrides }));
@@ -27,6 +27,7 @@ describe('OBS widget editor payload', () => {
 
   it('rejects unsupported source and font values in the browser before submitting', () => {
     expect(() => buildOverlayWidgetPayload(values({ sourceType: 'unknown' }))).toThrow();
+    expect(() => buildOverlayWidgetPayload(values({ sourceType: 'in_service_viewer_display_name' }))).toThrow();
     expect(() => buildOverlayWidgetPayload(values({ fontFamily: 'url(https://invalid.example)' }))).toThrow();
   });
 });

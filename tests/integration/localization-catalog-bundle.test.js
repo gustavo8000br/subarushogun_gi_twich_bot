@@ -24,6 +24,13 @@ async function makeRoot() {
   return root;
 }
 
+async function makeCommunityRoot() {
+  const root = await mkdtemp(join(tmpdir(), 'queuebot-community-catalog-bundle-'));
+  roots.push(root);
+  for (const moduleName of ['setup', 'community-module']) await mkdir(join(root, moduleName));
+  return root;
+}
+
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
@@ -61,5 +68,25 @@ describe('discoverCatalogBundle', () => {
 
     await expect(discoverCatalogBundle(root))
       .rejects.toThrow('Required catalog is missing for locale pt-BR');
+  });
+
+  it('merges complete community locales across roots without replacing first-party locales', async () => {
+    const root = await makeRoot();
+    const communityRoot = await makeCommunityRoot();
+    await writeFile(join(communityRoot, 'setup', 'de.tsv'), 'title\tEinrichtung\ntranslation.unavailable\tNicht verfügbar.\n');
+    await writeFile(join(communityRoot, 'community-module', 'de.tsv'), 'title\tChat\ntranslation.unavailable\tNicht verfügbar.\n');
+    await writeFile(join(communityRoot, 'setup', 'it.tsv'), 'title\tConfigurazione\ntranslation.unavailable\tNon disponibile.\n');
+    await writeFile(join(communityRoot, 'setup', 'en.tsv'), 'title\tCommunity override\ntranslation.unavailable\tOverride\n');
+
+    const result = await discoverCatalogBundle(root, {
+      communityCatalogRoot: communityRoot,
+      placeholdersByModule: { setup: {}, 'community-module': {} },
+    });
+
+    expect(result.locales).toEqual(['de', 'en', 'es', 'pt-BR']);
+    expect(result.modules.setup.catalogs.de.title).toBe('Einrichtung');
+    expect(result.modules['community-module'].catalogs.de.title).toBe('Chat');
+    expect(result.modules.setup.catalogs.it).toBeUndefined();
+    expect(result.modules.setup.catalogs.en.title).toBe('Title');
   });
 });

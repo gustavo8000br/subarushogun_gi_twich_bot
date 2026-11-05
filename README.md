@@ -1,7 +1,7 @@
 # Genshin Twitch Queue Bot
 
 [![CI](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/actions/workflows/ci.yml)
-[![Status: alpha](https://img.shields.io/badge/status-alpha-8a2be2)](VERSION)
+[![Status: beta](https://img.shields.io/badge/status-beta-8a2be2)](VERSION)
 [![JavaScript ESM](https://img.shields.io/badge/JavaScript-ESM-f7df1e?logo=javascript&logoColor=222)](package.json)
 [![Docker Compose v2](https://img.shields.io/badge/Docker-Compose_v2-2496ed?logo=docker&logoColor=white)](compose.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -10,14 +10,16 @@ English | [Português brasileiro](README.pt-BR.md)
 
 A local-first **Twitch chat bot with a streamer control panel** for Genshin Impact queues. Run it on your own computer; the app keeps its PostgreSQL data and operational secrets in local Docker volumes.
 
-> **Alpha:** core queue, chat, Twitch integration, panel, localization, and OBS widget stories are implemented. Live reward/point writes have not been verified with an eligible Twitch channel. See the [current roadmap](docs/ROADMAP.md).
+> **Beta (no public release yet):** core queue, chat, Twitch integration, panel, localization, and OBS widget stories are implemented. Live reward/point writes have not been verified with an eligible Twitch channel. See the [current roadmap](docs/ROADMAP.md).
 
 ## Quick start
 
-1. Install Docker Engine/Desktop with Compose v2. If it is missing, the installer offers current official instructions; host installation and any required privileges stay under your control.
-2. Download the installer for your system from [GitHub Releases](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases) when the first public release is available. Beta timing is not scheduled: FND-1's native Windows retest, full FND-9 acceptance, DOC-2, DOC-3, further owner-prioritized changes, and their release gates remain in the pre-release plan. The owner must explicitly approve beta readiness. Each release will include English and pt-BR notes from that version's changelog sections. See the [installer guide](docs/INSTALLERS.md) for current availability and GHCR access.
-3. Trust this installation's local certificate as described in the [installation guide](docs/INSTALLATION.md), then open the panel address shown by the installer.
-4. Connect your Twitch app in **Conexão do canal**. The [user guide](docs/USER_GUIDE-en_US.md) covers queue setup, chat commands, OBS widgets, recovery, updates, and uninstall.
+1. Install/start Docker Engine or Docker Desktop with Compose v2; the installer offers the vendor's official setup instructions if needed.
+2. Download and run the platform installer from [GitHub Releases](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/releases) when a public release is available. No public release has been published yet; release timing is not scheduled and publication requires the owner. The end-user app uses a prebuilt image; no Node.js, npm, source checkout, or local build is required. See [installer availability](docs/INSTALLERS.md).
+3. Choose **Install / Start**, then trust the local certificate and open the panel URL shown by the installer as described in [Installation](docs/INSTALLATION.md).
+4. Connect your Twitch app in **Channel connection**. The [user guide](docs/USER_GUIDE-en_US.md) covers queues, chat commands, OBS widgets, recovery, updates, and uninstall.
+
+Developers: use [Development](docs/DEVELOPMENT.md): run `npm ci` once, then `npm run dev` for HTTPS hot reload and an isolated development database.
 
 ## Documentation
 
@@ -44,7 +46,7 @@ Each guide links to its Brazilian Portuguese version. Product UI, help, and chat
 
 ## Project status
 
-FND-2 through FND-8 and OPS-1 through OPS-6 are implemented. OPS-5 provides one generated installer artifact per desktop OS; native CI checks and user-machine acceptance are tracked separately in the [roadmap](docs/ROADMAP.md). The old FND-1 Windows startup helpers were replaced by this installer; Windows operator acceptance is tracked for the current artifact.
+FND-1 through FND-8 and OPS-1 through OPS-11 are done; FND-9 and OPS-13 await owner acceptance, and the Next.js panel migration (OPS-15) is in progress. Current status for every story is in the [roadmap](docs/ROADMAP.md). OPS-5 provides one generated installer artifact per desktop OS; native CI checks and user-machine acceptance are tracked separately in the [roadmap](docs/ROADMAP.md). The old FND-1 Windows startup helpers were replaced by this installer; Windows operator acceptance is tracked for the current artifact.
 
 ## Contributing
 

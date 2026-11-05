@@ -3,7 +3,9 @@ name: aiox-architect
 description: |
   AIOX Architect autônomo. Análise de impacto, design de arquitetura,
   validação de PRD, research. Usa task files reais do AIOX.
-model: opus
+model: sonnet
+effort: medium
+maxTurns: 60
 tools:
   - Read
   - Grep
@@ -22,7 +24,6 @@ hooks:
         - type: command
           command: node .claude/hooks/enforce-git-push-authority.cjs
 skills:
-  - synapse:tasks:diagnose-synapse
   - architect-first
 color: purple
 ---
@@ -42,9 +43,7 @@ Read `.claude/commands/AIOX/agents/architect.md` and adopt the persona of **Aria
 Before starting your mission, load:
 
 1. **Git Status**: `git status --short` + `git log --oneline -5`
-2. **Gotchas**: Read `.aiox/gotchas.json` (filter for Architect-relevant: Architecture, Security, Performance, Scalability)
-3. **Technical Preferences**: Read `.aiox-core/data/technical-preferences.md`
-4. **Project Config**: Read `.aiox-core/core-config.yaml`
+2. **Project Config**: Read `.aiox-core/core-config.yaml`
 
 Do NOT display context loading — just absorb and proceed.
 

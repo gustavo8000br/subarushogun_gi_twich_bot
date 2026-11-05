@@ -1,0 +1,23 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'Story bilíngue de planejamento OPS-15, inventário de endpoints/catálogos, roteiro de conclusão do projeto e links do índice; somente documentação'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (snapshot documental, sem commit)'
+updated: '2026-10-19'
+status_reason: 'Os documentos de planejamento são testáveis e rastreáveis no nível declarado, identificam explicitamente como pendentes as lacunas do inventário agregado, preservam OPS-15 In Progress e o aceite do proprietário da FND-9, distinguem runtime de desenvolvimento e produção, separam runners do CI da aceitação Windows e ordenam as dependências entre stories. Esta revisão não avalia a implementação ou runtime do produto.'
+top_issues: []
+review_history:
+  - 'Revisão documental inicial: 8,5/10 CONCERNS.'
+  - 'Acompanhamento após primeiras correções: 8,7/10 CONCERNS; AC3, gates de build/runners e escopo do inventário exigiam revisão.'
+  - 'Revisão final após correções: 9,2/10 PASS.'
+  - 'Verificação final rápida após incluir OPS-14 / issue #65 nos dois roteiros: 9,2/10 PASS mantido.'
+independent_reviews:
+  architecture: '8,8/10, revisão dos documentos de planejamento'
+  product_owner: '8,8/10, revisão dos documentos de planejamento'
+  product_manager: '8,7/10, revisão dos documentos de planejamento'
+limitations:
+  - 'Este gate não executou QA da implementação, banco de dados, navegador, instalador, Docker, Twitch ou OBS/CEF nativo.'
+  - 'O score geral de QA da implementação OPS-15 continua não avaliado.'
+  - 'O inventário de endpoints/catálogos é uma base agregada; rastreabilidade por rota/ação e evidências executadas continuam como trabalho P1 aberto.'

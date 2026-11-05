@@ -9,7 +9,7 @@ This guide explains how to contribute product translations. The product source l
 Add one UTF-8, no-BOM TSV file for every supported product module:
 
 ```text
-apps/web/localization/catalogs/<module>/<locale>.tsv
+apps/shared/localization/catalogs/<module>/<locale>.tsv
 ```
 
 Use the canonical locale identifier in the filename (for example, `de` or `fr-CA`). Copy the matching `pt-BR.tsv` file for the module, preserve every key and translate only the value after the tab. Keep streamer-authored names, reward descriptions, and templates outside product catalogs; the application preserves those verbatim.

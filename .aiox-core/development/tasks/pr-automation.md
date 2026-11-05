@@ -407,7 +407,7 @@ Thank you for your interest in contributing! 🎉
 ## Performance
 
 - **Duration Expected**: 15 minutes (including quality checks)
-- **Cost Estimated**: GitHub Actions usage depends on repository plan
+- **Cost Estimated**: $0 (all tools are free for open-source)
 - **Cacheable**: false (each PR is unique)
 - **Parallelizable**: false (sequential process)
 

@@ -211,7 +211,7 @@ github:
     enabled: true
 static_review:
   enabled: true
-  command: "npm run review:static"
+  command: npm run review:static
   timeout_minutes: 5
   mode: local
   report_location: docs/qa/opengrep-reports/

@@ -22,6 +22,21 @@ afterEach(async () => {
 });
 
 describe('local operational secret bootstrap', () => {
+  it('resolves Git for Windows OpenSSL even when the inherited PATH omits its usr/bin directory', () => {
+    expect(bootstrap.resolveOpenSslCommand({ PATH: 'C:\\Program Files\\Git\\cmd' }, 'win32', (path) => path.endsWith('\\Git\\usr\\bin\\openssl.exe')))
+      .toBe('C:\\Program Files\\Git\\usr\\bin\\openssl.exe');
+  });
+
+  it('prefers an OpenSSL installation already available on PATH', () => {
+    const opensslDirectory = 'C:\\Program Files\\Git\\usr\\bin';
+    expect(bootstrap.resolveOpenSslCommand({ PATH: `${opensslDirectory};C:\\Program Files\\Git\\cmd` }, 'win32', (path) => path === `${opensslDirectory}\\openssl.exe`))
+      .toBe(`${opensslDirectory}\\openssl.exe`);
+  });
+
+  it('falls back to the platform OpenSSL command when it is not found on PATH', () => {
+    expect(bootstrap.resolveOpenSslCommand({ PATH: '' }, 'linux')).toBe('openssl');
+  });
+
   it('provides a bootstrap helper for creating persistent database credentials', () => {
     expect(moduleExists, 'secret bootstrap behavior is not implemented yet').toBe(true);
   });
@@ -33,7 +48,7 @@ describe('local operational secret bootstrap', () => {
     const permissions = (await stat(secretPath)).mode & 0o777;
 
     expect(password.trim().length).toBeGreaterThanOrEqual(40);
-    expect(permissions).toBe(0o440);
+    if (process.platform !== 'win32') expect(permissions).toBe(0o440);
   });
 
   it('preserves an existing password exactly across repeated bootstrap runs', async () => {
@@ -61,16 +76,17 @@ describe('local operational secret bootstrap', () => {
     const directory = await createSecretsDir();
     const exportDirectory = join(directory, 'host-export');
     const result = await bootstrap.ensureLocalTlsCertificate({ directory, exportDirectory });
-    const verification = spawnSync('openssl', ['verify', '-CAfile', result.caCertificatePath, result.certificatePath], { encoding: 'utf8' });
-    const details = spawnSync('openssl', ['x509', '-in', result.certificatePath, '-noout', '-ext', 'subjectAltName'], { encoding: 'utf8' });
+    const openssl = bootstrap.resolveOpenSslCommand();
+    const verification = spawnSync(openssl, ['verify', '-CAfile', result.caCertificatePath, result.certificatePath], { encoding: 'utf8' });
+    const details = spawnSync(openssl, ['x509', '-in', result.certificatePath, '-noout', '-ext', 'subjectAltName'], { encoding: 'utf8' });
 
     expect(verification.status, verification.stderr).toBe(0);
     expect(details.stdout).toContain('DNS:localhost');
     expect(details.stdout).toContain('IP Address:127.0.0.1');
     expect(await readFile(join(exportDirectory, 'localhost-ca.crt'), 'utf8')).toBe(await readFile(result.caCertificatePath, 'utf8'));
     expect(existsSync(join(exportDirectory, 'localhost-ca.key'))).toBe(false);
-    expect((await stat(result.privateKeyPath)).mode & 0o777).toBe(0o440);
-    expect((await stat(exportDirectory)).mode & 0o7777).toBe(0o2770);
+    if (process.platform !== 'win32') expect((await stat(result.privateKeyPath)).mode & 0o777).toBe(0o440);
+    if (process.platform !== 'win32') expect((await stat(exportDirectory)).mode & 0o7777).toBe(0o2770);
   });
 
   it('preserves the same localhost certificate and exported CA across bootstrap runs', async () => {
@@ -83,5 +99,12 @@ describe('local operational secret bootstrap', () => {
 
     expect(await readFile(second.certificatePath, 'utf8')).toBe(certificate);
     expect(await readFile(second.privateKeyPath, 'utf8')).toBe(privateKey);
+  });
+
+  it('supports using the same directory for the private CA and public CA export', async () => {
+    const directory = await createSecretsDir();
+    const result = await bootstrap.ensureLocalTlsCertificate({ directory, exportDirectory: directory });
+    expect(result.exportedCertificatePath).toBe(result.caCertificatePath);
+    expect(await readFile(result.exportedCertificatePath, 'utf8')).toContain('BEGIN CERTIFICATE');
   });
 });

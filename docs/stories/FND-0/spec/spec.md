@@ -6,6 +6,8 @@
 > **Complexity:** COMPLEX (25/25)  
 > **Generated:** 2026-10-02  
 > **Status:** Draft for AIOX critique  
+
+> **Superseded in part by OPS-15 (2026-10-21):** this is a historical specification. Its frontend runtime statements (Next.js static export in `apps/web`, `out/*` assets served by `@fastify/static`, no Next.js runtime server) and the initial `alpha` stage no longer describe the product. The panel and overlay are served by the Next.js server, which forwards same-origin API requests to the loopback Fastify API; the current stage is `beta` (base `v0.2.0`). The vanilla panel is removed after the migration only with explicit owner authorization, and `legacy` is historical reference only, not a fallback or rollback target. The same applies to the sibling `requirements.json`, `plan.json` and `research.json`. See [`docs/architecture.md`](../../../architecture.md) and the [OPS-15 structural review](../../OPS-15/structural-review.md).
 > **Source:** User's complete Prompt 1 and folder-layout clarification
 
 ## 1. Overview
@@ -22,7 +24,7 @@ Build a local-first, single-channel Twitch application for managing multiple Gen
 
 ### Non-goals
 
-Hosted service/backend, remote database, telemetry, public-domain requirement, Discord/DMs, second bot account, IRC, viewer join command, public signup, UID registration, overlay/OBS, ranking, backup/export product feature, multi-channel mode, multiple bot identities, and horizontal scaling.
+Hosted service/backend, remote database, telemetry, public-domain requirement, Discord/DMs, second bot account, IRC, viewer join command, public signup, UID registration, public/external overlay service, ranking, backup/export product feature, multi-channel mode, multiple bot identities, and horizontal scaling. The existing local OBS overlay remains a product surface.
 
 ## 2. Requirements Summary
 
@@ -42,7 +44,7 @@ The complete structured requirements are in [requirements.json](requirements.jso
 | FR-8 | EventSub WebSocket, Helix chat, deduplication, and startup/reconnect/periodic/operator reconciliation. | P0 |
 | FR-9 | Pure Portuguese parser plus trusted channel/actor authorization, cooldown, dedupe, limits, and safe send-result handling. | P0 |
 | FR-10 | Queue, call, service, cleanup, open/close, account, and timeout operations with specified policies. | P0 |
-| FR-11 | Local Fastify/static vanilla UI and session-protected explicit API projections. | P1 |
+| FR-11 | Local Fastify-served static operator UI and session-protected explicit API projections; OPS-15 specifies Next.js static export for the UI. | P1 |
 | FR-12 | Persist account label, source, owner, automatic individual-call switching, and reset rules. | P1 |
 | FR-13 | Separate product identity, API contract version, and state revision; validate and materialize exact SHA identity. | P1 |
 | FR-14 | Keep English canonical and Portuguese equivalent docs/changelogs linked and semantically aligned. | P1 |
@@ -55,7 +57,7 @@ All testable Given/When/Then criteria AC-1 through AC-20 are defined in `require
 - **Reliability:** durable state and outbox; Twitch-confirmed point outcomes; no exactly-once network claim; restart and partial-recovery safety.
 - **Concurrency:** PostgreSQL constraints and short transactions serialize same-queue order and global current-account changes; one bot process only.
 - **Usability:** operator and chat content in pt-BR, compact responses of at most 500 characters, actionable errors, install with Docker Compose v2 and browser only.
-- **Maintainability:** JavaScript ESM/JSDoc, Fastify, vanilla assets, pinned dependencies and lockfile, Prisma/PostgreSQL, Vitest, no application TypeScript/transpiler/bundler.
+- **Maintainability:** JavaScript ESM/JSDoc, Fastify, pinned dependencies and lockfile, Prisma/PostgreSQL and Vitest. Frontend uses Next.js App Router static export with a build-only bundler/transpilation step; no TypeScript application code or Next.js runtime server.
 - **Documentation:** English primary plus equivalent pt-BR, and per-increment genuine TDD evidence.
 
 ## 3. Technical Approach
@@ -67,7 +69,7 @@ Use a monolith with explicit application directories:
 ```text
 apps/
   api/       Fastify API, domain services, persistence, Twitch adapters, workers
-  web/       Vanilla HTML, CSS, and JavaScript served by @fastify/static
+  web/       Next.js App Router source and static export served by @fastify/static
   infra/     Bootstrap and local operational scripts used by Compose
 Dockerfile
 compose.yaml
@@ -81,7 +83,7 @@ One Compose deployment contains four responsibilities: one-shot idempotent `boot
 
 The local panel and Twitch callback use `https://localhost:${APP_PORT:-3000}` and `/callback`. Bootstrap creates a persistent local CA and localhost server certificate in the secret volume; only the public CA certificate is exported beneath ignored `.local/` for the operator to trust in the current-user certificate store. The bot mounts the TLS key read-only and starts Fastify with HTTPS. No public hostname, proxy, LAN binding, or automatic host trust-store mutation is required. The secure session cookie is `HttpOnly`, `SameSite=Lax`, and `Secure`; mutating requests accept only the exact HTTPS local Origin. The Twitch console rejected the HTTP callback during setup despite current public Twitch documentation examples still showing HTTP localhost, so the tested console behavior is the product contract.
 
-The user-mandated app layout is implemented without frontend compilation. `apps/api` provides domain, parser, persistence, outbox, OAuth, Helix/EventSub adapters, Fastify routes, and lifecycle workers. `apps/web` is static source. `apps/infra` owns bootstrap/start/wait/open-browser logic. Keep SQL transaction duration short; call Twitch outside database transactions.
+`apps/api` provides domain, parser, persistence, outbox, OAuth, Helix/EventSub adapters, Fastify routes, and lifecycle workers. `apps/web` contains modular Next.js App Router source and produces static assets only; Fastify serves the export on the existing local HTTPS origin. The panel and OBS overlay use separate layouts and bundles, preserving `/overlay.html?ref=...#token` exactly; OAuth callback remains a Fastify route. Frontend JavaScript stays ESM/JSDoc; bundling/transpilation is limited to building the static export. `apps/infra` owns bootstrap/start/wait/open-browser logic. Keep SQL transaction duration short; call Twitch outside database transactions.
 
 ### Stack and version choices
 
@@ -93,7 +95,7 @@ The user-mandated app layout is implemented without frontend compilation. `apps/
 | Twitch SDK | `@twurple/auth`, `@twurple/api`, `@twurple/eventsub-ws` 8.2.0 | npm metadata shows package peer versions aligned at 8.2.0; official current references consulted. |
 | HTTP/static/tests | Fastify 5.12.5, `@fastify/static` 10.1.5, Vitest 5.0.3 | Current package metadata checked 2026-10-02; pin and lock exact versions. |
 
-Use a root npm workspace/lockfile so the Docker image can run `npm ci`; app dependencies and scripts remain scoped to `apps/*`. `prisma.config.mjs` is supported by Prisma v6.19.3. The selected generator is `prisma-client-js`, explicitly accepting its deprecation in Prisma 7 to honor the user’s JavaScript-only requirement. Add no TypeScript generated client or frontend build step.
+Use a root npm workspace/lockfile so the Docker image can run `npm ci`; app dependencies and scripts remain scoped to `apps/*`. `prisma.config.mjs` is supported by Prisma v6.19.3. The selected generator is `prisma-client-js`, explicitly accepting its deprecation in Prisma 7 to honor the JavaScript-only application-source requirement. The frontend build step is the approved exception for Next static export only; do not add TypeScript generated clients or frontend application TypeScript.
 
 ### Domain and persistence
 
@@ -163,7 +165,7 @@ The dated sources and package metadata are recorded in `research.json`. Primary 
 | --- | --- | --- |
 | Root runtime | `package.json`, `package-lock.json`, `Dockerfile`, `compose.yaml`, `.dockerignore`, `.gitignore`, `.release-stage`, `VERSION` | Workspace, lockfile, build/runtime entrypoints, version sources. |
 | API | `apps/api/package.json`, `apps/api/prisma/schema.prisma`, `apps/api/prisma.config.mjs`, `apps/api/prisma/migrations/*`, `apps/api/src/*` | Database, domain, adapters, routes, worker, safe lifecycle. |
-| Web | `apps/web/public/index.html`, `apps/web/public/*` | Static vanilla operator interface. |
+| Web | `apps/web/app/*`, `apps/web/features/*`, `apps/web/components/ui/*`, `apps/web/lib/*`, `apps/web/styles/*`, exported `out/*` | Modular Next.js frontend source and static assets served by Fastify; panel and OBS overlay use separate entries. |
 | Infrastructure | `apps/infra/*`, root `iniciar.bat`, root `iniciar.sh` | Persistent bootstrap secret, start/wait/browser helpers. |
 | Tests | `tests/unit/*`, `tests/integration/*`, `compose.test.yaml` | Pure behavior and isolated real PostgreSQL/migration contract coverage. |
 | Docs | `README.md`, `README.pt-BR.md`, `docs/stories.md`, `docs/pt-BR/stories.md`, `docs/integrations.md`, `docs/pt-BR/integrations.md`, version/changelog counterparts | Install/use, decisions, policy, progress, evidence. |

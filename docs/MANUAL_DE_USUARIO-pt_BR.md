@@ -81,7 +81,7 @@ Use `!<fila> atender [usuario]` para iniciar o atendimento. Isso encerra o prazo
 
 ## Como funcionam os Pontos do Canal
 
-“Solicitado” ou “pendente” significa que o bot pediu à Twitch uma mudança no resgate e aguarda confirmação. Não significa que os pontos já foram devolvidos ou consumidos. A página **Operações financeiras** mostra operações pendentes, confirmadas, incertas ou em conflito.
+“Solicitado” ou “pendente” significa que o bot pediu à Twitch uma mudança no resgate e aguarda confirmação. Não significa que os pontos já foram devolvidos ou consumidos. A página **Sincronização com a Twitch e devolução de pontos** mostra operações pendentes, confirmadas, incertas ou em conflito.
 
 | Situação | Resultado solicitado para o resgate |
 | --- | --- |
@@ -136,7 +136,7 @@ O streamer sempre tem acesso. Para os comandos compatíveis, o streamer escolhe 
 
 `!conta` mostra o rótulo, inicialmente **Streamer**. Streamer ou moderador pode defini-lo com `!conta <nome>` ou restaurar o rótulo inicial com `!conta reset`. O nome é apenas um rótulo exibido durante a live, não é login nem credencial de jogo.
 
-Com **Trocar conta automaticamente ao chamar uma pessoa** ativado numa fila, chamar exatamente uma pessoa troca o rótulo para o nome de exibição dela. Chamar um grupo não troca. Quando termina a entrada que é dona da troca automática, o rótulo volta ao padrão. Concluir outra entrada não interfere. Um rótulo definido manualmente permanece até redefinir ou até uma próxima chamada individual elegível, conforme a entrada proprietária atual.
+Com a troca automática de conta ao chamar ativada numa fila, chamar exatamente uma pessoa troca o rótulo para o nome de exibição dela. Chamar um grupo não troca. Quando termina a entrada que é dona da troca automática, o rótulo volta ao padrão. Concluir outra entrada não interfere. Um rótulo definido manualmente permanece até redefinir ou até uma próxima chamada individual elegível, conforme a entrada proprietária atual.
 
 ## O painel
 
@@ -145,7 +145,7 @@ O painel local abre em `https://localhost:3000` por padrão. Ele tem:
 - Uma visão geral com estado local e conexão Twitch.
 - **Filas e atendimentos** para acompanhar pessoas, chamar, atender, remover, reorganizar e consultar histórico recente.
 - **Nova fila** para criar uma fila com recompensa própria.
-- **Operações financeiras** para acompanhar e recuperar operações de pontos.
+- **Sincronização com a Twitch e devolução de pontos** para acompanhar e recuperar operações de pontos.
 - **Comandos do chat** para ver o catálogo e escolher cargos permitidos.
 - **Widgets do OBS** para mostrar rótulos e informações da fila na transmissão.
 - **Configurações** para rótulos de conta.
@@ -168,7 +168,7 @@ Para instalar, atualizar ou remover o produto, use o mesmo arquivo de instalador
 | O navegador alerta sobre o certificado local | Siga o passo de confiança do certificado para seu sistema no [guia de instalação](pt-BR/INSTALACAO.md), reinicie o navegador e abra novamente `https://localhost:3000`. Não troque por um endereço inseguro. |
 | O painel pede reconexão com a Twitch | Abra **Conexão do canal**, reconecte o mesmo canal e autorize os acessos solicitados. O painel e os dados salvos continuam disponíveis durante a reconexão. |
 | O canal aparece como inelegível ou sem Pontos do Canal | Nesta versão, somente Afiliados/Parceiros com Pontos do Canal podem usar filas por recompensa. O modo apenas manual para canal inelegível está planejado, mas ainda não disponível. |
-| Uma recompensa está pendente ou incerta | Abra **Operações financeiras** ou **Conexão do canal**, leia a orientação e use a ação de tentar novamente/sincronizar/recuperar. Não presuma que os pontos mudaram antes da confirmação. |
+| Uma recompensa está pendente ou incerta | Abra **Sincronização com a Twitch e devolução de pontos** ou **Conexão do canal**, leia a orientação e use a ação de tentar novamente/sincronizar/recuperar. Não presuma que os pontos mudaram antes da confirmação. |
 | Um resgate não aparece na fila | Confirme que foi resgatada a recompensa própria deste bot e que a fila está aberta e conectada. Recompensas de outros aplicativos não são adotadas. Quando disponível, use **Sincronizar agora** na tela de conexão. |
 | Um comando no chat é ignorado | Confira o nome da fila, veja os comandos com `!queue comandos` ou `!<fila> comandos` e confira se o cargo tem permissão. Comandos de gestão exigem streamer/moderador. |
 | Viewer não consegue entrar | Não existe comando de autoinscrição. A pessoa precisa resgatar a recompensa da fila ou ser adicionada pelo streamer/moderador. |

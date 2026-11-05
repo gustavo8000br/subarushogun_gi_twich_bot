@@ -1,14 +1,16 @@
 import { matchesManagedRewardState } from '../twitch/reward-state.mjs';
+import { twitchHttpError } from '../twitch/http-error.mjs';
+import {
+  QUEUE_DELETION_BLOCKED_BY_REVIEW, QUEUE_DELETION_BLOCKED_RECHECK_MS, QUEUE_DELETION_REFUND_WAIT_MS,
+  QUEUE_DELETION_WAITING_FOR_REFUNDS, REWARD_AUTHORIZATION_REQUIRED,
+} from './queue-deletion-policy.mjs';
 
 const maxRetryMs = 60 * 60 * 1000;
+// OPS-22 FT-26 (AC 22, QA finding C-1): every Twitch status is read through the shared `twitchHttpError` (`statusCode ?? status`).
 
-function httpStatus(error) {
-  if (Number.isInteger(error?.status)) return error.status;
-  return Number.isInteger(error?.statusCode) ? error.statusCode : undefined;
-}
 
 function retryDelay(error, attempts, random) {
-  if (httpStatus(error) === 429 && Number.isFinite(error.retryAfterSeconds)) return Math.max(0, error.retryAfterSeconds * 1000);
+  if (twitchHttpError(error).httpStatus === 429 && Number.isFinite(error.retryAfterSeconds)) return Math.max(0, error.retryAfterSeconds * 1000);
   const base = Math.min(maxRetryMs, 1000 * (2 ** Math.min(attempts, 12)));
   return Math.min(maxRetryMs, Math.round(base * (0.5 + random())));
 }
@@ -74,7 +76,7 @@ function safeError(error, fallback) {
 }
 
 function isPermanentFailure(error) {
-  const status = httpStatus(error);
+  const status = twitchHttpError(error).httpStatus;
   return Number.isInteger(status) && status >= 400 && status < 500 && status !== 429;
 }
 
@@ -150,10 +152,10 @@ async function processRewardUpdateTask({ repository, adapter, task, clock, rando
     const confirmed = await repository.confirmRewardUpdated(task.id, task.leaseToken);
     return confirmed ? 'confirmed' : 'lease_lost';
   } catch (error) {
-    if (httpStatus(error) === 429 || httpStatus(error) === 401) {
+    if (twitchHttpError(error).httpStatus === 429 || twitchHttpError(error).httpStatus === 401) {
       await repository.retryRewardOperation(task.id, {
-        nextAttemptAt: new Date(clock().getTime() + retryDelay(httpStatus(error) === 429 ? error : {}, task.attempts, random)),
-        errorCode: httpStatus(error) === 429 ? safeError(error, 'reward_update_rate_limited') : 'twitch_authorization_required',
+        nextAttemptAt: new Date(clock().getTime() + retryDelay(twitchHttpError(error).httpStatus === 429 ? error : {}, task.attempts, random)),
+        errorCode: twitchHttpError(error).httpStatus === 429 ? safeError(error, 'reward_update_rate_limited') : 'twitch_authorization_required',
         payloadUpdates: { requestMayHaveReachedTwitch: false },
       }, task.leaseToken);
       return 'retry';
@@ -226,7 +228,7 @@ async function processOpenStateTask({ repository, adapter, task, clock, random }
     const confirmed = await repository.confirmRewardOpen(task.id, { isOpen }, task.leaseToken);
     return confirmed ? 'confirmed' : 'lease_lost';
   } catch (error) {
-    if (httpStatus(error) === 429) {
+    if (twitchHttpError(error).httpStatus === 429) {
       await repository.retryRewardOperation(task.id, {
         nextAttemptAt: new Date(clock().getTime() + retryDelay(error, task.attempts, random)),
         errorCode: safeError(error, 'reward_open_rate_limited'),
@@ -234,7 +236,7 @@ async function processOpenStateTask({ repository, adapter, task, clock, random }
       }, task.leaseToken);
       return 'retry';
     }
-    if (httpStatus(error) === 401) {
+    if (twitchHttpError(error).httpStatus === 401) {
       await repository.retryRewardOperation(task.id, {
         nextAttemptAt: new Date(clock().getTime() + retryDelay({}, task.attempts, random)),
         errorCode: 'twitch_authorization_required',
@@ -257,63 +259,79 @@ async function processDeleteTask({ repository, adapter, task, clock, random }) {
     await repository.failedRewardOperation(task.id, 'queue_delete_operation_invalid', task.leaseToken);
     return 'failed';
   }
-  const retry = async (errorCode, delayMs = retryDelay({}, task.attempts, random)) => {
-    await repository.retryRewardOperation(task.id, { nextAttemptAt: new Date(clock().getTime() + delayMs), errorCode }, task.leaseToken);
+  const retry = async (errorCode, delayMs = retryDelay({}, task.attempts, random), extra = {}) => {
+    await repository.retryRewardOperation(task.id, { nextAttemptAt: new Date(clock().getTime() + delayMs), errorCode, ...extra }, task.leaseToken);
     return 'retry';
   };
   const unknown = async (errorCode) => {
     await repository.unknownRewardOperation(task.id, errorCode, task.leaseToken);
     return 'unknown';
   };
+  // AC 16: a 401 keeps the deletion blocked with the auth state visible; it is re-armed after re-authorization.
+  const blockedByAuthorization = () => retry(REWARD_AUTHORIZATION_REQUIRED, QUEUE_DELETION_BLOCKED_RECHECK_MS);
+  // AC 14: financial blockers hold `reward.delete` in `retry` (nothing was sent to Twitch), never in `unknown`.
+  const waitForBlockers = (blockers) => (blockers.blocked > 0
+    ? retry(QUEUE_DELETION_BLOCKED_BY_REVIEW, QUEUE_DELETION_BLOCKED_RECHECK_MS, { blockers: { blockedCount: blockers.blocked, pendingCount: blockers.pending } })
+    : retry(QUEUE_DELETION_WAITING_FOR_REFUNDS, QUEUE_DELETION_REFUND_WAIT_MS));
+  const completeAsGone = async () => (await repository.completeQueueDeletion(task.id, task.leaseToken) ? 'confirmed' : 'lease_lost');
   let reward;
   try {
     reward = await adapter.getReward(queue.rewardId);
   } catch (error) {
-    if (httpStatus(error) === 404 && task.payload?.safeToDelete === true) {
-      return await repository.completeQueueDeletion(task.id, task.leaseToken) ? 'confirmed' : 'lease_lost';
-    }
-    if (httpStatus(error) === 404) return await unknown('queue_delete_reward_missing_before_safe_delete');
+    if (twitchHttpError(error).httpStatus === 401) return await blockedByAuthorization();
+    if (twitchHttpError(error).httpStatus === 404 && task.payload?.safeToDelete === true) return await completeAsGone();
+    if (twitchHttpError(error).httpStatus === 404) return await unknown('queue_delete_reward_missing_before_safe_delete');
     return await retry('queue_delete_reward_lookup_failed');
   }
   if (!reward) {
-    if (task.payload?.safeToDelete === true) return await repository.completeQueueDeletion(task.id, task.leaseToken) ? 'confirmed' : 'lease_lost';
+    if (task.payload?.safeToDelete === true) return await completeAsGone();
     return await unknown('queue_delete_reward_missing_before_safe_delete');
   }
   if (!matchesManagedRewardState(reward, queue) || reward.isPaused !== true) return await unknown('queue_delete_reward_diverged');
 
   let unfulfilled;
   try { unfulfilled = await adapter.listUnfulfilledRedemptions(queue.rewardId); }
-  catch { return await retry('queue_delete_redemptions_lookup_failed'); }
+  catch (error) {
+    if (twitchHttpError(error).httpStatus === 401) return await blockedByAuthorization();
+    return await retry('queue_delete_redemptions_lookup_failed');
+  }
   const recorded = await repository.recordQueueDeletionRedemptions({ queueId: queue.id, redemptions: unfulfilled });
-  if (recorded.status === 'conflict' || recorded.conflicts > 0) return await unknown('queue_deletion_financial_conflict');
   let blockers = await repository.getQueueDeletionBlockers(queue.id);
-  if (blockers.blocked > 0) return await unknown('queue_deletion_financial_conflict');
-  if (blockers.pending > 0) return await retry('queue_deletion_waiting_for_refunds', 30_000);
+  if (recorded.status === 'conflict' || recorded.conflicts > 0) blockers = { ...blockers, blocked: Math.max(1, blockers.blocked) };
+  if (blockers.blocked > 0 || blockers.pending > 0) return await waitForBlockers(blockers);
 
+  // AC 14 (b): a manual resolution counts only if it was recorded BEFORE the re-list below (the re-list is the guard).
+  const settledManualTaskIds = await repository.listManuallySettledDeletionTasks?.(queue.id) ?? [];
   let finalUnfulfilled;
   try { finalUnfulfilled = await adapter.listUnfulfilledRedemptions(queue.rewardId); }
-  catch { return await retry('queue_delete_final_redemption_check_failed'); }
+  catch (error) {
+    if (twitchHttpError(error).httpStatus === 401) return await blockedByAuthorization();
+    return await retry('queue_delete_final_redemption_check_failed');
+  }
   if (finalUnfulfilled.length) {
     const finalRecord = await repository.recordQueueDeletionRedemptions({ queueId: queue.id, redemptions: finalUnfulfilled });
-    if (finalRecord.status === 'conflict' || finalRecord.conflicts > 0) return await unknown('queue_deletion_financial_conflict');
     blockers = await repository.getQueueDeletionBlockers(queue.id);
-    if (blockers.blocked > 0) return await unknown('queue_deletion_financial_conflict');
-    return await retry('queue_deletion_waiting_for_refunds', 30_000);
+    if (finalRecord.status === 'conflict' || finalRecord.conflicts > 0) blockers = { ...blockers, blocked: Math.max(1, blockers.blocked) };
+    return await waitForBlockers(blockers.blocked > 0 ? blockers : { ...blockers, pending: Math.max(1, blockers.pending) });
   }
 
-  const prepared = await repository.prepareRewardDelete(task.id, task.leaseToken);
-  if (!prepared) return await retry('queue_delete_preconditions_changed', 30_000);
+  const prepared = await repository.prepareRewardDelete(task.id, task.leaseToken, ...(settledManualTaskIds.length ? [{ settledManualTaskIds }] : []));
+  if (!prepared) return await retry('queue_delete_preconditions_changed', QUEUE_DELETION_REFUND_WAIT_MS);
   try {
     await adapter.deleteReward(queue.rewardId);
-    return await repository.completeQueueDeletion(task.id, task.leaseToken) ? 'confirmed' : 'lease_lost';
-  } catch {
+    return await completeAsGone();
+  } catch (error) {
+    // A 401 means the DELETE was refused before it ran; the next attempt reads the reward again.
+    if (twitchHttpError(error).httpStatus === 401) return await blockedByAuthorization();
     try {
       const afterError = await adapter.getReward(queue.rewardId);
-      if (!afterError) return await repository.completeQueueDeletion(task.id, task.leaseToken) ? 'confirmed' : 'lease_lost';
+      if (!afterError) return await completeAsGone();
       if (!matchesManagedRewardState(afterError, queue) || afterError.isPaused !== true) return await unknown('queue_delete_reward_diverged_after_error');
       return await retry('queue_delete_response_unknown');
     } catch (lookupError) {
-      if (lookupError?.status === 404) return await repository.completeQueueDeletion(task.id, task.leaseToken) ? 'confirmed' : 'lease_lost';
+      // AC 13 step (e), AC 22: a real Twurple 404 (`statusCode`) after the DELETE means "already gone".
+      if (twitchHttpError(lookupError).httpStatus === 404) return await completeAsGone();
+      if (twitchHttpError(lookupError).httpStatus === 401) return await blockedByAuthorization();
       return await unknown('queue_delete_result_unknown');
     }
   }
@@ -428,7 +446,7 @@ export function createRewardOutboxWorker({ repository, twitch, getTwitch, clock 
         }
         return pauseAndConfirmCreatedReward({ repository: diagnosticRepository, adapter, task, rewardId: created.id, clock, random });
       } catch (error) {
-        if (httpStatus(error) === 429) {
+        if (twitchHttpError(error).httpStatus === 429) {
           const delayMs = retryDelay(error, task.attempts, random);
           await diagnosticRepository.retryRewardOperation(task.id, {
             nextAttemptAt: new Date(clock().getTime() + delayMs),

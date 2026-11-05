@@ -1,0 +1,1 @@
+- [OPS-22 checkpoint patches](project-ops22-checkpoint-patches.md) — cp-N.patch per slice, no git add; untracked docs, E2E dev-server recipe, plural-key rules

@@ -20,6 +20,8 @@ node_modules
 # Build & Logs (AIOX)
 dist/
 build/
+apps/frontend/.next/
+apps/frontend/out/
 *.log
 logs/
 

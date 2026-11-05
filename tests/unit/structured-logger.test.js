@@ -31,6 +31,49 @@ describe('structured logger', () => {
     expect(line).not.toMatch(/secret|raw/);
   });
 
+  it('keeps only known reconciliation issue codes and HTTP status counts in diagnostic details (OPS-22 FT-24)', () => {
+    const write = vi.fn();
+    const log = createStructuredLogger({ level: 'info', write });
+    log({ event: 'twitch_reconciliation_degraded', level: 'warn', source: 'twitch.reconciliation', details: {
+      trigger: 'periodic', reason: 'reconciliation_partial', issueCount: 3,
+      issueCounts: { redemption_verification_failed: 2, reward_configuration_mismatch: 1, viewer_login_leak: 4, 'Bearer abc': 1 },
+      httpStatusCounts: { 401: 2, 999: 1, abc: 1, 503: -1 },
+      redemptionId: 'fixture-redemption-1', userLogin: 'fixture_viewer', accessToken: 'secret-token',
+    } });
+    const line = write.mock.calls[0][0];
+    expect(JSON.parse(line).details).toEqual({
+      trigger: 'periodic', reason: 'reconciliation_partial', issueCount: 3,
+      issueCounts: { redemption_verification_failed: 2, reward_configuration_mismatch: 1 },
+      httpStatusCounts: { 401: 2 },
+    });
+    expect(line).not.toMatch(/fixture|secret|Bearer|leak/);
+  });
+
+  it('keeps exactly the financial.attempt fields with safe values and drops anything else (OPS-22 FT-25, AC 10)', () => {
+    const write = vi.fn();
+    const log = createStructuredLogger({ level: 'info', write, idFactory: () => 'ref-1', clock: () => new Date('2026-10-07T00:00:00Z') });
+    log({ event: 'financial.attempt', level: 'info', source: 'outbox.financial', details: {
+      operationType: 'redemption.cancel', outboxId: '10000000-0000-4000-8000-000000000001', attempt: 2, httpStatus: 503,
+      twitchErrorCode: 'remote_lookup_failed', nextAttemptAt: '2026-10-07T00:03:12.000Z', outcome: 'retry', message: 'oauth:secret', userLogin: 'viewer',
+    } });
+    log({ event: 'financial.attempt', level: 'info', source: 'outbox.financial', details: {
+      operationType: 'redemption.fulfill', outboxId: 'not a uuid', attempt: 1, httpStatus: null, twitchErrorCode: null, nextAttemptAt: null, outcome: 'confirmed',
+    } });
+    log({ event: 'financial.attempt', level: 'info', source: 'outbox.financial', details: {
+      operationType: 'redemption.cancel', outboxId: '10000000-0000-4000-8000-000000000001', attempt: 1, httpStatus: 999,
+      twitchErrorCode: 'Bearer abc def', nextAttemptAt: 'tomorrow', outcome: 'retry',
+    } });
+    const [first, second, third] = write.mock.calls.map(([line]) => JSON.parse(line));
+    expect(first.details).toEqual({
+      operationType: 'redemption.cancel', outboxId: '10000000-0000-4000-8000-000000000001', attempt: 2, httpStatus: 503,
+      twitchErrorCode: 'remote_lookup_failed', nextAttemptAt: '2026-10-07T00:03:12.000Z', outcome: 'retry',
+    });
+    expect(second.details).toEqual({ operationType: 'redemption.fulfill', attempt: 1, httpStatus: null, twitchErrorCode: null, nextAttemptAt: null, outcome: 'confirmed' });
+    expect(third.details).toEqual({ operationType: 'redemption.cancel', outboxId: '10000000-0000-4000-8000-000000000001', attempt: 1, outcome: 'retry' });
+    expect(write.mock.calls.join('')).not.toContain('secret');
+    expect(write.mock.calls.join('')).not.toContain('viewer');
+  });
+
   it('falls back to info for unknown configured levels', () => {
     expect(resolveLogLevel('made-up')).toBe('info');
   });

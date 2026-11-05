@@ -57,7 +57,7 @@ To set up a complete, production-ready CI/CD pipeline for a repository, includin
 - **enable_static_analysis**: `boolean`
   - **Description**: Enable the repository-configured local static-analysis job
   - **Default**: `true`
-  - **Note**: Runs repository-owned rules in CI; it does not provide hosted PR comments or edit files
+  - **Note**: **FREE tier** - No cost, no API keys needed for public repos
 
 - **branch_protection**: `boolean`
   - **Description**: Enable branch protection rules

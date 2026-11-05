@@ -3,13 +3,24 @@ import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { validateUidInput } from '../domain/uid.mjs';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog.mjs';
 import { matchesManagedRewardState } from '../twitch/reward-state.mjs';
+import { FINANCIAL_MAX_ATTEMPTS, FINANCIAL_REASON_CLASSES, FINANCIAL_TERMINAL_REASON, cycleStartAttemptsOf, freshCycleStart } from '../outbox/financial-retry-policy.mjs';
+import { QUEUE_DELETION_BLOCKED_BY_REVIEW, REWARD_AUTHORIZATION_REQUIRED, isResumableQueueDeletion } from '../outbox/queue-deletion-policy.mjs';
+import { CANCELLABLE_DELETE_STATUSES, CANCELLABLE_PAUSE_STATUSES, decideQueueDeletionCancellation } from '../../../shared/panel/queue-action-state.mjs';
 
 /** @typedef {Record<string, any>} PrismaClientLike */
 
 const activeStatuses = ['waiting', 'called', 'in_progress'];
+const unresolvedFinancialStatuses = ['pending', 'retry', 'processing', 'unknown', 'conflict', 'failed'];
+const unresolvedDeletionStatuses = [...unresolvedFinancialStatuses, 'cancel_verification'];
+const reviewableFinancialStatuses = ['unknown', 'conflict', 'failed'];
 
 function repositoryError(code, message) {
   return Object.assign(new Error(message), { code });
+}
+
+// FT-22: a call position is persisted/rendered only as an integer >= 1 (entries.position CHECK > 0).
+function isCallPosition(value) {
+  return Number.isInteger(value) && value >= 1;
 }
 
 function ensureQueueCanBeCalled(queue) {
@@ -37,19 +48,47 @@ async function lockProcessingRewardTask(tx, { outboxId, leaseToken, operationTyp
   return task?.entityId === candidate.entityId ? task : null;
 }
 
+// OPS-22 FT-25 (DATA C2/C3): financial transitions are lease-guarded, locked and merge `payload` (never replace it).
+const financialOperationTypes = ['redemption.cancel', 'redemption.fulfill'];
+const manualRetryStatuses = ['unknown', 'conflict', 'failed'];
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value) {
+  return typeof value === 'string' && UUID_PATTERN.test(value);
+}
+
+function payloadObject(payload) {
+  return payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+}
+
+function safeAuditCode(code) {
+  return typeof code === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(code) ? code : null;
+}
+
+/** Locks one processing financial task that still holds `leaseToken`; null when the lease was lost. */
+async function lockProcessingFinancialTask(tx, outboxId, leaseToken) {
+  if (!isUuid(outboxId) || !isUuid(leaseToken)) return null;
+  const rows = await tx.$queryRaw`
+    SELECT id FROM outbox
+    WHERE id = ${outboxId}::uuid AND status = 'processing' AND lease_token = ${leaseToken}::uuid
+      AND operation_type IN ('redemption.cancel', 'redemption.fulfill')
+    FOR UPDATE`;
+  if (!rows.length) return null;
+  return tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken }, include: { redemption: { select: { redemptionId: true, queueId: true } } } });
+}
+
 async function lockCurrentAccount(tx) {
   await tx.$queryRaw`SELECT 1::int AS locked FROM (SELECT pg_advisory_xact_lock(1868787013, 1)) AS account_lock`;
 }
 
-async function applyAutomaticAccountSwitch(tx, { queue, entry, actorId }) {
-  if (!queue.autoSwitchAccount) return;
+async function applyAutomaticAccountSwitch(tx, { entry, actorId }) {
   await lockCurrentAccount(tx);
   const accountSetting = await tx.setting.findUnique({ where: { key: 'account_state' } });
   const previousAccount = accountSetting?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
   const nextAccount = { ...previousAccount, label: entry.displayName, source: 'queue_auto', ownerEntryId: entry.id };
   await tx.setting.upsert({ where: { key: 'account_state' }, create: { key: 'account_state', value: nextAccount }, update: { value: nextAccount } });
   await tx.auditLog.create({ data: {
-    queueId: queue.id, entryId: entry.id, event: 'account.auto_switched', actorId, origin: 'panel',
+    queueId: entry.queueId, entryId: entry.id, event: 'account.auto_switched', actorId, origin: 'panel',
     previousState: previousAccount.label, nextState: nextAccount.label, reason: 'single_entry_called', safeDetail: { ownerEntryId: entry.id },
   } });
 }
@@ -79,6 +118,22 @@ function parseConvertedTombstoneCursor(value, now) {
     leaseId: leaseUntil && leaseId && Date.parse(leaseUntil) > now.getTime() ? leaseId : null,
     leaseUntil: leaseUntil && leaseId && Date.parse(leaseUntil) > now.getTime() ? leaseUntil : null,
   };
+}
+
+// OPS-22 FT-36: tasks that "cancel deletion" may target, and the status a verification restores (T36-14: a legacy
+// `cancel_verification` row without `payload.cancelVerification` restores to `unknown`, as the old failure path did).
+const QUEUE_DELETION_CANCEL_TARGET_TYPES = ['reward.delete', 'reward.set_open'];
+function cancelVerificationPreviousStatus(task) {
+  const previous = payloadObject(task?.payload).cancelVerification?.previousStatus;
+  const accepted = task?.operationType === 'reward.set_open' ? CANCELLABLE_PAUSE_STATUSES : CANCELLABLE_DELETE_STATUSES;
+  return accepted.includes(previous) ? previous : 'unknown';
+}
+
+// Confirm and fail remove the key, so a later resume never reads a stale `previousStatus` (data-engineer (a) 1.ii).
+function withoutCancelVerification(value) {
+  const payload = { ...payloadObject(value) };
+  delete payload.cancelVerification;
+  return payload;
 }
 
 async function withQueueTransaction(prisma, queueId, callback) {
@@ -127,6 +182,93 @@ async function enqueueRewardDeleteIntent(tx, queueId, now) {
     idempotencyKey,
     payload: { requestMayHaveReachedTwitch: false, safeToDelete: false },
   } });
+}
+
+// OPS-22 FT-26 (AC 14 a/b, I7): resume a deletion held in `retry` once a blocker settles. Callers hold the queue
+// advisory lock first (lock order of ft-36-data-engineer-confirmation (e)); `cancelled`/`cancel_verification` stay untouched.
+async function resumeQueueDeletion(tx, queueId, { now, resolvedBy, origin, actorId = null }) {
+  if (!queueId) return false;
+  const queue = await tx.queue.findUnique({ where: { id: queueId }, select: { lifecycleStatus: true } });
+  const task = await tx.outbox.findFirst({ where: { entityId: queueId, operationType: 'reward.delete' } });
+  if (!isResumableQueueDeletion(queue, task)) return false;
+  const payload = { ...payloadObject(task.payload) };
+  delete payload.blockedCount;
+  const updated = await tx.outbox.updateMany({ where: { id: task.id, status: 'retry' }, data: {
+    nextAttemptAt: now, payload,
+    ...(task.lastError === QUEUE_DELETION_BLOCKED_BY_REVIEW ? { lastError: null } : {}),
+  } });
+  if (updated.count !== 1) return false;
+  await tx.auditLog.create({ data: {
+    queueId, event: 'queue.deletion_resumed', actorId, origin, previousState: 'deleting', nextState: 'deleting',
+    reason: 'blockers_cleared', safeDetail: { resolvedBy },
+  } });
+  return true;
+}
+
+// OPS-22 FT-26 (AC 14 b): a re-list taken after a manual resolution still shows the redemption UNFULFILLED, so the
+// resolution is contradicted: the task goes back to `pending` with a fresh cycle of 6 (caller holds the queue lock).
+async function rearmContradictedResolution(tx, taskId, now) {
+  await tx.$queryRaw`SELECT id FROM outbox WHERE id = ${taskId}::uuid FOR UPDATE`;
+  const task = await tx.outbox.findFirst({ where: { id: taskId, status: 'resolved_manual', operationType: { in: financialOperationTypes } } });
+  if (!task) return false;
+  const cycleStartAttempts = freshCycleStart(task);
+  const updated = await tx.outbox.updateMany({ where: { id: task.id, status: 'resolved_manual' }, data: {
+    status: 'pending', nextAttemptAt: now, lastError: null, leaseToken: null, leaseUntil: null,
+    payload: { ...payloadObject(task.payload), cycleStartAttempts },
+  } });
+  if (updated.count !== 1) return false;
+  const redemption = task.redemptionId
+    ? await tx.redemption.update({ where: { redemptionId: task.redemptionId }, data: { syncStatus: 'pending' }, select: { queueId: true } })
+    : null;
+  await tx.auditLog.create({ data: {
+    queueId: redemption?.queueId ?? null, redemptionId: task.redemptionId ?? null,
+    event: 'financial.manual_resolution_contradicted', origin: 'system', previousState: 'resolved_manual', nextState: 'pending',
+    reason: 'remote_still_unfulfilled', safeDetail: { operationType: task.operationType, attempts: task.attempts, cycleStartAttempts },
+  } });
+  return true;
+}
+
+// OPS-22 FT-26 (AC 14 b, DATA C5): a redemption blocks the DELETE while it is UNFULFILLED without a manual resolution,
+// or while its financial task is neither confirmed nor manually resolved. Manual resolutions get the re-list guard.
+function unresolvedDeletionRedemptionWhere(queue) {
+  return { queueId: queue.id, rewardId: queue.rewardId, OR: [
+    { remoteStatus: 'UNFULFILLED', outbox: { none: { operationType: { in: financialOperationTypes }, status: 'resolved_manual' } } },
+    { outbox: { some: { operationType: { in: financialOperationTypes }, status: { notIn: ['confirmed', 'resolved_manual'] } } } },
+  ] };
+}
+
+/** OPS-22 FT-26 (AC 15): durable facts behind the deletion projection of `deleting` queues; codes and counts only. */
+async function loadQueueDeletionFacts(prisma, queueIds = []) {
+  const ids = [...new Set((Array.isArray(queueIds) ? queueIds : []).filter(isUuid))];
+  const facts = new Map(ids.map((id) => [id, { rewardDelete: null, rewardPause: null, rewardTaskProcessing: false, blockingOperations: 0, authorizationBlocked: false }]));
+  if (!ids.length) return facts;
+  const [rewardTasks, financialTasks] = await Promise.all([
+    prisma.outbox.findMany({
+      where: { entityId: { in: ids }, operationType: { in: rewardOperationTypes } },
+      select: { entityId: true, operationType: true, status: true, lastError: true, payload: true },
+      orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+    }),
+    prisma.outbox.findMany({
+      where: { operationType: { in: financialOperationTypes }, status: { in: reviewableFinancialStatuses }, redemption: { queueId: { in: ids } } },
+      select: { lastError: true, redemption: { select: { queueId: true } } },
+    }),
+  ]);
+  for (const task of rewardTasks) {
+    const fact = facts.get(task.entityId);
+    if (!fact) continue;
+    if (task.status === 'processing') fact.rewardTaskProcessing = true;
+    if (task.operationType === 'reward.delete') fact.rewardDelete = { status: task.status, lastError: task.lastError };
+    if (task.operationType === 'reward.set_open' && payloadObject(task.payload).deleteAfterConfirm === true && !['confirmed', 'cancelled'].includes(task.status)) {
+      fact.rewardPause = { status: task.status, lastError: task.lastError };
+    }
+  }
+  for (const task of financialTasks) {
+    const fact = facts.get(task.redemption?.queueId);
+    if (!fact) continue;
+    fact.blockingOperations += 1;
+    if (task.lastError === 'authorization_required') fact.authorizationBlocked = true;
+  }
+  return facts;
 }
 
 function isSafeReason(reason) {
@@ -303,17 +445,37 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async listFinancialOperations() {
+      // OPS-22 FT-25/FT-26 follow-up: a re-armed manual resolution is read from its audit fact (no raw field leaves the repository).
+      const flagContradictedResolutions = async (operations) => {
+        const live = operations.filter(({ status, redemptionId }) => ['pending', 'retry', 'processing'].includes(status) && redemptionId);
+        if (!live.length) return operations;
+        const rows = await prisma.auditLog.findMany({
+          where: { event: 'financial.manual_resolution_contradicted', redemptionId: { in: live.map(({ redemptionId }) => redemptionId) } },
+          select: { redemptionId: true },
+        });
+        const contradicted = new Set(rows.map(({ redemptionId }) => redemptionId));
+        return operations.map((operation) => (contradicted.has(operation.redemptionId) && live.includes(operation)
+          ? { ...operation, manualContradicted: true } : operation));
+      };
       const deletingQueues = await prisma.queue.findMany({ where: { lifecycleStatus: 'deleting' }, select: { id: true } });
       const [financialOperations, deletionOperations, rewardUpdates] = await Promise.all([
         prisma.outbox.findMany({
           where: { operationType: { in: ['redemption.cancel', 'redemption.fulfill'] } },
-          select: { id: true, operationType: true, entityId: true, redemptionId: true, status: true, attempts: true, nextAttemptAt: true, lastError: true, createdAt: true, updatedAt: true },
+          select: {
+            id: true, operationType: true, entityId: true, redemptionId: true, status: true, attempts: true, nextAttemptAt: true, lastError: true, createdAt: true, updatedAt: true,
+            redemption: { select: { queueId: true, queue: { select: { lifecycleStatus: true } } } },
+          },
           orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
           take: 200,
-        }),
+        }).then((operations) => operations.map(({ redemption, ...operation }) => ({
+          ...operation,
+          // OPS-22 FT-25 (AC 11): a financial task that needs review on a queue being deleted blocks that deletion.
+          ...(reviewableFinancialStatuses.includes(operation.status) && redemption?.queue?.lifecycleStatus === 'deleting' && redemption.queueId
+            ? { blockingQueueId: redemption.queueId } : {}),
+        }))).then(flagContradictedResolutions),
         deletingQueues.length ? prisma.outbox.findMany({
           where: { operationType: { in: ['reward.set_open', 'reward.delete'] }, entityId: { in: deletingQueues.map(({ id }) => id) } },
-          select: { id: true, operationType: true, entityId: true, redemptionId: true, status: true, attempts: true, nextAttemptAt: true, lastError: true, createdAt: true, updatedAt: true },
+          select: { id: true, operationType: true, entityId: true, redemptionId: true, status: true, attempts: true, nextAttemptAt: true, lastError: true, payload: true, createdAt: true, updatedAt: true },
           orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
         }) : Promise.resolve([]),
         prisma.outbox.findMany({
@@ -322,7 +484,36 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
         }),
       ]);
-      return [...financialOperations, ...deletionOperations, ...rewardUpdates].sort((first, second) => second.updatedAt.getTime() - first.updatedAt.getTime() || second.id.localeCompare(first.id));
+      const safeDeletionOperations = deletionOperations.map(({ payload, ...operation }) => ({
+        ...operation,
+        ...(operation.operationType === 'reward.set_open' && payload?.deleteAfterConfirm === true
+          ? { requiresDeleteConfirmation: true }
+          : {}),
+      }));
+      return [...financialOperations, ...safeDeletionOperations, ...rewardUpdates].sort((first, second) => second.updatedAt.getTime() - first.updatedAt.getTime() || second.id.localeCompare(first.id));
+    },
+    async getFinancialOperationSummary() {
+      const deletingQueues = await prisma.queue.findMany({ where: { lifecycleStatus: 'deleting' }, select: { id: true } });
+      const [redemptions, deletions, rewardUpdates] = await Promise.all([
+        prisma.outbox.groupBy({
+          by: ['status'], where: { operationType: { in: ['redemption.cancel', 'redemption.fulfill'] }, status: { in: unresolvedFinancialStatuses } },
+          _count: { _all: true },
+        }),
+        deletingQueues.length ? prisma.outbox.groupBy({
+          by: ['status'], where: { operationType: { in: ['reward.set_open', 'reward.delete'] }, entityId: { in: deletingQueues.map(({ id }) => id) }, status: { in: unresolvedDeletionStatuses } },
+          _count: { _all: true },
+        }) : Promise.resolve([]),
+        prisma.outbox.groupBy({
+          by: ['status'], where: { operationType: 'reward.update', status: { in: unresolvedFinancialStatuses } },
+          _count: { _all: true },
+        }),
+      ]);
+      return [...redemptions, ...deletions, ...rewardUpdates].reduce((summary, group) => {
+        const count = group._count._all;
+        summary.total += count;
+        if (reviewableFinancialStatuses.includes(group.status)) summary.needsReview += count;
+        return summary;
+      }, { total: 0, needsReview: 0 });
     },
     async getCurrentAccount() {
       const setting = await prisma.setting.findUnique({ where: { key: 'account_state' } });
@@ -330,7 +521,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async getOverlaySourceValue({ sourceType, queueId = null, tx = prisma }) {
-      if (sourceType === 'account_label') {
+      if (sourceType === 'account_label' || sourceType === 'in_service_viewer_display_name') {
         const setting = await tx.setting.findUnique({ where: { key: 'account_state' } });
         return typeof setting?.value?.label === 'string' ? setting.value.label : 'Streamer';
       }
@@ -358,14 +549,6 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { safeDetail: true },
         });
         return Number.isInteger(transition?.safeDetail?.previousPosition) ? transition.safeDetail.previousPosition : null;
-      }
-      if (sourceType === 'in_service_viewer_display_name') {
-        const entry = await tx.entry.findFirst({
-          where: { status: 'in_progress', startedAt: { not: null } },
-          orderBy: [{ startedAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
-          select: { displayName: true },
-        });
-        return entry?.displayName ?? null;
       }
       return null;
     },
@@ -533,29 +716,6 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         const next = await tx.queue.findUnique({ where: { id: queueId } });
         await tx.auditLog.create({ data: { queueId, event: 'queue.manual_mode_confirmed', origin: 'reconciliation', previousState: queue.modeTransitionStatus, nextState: 'manual_only', reason: 'twitch_pause_confirmed_during_reconciliation', safeDetail: { rewardId: queue.rewardId, remoteSyncStatus: 'local_only' } } });
         return { status: 'confirmed', queue: next };
-      });
-    },
-
-    async archiveQueue({ queueId, actorId = null, origin = 'panel' }) {
-      return withQueueTransaction(prisma, queueId, async (tx) => {
-        const queue = await tx.queue.findUnique({ where: { id: queueId } });
-        if (!queue || queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be archived');
-        if (queue.isArchived) return { status: queue.remoteSyncStatus === 'pending_close' ? 'pending' : 'archived', queue };
-        if (queue.queueMode === 'manual_only') {
-          const archived = await tx.queue.update({ where: { id: queueId }, data: { isArchived: true, isOpen: false, version: { increment: 1 } } });
-          await tx.auditLog.create({ data: { queueId, event: 'queue.archived', actorId, origin, previousState: 'active', nextState: 'archived', reason: 'local_queue_archived', safeDetail: { remoteSyncStatus: 'local_only' } } });
-          return { status: 'archived', queue: archived };
-        }
-        if (!queue.rewardId || !['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) throw repositoryError('QUEUE_REWARD_NOT_READY', 'Queue reward is not ready to archive');
-        const nextVersion = queue.version + 1;
-        const archived = await tx.queue.update({ where: { id: queueId }, data: { isArchived: true, isOpen: false, remoteSyncStatus: 'pending_close', version: nextVersion } });
-        await tx.outbox.create({ data: {
-          operationType: 'reward.set_open', entityType: 'queue', entityId: queueId,
-          idempotencyKey: `queue:${queueId}:reward.archive:${nextVersion}`,
-          payload: { isOpen: false, queueVersion: nextVersion, archiveAfterConfirm: true, requestMayHaveReachedTwitch: false },
-        } });
-        await tx.auditLog.create({ data: { queueId, event: 'queue.archive_requested', actorId, origin, previousState: 'active', nextState: 'archived_pending_pause', reason: 'queue_archive_requested', safeDetail: { rewardId: queue.rewardId } } });
-        return { status: 'pending', queue: archived };
       });
     },
 
@@ -812,79 +972,113 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       });
     },
 
+    // OPS-22 FT-36 (#100, architect-review-ft36 §1.2-1.5, ft-36-data-engineer-confirmation (a)-(c)): begin, fail and
+    // confirm of "cancel deletion". Each is one transaction: queue advisory lock, then `FOR UPDATE` on the queue's
+    // `reward.%` rows. The Twitch read runs between them, outside any transaction, with the target in the unclaimable
+    // `cancel_verification` status. `redemptions` and `redemption.*` rows are never written here (I2).
     async beginQueueDeletionCancellation({ queueId, actorId = null, origin = 'panel' }) {
       return withQueueTransaction(prisma, queueId, async (tx) => {
         await tx.$queryRaw`SELECT id FROM outbox WHERE entity_id = ${queueId} AND operation_type LIKE 'reward.%' ORDER BY id FOR UPDATE`;
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue) throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
-        if (queue.lifecycleStatus !== 'deleting' || queue.queueMode !== 'channel_points' || !queue.rewardId) {
-          throw repositoryError('QUEUE_DELETION_NOT_PENDING', 'Managed queue deletion is not pending');
-        }
-        const rewardTasks = await tx.outbox.findMany({ where: { entityId: queueId, operationType: { in: rewardOperationTypes } } });
-        if (rewardTasks.some(({ status }) => status === 'processing')) {
-          throw repositoryError('QUEUE_REWARD_OPERATION_PROCESSING', 'A Twitch reward operation is still processing');
-        }
-        const deletion = rewardTasks.find(({ operationType }) => operationType === 'reward.delete');
-        if (!deletion) throw repositoryError('QUEUE_DELETION_NOT_PENDING', 'Queue deletion operation was not found');
-        if (deletion.status === 'confirmed') return { status: 'already_deleted', queue };
-        if (deletion.status === 'cancel_verification') {
-          return { status: 'verification_required', operationId: deletion.id, queueId, rewardId: queue.rewardId, expectedVersion: queue.version, queue };
-        }
-        if (!['pending', 'retry', 'unknown', 'failed', 'conflict'].includes(deletion.status)) {
-          throw repositoryError('QUEUE_DELETION_NOT_PENDING', 'Queue deletion cannot be cancelled in its current state');
-        }
-        await tx.outbox.update({ where: { id: deletion.id }, data: { status: 'cancel_verification', leaseToken: null, leaseUntil: null } });
+        const rewardTasks = await tx.outbox.findMany({ where: { entityId: queueId, operationType: { in: rewardOperationTypes } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+        const decision = decideQueueDeletionCancellation(queue, rewardTasks);
+        if (decision.outcome === 'refused') throw repositoryError(decision.code, 'Queue deletion cannot be cancelled in its current state');
+        const target = decision.target;
+        const payload = payloadObject(target.payload);
+        const reservation = (previousStatus) => ({
+          status: 'verification_required', operationId: target.id, operationType: target.operationType, queueId, rewardId: queue.rewardId,
+          expectedVersion: queue.version, queue, previousStatus,
+          // Only a `reward.delete` can carry a possibly-sent DELETE; on a pause task the flag refers to the pause write.
+          requestMayHaveReachedTwitch: target.operationType === 'reward.delete' && payload.requestMayHaveReachedTwitch === true,
+        });
+        // Resume (crash or second click): no new audit row; a legacy row without the key restores to `unknown` (T36-14).
+        if (decision.outcome === 'resume') return reservation(cancelVerificationPreviousStatus(target));
+        const reserved = await tx.outbox.updateMany({ where: { id: target.id, status: target.status }, data: {
+          status: 'cancel_verification', leaseToken: null, leaseUntil: null,
+          payload: { ...payload, cancelVerification: { previousStatus: target.status, previousLastError: target.lastError ?? null, requestedAt: clock().toISOString() } },
+        } });
+        if (reserved.count !== 1) throw repositoryError('QUEUE_DELETION_CANCELLATION_STALE', 'Queue deletion changed during cancellation');
         await tx.auditLog.create({ data: {
           queueId, event: 'queue.deletion_cancel_verification_requested', actorId, origin,
-          previousState: deletion.status, nextState: 'cancel_verification', reason: 'operator_requested_queue_deletion_cancellation',
-          safeDetail: { rewardId: queue.rewardId, operationId: deletion.id, requestMayHaveReachedTwitch: deletion.payload?.requestMayHaveReachedTwitch === true, safeToDelete: deletion.payload?.safeToDelete === true },
+          previousState: target.status, nextState: 'cancel_verification', reason: 'operator_requested_queue_deletion_cancellation',
+          safeDetail: {
+            rewardId: queue.rewardId, operationId: target.id, operationType: target.operationType,
+            deletionState: decision.deletionState, blockReason: decision.blockReason,
+            requestMayHaveReachedTwitch: payload.requestMayHaveReachedTwitch === true, safeToDelete: payload.safeToDelete === true,
+          },
         } });
-        return { status: 'verification_required', operationId: deletion.id, queueId, rewardId: queue.rewardId, expectedVersion: queue.version, queue };
+        return reservation(target.status);
       });
     },
 
-    async failQueueDeletionCancellation({ queueId, operationId, errorCode }) {
+    /**
+     * The read did not prove a paused reward. A non-conclusive read (5xx, network, timeout, 401, stale confirm) restores the
+     * previous status (F20, D-36-4); only a conclusive negative read sets `unknown`, except a blocked pause that is merely
+     * not paused, which is restored too. Guarded by `WHERE status = 'cancel_verification'` (`count === 1`).
+     */
+    async failQueueDeletionCancellation({ queueId, operationId, errorCode, conclusive = false, actorId = null, origin = 'panel' }) {
       return withQueueTransaction(prisma, queueId, async (tx) => {
         await tx.$queryRaw`SELECT id FROM outbox WHERE entity_id = ${queueId} AND operation_type LIKE 'reward.%' ORDER BY id FOR UPDATE`;
-        const task = await tx.outbox.findFirst({ where: { id: operationId, entityId: queueId, operationType: 'reward.delete', status: 'cancel_verification' } });
+        const task = await tx.outbox.findFirst({ where: { id: operationId, entityId: queueId, operationType: { in: QUEUE_DELETION_CANCEL_TARGET_TYPES }, status: 'cancel_verification' } });
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
-        if (!task || !queue || queue.lifecycleStatus !== 'deleting') return { status: 'not_cancelled', queue: queue ?? null };
-        await tx.outbox.update({ where: { id: task.id }, data: { status: 'unknown', lastError: errorCode, leaseToken: null, leaseUntil: null } });
+        if (!task || !queue || queue.lifecycleStatus !== 'deleting') return { status: 'not_cancelled', reason: errorCode, queue: queue ?? null };
+        const previousStatus = cancelVerificationPreviousStatus(task);
+        const restored = !conclusive || (task.operationType === 'reward.set_open' && errorCode === 'queue_delete_cancel_reward_not_paused');
+        const nextStatus = restored ? previousStatus : 'unknown';
+        const payload = withoutCancelVerification(task.payload);
+        // C-2: a 401 read keeps the worker's marker in `last_error`, so the projection and the FT-26 re-arm still see the
+        // task; the refusal reason and the audit row keep `authorization_required`.
+        const storedError = errorCode === 'authorization_required' ? REWARD_AUTHORIZATION_REQUIRED : errorCode;
+        const changed = await tx.outbox.updateMany({ where: { id: task.id, status: 'cancel_verification' }, data: {
+          status: nextStatus, lastError: storedError, leaseToken: null, leaseUntil: null, payload,
+        } });
+        if (changed.count !== 1) return { status: 'not_cancelled', reason: errorCode, queue };
         if (errorCode === 'queue_delete_reward_diverged') {
           await tx.queue.updateMany({ where: { id: queueId, lifecycleStatus: 'deleting' }, data: { remoteSyncStatus: 'diverged', version: { increment: 1 } } });
         }
         const updatedQueue = await tx.queue.findUnique({ where: { id: queueId } });
         await tx.auditLog.create({ data: {
-          queueId, event: 'queue.deletion_cancellation_not_confirmed', origin: 'panel',
-          previousState: 'cancel_verification', nextState: 'unknown', reason: errorCode,
-          safeDetail: { rewardId: queue.rewardId, operationId: task.id },
+          queueId, event: 'queue.deletion_cancellation_not_confirmed', actorId, origin,
+          previousState: 'cancel_verification', nextState: nextStatus, reason: errorCode,
+          safeDetail: { rewardId: queue.rewardId, operationId: task.id, restored, previousStatus },
         } });
         return { status: 'not_cancelled', reason: errorCode, queue: updatedQueue };
       });
     },
 
-    async confirmQueueDeletionCancellation({ queueId, operationId, expectedVersion, reward }) {
+    async confirmQueueDeletionCancellation({ queueId, operationId, expectedVersion, reward, actorId = null, origin = 'panel' }) {
       return withQueueTransaction(prisma, queueId, async (tx) => {
         await tx.$queryRaw`SELECT id FROM outbox WHERE entity_id = ${queueId} AND operation_type LIKE 'reward.%' ORDER BY id FOR UPDATE`;
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
-        const task = await tx.outbox.findFirst({ where: { id: operationId, entityId: queueId, operationType: 'reward.delete', status: 'cancel_verification' } });
+        const task = await tx.outbox.findFirst({ where: { id: operationId, entityId: queueId, operationType: { in: QUEUE_DELETION_CANCEL_TARGET_TYPES }, status: 'cancel_verification' } });
         if (!queue || !task || queue.lifecycleStatus !== 'deleting') throw repositoryError('QUEUE_DELETION_CANCELLATION_STALE', 'Queue deletion changed during cancellation verification');
         if (queue.version !== expectedVersion) throw repositoryError('QUEUE_DELETION_CANCELLATION_STALE', 'Queue changed during cancellation verification');
         if (!matchesManagedRewardState(reward, queue) || reward.isPaused !== true) throw repositoryError('QUEUE_DELETION_CANCELLATION_UNVERIFIED', 'Twitch reward does not match the paused managed queue');
-        const otherProcessing = await tx.outbox.findFirst({ where: { entityId: queueId, operationType: { in: rewardOperationTypes }, status: 'processing' }, select: { id: true } });
-        if (otherProcessing) throw repositoryError('QUEUE_REWARD_OPERATION_PROCESSING', 'A Twitch reward operation is still processing');
+        const rewardTasks = await tx.outbox.findMany({ where: { entityId: queueId, operationType: { in: rewardOperationTypes } } });
+        if (rewardTasks.some(({ status }) => status === 'processing')) throw repositoryError('QUEUE_REWARD_OPERATION_PROCESSING', 'A Twitch reward operation is still processing');
+        const payload = withoutCancelVerification(task.payload);
         const changedTask = await tx.outbox.updateMany({ where: { id: task.id, status: 'cancel_verification' }, data: {
-          status: 'cancelled', lastError: 'queue_deletion_cancelled_by_operator', leaseToken: null, leaseUntil: null,
+          status: 'cancelled', lastError: 'queue_deletion_cancelled_by_operator', leaseToken: null, leaseUntil: null, payload,
         } });
         if (changedTask.count !== 1) throw repositoryError('QUEUE_DELETION_CANCELLATION_STALE', 'Queue deletion changed during cancellation verification');
+        // Every other non-final deletion task of this queue (the delete or its pause) is cancelled with it; history stays.
+        const otherIds = rewardTasks
+          .filter((other) => other.id !== task.id && CANCELLABLE_DELETE_STATUSES.includes(other.status)
+            && (other.operationType === 'reward.delete' || (other.operationType === 'reward.set_open' && payloadObject(other.payload).deleteAfterConfirm === true)))
+          .map(({ id }) => id);
+        const others = otherIds.length ? await tx.outbox.updateMany({ where: { id: { in: otherIds }, status: { in: CANCELLABLE_DELETE_STATUSES } }, data: {
+          status: 'cancelled', lastError: 'queue_deletion_cancelled_by_operator', leaseToken: null, leaseUntil: null,
+        } }) : { count: 0 };
         const changedQueue = await tx.queue.updateMany({ where: { id: queueId, lifecycleStatus: 'deleting', version: expectedVersion }, data: {
           lifecycleStatus: 'active', isArchived: true, isOpen: false, remoteSyncStatus: 'synced', version: { increment: 1 },
         } });
         if (changedQueue.count !== 1) throw repositoryError('QUEUE_DELETION_CANCELLATION_STALE', 'Queue changed during cancellation verification');
+        const financialTasksLeftRunning = await tx.outbox.count({ where: { operationType: { in: financialOperationTypes }, status: { in: ['pending', 'retry', 'processing'] }, redemption: { queueId } } });
         const updatedQueue = await tx.queue.findUnique({ where: { id: queueId } });
         await tx.auditLog.create({ data: {
-          queueId, event: 'queue.deletion_cancelled', origin: 'panel', previousState: 'deleting', nextState: 'active_closed_archived', reason: 'operator_cancelled_queue_deletion_after_reward_verification',
-          safeDetail: { rewardId: queue.rewardId, operationId: task.id, remoteSyncStatus: 'synced', isPaused: true },
+          queueId, event: 'queue.deletion_cancelled', actorId, origin, previousState: 'deleting', nextState: 'active_closed_archived', reason: 'operator_cancelled_queue_deletion_after_reward_verification',
+          safeDetail: { rewardId: queue.rewardId, operationId: task.id, remoteSyncStatus: 'synced', isPaused: true, cancelledTasks: 1 + others.count, financialTasksLeftRunning },
         } });
         return { status: 'cancelled', queue: updatedQueue };
       });
@@ -916,13 +1110,13 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
 
-    async enqueueCallNotification({ entryId, queueId }) {
+    async enqueueCallNotification({ entryId, queueId, previousPosition }) {
       return prisma.$transaction(async (tx) => {
         const entry = await tx.entry.findUnique({ where: { id: entryId } });
         if (!entry || entry.queueId !== queueId || entry.status !== 'called') return { status: 'cancelled' };
         return tx.outbox.create({ data: {
           operationType: 'chat.call', entityType: 'entry', entityId: entryId,
-          idempotencyKey: `chat.call:${entryId}`, payload: {}, entryId,
+          idempotencyKey: `chat.call:${entryId}`, payload: isCallPosition(previousPosition) ? { previousPosition } : {}, entryId,
         } });
       });
     },
@@ -991,7 +1185,15 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
             return null;
           }
           const updated = await tx.outbox.update({ where: { id: task.id }, data: { status: 'processing', attempts: { increment: 1 }, leaseUntil: new Date(now.getTime() + leaseMs), leaseToken: randomUUID() } });
-          return { id: updated.id, entryId: updated.entryId, attempts: updated.attempts, leaseToken: updated.leaseToken, entry, callPosition: entry.position };
+          let previousPosition = isCallPosition(task.payload?.previousPosition) ? task.payload.previousPosition : null;
+          if (previousPosition === null) {
+            const transition = await tx.auditLog.findFirst({
+              where: { entryId: entry.id, event: 'entry.transitioned', previousState: 'waiting', nextState: 'called' },
+              orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { safeDetail: true },
+            });
+            previousPosition = isCallPosition(transition?.safeDetail?.previousPosition) ? transition.safeDetail.previousPosition : null;
+          }
+          return { id: updated.id, entryId: updated.entryId, attempts: updated.attempts, leaseToken: updated.leaseToken, entry, previousPosition };
         });
         if (claimed) return claimed;
       }
@@ -1021,11 +1223,14 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         if (queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be edited');
         if (queue.version !== expectedVersion) throw repositoryError('STALE_QUEUE_VERSION', 'Queue changed since it was loaded');
         const updated = await tx.queue.update({ where: { id: queueId }, data: { ...settings, version: { increment: 1 } } });
+        const aliases = await tx.queueKey.findMany({
+          where: { queueId, keyType: 'alias' }, orderBy: { key: 'asc' }, select: { key: true },
+        });
         await tx.auditLog.create({ data: {
           queueId, event: 'queue.settings_updated', actorId, origin,
           safeDetail: { updatedFields: Object.keys(settings).sort(), uidMode: updated.uidMode },
         } });
-        return updated;
+        return { ...updated, aliases: aliases.map(({ key }) => key) };
       });
     },
 
@@ -1082,7 +1287,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         const updated = await tx.entry.update({ where: { id: entryId }, data: { status: 'called', position: null, calledAt, callNotifiedAt: null, callDeadlineAt: null, callAcknowledgedAt: null, version: { increment: 1 } } });
         await renumberWaitingEntries(tx, queueId);
         await tx.auditLog.create({ data: { queueId, entryId, redemptionId: entry.redemptionId, event: 'entry.transitioned', actorId, origin: 'panel', previousState: 'waiting', nextState: 'called', reason: 'operator_call', safeDetail: { previousPosition: entry.position } } });
-        await applyAutomaticAccountSwitch(tx, { queue, entry: updated, actorId });
+        await applyAutomaticAccountSwitch(tx, { entry: updated, actorId });
         return { ...updated, previousPosition: entry.position };
       });
     },
@@ -1116,7 +1321,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           await tx.auditLog.create({ data: { queueId, entryId: entry.id, redemptionId: entry.redemptionId, event: 'entry.transitioned', origin: 'panel', previousState: 'waiting', nextState: 'called', reason: 'operator_call', safeDetail: { previousPosition: entry.position } } });
           selected.push({ ...updated, previousPosition: entry.position });
         }
-        if (count === 1 && selected.length === 1) await applyAutomaticAccountSwitch(tx, { queue, entry: selected[0], actorId });
+        if (count === 1 && selected.length === 1) await applyAutomaticAccountSwitch(tx, { entry: selected[0], actorId });
         await renumberWaitingEntries(tx, queueId);
         return selected;
       });
@@ -1147,7 +1352,9 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         include: { keys: true, entries: { where: { status: { in: activeStatuses } }, orderBy: [{ status: 'asc' }, { priorityClass: 'asc' }, { position: 'asc' }, { createdAt: 'asc' }] } },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       });
+      const deletionFacts = await loadQueueDeletionFacts(prisma, queues.filter(({ lifecycleStatus }) => lifecycleStatus === 'deleting').map(({ id }) => id));
       return queues.map((queue) => ({
+        ...(deletionFacts.has(queue.id) ? { deletion: deletionFacts.get(queue.id) } : {}),
         id: queue.id, slug: queue.slug, aliases: queue.keys.filter(({ keyType }) => keyType === 'alias').map(({ key }) => key),
         title: queue.title, rewardPrompt: queue.rewardPrompt, cost: queue.cost, uidMode: queue.uidMode,
         queueMode: queue.queueMode, rewardOrigin: queue.rewardOrigin, modeTransitionStatus: queue.modeTransitionStatus, rewardId: queue.rewardId,
@@ -1170,6 +1377,11 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           calledAt: entry.calledAt, callNotifiedAt: entry.callNotifiedAt, callDeadlineAt: entry.callDeadlineAt,
         })),
       }));
+    },
+
+    /** OPS-22 FT-26 (AC 15): durable facts behind the deletion projection; codes and counts only. */
+    async getQueueDeletionFacts(queueIds = []) {
+      return loadQueueDeletionFacts(prisma, queueIds);
     },
 
     async listQueueHistoryProjection(queueId, { limit = 100 } = {}) {
@@ -1378,8 +1590,9 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     async markRedemptionUnknown(redemptionId, reason) {
       if (!isSafeReason(reason)) throw repositoryError('INVALID_AUDIT_REASON', 'Unknown redemption reason is invalid');
       return prisma.$transaction(async (tx) => {
+        // OPS-22 FT-25 (known gap 1, DATA C4): reconciliation marks the redemption and audits; it never moves outbox
+        // rows, so it cannot steal a live lease or spend the worker's attempt budget.
         const redemption = await tx.redemption.update({ where: { redemptionId }, data: { syncStatus: 'unknown' } });
-        await tx.outbox.updateMany({ where: { redemptionId, status: { in: ['pending', 'retry', 'processing'] } }, data: { status: 'unknown', leaseToken: null, leaseUntil: null, lastError: reason } });
         await tx.auditLog.create({ data: { queueId: redemption.queueId, redemptionId, event: 'redemption.state_unknown', origin: 'reconciliation', reason, safeDetail: {} } });
         return { status: 'unknown', redemptionId };
       });
@@ -1418,7 +1631,10 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           await tx.queueKey.createMany({
             data: normalizedKeys.keys.map(({ key, keyType }) => ({ key, keyType, queueId: queue.id })),
           });
-          return queue;
+          return {
+            ...queue,
+            aliases: normalizedKeys.keys.filter(({ keyType }) => keyType === 'alias').map(({ key }) => key),
+          };
         });
       } catch (error) {
         if (isUniqueConstraintError(error)) {
@@ -1455,7 +1671,10 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
             reason: 'local_queue_created',
             safeDetail: { rewardLinked: false },
           } });
-          return queue;
+          return {
+            ...queue,
+            aliases: normalizedKeys.keys.filter(({ keyType }) => keyType === 'alias').map(({ key }) => key),
+          };
         });
       } catch (error) {
         if (isUniqueConstraintError(error)) {
@@ -1510,7 +1729,13 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
               safeDetail: { remoteSyncStatus: 'pending_create' },
             },
           });
-          return { queue, status: 'pending' };
+          return {
+            queue: {
+              ...queue,
+              aliases: normalizedKeys.keys.filter(({ keyType }) => keyType === 'alias').map(({ key }) => key),
+            },
+            status: 'pending',
+          };
         });
       } catch (error) {
         if (isUniqueConstraintError(error)) {
@@ -1629,11 +1854,8 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         if (updated.count !== 1) return false;
         await tx.outbox.update({ where: { id: outboxId }, data: { status: 'confirmed', lastError: null, leaseToken: null, leaseUntil: null } });
         await tx.auditLog.create({ data: { queueId: queue.id, event: deleting ? 'queue.deletion_pause_confirmed' : converting ? 'queue.manual_mode_confirmed' : 'queue.open_state_confirmed', origin: 'system', previousState: converting ? 'channel_points_pending_pause' : 'pending', nextState: deleting ? 'delete_pending' : converting ? 'manual_only' : String(isOpen), reason: deleting ? 'reward_paused_for_queue_deletion' : converting ? 'twitch_reward_pause_confirmed' : isOpen ? 'queue_open_confirmed' : 'queue_close_confirmed', safeDetail: { rewardId: queue.rewardId, remoteSyncStatus: deleting ? 'delete_pending' : converting ? 'local_only' : 'synced' } } });
-        if (deleting) await tx.outbox.create({ data: {
-          operationType: 'reward.delete', entityType: 'queue', entityId: queue.id,
-          idempotencyKey: `queue:${queue.id}:reward.delete`,
-          payload: { requestMayHaveReachedTwitch: false, safeToDelete: false },
-        } });
+        // OPS-22 F18: reuse the single `reward.delete` row (a cancelled one from an earlier cycle); fail closed otherwise.
+        if (deleting) await enqueueRewardDeleteIntent(tx, queue.id, clock());
         return true;
       });
     },
@@ -1663,6 +1885,10 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
               continue;
             }
             const existingTask = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${item.id}` } });
+            if (existingTask?.status === 'resolved_manual' && redemption.remoteStatus === 'UNFULFILLED') {
+              await rearmContradictedResolution(tx, existingTask.id, clock());
+              continue;
+            }
             if (existingTask?.operationType === 'redemption.fulfill') {
               // Completed service owns the durable financial intent. A stale UNFULFILLED
               // Twitch read must not turn fulfillment into cancellation or revoke its lease.
@@ -1692,27 +1918,44 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       let pending = 0;
       let blocked = 0;
       for (const redemption of redemptions) {
-        if (redemption.remoteStatus !== 'UNFULFILLED') continue;
-        const task = redemption.outbox.find(({ operationType }) => ['redemption.cancel', 'redemption.fulfill'].includes(operationType));
-        if (!task || ['pending', 'retry', 'processing'].includes(task.status)) pending += 1;
+        const task = redemption.outbox.find(({ operationType }) => financialOperationTypes.includes(operationType));
+        if (!task) {
+          if (redemption.remoteStatus === 'UNFULFILLED') pending += 1;
+          continue;
+        }
+        // OPS-22 FT-26 (DATA C6): a manual resolution is locally settled; the re-list after it is the guard.
+        if (task.status === 'confirmed' || task.status === 'resolved_manual') continue;
+        if (['pending', 'retry', 'processing'].includes(task.status)) pending += 1;
         else blocked += 1;
       }
       return { pending, blocked };
     },
 
-    async prepareRewardDelete(outboxId, leaseToken) {
+    /** OPS-22 FT-26 (AC 14 b): manual resolutions recorded so far; the worker reads them BEFORE its final re-list. */
+    async listManuallySettledDeletionTasks(queueId) {
+      if (!isUuid(queueId)) return [];
+      const tasks = await prisma.outbox.findMany({
+        where: { operationType: { in: financialOperationTypes }, status: 'resolved_manual', redemption: { queueId } },
+        select: { id: true }, orderBy: { id: 'asc' },
+      });
+      return tasks.map(({ id }) => id);
+    },
+
+    async prepareRewardDelete(outboxId, leaseToken, { settledManualTaskIds = [] } = {}) {
       return prisma.$transaction(async (tx) => {
         const task = await lockProcessingRewardTask(tx, { outboxId, leaseToken, operationType: 'reward.delete' });
         if (!task?.entityId) return false;
         const queue = await tx.queue.findUnique({ where: { id: task.entityId } });
         if (!queue || queue.lifecycleStatus !== 'deleting' || queue.remoteSyncStatus !== 'delete_pending' || !queue.rewardId) return false;
-        const unresolved = await tx.redemption.findFirst({
-          where: { queueId: queue.id, rewardId: queue.rewardId, OR: [
-            { remoteStatus: 'UNFULFILLED' },
-            { outbox: { some: { operationType: { in: ['redemption.cancel', 'redemption.fulfill'] }, status: { not: 'confirmed' } } } },
-          ] }, select: { redemptionId: true },
-        });
+        const unresolved = await tx.redemption.findFirst({ where: unresolvedDeletionRedemptionWhere(queue), select: { redemptionId: true } });
         if (unresolved) return false;
+        // AC 14 (b): every manual resolution must predate the worker's final re-list, which found nothing UNFULFILLED.
+        const settled = new Set(Array.isArray(settledManualTaskIds) ? settledManualTaskIds : []);
+        const manual = await tx.outbox.findMany({
+          where: { operationType: { in: financialOperationTypes }, status: 'resolved_manual', redemption: { queueId: queue.id, rewardId: queue.rewardId } },
+          select: { id: true },
+        });
+        if (manual.some(({ id }) => !settled.has(id))) return false;
         const payload = { ...task.payload, safeToDelete: true, requestMayHaveReachedTwitch: true };
         const updated = await tx.outbox.updateMany({ where: { id: outboxId, status: 'processing', leaseToken }, data: { payload } });
         return updated.count === 1;
@@ -1725,12 +1968,8 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         if (!task?.entityId || task.payload?.safeToDelete !== true) return false;
         const queue = await tx.queue.findUnique({ where: { id: task.entityId } });
         if (!queue || queue.lifecycleStatus !== 'deleting' || queue.remoteSyncStatus !== 'delete_pending') return false;
-        const unresolved = await tx.redemption.findFirst({
-          where: { queueId: queue.id, rewardId: queue.rewardId, OR: [
-            { remoteStatus: 'UNFULFILLED' },
-            { outbox: { some: { operationType: { in: ['redemption.cancel', 'redemption.fulfill'] }, status: { not: 'confirmed' } } } },
-          ] }, select: { redemptionId: true },
-        });
+        // `safeToDelete` is written only by `prepareRewardDelete`, which already applied the post-resolution re-list guard.
+        const unresolved = await tx.redemption.findFirst({ where: unresolvedDeletionRedemptionWhere(queue), select: { redemptionId: true } });
         if (unresolved) return false;
         const tombstoneSlug = `deleted-${queue.id}`;
         await tx.queue.update({ where: { id: queue.id }, data: { slug: tombstoneSlug, lifecycleStatus: 'deleted', isArchived: true, isOpen: false, remoteSyncStatus: 'deleted', deletedAt: clock(), version: { increment: 1 } } });
@@ -1755,17 +1994,86 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       });
     },
 
-    async retryRewardOperation(outboxId, { nextAttemptAt, errorCode, payloadUpdates = null }, leaseToken) {
+    async retryRewardOperation(outboxId, { nextAttemptAt, errorCode, payloadUpdates = null, blockers = null }, leaseToken) {
       return prisma.$transaction(async (tx) => {
         const current = await lockProcessingRewardTask(tx, { outboxId, leaseToken, operationType: rewardOperationTypes });
         if (!current) return false;
+        // OPS-22 FT-26 (DATA §3): a deletion held by review is audited only when its blocked count changes.
+        const blockedCount = Number.isSafeInteger(blockers?.blockedCount) && blockers.blockedCount >= 0 ? blockers.blockedCount : null;
+        const pendingCount = Number.isSafeInteger(blockers?.pendingCount) && blockers.pendingCount >= 0 ? blockers.pendingCount : 0;
+        const blockedByReview = current.operationType === 'reward.delete' && errorCode === QUEUE_DELETION_BLOCKED_BY_REVIEW && blockedCount !== null;
+        const updates = { ...(payloadUpdates ?? {}), ...(blockedByReview ? { blockedCount } : {}) };
         const updated = await tx.outbox.updateMany({ where: { id: outboxId, status: 'processing', leaseToken, entityId: current.entityId }, data: {
           status: 'retry', nextAttemptAt, lastError: errorCode,
-          ...(payloadUpdates ? { payload: { ...current.payload, ...payloadUpdates } } : {}),
+          ...(Object.keys(updates).length ? { payload: { ...payloadObject(current.payload), ...updates } } : {}),
           leaseToken: null, leaseUntil: null,
         } });
-        return updated.count === 1;
+        if (updated.count !== 1) return false;
+        if (blockedByReview && payloadObject(current.payload).blockedCount !== blockedCount && isUuid(current.entityId)) {
+          await tx.auditLog.create({ data: {
+            queueId: current.entityId, event: 'queue.deletion_blocked', origin: 'system', previousState: 'deleting', nextState: 'deleting',
+            reason: 'financial_operations_need_review', safeDetail: { blockedCount, pendingCount },
+          } });
+        }
+        return true;
       });
+    },
+
+    /**
+     * OPS-22 FT-26 (AC 16, DATA §2.1): after the operator re-authorizes Twitch, work held by a 401 resumes in the same
+     * cycle: financial `unknown('authorization_required')` (its attempt was already refunded) goes to `retry` now, and a
+     * deletion task held by `twitch_authorization_required` is due now. Other `unknown` reasons are never touched.
+     */
+    async rearmAuthorizationBlockedOperations() {
+      const now = clock();
+      let financial = 0;
+      let reward = 0;
+      const financialCandidates = await prisma.outbox.findMany({
+        where: { operationType: { in: financialOperationTypes }, status: 'unknown', lastError: 'authorization_required' },
+        select: { id: true, redemption: { select: { queueId: true } } }, orderBy: { id: 'asc' },
+      });
+      for (const candidate of financialCandidates) {
+        const rearmed = await prisma.$transaction(async (tx) => {
+          if (candidate.redemption?.queueId) await lockQueue(tx, candidate.redemption.queueId);
+          await tx.$queryRaw`SELECT id FROM outbox WHERE id = ${candidate.id}::uuid FOR UPDATE`;
+          const task = await tx.outbox.findFirst({ where: { id: candidate.id, status: 'unknown', lastError: 'authorization_required' } });
+          if (!task) return false;
+          const updated = await tx.outbox.updateMany({ where: { id: task.id, status: 'unknown', lastError: 'authorization_required' }, data: {
+            status: 'retry', nextAttemptAt: now, lastError: null, leaseToken: null, leaseUntil: null,
+          } });
+          if (updated.count !== 1) return false;
+          await tx.auditLog.create({ data: {
+            queueId: candidate.redemption?.queueId ?? null, redemptionId: task.redemptionId ?? null,
+            event: 'financial.operation_rearmed_after_reauthorization', origin: 'system', previousState: 'unknown', nextState: 'retry',
+            reason: 'twitch_reauthorized', safeDetail: { operationType: task.operationType, attempts: task.attempts, cycleStartAttempts: cycleStartAttemptsOf(task) },
+          } });
+          return true;
+        });
+        if (rearmed) financial += 1;
+      }
+      const deletingQueues = await prisma.queue.findMany({ where: { lifecycleStatus: 'deleting' }, select: { id: true } });
+      const rewardCandidates = deletingQueues.length ? await prisma.outbox.findMany({
+        where: { entityId: { in: deletingQueues.map(({ id }) => id) }, operationType: { in: ['reward.delete', 'reward.set_open'] }, status: 'retry', lastError: REWARD_AUTHORIZATION_REQUIRED },
+        select: { id: true, entityId: true, operationType: true, payload: true }, orderBy: { id: 'asc' },
+      }) : [];
+      for (const candidate of rewardCandidates) {
+        if (candidate.operationType === 'reward.set_open' && payloadObject(candidate.payload).deleteAfterConfirm !== true) continue;
+        const rearmed = await withQueueTransaction(prisma, candidate.entityId, async (tx) => {
+          const queue = await tx.queue.findUnique({ where: { id: candidate.entityId }, select: { lifecycleStatus: true } });
+          if (queue?.lifecycleStatus !== 'deleting') return false;
+          const updated = await tx.outbox.updateMany({ where: { id: candidate.id, status: 'retry', lastError: REWARD_AUTHORIZATION_REQUIRED }, data: { nextAttemptAt: now, lastError: null } });
+          if (updated.count !== 1) return false;
+          if (candidate.operationType === 'reward.delete') {
+            await tx.auditLog.create({ data: {
+              queueId: candidate.entityId, event: 'queue.deletion_resumed', origin: 'system', previousState: 'deleting', nextState: 'deleting',
+              reason: 'blockers_cleared', safeDetail: { resolvedBy: 'reauthorization' },
+            } });
+          }
+          return true;
+        });
+        if (rearmed) reward += 1;
+      }
+      return { financial, reward };
     },
 
     async failedRewardOperation(outboxId, errorCode, leaseToken) {
@@ -1991,7 +2299,13 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           if (to !== 'no_show' || entry.status !== 'called' || entry.callAcknowledgedAt || !(entry.callDeadlineAt instanceof Date)
             || !(cutoff instanceof Date) || entry.callDeadlineAt > cutoff) return null;
         }
-        const decision = decideTransition({ entry, queue, input });
+        let decision = decideTransition({ entry, queue, input });
+        if (entry.source === 'redemption' && entry.redemptionId) {
+          const existingFinancialIntent = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${entry.redemptionId}` } });
+          if (existingFinancialIntent && decision.financialDecision !== 'no_operation') {
+            decision = { ...decision, financialDecision: 'no_operation' };
+          }
+        }
 
         const now = clock();
         const data = {
@@ -2094,7 +2408,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         FROM candidate, redemptions AS redemption
         WHERE task.id = candidate.id AND redemption.redemption_id = task.redemption_id
         RETURNING task.id, task.redemption_id AS "redemptionId", task.operation_type AS "operationType",
-          task.attempts, task.status, task.lease_token AS "leaseToken", redemption.reward_id AS "rewardId"
+          task.attempts, task.status, task.lease_token AS "leaseToken", redemption.reward_id AS "rewardId", task.payload
       `;
       return rows[0] ?? null;
     },
@@ -2103,25 +2417,65 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       return prisma.$transaction(async (tx) => {
         const task = await tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken } });
         if (!task) return false;
+        // OPS-22 FT-26 (AC 14 a): the confirmation may resume a deletion, so take the queue lock before any row lock.
+        const owner = task.redemptionId ? await tx.redemption.findUnique({ where: { redemptionId: task.redemptionId }, select: { queueId: true } }) : null;
+        if (owner?.queueId) await lockQueue(tx, owner.queueId);
         const updated = await tx.outbox.updateMany({
           where: { id: outboxId, status: 'processing', leaseToken },
           data: { status: 'confirmed', leaseUntil: null, leaseToken: null, lastError: null },
         });
         if (!updated.count) return false;
+        let redemption = null;
         if (task.redemptionId) {
-          await tx.redemption.update({
+          redemption = await tx.redemption.update({
             where: { redemptionId: task.redemptionId },
             data: { remoteStatus, syncStatus: 'confirmed' },
           });
+        }
+        // OPS-22 FT-25 (AC 7, DATA §3): a confirmation after a non-conclusive attempt is audited in the same transaction.
+        if (financialOperationTypes.includes(task.operationType) && payloadObject(task.payload).firstNonConclusiveAt) {
+          await tx.auditLog.create({ data: {
+            queueId: redemption?.queueId ?? null, redemptionId: task.redemptionId ?? null,
+            event: 'financial.operation_confirmed_by_reverification', origin: 'system',
+            previousState: 'processing', nextState: 'confirmed', reason: 'remote_read_positive',
+            safeDetail: { operationType: task.operationType, attempts: task.attempts, remoteConfirmed: true, remoteStatus },
+          } });
+        }
+        if (financialOperationTypes.includes(task.operationType) && redemption?.queueId) {
+          await resumeQueueDeletion(tx, redemption.queueId, { now: clock(), resolvedBy: 'remote_read', origin: 'system' });
         }
         return true;
       });
     },
 
-    async retry(outboxId, { nextAttemptAt, errorCode }, leaseToken) {
-      return prisma.outbox.updateMany({
-        where: { id: outboxId, status: 'processing', leaseToken },
-        data: { status: 'retry', nextAttemptAt, leaseUntil: null, leaseToken: null, lastError: errorCode },
+    /** OPS-22 FT-25: non-conclusive or transient attempt inside the cycle budget (one guarded transaction, DATA C2). */
+    async retry(outboxId, { nextAttemptAt, errorCode, reasonClass = null, attempt = null, cycleAttempt = null, httpStatus = null }, leaseToken) {
+      return prisma.$transaction(async (tx) => {
+        const task = await lockProcessingFinancialTask(tx, outboxId, leaseToken);
+        if (!task) return { count: 0 };
+        const current = payloadObject(task.payload);
+        const payload = reasonClass
+          ? { ...current, reasonClass, firstNonConclusiveAt: current.firstNonConclusiveAt ?? clock().toISOString() }
+          : current;
+        const updated = await tx.outbox.updateMany({
+          where: { id: outboxId, status: 'processing', leaseToken },
+          data: { status: 'retry', nextAttemptAt, leaseUntil: null, leaseToken: null, lastError: errorCode, payload },
+        });
+        if (updated.count !== 1) return { count: 0 };
+        if (task.redemptionId) await tx.redemption.updateMany({ where: { redemptionId: task.redemptionId }, data: { syncStatus: 'pending' } });
+        await tx.auditLog.create({ data: {
+          queueId: task.redemption?.queueId ?? null, redemptionId: task.redemptionId ?? null,
+          event: 'financial.operation_retry_scheduled', origin: 'system', previousState: 'processing', nextState: 'retry',
+          reason: safeAuditCode(errorCode),
+          safeDetail: {
+            operationType: task.operationType, attempt: Number.isSafeInteger(attempt) ? attempt : task.attempts,
+            cycleAttempt: Number.isSafeInteger(cycleAttempt) ? cycleAttempt : null, maxAttempts: FINANCIAL_MAX_ATTEMPTS,
+            nextAttemptAt: nextAttemptAt instanceof Date ? nextAttemptAt.toISOString() : null,
+            httpStatus: Number.isInteger(httpStatus) ? httpStatus : null,
+            reasonClass: FINANCIAL_REASON_CLASSES.includes(reasonClass) ? reasonClass : null,
+          },
+        } });
+        return { count: 1 };
       });
     },
 
@@ -2132,7 +2486,45 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       });
     },
 
-    async unknown(outboxId, errorCode, leaseToken) {
+    async unknown(outboxId, errorCode, leaseToken, { reasonClass = null } = {}) {
+      if (errorCode === 'authorization_required') {
+        // OPS-22 FT-25 (DATA C3): a 401 gives back the claimed attempt in the SAME statement that moves the task,
+        // keeping 0 <= cycleStartAttempts <= attempts; every other payload key is preserved.
+        if (!isUuid(outboxId) || !isUuid(leaseToken)) return { count: 0 };
+        const count = await prisma.$executeRaw`
+          UPDATE outbox SET status = 'unknown', last_error = 'authorization_required', lease_until = NULL, lease_token = NULL,
+            updated_at = now(),
+            payload = (CASE WHEN jsonb_typeof(payload) = 'object' THEN payload ELSE '{}'::jsonb END) || jsonb_build_object(
+              'cycleStartAttempts', LEAST(
+                (CASE WHEN jsonb_typeof(payload -> 'cycleStartAttempts') = 'number' THEN GREATEST((payload ->> 'cycleStartAttempts')::numeric::int, 0) ELSE 0 END) + 1,
+                attempts))
+          WHERE id = ${outboxId}::uuid AND status = 'processing' AND lease_token = ${leaseToken}::uuid
+            AND operation_type IN ('redemption.cancel', 'redemption.fulfill')`;
+        return { count };
+      }
+      if (errorCode === FINANCIAL_TERMINAL_REASON) {
+        // OPS-22 FT-25 (AC 8, DATA C2): exhaustion is terminal `unknown`, audited, with the redemption marked unknown.
+        return prisma.$transaction(async (tx) => {
+          const task = await lockProcessingFinancialTask(tx, outboxId, leaseToken);
+          if (!task) return { count: 0 };
+          const current = payloadObject(task.payload);
+          const safeReasonClass = FINANCIAL_REASON_CLASSES.includes(reasonClass) ? reasonClass : (current.reasonClass ?? null);
+          const payload = { ...current, ...(safeReasonClass ? { reasonClass: safeReasonClass } : {}), firstNonConclusiveAt: current.firstNonConclusiveAt ?? clock().toISOString() };
+          const updated = await tx.outbox.updateMany({
+            where: { id: outboxId, status: 'processing', leaseToken },
+            data: { status: 'unknown', leaseUntil: null, leaseToken: null, lastError: FINANCIAL_TERMINAL_REASON, payload },
+          });
+          if (updated.count !== 1) return { count: 0 };
+          if (task.redemptionId) await tx.redemption.updateMany({ where: { redemptionId: task.redemptionId }, data: { syncStatus: 'unknown' } });
+          await tx.auditLog.create({ data: {
+            queueId: task.redemption?.queueId ?? null, redemptionId: task.redemptionId ?? null,
+            event: 'financial.operation_attempts_exhausted', origin: 'system', previousState: 'processing', nextState: 'unknown',
+            reason: FINANCIAL_TERMINAL_REASON,
+            safeDetail: { operationType: task.operationType, attempts: task.attempts, firstNonConclusiveAt: payload.firstNonConclusiveAt, reasonClass: safeReasonClass },
+          } });
+          return { count: 1 };
+        });
+      }
       return prisma.outbox.updateMany({
         where: { id: outboxId, status: 'processing', leaseToken },
         data: { status: 'unknown', leaseUntil: null, leaseToken: null, lastError: errorCode },
@@ -2177,15 +2569,39 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       }
     },
 
-    async retryOutboxManually(outboxId) {
+    /** OPS-22 FT-25 (AC 20, DATA C3): audited "retry now"; a financial task gets a fresh cycle of 6, `attempts` stays monotonic. */
+    async retryOutboxManually(outboxId, { actorId = null } = {}) {
+      if (typeof actorId !== 'string' || !actorId) throw repositoryError('ACTOR_REQUIRED', 'Manual retry requires the operator');
+      if (!isUuid(outboxId)) return { count: 0 };
       return prisma.$transaction(async (tx) => {
-        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: { in: ['unknown', 'conflict', 'failed'] } } });
+        const locked = await tx.$queryRaw`
+          SELECT id FROM outbox WHERE id = ${outboxId}::uuid AND status IN ('unknown', 'conflict', 'failed') FOR UPDATE`;
+        if (!locked.length) return { count: 0 };
+        const task = await tx.outbox.findFirst({ where: { id: outboxId, status: { in: manualRetryStatuses } } });
         if (!task) return { count: 0 };
+        const financial = financialOperationTypes.includes(task.operationType);
+        const cycleStartAttempts = financial ? freshCycleStart(task) : null;
         const updated = await tx.outbox.updateMany({
           where: { id: outboxId, status: task.status },
-          data: { status: 'pending', nextAttemptAt: clock(), lastError: null, leaseUntil: null, leaseToken: null },
+          data: {
+            status: 'pending', nextAttemptAt: clock(), lastError: null, leaseUntil: null, leaseToken: null,
+            ...(financial ? { payload: { ...payloadObject(task.payload), cycleStartAttempts } } : {}),
+          },
         });
-        if (!updated.count || !task.entityId) return updated;
+        if (updated.count !== 1) return { count: 0 };
+        const redemption = financial && task.redemptionId
+          ? await tx.redemption.findUnique({ where: { redemptionId: task.redemptionId }, select: { queueId: true } })
+          : null;
+        const auditQueueId = financial ? redemption?.queueId ?? null : (task.entityId && isUuid(task.entityId) ? task.entityId : null);
+        await tx.auditLog.create({ data: {
+          queueId: auditQueueId, redemptionId: financial ? task.redemptionId ?? null : null,
+          event: 'financial.operation_retry_requested', actorId, origin: 'panel',
+          previousState: task.status, nextState: 'pending', reason: 'operator_retry_now',
+          safeDetail: financial
+            ? { operationType: task.operationType, previousAttempts: task.attempts, cycleStartAttempts }
+            : { operationType: task.operationType, previousAttempts: task.attempts },
+        } });
+        if (!task.entityId) return updated;
         const queue = ['reward.delete', 'reward.set_open', 'reward.update'].includes(task.operationType)
           ? await tx.queue.findUnique({ where: { id: task.entityId } })
           : null;
@@ -2210,6 +2626,8 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           ? await tx.redemption.findUnique({ where: { redemptionId: task.redemptionId } })
           : null;
         if (!redemption) return { status: 'redemption_missing' };
+        // OPS-22 FT-26 (AC 14 b): the resolution resumes the deletion; queue lock first (no lock-order inversion).
+        if (redemption.queueId) await lockQueue(tx, redemption.queueId);
         const updated = await tx.outbox.updateMany({
           where: { id: outboxId, operationType: { in: ['redemption.cancel', 'redemption.fulfill'] }, status: 'unknown' },
           data: { status: 'resolved_manual', leaseToken: null, leaseUntil: null },
@@ -2227,6 +2645,8 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           reason: 'operator_acknowledged_unknown',
           safeDetail: { remoteConfirmed: false, expectedStatus: redemption.expectedStatus },
         } });
+        // Locally settled only: the deletion resumes into the post-resolution re-list, never into a DELETE by itself.
+        await resumeQueueDeletion(tx, redemption.queueId, { now: clock(), resolvedBy: 'operator', origin: 'panel', actorId });
         return { status: 'resolved_manual', redemptionId: redemption.redemptionId };
       });
     },
@@ -2287,9 +2707,10 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         if (current.remoteStatus !== 'UNFULFILLED' && current.remoteStatus !== status) {
           return { status: 'conflict', redemptionId: event.id };
         }
+        const syncStatus = current.expectedStatus && current.expectedStatus !== status ? 'conflict' : 'confirmed';
         await tx.redemption.update({
           where: { redemptionId: event.id },
-          data: { remoteStatus: status, syncStatus: 'confirmed' },
+          data: { remoteStatus: status, syncStatus },
         });
         const task = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${event.id}` } });
         let outboxStatus = null;
@@ -2303,6 +2724,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
             leaseToken: null,
           } });
         }
+        if (outboxStatus === 'confirmed') await resumeQueueDeletion(tx, current.queueId, { now: clock(), resolvedBy: 'remote_read', origin: 'eventsub' });
         await tx.auditLog.create({ data: {
           queueId: current.queueId,
           redemptionId: event.id,
@@ -2313,7 +2735,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           reason: status === 'CANCELED' ? 'external_cancellation' : 'external_fulfillment',
           safeDetail: { outboxStatus },
         } });
-        return { status: outboxStatus === 'conflict' ? 'conflict' : 'external_state_recorded', redemptionId: event.id };
+        return { status: outboxStatus === 'conflict' || syncStatus === 'conflict' ? 'conflict' : 'external_state_recorded', redemptionId: event.id };
       });
       return updated;
     },

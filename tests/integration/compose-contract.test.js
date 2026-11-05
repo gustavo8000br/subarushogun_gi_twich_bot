@@ -6,10 +6,18 @@ import { describe, expect, it } from 'vitest';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const composePath = `${root}/compose.yaml`;
+const buildComposePath = `${root}/compose.build.yaml`;
 const dockerfilePath = `${root}/Dockerfile`;
 
 function getComposeConfig() {
   return spawnSync('docker', ['compose', '-f', composePath, 'config', '--format', 'json'], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+}
+
+function getBuildComposeConfig() {
+  return spawnSync('docker', ['compose', '-f', composePath, '-f', buildComposePath, 'config', '--format', 'json'], {
     cwd: root,
     encoding: 'utf8',
   });
@@ -38,6 +46,9 @@ describe('local Compose runtime contract', () => {
       host_ip: '127.0.0.1', target: 3000, published: '3000',
     }));
     expect(config.services.bot.environment.APP_PORT).toBe('3000');
+    expect(config.services.bot.environment.PUBLIC_PORT).toBe('3000');
+    expect(config.services.bot.environment.API_PORT).toBe('3109');
+    expect(config.services.bot.environment.PANEL_PORT).toBe('3000');
     expect(config.services.bot.environment.APP_LOG_LEVEL).toBe('info');
     expect(config.services.bot.environment.PUBLIC_BASE_URL).toBe('https://localhost:3000');
     expect(config.services.bot.environment.CALLBACK_URL).toBe('https://localhost:3000/callback');
@@ -56,9 +67,10 @@ describe('local Compose runtime contract', () => {
     expect(result.status, result.stderr).toBe(0);
     const config = JSON.parse(result.stdout);
     expect(config.services.bot.ports).toContainEqual(expect.objectContaining({
-      host_ip: '127.0.0.1', target: 3217, published: '3217',
+      host_ip: '127.0.0.1', target: 3000, published: '3217',
     }));
-    expect(config.services.bot.environment.APP_PORT).toBe('3217');
+    expect(config.services.bot.environment.APP_PORT).toBe('3000');
+    expect(config.services.bot.environment.PUBLIC_PORT).toBe('3217');
     expect(config.services.bot.environment.APP_LOG_LEVEL).toBe('debug');
     expect(config.services.bot.environment.PUBLIC_BASE_URL).toBe('https://localhost:3217');
     expect(config.services.bot.environment.CALLBACK_URL).toBe('https://localhost:3217/callback');
@@ -87,6 +99,13 @@ describe('local Compose runtime contract', () => {
     expect(config.services.bot.volumes).toContainEqual(expect.objectContaining({
       type: 'bind', source: resolve(root, '.local'), target: '/app/.local',
     }));
+    const communityCatalogMount = config.services.bot.volumes.find((volume) => volume.target === '/app/.local/community-catalogs');
+    expect(communityCatalogMount).toMatchObject({
+      type: 'bind', source: resolve(root, '.local/community-catalogs'), read_only: true,
+    });
+    // Optional folder, ignored by git: it must not be required to exist (fresh clone, CI, new install).
+    // Compose versions render the default differently (`{}` vs `true`), so only an explicit `false` is wrong.
+    expect(communityCatalogMount.bind?.create_host_path).not.toBe(false);
     expect(config.services.bot.group_add).toContain('10001');
   });
 
@@ -98,19 +117,60 @@ describe('local Compose runtime contract', () => {
     expect(config.services.bot.group_add).toContain('999');
   });
 
-  it('defaults local app images to the main tag while keeping product identity separate', () => {
+  it('defaults local app images to the dev tag while keeping product identity separate', () => {
     expect(existsSync(composePath), 'product Compose configuration is missing').toBe(true);
     const result = getComposeConfig();
     expect(result.status, result.stderr).toBe(0);
     const config = JSON.parse(result.stdout);
     for (const serviceName of ['bootstrap', 'migrate', 'bot']) {
       expect(typeof config.services[serviceName].image).toBe('string');
-      expect(config.services[serviceName].image).toMatch(/^ghcr\.io\/gustavo8000br\/subarushogun_gi_twich_bot:main$/);
-      expect(config.services[serviceName].build.args.PRODUCT_VERSION).toBe('');
+      expect(config.services[serviceName].image).toMatch(/^ghcr\.io\/gustavo8000br\/subarushogun_gi_twich_bot:dev$/);
+      expect(config.services[serviceName].build).toBeUndefined();
+    }
+    const buildResult = getBuildComposeConfig();
+    expect(buildResult.status, buildResult.stderr).toBe(0);
+    const buildConfig = JSON.parse(buildResult.stdout);
+    for (const serviceName of ['bootstrap', 'migrate', 'bot']) {
+      expect(buildConfig.services[serviceName].build.context.replace(/\/$/, '')).toBe(root.replace(/\/$/, ''));
+      expect(buildConfig.services[serviceName].build.args.PRODUCT_VERSION).toBe('');
     }
     const dockerfile = readFileSync(dockerfilePath, 'utf8');
     expect(dockerfile).toMatch(/^FROM node:24\.20\.0-alpine3\.24 AS dependencies$/m);
     expect(dockerfile).toMatch(/^RUN apk add --no-cache openssl$/m);
+  });
+
+  it('keeps runtime Compose pull-only and reserves source builds for the explicit build overlay', () => {
+    const runtime = getComposeConfig();
+    const build = getBuildComposeConfig();
+    expect(runtime.status, runtime.stderr).toBe(0);
+    expect(build.status, build.stderr).toBe(0);
+    const runtimeConfig = JSON.parse(runtime.stdout);
+    const buildConfig = JSON.parse(build.stdout);
+    for (const name of ['bootstrap', 'migrate', 'bot']) {
+      expect(runtimeConfig.services[name].build).toBeUndefined();
+      expect(buildConfig.services[name].build.context.replace(/\/$/, '')).toBe(root.replace(/\/$/, ''));
+    }
+    expect(JSON.parse(readFileSync(`${root}/package.json`, 'utf8')).scripts.build)
+      .toBe('docker compose -f compose.yaml -f compose.build.yaml build bot');
+  });
+
+  it('builds the Next production server separately and starts the Next gateway with a private Fastify API', () => {
+    const dockerfile = readFileSync(dockerfilePath, 'utf8');
+    expect(dockerfile).toMatch(/^FROM dependencies AS frontend-build$/m);
+    expect(dockerfile).toMatch(/^COPY apps\/shared \.\/apps\/shared$/m);
+    // OPS-15 S-03: modules shared with Next live in apps/shared/panel and are covered by the apps/shared COPY.
+    expect(dockerfile).not.toMatch(/^COPY apps\/web\/[^\s]+\.mjs /m);
+    // OPS-15 cutover wave 2: the first-party catalogs live in apps/shared/localization/catalogs (same COPY).
+    expect(dockerfile).not.toMatch(/apps\/web/);
+    expect(dockerfile).toContain('RUN npm run build:frontend');
+    expect(dockerfile).toMatch(/^COPY --from=frontend-build \/app\/apps\/frontend\/\.next \.\/apps\/frontend\/\.next$/m);
+    expect(dockerfile).toContain('CMD ["node", "apps/infra/scripts/start-product.mjs"]');
+    expect(readFileSync(`${root}/apps/infra/scripts/start-product.mjs`, 'utf8')).toContain('apps/frontend/scripts/start-production.mjs');
+    expect(readFileSync(`${root}/apps/frontend/scripts/next-runtime-config.mjs`, 'utf8')).toContain('buildProductionProxyRules');
+    expect(readFileSync(`${root}/apps/frontend/scripts/next-runtime-config.mjs`, 'utf8')).toContain('trailingSlash: false');
+    // OPS-15 cutover wave 1: Fastify no longer serves the vanilla static root; Next owns `/`.
+    expect(readFileSync(`${root}/apps/api/src/server.mjs`, 'utf8'))
+      .not.toContain("new URL('../../web/', import.meta.url)");
   });
 
   it('allows IMAGE_TAG to select a platform-specific GHCR image explicitly', () => {

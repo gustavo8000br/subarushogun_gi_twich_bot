@@ -1,0 +1,2 @@
+- [No shims until rc](project_no_shims_until_rc.md) — no users: no compat shims/aliases required until rc/stable (OW-09, 2026-10-27)
+- [Ready requires issue](project_ready_requires_issue.md) — Ready = @po GO + existing issue; po-validation.md per story (en/pt-BR); slice gates still apply

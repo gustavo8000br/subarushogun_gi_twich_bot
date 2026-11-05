@@ -1,0 +1,27 @@
+# Line endings: LF everywhere so Windows checkouts (core.autocrlf=true) cannot
+# break Linux containers, POSIX shell scripts, Prisma migration checksums or YAML.
+* text=auto eol=lf
+
+*.sh text eol=lf
+*.mjs text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.sql text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.tsv text eol=lf
+Dockerfile text eol=lf
+
+# Native Windows launchers keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+# PowerShell scripts: CRLF in the working tree (owner decision); no forced
+# renormalization so existing index content is not rewritten.
+*.ps1 eol=crlf
+
+# Binary assets.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary

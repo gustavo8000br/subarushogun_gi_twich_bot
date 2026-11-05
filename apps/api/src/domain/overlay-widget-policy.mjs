@@ -1,5 +1,5 @@
 const queueScopedSources = new Set(['queue_name', 'queue_state', 'queue_waiting_count']);
-const channelSources = new Set(['account_label', 'called_viewer_display_name', 'called_viewer_position', 'in_service_viewer_display_name']);
+const channelSources = new Set(['account_label', 'called_viewer_display_name', 'called_viewer_position']);
 const sourceTypes = new Set([...queueScopedSources, ...channelSources, 'fixed_text']);
 const fontFamilies = new Set(['system-ui', 'Arial, sans-serif', 'Verdana, sans-serif', 'Georgia, serif', 'Courier New, monospace']);
 const styleFields = new Set([

@@ -1,0 +1,31 @@
+story: OPS-15
+gate: new-queue-call-message
+status: PASS
+score: 9.4/10
+reviewer: aiox-qa
+independence: independent review; no implementation edits
+scope:
+  - reward settings draft persistence when switching between Channel Points and manual entry
+  - locale-sensitive untouched call-message default and preservation of edited text
+  - call-message preview behavior for the existing UID visibility defaults
+  - localized inline validation of unsupported placeholders and control characters before submission
+  - accessible field and named preview semantics
+evidence:
+  independent_qa_run:
+    result: 2 focused files / 29 tests passed
+    files:
+      - tests/unit/next-queue-creation-form.test.js
+      - tests/unit/next-queue-creation.test.js
+  developer_run: 3 focused files / 33 tests passed after implementation and CSS correction
+  full_suite: npm test reported 25 failed, 1,166 passed, and 178 skipped across 144 files; Docker Linux engine unavailable, POSIX sh/OpenSSL unavailable, and POSIX permission-mode assertions do not match this Windows host
+  lint: passed
+  typecheck: passed
+  localization: passed
+  diff_check: passed
+findings: []
+follow_up:
+  - QA noted missing explicit `.form-error` styling as a P3 polish item; the style was added and QA confirmed no regression, maintaining this score without another test run
+limitations:
+  - no browser, axe, assistive-technology, Twitch, OBS/CEF, or runtime validation
+  - this scoped result does not change overall OPS-15 QA status or close its acceptance gates
+overall_ops15: CONCERNS 8.0/10; In Progress

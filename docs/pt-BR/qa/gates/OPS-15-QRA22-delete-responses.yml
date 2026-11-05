@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'Somente confirmação ausente, resultados 404/409 conhecidos, argumentos aceitos e cobertura de diagnóstico inesperado em POST /api/queues/:queueId/delete QRA-22'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (respostas de exclusão QRA-22, não commitadas)'
+updated: '2026-10-19'
+status_reason: 'Ausência de confirm:true retorna o corpo 400 exato antes de acessar o domínio. QUEUE_NOT_FOUND mapeia para 404 exato; QUEUE_REWARD_NOT_READY e QUEUE_NOT_AVAILABLE mapeiam para respostas 409 seguras exatas, sem expor detalhes privados da exceção. Argumentos aceitos de ator/fila/origem e diagnóstico 503 QUEUE_DELETE_UNAVAILABLE/referência para erro inesperado existente estão cobertos. Este PASS limita-se às assertions de resposta QRA-22; OPS-15 permanece In Progress e o gate final da story não foi satisfeito.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 108 testes passaram'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 108 testes passaram'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  diff_check: 'git diff --check passou (avisos de normalização de fim de linha em arquivos existentes da worktree)'
+  response_review: '400 exato por confirmação ausente antes do domínio; status/código/corpo 404/409 exatos e sem detalhes privados; argumentos aceitos e diagnóstico 503 inesperado cobertos.'
+  bilingual_docs: 'A matriz de resposta/assertions da rota QRA-22 está alinhada em inglês e pt-BR.'
+limitations:
+  - 'Não foi executado PostgreSQL descartável nem operação Twitch de teste; resultados remotos de cancelamento/reembolso permanecem sem validação.'
+  - 'Não foram executados browser/runtime Next, instalador ou OBS/CEF nativo.'
+  - 'Esta não é QA geral da OPS-15, não encerra a story e não autoriza cutover do painel.'

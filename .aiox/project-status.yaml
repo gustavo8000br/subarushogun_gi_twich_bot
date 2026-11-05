@@ -1,19 +1,19 @@
 status:
-  branch: feat/fnd-9-manual-queue-modes
+  branch: feat/ops-15-next-panel
   modifiedFiles:
     - .aiox/project-status.yaml
-    - .claude/skills/AIOX/agents/data-engineer/SKILL.md
-    - .codex/agents/data-engineer.md
-    - .gemini/rules/AIOX/agents/data-engineer.md
-    - .github/agents/data-engineer.agent.md
-  modifiedFilesTotalCount: 51
+    - CHANGELOG-beta.md
+    - apps/api/src/persistence/queue-repository.mjs
+    - apps/api/src/server.mjs
+    - apps/frontend/features/panel-shell/panel-provider.jsx
+  modifiedFilesTotalCount: 65
   recentCommits:
-    - 'docs(handoff): prepare Codespaces continuation'
-    - 'fix(panel): replace native confirmation dialogs'
+    - 'feat(ops-15): advance Next panel migration'
+    - 'docs: normalize OPS-15 decision and handoff formatting'
   currentEpic: null
   currentStory: story
-  lastUpdate: '2026-10-11T01:19:52.779Z'
+  lastUpdate: '2026-10-21T01:22:20.935Z'
   isGitRepo: true
-timestamp: 1791681592780
+timestamp: 1792545740961
 ttl: 60
-gitFingerprint: 1791432201301.4626:1791681283634.28
+gitFingerprint: 1792458491463.6167:1792515201284.6934

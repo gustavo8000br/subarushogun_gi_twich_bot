@@ -1,0 +1,2 @@
+- [Pathspec commits](feedback_pathspec_commits.md) — pre-staged index content leaks into commits; always verify cached list per commit
+- [Project #5 two-way board](project_board_two_way.md) — owner card moves win; sync routine in .local/board-sync; Status rename web-only

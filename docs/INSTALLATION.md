@@ -11,7 +11,7 @@ This guide covers host requirements, first startup, local HTTPS trust, and Twitc
 - A current browser on the same computer that can trust a local certificate authority.
 - Internet access for GHCR image pulls and Twitch connectivity.
 - The source repository is public. GHCR image access is controlled separately; use an anonymous pull to confirm whether the package is public. If it is not, image pulls require an authorized GitHub account and a classic token with `read:packages`. Never put the token in project files. A public source repository alone does not grant access to a private image.
-- Node.js, PostgreSQL, Git, and a compiler are not needed on the host to run the Compose app. Node.js `24.20.0` runs in the container and is required only for development.
+- Node.js, npm, PostgreSQL, Git, and a compiler are not needed on the host to run the end-user installer. It pulls a prebuilt image; users do not build the application locally. Node.js `24.20.0` is only needed for development.
 
 ### Host platforms
 
@@ -28,7 +28,7 @@ These are **approximate estimates for the current alpha**, not guaranteed minimu
 - Disk: about 10 GB free for downloaded images, database/secrets volumes, logs, and updates.
 - No dedicated GPU is required.
 
-Local image builds are only needed for development and can require additional CPU, memory, and disk for build cache; see the [development guide](DEVELOPMENT.md).
+Local image builds are needed only by maintainers/CI and can require additional CPU, memory, and disk for build cache; ordinary development uses `npm run dev`. End users pull a prebuilt image through the installer. See the [development guide](DEVELOPMENT.md).
 
 Windows figures also reflect Docker Desktop prerequisites. Check the current [Windows guide](https://docs.docker.com/desktop/setup/install/windows-install/), [Ubuntu Engine instructions](https://docs.docker.com/engine/install/ubuntu/), [Linux post-install guide](https://docs.docker.com/engine/install/linux-postinstall/), or [Compose plugin instructions](https://docs.docker.com/compose/install/linux/) for platform requirements.
 

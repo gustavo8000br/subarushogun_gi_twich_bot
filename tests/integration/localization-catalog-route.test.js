@@ -13,9 +13,9 @@ const baseCatalogs = {
   es: 'translation.unavailable\tTexto no disponible.\nsetup.title\tConectar canal\nsetup.callback.success_message\tEl canal {channel} está autorizado para esta instalación.\nsetup.callback.return_message\tVolver en {seconds} segundos.\n',
 };
 const chatCatalogs = {
-  'pt-BR': 'translation.unavailable\tTexto do produto indisponível.\nchat.account.current\tConta atual: {label}.\nchat.ping.response\tPong · {version} · {latency}\nchat.queue.position\t@{user}: {position}\nchat.queue.viewer_called\t@{user} chamado\nchat.queue.viewer_in_progress\t@{user} em atendimento\nchat.queue.presence_confirmed\t{user}, presença confirmada. Aguarde o streamer iniciar seu atendimento.\nchat.queue.more.one\t e mais {count}\nchat.queue.more.many\t e mais {count}\nchat.queue.more.other\t e mais {count}\nchat.queue.called_many.one\t{count} chamado\nchat.queue.called_many.many\t{count} chamados\nchat.queue.called_many.other\t{count} chamados\nchat.queue.added\t@{user} adicionado\nchat.queue.clear_confirm\t!{queue} {clear_command} {confirm_command} {count} {refunds}\nchat.queue.clear_done\t{count} {refunds}\n',
-  en: 'translation.unavailable\tProduct text unavailable.\nchat.account.current\tCurrent account: {label}.\nchat.ping.response\tPong · {version} · {latency}\nchat.queue.position\t@{user}: {position}\nchat.queue.viewer_called\t@{user} called\nchat.queue.viewer_in_progress\t@{user} in service\nchat.queue.presence_confirmed\t{user}, presence confirmed. Wait for the streamer to begin your service.\nchat.queue.more.one\t and {count} more\nchat.queue.more.other\t and {count} more\nchat.queue.called_many.one\t{count} called\nchat.queue.called_many.other\t{count} called\nchat.queue.added\t@{user} added\nchat.queue.clear_confirm\t!{queue} {clear_command} {confirm_command} {count} {refunds}\nchat.queue.clear_done\t{count} {refunds}\n',
-  es: 'translation.unavailable\tTexto no disponible.\nchat.account.current\tCuenta actual: {label}.\nchat.ping.response\tPong · {version} · {latency}\nchat.queue.position\t@{user}: {position}\nchat.queue.viewer_called\t@{user} llamado\nchat.queue.viewer_in_progress\t@{user} en atención\nchat.queue.presence_confirmed\t{user}, presencia confirmada. Espera a que el streamer inicie tu atención.\nchat.queue.more.one\t y {count} más\nchat.queue.more.many\t y {count} más\nchat.queue.more.other\t y {count} más\nchat.queue.called_many.one\t{count} llamados\nchat.queue.called_many.many\t{count} llamados\nchat.queue.called_many.other\t{count} llamados\nchat.queue.added\t@{user} agregado\nchat.queue.clear_confirm\t!{queue} {clear_command} {confirm_command} {count} {refunds}\nchat.queue.clear_done\t{count} {refunds}\n',
+  'pt-BR': 'translation.unavailable\tTexto do produto indisponível.\nchat.account.current\tConta atual: {label}.\nchat.ping.response\tPong · {version} · {latency}\nchat.ping.error\tPong · {version} · {code}\nchat.queue.position\t@{user}: {position}\nchat.queue.viewer_called\t@{user} chamado\nchat.queue.viewer_in_progress\t@{user} em atendimento\nchat.queue.presence_confirmed\t{user}, presença confirmada. Aguarde o streamer iniciar seu atendimento.\nchat.queue.more.one\t e mais {count}\nchat.queue.more.many\t e mais {count}\nchat.queue.more.other\t e mais {count}\nchat.queue.called_many.one\t{count} chamado\nchat.queue.called_many.many\t{count} chamados\nchat.queue.called_many.other\t{count} chamados\nchat.queue.added\t@{user} adicionado\nchat.queue.clear_confirm\t!{queue} {clear_command} {confirm_command} {count} {refunds}\nchat.queue.clear_done\t{count} {refunds}\n',
+  en: 'translation.unavailable\tProduct text unavailable.\nchat.account.current\tCurrent account: {label}.\nchat.ping.response\tPong · {version} · {latency}\nchat.ping.error\tPong · {version} · {code}\nchat.queue.position\t@{user}: {position}\nchat.queue.viewer_called\t@{user} called\nchat.queue.viewer_in_progress\t@{user} in service\nchat.queue.presence_confirmed\t{user}, presence confirmed. Wait for the streamer to begin your service.\nchat.queue.more.one\t and {count} more\nchat.queue.more.other\t and {count} more\nchat.queue.called_many.one\t{count} called\nchat.queue.called_many.other\t{count} called\nchat.queue.added\t@{user} added\nchat.queue.clear_confirm\t!{queue} {clear_command} {confirm_command} {count} {refunds}\nchat.queue.clear_done\t{count} {refunds}\n',
+  es: 'translation.unavailable\tTexto no disponible.\nchat.account.current\tCuenta actual: {label}.\nchat.ping.response\tPong · {version} · {latency}\nchat.ping.error\tPong · {version} · {code}\nchat.queue.position\t@{user}: {position}\nchat.queue.viewer_called\t@{user} llamado\nchat.queue.viewer_in_progress\t@{user} en atención\nchat.queue.presence_confirmed\t{user}, presencia confirmada. Espera a que el streamer inicie tu atención.\nchat.queue.more.one\t y {count} más\nchat.queue.more.many\t y {count} más\nchat.queue.more.other\t y {count} más\nchat.queue.called_many.one\t{count} llamados\nchat.queue.called_many.many\t{count} llamados\nchat.queue.called_many.other\t{count} llamados\nchat.queue.added\t@{user} agregado\nchat.queue.clear_confirm\t!{queue} {clear_command} {confirm_command} {count} {refunds}\nchat.queue.clear_done\t{count} {refunds}\n',
 };
 
 async function createCatalogRoot() {
@@ -32,10 +32,17 @@ async function createCatalogRoot() {
   return root;
 }
 
-async function createApp(catalogRoot, repository = {}, writeHostProjection = async () => undefined) {
+async function createCommunityCatalogRoot() {
+  const root = await mkdtemp(join(tmpdir(), 'queuebot-community-catalog-route-'));
+  roots.push(root);
+  await Promise.all(['setup', 'chat'].map((moduleName) => mkdir(join(root, moduleName))));
+  return root;
+}
+
+async function createApp(catalogRoot, repository = {}, writeHostProjection = async () => undefined, communityCatalogRoot) {
   const app = Fastify();
   registerLocalSession(app, { port: 3000, secure: false });
-  registerLocalizationRoutes(app, { catalogRoot, repository, writeHostProjection });
+  registerLocalizationRoutes(app, { catalogRoot, communityCatalogRoot, repository, writeHostProjection });
   const session = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
   const cookie = session.cookies[0];
   const sessionHeaders = { host: 'localhost:3000', cookie: `${cookie.name}=${cookie.value}` };
@@ -67,15 +74,16 @@ describe('localization catalog API', () => {
 
   it('detects and interprets a complete community locale file added while the panel is running', async () => {
     const root = await createCatalogRoot();
-    const { app, headers } = await createApp(root);
+    const communityRoot = await createCommunityCatalogRoot();
+    const { app, headers } = await createApp(root, {}, async () => undefined, communityRoot);
     const before = await app.inject({ method: 'GET', url: '/api/localization/catalogs', headers });
     expect(before.json().locales).not.toContain('de');
 
     const germanSetup = 'translation.unavailable\tProdukttext nicht verfügbar.\nsetup.title\tKanal verbinden\nsetup.callback.success_message\tKanal {channel}\nsetup.callback.return_message\tZurück in {seconds}\n';
-    const germanChat = 'translation.unavailable\tProdukttext nicht verfügbar.\nchat.account.current\tAktuelles Konto: {label}.\nchat.ping.response\tPong · {version} · {latency}\nchat.queue.position\t@{user}: {position}\nchat.queue.viewer_called\t@{user} gerufen\nchat.queue.viewer_in_progress\t@{user} im Dienst\nchat.queue.presence_confirmed\t{user}, Anwesenheit bestätigt. Warte darauf, dass der Streamer deinen Service startet.\nchat.queue.more.one\t und {count} weitere\nchat.queue.more.other\t und {count} weitere\nchat.queue.called_many.one\t{count} gerufen\nchat.queue.called_many.other\t{count} gerufen\nchat.queue.added\t@{user} hinzugefügt\nchat.queue.clear_confirm\t!{queue} {clear_command} {confirm_command} {count} {refunds}\nchat.queue.clear_done\t{count} {refunds}\n';
+    const germanChat = 'translation.unavailable\tProdukttext nicht verfügbar.\nchat.account.current\tAktuelles Konto: {label}.\nchat.ping.response\tPong · {version} · {latency}\nchat.ping.error\tPong · {version} · {code}\nchat.queue.position\t@{user}: {position}\nchat.queue.viewer_called\t@{user} gerufen\nchat.queue.viewer_in_progress\t@{user} im Dienst\nchat.queue.presence_confirmed\t{user}, Anwesenheit bestätigt. Warte darauf, dass der Streamer deinen Service startet.\nchat.queue.more.one\t und {count} weitere\nchat.queue.more.other\t und {count} weitere\nchat.queue.called_many.one\t{count} gerufen\nchat.queue.called_many.other\t{count} gerufen\nchat.queue.added\t@{user} hinzugefügt\nchat.queue.clear_confirm\t!{queue} {clear_command} {confirm_command} {count} {refunds}\nchat.queue.clear_done\t{count} {refunds}\n';
     await Promise.all([
-      writeFile(join(root, 'setup', 'de.tsv'), germanSetup),
-      writeFile(join(root, 'chat', 'de.tsv'), germanChat),
+      writeFile(join(communityRoot, 'setup', 'de.tsv'), germanSetup),
+      writeFile(join(communityRoot, 'chat', 'de.tsv'), germanChat),
     ]);
 
     const after = await app.inject({ method: 'GET', url: '/api/localization/catalogs', headers });

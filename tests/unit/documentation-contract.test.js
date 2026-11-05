@@ -34,13 +34,13 @@ describe('foundation operator documentation contract', () => {
     ]);
     const englishPolicy = english.replaceAll('`', '');
     const portuguesePolicy = portuguese.replaceAll('`', '');
-    expect(englishPolicy).toContain('Increment PATCH for a small fix or documentation-only change.');
-    expect(englishPolicy).toContain('Increment MINOR for a new feature, a large implementation, or a complex fix.');
-    expect(englishPolicy).toContain('Increment MAJOR only for a major product change');
+    expect(englishPolicy).toContain('Increment PATCH only for a fix to something already released.');
+    expect(englishPolicy).toContain('Increment MINOR for a dense, coherent milestone');
+    expect(englishPolicy).toContain('Increment MAJOR for an incompatible change to a public contract');
     expect(englishPolicy).toContain('Only the product owner may change the release stage.');
-    expect(portuguesePolicy).toContain('Incremente PATCH para uma correção pequena ou mudança somente documental.');
-    expect(portuguesePolicy).toContain('Incremente MINOR para uma funcionalidade nova, implementação grande ou correção complexa.');
-    expect(portuguesePolicy).toContain('Incremente MAJOR somente para uma mudança significativa do produto');
+    expect(portuguesePolicy).toContain('Incremente PATCH somente para corrigir algo já lançado.');
+    expect(portuguesePolicy).toContain('Incremente MINOR para um marco denso e coerente');
+    expect(portuguesePolicy).toContain('Incremente MAJOR para uma mudança incompatível de um contrato público');
     expect(portuguesePolicy).toContain('Somente o proprietário do produto decide quando avançar o estágio.');
   });
 
@@ -100,6 +100,24 @@ describe('foundation operator documentation contract', () => {
     }
   });
 
+  it('documents the developer hot-reload and end-user prebuilt installer paths consistently', async () => {
+    const [enReadme, ptReadme, enDev, ptDev, enInstaller, ptInstaller] = await Promise.all([
+      read('README.md'), read('README.pt-BR.md'), read('docs/DEVELOPMENT.md'), read('docs/pt-BR/DESENVOLVIMENTO.md'),
+      read('docs/INSTALLERS.md'), read('docs/pt-BR/INSTALADORES.md'),
+    ]);
+    for (const doc of [enReadme, ptReadme]) expect(doc).toContain('npm run dev');
+    for (const doc of [enDev, ptDev]) {
+      expect(doc).toContain('npm ci');
+      expect(doc).toContain('npm run dev');
+      expect(doc).toContain('https://localhost:${NEXT_DEV_PORT:-3000}');
+      expect(doc).toContain('compose.build.yaml');
+    }
+    for (const doc of [enInstaller, ptInstaller]) {
+      expect(doc.toLowerCase()).toMatch(/prebuilt.*image|imagem.*pré-compilada/);
+      expect(doc.toLowerCase()).toContain('node.js/npm');
+    }
+  });
+
   it('documents version-scoped approximate hardware requirements and complete Windows HTTPS first run in both languages', async () => {
     const [english, portuguese] = await Promise.all([read('docs/INSTALLATION.md'), read('docs/pt-BR/INSTALACAO.md')]);
     for (const term of ['Approximate', 'CPU', 'memory', 'GB', 'change between versions', 'Windows', 'WSL', 'wsl --version', 'Import-Certificate', 'https://localhost:3000/callback']) {
@@ -156,7 +174,7 @@ describe('foundation operator documentation contract', () => {
     for (const term of ['Install / Start', 'Update', 'Uninstall']) expect(englishInstallers).toContain(term);
     for (const term of ['Instalar / Iniciar', 'Atualizar', 'Desinstalar']) expect(portugueseInstallers).toContain(term);
     expect(englishInstallers).toContain('image matching its release identity');
-    expect(portugueseInstallers).toContain('imagem GHCR correspondente à identidade da própria release');
+    expect(portugueseInstallers).toContain('imagem GHCR pré-compilada correspondente à release');
     expect(englishVersions).toContain('Each attached installer embeds the full release identity and the verified GHCR manifest digest');
     expect(portugueseVersions).toContain('Cada instalador anexado incorpora a identidade completa da release e o digest do manifest GHCR validado');
     expect(englishVersions).toContain('<version>@sha256:<digest>');
@@ -202,10 +220,10 @@ describe('foundation operator documentation contract', () => {
       read('docs/INSTALLERS.md'), read('docs/pt-BR/INSTALADORES.md'),
     ]);
     expect(english.toLowerCase()).toContain('github releases');
-    expect(english.toLowerCase()).toContain('download the installer for your system');
+    expect(english.toLowerCase()).toContain('download and run the platform installer');
     expect(english.toLowerCase()).toContain('installer download guide');
     expect(portuguese.toLowerCase()).toContain('github releases');
-    expect(portuguese.toLowerCase()).toContain('baixe o instalador do seu sistema');
+    expect(portuguese.toLowerCase()).toContain('baixe e execute o instalador');
     expect(portuguese.toLowerCase()).toContain('guia de download do instalador');
     expect(englishGuide).toContain('subarushogun_twich_bot_setup.sh');
     expect(portugueseGuide).toContain('subarushogun_twich_bot_setup.sh');
@@ -257,17 +275,17 @@ describe('foundation operator documentation contract', () => {
 
   it('documents the owner-gated beta plan and changelog-derived bilingual release notes', async () => {
     const [english, portuguese] = await Promise.all([read('docs/VERSIONING.md'), read('docs/pt-BR/VERSIONING.md')]);
-    expect(english).toContain('The current shipping target is product base version `0.2.1`');
-    expect(english).toContain('the unmaterialized checkout identity is `v0.2.1-0000000-beta`');
-    expect(english).toContain('This patch fixes the final local queue deletion confirmation');
+    expect(english).toContain('The current shipping target is product base version `0.3.0`');
+    expect(english).toContain('the unmaterialized checkout identity is `v0.3.0-0000000-beta`');
+    expect(english).toContain('This minor milestone ships the OPS-15 cutover');
     expect(english).toContain('The owner must verify this build locally');
     expect(english).toContain('no live Twitch operation is claimed by automated tests');
     expect(english).toContain('does not create a Git tag or GitHub Release');
     expect(english).toContain('Record user-facing changes under the matching version heading in the stage-specific English and pt-BR changelogs');
     expect(english).toContain('Only the repository owner manually dispatches the release workflow');
-    expect(portuguese).toContain('O alvo atual de distribuição é a versão base do produto `0.2.1`');
-    expect(portuguese).toContain('a identidade não materializada do checkout é `v0.2.1-0000000-beta`');
-    expect(portuguese).toContain('Esta correção faz a confirmação final de exclusão local exibir corretamente o nome da fila');
+    expect(portuguese).toContain('O alvo atual de distribuição é a versão base do produto `0.3.0`');
+    expect(portuguese).toContain('a identidade não materializada do checkout é `v0.3.0-0000000-beta`');
+    expect(portuguese).toContain('Este marco MINOR entrega o cutover da OPS-15');
     expect(portuguese).toContain('O proprietário deve verificar esta build localmente');
     expect(portuguese).toContain('testes automatizados não comprovam operações Twitch ao vivo');
     expect(portuguese).toContain('não cria tag Git nem GitHub Release');
@@ -278,10 +296,10 @@ describe('foundation operator documentation contract', () => {
   it('separates end-user runtime estimates from developer image-build requirements in both installation guides', async () => {
     const [english, portuguese] = await Promise.all([read('docs/INSTALLATION.md'), read('docs/pt-BR/INSTALACAO.md')]);
     expect(english).toContain('pulls a prebuilt image');
-    expect(english).toContain('Local image builds are only needed for development');
+    expect(english).toContain('Local image builds are needed only by maintainers/CI');
     expect(english).not.toContain('during the first image build');
     expect(portuguese).toContain('baixa uma imagem pré-construída');
-    expect(portuguese).toContain('Compilar a imagem localmente é necessário apenas para desenvolvimento');
+    expect(portuguese).toContain('Compilar imagem localmente é necessário somente para CI/manutenção');
     expect(portuguese).not.toContain('no primeiro build');
   });
 

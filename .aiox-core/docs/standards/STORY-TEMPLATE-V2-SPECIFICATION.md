@@ -129,12 +129,20 @@ AND [additional outcomes]
 | Secondary | @[agent] | [Supporting task] |
 | Review | @[agent] | [Review task] |
 
-### Static Analysis Plan
+### Self-Healing Config
 
-Record the project's configured local scanner command, applicable rules/focus areas,
-and the owner responsible for addressing findings. The scanner is report-only;
-findings follow the story's test-first correction process. Keep human and specialist
-reviews as separate gates.
+```yaml
+reviews:
+  auto_review:
+    enabled: true
+    drafts: false
+  path_instructions:
+    - path: "[relevant path pattern]"
+      instructions: "[specific review instructions]"
+
+chat:
+  auto_reply: true
+```
 
 ### Focus Areas
 
@@ -330,7 +338,7 @@ AND [additional result]
 |-------------|---------|
 | Story Type Analysis | Helps select relevant quality checks |
 | Agent Assignment | Assigns responsibility |
-| Static Analysis Plan | Local scanner command and finding owner |
+| Self-Healing Config | YAML for auto-configuration |
 | Focus Areas | Key review points |
 
 ### Dev Agent Record (NEW in v2.0)

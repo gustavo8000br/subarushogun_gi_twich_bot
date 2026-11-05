@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'Inventário de rotas/ações QRA e fluxo QRA-10 de diagnóstico/referência para falha inesperada no lookup de inclusão manual; somente este incremento delimitado'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (snapshot documental QRA e diagnóstico de inclusão manual, sem commit)'
+updated: '2026-10-19'
+status_reason: 'O mapa de código QRA revisado está correto e equivalente em EN/pt-BR, e a falha inesperada de lookup na inclusão manual recebe diagnóstico seguro e correlação no alerta inline localizado existente. Este PASS vale somente para o escopo declarado; OPS-15 permanece In Progress e a QA geral da implementação não foi avaliada.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- tests/unit/queue-routes.test.js tests/unit/next-queue-list.test.js; 2 arquivos / 84 testes passaram'
+  local_focused_tests: 'npm test -- --run tests/unit/queue-routes.test.js tests/unit/next-queue-entry-actions.test.js tests/unit/next-queue-list.test.js; 3 arquivos / 112 testes passaram'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  localization: 'npm run validate:localization passou para en, es e pt-BR'
+  diff_check: 'git diff --check passou'
+  ux_review: 'Revisão read-only aprovou o alerta inline existente e o rótulo localizado da referência; sem mudanças de layout, retry ou texto de sucesso'
+limitations:
+  - 'Este gate não executou validação PostgreSQL, browser, prévia Next, instalador, runtime Docker, Twitch ou OBS/CEF nativo.'
+  - 'O pipe do engine Linux do Docker Desktop estava indisponível; evidências runtime e browser continuam Pendentes.'
+  - 'Este não é o score geral de QA da implementação OPS-15 e não encerra OPS-15 nem autoriza cutover do painel.'

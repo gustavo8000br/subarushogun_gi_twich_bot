@@ -4,8 +4,8 @@ import { readFile } from 'node:fs/promises';
 import { createDatabaseUrl } from '../../infra/src/database-url.mjs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
-import { createTwitchHealthBridge, registerHealthRoute } from './health-route.mjs';
-import { registerWebRoutes } from './web-route.mjs';
+import { registerHealthRoute } from './health-route.mjs';
+import { createSharedApiProbe } from './twitch/shared-api-probe.mjs';
 import { registerLocalSession } from './http/local-session.mjs';
 import { registerQueueRoutes } from './http/queue-routes.mjs';
 import { createQueueRepository } from './persistence/queue-repository.mjs';
@@ -19,13 +19,15 @@ import { createOverlayWidgetService } from './domain/overlay-widget-service.mjs'
 import { createOverlayProjectionService } from './domain/overlay-projection-service.mjs';
 import { registerOverlayRoutes } from './http/overlay-routes.mjs';
 import { registerLocalizationRoutes } from './http/localization-routes.mjs';
-import { discoverCatalogModule } from '../../shared/localization/discover-catalog-module.mjs';
+import { discoverCatalogBundle } from '../../shared/localization/discover-catalog-bundle.mjs';
+import { resolveFirstPartyCatalogRoot } from '../../shared/localization/first-party-catalogs.mjs';
 import { writeProductLocaleProjection } from '../../infra/src/product-locale-projection.mjs';
 import { fileURLToPath } from 'node:url';
 import { createErrorDiagnosticReporter } from './observability/error-diagnostics.mjs';
 import { createStructuredLogger } from './observability/structured-logger.mjs';
 import { registerSafeHttpErrorHandler } from './http/safe-http-error-handler.mjs';
 import { createTwitchRouteIntegrationProxy } from './twitch/route-integration-proxy.mjs';
+import { resolveApiHost } from './runtime-config.mjs';
 
 const databaseUrl = await createDatabaseUrl();
 const pool = new pg.Pool({ connectionString: databaseUrl });
@@ -36,8 +38,14 @@ const logEvent = createStructuredLogger({ level: process.env.APP_LOG_LEVEL ?? 'i
 const reportDiagnostic = createErrorDiagnosticReporter({ logger: logEvent });
 registerSafeHttpErrorHandler(app, { reportDiagnostic });
 const productVersion = (await readFile(new URL('../../../VERSION', import.meta.url), 'utf8')).trim();
-const port = Number(process.env.APP_PORT ?? 3000);
-const catalogRoot = fileURLToPath(new URL('../../web/localization/catalogs/', import.meta.url));
+const port = Number(process.env.PUBLIC_PORT ?? process.env.APP_PORT ?? 3000);
+const apiPort = Number(process.env.API_PORT ?? process.env.APP_PORT ?? 3000);
+const catalogRoot = resolveFirstPartyCatalogRoot(fileURLToPath(new URL('../../../', import.meta.url)));
+const communityCatalogRoot = fileURLToPath(new URL('../../../.local/community-catalogs/', import.meta.url));
+const getCatalogModule = async (moduleName) => {
+  const bundle = await discoverCatalogBundle(catalogRoot, { communityCatalogRoot });
+  return bundle.modules[moduleName]?.catalogs ?? {};
+};
 process.env.DATABASE_URL = databaseUrl;
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
 const repository = createQueueRepository(prisma, { defaultProductLocale: process.env.PRODUCT_INITIAL_LOCALE ?? 'pt-BR' });
@@ -47,13 +55,17 @@ catch { process.stderr.write('Product locale host projection could not be synchr
 const overlayRepository = createOverlayWidgetRepository(prisma);
 const credentialRepository = createTwitchCredentialRepository(prisma);
 let runtime;
-const twitchHealthBridge = createTwitchHealthBridge();
+// D-8: ONE Twitch API measurement shared by /health and the `!fila ping` chat command (cache, single-flight, 5 s limit).
+const sharedApiProbe = createSharedApiProbe({
+  probe: () => runtime?.integration?.probeTwitchApi?.() ?? false,
+  getIntegrationStatus: () => runtime?.twitchStatus ?? 'connecting',
+  getEpoch: () => runtime?.integration?.probeEpoch ?? 0,
+});
 let overlayCatalogCache = null;
 let overlayCatalogCacheAt = 0;
 const getOverlayCatalogs = async () => {
   if (overlayCatalogCache && Date.now() - overlayCatalogCacheAt < 5_000) return overlayCatalogCache;
-  const discovered = await discoverCatalogModule(catalogRoot, 'overlay');
-  overlayCatalogCache = discovered.catalogs;
+  overlayCatalogCache = await getCatalogModule('overlay');
   overlayCatalogCacheAt = Date.now();
   return overlayCatalogCache;
 };
@@ -69,27 +81,32 @@ const buildChatHandler = (broadcasterId) => createChatCommandHandler({
     getAccount: () => repository.getCurrentAccount(),
     setAccount: (label, actorId) => repository.setCurrentAccount(label, actorId),
     resetAccount: (actorId) => repository.resetCurrentAccount(actorId),
-  }, broadcasterId, productVersion, getTwitchHealth: twitchHealthBridge.read,
-  getChatCatalogs: async () => (await discoverCatalogModule(catalogRoot, 'chat')).catalogs,
+  }, broadcasterId, productVersion, probeTwitchApi: () => sharedApiProbe.read(),
+  getChatCatalogs: () => getCatalogModule('chat'),
   onError: () => undefined,
 });
 let chatHandler = currentCredential?.broadcasterId ? buildChatHandler(currentCredential.broadcasterId) : null;
 
-registerLocalSession(app, { port });
-const healthRoute = registerHealthRoute(app, {
+registerLocalSession(app, {
+  port,
+  backendPort: apiPort,
+  ...(process.env.NODE_ENV === 'development' && process.env.PANEL_DEV_ORIGIN
+    ? { developmentOrigin: process.env.PANEL_DEV_ORIGIN }
+    : {}),
+});
+registerHealthRoute(app, {
   pool,
   productVersion,
   getTwitchStatus: () => runtime?.twitchStatus ?? 'connecting',
   getTwitchChatStatus: () => runtime?.integration?.chatStatus ?? 'not_configured',
   getTwitchRewardStatus: () => runtime?.integration?.rewardStatus ?? 'unknown',
-  probeTwitchApi: () => runtime?.integration?.probeTwitchApi?.() ?? false,
+  getLastReconciliationAt: () => runtime?.integration?.lastReconciliationAt ?? null,
+  sharedProbe: sharedApiProbe,
 });
-twitchHealthBridge.attach(healthRoute.getTwitchHealth);
 registerQueueRoutes(app, {
   repository,
   domainService: domainServiceProxy,
   clearConfirmation,
-  getSetupCatalogs: async () => (await discoverCatalogModule(catalogRoot, 'setup')).catalogs,
   productVersion,
   integrations: createTwitchRouteIntegrationProxy(() => runtime?.integration ?? null),
   publicBaseUrl: process.env.PUBLIC_BASE_URL ?? `https://localhost:${port}`,
@@ -100,21 +117,17 @@ registerQueueRoutes(app, {
 const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? `https://localhost:${port}`;
 registerOverlayRoutes(app, {
   repository: overlayRepository,
-  widgetService: createOverlayWidgetService({ repository: overlayRepository, origin: publicBaseUrl }),
+  widgetService: createOverlayWidgetService({ repository: overlayRepository, origin: process.env.OVERLAY_PUBLIC_BASE_URL ?? publicBaseUrl }),
   projectionService: createOverlayProjectionService({ overlayRepository, queueRepository: repository, getOverlayCatalogs }),
 });
 registerLocalizationRoutes(app, {
   catalogRoot,
+  communityCatalogRoot,
   writeHostProjection: (localeState) => writeProductLocaleProjection(localeProjectionPath, localeState),
   repository,
 });
-await registerWebRoutes(
-  app,
-  fileURLToPath(new URL('../../web/', import.meta.url)),
-  fileURLToPath(new URL('../../shared/browser/', import.meta.url)),
-);
 
-runtime = await createApplicationRuntime({ app, pool, prisma, repository, credentialRepository, reportDiagnostic, onError: () => undefined,
+runtime = await createApplicationRuntime({ app, pool, prisma, repository, credentialRepository, reportDiagnostic, logEvent, onError: () => undefined,
   onChatMessage: (event) => {
     chatHandler ??= buildChatHandler(event.broadcasterId);
     return chatHandler(event);
@@ -130,7 +143,7 @@ process.on('SIGTERM', () => void shutdown());
 process.on('SIGINT', () => void shutdown());
 
 try {
-  await app.listen({ host: process.env.APP_HOST ?? '0.0.0.0', port });
+  await app.listen({ host: resolveApiHost(), port: apiPort });
 } catch {
   await shutdown();
   process.stderr.write('Local application server failed to start. Check runtime configuration and database health.\n');

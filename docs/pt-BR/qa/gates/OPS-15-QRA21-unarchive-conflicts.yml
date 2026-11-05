@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'Somente respostas dos conflitos conhecidos de POST /api/queues/:queueId/unarchive QRA-21'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (conflitos do desarquivamento QRA-21, não commitados)'
+updated: '2026-10-19'
+status_reason: 'QUEUE_NOT_AVAILABLE, QUEUE_REWARD_NOT_READY e QUEUE_OPEN_WHILE_ARCHIVED retornam a resposta genérica HTTP 409 existente sem detalhes privados da exceção. Testes afirmam contexto de queueId, actorId e origin. Sucesso protegido e diagnóstico 503 sanitizado para falha inesperada continuam cobertos. Este PASS limita-se aos conflitos conhecidos QRA-21; OPS-15 permanece In Progress e o gate final da story não foi satisfeito.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 106 testes passaram'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 106 testes passaram'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  diff_check: 'git diff --check passou (avisos de normalização de fim de linha em arquivos existentes da worktree)'
+  response_review: 'Os três erros de domínio conhecidos continuam 409 com corpo genérico exato; detalhes privados são omitidos; argumentos de ator e origem ao repositório são afirmados.'
+  bilingual_docs: 'Resultados de conflito conhecidos QRA-21 e evidência pendente de estado persistido estão alinhados em inglês e pt-BR.'
+limitations:
+  - 'Estado desarquivado persistido e estado pausado após reload não foram validados contra PostgreSQL.'
+  - 'Não foram executados browser/runtime Next, instalador, Twitch ou OBS/CEF nativo.'
+  - 'Esta não é QA geral da OPS-15, não encerra a story e não autoriza cutover do painel.'

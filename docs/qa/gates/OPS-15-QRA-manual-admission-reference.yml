@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'QRA queue route/action inventory and the QRA-10 manual-admission unexpected lookup diagnostic/reference flow; scoped increment only'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (QRA documentation and manual-admission diagnostic snapshot, uncommitted)'
+updated: '2026-10-19'
+status_reason: 'The reviewed QRA source map is accurate and equivalent across EN/pt-BR, and the unexpected manual-admission lookup failure is safely diagnosed and correlated in the existing localized inline alert. This PASS applies only to the stated slice; OPS-15 remains In Progress and overall implementation QA is not evaluated.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- tests/unit/queue-routes.test.js tests/unit/next-queue-list.test.js; 2 files / 84 tests passed'
+  local_focused_tests: 'npm test -- --run tests/unit/queue-routes.test.js tests/unit/next-queue-entry-actions.test.js tests/unit/next-queue-list.test.js; 3 files / 112 tests passed'
+  lint: 'npm run lint passed'
+  typecheck: 'npm run typecheck passed'
+  localization: 'npm run validate:localization passed for en, es, and pt-BR'
+  diff_check: 'git diff --check passed'
+  ux_review: 'Read-only review approved the existing inline alert and localized reference label; no layout, retry, or success-copy change'
+limitations:
+  - 'No PostgreSQL, browser, Next preview, installer, Docker runtime, Twitch, or native OBS/CEF validation was performed in this gate.'
+  - 'Docker Desktop Linux engine pipe was unavailable; runtime and browser evidence remain Pending.'
+  - 'This is not an overall OPS-15 implementation QA score and does not close OPS-15 or authorize panel cutover.'

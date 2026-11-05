@@ -6,6 +6,8 @@
 > **Complexidade:** COMPLEX (25/25)  
 > **Gerada:** 2026-10-02  
 > **Status:** Rascunho para crítica AIOX  
+
+> **Substituída em parte pela OPS-15 (2026-10-21):** esta é uma especificação histórica. Suas afirmações sobre o runtime do frontend (export estático Next.js em `apps/web`, assets `out/*` servidos por `@fastify/static`, sem servidor Next.js em runtime) e o estágio inicial `alpha` não descrevem mais o produto. O painel e o overlay são servidos pelo servidor Next.js, que encaminha requisições same-origin da API para a API Fastify em loopback; o estágio atual é `beta` (base `v0.2.0`). O painel vanilla é removido após a migração somente com autorização explícita do proprietário, e `legacy` é somente referência histórica, não fallback nem alvo de rollback. O mesmo vale para os arquivos irmãos `requirements.json`, `plan.json` e `research.json`. Consulte [`docs/pt-BR/architecture.md`](../../../architecture.md) e a [revisão estrutural da OPS-15](../../OPS-15/structural-review.md).
 > **Fonte:** Prompt 1 completo do usuário e esclarecimento sobre estrutura de pastas
 
 ## 1. Visão geral
@@ -22,7 +24,7 @@ Construir uma aplicação local-first para um único canal Twitch, com várias f
 
 ### Fora de escopo
 
-Serviço/backend hospedado, banco remoto, telemetria, domínio público obrigatório, Discord/DMs, segunda conta de bot, IRC, comando de entrada para viewer, cadastro público, cadastro de UID, overlay/OBS, ranking, funcionalidade de backup/exportação, multi-canal, múltiplas identidades de bot e escalabilidade horizontal.
+Serviço/backend hospedado, banco remoto, telemetria, domínio público obrigatório, Discord/DMs, segunda conta de bot, IRC, comando de entrada para viewer, cadastro público, cadastro de UID, serviço público/externo de overlay, ranking, funcionalidade de backup/exportação, multi-canal, múltiplas identidades de bot e escalabilidade horizontal. O overlay OBS local existente permanece uma superfície do produto.
 
 ## 2. Resumo dos requisitos
 
@@ -42,7 +44,7 @@ Os requisitos estruturados completos estão em [requirements.json](requirements.
 | FR-8 | EventSub WebSocket, chat Helix, deduplicação e reconciliação na inicialização, reconexão, rotina e solicitação do operador. | P0 |
 | FR-9 | Parser puro em português e autorização por canal/ator confiáveis, cooldown, deduplicação, limites e resultado de envio seguro. | P0 |
 | FR-10 | Operações de fila, chamada, atendimento, limpeza, abrir/fechar, conta e timeout conforme as políticas. | P0 |
-| FR-11 | UI estática vanilla e API local Fastify, protegida por sessão e com projeções explícitas. | P1 |
+| FR-11 | UI local estática servida por Fastify e API protegida por sessão com projeções explícitas; a OPS-15 especifica export estático Next.js para a UI. | P1 |
 | FR-12 | Persistir rótulo de conta, origem, proprietário, troca automática em chamada individual e regras de retorno. | P1 |
 | FR-13 | Separar identidade do produto, versão do contrato da API e revisão do estado; validar/materializar SHA exato. | P1 |
 | FR-14 | Manter documentos/changelogs canônicos em inglês e equivalentes ligados em português. | P1 |
@@ -55,7 +57,7 @@ Os critérios Given/When/Then AC-1 a AC-20 estão em `requirements.json` e são 
 - **Confiabilidade:** estado e outbox duráveis; resultados de pontos confirmados pela Twitch; sem promessa de exactly-once de rede; recuperação segura de reinício e falha parcial.
 - **Concorrência:** restrições PostgreSQL e transações curtas serializam ordem da mesma fila e mudanças globais de conta atual; uma instância do bot.
 - **Usabilidade:** chat e painel em pt-BR, respostas de até 500 caracteres, erros acionáveis, instalação com Docker Compose v2 e navegador.
-- **Manutenibilidade:** JavaScript ESM/JSDoc, Fastify, assets vanilla, dependências fixadas e lockfile, Prisma/PostgreSQL, Vitest, sem TypeScript de aplicação/transpiler/bundler.
+- **Manutenibilidade:** JavaScript ESM/JSDoc, Fastify, dependências fixadas e lockfile, Prisma/PostgreSQL e Vitest. O frontend usa export estático Next.js App Router com bundler/transpilation somente no build; não adicionar código de aplicação TypeScript nem servidor Next.js em runtime.
 - **Documentação:** inglês principal com equivalente em pt-BR e evidência TDD verdadeira a cada incremento.
 
 ## 3. Abordagem técnica
@@ -67,7 +69,7 @@ Usar um monólito com diretórios explícitos:
 ```text
 apps/
   api/       API Fastify, serviços de domínio, persistência, adaptadores Twitch e workers
-  web/       HTML, CSS e JavaScript vanilla servido por @fastify/static
+  web/       código Next.js App Router e export estático servido por @fastify/static
   infra/     Bootstrap e scripts operacionais locais usados pelo Compose
 Dockerfile
 compose.yaml
@@ -81,7 +83,7 @@ Uma implantação Compose contém quatro responsabilidades: `bootstrap` idempote
 
 O painel local e o callback Twitch usam `https://localhost:${APP_PORT:-3000}` e `/callback`. O bootstrap cria uma autoridade certificadora local persistente e um certificado de servidor localhost no volume de segredos; somente o certificado público da autoridade é exportado em `.local/`, ignorado pelo Git, para o operador confiar no repositório de certificados do usuário atual. O bot monta a chave TLS somente para leitura e inicia o Fastify com HTTPS. Não precisa de hostname público, proxy, acesso LAN nem alteração automática do repositório de confiança do host. O cookie de sessão é `HttpOnly`, `SameSite=Lax` e `Secure`; mutações aceitam somente a origem HTTPS local exata. O console Twitch recusou o callback HTTP durante a configuração, embora exemplos atuais da documentação pública ainda mostrem localhost HTTP; o comportamento observado do console é o contrato do produto.
 
-A estrutura de apps solicitada não usa compilação do frontend. `apps/api` contém domínio, parser, persistência, outbox, OAuth, adaptadores Helix/EventSub, rotas Fastify e workers. `apps/web` contém os fontes estáticos. `apps/infra` contém bootstrap, inicialização, espera e abertura do navegador. As transações SQL permanecem curtas; chamadas Twitch acontecem fora delas.
+`apps/api` contém domínio, parser, persistência, outbox, OAuth, adaptadores Helix/EventSub, rotas Fastify e workers. `apps/web` contém código modular Next.js App Router e produz somente assets estáticos; Fastify serve o export na origem HTTPS local existente. Painel e overlay OBS usam layouts e bundles separados, preservando exatamente `/overlay.html?ref=...#token`; callback OAuth continua como rota Fastify. O JavaScript frontend permanece ESM/JSDoc; bundling/transpilation limita-se a gerar o export estático. `apps/infra` contém bootstrap, inicialização, espera e abertura do navegador. As transações SQL permanecem curtas; chamadas Twitch acontecem fora delas.
 
 ### Stack e versões
 
@@ -93,7 +95,7 @@ A estrutura de apps solicitada não usa compilação do frontend. `apps/api` con
 | SDK Twitch | `@twurple/auth`, `@twurple/api`, `@twurple/eventsub-ws` 8.2.0 | Metadados npm mostram versões peer alinhadas em 8.2.0; referências oficiais atuais consultadas. |
 | HTTP/static/testes | Fastify 5.12.5, `@fastify/static` 10.1.5, Vitest 5.0.3 | Metadados atuais consultados em 2026-10-02; fixar e travar versões exatas. |
 
-Usar workspace npm e lockfile na raiz para a imagem executar `npm ci`; dependências/scripts específicos ficam nos pacotes `apps/*`. `prisma.config.mjs` é compatível com Prisma v6.19.3. O gerador selecionado é `prisma-client-js`, aceitando explicitamente a depreciação no Prisma 7 para cumprir a regra JavaScript-only. Não gerar client TypeScript nem adicionar build frontend.
+Usar workspace npm e lockfile na raiz para a imagem executar `npm ci`; dependências/scripts específicos ficam nos pacotes `apps/*`. `prisma.config.mjs` é compatível com Prisma v6.19.3. O gerador selecionado é `prisma-client-js`, aceitando explicitamente a depreciação no Prisma 7 para cumprir a regra JavaScript-only do código-fonte da aplicação. O build frontend é a exceção aprovada somente para export estático Next; não gerar client TypeScript nem código TypeScript de aplicação frontend.
 
 ### Domínio e persistência
 
@@ -163,7 +165,7 @@ Fontes datadas e metadados de pacotes estão registrados em `research.json`. Ref
 | --- | --- | --- |
 | Raiz/runtime | `package.json`, `package-lock.json`, `Dockerfile`, `compose.yaml`, `.dockerignore`, `.gitignore`, `.release-stage`, `VERSION` | Workspace, lockfile, entrada runtime/build e fontes da versão. |
 | API | `apps/api/package.json`, `apps/api/prisma/schema.prisma`, `apps/api/prisma.config.mjs`, `apps/api/prisma/migrations/*`, `apps/api/src/*` | Banco, domínio, adaptadores, rotas, worker e ciclo seguro. |
-| Web | `apps/web/public/index.html`, `apps/web/public/*` | Interface estática vanilla. |
+| Web | `apps/web/app/*`, `apps/web/features/*`, `apps/web/components/ui/*`, `apps/web/lib/*`, `apps/web/styles/*`, exportado `out/*` | Código modular do frontend Next.js e assets estáticos servidos pelo Fastify; painel e overlay OBS usam entradas separadas. |
 | Infraestrutura | `apps/infra/*`, `iniciar.bat`, `iniciar.sh` na raiz | Bootstrap persistente, espera e abertura do navegador. |
 | Testes | `tests/unit/*`, `tests/integration/*`, `compose.test.yaml` | Regras puras e integração PostgreSQL/migrations real e isolada. |
 | Docs | READMEs, stories, integrações, versionamento e changelogs em dois idiomas | Instalação, uso, decisões, política, progresso e evidências. |

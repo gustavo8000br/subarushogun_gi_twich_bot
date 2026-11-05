@@ -1,5 +1,6 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import vm from 'node:vm';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +14,7 @@ const automationPath = fileURLToPath(
 const workflowExecutorPath = fileURLToPath(
   new URL('.aiox-core/core/orchestration/workflow-executor.js', root),
 );
+const GENERATED_DIRECTORIES = new Set(['.git', '.local', 'node_modules', 'coverage', 'dist', '.next', 'out']);
 
 function loadAutomation() {
   class BaseLayer {
@@ -80,6 +82,22 @@ function loadWorkflowExecutor() {
 }
 
 describe('AIOX local static review gate', () => {
+  it('skips generated Next output while collecting project source files', () => {
+    const temporaryRoot = mkdtempSync(join(tmpdir(), 'aiox-source-walk-'));
+    try {
+      const generated = join(temporaryRoot, 'apps', 'frontend', '.next');
+      const exported = join(temporaryRoot, 'apps', 'frontend', 'out');
+      mkdirSync(generated, { recursive: true });
+      mkdirSync(exported, { recursive: true });
+      writeFileSync(join(temporaryRoot, 'source.mjs'), 'source');
+      writeFileSync(join(generated, 'lock'), 'temporary');
+      writeFileSync(join(exported, 'index.html'), 'generated');
+      expect(collectProjectFiles(temporaryRoot)).toEqual([join(temporaryRoot, 'source.mjs')]);
+    } finally {
+      rmSync(temporaryRoot, { recursive: true, force: true });
+    }
+  });
+
   it('runs the configured scanner and reports success or failure from its exit code', async () => {
     const Layer2PRAutomation = loadAutomation();
     const gate = new Layer2PRAutomation({
@@ -123,19 +141,7 @@ describe('AIOX local static review gate', () => {
 
   it('removes the superseded provider from all tracked AIOX and project files', () => {
     const obsoleteName = ['code', 'rabbit'].join('');
-    const skippedDirectories = new Set(['.git', '.local', 'node_modules', 'coverage', 'dist']);
-    const files = [];
-    const visit = (directory) => {
-      for (const name of readdirSync(directory)) {
-        const path = join(directory, name);
-        if (statSync(path).isDirectory()) {
-          if (!skippedDirectories.has(name)) visit(path);
-        } else {
-          files.push(path);
-        }
-      }
-    };
-    visit(rootPath);
+    const files = collectProjectFiles(rootPath);
 
     const remaining = files.filter((file) => {
       const content = readFileSync(file, 'utf8');
@@ -145,3 +151,15 @@ describe('AIOX local static review gate', () => {
     expect(remaining).toEqual([]);
   });
 });
+
+function collectProjectFiles(directory, files = []) {
+  for (const name of readdirSync(directory)) {
+    const path = join(directory, name);
+    if (statSync(path).isDirectory()) {
+      if (!GENERATED_DIRECTORIES.has(name)) collectProjectFiles(path, files);
+    } else {
+      files.push(path);
+    }
+  }
+  return files;
+}

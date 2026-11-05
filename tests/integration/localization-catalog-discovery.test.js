@@ -26,7 +26,7 @@ afterEach(async () => {
 
 describe('discoverCatalogModule', () => {
   it('validates first-party chat catalog placeholders against the product allowlist', async () => {
-    const catalogRoot = fileURLToPath(new URL('../../apps/web/localization/catalogs/', import.meta.url));
+    const catalogRoot = fileURLToPath(new URL('../../apps/shared/localization/catalogs/', import.meta.url));
     const result = await discoverCatalogModule(catalogRoot, 'chat');
     expect(result.catalogs['pt-BR']['chat.account.current']).toContain('{label}');
     expect(result.catalogs.en['chat.ping.response']).toContain('{version}');

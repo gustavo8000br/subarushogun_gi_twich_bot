@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { queueSyncTranslationKey } from '../../apps/web/queue-sync-status.mjs';
+import { queueSyncTranslationKey } from '../../apps/shared/panel/queue-sync-status.mjs';
 
 describe('queue reward synchronization labels', () => {
   it('labels a known Twitch configuration divergence explicitly', () => {

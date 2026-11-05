@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getCallDeadlinePresentation } from '../../apps/web/call-deadline-presentation.mjs';
+import { getCallDeadlinePresentation } from '../../apps/shared/panel/call-deadline-presentation.mjs';
 
 describe('called entry deadline presentation', () => {
   it('shows remaining time from the persisted deadline', () => {

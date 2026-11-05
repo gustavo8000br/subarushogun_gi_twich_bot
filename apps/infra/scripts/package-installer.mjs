@@ -40,6 +40,7 @@ if (!validProductVersion.test(productVersion) || (imageTag !== 'main' && product
 /** @type {{services: Record<string, {build?: unknown, volumes?: Array<string | {source?: string}>}>}} */
 const compose = /** @type {any} */ (load(await readFile(join(root, 'compose.yaml'), 'utf8')));
 for (const service of Object.values(compose.services)) {
+  if (service.build) throw new Error('Runtime Compose must not define local image builds; use compose.build.yaml for engineering builds.');
   delete service.build;
   service.volumes = (service.volumes ?? []).filter((volume) => {
     const source = typeof volume === 'string' ? volume.split(':', 1)[0] : volume.source ?? '';

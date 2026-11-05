@@ -189,7 +189,7 @@ npm test -- --onlyChanged --passWithNoTests
 
 ### Purpose
 
-Run comprehensive automated checks on every PR, including repository-configured static analysis, integration tests, and security scanning.
+Run comprehensive automated checks on every PR, including AI-powered code review, integration tests, and security scanning.
 
 ### Checks
 

@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'Somente confirmação, mapeamentos de status conhecidos, argumentos aceitos e diagnósticos inesperados de POST /api/queues/:queueId/delete/cancel QRA-23'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (respostas de cancelamento QRA-23, não commitadas)'
+updated: '2026-10-19'
+status_reason: 'Ausência de confirm:true retorna código/corpo 400 exatos antes de acessar o domínio. QUEUE_NOT_FOUND mapeia para 404 exato; os quatro códigos conhecidos de estado de cancelamento mapeiam para a resposta 409 documentada sem detalhes privados da exceção. Argumentos aceitos de fila/ator/origem e diagnósticos inesperados 503 INTERNAL_ERROR com referenceId, x-error-reference e origem estável estão cobertos. Este PASS limita-se às assertions de resposta QRA-23; OPS-15 permanece In Progress e o gate final da story não foi satisfeito.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 114 testes passaram'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 114 testes passaram'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  diff_check: 'git diff --check passou (avisos de normalização de fim de linha em arquivos existentes da worktree)'
+  response_review: '400 exato por confirmação ausente antes do domínio; 404/quatro 409 exatos sem detalhes privados; argumentos aceitos e corpo/referência/header/origem diagnóstica 503 inesperados cobertos.'
+  bilingual_docs: 'A matriz de resposta/status/erro da rota QRA-23 está alinhada em inglês e pt-BR.'
+limitations:
+  - 'Estados persistidos de cancelamento/rechecagem do outbox não foram validados contra PostgreSQL; nenhuma chamada Twitch foi executada.'
+  - 'Não foram executados browser/runtime Next, instalador ou OBS/CEF nativo.'
+  - 'Esta não é QA geral da OPS-15, não encerra a story e não autoriza cutover do painel.'

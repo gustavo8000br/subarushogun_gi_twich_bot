@@ -309,7 +309,9 @@ verify_uninstall_resources() {
 }
 
 decode_compose() {
-  mkdir -p "$INSTALL_HOME/.local"
+  community_catalog_directory=${LOCAL_COMMUNITY_CATALOG_DIRECTORY:-.local/community-catalogs}
+  case "$community_catalog_directory" in /*) ;; *) community_catalog_directory="$INSTALL_HOME/$community_catalog_directory" ;; esac
+  mkdir -p "$community_catalog_directory"
   if printf '%s' "$COMPOSE_B64" | base64 -d >/dev/null 2>&1; then
     printf '%s' "$COMPOSE_B64" | base64 -d > "$COMPOSE_FILE"
   else
@@ -343,7 +345,23 @@ ask_port() {
 
 write_config() {
   umask 077
-  printf 'APP_PORT=%s\nIMAGE_TAG=%s\nPRODUCT_INITIAL_LOCALE=%s\n' "$PORT" "$RELEASE_IMAGE_TAG" "$LOCALE" > "$ENV_FILE"
+  community_catalog_directory=''
+  existing_config=''
+  if [ -f "$ENV_FILE" ]; then
+    community_catalog_directory=$(sed -n 's/^LOCAL_COMMUNITY_CATALOG_DIRECTORY=//p' "$ENV_FILE" | head -n 1)
+    existing_config=$(mktemp "${TMPDIR:-/tmp}/queuebot-installer-env.XXXXXX") || return 1
+    awk '!/^(APP_PORT|IMAGE_TAG|PRODUCT_INITIAL_LOCALE|LOCAL_COMMUNITY_CATALOG_DIRECTORY)=/' "$ENV_FILE" > "$existing_config"
+  fi
+  if [ -z "$community_catalog_directory" ]; then
+    community_catalog_directory=${LOCAL_COMMUNITY_CATALOG_DIRECTORY:-.local/community-catalogs}
+    case "$community_catalog_directory" in /*) ;; *) community_catalog_directory="$INSTALL_HOME/$community_catalog_directory" ;; esac
+  fi
+  if [ -n "$existing_config" ]; then
+    { printf 'APP_PORT=%s\nIMAGE_TAG=%s\nPRODUCT_INITIAL_LOCALE=%s\nLOCAL_COMMUNITY_CATALOG_DIRECTORY=%s\n' "$PORT" "$RELEASE_IMAGE_TAG" "$LOCALE" "$community_catalog_directory"; cat "$existing_config"; } > "$ENV_FILE"
+    rm -f "$existing_config"
+  else
+    printf 'APP_PORT=%s\nIMAGE_TAG=%s\nPRODUCT_INITIAL_LOCALE=%s\nLOCAL_COMMUNITY_CATALOG_DIRECTORY=%s\n' "$PORT" "$RELEASE_IMAGE_TAG" "$LOCALE" "$community_catalog_directory" > "$ENV_FILE"
+  fi
   chmod 600 "$ENV_FILE"
   decode_compose
 }

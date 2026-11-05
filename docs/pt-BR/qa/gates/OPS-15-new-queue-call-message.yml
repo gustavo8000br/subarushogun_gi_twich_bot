@@ -1,0 +1,31 @@
+story: OPS-15
+gate: new-queue-call-message
+status: PASS
+score: 9.4/10
+reviewer: aiox-qa
+independence: revisão independente; sem alterações de implementação
+scope:
+  - persistência do rascunho de configurações de reward ao alternar entre Pontos do Canal e entrada manual
+  - padrão de mensagem de chamada não editado conforme o idioma e preservação do texto editado
+  - comportamento da prévia da mensagem conforme os padrões existentes de visibilidade do UID
+  - validação inline localizada de placeholders não suportados e caracteres de controle antes do envio
+  - semântica acessível do campo e do grupo nomeado da prévia
+evidence:
+  independent_qa_run:
+    result: 2 arquivos focados / 29 testes passaram
+    files:
+      - tests/unit/next-queue-creation-form.test.js
+      - tests/unit/next-queue-creation.test.js
+  developer_run: 3 arquivos focados / 33 testes passaram após a implementação e a correção CSS
+  full_suite: npm test reportou 25 falhas, 1.166 aprovações e 178 testes ignorados em 144 arquivos; engine Linux do Docker indisponível, POSIX sh/OpenSSL ausentes e asserções de permissões POSIX incompatíveis com este host Windows
+  lint: passou
+  typecheck: passou
+  localization: passou
+  diff_check: passou
+findings: []
+follow_up:
+  - QA apontou a ausência de estilo explícito `.form-error` como acabamento P3; o estilo foi adicionado e o QA confirmou que não houve regressão, mantendo a nota sem nova execução de testes
+limitations:
+  - sem validação em navegador, axe, tecnologia assistiva, Twitch, OBS/CEF ou runtime
+  - este resultado delimitado não altera o status geral de QA da OPS-15 nem encerra seus critérios de aceite
+overall_ops15: CONCERNS 8.0/10; In Progress

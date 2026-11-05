@@ -24,6 +24,7 @@ export function createTwitchRedemptionProcessor({ repository, domainService, bro
       if (status === 'UNFULFILLED') return { status: 'ignored_unfulfilled_update', redemptionId: event.id };
       if (status !== 'FULFILLED' && status !== 'CANCELED') return { status: 'unknown_remote_state', redemptionId: event.id };
       const entry = await repository.findEntryByRedemption(event.id);
+      if (entry?.status === 'in_progress') return repository.recordExternalRedemptionState({ ...event, status });
       if (entry && activeStatuses.has(entry.status)) {
         return domainService.transitionEntry({
           entryId: entry.id,

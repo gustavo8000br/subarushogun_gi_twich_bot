@@ -1,0 +1,23 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'Diagnósticos da chamada QRA-13, falha parcial de enfileiramento em lote, exibição segura da referência e feedback de resultado incerto de call-next, incluindo rejeição de transporte, resposta 2xx ilegível e distinção da sessão pré-POST somente'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (diagnósticos QRA-13 e tratamento de resultado incerto, não commitado)'
+updated: '2026-10-19'
+status_reason: 'Falhas inesperadas do serviço de chamada/enfileiramento retornam diagnóstico genérico sanitizado com origem estável e referência. A falha parcial em lote está coberta após transições anteriores. Para call-next, rejeição de transporte do POST e resposta 2xx inválida/ilegível usam orientação localizada de resultado incerto; falhas de inicialização de sessão pré-POST e validação local permanecem distintas, e o 409 conhecido de transição pendente mantém seu feedback específico. O alerta compartilhado expõe somente referência validada. Este PASS vale somente para QRA-13; OPS-15 permanece In Progress e o gate final da story não foi satisfeito.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js tests/unit/next-queue-entry-actions.test.js tests/unit/next-queue-list.test.js tests/unit/next-api-client.test.js; 4 arquivos / 136 testes passaram'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  localization: 'npm run validate:localization passou para en, es e pt-BR'
+  diff_check: 'git diff --check passou'
+  route_diagnostic_review: 'Falhas no serviço de chamada, no enqueue de entrada selecionada e no segundo enqueue após transição de duas entradas em lote retornam 500 INTERNAL_ERROR sanitizado, referenceId e x-error-reference sem vazar texto privado; a origem estável é http.queue.call'
+  api_client_review: 'Rejeição do fetch do endpoint é sanitizada como REQUEST_FAILED/status 0; JSON ilegível em resposta de sucesso chega como INVALID_QUEUE_ENTRY_ACTION_RESPONSE; falhas de sessão pré-POST usam SESSION_INITIALIZATION_FAILED e não enviam o POST de chamada'
+  ux_review: 'UX revisou a distinção entre resultado incerto de chamada e falhas pré-POST/sessão ou validação local; orientação localizada de atualizar antes de tentar novamente é mostrada sem estado de sucesso'
+limitations:
+  - 'A análise estática configurada não pôde executar porque OpenGrep não está instalado ou reconhecido neste host Windows.'
+  - 'Não foram executadas validações de runtime, PostgreSQL/banco, browser/prévia Next, Twitch, instalador ou OBS/CEF nativo.'
+  - 'Esta não é QA geral da OPS-15, não encerra a story e não satisfaz o gate final OPS-15 nem autoriza cutover do painel.'

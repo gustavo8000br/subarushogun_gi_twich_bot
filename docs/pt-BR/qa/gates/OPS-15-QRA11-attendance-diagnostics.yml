@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'Diagnósticos de falha inesperada na transição de atendimento QRA-11, propagação/renderização segura da referência e atualização bilíngue do inventário de rotas somente'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (diagnósticos QRA-11, não commitado)'
+updated: '2026-10-19'
+status_reason: 'Falhas inesperadas de transição usam resposta genérica e origem/referência diagnóstica estável; erros de domínio conhecidos mantêm o mapeamento existente. Next valida o token e renderiza a referência somente junto ao alerta de ação genérico localizado. As linhas do inventário EN/pt-BR correspondem. Este PASS delimitado não é QA geral da OPS-15.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js tests/unit/next-queue-entry-actions.test.js tests/unit/next-queue-list.test.js; 3 arquivos / 115 testes passaram'
+  local_focused_tests: 'Mesmo comando focado de rota/ação/lista; 3 arquivos / 115 testes passaram'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  localization: 'npm run validate:localization passou para en, es e pt-BR'
+  diff_check: 'git diff --check passou'
+  ux_review: 'Reutilizado o padrão inline de referência diagnóstica revisado anteriormente; nenhuma nova interação, estrutura visual, retry ou mensagem de sucesso foi introduzida'
+limitations:
+  - 'O comando de análise estática não iniciou porque opengrep não está instalado neste host Windows.'
+  - 'Não foram executadas validações PostgreSQL, browser, prévia Next, Docker, instalador, Twitch ou OBS/CEF nativo.'
+  - 'Este não é um score geral de QA de implementação OPS-15 e não encerra OPS-15 nem autoriza cutover do painel.'

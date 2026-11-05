@@ -21,6 +21,26 @@ describe('application runtime composition', () => {
     expect(starts).toEqual(['loop-start', 'loop-start', 'loop-start', 'loop-stop', 'loop-stop', 'loop-stop', 'twitch-stop', 'http-close', 'prisma-close', 'pool-close']);
   });
 
+  it('hands the structured logger to the Twitch integration so degraded reconciliation is explainable (OPS-22 FT-24)', async () => {
+    const logEvent = vi.fn();
+    const integrationFactory = vi.fn(async () => ({ status: 'not_configured', stop: vi.fn() }));
+    const runtime = await createApplicationRuntime({ app: { close: vi.fn() }, pool: {}, prisma: {}, repository: {}, credentialRepository: { getAuthRecord: vi.fn(async () => null) },
+      financialWorker: {}, integrationFactory, loopFactory: () => ({ start() {}, stop() {} }), logEvent });
+    expect(integrationFactory).toHaveBeenCalledWith(expect.objectContaining({ logEvent }));
+    await runtime.stop();
+  });
+
+  it('hands the structured logger to the financial worker so each attempt is logged (OPS-22 FT-25, AC 10)', async () => {
+    const logEvent = vi.fn();
+    const integration = { status: 'connected', stop: vi.fn(), twitch: { getRedemptionStatus: vi.fn() } };
+    const financialWorkerFactory = vi.fn(() => ({ processOne: async () => 'idle' }));
+    const runtime = await createApplicationRuntime({ app: {}, pool: {}, prisma: {}, repository: {}, credentialRepository: { getAuthRecord: vi.fn(async () => null) },
+      integrationFactory: async () => integration, financialWorkerFactory, loopFactory: () => ({ start() {}, stop() {} }), timeoutLoopFactory: () => ({ start() {}, stop() {} }), logEvent });
+    await runtime.financialWorker.processOne();
+    expect(financialWorkerFactory).toHaveBeenCalledWith(expect.objectContaining({ logEvent }));
+    await runtime.stop();
+  });
+
   it('reports runtime Twitch state dynamically after integration status changes', async () => {
     const app = { close: vi.fn() };
     const integration = { status: 'connecting', stop: vi.fn() };

@@ -73,11 +73,26 @@ export function renderQueueCommandHelp({ queueSlug, roles, policies = {}, allowV
   return bounded(`${t('chat.help.queue_for', 'Comandos de')} ${queueSlug}: ${available.join(', ')}.`);
 }
 
-/** @param {{productVersion:string,twitchHealth?:{pingMs?:number|null}|null,translate?:(key:string,values?:Record<string,string>)=>string}} input */
-export function renderPingResponse({ productVersion, twitchHealth, translate }) {
-  const latency = Number.isFinite(twitchHealth?.pingMs) && twitchHealth.pingMs >= 0
-    ? `${Math.round(twitchHealth.pingMs)} ms`
-    : typeof translate === 'function' ? translate('chat.ping.unavailable') : 'latência indisponível';
-  if (typeof translate !== 'function') return bounded(`Pong 🏓 Bot ativo · ${productVersion} · Twitch: ${latency}`);
-  return bounded(translate('chat.ping.response', { version: productVersion, latency }));
+// Same shape as the product VERSION validated by `validate:version` (apps/infra/src/version-files.mjs): `v<semver>-<commit7>-<stage>`.
+const PRODUCT_VERSION_PATTERN = /^v(.+)-([0-9a-f]{7})-(alpha|beta|rc|stable)$/;
+
+/** Owner format (D-8, AC-D8-4): the commit segment is dropped from chat; an unrecognized value is returned as is and never throws. */
+export function formatPingVersion(productVersion) {
+  if (typeof productVersion !== 'string' || !productVersion) return 'unknown';
+  const match = PRODUCT_VERSION_PATTERN.exec(productVersion);
+  return match ? `v${match[1]}-${match[3]}` : productVersion;
+}
+
+/** @param {{productVersion:string,ping?:{state?:string,ms?:number,code?:string}|null,translate?:(key:string,values?:Record<string,string>)=>string}} input */
+export function renderPingResponse({ productVersion, ping, translate }) {
+  const version = formatPingVersion(productVersion);
+  const measured = ping?.state === 'ok' && Number.isFinite(ping.ms) && ping.ms >= 0;
+  // The code is one of two fixed strings; anything else collapses to the failure code so no raw text reaches the chat.
+  const code = ping?.code === 'TWITCH_NOT_CONNECTED' ? 'TWITCH_NOT_CONNECTED' : 'TWITCH_PROBE_FAILED';
+  if (typeof translate !== 'function') {
+    return bounded(measured ? `Pong 🏓 - ${version} - ${Math.round(ping.ms)}ms.` : `Pong 🏓 - ${version} - sem medição da Twitch (${code}).`);
+  }
+  return bounded(measured
+    ? translate('chat.ping.response', { version, latency: String(Math.round(ping.ms)) })
+    : translate('chat.ping.error', { version, code }));
 }

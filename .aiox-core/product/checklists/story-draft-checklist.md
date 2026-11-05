@@ -139,10 +139,13 @@ does not edit code. Keep architecture, data, and QA sign-offs as separate gates.
 - [ ] Pre-PR (@github-devops) defined if PR will be created
 - [ ] Pre-Deployment (@github-devops) defined for production stories
 
-**Static Analysis Plan:**
-- [ ] Configured local scanner command and rules are identified when code changes
-- [ ] Findings block completion and are corrected with test-first changes
-- [ ] Scanner is documented as report-only; specialist/human reviews remain separate
+**Self-Healing Configuration (Story 6.3.3):**
+- [ ] Self-healing configuration section is present
+- [ ] Mode matches primary agent:
+  - @dev: light mode (2 iterations, 15 min, CRITICAL only)
+  - @qa: full mode (3 iterations, 30 min, CRITICAL+HIGH)
+  - @github-devops: check mode (report only)
+- [ ] Severity behavior is documented
 
 **Focus Areas:**
 - [ ] Focus areas match the story type
@@ -193,4 +196,3 @@ Be pragmatic - perfect documentation doesn't exist, but it must be enough to pro
 - READY: The story provides sufficient context for implementation
 - NEEDS REVISION: The story requires updates (see issues)
 - BLOCKED: External information required (specify what information)
-

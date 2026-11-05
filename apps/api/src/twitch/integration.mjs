@@ -8,10 +8,22 @@ import { createRefreshingAuthRuntime } from './auth-runtime.mjs';
 import { createEventSubRuntime } from './eventsub-runtime.mjs';
 import { createTwitchRedemptionProcessor } from './redemption-processor.mjs';
 import { createTwitchReconciler } from './reconciliation.mjs';
+import { twitchHttpError } from './http-error.mjs';
+import { createCredentialFingerprint } from './credential-fingerprint.mjs';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog.mjs';
 
 const INITIAL_RETRY_MS = 5_000;
 const MAX_RETRY_MS = 5 * 60 * 1_000;
+
+// D-6 (FT-55): closed lists so no Twitch free text, token, UID or chat body can reach the degraded log line.
+const EVENTSUB_DEGRADED_REASONS = new Set(['eventsub_disconnected', 'eventsub_startup_disconnected', 'subscription_revoked']);
+const REVOKED_SUBSCRIPTION_TYPES = new Set(['channel.chat.message', 'channel.channel_points_custom_reward_redemption.add', 'channel.channel_points_custom_reward_redemption.update']);
+const REVOKE_STATUSES = new Set([
+  'authorization_revoked', 'user_removed', 'version_removed', 'notification_failures_exceeded', 'beta_maintenance', 'moderator_removed',
+  'chat_user_banned', 'websocket_disconnected', 'websocket_failed_ping_pong', 'websocket_received_inbound_traffic',
+  'websocket_connection_unused', 'websocket_internal_error', 'websocket_network_timeout', 'websocket_network_error', 'websocket_failed_to_reconnect',
+]);
+const allowlisted = (list, value) => (typeof value === 'string' && list.has(value) ? value : 'other');
 
 function retryDelay(attempt, random) {
   const base = Math.min(MAX_RETRY_MS, INITIAL_RETRY_MS * (2 ** attempt));
@@ -21,7 +33,7 @@ function retryDelay(attempt, random) {
 
 /**
  * Start Twitch supervision without making local HTTP readiness depend on Twitch availability.
- * @param {{credentialRepository: any, repository: any, domainService: any, onChatMessage?: (event: object) => unknown, onStatus?: (status: object) => void, reportDiagnostic?: (event: object) => string, authRuntimeFactory?: (input: any) => Promise<any>, apiFactory?: (options: any) => any, adapterFactory?: (input: any) => any, eventSubRuntimeFactory?: (input: any) => any, reconcilerFactory?: (input: any) => any, setIntervalImpl?: typeof setInterval, clearIntervalImpl?: typeof clearInterval, setTimeoutImpl?: typeof setTimeout, clearTimeoutImpl?: typeof clearTimeout, random?: () => number, redirectUri?: string, fetchImpl?: typeof fetch, oauthStateStore?: any, authProviderFactory?: (config: any) => any, validateOAuthToken?: (token: string, clientId: string) => Promise<any>}} dependencies
+ * @param {{credentialRepository: any, repository: any, domainService: any, onChatMessage?: (event: object) => unknown, onStatus?: (status: object) => void, reportDiagnostic?: (event: object) => string, authRuntimeFactory?: (input: any) => Promise<any>, apiFactory?: (options: any) => any, adapterFactory?: (input: any) => any, eventSubRuntimeFactory?: (input: any) => any, reconcilerFactory?: (input: any) => any, logEvent?: (event: Record<string, any>) => unknown, setIntervalImpl?: typeof setInterval, clearIntervalImpl?: typeof clearInterval, setTimeoutImpl?: typeof setTimeout, clearTimeoutImpl?: typeof clearTimeout, random?: () => number, redirectUri?: string, fetchImpl?: typeof fetch, oauthStateStore?: any, authProviderFactory?: (config: any) => any, validateOAuthToken?: (token: string, clientId: string) => Promise<any>}} dependencies
  */
 export async function createTwitchIntegration({
   credentialRepository, repository, domainService, onChatMessage = () => undefined,
@@ -32,6 +44,7 @@ export async function createTwitchIntegration({
   adapterFactory = (input) => createTwitchApiAdapter(input),
   eventSubRuntimeFactory = (input) => createEventSubRuntime(input),
   reconcilerFactory = (input) => createTwitchReconciler(input),
+  logEvent = () => undefined,
   setIntervalImpl = setNodeInterval, clearIntervalImpl = clearNodeInterval,
   setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout, random = Math.random,
   redirectUri = process.env.CALLBACK_URL ?? 'https://localhost:3000/callback',
@@ -46,6 +59,7 @@ export async function createTwitchIntegration({
   let rewardStatus = credential?.accessToken && credential?.refreshToken ? 'unknown' : 'not_configured';
   let channelEligibility = null;
   let twitchApiProbe = null;
+  let probeEpoch = 0; // bumped whenever the Twurple session is dropped/recreated so a cached ping never survives it (D-8)
   let api;
   let twitch;
   let processor;
@@ -58,20 +72,44 @@ export async function createTwitchIntegration({
   let stopped = false;
   let attemptPromise = null;
   let lastAttempt = Promise.resolve();
+  let lastReconciliationAt = null;
   let reconciliationPromise = null;
   let authLost = false;
   let eventSubAvailable = false;
+  // OPS-26 pre-bump D-6 (FT-55): one structured line per EventSub-caused `degraded` transition, written at the single choke
+  // point so no future source is silent. Reconciliation sources keep their own FT-24 line (no duplicate).
+  let lastDegradedKey = null;
+  const logIntegrationDegraded = (details) => {
+    const reason = details.revokedSubscription !== undefined ? 'subscription_revoked' : details.reason;
+    if (!EVENTSUB_DEGRADED_REASONS.has(reason)) return null;
+    const type = reason === 'subscription_revoked' ? allowlisted(REVOKED_SUBSCRIPTION_TYPES, details.revokedSubscription) : undefined;
+    const revokeStatus = reason === 'subscription_revoked' ? allowlisted(REVOKE_STATUSES, details.revokeStatus) : undefined;
+    const key = [reason, type, revokeStatus].join('|');
+    if (key === lastDegradedKey) return key;
+    try {
+      logEvent({
+        event: 'twitch_integration_degraded', level: 'warn', source: 'twitch.integration',
+        details: { reason, ...(type === undefined ? {} : { type, revokeStatus }) },
+      });
+    } catch { /* Logging must never change the integration status. */ }
+    return key;
+  };
   const publishStatus = (nextStatus, details = {}) => {
     if (stopped) return;
     status = nextStatus;
+    lastDegradedKey = nextStatus === 'degraded' ? logIntegrationDegraded(details) : null;
     onStatus({ status: nextStatus, ...details });
+  };
+  const loadAuthorizationCredential = async () => {
+    credential = await credentialRepository.getAuthRecord();
+    return credential;
   };
   const clearSession = () => {
     eventSubRuntime?.stop?.(); eventSubRuntime = undefined;
     authRuntime?.stop?.(); authRuntime = undefined;
     if (reconcileTimer) clearIntervalImpl(reconcileTimer);
     reconcileTimer = undefined;
-    api = undefined; twitch = undefined; processor = undefined; reconciler = undefined; twitchApiProbe = null;
+    api = undefined; twitch = undefined; processor = undefined; reconciler = undefined; twitchApiProbe = null; probeEpoch += 1;
     eventSubAvailable = false;
     if (!stopped && credential?.accessToken && credential?.refreshToken) chatStatus = 'connecting';
   };
@@ -84,6 +122,26 @@ export async function createTwitchIntegration({
       void initialize();
     }, delay);
   };
+  // OPS-22 FT-24 (AC 5): explain every `degraded` caused by reconciliation with codes and counts only.
+  const logReconciliationDegraded = (trigger, reason, issues, error) => {
+    const issueCounts = {};
+    const httpStatusCounts = {};
+    for (const issue of Array.isArray(issues) ? issues : []) {
+      if (typeof issue?.code === 'string') issueCounts[issue.code] = (issueCounts[issue.code] ?? 0) + 1;
+      if (Number.isInteger(issue?.httpStatus)) httpStatusCounts[issue.httpStatus] = (httpStatusCounts[issue.httpStatus] ?? 0) + 1;
+    }
+    const { httpStatus } = twitchHttpError(error);
+    try {
+      logEvent({
+        event: 'twitch_reconciliation_degraded', level: 'warn', source: 'twitch.reconciliation',
+        ...(httpStatus === null ? {} : { statusCode: httpStatus }),
+        details: {
+          trigger, reason, issueCount: Array.isArray(issues) ? issues.length : 0, issueCounts,
+          ...(Object.keys(httpStatusCounts).length ? { httpStatusCounts } : {}),
+        },
+      });
+    } catch { /* Logging must never change reconciliation behavior. */ }
+  };
   const reconcile = async (trigger) => {
     if (stopped || !reconciler) return null;
     if (reconciliationPromise) return reconciliationPromise;
@@ -91,11 +149,17 @@ export async function createTwitchIntegration({
     reconciliationPromise = (async () => {
       try {
         const result = await reconciler.run();
-        if (!stopped) publishStatus(result.status === 'complete' ? 'connected' : 'degraded', { lastReconciliation: result.finishedAt, issues: result.issues });
+        if (!stopped) {
+          if (typeof result.finishedAt === 'string' && Number.isFinite(Date.parse(result.finishedAt))) lastReconciliationAt = new Date(result.finishedAt).toISOString();
+          publishStatus(result.status === 'complete' ? 'connected' : 'degraded', { lastReconciliation: result.finishedAt, issues: result.issues });
+          if (result.status !== 'complete') logReconciliationDegraded(trigger, 'reconciliation_partial', result.issues);
+        }
         return result;
-      } catch {
+      } catch (error) {
+        const issues = [{ code: 'reconciliation_failed' }];
+        if (!stopped) logReconciliationDegraded(trigger, 'reconciliation_failed', issues, error);
         publishStatus('degraded', { reason: 'reconciliation_failed' });
-        return { status: 'failed', issues: [{ code: 'reconciliation_failed' }] };
+        return { status: 'failed', issues };
       } finally { reconciliationPromise = null; }
     })();
     return reconciliationPromise;
@@ -235,6 +299,8 @@ export async function createTwitchIntegration({
     get status() { return status; },
     get chatStatus() { return chatStatus; },
     get rewardStatus() { return rewardStatus; },
+    get lastReconciliationAt() { return lastReconciliationAt; },
+    get probeEpoch() { return probeEpoch; },
     get ready() { return lastAttempt; },
     async probeTwitchApi() { return twitchApiProbe ? twitchApiProbe() : false; },
     async validateAndSaveApplication({ clientId, clientSecret }) {
@@ -249,22 +315,29 @@ export async function createTwitchIntegration({
       return { ...safe, status, chatStatus, rewardStatus, eligibility: channelEligibility };
     },
     async beginAuthorization(sessionId) {
-      if (!credential?.clientId || !sessionId) return null;
-      return oauthStateStore.issue({ sessionId, clientId: credential.clientId, redirectUri });
+      const currentCredential = await loadAuthorizationCredential();
+      if (!currentCredential?.clientId || !sessionId) return null;
+      return oauthStateStore.issue({ sessionId, clientId: currentCredential.clientId, redirectUri, context: {
+        kind: 'account_authorization', expectedCredentialFingerprint: createCredentialFingerprint(currentCredential),
+      } });
     },
-    async beginFollowerAuthorization({ sessionId, expectedVersion, policies }) {
-      if (!credential?.clientId || !sessionId || !Number.isInteger(expectedVersion) || expectedVersion < 1 || !policies || typeof policies !== 'object' || Array.isArray(policies)) {
+    async beginFollowerAuthorization({ sessionId, expectedVersion, policies, scopeOnly = false }) {
+      const currentCredential = await loadAuthorizationCredential();
+      if (!currentCredential?.clientId || !sessionId || !Number.isInteger(expectedVersion) || expectedVersion < 1 || !policies || typeof policies !== 'object' || Array.isArray(policies)) {
         throw Object.assign(new Error('Follower authorization request is invalid'), { code: 'INVALID_FOLLOWER_AUTHORIZATION' });
       }
       const entries = Object.entries(policies);
-      if (!entries.length || !entries.some(([, policy]) => policy?.minimumRole === 'follower')
+      if ((scopeOnly ? entries.length > 0 : (!entries.length || !entries.some(([, policy]) => policy?.minimumRole === 'follower')))
         || entries.some(([key, policy]) => {
           const definition = CHAT_COMMANDS.find((command) => command.key === key);
           return !definition || definition.access.kind !== 'configurable' || !policy || typeof policy !== 'object' || Array.isArray(policy)
             || !COMMAND_POLICY_MINIMUM_ROLES.includes(policy.minimumRole)
             || Object.keys(policy).some((property) => property !== 'minimumRole');
         })) throw Object.assign(new Error('Follower authorization request is invalid'), { code: 'INVALID_FOLLOWER_AUTHORIZATION' });
-      return oauthStateStore.issue({ sessionId, clientId: credential.clientId, redirectUri, scopes: ['moderator:read:followers'], context: { kind: 'follower_policy', expectedVersion, policies } });
+      const expectedCredentialFingerprint = createCredentialFingerprint(currentCredential);
+      return oauthStateStore.issue({ sessionId, clientId: currentCredential.clientId, redirectUri, scopes: ['moderator:read:followers'], context: scopeOnly
+        ? { kind: 'follower_scope', expectedCredentialFingerprint }
+        : { kind: 'follower_policy', expectedVersion, policies, expectedCredentialFingerprint } });
     },
     async completeAuthorization(input) {
       credential = await credentialRepository.getAuthRecord();
@@ -280,14 +353,24 @@ export async function createTwitchIntegration({
         },
         validateToken: async (token) => validateOAuthToken(token, credential.clientId),
         assertCanBind: ({ clientId, broadcasterId }) => credentialRepository.assertCanBind({ clientId, broadcasterId }),
-        persistTokens: (tokens) => credentialRepository.storeTokens({
-          ...tokens,
-          commitAdditional: tokens.authorizationContext?.kind === 'follower_policy' ? (tx) => repository.updateCommandPoliciesInTransaction(tx, {
-            expectedVersion: tokens.authorizationContext.expectedVersion, policies: tokens.authorizationContext.policies,
-            actorId: input.sessionId, origin: 'oauth_follower_consent',
-          }) : undefined,
-        }),
+        persistTokens: (tokens) => {
+          const expectedCredentialFingerprint = tokens.authorizationContext?.expectedCredentialFingerprint;
+          if (typeof expectedCredentialFingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(expectedCredentialFingerprint)) {
+            throw Object.assign(new Error('OAuth credential snapshot is invalid'), { code: 'OAUTH_CREDENTIAL_STALE' });
+          }
+          return credentialRepository.storeTokens({
+            ...tokens,
+            expectedCredentialFingerprint,
+            commitAdditional: tokens.authorizationContext?.kind === 'follower_policy' ? (tx) => repository.updateCommandPoliciesInTransaction(tx, {
+              expectedVersion: tokens.authorizationContext.expectedVersion, policies: tokens.authorizationContext.policies,
+              actorId: input.sessionId, origin: 'oauth_follower_consent',
+            }) : undefined,
+          });
+        },
       });
+      // OPS-22 FT-26 (AC 16): the tokens are stored, so work held by a 401 resumes in its current cycle.
+      try { await repository?.rearmAuthorizationBlockedOperations?.(); }
+      catch (error) { reportDiagnostic({ source: 'twitch.reauthorization_rearm', error }); }
       credential = await credentialRepository.getAuthRecord();
       authLost = false; retryAttempt = 0;
       clearSession();

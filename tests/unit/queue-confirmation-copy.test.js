@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getQueueConfirmationCopy } from '../../apps/web/queue-confirmation-copy.mjs';
+import { getQueueConfirmationCopy } from '../../apps/shared/panel/queue-confirmation-copy.mjs';
 
 describe('queue confirmation copy', () => {
   it('keeps unarchive wording independent of reward history', () => {

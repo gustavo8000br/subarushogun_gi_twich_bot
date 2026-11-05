@@ -1,3 +1,19 @@
+import { twitchHttpError } from './http-error.mjs';
+
+/** Every issue code a reconciliation run can report; the structured logger accepts only these. */
+export const RECONCILIATION_ISSUE_CODES = Object.freeze([
+  'reward_verification_failed', 'reward_confirmed_absent', 'queue_state_changed_during_reward_absence_check',
+  'reward_configuration_mismatch', 'queue_state_changed_during_reconciliation', 'reconciliation_failed',
+  'redemption_import_failed', 'unresolved_redemptions_query_failed', 'redemption_verification_failed',
+  'active_entries_query_failed', 'tombstone_cursor_checkpoint_lost',
+]);
+
+/** Issue entry with the Twitch HTTP status when the failure carried one (no message, body or headers). */
+function remoteIssue(issue, error) {
+  const { httpStatus } = twitchHttpError(error);
+  return httpStatus === null ? issue : { ...issue, httpStatus };
+}
+
 /** @param {{repository: any, twitch: any, processor: any, broadcasterId?: string, clock?: () => Date}} dependencies */
 export function createTwitchReconciler({ repository, twitch, processor, broadcasterId, clock = () => new Date() }) {
   return {
@@ -21,10 +37,10 @@ export function createTwitchReconciler({ repository, twitch, processor, broadcas
           let rewardVerificationFailed = false;
           try {
             reward = await twitch.getReward(queue.rewardId);
-          } catch {
+          } catch (error) {
             rewardVerificationFailed = true;
             result.status = 'partial';
-            result.issues.push({ queueId: queue.id, code: 'reward_verification_failed' });
+            result.issues.push(remoteIssue({ queueId: queue.id, code: 'reward_verification_failed' }, error));
             if (!historicalTombstone) await repository.markQueueRemoteUnknown?.(queue.id, 'reward_verification_failed', queue.version);
           }
           if (reward === undefined && !rewardVerificationFailed) {
@@ -82,9 +98,9 @@ export function createTwitchReconciler({ repository, twitch, processor, broadcas
           if (reward) {
             try {
               redemptions = await twitch.listUnfulfilledRedemptions(queue.rewardId);
-            } catch {
+            } catch (error) {
               result.status = 'partial';
-              result.issues.push({ queueId: queue.id, code: 'reconciliation_failed' });
+              result.issues.push(remoteIssue({ queueId: queue.id, code: 'reconciliation_failed' }, error));
               if (!historicalTombstone) await repository.markQueueRemoteUnknown?.(queue.id, 'reconciliation_failed', queue.version);
               continue;
             }
@@ -134,10 +150,10 @@ export function createTwitchReconciler({ repository, twitch, processor, broadcas
                   result.externalTransitions += 1;
                 }
               } catch (error) {
-                if (error.status === 404 || error.code === 'REDEMPTION_NOT_FOUND') await repository.markRedemptionUnknown(redemption.redemptionId, 'remote_history_unavailable');
+                if (twitchHttpError(error).httpStatus === 404 || error?.code === 'REDEMPTION_NOT_FOUND') await repository.markRedemptionUnknown(redemption.redemptionId, 'remote_history_unavailable');
                 else {
                   result.status = 'partial';
-                  result.issues.push({ queueId: queue.id, redemptionId: redemption.redemptionId, code: 'redemption_verification_failed' });
+                  result.issues.push(remoteIssue({ queueId: queue.id, redemptionId: redemption.redemptionId, code: 'redemption_verification_failed' }, error));
                 }
               }
             }
@@ -169,11 +185,11 @@ export function createTwitchReconciler({ repository, twitch, processor, broadcas
                 result.externalTransitions += 1;
               }
             } catch (error) {
-              if (error.status === 404 || error.code === 'REDEMPTION_NOT_FOUND') {
+              if (twitchHttpError(error).httpStatus === 404 || error?.code === 'REDEMPTION_NOT_FOUND') {
                 await repository.markRedemptionUnknown(entry.redemptionId, 'remote_history_unavailable');
               } else {
                 result.status = 'partial';
-                result.issues.push({ queueId: queue.id, redemptionId: entry.redemptionId, code: 'redemption_verification_failed' });
+                result.issues.push(remoteIssue({ queueId: queue.id, redemptionId: entry.redemptionId, code: 'redemption_verification_failed' }, error));
               }
             }
           }

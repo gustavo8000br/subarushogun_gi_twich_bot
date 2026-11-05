@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.1/10
+scope: 'Somente validação, mapeamentos de erros conhecidos e diagnósticos inesperados de POST /api/queues/:queueId/archive-local/challenge QRA-19'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (challenge de arquivamento local QRA-19, não commitado)'
+updated: '2026-10-19'
+status_reason: 'expectedVersion inválida é rejeitada antes de acessar o repositório. QUEUE_NOT_FOUND mapeia para 404 e códigos não resolvido/indisponível/obsoleto mapeiam para as respostas 409 documentadas com corpos exatos seguros. Erros inesperados retornam 503 INTERNAL_ERROR com referenceId, x-error-reference e origem diagnóstica estável; texto privado da exceção é omitido. O inventário bilíngue corresponde às assertions. Este PASS limita-se às respostas do challenge QRA-19; OPS-15 permanece In Progress e o gate final da story não foi satisfeito.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 93 testes passaram'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 93 testes passaram'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  diff_check: 'git diff --check passou (avisos de normalização de fim de linha em arquivos existentes da worktree)'
+  response_review: '400 exato antes do acesso ao repositório; corpos 404/409 exatos sem detalhes privados; corpo/header de referência/origem do diagnóstico 503 inesperado cobertos.'
+  bilingual_docs: 'A matriz de request/status/corpo/referência do challenge QRA-19 está alinhada em inglês e pt-BR.'
+limitations:
+  - 'Expiração persistida do challenge, mudanças de versão e vínculo de estado remoto não foram validados em PostgreSQL.'
+  - 'Não foram executados browser/runtime Next, instalador, Twitch ou OBS/CEF nativo.'
+  - 'Esta não é QA geral da OPS-15, não encerra a story e não autoriza cutover do painel.'

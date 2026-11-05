@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTwitchReconciler } from '../../apps/api/src/twitch/reconciliation.mjs';
+import { createQueueRepository } from '../../apps/api/src/persistence/queue-repository.mjs';
+import { twurpleHttpError } from '../helpers/twurple-real-instances.mjs';
 
 function dependencies(overrides = {}) {
   const repository = {
@@ -307,5 +309,36 @@ describe('Twitch recovery reconciliation', () => {
     expect(result.status).toBe('partial');
     expect(repository.markRedemptionUnknown).not.toHaveBeenCalled();
     expect(repository.markQueueRemoteUnknown).toHaveBeenCalledWith('queue-1', 'reconciliation_failed', undefined);
+  });
+
+  // OPS-22 FT-25 (known gap 1, DATA C4): reconciliation may mark the redemption and audit, never move outbox rows.
+  it('U25-13 a real 404 in reconciliation only marks the redemption: zero outbox writes, no worker transition', async () => {
+    const outboxWrites = [];
+    const recordOutbox = new Proxy({}, { get: (_target, method) => vi.fn(async (...args) => { outboxWrites.push([method, args]); return { count: 0 }; }) });
+    const tx = {
+      redemption: { update: vi.fn(async () => ({ redemptionId: 'gap-redemption', queueId: 'queue-1' })) },
+      outbox: recordOutbox,
+      auditLog: { create: vi.fn(async () => ({})) },
+    };
+    const prisma = { $transaction: vi.fn(async (callback) => callback(tx)), outbox: recordOutbox };
+    const realRepository = createQueueRepository(/** @type {any} */ (prisma));
+    const workerTransitions = ['retry', 'unknown', 'failed', 'conflict', 'confirm', 'retryOutboxManually', 'resolveUnknownFinancialOperation'];
+    const forbidden = Object.fromEntries(workerTransitions.map((name) => [name, vi.fn(async () => { throw new Error(`reconciliation must not call ${name}`); })]));
+    const { reconciler, repository } = dependencies({
+      repository: {
+        ...forbidden,
+        listActiveRedemptionEntries: vi.fn(async () => [{ redemptionId: 'gap-redemption', twitchUserId: 'viewer-1', userLogin: 'viewer', displayName: 'Viewer' }]),
+        markRedemptionUnknown: vi.fn((redemptionId, reason) => realRepository.markRedemptionUnknown(redemptionId, reason)),
+      },
+      twitch: { getRedemptionStatus: vi.fn(async () => { throw twurpleHttpError(404, 'Not Found'); }) },
+    });
+
+    await reconciler.run();
+
+    expect(repository.markRedemptionUnknown).toHaveBeenCalledWith('gap-redemption', 'remote_history_unavailable');
+    for (const name of workerTransitions) expect(forbidden[name]).not.toHaveBeenCalled();
+    expect(tx.redemption.update).toHaveBeenCalledWith({ where: { redemptionId: 'gap-redemption' }, data: { syncStatus: 'unknown' } });
+    expect(tx.auditLog.create).toHaveBeenCalledTimes(1);
+    expect(outboxWrites).toEqual([]);
   });
 });

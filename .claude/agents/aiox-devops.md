@@ -3,7 +3,9 @@ name: aiox-devops
 description: |
   AIOX DevOps autônomo. Git operations, CI/CD, PR automation,
   pre-push quality gates, version management, MCP management. Usa task files reais do AIOX.
-model: opus
+model: sonnet
+effort: medium
+maxTurns: 60
 tools:
   - Read
   - Grep
@@ -14,7 +16,6 @@ tools:
 permissionMode: bypassPermissions
 memory: project
 skills:
-  - synapse:tasks:diagnose-synapse
   - synapse:manager
   - opengrep-static-analysis
   - checklist-runner
@@ -35,10 +36,8 @@ Read `.claude/commands/AIOX/agents/devops.md` and adopt the persona of **Gage**.
 Before starting your mission, load:
 
 1. **Git Status**: `git status --short` + `git log --oneline -5`
-2. **Gotchas**: Read `.aiox/gotchas.json` (filter for DevOps-relevant: CI/CD, Git, Deploy, Infrastructure)
-3. **Technical Preferences**: Read `.aiox-core/data/technical-preferences.md`
-4. **Project Config**: Read `.aiox-core/core-config.yaml`
-5. **Repo Config**: Read `.aiox-core/development/data/repos.yaml` if multi-repo operation
+2. **Project Config**: Read `.aiox-core/core-config.yaml`
+3. **Repo Config**: Read `.aiox-core/development/data/repos.yaml` if multi-repo operation
 
 Do NOT display context loading — just absorb and proceed.
 

@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.4/10
+scope: 'Somente respostas para fila ausente/excluída e diagnósticos inesperados dos repositórios QRA-05 GET /api/queues/:queueId/history'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (respostas de lookup da fila e do histórico QRA-05, não commitadas)'
+updated: '2026-10-19'
+status_reason: 'Fila ausente/excluída retorna 404 genérico exato sem consultar o histórico. Falhas inesperadas em getQueueById e listQueueHistoryProjection usam o handler global seguro de produção e são afirmadas como 500 genérico INTERNAL_ERROR com referenceId, x-error-reference, origem estável e sem detalhes privados. Este PASS limita-se às assertions de resposta de rota QRA-05; OPS-15 permanece In Progress e o gate final da story não foi satisfeito.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 118 testes passaram independentemente'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 118 testes passaram'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  diff_check: 'git diff --check passou (avisos de normalização de fim de linha em arquivos existentes da worktree)'
+  response_review: '404 exato para fila ausente/excluída sem consultar projeção; falha inesperada retorna 500 genérico INTERNAL_ERROR com referência/header seguros, origem estável http.get.api_queues_queueId_history e sem detalhes privados.'
+  bilingual_docs: 'Respostas e limites das assertions QRA-05 estão alinhados em inglês e pt-BR.'
+limitations:
+  - 'Histórico preenchido persistido não foi validado em PostgreSQL; não houve runtime real da API/browser.'
+  - 'Não foram executados instalador ou OBS/CEF nativo.'
+  - 'Esta não é QA geral da OPS-15, não encerra a story e não autoriza cutover do painel.'

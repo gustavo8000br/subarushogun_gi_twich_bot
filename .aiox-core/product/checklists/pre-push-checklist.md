@@ -54,7 +54,7 @@ Quality gates protect everyone.]]
 
 4. **Local Static Analysis:**
 
-   [[LLM: The configured scanner reports repository-defined rule findings]]
+   [[LLM: Automated code review catches issues humans miss]]
 
    - [ ] Run the configured static-analysis command when applicable
    - [ ] Record its exact command and exit status

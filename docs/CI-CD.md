@@ -19,11 +19,12 @@ The shared workflow ends in an aggregate job that requires every validation job 
 
 ## Image tags and publication safety
 
-`compose.yaml` defaults to `IMAGE_TAG=main`.
+`compose.yaml` and `compose.build.yaml` default to `IMAGE_TAG=dev` for local development/builds. Installer-generated runtime configuration explicitly pins the validated release image. Set `IMAGE_TAG=main` only when intentionally running the moving image promoted by the main-branch publisher.
 
 | Tag | Meaning |
 | --- | --- |
 | `main` | Moving AMD64/ARM64 manifest for the latest validated main commit |
+| `dev` | Local development/build tag; not published by the main/release workflows |
 | `main-linux-amd64`, `main-linux-arm64` | Moving single-architecture tags for that validated source |
 | `<full-commit-sha>-linux-amd64`, `<full-commit-sha>-linux-arm64` | Commit-scoped source image tags used to promote moving tags safely; registry tags are mutable aliases |
 | `vMAJOR.MINOR.PATCH-SHA7-STAGE` | Versioned AMD64/ARM64 manifest, materialized from the exact source commit |

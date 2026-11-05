@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'Somente assertions de resposta do método de transição ausente e QUEUE_NOT_FOUND em POST /api/queues/:queueId/manual-mode QRA-17'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (respostas manual-mode QRA-17, não commitada)'
+updated: '2026-10-19'
+status_reason: 'A rota retorna seu 503 genérico existente quando o método de transição está indisponível. QUEUE_NOT_FOUND mapeia para 404 com o corpo seguro genérico existente, sem detalhes privados da exceção. A matriz bilíngue de rotas reflete o comportamento testado. Este PASS limita-se às assertions de resposta QRA-17; OPS-15 permanece In Progress e o gate final da story não foi satisfeito.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 85 testes passaram'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 85 testes passaram'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  diff_check: 'git diff --check passou (avisos de normalização de fim de linha em arquivos existentes da worktree)'
+  response_review: 'A proteção de método ausente retorna corpo 503 exato; QUEUE_NOT_FOUND retorna corpo 404 genérico exato sem detalhes privados da exceção.'
+  bilingual_docs: 'As matrizes de resposta/assertions de rota QRA-17 foram atualizadas em inglês e pt-BR.'
+limitations:
+  - 'Não foram validados persistência PostgreSQL ou projeção posterior do modo confirmada pela Twitch.'
+  - 'Não foram executados browser/runtime Next, instalador, Twitch ou OBS/CEF nativo.'
+  - 'Esta não é QA geral da OPS-15, não encerra a story e não autoriza cutover do painel.'

@@ -1,0 +1,23 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'QRA-14 clear-preview and QRA-15 clear-confirm route diagnostics, snapshot-bound same-session confirmation, accepted empty/cleared/renewed client outcomes, uncertain-result recovery, and stale-projection clear-action blocking only'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (QRA-14/15 clear confirmation, uncommitted)'
+updated: '2026-10-19'
+status_reason: 'The routes bind preview challenges to the active local session, channel, and queue, require an active queue, and return generic sanitized 503 diagnostics with safe reference headers for unexpected service failures. The client validates preview and confirmation projections, including empty after a consumed challenge. Ambiguous confirmation outcomes close the stale challenge and reconcile the queue projection; failed reconciliation exposes a localized refresh action and blocks further clear previews/confirmations until a successful refresh. Bilingual inventory wording matches these contracts. This PASS is limited to QRA-14/15; OPS-15 remains In Progress and the final story gate is not satisfied.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js tests/unit/next-queue-clear.test.js tests/unit/next-queue-clear-ui.test.jsx tests/unit/next-queue-list.test.js; 4 files / 105 tests passed'
+  lint: 'npm run lint passed'
+  typecheck: 'npm run typecheck passed'
+  localization: 'npm run validate:localization passed for en, es, and pt-BR'
+  diff_check: 'git diff --check passed'
+  route_security_review: 'Preview/confirm use the server session actor and fixed local-panel channel; inactive or missing queues return 404. Unexpected service failures return generic INTERNAL_ERROR responses with x-error-reference and referenceId; tested response bodies omit private exception text.'
+  client_recovery_review: 'Malformed preview/confirmation responses are rejected. Empty, cleared, and renewed-confirmation responses are handled without claiming success for empty/uncertain outcomes. Failed post-confirm reconciliation sets a shared refresh-required state; UI closes any stale challenge, blocks repeated clear actions, provides an accessible Refresh queue action, and re-enables only after successful projection refresh.'
+  bilingual_docs: 'QRA-14/15 route/action inventory in EN and pt-BR records the same accepted empty/cleared/renewed outcomes and refresh-required behavior.'
+limitations:
+  - 'No isolated PostgreSQL execution was performed; accepted-clear persistence, rollback/atomicity, expiry, snapshot replacement, and multi-session behavior remain unverified at runtime.'
+  - 'No Docker Compose runtime, browser/Next preview, Twitch, installer, or native OBS/CEF validation was performed.'
+  - 'This is not overall OPS-15 QA, does not close the story, and does not satisfy its final gate or authorize panel cutover.'

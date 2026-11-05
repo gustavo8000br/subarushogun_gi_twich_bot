@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 /** Build the local PostgreSQL URL before Prisma loads; never expose secret file errors. */
 export async function createDatabaseUrl({ env = process.env, secretPath = '/run/secrets/db_password' } = {}) {
+  if (env.DATABASE_URL) return env.DATABASE_URL;
   let password;
   try {
     password = (await readFile(secretPath, 'utf8')).trim();

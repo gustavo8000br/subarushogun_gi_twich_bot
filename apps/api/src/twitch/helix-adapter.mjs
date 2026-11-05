@@ -1,3 +1,6 @@
+import { getRawData } from '@twurple/common';
+import { twitchHttpError } from './http-error.mjs';
+
 export function normalizeRedemptionStatus(status) {
   const normalized = String(status ?? 'unknown').toUpperCase();
   if (['UNFULFILLED', 'FULFILLED', 'CANCELED'].includes(normalized)) return normalized;
@@ -12,10 +15,23 @@ export function normalizeRewardCreateInput(data) {
   };
 }
 
+function rawRedemptionStatus(value) {
+  // Twurple's HelixCustomRewardRedemption has no `status` getter; Helix's status is in the raw data.
+  try {
+    const raw = getRawData(value);
+    return raw && typeof raw === 'object' && 'status' in raw ? raw.status : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function redemptionStatus(value) {
-  if (value?.isFulfilled === true) return 'FULFILLED';
-  if (value?.isCanceled === true) return 'CANCELED';
-  return normalizeRedemptionStatus(value?.status);
+  if (!value || typeof value !== 'object') return 'UNKNOWN';
+  const raw = rawRedemptionStatus(value);
+  if (raw !== undefined) return normalizeRedemptionStatus(raw);
+  if (value.isFulfilled === true) return 'FULFILLED';
+  if (value.isCanceled === true) return 'CANCELED';
+  return normalizeRedemptionStatus(value.status);
 }
 
 function rewardProjection(reward) {
@@ -106,23 +122,33 @@ export function createTwitchApiAdapter({ api, broadcasterId, authProvider }) {
     async getChannelEligibility() {
       const user = await api.users.getUserById(broadcasterId);
       const broadcasterType = String(user?.broadcasterType ?? '').toLowerCase() || 'unknown';
+      const login = typeof user?.name === 'string' && user.name.trim()
+        ? user.name.trim().toLowerCase().slice(0, 25)
+        : null;
+      const displayName = typeof user?.displayName === 'string' && user.displayName.trim()
+        ? user.displayName.trim().slice(0, 100)
+        : login;
+      const channelIdentity = login || displayName
+        ? { ...(login ? { login } : {}), ...(displayName ? { displayName } : {}) }
+        : null;
+      const identityProjection = channelIdentity ? { channelIdentity } : {};
       let rewards;
       try {
         rewards = await api.channelPoints.getCustomRewards(broadcasterId, false);
       } catch (error) {
-        const status = error?.statusCode ?? error?.status;
+        const status = twitchHttpError(error).httpStatus;
         if (status === 401) {
-          return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'access_token_invalid' };
+          return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'access_token_invalid', ...identityProjection };
         }
         if (status === 403) {
-          return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'channel_ineligible' };
+          return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'channel_ineligible', ...identityProjection };
         }
-        return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'channel_points_unavailable' };
+        return { eligible: false, broadcasterType, channelPointsAvailable: false, reason: 'channel_points_unavailable', ...identityProjection };
       }
       const rewardCount = rewards.length;
       return {
         eligible: true, broadcasterType, channelPointsAvailable: true, rewardCount, rewardLimit: 50,
-        nearRewardLimit: rewardCount >= 45,
+        nearRewardLimit: rewardCount >= 45, ...identityProjection,
       };
     },
     async getRedemptionStatus(redemptionId, rewardId) {

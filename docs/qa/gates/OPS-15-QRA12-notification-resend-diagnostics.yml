@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.3/10
+scope: 'QRA-12 call-notification resend route: known 404/409 outcomes, unexpected enqueue diagnostic response, safe reference propagation through the existing Next client action, and bilingual inventory/story/handoff lines only'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (QRA-12 notification resend diagnostics, uncommitted)'
+updated: '2026-10-19'
+status_reason: 'The resend endpoint preserves accepted queued/already-queued responses and maps known unavailable/conflicting states to 404/409. Unexpected enqueue errors return a generic 503 INTERNAL_ERROR with a stable diagnostic source and reference header/body; the logger omits raw messages and stacks. The existing client preserves only safe error metadata and the shared alert displays a validated reference. EN/pt-BR records match. This PASS applies only to QRA-12; OPS-15 remains In Progress and its final story gate is unsatisfied.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 file / 76 tests passed independently'
+  local_focused_tests: 'Focused route/action/list suites; 3 files / 120 tests passed locally'
+  lint: 'npm run lint passed (local implementation evidence)'
+  typecheck: 'npm run typecheck passed (local implementation evidence)'
+  localization: 'npm run validate:localization passed (local implementation evidence)'
+  diff_check: 'git diff --check passed (local implementation evidence)'
+  security_review: 'Unexpected failures use sendDiagnosedFailure; stable source http.entry.call_notification_resend; structured diagnostics omit raw message, stack, and payload; API client does not expose raw response body; UI action mapping validates reference token'
+limitations:
+  - 'A broader run excluding tests/integration/next-static-export.test.js finished with 141 files: 1,042 passed, 25 failed, 178 skipped (1,245 tests total). Failures were outside QRA-12: seven PostgreSQL/Compose suites lacked the Docker Linux engine pipe; 20 Unix installer assertions could not run because sh is unavailable; four bootstrap tests were affected by missing openssl/POSIX permissions; and one dev-secret test expected POSIX file mode behavior.'
+  - 'No runtime, PostgreSQL/database, browser/Next preview, Twitch, installer, or native OBS/CEF validation was performed.'
+  - 'This is not overall OPS-15 QA and does not satisfy its final story gate, close the story, or authorize panel cutover.'

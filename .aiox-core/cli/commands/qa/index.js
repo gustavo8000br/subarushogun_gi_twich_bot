@@ -21,7 +21,7 @@ function createQaCommand() {
   const qa = new Command('qa');
 
   qa
-    .description('Quality Gate Manager - orchestrate configured static checks and human quality review')
+    .description('Quality Gate Manager - orchestrate 3-layer quality pipeline')
     .addHelpText('after', `
 Commands:
   run               Execute quality gate pipeline

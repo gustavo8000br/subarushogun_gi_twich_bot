@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.4/10
+scope: 'QRA-05 GET /api/queues/:queueId/history missing/deleted queue responses and unexpected repository diagnostics only'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (QRA-05 queue and history lookup responses, uncommitted)'
+updated: '2026-10-19'
+status_reason: 'Missing/deleted queues return the exact generic 404 without reading history. Unexpected failures in getQueueById and listQueueHistoryProjection use the production global safe handler and are asserted as generic 500 INTERNAL_ERROR with referenceId, x-error-reference, stable source, and no private details. This PASS is limited to QRA-05 route response assertions; OPS-15 remains In Progress and the final story gate is not satisfied.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 file / 118 tests passed independently'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 file / 118 tests passed'
+  lint: 'npm run lint passed'
+  typecheck: 'npm run typecheck passed'
+  diff_check: 'git diff --check passed (line-ending normalization warnings on existing working-tree files)'
+  response_review: 'Exact missing/deleted 404 without history projection; unexpected projection failure returns generic 500 INTERNAL_ERROR with safe reference/header, stable source http.get.api_queues_queueId_history, and no private details.'
+  bilingual_docs: 'QRA-05 route response and assertion boundaries are aligned in EN and pt-BR.'
+limitations:
+  - 'Populated persistent history was not validated against PostgreSQL; no live API/browser runtime was exercised.'
+  - 'No installer or native OBS/CEF validation was performed.'
+  - 'This is not overall OPS-15 QA, does not close the story, and does not authorize panel cutover.'

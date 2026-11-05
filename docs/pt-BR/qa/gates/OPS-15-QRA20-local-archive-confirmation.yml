@@ -1,0 +1,22 @@
+schema: 1
+story: OPS-15
+gate: PASS
+score: 9.2/10
+scope: 'Somente entrada malformada, mapeamentos de erros conhecidos e diagnósticos inesperados de POST /api/queues/:queueId/archive-local/confirm QRA-20'
+reviewer: Quinn
+reviewed_revision: 'working-tree:feat/ops-15-next-panel (confirmação de arquivamento local QRA-20, não commitada)'
+updated: '2026-10-19'
+status_reason: 'Entrada de confirmação malformada é rejeitada antes de acessar o repositório. INVALID_LOCAL_ARCHIVE_CHALLENGE mapeia para 400, QUEUE_NOT_FOUND para 404 e conflitos conhecidos de expiração/versão obsoleta/reward/cancelamento em andamento para as respostas 409 documentadas com mensagens exatas seguras. Falhas inesperadas retornam 503 INTERNAL_ERROR com referenceId, x-error-reference e origem estável; o texto privado da exceção é omitido. O inventário bilíngue corresponde às assertions. Este PASS limita-se à cobertura de resposta QRA-20; OPS-15 permanece In Progress e o gate final da story não foi satisfeito.'
+top_issues: []
+evidence:
+  independent_qa_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 103 testes passaram'
+  implementation_tests: 'npm test -- --run tests/unit/queue-routes.test.js; 1 arquivo / 103 testes passaram'
+  lint: 'npm run lint passou'
+  typecheck: 'npm run typecheck passou'
+  diff_check: 'git diff --check passou (avisos de normalização de fim de linha em arquivos existentes da worktree)'
+  response_review: 'Entrada malformada 400 antes do repositório; mapeamentos conhecidos de código/corpo 400/404/409 cobertos; corpo/header/origem diagnóstica 503 inesperados cobertos sem detalhes privados.'
+  bilingual_docs: 'A matriz de request/status/código/mensagem/referência QRA-20 está alinhada em inglês e pt-BR.'
+limitations:
+  - 'Comportamento persistido de remoção local/histórico, rollback transacional e atomicidade não foram testados contra PostgreSQL.'
+  - 'Não foram executados browser/runtime Next, instalador, Twitch ou OBS/CEF nativo.'
+  - 'Esta não é QA geral da OPS-15, não encerra a story e não autoriza cutover do painel.'

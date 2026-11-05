@@ -2,14 +2,15 @@ import { chmod, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { load } from 'js-yaml';
 
 const root = new URL('../../', import.meta.url);
-const packager = new URL('../../apps/infra/scripts/package-installer.mjs', import.meta.url);
+const packager = fileURLToPath(new URL('../../apps/infra/scripts/package-installer.mjs', import.meta.url));
 
 async function packageFor(platform, output, imageTag, productVersion) {
-  const args = [packager.pathname, '--platform', platform, '--output', output];
+  const args = [packager, '--platform', platform, '--output', output];
   if (imageTag) args.push('--image-tag', imageTag);
   if (productVersion) args.push('--product-version', productVersion);
   return spawnSync(process.execPath, args, {
@@ -19,7 +20,9 @@ async function packageFor(platform, output, imageTag, productVersion) {
 }
 
 describe('single-file lifecycle installer', () => {
-  it('exits with a clear message instead of looping when Linux starts without an interactive input stream', async () => {
+  const posixShellIt = process.platform === 'win32' ? it.skip : it;
+
+  posixShellIt('exits with a clear message instead of looping when Linux starts without an interactive input stream', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-no-stdin-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-installer-no-stdin-home-'));
     try {
@@ -53,6 +56,9 @@ describe('single-file lifecycle installer', () => {
       expect(result.status, result.stderr).toBe(0);
       expect(await readdir(output)).toEqual([expectedName]);
       const artifact = await readFile(join(output, expectedName), 'utf8');
+      const executableSource = platform === 'windows'
+        ? Buffer.from(artifact.match(/:payload\r?\n([\s\S]*?)\r?\n:endpayload/)?.[1]?.replace(/\s/g, '') ?? '', 'base64').toString('utf16le')
+        : artifact;
       expect(artifact).toContain('Install / Start');
       expect(artifact).toContain('Update');
       expect(artifact).toContain('Uninstall');
@@ -69,17 +75,34 @@ describe('single-file lifecycle installer', () => {
         expect(artifact).toContain('postgres_data');
         expect(artifact).toContain('operational_secrets');
       } else {
-        const encodedCompose = artifact.match(/COMPOSE_B64='([^']+)'/)?.[1];
+        const encodedCompose = executableSource.match(/COMPOSE_B64='([^']+)'/)?.[1];
         const composeText = Buffer.from(encodedCompose ?? '', 'base64').toString('utf8');
         expect(composeText).toContain('postgres_data');
         expect(composeText).toContain('operational_secrets');
         const compose = load(composeText);
         expect(Object.values(compose.services).every((service) => !service.build)).toBe(true);
-        expect(compose.services.bot.image).toContain('${IMAGE_TAG:-main}');
+        expect(compose.services.bot.image).toContain('${IMAGE_TAG:-dev}');
         expect(composeText).not.toContain('./apps/');
       }
+      const encodedCompose = platform === 'windows'
+        ? executableSource.match(/\$ComposeBase64 = '([^']+)'/)?.[1]
+        : executableSource.match(/COMPOSE_B64='([^']+)'/)?.[1];
+      const packagedCompose = load(Buffer.from(encodedCompose ?? '', 'base64').toString('utf8'));
+      expect(packagedCompose.services.bot.volumes).toContainEqual(expect.objectContaining({
+        type: 'bind',
+        source: '${LOCAL_COMMUNITY_CATALOG_DIRECTORY:-./.local/community-catalogs}',
+        target: '/app/.local/community-catalogs',
+        read_only: true,
+        bind: { create_host_path: true },
+      }));
+      const installerSource = executableSource;
+      if (platform === 'windows') {
+        expect(installerSource).toContain('LOCAL_COMMUNITY_CATALOG_DIRECTORY=$communityCatalogDirectory');
+      } else {
+        expect(installerSource).toContain('LOCAL_COMMUNITY_CATALOG_DIRECTORY=%s');
+      }
       expect(artifact).not.toContain('git clone');
-      if (platform !== 'windows') {
+      if (platform !== 'windows' && process.platform !== 'win32') {
         const info = await import('node:fs/promises').then(({ stat }) => stat(join(output, expectedName)));
         expect(info.mode & 0o111).not.toBe(0);
       }
@@ -126,7 +149,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it('updates a preserved installation to the release image and retains its old tag if the pull fails', async () => {
+  posixShellIt('updates a preserved installation to the release image and retains its old tag if the pull fails', async () => {
     const mainOutput = await mkdtemp(join(tmpdir(), 'queuebot-installer-main-update-'));
     const releaseOutput = await mkdtemp(join(tmpdir(), 'queuebot-installer-release-update-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-version-update-'));
@@ -181,7 +204,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it('reports a Compose migration/startup failure without deleting product volumes', async () => {
+  posixShellIt('reports a Compose migration/startup failure without deleting product volumes', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-migration-failure-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-migration-failure-'));
     const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-migration-failure-'));
@@ -222,7 +245,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it('reports an unhealthy panel after update and preserves saved settings and volumes', async () => {
+  posixShellIt('reports an unhealthy panel after update and preserves saved settings and volumes', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-health-failure-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-health-failure-'));
     const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-health-failure-'));
@@ -298,7 +321,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it.each([
+  posixShellIt.each([
     ['linux', 'subarushogun_twich_bot_setup.sh'],
     ['macos', 'subarushogun_twich_bot_setup.command'],
   ])('explains anonymous GHCR denial and displays the installer version on %s', async (platform, expectedName) => {
@@ -351,7 +374,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it('checks the Docker daemon architecture and refuses unsupported platforms before pulling the image', async () => {
+  posixShellIt('checks the Docker daemon architecture and refuses unsupported platforms before pulling the image', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-architecture-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-architecture-'));
     const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-architecture-'));
@@ -395,7 +418,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it.each(['amd64', 'arm64', 'aarch64'])('allows a supported Docker daemon architecture (%s)', async (architecture) => {
+  posixShellIt.each(['amd64', 'arm64', 'aarch64'])('allows a supported Docker daemon architecture (%s)', async (architecture) => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-supported-architecture-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-supported-architecture-'));
     const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-supported-architecture-'));
@@ -434,7 +457,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it('installs from the Linux artifact using its chosen language and port and preserves volumes on update', async () => {
+  posixShellIt('installs from the Linux artifact using its chosen language and port and preserves volumes on update', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-linux-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-'));
     const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-'));
@@ -477,7 +500,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it('requires a typed localized confirmation before clean update and uninstall', async () => {
+  posixShellIt('requires a typed localized confirmation before clean update and uninstall', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-clean-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-clean-'));
     const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-clean-'));
@@ -529,7 +552,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it('preserves installed data when a clean update cannot download its image', async () => {
+  posixShellIt('preserves installed data when a clean update cannot download its image', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-download-failure-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-download-failure-'));
     const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-download-failure-'));
@@ -573,7 +596,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it('erases product data on uninstall only after the matching typed confirmation', async () => {
+  posixShellIt('erases product data on uninstall only after the matching typed confirmation', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-uninstall-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-uninstall-'));
     const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-uninstall-'));
@@ -614,7 +637,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it('shows uninstall progress, removes verified product resources, and preserves images used by another project', async () => {
+  posixShellIt('shows uninstall progress, removes verified product resources, and preserves images used by another project', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-uninstall-progress-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-uninstall-progress-'));
     const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-uninstall-progress-'));
@@ -698,7 +721,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it('reports when no managed installation exists instead of presenting uninstall as completed', async () => {
+  posixShellIt('reports when no managed installation exists instead of presenting uninstall as completed', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-no-install-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-no-install-'));
     const logPath = join(home, 'docker.log');
@@ -733,7 +756,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it('does not claim uninstall success when Docker cannot inventory the product images', async () => {
+  posixShellIt('does not claim uninstall success when Docker cannot inventory the product images', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-image-inventory-failure-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-image-inventory-failure-'));
     const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-image-inventory-failure-'));
@@ -776,7 +799,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it('does not report uninstall complete while an unused product image remains', async () => {
+  posixShellIt('does not report uninstall complete while an unused product image remains', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-image-remains-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-image-remains-'));
     const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-image-remains-'));
@@ -825,7 +848,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it('supports unattended install/update/uninstall and requires explicit destructive flags', async () => {
+  posixShellIt('supports unattended install/update/uninstall and requires explicit destructive flags', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-silent-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-silent-'));
     const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-silent-'));
@@ -891,7 +914,7 @@ describe('single-file lifecycle installer', () => {
     }
   });
 
-  it('asks before opening official Docker setup guidance and leaves files untouched when Docker is missing', async () => {
+  posixShellIt('asks before opening official Docker setup guidance and leaves files untouched when Docker is missing', async () => {
     const output = await mkdtemp(join(tmpdir(), 'queuebot-installer-no-docker-'));
     const home = await mkdtemp(join(tmpdir(), 'queuebot-home-no-docker-'));
     const bin = await mkdtemp(join(tmpdir(), 'queuebot-bin-no-docker-'));

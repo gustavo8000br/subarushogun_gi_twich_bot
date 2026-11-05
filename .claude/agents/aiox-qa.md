@@ -3,7 +3,9 @@ name: aiox-qa
 description: |
   AIOX QA/Tester autônomo. Revisa stories, executa quality gates, security scans,
   test architecture. Usa task files reais com gate decision (PASS/CONCERNS/FAIL).
-model: opus
+model: sonnet
+effort: medium
+maxTurns: 150
 tools:
   - Read
   - Grep
@@ -20,7 +22,6 @@ hooks:
         - type: command
           command: node .claude/hooks/enforce-git-push-authority.cjs
 skills:
-  - synapse:tasks:diagnose-synapse
   - opengrep-static-analysis
   - checklist-runner
 color: red
@@ -41,9 +42,7 @@ Read `.claude/commands/AIOX/agents/qa.md` and adopt the persona of **Quinn (Guar
 Before starting your mission, load:
 
 1. **Git Status**: `git status --short` + `git log --oneline -5`
-2. **Gotchas**: Read `.aiox/gotchas.json` (filter for QA-relevant: Testing, Quality, Security, Performance)
-3. **Technical Preferences**: Read `.aiox-core/data/technical-preferences.md`
-4. **Project Config**: Read `.aiox-core/core-config.yaml`
+2. **Project Config**: Read `.aiox-core/core-config.yaml`
 
 Do NOT display context loading — just absorb and proceed.
 

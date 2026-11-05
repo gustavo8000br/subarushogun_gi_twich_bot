@@ -16,10 +16,12 @@ const releaseWorkflow = (() => {
 const parseWorkflow = (content) => yaml.load(content);
 
 describe('GitHub Actions application CI contract', () => {
-  it.each(['api', 'infra', 'web'])('provides independent lint and typecheck commands for %s', (app) => {
-    expect(packageJson.scripts[`lint:${app}`]).toBe(`eslint apps/${app} --max-warnings=0`);
+  it.each(['api', 'infra', 'frontend'])('provides independent lint and typecheck commands for %s', (app) => {
+    // FT-42 (DP-5): the frontend jobs cover the modules shared with Next under apps/shared/panel (JSX stays out until TS-16).
+    const lintTargets = app === 'frontend' ? 'apps/shared/panel' : `apps/${app}`;
+    expect(packageJson.scripts[`lint:${app}`]).toBe(`eslint ${lintTargets} --max-warnings=0`);
     expect(packageJson.scripts[`typecheck:${app}`]).toBe(`tsc --noEmit -p tsconfig.${app}.json`);
-    expect(qualityWorkflow).toContain('app: [api, infra, web]');
+    expect(qualityWorkflow).toContain('app: [api, infra, frontend]');
     expect(qualityWorkflow).toContain(`npm run lint:\${{ matrix.app }}`);
     expect(qualityWorkflow).toContain(`npm run typecheck:\${{ matrix.app }}`);
   });
@@ -52,8 +54,9 @@ describe('GitHub Actions application CI contract', () => {
     expect(qualityWorkflow).toContain('actionlint -shellcheck= -ignore');
     expect(qualityWorkflow).toContain('v1.7.12');
     expect(qualityWorkflow).toContain('8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8');
-    expect(qualityWorkflow).toContain('docker compose config --quiet');
-    expect(qualityWorkflow).toContain('docker compose build bot');
+    expect(qualityWorkflow).toContain('docker compose -f compose.yaml -f compose.build.yaml config --quiet');
+    expect(qualityWorkflow).toContain('docker compose -f compose.yaml -f compose.build.yaml build bot');
+    expect(qualityWorkflow).toContain('docker compose -f compose.yaml -f compose.build.yaml run --rm --no-deps --entrypoint cat bot /app/VERSION');
   });
 
   it('tests installers natively and uploads the immutable beta Windows installer after image publication', () => {

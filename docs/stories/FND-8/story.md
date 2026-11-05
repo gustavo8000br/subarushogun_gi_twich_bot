@@ -20,7 +20,7 @@ As a streamer, I want to select the product language during installation and cha
 - OPS-5 now delivers one unified installer artifact per operating system. Its localized menu offers Install / Start, Update, and Uninstall; these actions are not separate files or downloads.
 - Existing queue-key collisions with `fila`, `queue`, or `cola` block only the conflicting root until explicit panel rename; automatic rename is forbidden.
 - Target product surfaces: panel and setup/callback; chat command syntax/help/replies; OBS widget editor and product-generated labels/fallbacks; start/install, update, and uninstall tools.
-- The implementation stays local-first, vanilla JavaScript ESM, with no runtime translation service, frontend framework, TypeScript, or bundler.
+- The localization contract remains local-first JavaScript ESM/JSDoc. OPS-15 migrates browser surfaces to a Next.js static export and permits bundling/transpilation only for that build; it adds no runtime translation service, TypeScript application code, or Next.js runtime server.
 - PostgreSQL is the selected locale authority; `.local/product-locale.state` is a revisioned, atomic host-readable projection with last-valid offline fallback. PostgreSQL, projection, permissions, and restart behavior have dedicated contracts.
 - Shared catalogs use UTF-8 no-BOM TSV with literal text and allowlisted placeholders. Byte decoding rejects BOM/malformed UTF-8; validation enforces locale-specific `Intl.PluralRules` categories and placeholder parity. Browser and host scripts consume catalog-owned values without executable templates.
 

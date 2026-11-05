@@ -152,7 +152,7 @@
     {
       "id": "CON-1",
       "type": "technical",
-      "description": "Application code remains JavaScript ESM with JSDoc; frontend stays vanilla HTML/CSS/JavaScript without TypeScript, framework, transpiler or bundler."
+      "description": "Application source remains JavaScript ESM with JSDoc and no TypeScript application code. Browser frontend uses the OPS-15 Next.js static export; bundling/transpilation is limited to its build, and no Next.js runtime server is introduced."
     },
     {
       "id": "CON-2",
