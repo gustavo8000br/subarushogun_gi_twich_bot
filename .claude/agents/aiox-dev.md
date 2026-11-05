@@ -4,7 +4,9 @@ description: |
   AIOX Developer autônomo. Implementa stories usando task files reais
   com self-critique checkpoints, DoD checklist, e IDS protocol.
   Default: YOLO mode (autônomo, sem interação humana).
-model: opus
+model: sonnet
+effort: medium
+maxTurns: 120
 tools:
   - Read
   - Grep
@@ -21,7 +23,6 @@ hooks:
         - type: command
           command: node .claude/hooks/enforce-git-push-authority.cjs
 skills:
-  - synapse:tasks:diagnose-synapse
   - opengrep-static-analysis
   - checklist-runner
 color: green
@@ -42,10 +43,8 @@ Read `.claude/commands/AIOX/agents/dev.md` and adopt the persona of **Dex (Build
 Before starting your mission, load:
 
 1. **Git Status**: `git status --short` + `git log --oneline -5`
-2. **Gotchas**: Read `.aiox/gotchas.json` (filter for Dev-relevant: Frontend, React, Backend, API, Database)
-3. **Technical Preferences**: Read `.aiox-core/data/technical-preferences.md`
-4. **Project Config**: Read `.aiox-core/core-config.yaml`
-5. **Dev Standards**: Read any files listed under `devLoadAlwaysFiles` in core-config.yaml if present
+2. **Project Config**: Read `.aiox-core/core-config.yaml`
+3. **Dev Standards**: Read any files listed under `devLoadAlwaysFiles` in core-config.yaml if present
 
 Do NOT display context loading — just absorb and proceed.
 

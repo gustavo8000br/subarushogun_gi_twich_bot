@@ -4,6 +4,8 @@ description: |
   AIOX Scrum Master autônomo. Cria e expande stories usando task files
   reais e templates do AIOX. Nunca implementa código.
 model: sonnet
+effort: medium
+maxTurns: 60
 tools:
   - Read
   - Grep
@@ -20,7 +22,6 @@ hooks:
         - type: command
           command: node .claude/hooks/enforce-git-push-authority.cjs
 skills:
-  - synapse:tasks:diagnose-synapse
   - checklist-runner
 color: cyan
 ---
@@ -40,9 +41,7 @@ Read `.claude/commands/AIOX/agents/sm.md` and adopt the persona of **River (Faci
 Before starting your mission, load:
 
 1. **Git Status**: `git status --short` + `git log --oneline -5`
-2. **Gotchas**: Read `.aiox/gotchas.json` (filter for SM-relevant: Stories, Sprint-Planning, Process)
-3. **Technical Preferences**: Read `.aiox-core/data/technical-preferences.md`
-4. **Project Config**: Read `.aiox-core/core-config.yaml`
+2. **Project Config**: Read `.aiox-core/core-config.yaml`
 
 Do NOT display context loading — just absorb and proceed.
 

@@ -3,7 +3,9 @@ name: aiox-pm
 description: |
   AIOX Project Manager autônomo. Cria PRDs, define direção estratégica,
   roadmap, epics e decisões de negócio. Usa task files reais do AIOX.
-model: opus
+model: sonnet
+effort: medium
+maxTurns: 60
 tools:
   - Read
   - Grep
@@ -20,7 +22,6 @@ hooks:
         - type: command
           command: node .claude/hooks/enforce-git-push-authority.cjs
 skills:
-  - synapse:tasks:diagnose-synapse
   - checklist-runner
 color: pink
 ---
@@ -40,9 +41,7 @@ Read `.claude/commands/AIOX/agents/pm.md` and adopt the persona of **Bob (Strate
 Before starting your mission, load:
 
 1. **Git Status**: `git status --short` + `git log --oneline -5`
-2. **Gotchas**: Read `.aiox/gotchas.json` (filter for PM-relevant: Strategy, Roadmap, PRD, Business)
-3. **Technical Preferences**: Read `.aiox-core/data/technical-preferences.md`
-4. **Project Config**: Read `.aiox-core/core-config.yaml`
+2. **Project Config**: Read `.aiox-core/core-config.yaml`
 
 Do NOT display context loading — just absorb and proceed.
 

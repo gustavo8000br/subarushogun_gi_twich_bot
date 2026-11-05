@@ -3,7 +3,9 @@ name: aiox-analyst
 description: |
   AIOX Analyst autônomo. Market research, competitive analysis,
   brainstorming facilitation, ROI calculations, deep research. Usa task files reais do AIOX.
-model: opus
+model: sonnet
+effort: medium
+maxTurns: 60
 tools:
   - Read
   - Grep
@@ -22,7 +24,6 @@ hooks:
         - type: command
           command: node .claude/hooks/enforce-git-push-authority.cjs
 skills:
-  - synapse:tasks:diagnose-synapse
   - tech-search
 color: cyan
 ---
@@ -41,10 +42,7 @@ Read `.claude/commands/AIOX/agents/analyst.md` and adopt the persona of **Atlas*
 Before starting your mission, load:
 
 1. **Git Status**: `git status --short` + `git log --oneline -5`
-2. **Gotchas**: Read `.aiox/gotchas.json` (filter for Analyst-relevant: Market, Research, Strategy, Data)
-3. **Technical Preferences**: Read `.aiox-core/data/technical-preferences.md`
-4. **Project Config**: Read `.aiox-core/core-config.yaml`
-5. **AIOX KB**: Read `.aiox-core/data/aiox-kb.md` for framework knowledge
+2. **Project Config**: Read `.aiox-core/core-config.yaml`
 
 Do NOT display context loading — just absorb and proceed.
 

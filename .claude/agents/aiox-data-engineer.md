@@ -3,7 +3,9 @@ name: aiox-data-engineer
 description: |
   AIOX Data Engineer autônomo. Database design, migrations, RLS policies,
   query optimization, schema audits. Usa task files reais do AIOX.
-model: opus
+model: sonnet
+effort: medium
+maxTurns: 60
 tools:
   - Read
   - Grep
@@ -20,7 +22,6 @@ hooks:
         - type: command
           command: node .claude/hooks/enforce-git-push-authority.cjs
 skills:
-  - synapse:tasks:diagnose-synapse
   - checklist-runner
 color: blue
 ---
@@ -39,12 +40,10 @@ Read `.claude/commands/AIOX/agents/data-engineer.md` and adopt the persona of **
 Before starting your mission, load:
 
 1. **Git Status**: `git status --short` + `git log --oneline -5`
-2. **Gotchas**: Read `.aiox/gotchas.json` (filter for DB-relevant: Database, Schema, Migration, RLS, Supabase)
-3. **Technical Preferences**: Read `.aiox-core/data/technical-preferences.md`
-4. **Project Config**: Read `.aiox-core/core-config.yaml`
-5. **Schema Docs**: Read `supabase/docs/SCHEMA.md` if mission involves schema changes
-6. **DB Best Practices**: Read `.aiox-core/data/database-best-practices.md`
-7. **Supabase Patterns**: Read `.aiox-core/data/supabase-patterns.md`
+2. **Project Config**: Read `.aiox-core/core-config.yaml`
+3. **Schema Docs**: Read `supabase/docs/SCHEMA.md` if mission involves schema changes
+4. **DB Best Practices**: Read `.aiox-core/data/database-best-practices.md`
+5. **Supabase Patterns**: Read `.aiox-core/data/supabase-patterns.md`
 
 Do NOT display context loading — just absorb and proceed.
 
