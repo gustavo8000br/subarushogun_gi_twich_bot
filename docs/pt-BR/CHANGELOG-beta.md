@@ -4,32 +4,14 @@
 
 Tipos: 🟧 Segurança · 🟩 Adicionado · 🟦 Alterado · 🟨 Obsoleto · 🟥 Removido · 🟪 Corrigido. Mudanças incompatíveis aparecem primeiro, numa caixa de aviso.
 
-## v0.2.1-beta
-
-### 🟩 Adicionado
-
-- Depois de criar uma fila, o painel agora abre a lista de filas na fila nova e diz o que aconteceu, sem prometer que a Twitch já aceitou a recompensa. Depois de excluir a sua última fila, ele abre Nova fila com o resultado.
-- O resultado de excluir uma fila ou de cancelar a exclusão agora fica numa única área de mensagem no topo da página, e não some mais junto com o cartão da fila. Ele diz se a exclusão foi concluída, está pendente ou bloqueada (com um link para Operações), e o texto acompanha o tipo da fila: Pontos do Canal, local ou convertida. Cada motivo que a Twitch dá para não cancelar uma exclusão tem a sua própria mensagem.
-- Operações agora mostra quando as tentativas automáticas terminaram, qual operação bloqueia a exclusão de qual fila, e o aviso de que a Twitch ainda lista um resgate depois de uma resolução manual.
-
-### 🟦 Alterado
-
-- As janelas de excluir e de cancelar a exclusão têm título e botões próprios ("Voltar" e a ação) em vez de "Cancelar" e "Confirmar", e a janela de excluir agora diz que as entradas removidas não voltam, mesmo que você cancele a exclusão depois. "1 entradas" agora aparece corretamente como "1 entrada" nos três idiomas.
-- O botão "Cancelar exclusão" só aparece quando o app confirma que a exclusão pode ser cancelada.
-- Quando a Twitch não consegue confirmar uma devolução de pontos ou o atendimento de um resgate, o app agora confere de novo automaticamente até 6 vezes ao longo de cerca de duas horas, lendo a Twitch antes de qualquer mudança, e só então pede a sua revisão em Operações. "Reconciliar / tentar novamente" inicia um novo ciclo de 6 conferências e fica registrado com quem pediu.
-
-### 🟪 Corrigido
-
-- Cancelar a exclusão de uma fila de Pontos do Canal enquanto a Twitch está fora do ar por um instante não marca mais a exclusão como pendente de revisão: ela mantém o estado anterior e você pode tentar de novo.
-- Excluir uma fila de Pontos do Canal não trava mais quando uma devolução de pontos precisa da sua revisão: a exclusão espera, retoma sozinha assim que a devolução é confirmada ou que você a resolve em Operações, e a recompensa só é excluída depois que a Twitch não mostra nenhum resgate em aberto. Se a conexão com a Twitch expirar durante uma exclusão, a exclusão retoma depois que você reconectar.
-- Corrigida a confirmação final de exclusão local da fila para exibir o nome da fila e o aviso completo, em vez do texto de indisponibilidade, tanto no painel legado quanto no painel Next.js.
-
-## v0.2.0-beta
+## v0.3.0-beta
 
 > [!WARNING]
 > **Mudanças incompatíveis**
 >
 > - Os links de widgets OBS agora usam o endereço `/overlay?...` em vez de `/overlay.html?...`. Uma fonte de navegador do OBS ainda configurada com um link antigo `/overlay.html` deixa de carregar o widget: gere o link de novo na página Widgets e cole-o na fonte do OBS.
+
+**Ainda não validado nesta versão.** A causa raiz do defeito D-6 não foi observada (foi entregue um diagnóstico). A resposta do `ping` dentro da janela de 30 segundos não está comprovada. Ficam pendentes a build de produção no OBS nativo, o Windows e o macOS, o uso com leitor de tela, a verificação de aceite AC-W-3 e um teste intermitente do `compose-runtime` (M-2b), e o widget "Nome da fila" da cena OBS do próprio dono ainda precisa de ajuste. Testes automatizados não comprovam operações Twitch ao vivo.
 
 ### 🟧 Segurança
 
@@ -37,14 +19,19 @@ Tipos: 🟧 Segurança · 🟩 Adicionado · 🟦 Alterado · 🟨 Obsoleto · �
 
 ### 🟩 Adicionado
 
+- Depois de criar uma fila, o painel agora abre a lista de filas na fila nova e diz o que aconteceu, sem prometer que a Twitch já aceitou a recompensa. Depois de excluir a sua última fila, ele abre Nova fila com o resultado.
+- O resultado de excluir uma fila ou de cancelar a exclusão agora fica numa única área de mensagem no topo da página, e não some mais junto com o cartão da fila. Ele diz se a exclusão foi concluída, está pendente ou bloqueada (com um link para Operações), e o texto acompanha o tipo da fila: Pontos do Canal, local ou convertida. Cada motivo que a Twitch dá para não cancelar uma exclusão tem a sua própria mensagem.
+- Operações agora mostra quando as tentativas automáticas terminaram, qual operação bloqueia a exclusão de qual fila, e o aviso de que a Twitch ainda lista um resgate depois de uma resolução manual.
 - A criação de fila agora oferece uma prévia localizada e validada da mensagem de chamada no chat. Widgets OBS deixam claro qual fila e reward vinculada usam e indicam como criar uma fila quando não há opções. A edição de widgets e as operações da Twitch orientam melhor a recuperação quando uma atualização não pode ser confirmada.
 - A página Next.js de comandos do chat agora permite ao streamer alterar a audiência mínima dos comandos configuráveis. Políticas novas ou sem override usam seguidores; políticas salvas explicitamente são preservadas, e comandos fixos de moderadores/streamer continuam somente leitura.
-- Streamers podem cancelar a exclusão pendente de uma fila vinculada a reward depois que o app verifica que a reward exata, gerenciada pela Twitch, ainda existe e está pausada. A fila e o histórico financeiro permanecem recuperáveis, e uma exclusão posterior retoma com segurança a mesma intenção.
-- A página de operações agora distingue a sincronização com a Twitch da devolução de Pontos do Canal aos espectadores e da confirmação de resgates.
 - Quando não é possível confirmar a exclusão de uma reward na Twitch, o streamer pode arquivar a fila local por um fluxo de confirmação separado; uma fila restaurada continua pausada até ser ativada pelo streamer.
+- O comando de chat `ping` agora responde com a versão do produto (sem o commit) e a latência medida da API da Twitch, compartilhando uma única sonda com a verificação de saúde; quando a sonda falha, informa isso com um código seguro em vez de um número.
 
 ### 🟦 Alterado
 
+- As janelas de excluir e de cancelar a exclusão têm título e botões próprios ("Voltar" e a ação) em vez de "Cancelar" e "Confirmar", e a janela de excluir agora diz que as entradas removidas não voltam, mesmo que você cancele a exclusão depois. "1 entradas" agora aparece corretamente como "1 entrada" nos três idiomas.
+- O botão "Cancelar exclusão" só aparece quando o app confirma que a exclusão pode ser cancelada.
+- Quando a Twitch não consegue confirmar uma devolução de pontos ou o atendimento de um resgate, o app agora confere de novo automaticamente até 6 vezes ao longo de cerca de duas horas, lendo a Twitch antes de qualquer mudança, e só então pede a sua revisão em Operações. "Reconciliar / tentar novamente" inicia um novo ciclo de 6 conferências e fica registrado com quem pediu.
 - A página inicial agora é a Visão geral do painel Next. No primeiro acesso, sem conexão com a Twitch, ela mostra um cartão 'Conectar' em vez de abrir direto a Conexão.
 - A inicialização de desenvolvimento agora verifica Node.js, dependências e Docker antes de provisionar o banco isolado; o usuário final continua pelo instalador da plataforma com imagem pré-compilada.
 - Chamadas de fila agora tornam o viewer chamado a conta atual automaticamente. O OBS oferece uma única fonte de identidade do jogador, `Conta atual`; widgets antigos de atendimento continuam usando essa mesma fonte.
@@ -57,15 +44,36 @@ Tipos: 🟧 Segurança · 🟩 Adicionado · 🟦 Alterado · 🟨 Obsoleto · �
 - A visão geral do Next.js diferencia a saúde dos serviços por cores: verde para funcional, amarelo para parcial/em andamento/desconhecido e vermelho para indisponível ou não configurado, com legenda localizada explícita. Em telas estreitas, a conciliação fica abaixo do título de saúde; a navegação móvel ganha uma barra roxa fina que indica rolagem horizontal.
 - O painel local Next.js agora identifica o canal Twitch conectado e informa claramente quando o segredo do aplicativo ainda não foi salvo. A troca de idioma valida a resposta da API e reconcilia com o estado persistido após uma resposta incerta.
 
+### 🟥 Removido
+
+- O painel vanilla anterior e seus aliases `/overlay.html` foram removidos: o painel Next.js é o único painel.
+
 ### 🟪 Corrigido
 
-- A confirmação final de exclusão local agora identifica a fila no aviso, permitindo que o streamer confira qual fila está removendo.
+- Cancelar a exclusão de uma fila de Pontos do Canal enquanto a Twitch está fora do ar por um instante não marca mais a exclusão como pendente de revisão: ela mantém o estado anterior e você pode tentar de novo.
+- Excluir uma fila de Pontos do Canal não trava mais quando uma devolução de pontos precisa da sua revisão: a exclusão espera, retoma sozinha assim que a devolução é confirmada ou que você a resolve em Operações, e a recompensa só é excluída depois que a Twitch não mostra nenhum resgate em aberto. Se a conexão com a Twitch expirar durante uma exclusão, a exclusão retoma depois que você reconectar.
 - As páginas dos widgets OBS são servidas pelo Next.js em produção e desenvolvimento; o overlay continua consultando dados atuais de conta e fila no bot.
 - Links de widgets OBS agora abrem a página local do overlay durante o desenvolvimento.
 - Falhas inesperadas nas ações de inclusão manual, atendimento, reenvio de aviso, chamada, reordenação, prioridade e limpeza de fila agora exibem uma referência diagnóstica segura. Se uma chamada puder ter sido aplicada sem uma resposta confiável, os dois controles de chamada ficam bloqueados até uma atualização bem-sucedida da fila; o alerta mantém a referência e oferece nova tentativa da atualização. Uma fila vazia confirmada mantém o resultado “ninguém aguardando”. Confirmações incertas de limpeza continuam exigindo atualização bem-sucedida antes de outra limpeza.
-- A confirmação de exclusão local fica bloqueada enquanto o cancelamento estiver verificando a reward, preservando uma forma segura de retomar a operação.
 - Criação de fila, configurações e inclusão manual que a API já aceitou permanecem visíveis quando a atualização seguinte da lista falha; o painel oferece uma nova leitura sem repetir a mutação nem indicar rejeição indevida.
 - O feedback de arquivamento/desarquivamento continua visível mesmo quando a fila sai da lista, e o reenvio diferencia um aviso já enfileirado sem afirmar que a mensagem foi entregue.
+
+## v0.2.1-beta
+
+### 🟪 Corrigido
+
+- Corrigida a confirmação final de exclusão local da fila para exibir o nome da fila e o aviso completo, em vez do texto de indisponibilidade.
+
+## v0.2.0-beta
+
+### 🟩 Adicionado
+
+- Streamers podem cancelar a exclusão pendente de uma fila vinculada a reward depois que o app verifica que a reward exata, gerenciada pela Twitch, ainda existe e está pausada. A fila e o histórico financeiro permanecem recuperáveis, e uma exclusão posterior retoma com segurança a mesma intenção.
+- A página de operações agora distingue a sincronização com a Twitch da devolução de Pontos do Canal aos espectadores e da confirmação de resgates.
+
+### 🟪 Corrigido
+
+- A confirmação de exclusão local fica bloqueada enquanto o cancelamento estiver verificando a reward, preservando uma forma segura de retomar a operação.
 
 ## v0.1.2-beta
 

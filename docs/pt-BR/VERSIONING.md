@@ -12,7 +12,7 @@ Toda PR que traz um bump recebe a versão escolhida antes do merge. Registre as 
 
 ## Plano atual de release
 
-O alvo atual de distribuição é a versão base do produto `0.2.1`; `.release-stage` continua em `beta` e a identidade não materializada do checkout é `v0.2.1-0000000-beta`. Esta correção faz a confirmação final de exclusão local exibir corretamente o nome da fila e o aviso completo. O proprietário deve verificar esta build localmente; testes automatizados não comprovam operações Twitch ao vivo. A publicação da release beta continua sendo acionada manualmente pelo proprietário; este incremento de versão não cria tag Git nem GitHub Release.
+O alvo atual de distribuição é a versão base do produto `0.3.0`; `.release-stage` continua em `beta` e a identidade não materializada do checkout é `v0.3.0-0000000-beta`. Este marco MINOR entrega o cutover da OPS-15 para o painel Next.js, a recuperação financeira da OPS-22 e o comando `ping` real; os defeitos e verificações ainda pendentes estão listados na seção da versão no changelog. O proprietário deve verificar esta build localmente; testes automatizados não comprovam operações Twitch ao vivo. A publicação da release beta continua sendo acionada manualmente pelo proprietário; este incremento de versão não cria tag Git nem GitHub Release.
 
 ## Conteúdo das GitHub Releases
 

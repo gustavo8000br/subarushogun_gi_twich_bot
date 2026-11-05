@@ -12,7 +12,7 @@ Every PR that carries a bump receives its selected version before merge. Record 
 
 ## Current release plan
 
-The current shipping target is product base version `0.2.1`; `.release-stage` remains `beta`, and the unmaterialized checkout identity is `v0.2.1-0000000-beta`. This patch fixes the final local queue deletion confirmation so its queue title and full warning render correctly. The owner must verify this build locally; no live Twitch operation is claimed by automated tests. Beta release publication remains manually triggered by the owner; this version bump does not create a Git tag or GitHub Release.
+The current shipping target is product base version `0.3.0`; `.release-stage` remains `beta`, and the unmaterialized checkout identity is `v0.3.0-0000000-beta`. This minor milestone ships the OPS-15 cutover to the Next.js panel, the OPS-22 financial recovery and the real `ping` command; defects and checks still pending are listed in its changelog section. The owner must verify this build locally; no live Twitch operation is claimed by automated tests. Beta release publication remains manually triggered by the owner; this version bump does not create a Git tag or GitHub Release.
 
 ## GitHub release contents
 
