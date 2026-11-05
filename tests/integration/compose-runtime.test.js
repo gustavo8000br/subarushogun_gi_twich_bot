@@ -629,7 +629,14 @@ describe('isolated Compose first-run and restart acceptance', () => {
     try {
       const context = await browser.newContext({ ignoreHTTPSErrors: true, serviceWorkers: 'block' });
       const page = await context.newPage();
+      // M-2 (QA gate 2026-11-06): the form renders only after the first cold calls (session + catalogs) answer, and on a loaded host
+      // that wait was folded into one 20 s timer on the button. Wait for the response the page depends on first (with the failed or
+      // pending requests named if it never comes), then give rendering its own short bound.
+      const failedRequests = [];
+      page.on('requestfailed', (request) => failedRequests.push(`${new URL(request.url()).pathname} ${request.failure()?.errorText ?? ''}`));
+      const catalogsResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/localization/catalogs', { timeout: 90_000 });
       await page.goto(`${origin}/new-queue/`, { waitUntil: 'domcontentloaded' });
+      await catalogsResponse.catch((error) => { throw new Error(`The first catalogs response never arrived (failed requests: ${failedRequests.join('; ') || 'none'}): ${error.message}`); });
       const createButton = page.getByRole('button', { name: 'Criar fila' });
       await createButton.waitFor({ timeout: 20_000 });
       expect(await page.getByLabel('Tipo de fila').inputValue()).toBe('manual_only');
