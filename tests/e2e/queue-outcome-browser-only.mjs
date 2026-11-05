@@ -192,6 +192,9 @@ try {
       ['409 ALREADY_COMPLETED', { status: 409, body: { code: 'QUEUE_DELETION_ALREADY_COMPLETED', error: 'privado' } }, /A Twitch já confirmou que a recompensa foi excluída/, 'Atualizar filas'],
       ['409 PAUSE_IN_PROGRESS', { status: 409, body: { code: 'QUEUE_DELETION_PAUSE_IN_PROGRESS', error: 'privado' } }, /ainda está sendo pausada na Twitch/, null],
       ['409 REMOTE_DELETE_ATTEMPTED', { status: 409, body: { code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', error: 'privado' } }, /pode já ter chegado à Twitch/, 'Revisar as operações'],
+      // FT-53: the additive `reason` selects the reauthorize text only for authorization_required; any other reason keeps the generic text.
+      ['409 REMOTE_DELETE_ATTEMPTED + reason authorization_required', { status: 409, body: { code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', error: 'privado', reason: 'authorization_required' } }, /Reautorize o canal na página Conexão Twitch/, 'Conexão Twitch'],
+      ['409 REMOTE_DELETE_ATTEMPTED + reason verification_unavailable', { status: 409, body: { code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', error: 'privado', reason: 'verification_unavailable' } }, /pode já ter chegado à Twitch/, 'Revisar as operações'],
       ['409 PROCESSING', { status: 409, body: { code: 'QUEUE_REWARD_OPERATION_PROCESSING', error: 'privado' } }, /ainda está em andamento/, 'Atualizar filas'],
       ['409 NOT_PENDING', { status: 409, body: { code: 'QUEUE_DELETION_NOT_PENDING', error: 'privado' } }, /O estado da exclusão mudou/, 'Atualizar filas'],
       ['409 UNVERIFIED', { status: 409, body: { code: 'QUEUE_DELETION_CANCELLATION_UNVERIFIED', error: 'privado' } }, /não conseguiu confirmar o estado da recompensa/, null],

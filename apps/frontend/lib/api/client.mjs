@@ -1,3 +1,4 @@
+const REMOTE_DELETE_REASONS = new Set(['authorization_required', 'verification_unavailable', 'reward_absent', 'reward_diverged', 'reward_not_paused']);
 const SAFE_ERROR = Object.freeze({ code: 'REQUEST_FAILED', status: 0 });
 
 /**
@@ -43,6 +44,8 @@ export function createApiClient({ fetchImpl = globalThis.fetch, createIdempotenc
         code: typeof payload?.code === 'string' ? payload.code : SAFE_ERROR.code,
         referenceId: typeof payload?.referenceId === 'string' ? payload.referenceId : response.headers.get('x-error-reference'),
         status: response.status,
+        // FT-53: the one additive field, only for the possibly-sent DELETE refusal and only from the API's closed list.
+        ...(payload?.code === 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED' && typeof payload.reason === 'string' && REMOTE_DELETE_REASONS.has(payload.reason) ? { reason: payload.reason } : {}),
       });
     }
     return payload;

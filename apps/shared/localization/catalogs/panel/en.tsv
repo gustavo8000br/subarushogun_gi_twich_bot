@@ -819,6 +819,7 @@ panel.queue.delete.cancel.reward_not_paused	Cancellation was not confirmed becau
 panel.queue.delete.cancel.authorization_required	Twitch refused the authorization, so the reward could not be read and the deletion was not cancelled. Reconnect the channel on the Twitch connection page and try again.
 panel.queue.delete.cancel.pause_in_progress	The reward is still being paused on Twitch, so the deletion was not cancelled yet. Wait a few seconds and try again.
 panel.queue.delete.cancel.remote_delete_attempted	The request to delete the reward may already have reached Twitch, and the read did not confirm that the reward exists and is paused. For safety the deletion was not cancelled. Let it finish or review the operations.
+panel.queue.delete.cancel.remote_delete_attempted_reauthorize	The request to delete the reward may have reached Twitch, but Twitch refused the authorization, so we could not check whether the reward still exists. The deletion was not cancelled. Reauthorize the channel on the Twitch connection page, refresh the panel, and review the queue before trying to cancel again.
 panel.outcome.dismiss	Dismiss message
 panel.outcome.action.refresh	Refresh queues
 panel.outcome.refreshed	Queues refreshed.

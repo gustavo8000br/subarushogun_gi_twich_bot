@@ -348,6 +348,8 @@ export function PanelProvider({ children, fallbackCatalog }) {
     if (saving) return null;
     setSaving(true);
     setQueueLifecycleNotice(null);
+    // FT-53 (UX 2.2): clear the previous refusal when a cancel starts, so a repeated identical alert is a fresh insertion.
+    if (action === 'cancel-delete') setPanelOutcome(null);
     try {
       const result = await performQueueLifecycleAction({ request: apiClient.request, queueId, action, queue: context.queue, challenge: context.challenge });
       if (action === 'archive-local-confirm' && result.status === 'archived') {

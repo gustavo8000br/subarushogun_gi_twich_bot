@@ -1090,6 +1090,27 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  // OPS-22 FT-53: the 409 for a possibly-sent DELETE carries an additive, closed `reason`; free text and other codes never do.
+  it('FT-53: copies only a closed `reason` into the REMOTE_DELETE_ATTEMPTED 409 and keeps code and error unchanged', async () => {
+    const domainService = { cancelQueueDeletion: vi.fn() };
+    const h = await createHarness({ domainService });
+    const cancel = () => h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete/cancel', headers: h.headers, payload: { confirm: true } });
+    for (const reason of ['authorization_required', 'verification_unavailable', 'reward_absent', 'reward_diverged', 'reward_not_paused']) {
+      domainService.cancelQueueDeletion.mockRejectedValueOnce(Object.assign(new Error('private detail'), { code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', reason }));
+      const response = await cancel();
+      expect(response.statusCode, reason).toBe(409);
+      expect(response.json(), reason).toEqual({ code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', error: expect.any(String), reason });
+    }
+    for (const reason of ['queue_deletion_cancel_verification_unavailable', 'Bearer abc', '', 42, null, undefined, { a: 1 }]) {
+      domainService.cancelQueueDeletion.mockRejectedValueOnce(Object.assign(new Error('private detail'), { code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', reason }));
+      const response = await cancel();
+      expect(response.statusCode).toBe(409);
+      expect(Object.keys(response.json()).sort(), String(reason)).toEqual(['code', 'error']);
+    }
+    domainService.cancelQueueDeletion.mockRejectedValueOnce(Object.assign(new Error('x'), { code: 'QUEUE_DELETION_NOT_PENDING', reason: 'authorization_required' }));
+    expect(Object.keys((await cancel()).json()).sort()).toEqual(['code', 'error']);
+  });
+
   // OPS-22 FT-36 (#100), U36-03: every refusal of "cancel deletion" is a 409 with an enumerated `code`; a 2xx
   // `not_cancelled` carries an enumerated `reason` (the legacy one is answered with its alias); the old 200 `already_deleted`
   // is gone.

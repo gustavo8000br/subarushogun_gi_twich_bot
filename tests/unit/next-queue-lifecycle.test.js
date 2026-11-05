@@ -102,6 +102,25 @@ describe('FT-23 cancel-deletion outcome mapper (ux-plan 3.4)', () => {
     expect(outcome.element).toBe('alert');
   });
 
+  // OPS-22 FT-53 (UX plan 2.2): the specific text only for the allowlisted `reason`; the reason itself is never rendered.
+  it('FT-53: reason authorization_required selects the reauthorize text, in the alert, with the connection action', () => {
+    const outcome = getQueueLifecycleOutcome({ action: 'cancel-delete', error: { code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', status: 409, reason: 'authorization_required' }, queue: rewardQueue });
+    expect(outcome).toMatchObject({ key: 'panel.queue.delete.cancel.remote_delete_attempted_reauthorize', element: 'alert', action: 'connection' });
+  });
+
+  it.each([
+    ['verification_unavailable'], ['reward_absent'], ['reward_diverged'], ['reward_not_paused'],
+    [undefined], [null], [''], ['Authorization_Required'], ['toString'], ['__proto__'], [42], [{ authorization_required: true }], [['authorization_required']],
+  ])('FT-53: reason %j keeps the generic possibly-sent text', (reason) => {
+    const outcome = getQueueLifecycleOutcome({ action: 'cancel-delete', error: { code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', status: 409, reason }, queue: rewardQueue });
+    expect(outcome).toMatchObject({ key: 'panel.queue.delete.cancel.remote_delete_attempted', element: 'alert', action: 'operations' });
+  });
+
+  it('FT-53: a reason on any other code never selects the reauthorize text', () => {
+    const outcome = getQueueLifecycleOutcome({ action: 'cancel-delete', error: { code: 'QUEUE_DELETION_NOT_PENDING', status: 409, reason: 'authorization_required' }, queue: rewardQueue });
+    expect(outcome.key).toBe('panel.queue.delete.cancel.stale');
+  });
+
   it('U23-05: the real 409 codes of the FT-36 API are all known (none falls back to the generic text)', () => {
     for (const code of ['QUEUE_DELETION_ALREADY_COMPLETED', 'QUEUE_DELETION_PAUSE_IN_PROGRESS', 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED']) {
       expect(getQueueLifecycleFailureFeedback({ code, status: 409 }, { action: 'cancel-delete' }).key).not.toBe('panel.error.generic');

@@ -6,7 +6,7 @@ const LIFECYCLE_ACTIONS = new Set(['delete', 'cancel-delete', 'manual-mode', 'un
 const SAFE_REFERENCE = /^[A-Za-z0-9_.-]{1,64}$/;
 const safeReference = (value) => (typeof value === 'string' && SAFE_REFERENCE.test(value) ? value : null);
 
-/** @param {{code?:string,referenceId?:string,status?:number}|null|undefined} error @param {{action?:string}} [context] */
+/** @param {{code?:string,referenceId?:string,status?:number,reason?:string}|null|undefined} error @param {{action?:string}} [context] */
 export function getQueueLifecycleFailureFeedback(error, { action } = {}) {
   const referenceId = safeReference(error?.referenceId);
   const uncertain = error?.code !== 'SESSION_INITIALIZATION_FAILED'
@@ -31,6 +31,10 @@ export function getQueueLifecycleFailureFeedback(error, { action } = {}) {
     QUEUE_DELETION_CANCELLATION_UNVERIFIED: 'panel.queue.delete.cancel.unverified',
     QUEUE_NOT_FOUND: 'panel.error.queue_not_found',
   };
+  // FT-53: the specific text only for the allowlisted `reason`; the reason string itself is never rendered.
+  if (error?.code === 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED' && error?.reason === 'authorization_required') {
+    return { status: 'error', key: 'panel.queue.delete.cancel.remote_delete_attempted_reauthorize', uncertain: false };
+  }
   const key = Object.hasOwn(knownKeys, error?.code) ? knownKeys[error?.code] : null;
   if (key) return { status: 'error', key, uncertain: false };
 
@@ -55,6 +59,7 @@ const OUTCOME_ACTIONS = Object.freeze({
   'panel.queue.delete.cancel.reward_not_paused': 'operations',
   'panel.queue.delete.cancel.remote_delete_attempted': 'operations',
   'panel.queue.delete.cancel.authorization_required': 'connection',
+  'panel.queue.delete.cancel.remote_delete_attempted_reauthorize': 'connection',
 });
 const CANCEL_REASON_KEYS = Object.freeze({
   queue_delete_reward_absent: 'panel.queue.delete.cancel.reward_absent',

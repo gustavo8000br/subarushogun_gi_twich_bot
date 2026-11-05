@@ -516,7 +516,7 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
       // OPS-22 FT-36, Orion decision (option A, 2026-11-04): a non-conclusive read after a possibly-sent DELETE is a
       // 409 refusal; the task is restored to its previous status (`unknown` here) and the read is audited with the actor.
       expect(uncertainCancel.statusCode).toBe(409);
-      expect(uncertainCancel.json()).toMatchObject({ code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED' });
+      expect(uncertainCancel.json()).toMatchObject({ code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', reason: 'verification_unavailable' }); // FT-53 AC-F53-2
       expect(uncertainCancel.body).not.toContain('private adapter failure');
       expect(await prisma.queue.findUnique({ where: { id: uncertainQueue.id } }))
         .toMatchObject({ lifecycleStatus: 'deleting', remoteSyncStatus: 'delete_unknown', isOpen: false });
@@ -550,6 +550,34 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
           { event: 'queue.deletion_cancel_verification_requested', actorId, previousState: 'unknown', nextState: 'cancel_verification' },
           { event: 'queue.deletion_cancelled', nextState: 'active_closed_archived' },
         ]);
+
+      // FT-53 (AC-F53-1): a 401 on the cancel read after a possibly-sent DELETE is the same 409 plus `reason: authorization_required`.
+      const unauthorizedQueue = await seedQraQueue(prisma, {
+        slugPrefix: 'qra-delete-cancel-401',
+        queue: {
+          lifecycleStatus: 'deleting', isArchived: true, isOpen: false,
+          remoteSyncStatus: 'delete_unknown', rewardId: `managed-401-${randomUUID()}`,
+        },
+        entries: [],
+      });
+      await prisma.outbox.create({
+        data: {
+          operationType: 'reward.delete', entityType: 'queue', entityId: unauthorizedQueue.id,
+          idempotencyKey: `queue:${unauthorizedQueue.id}:reward.delete`, payload: { requestMayHaveReachedTwitch: true },
+          status: 'unknown', lastError: 'network_timeout',
+        },
+      });
+      getReward.mockRejectedValueOnce(Object.assign(new Error('private adapter failure Bearer canary-token-401 uid-9988'), { statusCode: 401 }));
+      const unauthorizedCancel = await app.inject({
+        method: 'POST',
+        url: `/api/queues/${unauthorizedQueue.id}/delete/cancel`,
+        headers: { ...headers, 'idempotency-key': randomUUID() },
+        payload: { confirm: true },
+      });
+      expect(unauthorizedCancel.statusCode).toBe(409);
+      expect(unauthorizedCancel.json()).toMatchObject({ code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', reason: 'authorization_required' });
+      expect(Object.keys(unauthorizedCancel.json()).sort()).toEqual(['code', 'error', 'reason']);
+      expect(unauthorizedCancel.body).not.toMatch(/private adapter failure|canary-token-401|uid-9988|Bearer/);
 
       const divergedQueue = await seedQraQueue(prisma, {
         slugPrefix: 'qra-delete-cancel-diverged',

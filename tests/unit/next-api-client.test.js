@@ -50,6 +50,22 @@ describe('Next same-origin API client', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  // OPS-22 FT-53: the additive `reason` of the possibly-sent DELETE 409 is the only extra field, and only from a closed list.
+  it('FT-53: keeps a closed `reason` only for QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED and drops free text', async () => {
+    const attempt = async (payload) => {
+      const fetchImpl = vi.fn()
+        .mockResolvedValueOnce(response({ csrfToken: 'c'.repeat(64) }))
+        .mockResolvedValueOnce(response(payload, { status: 409 }));
+      let failure;
+      try { await createApiClient({ fetchImpl }).request('/api/queues/q/delete/cancel', { method: 'POST', body: '{}' }); } catch (error) { failure = error; }
+      return failure;
+    };
+    expect((await attempt({ code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', reason: 'authorization_required' })).reason).toBe('authorization_required');
+    expect((await attempt({ code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', reason: 'Bearer secret-token' })).reason).toBeUndefined();
+    expect((await attempt({ code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', reason: { a: 1 } })).reason).toBeUndefined();
+    expect((await attempt({ code: 'QUEUE_DELETION_NOT_PENDING', reason: 'authorization_required' })).reason).toBeUndefined();
+  });
+
   it('allows only the same-origin health endpoint outside the API namespace', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(response({ status: 'ok' }));
     const api = createApiClient({ fetchImpl });

@@ -23,6 +23,18 @@ function decideTransition({ entry, queue, input }) {
 }
 
 /**
+ * OPS-22 FT-53: internal failure code -> CLOSED public `reason` of the 409 QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED.
+ * Anything outside this table is omitted, so free text can never reach the response.
+ */
+export const QUEUE_DELETION_REMOTE_DELETE_REASONS = Object.freeze({
+  authorization_required: 'authorization_required',
+  queue_deletion_cancel_verification_unavailable: 'verification_unavailable',
+  queue_delete_reward_absent: 'reward_absent',
+  queue_delete_reward_diverged: 'reward_diverged',
+  queue_delete_cancel_reward_not_paused: 'reward_not_paused',
+});
+
+/**
  * Coordinates entry lifecycle decisions with the repository's short transaction.
  * The repository supplies the locked entry and queue policy snapshot before any write.
  * @param {Dependencies} dependencies
@@ -72,7 +84,8 @@ export function createQueueDomainService({ repository, getTwitch = () => null })
         // Orion decision (2026-10-30): after a possibly-sent DELETE only a positive read may cancel; anything else is a
         // refusal, raised AFTER the task was restored (or set unknown) and the read was audited.
         if (reservation.requestMayHaveReachedTwitch === true) {
-          throw Object.assign(new Error('The reward delete may have reached Twitch'), { code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED' });
+          const reason = Object.hasOwn(QUEUE_DELETION_REMOTE_DELETE_REASONS, errorCode) ? QUEUE_DELETION_REMOTE_DELETE_REASONS[errorCode] : undefined;
+          throw Object.assign(new Error('The reward delete may have reached Twitch'), { code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', ...(reason ? { reason } : {}) });
         }
         return result;
       };

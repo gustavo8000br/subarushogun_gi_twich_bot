@@ -1,3 +1,4 @@
+import { QUEUE_DELETION_REMOTE_DELETE_REASONS } from '../domain/queue-service.mjs';
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { createHash } from 'node:crypto';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES, resolveCommandPolicy } from '../commands/catalog.mjs';
@@ -800,7 +801,9 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       if (code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code, error: 'Fila não encontrada.' });
       // OPS-22 FT-36 (architect-review-ft36 §1.5): every refusal is a 409 with an enumerated `code`; the panel maps by code.
       if ([...QUEUE_DELETION_CANCEL_REFUSALS, 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', 'QUEUE_DELETION_CANCELLATION_STALE', 'QUEUE_DELETION_CANCELLATION_UNVERIFIED'].includes(code)) {
-        return reply.code(409).send({ code, error: 'Não foi possível cancelar a exclusão neste estado. Atualize o painel e revise a operação da reward.' });
+        // FT-53: additive, closed `reason` only for the possibly-sent DELETE refusal (`code` and `error` unchanged).
+        const reason = code === 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED' && typeof error.reason === 'string' && REMOTE_DELETE_PUBLIC_REASONS.has(error.reason) ? error.reason : null;
+        return reply.code(409).send({ code, error: 'Não foi possível cancelar a exclusão neste estado. Atualize o painel e revise a operação da reward.', ...(reason ? { reason } : {}) });
       }
       return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.delete_cancel', error, message: 'Não foi possível verificar o cancelamento da exclusão.' });
     }
@@ -824,6 +827,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   });
 }
 
+const REMOTE_DELETE_PUBLIC_REASONS = new Set(Object.values(QUEUE_DELETION_REMOTE_DELETE_REASONS));
 function safePrompt(value) { return typeof value === 'string' ? value.trim().slice(0, 180) : ''; }
 function validCallMessage(value) { return typeof value === 'string' && value.length <= 350 ? value : '{user}, sua vez!'; }
 function userError(error) {

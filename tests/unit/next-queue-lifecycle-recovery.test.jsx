@@ -20,10 +20,12 @@ const state = { product_version: '0.2.0-beta', account: { label: 'Streamer' }, p
 const bundle = { locales: ['pt-BR'], modules: { panel: { catalogs: { 'pt-BR': {} } } } };
 
 function LifecycleConsumer() {
-  const { runQueueLifecycleAction, status } = usePanel();
+  const { runQueueLifecycleAction, status, panelOutcome, reportQueueOutcome } = usePanel();
   const [result, setResult] = useState(null);
   return <>
     <button type="button" disabled={status !== 'ready'} onClick={async () => setResult(await runQueueLifecycleAction('queue-1', 'cancel-delete'))}>Cancelar exclusão</button>
+    <button type="button" onClick={() => reportQueueOutcome({ action: 'cancel-delete', queue, invokerId: 'x', error: { code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', status: 409, reason: 'authorization_required' } })}>Seed outcome</button>
+    <output data-testid="outcome-key">{panelOutcome?.key ?? 'none'}</output>
     <output data-testid="lifecycle-result">{JSON.stringify(result)}</output>
   </>;
 }
@@ -46,5 +48,43 @@ describe('Next lifecycle provider error recovery', () => {
 
     expect((await screen.findByTestId('lifecycle-result')).textContent).toContain('panel.queue.delete.cancel.processing');
     expect(apiClient.request).toHaveBeenCalledWith('/api/queues/queue-1/delete/cancel', expect.objectContaining({ method: 'POST' }));
+  });
+
+  // OPS-22 FT-53 (UX 2.2): the provider turns a 409 with reason authorization_required into the reauthorize text key,
+  // clears the previous outcome when the cancel starts, and never renders the reason.
+  it('FT-53: maps the possibly-sent DELETE 409 with reason authorization_required to the reauthorize feedback', async () => {
+    apiClient.request.mockImplementation(async (path) => {
+      if (path === '/api/localization/catalogs') return bundle;
+      if (path === '/api/state') return state;
+      if (path === '/api/setup' || path === '/health') return {};
+      if (path === '/api/queues') return [queue];
+      if (path === '/api/queues/queue-1/delete/cancel') {
+        throw Object.assign(new Error('private API details'), { code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', status: 409, reason: 'authorization_required' });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    render(<PanelProvider fallbackCatalog={{ 'pt-BR': {} }}><LifecycleConsumer /></PanelProvider>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancelar exclusão' }));
+    const text = (await screen.findByTestId('lifecycle-result')).textContent;
+    expect(text).toContain('panel.queue.delete.cancel.remote_delete_attempted_reauthorize');
+    expect(text).not.toContain('private API details');
+  });
+
+  it('FT-53: starting a cancel clears the previous refusal so a repeated identical alert is a fresh insertion', async () => {
+    let release;
+    apiClient.request.mockImplementation(async (path) => {
+      if (path === '/api/localization/catalogs') return bundle;
+      if (path === '/api/state') return state;
+      if (path === '/api/setup' || path === '/health') return {};
+      if (path === '/api/queues') return [queue];
+      if (path === '/api/queues/queue-1/delete/cancel') await new Promise((resolve) => { release = resolve; });
+      return { status: 'cancelled', queue };
+    });
+    render(<PanelProvider fallbackCatalog={{ 'pt-BR': {} }}><LifecycleConsumer /></PanelProvider>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Seed outcome' }));
+    expect(screen.getByTestId('outcome-key').textContent).toBe('panel.queue.delete.cancel.remote_delete_attempted_reauthorize');
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancelar exclusão' }));
+    await vi.waitFor(() => expect(screen.getByTestId('outcome-key').textContent).toBe('none'));
+    release();
   });
 });

@@ -824,6 +824,7 @@ panel.queue.delete.cancel.reward_not_paused	O cancelamento não foi confirmado p
 panel.queue.delete.cancel.authorization_required	A Twitch recusou a autorização, então a recompensa não pôde ser lida e a exclusão não foi cancelada. Reconecte o canal na página Conexão Twitch e tente de novo.
 panel.queue.delete.cancel.pause_in_progress	A recompensa ainda está sendo pausada na Twitch, então a exclusão ainda não foi cancelada. Aguarde alguns segundos e tente de novo.
 panel.queue.delete.cancel.remote_delete_attempted	O pedido para excluir a recompensa pode já ter chegado à Twitch, e a leitura não confirmou que ela existe e está pausada. Por segurança a exclusão não foi cancelada. Deixe-a terminar ou revise as operações.
+panel.queue.delete.cancel.remote_delete_attempted_reauthorize	O pedido para excluir a recompensa pode ter chegado à Twitch, mas a Twitch recusou a autorização e não foi possível conferir se ela ainda existe. A exclusão não foi cancelada. Reautorize o canal na página Conexão Twitch, atualize o painel e confira a fila antes de tentar cancelar de novo.
 panel.outcome.dismiss	Dispensar a mensagem
 panel.outcome.action.refresh	Atualizar filas
 panel.outcome.refreshed	Filas atualizadas.
