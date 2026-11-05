@@ -775,22 +775,21 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
           { event: 'queue.manual_mode_confirmed', origin: 'reconciliation', nextState: 'manual_only' },
         ]);
 
-      const archiveQueue = await seedQraQueue(prisma, { slugPrefix: 'qra-archive', entries: [] });
-      const archiveResponse = await app.inject({
+      // FT-41 (wave 5): QRA-18 is retired; the route answers the generic JSON 404 and changes nothing.
+      const retiredArchiveQueue = await seedQraQueue(prisma, { slugPrefix: 'qra-archive', entries: [] });
+      const retiredArchiveResponse = await app.inject({
         method: 'POST',
-        url: `/api/queues/${archiveQueue.id}/archive`,
+        url: `/api/queues/${retiredArchiveQueue.id}/archive`,
         headers: { ...headers, 'idempotency-key': randomUUID() },
         payload: {},
       });
-      expect(archiveResponse.statusCode).toBe(200);
-      expect(archiveResponse.json()).toMatchObject({
-        status: 'pending',
-        queue: { id: archiveQueue.id, lifecycleStatus: 'active', isArchived: true, isOpen: false, remoteSyncStatus: 'pending_close', version: 2 },
-      });
-      expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `queue:${archiveQueue.id}:reward.archive:2` } }))
-        .toMatchObject({ operationType: 'reward.set_open', status: 'pending', payload: { isOpen: false, queueVersion: 2, archiveAfterConfirm: true } });
-      expect(await prisma.auditLog.findMany({ where: { queueId: archiveQueue.id, event: 'queue.archive_requested', actorId } }))
-        .toMatchObject([{ previousState: 'active', nextState: 'archived_pending_pause' }]);
+      expect(retiredArchiveResponse.statusCode).toBe(404);
+      expect(retiredArchiveResponse.headers['content-type']).toMatch(/^application\/json/);
+      expect(retiredArchiveResponse.json()).toMatchObject({ statusCode: 404, error: 'Not Found' });
+      expect(await prisma.queue.findUnique({ where: { id: retiredArchiveQueue.id } }))
+        .toMatchObject({ isArchived: false, remoteSyncStatus: 'synced', version: 1 });
+      expect(await prisma.outbox.count({ where: { entityId: retiredArchiveQueue.id } })).toBe(0);
+      expect(await prisma.auditLog.count({ where: { queueId: retiredArchiveQueue.id } })).toBe(0);
 
       const localArchiveQueue = await seedQraQueue(prisma, {
         slugPrefix: 'qra-local-archive',

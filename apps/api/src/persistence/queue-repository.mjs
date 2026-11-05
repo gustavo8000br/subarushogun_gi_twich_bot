@@ -719,29 +719,6 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       });
     },
 
-    async archiveQueue({ queueId, actorId = null, origin = 'panel' }) {
-      return withQueueTransaction(prisma, queueId, async (tx) => {
-        const queue = await tx.queue.findUnique({ where: { id: queueId } });
-        if (!queue || queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be archived');
-        if (queue.isArchived) return { status: queue.remoteSyncStatus === 'pending_close' ? 'pending' : 'archived', queue };
-        if (queue.queueMode === 'manual_only') {
-          const archived = await tx.queue.update({ where: { id: queueId }, data: { isArchived: true, isOpen: false, version: { increment: 1 } } });
-          await tx.auditLog.create({ data: { queueId, event: 'queue.archived', actorId, origin, previousState: 'active', nextState: 'archived', reason: 'local_queue_archived', safeDetail: { remoteSyncStatus: 'local_only' } } });
-          return { status: 'archived', queue: archived };
-        }
-        if (!queue.rewardId || !['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) throw repositoryError('QUEUE_REWARD_NOT_READY', 'Queue reward is not ready to archive');
-        const nextVersion = queue.version + 1;
-        const archived = await tx.queue.update({ where: { id: queueId }, data: { isArchived: true, isOpen: false, remoteSyncStatus: 'pending_close', version: nextVersion } });
-        await tx.outbox.create({ data: {
-          operationType: 'reward.set_open', entityType: 'queue', entityId: queueId,
-          idempotencyKey: `queue:${queueId}:reward.archive:${nextVersion}`,
-          payload: { isOpen: false, queueVersion: nextVersion, archiveAfterConfirm: true, requestMayHaveReachedTwitch: false },
-        } });
-        await tx.auditLog.create({ data: { queueId, event: 'queue.archive_requested', actorId, origin, previousState: 'active', nextState: 'archived_pending_pause', reason: 'queue_archive_requested', safeDetail: { rewardId: queue.rewardId } } });
-        return { status: 'pending', queue: archived };
-      });
-    },
-
     async beginLocalQueueArchive({ queueId, actorId = null, expectedVersion }) {
       if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw repositoryError('INVALID_LOCAL_ARCHIVE_CHALLENGE', 'Local archive confirmation is invalid');
       return withQueueTransaction(prisma, queueId, async (tx) => {

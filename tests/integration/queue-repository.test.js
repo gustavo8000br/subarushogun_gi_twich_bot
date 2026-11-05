@@ -1519,31 +1519,6 @@ describe('PostgreSQL queue repository', () => {
     expect(await prisma.outbox.count({ where: { operationType: 'reward.set_open', entityId: queue.id } })).toBe(1);
   });
 
-  it('archives an open queue with a durable pause intent and preserves active entries', async () => {
-    const queue = await repository.createQueue({ slug: `archive-${randomUUID().slice(0, 8)}`, title: 'Archive', cost: 1 });
-    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, remoteSyncStatus: 'synced', isOpen: true } });
-    const entry = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `archive-user-${randomUUID()}`, userLogin: 'archiveuser', displayName: 'Archive User' });
-
-    const result = await repository.archiveQueue({ queueId: queue.id, actorId: 'operator-archive' });
-
-    expect(result).toMatchObject({ status: 'pending', queue: { isArchived: true, isOpen: false, remoteSyncStatus: 'pending_close' } });
-    expect(await prisma.outbox.findFirst({ where: { operationType: 'reward.set_open', entityId: queue.id } })).toMatchObject({ status: 'pending', payload: { isOpen: false, archiveAfterConfirm: true } });
-    expect(await repository.getEntry(entry.entry.id)).toMatchObject({ status: 'waiting', position: 1 });
-    await expect(repository.addManualEntry({ queueId: queue.id, twitchUserId: 'other-archive-user', userLogin: 'other', displayName: 'Other' }))
-      .rejects.toMatchObject({ code: 'QUEUE_NOT_AVAILABLE' });
-  });
-
-  it('archives an already closed reward queue through a durable remote stock and pause confirmation', async () => {
-    const queue = await repository.createQueue({ slug: `archive-closed-${randomUUID().slice(0, 8)}`, title: 'Archive closed', cost: 1 });
-    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId: `managed-${randomUUID()}`, rewardOrigin: 'bot_created', remoteSyncStatus: 'synced', isOpen: false } });
-
-    const result = await repository.archiveQueue({ queueId: queue.id, actorId: 'operator-archive' });
-    const task = await prisma.outbox.findFirst({ where: { operationType: 'reward.set_open', entityId: queue.id } });
-
-    expect(result).toMatchObject({ status: 'pending', queue: { isArchived: true, isOpen: false, remoteSyncStatus: 'pending_close' } });
-    expect(task).toMatchObject({ status: 'pending', payload: { isOpen: false, archiveAfterConfirm: true } });
-  });
-
   it('keeps archived queue entries callable while blocking new entries', async () => {
     const queue = await repository.createQueue({ slug: `archive-call-${randomUUID().slice(0, 8)}`, title: 'Archive call', cost: 1 });
     const entry = await repository.addManualEntry({ queueId: queue.id, twitchUserId: `archive-call-user-${randomUUID()}`, userLogin: 'archivecaller', displayName: 'Archive Caller' });

@@ -897,31 +897,38 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
-  it('archives and unarchives queues through explicit protected routes', async () => {
+  it('FT-41 AC-41-1: the retired archive route answers the generic JSON 404 and never reaches the repository', async () => {
     const h = await createHarness();
     h.repository.archiveQueue = vi.fn(async () => ({ status: 'pending', queue: { id: 'queue-id', isArchived: true, isOpen: false, lifecycleStatus: 'active' } }));
-    h.repository.unarchiveQueue = vi.fn(async () => ({ status: 'unarchived', queue: { id: 'queue-id', isArchived: false, isOpen: false, lifecycleStatus: 'active' } }));
 
-    const archived = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive', headers: h.headers, payload: {} });
-    expect(archived.statusCode).toBe(200);
-    expect(archived.json()).toMatchObject({ status: 'pending', queue: { isArchived: true } });
-    expect(h.repository.archiveQueue).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' });
+    const withSession = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive', headers: h.headers, payload: {} });
+    const withoutSession = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive', headers: { host: 'localhost:3000' }, payload: {} });
+
+    expect(withSession.statusCode).toBe(404);
+    expect(withSession.headers['content-type']).toMatch(/^application\/json/);
+    expect(withSession.json()).toMatchObject({ statusCode: 404, error: 'Not Found' });
+    // Without a session the global guard still answers first: the retired route is never a way around it.
+    expect(withoutSession.statusCode).toBe(401);
+    for (const response of [withSession, withoutSession]) {
+      expect(response.body).not.toMatch(/<html|<!doctype/i);
+      expect(response.body).not.toContain('"queue"');
+    }
+    expect(h.repository.archiveQueue).not.toHaveBeenCalled();
+    // The neighbouring kept routes are unaffected.
+    h.repository.unarchiveQueue = vi.fn(async () => ({ status: 'unarchived', queue: { id: 'queue-id', isArchived: false, isOpen: false, lifecycleStatus: 'active' } }));
     const unarchived = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/unarchive', headers: h.headers, payload: {} });
     expect(unarchived.statusCode).toBe(200);
-    expect(unarchived.json()).toMatchObject({ status: 'unarchived', queue: { isArchived: false, isOpen: false } });
     await h.app.close();
   });
 
-  it.each(['QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY'])('returns a stable archive conflict for %s without exposing private details', async (code) => {
+  it('unarchives queues through an explicit protected route', async () => {
     const h = await createHarness();
-    h.repository.archiveQueue = vi.fn(async () => { throw Object.assign(new Error('private archive state details'), { code }); });
+    h.repository.unarchiveQueue = vi.fn(async () => ({ status: 'unarchived', queue: { id: 'queue-id', isArchived: false, isOpen: false, lifecycleStatus: 'active' } }));
 
-    const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive', headers: h.headers, payload: {} });
-
-    expect(response.statusCode).toBe(409);
-    expect(response.json()).toEqual({ error: 'Não foi possível arquivar a fila neste estado. Verifique a sincronização da recompensa.' });
-    expect(response.body).not.toContain('private archive state details');
-    expect(h.repository.archiveQueue).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', actorId: expect.any(String), origin: 'panel' }));
+    const unarchived = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/unarchive', headers: h.headers, payload: {} });
+    expect(unarchived.statusCode).toBe(200);
+    expect(unarchived.json()).toMatchObject({ status: 'unarchived', queue: { isArchived: false, isOpen: false } });
+    expect(h.repository.unarchiveQueue).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' });
     await h.app.close();
   });
 
@@ -1378,30 +1385,28 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
-  it('correlates unexpected failures from queue open, archive, unarchive, and mode-switch actions', async () => {
+  it('correlates unexpected failures from queue open, unarchive, and mode-switch actions', async () => {
     const reportDiagnostic = vi.fn(({ source }) => `33333333-3333-4333-8333-${source.endsWith('archive') ? '333333333331' : '333333333332'}`);
     const h = await createHarness({ reportDiagnostic });
     const failure = new Error('secret database and Twitch details');
     h.repository.setQueueOpen = vi.fn().mockRejectedValue(failure);
-    h.repository.archiveQueue = vi.fn().mockRejectedValue(failure);
     h.repository.unarchiveQueue = vi.fn().mockRejectedValue(failure);
     h.repository.requestManualModeTransition = vi.fn().mockRejectedValue(failure);
 
     const results = await Promise.all([
       h.app.inject({ method: 'POST', url: '/api/queues/queue-id/open-state', headers: h.headers, payload: { isOpen: true } }),
-      h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive', headers: h.headers, payload: {} }),
       h.app.inject({ method: 'POST', url: '/api/queues/queue-id/unarchive', headers: h.headers, payload: {} }),
       h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-mode', headers: h.headers, payload: {} }),
     ]);
 
-    expect(results.map(({ statusCode }) => statusCode)).toEqual([500, 503, 503, 500]);
+    expect(results.map(({ statusCode }) => statusCode)).toEqual([500, 503, 500]);
     for (const response of results) {
       expect(response.headers['x-error-reference']).toMatch(/^[0-9a-f-]{36}$/i);
       expect(response.body).not.toMatch(/secret database|Twitch details/);
     }
-    expect(reportDiagnostic).toHaveBeenCalledTimes(4);
+    expect(reportDiagnostic).toHaveBeenCalledTimes(3);
     expect(reportDiagnostic.mock.calls.map(([event]) => event.source)).toEqual(expect.arrayContaining([
-      'http.queue.open_state', 'http.queue.archive', 'http.queue.unarchive', 'http.queue.manual_mode',
+      'http.queue.open_state', 'http.queue.unarchive', 'http.queue.manual_mode',
     ]));
     await h.app.close();
   });

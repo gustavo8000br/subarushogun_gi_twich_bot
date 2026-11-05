@@ -700,18 +700,6 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       return reply.code(status).send({ ...(code ? { code } : {}), error: userError(error) });
     }
   });
-  app.post('/api/queues/:queueId/archive', async (request, reply) => {
-    /** @type {any} */
-    const localRequest = request;
-    try {
-      const result = await repository.archiveQueue({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
-      return { status: result.status, queue: queueDto(result.queue, { operator: true }) };
-    } catch (error) {
-      if (error?.code === 'QUEUE_NOT_AVAILABLE' || error?.code === 'QUEUE_REWARD_NOT_READY') return reply.code(409)
-        .send({ error: 'Não foi possível arquivar a fila neste estado. Verifique a sincronização da recompensa.' });
-      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.archive', error, message: 'Não foi possível arquivar a fila neste estado. Verifique a sincronização da recompensa.' });
-    }
-  });
   app.post('/api/queues/:queueId/archive-local/challenge', async (request, reply) => {
     /** @type {any} */
     const localRequest = request;
