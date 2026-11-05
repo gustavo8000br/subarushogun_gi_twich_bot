@@ -9,6 +9,7 @@ const MODULE_PLACEHOLDERS = Object.freeze({
   chat: Object.freeze({
     'chat.account.current': Object.freeze(['label']),
     'chat.ping.response': Object.freeze(['version', 'latency']),
+    'chat.ping.error': Object.freeze(['version', 'code']),
     'chat.queue.position': Object.freeze(['user', 'position']),
     'chat.queue.viewer_called': Object.freeze(['user']),
     'chat.queue.presence_confirmed': Object.freeze(['user']),

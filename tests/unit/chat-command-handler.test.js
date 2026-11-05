@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createChatCommandHandler } from '../../apps/api/src/commands/chat-handler.mjs';
 import { createClearConfirmationService } from '../../apps/api/src/domain/clear-confirmation.mjs';
-import * as healthRoute from '../../apps/api/src/health-route.mjs';
 
-function setup({ getTwitchHealth } = {}) {
+function setup({ probeTwitchApi } = {}) {
   const repository = {
     getQueueByKey: vi.fn(async () => ({ id: 'queue-1', slug: 'abismo', title: 'Abismo', uidMode: 'hidden', showUidInList: false, isOpen: true })),
     listQueueProjection: vi.fn(async () => [{ slug: 'abismo', title: 'Abismo', isOpen: true }]),
@@ -24,8 +23,8 @@ function setup({ getTwitchHealth } = {}) {
     callNext: vi.fn(async () => [{ id: 'entry-1', twitchUserId: 'viewer-1', userLogin: 'viewer', displayName: 'Viewer', previousPosition: 1, status: 'called' }]),
   };
   const clearConfirmation = createClearConfirmationService({ repository });
-  const healthReader = getTwitchHealth ?? vi.fn(() => ({ status: 'connected', pingMs: 82 }));
-  return { handler: createChatCommandHandler({ repository, domainService, twitch, settings, clearConfirmation, broadcasterId: 'broadcaster-1', productVersion: 'v0.4.0-1234567-alpha', getTwitchHealth: healthReader }), repository, domainService, twitch, settings, getTwitchHealth: healthReader };
+  const probe = probeTwitchApi ?? vi.fn(async () => ({ state: 'ok', ms: 82 }));
+  return { handler: createChatCommandHandler({ repository, domainService, twitch, settings, clearConfirmation, broadcasterId: 'broadcaster-1', productVersion: 'v0.3.0-1234567-beta', probeTwitchApi: probe }), repository, domainService, twitch, settings, probeTwitchApi: probe };
 }
 
 describe('Twitch chat command handler', () => {
@@ -99,7 +98,7 @@ describe('Twitch chat command handler', () => {
     await h.handler({ id: 'localized-ping', text: '!queue ping', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
     await h.handler({ id: 'wrong-locale-root', text: '!fila ping', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
     expect(h.repository.getProductLocale).toHaveBeenCalledTimes(2);
-    expect(h.getTwitchHealth).toHaveBeenCalledTimes(1);
+    expect(h.probeTwitchApi).toHaveBeenCalledTimes(1);
     expect(h.twitch.sendChatMessage).toHaveBeenCalledTimes(1);
     expect(h.twitch.sendChatMessage).toHaveBeenCalledWith(expect.stringContaining('Pong 🏓'));
   });
@@ -446,31 +445,53 @@ describe('Twitch chat command handler', () => {
     });
   });
 
-  it('answers global ping for a moderator using cached health and the running version', async () => {
-    const h = setup();
-    await h.handler({ id: 'ping-mod', text: '!fila ping', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
-    expect(h.getTwitchHealth).toHaveBeenCalledOnce();
-    expect(h.twitch.sendChatMessage).toHaveBeenCalledWith('Pong 🏓 Bot ativo · v0.4.0-1234567-alpha · Twitch: 82 ms');
+  const pingMessage = { text: '!fila ping', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] };
+
+  it('AC-D8-1: a moderator ping answers with the shared measurement and the version without the commit segment', async () => {
+    const h = setup({ probeTwitchApi: vi.fn(async () => ({ state: 'ok', ms: 219 })) });
+    await h.handler({ id: 'ping-mod', ...pingMessage });
+    expect(h.probeTwitchApi).toHaveBeenCalledOnce();
+    expect(h.twitch.sendChatMessage).toHaveBeenCalledWith('Pong 🏓 - v0.3.0-beta - 219ms.');
+    expect(h.twitch.sendChatMessage.mock.calls[0][0]).not.toMatch(/indispon/i);
     expect(h.repository.getQueueByKey).not.toHaveBeenCalled();
     expect(h.twitch.getUserByLogin).not.toHaveBeenCalled();
   });
 
-  it('lets a chat handler created before health registration read the attached cached Twitch latency', async () => {
-    expect(healthRoute.createTwitchHealthBridge).toBeTypeOf('function');
-    const bridge = healthRoute.createTwitchHealthBridge();
-    const h = setup({ getTwitchHealth: bridge.read });
-    await h.handler({ id: 'ping-before-health', text: '!fila ping', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
-    expect(h.twitch.sendChatMessage).toHaveBeenLastCalledWith(expect.stringContaining('Twitch: latência indisponível'));
+  it('AC-D8-2 / AC-D8-8: a probe that fails or a Twitch not connected answers the error form with a closed code and no number', async () => {
+    const failed = setup({ probeTwitchApi: vi.fn(async () => ({ state: 'failed', code: 'TWITCH_PROBE_FAILED' })) });
+    await failed.handler({ id: 'ping-failed', ...pingMessage });
+    expect(failed.twitch.sendChatMessage).toHaveBeenCalledWith('Pong 🏓 - v0.3.0-beta - sem medição da Twitch (TWITCH_PROBE_FAILED).');
+    const offline = setup({ probeTwitchApi: vi.fn(async () => ({ state: 'not_connected', code: 'TWITCH_NOT_CONNECTED' })) });
+    await offline.handler({ id: 'ping-offline', ...pingMessage });
+    expect(offline.twitch.sendChatMessage).toHaveBeenCalledWith('Pong 🏓 - v0.3.0-beta - sem medição da Twitch (TWITCH_NOT_CONNECTED).');
+  });
 
-    bridge.attach(() => ({ status: 'connected', pingMs: 231 }));
-    await h.handler({ id: 'ping-after-health', text: '!fila ping', userId: 'mod-1', userLogin: 'mod', displayName: 'Mod', channelId: 'broadcaster-1', badges: [{ setId: 'moderator' }] });
-    expect(h.twitch.sendChatMessage).toHaveBeenLastCalledWith('Pong 🏓 Bot ativo · v0.4.0-1234567-alpha · Twitch: 231 ms');
+  it('AC-D8-2: a probe that throws or returns an unknown shape never prints raw errors or invented numbers', async () => {
+    const thrown = setup({ probeTwitchApi: vi.fn(async () => { throw new Error('secret helix body Bearer abc'); }) });
+    await thrown.handler({ id: 'ping-throw', ...pingMessage });
+    expect(thrown.twitch.sendChatMessage).toHaveBeenCalledWith('Pong 🏓 - v0.3.0-beta - sem medição da Twitch (TWITCH_PROBE_FAILED).');
+    const odd = setup({ probeTwitchApi: vi.fn(async () => ({ state: 'ok', ms: -5, code: 'Bearer abc' })) });
+    await odd.handler({ id: 'ping-odd', ...pingMessage });
+    const text = odd.twitch.sendChatMessage.mock.calls[0][0];
+    expect(text).toBe('Pong 🏓 - v0.3.0-beta - sem medição da Twitch (TWITCH_PROBE_FAILED).');
+  });
+
+  it('AC-D8-7: the discovered chat catalogs drive the ping reply (en)', async () => {
+    const h = setup();
+    h.repository.getProductLocale = vi.fn(async () => ({ locale: 'en', revision: 1 }));
+    h.handler = createChatCommandHandler({
+      repository: h.repository, domainService: h.domainService, twitch: h.twitch, settings: h.settings, broadcasterId: 'broadcaster-1',
+      productVersion: 'v0.3.0-1234567-beta', probeTwitchApi: async () => ({ state: 'failed', code: 'TWITCH_PROBE_FAILED' }),
+      getChatCatalogs: async () => ({ en: { 'chat.ping.error': 'Pong 🏓 - {version} - no Twitch measurement ({code}).' } }),
+    });
+    await h.handler({ id: 'ping-en', ...pingMessage, text: '!queue ping' });
+    expect(h.twitch.sendChatMessage).toHaveBeenLastCalledWith('Pong 🏓 - v0.3.0-beta - no Twitch measurement (TWITCH_PROBE_FAILED).');
   });
 
   it('does not read ping status or respond to an unauthorized viewer', async () => {
     const h = setup();
     await h.handler({ id: 'ping-viewer', text: '!fila ping', userId: 'viewer-1', userLogin: 'viewer', displayName: 'Viewer', channelId: 'broadcaster-1', badges: [] });
-    expect(h.getTwitchHealth).not.toHaveBeenCalled();
+    expect(h.probeTwitchApi).not.toHaveBeenCalled();
     expect(h.twitch.sendChatMessage).not.toHaveBeenCalled();
     expect(h.repository.getQueueByKey).not.toHaveBeenCalled();
   });

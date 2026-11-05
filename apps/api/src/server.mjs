@@ -4,7 +4,8 @@ import { readFile } from 'node:fs/promises';
 import { createDatabaseUrl } from '../../infra/src/database-url.mjs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
-import { createTwitchHealthBridge, registerHealthRoute } from './health-route.mjs';
+import { registerHealthRoute } from './health-route.mjs';
+import { createSharedApiProbe } from './twitch/shared-api-probe.mjs';
 import { registerLocalSession } from './http/local-session.mjs';
 import { registerQueueRoutes } from './http/queue-routes.mjs';
 import { createQueueRepository } from './persistence/queue-repository.mjs';
@@ -54,7 +55,12 @@ catch { process.stderr.write('Product locale host projection could not be synchr
 const overlayRepository = createOverlayWidgetRepository(prisma);
 const credentialRepository = createTwitchCredentialRepository(prisma);
 let runtime;
-const twitchHealthBridge = createTwitchHealthBridge();
+// D-8: ONE Twitch API measurement shared by /health and the `!fila ping` chat command (cache, single-flight, 5 s limit).
+const sharedApiProbe = createSharedApiProbe({
+  probe: () => runtime?.integration?.probeTwitchApi?.() ?? false,
+  getIntegrationStatus: () => runtime?.twitchStatus ?? 'connecting',
+  getEpoch: () => runtime?.integration?.probeEpoch ?? 0,
+});
 let overlayCatalogCache = null;
 let overlayCatalogCacheAt = 0;
 const getOverlayCatalogs = async () => {
@@ -75,7 +81,7 @@ const buildChatHandler = (broadcasterId) => createChatCommandHandler({
     getAccount: () => repository.getCurrentAccount(),
     setAccount: (label, actorId) => repository.setCurrentAccount(label, actorId),
     resetAccount: (actorId) => repository.resetCurrentAccount(actorId),
-  }, broadcasterId, productVersion, getTwitchHealth: twitchHealthBridge.read,
+  }, broadcasterId, productVersion, probeTwitchApi: () => sharedApiProbe.read(),
   getChatCatalogs: () => getCatalogModule('chat'),
   onError: () => undefined,
 });
@@ -88,16 +94,15 @@ registerLocalSession(app, {
     ? { developmentOrigin: process.env.PANEL_DEV_ORIGIN }
     : {}),
 });
-const healthRoute = registerHealthRoute(app, {
+registerHealthRoute(app, {
   pool,
   productVersion,
   getTwitchStatus: () => runtime?.twitchStatus ?? 'connecting',
   getTwitchChatStatus: () => runtime?.integration?.chatStatus ?? 'not_configured',
   getTwitchRewardStatus: () => runtime?.integration?.rewardStatus ?? 'unknown',
   getLastReconciliationAt: () => runtime?.integration?.lastReconciliationAt ?? null,
-  probeTwitchApi: () => runtime?.integration?.probeTwitchApi?.() ?? false,
+  sharedProbe: sharedApiProbe,
 });
-twitchHealthBridge.attach(healthRoute.getTwitchHealth);
 registerQueueRoutes(app, {
   repository,
   domainService: domainServiceProxy,

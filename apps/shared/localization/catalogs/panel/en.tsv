@@ -459,7 +459,7 @@ panel.command.description.global_conta_reset	Restore the default account label.
 panel.command.syntax.global_conta_reset	!queue account reset
 panel.command.description.global_queue_comandos	List the commands available to your role.
 panel.command.syntax.global_queue_comandos	!queue commands
-panel.command.description.global_queue_ping	Check the bot, its version, and Twitch latency.
+panel.command.description.global_queue_ping	Check the bot, its version, and Twitch latency. With no measurement, the reply shows a code: TWITCH_NOT_CONNECTED (channel not connected) or TWITCH_PROBE_FAILED (Twitch did not answer the measurement).
 panel.command.syntax.global_queue_ping	!queue ping
 panel.commands.unavailable	The command catalog is not available yet.
 panel.command.roles_for	Roles allowed to use

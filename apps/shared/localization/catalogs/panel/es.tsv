@@ -459,7 +459,7 @@ panel.command.description.global_conta_reset	Restaurar la cuenta predeterminada.
 panel.command.syntax.global_conta_reset	!cola cuenta reiniciar
 panel.command.description.global_queue_comandos	Listar los comandos disponibles para tu cargo.
 panel.command.syntax.global_queue_comandos	!cola comandos
-panel.command.description.global_queue_ping	Comprobar el bot, su versión y la latencia de Twitch.
+panel.command.description.global_queue_ping	Comprobar el bot, su versión y la latencia de Twitch. Sin medición, la respuesta muestra un código: TWITCH_NOT_CONNECTED (canal no conectado) o TWITCH_PROBE_FAILED (Twitch no respondió a la medición).
 panel.command.syntax.global_queue_ping	!cola ping
 panel.commands.unavailable	El catálogo de comandos todavía no está disponible.
 panel.command.roles_for	Cargos que pueden usar

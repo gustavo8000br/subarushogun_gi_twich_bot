@@ -35,8 +35,8 @@ chat.queues.empty	Não há filas disponíveis no momento.
 chat.queues.closed	fechada
 chat.account.current	Conta atual: {label}.
 chat.account.invalid_label	Use um nome de conta com até 60 caracteres e sem quebras de linha.
-chat.ping.unavailable	latência indisponível
-chat.ping.response	Pong 🏓 Bot ativo · {version} · Twitch: {latency}
+chat.ping.response	Pong 🏓 - {version} - {latency}ms.
+chat.ping.error	Pong 🏓 - {version} - sem medição da Twitch ({code}).
 chat.queue.position	@{user}, você está na posição {position}.
 chat.queue.viewer_called	@{user}, você foi chamado.
 chat.queue.viewer_in_progress	@{user}, você está em atendimento.

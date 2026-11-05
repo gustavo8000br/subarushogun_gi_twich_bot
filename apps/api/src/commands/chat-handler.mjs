@@ -45,8 +45,8 @@ const CHAT_FALLBACKS = Object.freeze({
   'chat.queues.closed': 'fechada',
   'chat.account.current': 'Conta atual: {label}.',
   'chat.account.invalid_label': 'Use um nome de conta com até 60 caracteres e sem quebras de linha.',
-  'chat.ping.unavailable': 'latência indisponível',
-  'chat.ping.response': 'Pong 🏓 Bot ativo · {version} · Twitch: {latency}',
+  'chat.ping.response': 'Pong 🏓 - {version} - {latency}ms.',
+  'chat.ping.error': 'Pong 🏓 - {version} - sem medição da Twitch ({code}).',
   'chat.queue.position': '@{user}, você está na posição {position}.',
   'chat.queue.viewer_called': '@{user}, você foi chamado.',
   'chat.queue.presence_confirmed': '@{user}, presença confirmada. Aguarde o streamer iniciar seu atendimento.',
@@ -103,6 +103,7 @@ const CHAT_FALLBACKS = Object.freeze({
 const CHAT_PLACEHOLDERS = Object.freeze({
   'chat.account.current': ['label'],
   'chat.ping.response': ['version', 'latency'],
+  'chat.ping.error': ['version', 'code'],
   'chat.queue.position': ['user', 'position'],
   'chat.queue.viewer_called': ['user'],
   'chat.queue.presence_confirmed': ['user'],
@@ -133,8 +134,8 @@ function mention(entry, showUid) {
   return `@${entry.userLogin}${uid}`;
 }
 
-/** @param {{repository: any, domainService?: any, twitch: any, settings?: any, clearConfirmation?: any, broadcasterId: string, allowVipManagement?: boolean, productVersion?:string, getTwitchHealth?:()=>any, getChatCatalogs?:()=>Promise<Record<string,Record<string,string>>>, onError?: (code: string) => unknown}} dependencies */
-export function createChatCommandHandler({ repository, domainService = repository, twitch, settings = {}, clearConfirmation = null, broadcasterId, allowVipManagement = false, productVersion = 'unknown', getTwitchHealth = () => null, getChatCatalogs = async () => ({}), onError = () => undefined }) {
+/** @param {{repository: any, domainService?: any, twitch: any, settings?: any, clearConfirmation?: any, broadcasterId: string, allowVipManagement?: boolean, productVersion?:string, probeTwitchApi?:()=>Promise<any>, getChatCatalogs?:()=>Promise<Record<string,Record<string,string>>>, onError?: (code: string) => unknown}} dependencies */
+export function createChatCommandHandler({ repository, domainService = repository, twitch, settings = {}, clearConfirmation = null, broadcasterId, allowVipManagement = false, productVersion = 'unknown', probeTwitchApi = async () => ({ state: 'not_connected', code: 'TWITCH_NOT_CONNECTED' }), getChatCatalogs = async () => ({}), onError = () => undefined }) {
   function reply(message, text) {
     const body = safeMessage(text);
     if (!body) return;
@@ -394,7 +395,10 @@ export function createChatCommandHandler({ repository, domainService = repositor
         return reply(message, t('chat.account.current', { label: account?.label ?? 'Streamer' }));
       }
       if (parsed.command === 'queue' && parsed.rootAction === 'ping') {
-        return reply(message, renderPingResponse({ productVersion, twitchHealth: getTwitchHealth(), translate: t }));
+        // D-8: the same shared, cached, single-flight measurement as /health; a throw is a failed probe, never a raw error.
+        let ping;
+        try { ping = await probeTwitchApi(); } catch { ping = { state: 'failed', code: 'TWITCH_PROBE_FAILED' }; }
+        return reply(message, renderPingResponse({ productVersion, ping, translate: t }));
       }
       if (parsed.command === 'queue' && parsed.rootAction === 'commands') {
         const help = renderGlobalCommandHelp({ roles: authorized.roles, locale: productLocale, policies, allowVipManagement, translate: t });

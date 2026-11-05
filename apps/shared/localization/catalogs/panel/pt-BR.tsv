@@ -459,7 +459,7 @@ panel.command.description.global_conta_reset	Restaurar a conta padrão.
 panel.command.syntax.global_conta_reset	!fila conta reset
 panel.command.description.global_queue_comandos	Listar os comandos disponíveis para seu cargo.
 panel.command.syntax.global_queue_comandos	!fila comandos
-panel.command.description.global_queue_ping	Verificar o bot, sua versão e a latência da Twitch.
+panel.command.description.global_queue_ping	Verificar o bot, sua versão e a latência da Twitch. Sem medição, a resposta traz um código: TWITCH_NOT_CONNECTED (canal não conectado) ou TWITCH_PROBE_FAILED (a Twitch não respondeu à medição).
 panel.command.syntax.global_queue_ping	!fila ping
 panel.commands.unavailable	O catálogo de comandos ainda não está disponível.
 panel.command.roles_for	Cargos que podem usar

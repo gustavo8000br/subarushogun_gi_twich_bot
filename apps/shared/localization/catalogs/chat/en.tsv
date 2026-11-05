@@ -35,8 +35,8 @@ chat.queues.empty	There are no queues available right now.
 chat.queues.closed	closed
 chat.account.current	Current account: {label}.
 chat.account.invalid_label	Use an account label of up to 60 characters without line breaks.
-chat.ping.unavailable	latency unavailable
-chat.ping.response	Pong 🏓 Bot active · {version} · Twitch: {latency}
+chat.ping.response	Pong 🏓 - {version} - {latency}ms.
+chat.ping.error	Pong 🏓 - {version} - no Twitch measurement ({code}).
 chat.queue.position	@{user}, you are at position {position}.
 chat.queue.viewer_called	@{user}, you have been called.
 chat.queue.viewer_in_progress	@{user}, your service is in progress.
