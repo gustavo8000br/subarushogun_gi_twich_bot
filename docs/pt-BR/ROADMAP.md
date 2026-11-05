@@ -2,6 +2,8 @@
 
 [Read in English](../ROADMAP.md) · [Voltar ao README](../../README.pt-BR.md)
 
+> **Atual (2026-11-05):** a versão `0.3.0-beta` entrega o cutover do painel Next.js, a recuperação financeira e o `ping` real; a tabela abaixo é o retrato de 2026-10-21. Para o quadro atualizado e o escopo da 0.4.0-beta veja o [roteiro do projeto](project-completion-roadmap.md) e o [índice de stories](stories.md).
+
 Estado conferido com os arquivos das stories em 2026-10-21. O estágio do produto é `beta` (`.release-stage`); nenhuma release pública foi publicada ainda. Issues abertas indicam planejamento/aceite pendente, não promessa de prazo de lançamento. A ordem de dependências do trabalho restante fica no [roteiro de conclusão do projeto](project-completion-roadmap.md); esta tabela apenas resume o estado registrado de cada story.
 
 | Story | Estado |

@@ -1,37 +1,61 @@
-# Project completion roadmap — remaining approved work
+# Project roadmap — where we are and what is next
 
-[Português brasileiro](pt-BR/project-completion-roadmap.md)
+[Português brasileiro](pt-BR/project-completion-roadmap.md) · [Back to README](../README.md)
 
-**Reviewed:** 2026-10-21 against the current story sources, session handoff, and `.release-stage` (`beta`).
-**Purpose:** Cross-story view of unfinished project work. Existing stories/issues remain the source of acceptance criteria and status. This roadmap does not close stories, authorize release, or replace their QA gates.
+**Updated:** 2026-11-05, for `0.3.0-beta` (`.release-stage` = `beta`). This is a navigation page: stories and issues remain the source of acceptance criteria and status, and this page does not close stories, pass gates or authorize a release. The public, user-facing list is in the [project roadmap](ROADMAP.md); the full backlog is in the [backlog inventory](process/backlog-inventory.md); the previous (dense) version of this page is kept in the [archive](archive/project-completion-roadmap-2026-10-21.md).
 
-## Current project picture
+## 1. Where we are (v0.3.0-beta)
 
-The immediate active implementation is the Next.js panel/OBS migration in [OPS-15](stories/OPS-15/story.md), which remains **In Progress**. This does not mean every open project task belongs in OPS-15. Other unfinished work retains its own story and owner acceptance.
+- **Next.js panel and OBS overlay.** The cutover of [OPS-15](stories/OPS-15/story.md) is merged into `main` (PR #101). The old vanilla panel is gone; the panel is `apps/frontend`. `legacy` is a historical reference only, not a fallback: recovery is a forward fix or redeploying a previous image digest ([Versioning](VERSIONING.md)).
+- **Financial recovery.** [OPS-22](stories/OPS-22/story.md): the `unknown` financial state can be resolved and queue deletion completes safely, with verified cancellation. Independent QA gate of 2026-11-06: 9.2/10, CONCERNS approved ([gate](stories/OPS-15/qa-gate-2026-11-06.md)).
+- **Real `ping`.** The `ping` chat command reports real Twitch latency (first slice of [OPS-26](stories/OPS-26/story.md)).
+- **Live test (2026-11-06 gate):** native OBS, queue and reward creation, redemption, fulfillment, deletion, stop, on the owner's exclusive test channel, with no failure.
+- **Still unproven:** native Windows and macOS runs, and live Twitch financial cancellation in production. Linux (Ubuntu) is the only platform validated by a person.
 
-## Remaining work, ordered by dependencies
+## 2. What is missing before calling OPS-15 and the Ready stories finished
 
-| Order | Existing story | Recorded status | Remaining work from its acceptance criteria | Dependency / exit evidence |
-|---|---|---|---|---|
-| 1 | [OPS-15](stories/OPS-15/story.md) | In Progress | Finish Windows-local dev database/session verification; expand the endpoint/action/test matrix; close panel/overlay parity and runtime catalog evidence; perform implementation architecture/UX/QA reviews; validate production-like Compose and real Windows installer; test native OBS/CEF; verify that a previous image digest can be redeployed in isolation (the recovery mechanism; `legacy` is historical reference only, not a fallback or rollback target); audit legacy tests; only then propose a cutover. | All OPS-15 acceptance criteria and environment-specific evidence. The vanilla panel was removed in cutover Wave 4 (FT-42, owner-authorized incremental cutover); parity, audits, reviews, OBS/CEF and production-like deployment validation still gate the OPS-15 completion. |
-| 2 | [FND-9](stories/FND-9/story.md) | Ready for Review; owner acceptance pending | Owner performs native Windows product acceptance and explicitly authorized live Twitch lifecycle/financial acceptance; record outcomes without inferring remote success from mocks. | Owner evidence for local behavior and Twitch confirmation; then story/issue status may be updated by the authorized workflow. |
-| 3 | [OPS-13](stories/OPS-13/story.md) | Ready for Review; native OBS acceptance pending | Owner verifies the current-account widget survives native OBS Browser Source/CEF reload using the accepted capability flow; record OBS/CEF versions and result. | Native OBS/CEF evidence; Chromium automation is not a substitute. |
-| 4 | [OPS-14 / issue #65](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/65) | Open; Ready for Review; not started | After OPS-13 is fixed and accepted by the owner, implement localized queue-call instructions using executable queue slugs and exactly one durable/recoverable public chat announcement for each successful service-start transition, preserving custom messages and en/es/pt-BR behavior. | The issue says implementation follows accepted OPS-13. Preserve this as separate chat behavior; OPS-15 only migrates its panel presentation. |
-| 5 | [DOC-2](stories/DOC-2/story.md) | Planned; role-page refinement and visual preflight recorded | Complete the integrated role-page/browser review, capture product-only screenshots and a calm page-by-page README GIF from the released version with safe demo data, add accessible alt text/captions, and verify bilingual placements/assets. | Capture only after UI and demo states are stable; do not use secrets or personal data. |
-| 6 | [DOC-3](stories/DOC-3/story.md) | Planned; issue #48 | After FND-9 and DOC-2, audit maintained product/contributor docs against implementation and evidence, fix contradictions/dead links, preserve historical claims, and validate bilingual equivalence with independent QA. | Explicit dependencies in DOC-3; record any claims that remain unverified. |
-| 7 | [OPS-12](stories/OPS-12/story.md) | Ready for Review; deferred | Wait while `.release-stage` is `beta`. At `rc`, run the planned AIOX discovery/UX/architecture/QA workflow before defining implementation details. | `.release-stage` must first change to `rc`; current value is `beta`. No planning or implementation starts before that gate. |
-
-## Guardrails
-
-- FND-9 remains pending owner acceptance; OPS-13 remains pending native OBS acceptance; OPS-15 remains In Progress. This roadmap changes none of those statuses.
-- The vanilla panel is already removed (cutover Wave 4, FT-42); OPS-15 parity, legacy-test audit, architecture/UX/QA review, native OBS/CEF checks, and production-like deployment validation still gate the OPS-15 completion. The `legacy` ref is historical reference only; it is not a fallback or rollback target. Recovery after cutover is a forward fix or redeploying a previous image digest ([Versioning](VERSIONING.md)).
-- Do not create a PR, merge, publish a release, promote beta to RC, or perform live Twitch financial operations without the authorization required by the existing stories and repository rules.
-- For product-facing changes, use `$aiox-ux-design-expert`; database/schema changes require `$aiox-data-engineer`; implementation QA remains independent.
-- Record work in the owning story in both languages. This roadmap is a navigation aid, not evidence that a gate passed.
-
-## Change record
-
-| Date | Change | Owner |
+| Item | Story | What is left |
 |---|---|---|
-| 2026-10-21 | Replaced the rollback-to-`legacy` gate with the owner decision (`legacy` is historical reference only; recovery is forward fix or previous image digest); see OPS-15 structural review S-08. No status changed. | `$aiox-architect` |
-| 2026-10-19 | Added an evidence-scoped view of open project stories and their recorded dependencies; no status changed. | `$aiox-sm` |
+| Closing gates of the Next cutover | [OPS-15](stories/OPS-15/story.md) | Final story closure and board bookkeeping after the merge; follow-ups are listed below. |
+| Owner acceptance of local queues | [FND-9](stories/FND-9/story.md) (#19) | The owner tests native Windows and the explicitly authorized live Twitch lifecycle; record results without inferring remote success from mocks. |
+| OBS account widget after reload | [OPS-13](stories/OPS-13/story.md) / [OPS-25](stories/OPS-25/story.md) | Native OBS/CEF evidence on the Next overlay; run the [native OBS runbook](stories/OPS-25/obs-native-runbook.md). Chromium automation is not a substitute. |
+| Localized call instructions | OPS-14 (#65) | No story file yet; implementation follows the accepted OBS widget behavior. Separate chat behavior. |
+| Documentation | [DOC-2](stories/DOC-2/story.md), [DOC-3](stories/DOC-3/story.md) | Screenshots and GIF from stable UI; then the full documentation audit. |
+| Installer UX | [OPS-12](stories/OPS-12/story.md) (#60) | Deferred until `.release-stage` is `rc`. |
+
+## 3. Next: 0.4.0-beta
+
+The owner chose this scope on 2026-11-05 (source: [backlog inventory, section 2.1](process/backlog-inventory.md); [OPS-27](stories/OPS-27/story.md) is **out**). Nothing here authorizes a bump: the version policy in `AGENTS.md` applies.
+
+| Theme | Items |
+|---|---|
+| Real-time panel (SSE) | [OPS-23](stories/OPS-23/story.md) (#81) |
+| TypeScript backend, typed panel JSX, Biome | [OPS-24](stories/OPS-24/story.md) (#91), TS-16 |
+| System chat commands | `status` command ([OPS-26](stories/OPS-26/story.md), #108), TS-14 |
+| Robustness | read timeout in panel requests (FT-44); `retryOutboxManually` for legacy rows (FT-41-L1); OPS-22 follow-ups TS-19, TS-20 |
+| CI | job for the 14 `*-browser-only` scripts ([OPS-30](stories/OPS-30/story.md), #105); clean install ([OPS-29](stories/OPS-29/story.md), #106); static-scan rules ([OPS-28](stories/OPS-28/story.md), #107); `queue: max` in workflows (TS-21) |
+| Quality from the 2026-11-06 gate | TS-22 to TS-26, FT-64 |
+| Widget and panel findings (UX) | FT-61, FT-62 (owner OK), FT-63, FT-67; runbook and `dev:start` notes FT-65, FT-66 |
+
+Dependency order inside the scope: OPS-24 first slices, then OPS-23; the rest is independent and ordered by the board.
+
+## 4. Pending owner items
+
+- **OW-18:** before streaming with the production scene, replace the "Nome da fila" source with the new widget link (links are never written in docs).
+- **Tag and release of `v0.3.0-beta`:** merge is done (D-06 satisfied); the tag/release stays reserved to the owner (D-07).
+- Native Windows/macOS acceptance sessions (the owner will provide them later).
+- FND-9 acceptance and OPS-14 story decision (see section 2).
+- Disable the GitHub Project workflow "Close issues when status changes".
+
+## 5. Risks
+
+- **Quota and serial work:** one agent at a time; one `@qa` gate per bundle. Plan by bundle, not by slice.
+- **Unproven platforms:** Windows, macOS and production Twitch cancellation have no evidence yet; claims stay limited to what ran.
+- **Dense history:** long evidence lives in stories and the [archive](archive/stories-history.md); keep this page and the [story index](stories.md) short.
+- **Test stability:** flaky Chromium cases are tracked as TS items (see 0.4.0-beta).
+
+## 6. Guardrails
+
+- No PR merge, tag, release, rc/stable bump or live financial operation without the authorization the repository rules require.
+- Product-facing changes go through `@ux-design-expert` (minimum 9.0/10); database changes through `@data-engineer`; independent `@qa` validates once per story or bundle.
+- Record work in the owning story in both languages.
