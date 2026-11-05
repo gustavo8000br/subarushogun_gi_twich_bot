@@ -155,6 +155,10 @@ Tests first (Red). PostgreSQL guarantees require integration on an isolated, dis
 - **Fixes applied:** (1) UX review for the user-facing slice 2 catalog copy (AC 9, slice 2 entry); (2) OPS-20 interplay and the shared `processed_operations` table recorded in dependencies; (3) AC 6 made testable (record ship/no-ship); (4) Definition of Done added.
 - **What blocks 10:** pending `@data-engineer` §7 answers, UX ≥ 9.0 for slices 2, 3 and 6, `@qa` test plan and the `@devops` issue; the timeout value in AC 25 is still "proposed ≤ 15 s"; story closure with slice 7 pending needs an owner decision.
 
+## Meta 9,5 (survey of 2026-11-04)
+
+Current score (Orion's estimate): **5.5**. Target: **9.5**. This section adds no scope and changes no acceptance criterion. The `@qa` attests the score with the ruler of [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (idea #6): coverage, automation, proof and operation must average 9.5 with none below 9.0. Exit criteria: every non-2xx response carries an enumerated `code` (guard test); the idempotency state machine (lease takeover, retention, replay with the same key) is proven on isolated PostgreSQL with real migrations; the client retry reuses the same key; a hand mutation of the lease check makes a test fail; routes become `reexecutable` only with PostgreSQL evidence; the legacy `error` field is removed with slice 7. Owner part: closing this story with slice 7 open is an owner decision (D-09 / OW-15) and the call-timeout value is D-10; without slice 7 the average stays below 9.5 until the cutover and FT-17 are done. The three cycles are ordered by the `@architect` first (AÇ-27); Opus 5.5 only for the idempotency state-machine design, and only with a justification written in this story.
+
 ## File List
 
 - `docs/stories/OPS-21/story.md` (new)

@@ -1,0 +1,127 @@
+# OPS-27 — Automatic guard against leaks of sensitive data (commits, files, PR and issue bodies)
+
+[Português (pt-BR)](../../pt-BR/stories/OPS-27/story.md)
+
+**Status:** Draft (drafted by `@sm` on 2026-11-04; not yet validated by `@po`). **Issue:** pending (`@devops` creates it from [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); no issue comments).
+**Source:** idea #5 of the [improvement survey](../../process/improvement-ideas-2026-11-04.md) (owner request, 2026-11-04). Evidence: a Claude session URL reached 45 commits of this public repository; the protection that existed was only text in `AGENTS.md` (rule "never expose the session URL"). A text rule does not stop an agent whose tool adds a default attribution line. Orion's decision (2026-11-04): this idea starts first, right after the OPS-22 package.
+**Related:** OPS-28 (OpenGrep rules for code; secrets in source code are shared ground, see "Dependencies"); OPS-24 (script language and Biome); OPS-30 and OPS-29 (they also add CI jobs; workflow edits are serialized); [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (9.5 ruler, idea #5, actions AÇ-21..AÇ-26).
+**Registered items:** inventory ST-20 (this story), FT-45 and FT-46 (slices); see [backlog-inventory](../../process/backlog-inventory.md).
+**Coordination required:** `$aiox-po` (validation), `$aiox-architect` (pattern list, hook mechanism, CI trigger and how bodies are passed as data), `$aiox-devops` (issue; reviews the workflow before commit), independent `$aiox-qa` (test plan with planted leaks and hand mutations, the 9.5 attestation), `$aiox-analyst` only if a token-format GAP appears (check [research-index.md](../../research-index.md) first). `$aiox-ux-design-expert` and `$aiox-data-engineer`: not applicable (no user-facing text, no database).
+
+**Writing note:** in this story the patterns are written in a defused form (`claude\.ai/` as a regular expression, and the name `Claude-Session` without its colon), so that the future check does not flag the story itself.
+
+## Problem
+
+- The only barrier against exposing a session URL, a token or a key in a public repository is a sentence in `AGENTS.md`. There is no automatic check on the four places where a leak travels: commit messages (including trailers), versioned files, pull-request bodies and issue bodies.
+- Recovering from a leak that already reached a public remote needs a history rewrite and a force push, which is expensive and owner-reserved. Preventing it is cheap.
+- A naive check would also flag the places that legitimately *mention* the pattern: the rule text in `AGENTS.md`, handoffs and QA gates that cite it, and framework documents about LLM routing. The check needs a documented, tested allowlist so that it does not train people to bypass it.
+
+## Story
+
+As the owner of a public repository maintained with AI agents,
+I want a local hook and a CI check that reject the session host, the session trailer and credential-shaped strings before they reach a commit, a file, a PR body or an issue body,
+so that the protection no longer depends on an agent remembering a sentence.
+
+## Scope
+
+**In (two slices, in this order):**
+
+- **FT-45 — check core and local hook.** One check script (path fixed by `@architect`) built around a pure function that receives text and returns findings (rule id, location, never the matched value). Rules: (a) the session host `claude\.ai/`; (b) the trailer name `Claude-Session` followed by a colon; (c) credential families with public formats (private-key block headers, provider token prefixes, connection strings with an embedded password, `client_secret`-style assignments) listed by `@architect` from the providers' public documentation, none invented by `@dev`. Local hook: `commit-msg` (message), `pre-commit` (staged files) and an optional `pre-push` (range), activated by one documented command (a versioned hook directory plus `git config core.hooksPath`). A `npm run` entry runs the same check by hand, including on a body file. Path-scoped allowlist with a reason per entry.
+- **FT-46 — CI check and body checks.** A CI job on pull requests that runs the same script over the commit messages of the range, the tracked files and the PR body; the body is passed as data (environment variable or file), never interpolated into a shell command. The same script is run on a draft issue body **before** `@devops` creates or edits an issue (documented step). Optionally the job also runs on the `issues` event; it only fails the run, it **never comments** on the issue (project rule). A baseline scan of the current tree and of the commit range reports hashes and paths only.
+
+**Out of scope:**
+
+- Rewriting history, force push, rotating a real credential (owner-reserved; if the baseline finds a real credential, the story stops and reports to the orchestrator).
+- Third-party secret-scanning services and repository settings (push protection, required checks, branch rules): complementary options for the owner, not required here.
+- OpenGrep rules for code patterns (OPS-28). Changing the text of `AGENTS.md` (owner; agents may only propose wording).
+- Version bump, commit, push, PR, release.
+
+## Acceptance criteria
+
+Evidence classes stay separate: unit (pure function), local hook (real Git in a temporary repository inside the project), CI. Every behavior starts with a failing test. The check output names the rule and the location and never prints the matched value.
+
+1. **Given** a commit message that contains the `Claude-Session` trailer name followed by a colon, **when** the `commit-msg` hook runs, **then** the commit is rejected, the output names the rule and the line, and the output does not echo the value.
+2. **Given** a staged file that contains `claude\.ai/` outside the allowlist, **when** `pre-commit` runs, **then** the commit is rejected; **given** the same text in an allowlisted path, **then** it passes.
+3. **Given** one positive fixture and one look-alike negative fixture for each credential family listed by `@architect`, **when** the pure function runs, **then** every positive is found and no negative is.
+4. **Given** a pull request whose range, files or body carry a planted leak, **when** the CI job runs, **then** it fails; **given** a clean pull request, **then** it passes. The job reads the body as data, never as shell text. (Local fixtures prove the logic; the CI run needs a PR or a workflow dispatch, delegated to the orchestrator.)
+5. **Given** a draft issue body with a planted leak, **when** the documented pre-send check runs, **then** it exits non-zero; **given** the `issues`-event run (if adopted), **then** the run fails and no comment is posted.
+6. **Given** the current tree and the commit range of the branch, **when** the baseline scan runs, **then** it reports zero unaccepted findings; every accepted finding is listed in the story evidence with its reason, and the output lists hashes and paths only.
+7. **Given** the check's own tests, **when** each pattern is weakened by hand (one mutation per rule, recorded by `@qa`), **then** at least one test fails for each mutation; the test files build the forbidden strings at run time so the check does not flag its own tests.
+8. **Given** `git commit --no-verify`, **when** the commit reaches a pull request, **then** the CI job still fails it: the CI is the layer that cannot be skipped, and this is written in the documentation.
+9. **Given** the documentation, **then** it explains in English and pt-BR how to activate the hook, how to add a pattern and how to add an allowlist entry with its reason; the documentation-contract tests pass; `AGENTS.md` is not edited by agents.
+10. **Given** the quality gates, **when** they run, **then** `npm run lint`, `npm run typecheck`, `npm test`, `npm run validate:localization`, `npm run validate:version`, `npm run validate:port-denylist` and `npm run review:static` are green.
+
+## Dependencies
+
+- **Starts after** the OPS-22 package is committed (Orion, 2026-11-04). No other story blocks it.
+- **Workflow edit** (FT-46): no workflow file changes without the `@architect` design and the `@devops` review; serialize with OPS-29 and OPS-30, which edit the same workflows (one write set at a time).
+- **OPS-28:** both stories deal with secrets. `@architect` fixes which tool owns what: this check covers commits, bodies and all versioned files; OpenGrep covers source-code constructs. No duplicated pattern list.
+- **OPS-24:** the script starts as `.mjs`; if `apps/` is converted later, the script follows the folder rule `@architect` sets.
+- **Known false positives (allowlist seed, to be confirmed by the baseline):** the rule text in `AGENTS.md`; handoffs and QA gates that cite the pattern; the improvement survey that states the pattern; framework documents under `.aiox-core/` about LLM routing. The seed is data in the allowlist with a reason each, not a hidden exception in code.
+
+## Risks
+
+1. **False positives block legitimate commits.** Mitigation: baseline scan (AC 6), tested allowlist (AC 2), reasons recorded.
+2. **Bypass with `--no-verify` or an uninstalled hook.** Mitigation: the CI layer (AC 8).
+3. **The error message leaks the value it blocks.** Mitigation: AC 1 asserts the output never echoes the match.
+4. **Workflow injection through a PR or issue body.** Mitigation: body as data (AC 4), reviewed by `@architect` and `@devops`.
+5. **Pattern regex cost on large files.** Mitigation: bounded patterns and a size limit decided by `@architect`, tested with a large fixture.
+6. **Edit conflicts on shared workflow files.** Mitigation: serialization above.
+
+## Complexity (estimate by `@sm`, to be confirmed by `@architect`)
+
+Scope 2, integration 2, infrastructure 3, knowledge 2, risk 3 = **12 → STANDARD**. Difficulty **M** (the survey estimated S; two slices and a CI job make it M). Priority **P1** `[AUTO-DECISION] priority → P1 (reason: Orion, 2026-11-04, starts first; a leak in a public repository is costly and the check is cheap)`.
+
+## Business value
+
+A leak stops at the commit or at the pull request instead of at a public history rewrite. The rule becomes executable and testable.
+
+## Test plan (test-first)
+
+1. **Unit:** the pure function over fixtures built at run time (positives, look-alikes, allowlist, size limit, output never echoing the match).
+2. **Hook:** a temporary Git repository created inside the project tree, with the hooks activated by the documented command, driven by real `git commit` calls (message, staged file, `--no-verify` documented).
+3. **Mutation by hand:** `@qa` weakens each pattern in turn and confirms a test fails (no new dependency; an automated mutation tool only if `@architect` approves it).
+4. **CI:** workflow-contract test pins the job; a pull request or dispatch run with a planted leak on a throwaway branch fails, a clean run passes.
+5. **Gates:** the seven project gates; `@qa` issues the verdict before `@devops` commits.
+
+## Meta 9,5 (survey of 2026-11-04)
+
+Current score (Orion's estimate): **5.0**. Target: **9.5**. The `@qa` attests the score with the ruler of [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (idea #5): the four dimensions (coverage, automation, proof, operation) must average 9.5 with none below 9.0. Exit criteria: all four surfaces covered by the hook and by CI (ACs 1, 2, 4, 5); every pattern with a positive and a negative test (AC 3); one hand mutation per rule fails a test (AC 7); zero unaccepted baseline findings (AC 6); documentation in both languages (AC 9). No part depends on the owner, so agents can reach 9.5.
+
+## Planning gates before implementation
+
+- [ ] `@po` validation (10 points) and GO.
+- [ ] `@devops` creates the GitHub issue (body from [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md)).
+- [ ] `@architect`: pattern list with sources, hook mechanism, CI trigger, body-as-data design, allowlist format, size limit, tool ownership against OPS-28.
+- [ ] `@qa` test plan (planted leaks, hand mutations, evidence classes).
+- [ ] `@analyst` note only if a token-format GAP exists; [research-index.md](../../research-index.md) checked first.
+- [ ] UX gate: not applicable (developer-facing only); `@po` confirms at validation.
+
+## Definition of Done
+
+- ACs 1 to 10 have Red-first evidence by class; the CI part is executed on a pull request or dispatch or explicitly recorded as pending.
+- Quality gates green; `@qa` verdict and 9.5 attestation recorded; File List and checklists updated in English and pt-BR.
+
+## SM draft validation (story-draft-checklist, 2026-11-04)
+
+1. Goal and context: clear (incident, text-only protection, four surfaces). PASS.
+2. Technical guidance: surfaces, patterns by family, hook and CI shape; open design points assigned to `@architect`; no token format invented. PASS.
+3. References: survey idea #5, 9.5 ruler, OPS-28, OPS-24. PASS.
+4. Self-containment: false positives and allowlist seed stated; history rewrite explicitly out. PASS.
+5. Testing: classes separated; hand mutation; self-flagging avoided. PASS.
+6. Static analysis: `npm run review:static` in the gates. PASS.
+- Result: ready for `@po`. Nothing was invented beyond the survey; the S to M estimate change is recorded above.
+
+## File List
+
+- `docs/stories/OPS-27/story.md` (new)
+- `docs/pt-BR/stories/OPS-27/story.md` (new)
+- `docs/stories.md` and `docs/pt-BR/stories.md` (index entry)
+- `docs/process/improvement-actions-2026-11-04.md`, `docs/process/improvement-issue-bodies-2026-11-04.md` and pt-BR twins (new)
+- `docs/process/backlog-inventory.md` and `docs/process/kanban-board-design.md` and pt-BR twins (items ST-20, FT-45, FT-46)
+
+Implementation files will be listed here by `@dev` after the gates.
+
+## Change Log
+
+- 2026-11-04 — `@sm` (River): story drafted from idea #5 of the improvement survey. Status Draft. Slices FT-45 and FT-46 registered.

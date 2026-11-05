@@ -155,6 +155,10 @@ Testes primeiro (Red). Garantias de PostgreSQL exigem integração em instância
 - **Correções aplicadas:** (1) revisão de UX para o texto do catálogo da fatia 2, visível para a pessoa usuária (CA 9, entrada da fatia 2); (2) interação com a OPS-20 e a tabela compartilhada `processed_operations` registradas nas dependências; (3) CA 6 tornado testável (registrar se será entregue); (4) definição de pronto adicionada.
 - **O que impede 10:** respostas pendentes do `@data-engineer` ao §7, UX ≥ 9,0 para as fatias 2, 3 e 6, plano de testes do `@qa` e a issue do `@devops`; o valor de timeout do CA 25 ainda é “proposta ≤ 15 s”; fechar a story com a fatia 7 pendente exige decisão do proprietário.
 
+## Meta 9,5 (levantamento de 2026-11-04)
+
+Nota atual (estimativa do Orion): **5,5**. Meta: **9,5**. Esta seção não acrescenta escopo nem muda critério de aceite. O `@qa` atesta a nota com a régua de [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (ideia nº 6): cobertura, automação, prova e operação precisam ter média 9,5, nenhuma abaixo de 9,0. Critérios de saída: toda resposta não 2xx carrega um `code` enumerado (teste-guarda); a máquina de estados de idempotência (retomada de lease, retenção, repetição com a mesma chave) é provada em PostgreSQL isolado com migrations reais; a repetição do cliente reusa a mesma chave; uma mutação à mão da checagem de lease faz um teste falhar; rotas viram `reexecutable` só com evidência em PostgreSQL; o campo legado `error` é removido com a fatia 7. Parte do proprietário: fechar esta story com a fatia 7 aberta é decisão do proprietário (D-09 / OW-15) e o valor do timeout das chamadas é a D-10; sem a fatia 7 a média fica abaixo de 9,5 até o cutover e a FT-17 estarem feitos. Os três ciclos são ordenados primeiro pelo `@architect` (AÇ-27); Opus 5.5 só para o desenho da máquina de estados de idempotência, e só com justificativa escrita nesta story.
+
 ## Lista de arquivos
 
 - `docs/stories/OPS-21/story.md` (novo)
