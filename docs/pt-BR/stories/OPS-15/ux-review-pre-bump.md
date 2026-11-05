@@ -174,3 +174,55 @@ Pendências do dono:
 - OK para a cor `--danger` e um possível mínimo de 12 px no seletor de idioma (follow-up, fora deste bump).
 - OW-17, `ping` ao vivo (AC-D8-9), e a mensagem real de chat do widget (AC-W-8).
 - Decidir se a varredura de "reward" no catálogo pt-BR inteiro (mais 12 chaves) entra nesta fatia ou na próxima.
+
+## Adendo 2026-11-06, widget no OBS nativo
+
+English: `docs/stories/OPS-15/ux-review-pre-bump.md`. Autora: `@ux-design-expert` (Uma). Entradas: seção 9 de [qa-gate-2026-11-06.md](qa-gate-2026-11-06.md), `.local/qa-status-2026-11-06.md`, capturas `.local/qa-audit/g1106/acw-*.png`, `apps/frontend/styles/overlay.css`, `apps/frontend/next.config.mjs`.
+
+**Tipo de revisão: leitura de evidências.** Classe de evidência: OBS nativo 32.2.2 (CEF 127) nesta máquina, executado pelo `@qa`, mais leitura estática da configuração. Eu não executei o OBS. Cada nota vale só para o seu escopo.
+
+### A.1 AC-W-1..5 (decisão: ACEITOS para o caminho do rótulo)
+| AC | Evidência (`@qa`) | Veredito |
+|---|---|---|
+| AC-W-1 | rótulo de volta após recarregar (`refreshnocache`) em 612 ms | atendido |
+| AC-W-2 | 10/10 ciclos, 375 a 567 ms | atendido |
+| AC-W-4 | troca de conta no painel acompanhada em 912 ms (a faixa de 912 a 1055 ms está dentro da tolerância de 5 s da story) | atendido |
+| AC-W-5 | rótulo, estado revogado ("Fonte indisponível", sem valor), link regenerado mostrando o rótulo em 38 ms | atendido por DOM/texto; **pixels inconclusivos** (ver abaixo) |
+| AC-W-3 | não executado (exige reiniciar a API no mesmo banco) | continua aberto |
+
+O que as imagens mostram: `acw-authorized.png` tem o rótulo ("Streamer") com pixels visíveis. `acw-unauthorized.png` e `acw-regenerated.png` não mostram pixels do widget (a captura é branco sobre branco: o texto padrão é `#FFFFFF`, o fundo da captura é branco e a linha de status não tem sombra, fundo nem contorno). Portanto as capturas **provam o rótulo autorizado, não a legibilidade da linha "Fonte indisponível" nem o rótulo regenerado**; nesses dois casos a evidência é o DOM/texto lido pelo `@qa`. O risco estático 2 do item 3.4 (legibilidade em cena clara) continua aberto e agora aparece no próprio artefato: texto de status branco sem sombra fica invisível em fundo claro.
+
+### A.2 Rótulo cortado a 320x60 (decisão: NÃO é defeito do renderizador; é lacuna de dimensionamento e orientação, prioridade P2)
+`acw-small-320x60.png` mostra o rótulo "Streamer QA" cortado na borda inferior. A fonte padrão é 32 px com margens de 8 px (`overlay-renderer.mjs`: `fontSize` 32, `marginTop/Bottom` 8) e `html, body { overflow: hidden }`; uma caixa de 60 px com 38 px de conteúdo reportado não comporta rótulo mais margens, então o corte é o efeito esperado de uma Browser Source subdimensionada, não um bug. Consequências para a pessoa que transmite: o corte parece um widget quebrado e a linha de status (`top: 100%`, fora da caixa) é **sempre** cortada quando a altura da fonte é igual à do rótulo. Isso confirma o risco 1 do item 3.4 por construção: nos estados não autorizado e dados indisponíveis, uma fonte justa não mostra nada.
+O que fazer (story separada, sem mudança nesta fatia): (a) o formulário do widget e o runbook informam a altura mínima da fonte (cerca de `fontSize x 1,2 + marginTop + marginBottom + 16 px` para a linha de status) e o tamanho recomendado; (b) avaliar colocar a linha de status dentro da caixa (abaixo do valor, no mesmo orçamento de altura, ou no lugar do rótulo) para que o estado não autorizado nunca fique invisível; (c) dar sombra de texto à linha de status para legibilidade em cena clara (exige OK do dono, pois toca o visual).
+
+### A.3 Emblema "N" do Next dev (decisão: só em dev, aceito; produção por leitura de config, não por execução)
+O emblema redondo no canto inferior direito das capturas é o indicador de desenvolvimento do Next.js. O `next.config.mjs` (via `next-runtime-config.mjs`) não define `devIndicators`, e os ramos `allowedDevOrigins`/rewrites de dev dependem de `NODE_ENV === 'development'`; a documentação do Next trata o indicador como recurso do modo de desenvolvimento, que `next build` / `next start` não renderizam. Logo ele não deve aparecer em build de produção, mas isto é **leitura de config e do comportamento do framework, não observação**: nenhum build de produção foi aberto no OBS. Manter no checklist do OBS: "build de produção no OBS nativo sem o emblema" como item do `@qa`. Nota prática para o dono: com a pilha em `dev:start` o emblema aparece na cena ao vivo; para transmitir, use build de produção.
+
+### A.4 Fonte "Nome da fila" com URL antiga (decisão: DEFEITO da cena do dono, não do produto; item registrado)
+A fonte "Nome da fila" de `Sem_nome` ainda aponta para `/overlay.html`, que não existe mais após o cutover, e a prévia da live mostra "404 This page could not be found" (texto da página do framework, na transmissão). Gravidade: visível na live; prioridade P1 para o dono antes de transmitir com essa cena. Duas ações: (1) o dono ou o `@qa` troca a fonte por um novo link da página Widgets; como o widget de conta não mostra nome de fila, é preciso um tipo de widget de nome da fila (verificar se existe; se não, story); (2) o runbook de migração (OPS-25) lista toda fonte `/overlay.html` legada como "deve ser substituída", e o produto poderia mostrar um estado amigável para o caminho removido (backlog, P3). Uma página 404 dentro de uma fonte do OBS nunca é aceitável para quem assiste.
+
+### A.5 Notas
+| # | Item | Anterior | Nova | Escopo da nova nota |
+|---|---|---|---|---|
+| 4 | Widget de conta no OBS | 8,8 | **9,0** | caminho do rótulo (carga, recarga, 10/10 ciclos, troca de conta, texto de revogação) no OBS nativo; **não** a legibilidade da linha de status nem o caso da caixa pequena |
+| | Geral incluindo 4 e 6 | 9,0 | **9,0** | inalterada: o item 6 (mobile DP-4) continua sendo plano, não execução |
+
+O AC-W-6 fica fechado para o caminho do rótulo no mínimo de 9,0, com condições: itens N-1 e N-2 abaixo (não bloqueiam o bump; o N-3 deve ser feito antes de o dono transmitir com a cena antiga).
+
+### A.6 O que continua sem validação
+- Leitor de tela (NVDA, VoiceOver, Orca, TalkBack) e execução só com teclado.
+- Build de produção (`next build`) no OBS nativo, inclusive a ausência do emblema de dev.
+- OBS/CEF em Windows e macOS.
+- Legibilidade da linha de status sobre cena clara ou movimentada, e em pixels nos estados não autorizado e regenerado.
+- AC-W-3 (reinício no mesmo banco), o checklist mobile (DP-4, seção 5) e as medições de contraste em pixels reais (item 11).
+- Os textos de status en/es no widget nativo (a execução usou o texto pt-BR).
+
+### A.7 Itens novos para o `@sm` (prioridade sugerida)
+| Id | Item | Prioridade |
+|---|---|---|
+| N-1 | Formulário/runbook do widget: altura mínima da Browser Source e tamanho recomendado; linha de status dentro da caixa ou fallback seguro (A.2) | P2 |
+| N-2 | Legibilidade da linha de status: sombra de texto ou fundo, verificada em pixels sobre cena transparente, escura e clara (exige OK do dono) | P2 |
+| N-3 | Fonte "Nome da fila" com URL legada: trocar o link e listar fontes `/overlay.html` legadas como substituição obrigatória no runbook da OPS-25 (A.4) | P1 (ação do dono) |
+| N-4 | Execução de build de produção no OBS nativo: sem emblema de dev, mesmos tempos do AC-W | P2 |
+| N-5 | Dica ao dono no runbook: não transmitir com `dev:start` (emblema, latência de dev) | P3 |

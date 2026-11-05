@@ -174,3 +174,55 @@ Owner pending items:
 - OK for the `--danger` color and a possible 12 px minimum in the language picker (follow-up, not in this bump).
 - OW-17 live `ping` (AC-D8-9) and the real chat message for the widget (AC-W-8).
 - Decide whether the whole pt-BR catalog "reward" sweep (12 more keys) enters this slice or the next.
+
+## Addendum 2026-11-06, widget in native OBS
+
+Author: `@ux-design-expert` (Uma). Inputs: section 9 of [qa-gate-2026-11-06.md](qa-gate-2026-11-06.md), `.local/qa-status-2026-11-06.md`, screenshots `.local/qa-audit/g1106/acw-*.png`, `apps/frontend/styles/overlay.css`, `apps/frontend/next.config.mjs`.
+
+**Review type: evidence read.** Evidence class: native OBS 32.2.2 (CEF 127) on this machine, run by `@qa`, plus a static read of the config. I did not run OBS. Each score applies only to its scope.
+
+### A.1 AC-W-1..5 (decision: ACCEPTED for the label path)
+| AC | Evidence (`@qa`) | Verdict |
+|---|---|---|
+| AC-W-1 | label back after reload (`refreshnocache`) in 612 ms | met |
+| AC-W-2 | 10/10 cycles, 375-567 ms | met |
+| AC-W-4 | account change in the panel followed in 912 ms (the 912-1055 ms range is within the 5 s tolerance of the story) | met |
+| AC-W-5 | label, revoked state ("Fonte indisponível", no value), regenerated link showing the label in 38 ms | met by DOM/text; **pixels inconclusive** (see below) |
+| AC-W-3 | not run (needs API restart on the same DB) | still open |
+
+What the images show: `acw-authorized.png` has the label ("Streamer") rendered with visible pixels. `acw-unauthorized.png` and `acw-regenerated.png` show no widget pixels (the capture is white-on-white: the default text is `#FFFFFF`, the capture background is white and the status line has no shadow, backdrop or outline). So the screenshots **prove the authorized label, not the legibility of the "Fonte indisponível" line, and not the regenerated label**; for those two the evidence is the DOM/text read by `@qa`. Static risk 2 from 3.4 (legibility on a light scene) stays open and is now visible in the artifact itself: white status text with no shadow is invisible on a light background.
+
+### A.2 Label cut at 320x60 (decision: NOT a renderer defect; it is a sizing and guidance gap, priority P2)
+`acw-small-320x60.png` shows the "Streamer QA" label cut at the bottom edge. The default font is 32 px with 8 px margins (`overlay-renderer.mjs`: `fontSize` 32, `marginTop/Bottom` 8) and `html, body { overflow: hidden }`; a 60 px box with the 38 px reported content leaves no room for the label plus margins, so clipping is the expected effect of an undersized Browser Source, not a bug. Consequences for the streamer: the clip looks like a broken widget, and the status line (`top: 100%`, outside the box) is **always** clipped when the source height equals the label height. That confirms risk 1 of 3.4 by construction: in the unauthorized and data-unavailable states a tightly sized source shows nothing.
+What to do (separate story, no change in this slice): (a) widget form and runbook state the minimum source height (about `fontSize x 1.2 + marginTop + marginBottom + 16 px` for the status line) and the recommended size; (b) consider placing the status line inside the box (below the value within the same height budget, or replacing the label) so the unauthorized state is never invisible; (c) give the status line a text shadow so it is legible on light scenes (needs owner OK, it touches visuals).
+
+### A.3 Next dev "N" badge (decision: dev-only, accepted; production by config read, not by run)
+The round badge in the lower right corner of the captures is the Next.js dev indicator. `next.config.mjs` (via `next-runtime-config.mjs`) does not set `devIndicators`, and the `allowedDevOrigins`/rewrites branches are gated by `NODE_ENV === 'development'`; Next documents the indicator as a development-mode feature that `next build` / `next start` do not render. So it must not appear in a production build, but this is a **read of config and framework behavior, not an observation**: no production build was opened in OBS. Keep in the OBS checklist: "production build in native OBS shows no badge" as an item for `@qa`. Practical note for the owner: while the stack is `dev:start`, the badge is visible in the live scene; use a production build for streaming.
+
+### A.4 "Nome da fila" source with the old URL (decision: DEFECT of the owner's scene, not of the product; item registered)
+The source "Nome da fila" of `Sem_nome` still points to `/overlay.html`, which no longer exists after the cutover, and the viewer-facing preview shows "404 This page could not be found" (framework page text, in the stream). Severity: visible on stream; priority P1 for the owner before streaming with that scene. Two actions: (1) owner or `@qa` replaces the source with a new link from the Widgets page; since an account widget does not show a queue name, a queue-name widget type is needed (check whether it exists; if not, a story); (2) the migration runbook (OPS-25) lists every legacy `/overlay.html` source as "must be replaced" and the product could show a friendly state for a removed path (backlog, P3). A 404 page inside an OBS source is never acceptable to a viewer.
+
+### A.5 Scores
+| # | Item | Previous | New | Scope of the new score |
+|---|---|---|---|---|
+| 4 | Account widget in OBS | 8.8 | **9.0** | label path (load, reload, 10/10 cycles, account change, revocation text) in native OBS; **not** the status-line legibility or the small-box case |
+| | General including 4 and 6 | 9.0 | **9.0** | unchanged: item 6 (mobile DP-4) is still a plan, not an execution |
+
+AC-W-6 is closed for the label path at the minimum 9.0, with conditions: items N-1 and N-2 below (they do not block the bump; N-3 should be done before the owner streams with the old scene).
+
+### A.6 Still not validated
+- Screen reader (NVDA, VoiceOver, Orca, TalkBack) and keyboard-only runs.
+- Production build (`next build`) in native OBS, including the absence of the dev badge.
+- Windows and macOS OBS/CEF.
+- Legibility of the status line over a light or busy scene, and in pixels for the unauthorized and regenerated states.
+- AC-W-3 (restart on the same DB), the mobile checklist (DP-4, section 5) and the contrast measurements in real pixels (items 11).
+- The en/es status texts in the native widget (the run used the pt-BR text).
+
+### A.7 New items for `@sm` (suggested priority)
+| Id | Item | Priority |
+|---|---|---|
+| N-1 | Widget form/runbook: minimum Browser Source height and recommended size; status line inside the box or a safe fallback (A.2) | P2 |
+| N-2 | Status line legibility: text shadow or backdrop, verified over a transparent, a dark and a light scene in pixels (needs owner OK) | P2 |
+| N-3 | "Nome da fila" source with the legacy URL: replace the link, and list legacy `/overlay.html` sources as mandatory replacement in the OPS-25 runbook (A.4) | P1 (owner action) |
+| N-4 | Native OBS run of a production build: no dev badge, same AC-W timings | P2 |
+| N-5 | Owner tip in the runbook: never stream with `dev:start` (badge, dev latency) | P3 |
