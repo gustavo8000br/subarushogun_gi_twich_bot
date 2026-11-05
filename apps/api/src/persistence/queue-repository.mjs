@@ -5,6 +5,7 @@ import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog
 import { matchesManagedRewardState } from '../twitch/reward-state.mjs';
 import { FINANCIAL_MAX_ATTEMPTS, FINANCIAL_REASON_CLASSES, FINANCIAL_TERMINAL_REASON, cycleStartAttemptsOf, freshCycleStart } from '../outbox/financial-retry-policy.mjs';
 import { QUEUE_DELETION_BLOCKED_BY_REVIEW, REWARD_AUTHORIZATION_REQUIRED, isResumableQueueDeletion } from '../outbox/queue-deletion-policy.mjs';
+import { CANCELLABLE_DELETE_STATUSES, CANCELLABLE_PAUSE_STATUSES, decideQueueDeletionCancellation } from '../../../shared/panel/queue-action-state.mjs';
 
 /** @typedef {Record<string, any>} PrismaClientLike */
 
@@ -117,6 +118,22 @@ function parseConvertedTombstoneCursor(value, now) {
     leaseId: leaseUntil && leaseId && Date.parse(leaseUntil) > now.getTime() ? leaseId : null,
     leaseUntil: leaseUntil && leaseId && Date.parse(leaseUntil) > now.getTime() ? leaseUntil : null,
   };
+}
+
+// OPS-22 FT-36: tasks that "cancel deletion" may target, and the status a verification restores (T36-14: a legacy
+// `cancel_verification` row without `payload.cancelVerification` restores to `unknown`, as the old failure path did).
+const QUEUE_DELETION_CANCEL_TARGET_TYPES = ['reward.delete', 'reward.set_open'];
+function cancelVerificationPreviousStatus(task) {
+  const previous = payloadObject(task?.payload).cancelVerification?.previousStatus;
+  const accepted = task?.operationType === 'reward.set_open' ? CANCELLABLE_PAUSE_STATUSES : CANCELLABLE_DELETE_STATUSES;
+  return accepted.includes(previous) ? previous : 'unknown';
+}
+
+// Confirm and fail remove the key, so a later resume never reads a stale `previousStatus` (data-engineer (a) 1.ii).
+function withoutCancelVerification(value) {
+  const payload = { ...payloadObject(value) };
+  delete payload.cancelVerification;
+  return payload;
 }
 
 async function withQueueTransaction(prisma, queueId, callback) {
@@ -978,79 +995,113 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       });
     },
 
+    // OPS-22 FT-36 (#100, architect-review-ft36 §1.2-1.5, ft-36-data-engineer-confirmation (a)-(c)): begin, fail and
+    // confirm of "cancel deletion". Each is one transaction: queue advisory lock, then `FOR UPDATE` on the queue's
+    // `reward.%` rows. The Twitch read runs between them, outside any transaction, with the target in the unclaimable
+    // `cancel_verification` status. `redemptions` and `redemption.*` rows are never written here (I2).
     async beginQueueDeletionCancellation({ queueId, actorId = null, origin = 'panel' }) {
       return withQueueTransaction(prisma, queueId, async (tx) => {
         await tx.$queryRaw`SELECT id FROM outbox WHERE entity_id = ${queueId} AND operation_type LIKE 'reward.%' ORDER BY id FOR UPDATE`;
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue) throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
-        if (queue.lifecycleStatus !== 'deleting' || queue.queueMode !== 'channel_points' || !queue.rewardId) {
-          throw repositoryError('QUEUE_DELETION_NOT_PENDING', 'Managed queue deletion is not pending');
-        }
-        const rewardTasks = await tx.outbox.findMany({ where: { entityId: queueId, operationType: { in: rewardOperationTypes } } });
-        if (rewardTasks.some(({ status }) => status === 'processing')) {
-          throw repositoryError('QUEUE_REWARD_OPERATION_PROCESSING', 'A Twitch reward operation is still processing');
-        }
-        const deletion = rewardTasks.find(({ operationType }) => operationType === 'reward.delete');
-        if (!deletion) throw repositoryError('QUEUE_DELETION_NOT_PENDING', 'Queue deletion operation was not found');
-        if (deletion.status === 'confirmed') return { status: 'already_deleted', queue };
-        if (deletion.status === 'cancel_verification') {
-          return { status: 'verification_required', operationId: deletion.id, queueId, rewardId: queue.rewardId, expectedVersion: queue.version, queue };
-        }
-        if (!['pending', 'retry', 'unknown', 'failed', 'conflict'].includes(deletion.status)) {
-          throw repositoryError('QUEUE_DELETION_NOT_PENDING', 'Queue deletion cannot be cancelled in its current state');
-        }
-        await tx.outbox.update({ where: { id: deletion.id }, data: { status: 'cancel_verification', leaseToken: null, leaseUntil: null } });
+        const rewardTasks = await tx.outbox.findMany({ where: { entityId: queueId, operationType: { in: rewardOperationTypes } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+        const decision = decideQueueDeletionCancellation(queue, rewardTasks);
+        if (decision.outcome === 'refused') throw repositoryError(decision.code, 'Queue deletion cannot be cancelled in its current state');
+        const target = decision.target;
+        const payload = payloadObject(target.payload);
+        const reservation = (previousStatus) => ({
+          status: 'verification_required', operationId: target.id, operationType: target.operationType, queueId, rewardId: queue.rewardId,
+          expectedVersion: queue.version, queue, previousStatus,
+          // Only a `reward.delete` can carry a possibly-sent DELETE; on a pause task the flag refers to the pause write.
+          requestMayHaveReachedTwitch: target.operationType === 'reward.delete' && payload.requestMayHaveReachedTwitch === true,
+        });
+        // Resume (crash or second click): no new audit row; a legacy row without the key restores to `unknown` (T36-14).
+        if (decision.outcome === 'resume') return reservation(cancelVerificationPreviousStatus(target));
+        const reserved = await tx.outbox.updateMany({ where: { id: target.id, status: target.status }, data: {
+          status: 'cancel_verification', leaseToken: null, leaseUntil: null,
+          payload: { ...payload, cancelVerification: { previousStatus: target.status, previousLastError: target.lastError ?? null, requestedAt: clock().toISOString() } },
+        } });
+        if (reserved.count !== 1) throw repositoryError('QUEUE_DELETION_CANCELLATION_STALE', 'Queue deletion changed during cancellation');
         await tx.auditLog.create({ data: {
           queueId, event: 'queue.deletion_cancel_verification_requested', actorId, origin,
-          previousState: deletion.status, nextState: 'cancel_verification', reason: 'operator_requested_queue_deletion_cancellation',
-          safeDetail: { rewardId: queue.rewardId, operationId: deletion.id, requestMayHaveReachedTwitch: deletion.payload?.requestMayHaveReachedTwitch === true, safeToDelete: deletion.payload?.safeToDelete === true },
+          previousState: target.status, nextState: 'cancel_verification', reason: 'operator_requested_queue_deletion_cancellation',
+          safeDetail: {
+            rewardId: queue.rewardId, operationId: target.id, operationType: target.operationType,
+            deletionState: decision.deletionState, blockReason: decision.blockReason,
+            requestMayHaveReachedTwitch: payload.requestMayHaveReachedTwitch === true, safeToDelete: payload.safeToDelete === true,
+          },
         } });
-        return { status: 'verification_required', operationId: deletion.id, queueId, rewardId: queue.rewardId, expectedVersion: queue.version, queue };
+        return reservation(target.status);
       });
     },
 
-    async failQueueDeletionCancellation({ queueId, operationId, errorCode }) {
+    /**
+     * The read did not prove a paused reward. A non-conclusive read (5xx, network, timeout, 401, stale confirm) restores the
+     * previous status (F20, D-36-4); only a conclusive negative read sets `unknown`, except a blocked pause that is merely
+     * not paused, which is restored too. Guarded by `WHERE status = 'cancel_verification'` (`count === 1`).
+     */
+    async failQueueDeletionCancellation({ queueId, operationId, errorCode, conclusive = false, actorId = null, origin = 'panel' }) {
       return withQueueTransaction(prisma, queueId, async (tx) => {
         await tx.$queryRaw`SELECT id FROM outbox WHERE entity_id = ${queueId} AND operation_type LIKE 'reward.%' ORDER BY id FOR UPDATE`;
-        const task = await tx.outbox.findFirst({ where: { id: operationId, entityId: queueId, operationType: 'reward.delete', status: 'cancel_verification' } });
+        const task = await tx.outbox.findFirst({ where: { id: operationId, entityId: queueId, operationType: { in: QUEUE_DELETION_CANCEL_TARGET_TYPES }, status: 'cancel_verification' } });
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
-        if (!task || !queue || queue.lifecycleStatus !== 'deleting') return { status: 'not_cancelled', queue: queue ?? null };
-        await tx.outbox.update({ where: { id: task.id }, data: { status: 'unknown', lastError: errorCode, leaseToken: null, leaseUntil: null } });
+        if (!task || !queue || queue.lifecycleStatus !== 'deleting') return { status: 'not_cancelled', reason: errorCode, queue: queue ?? null };
+        const previousStatus = cancelVerificationPreviousStatus(task);
+        const restored = !conclusive || (task.operationType === 'reward.set_open' && errorCode === 'queue_delete_cancel_reward_not_paused');
+        const nextStatus = restored ? previousStatus : 'unknown';
+        const payload = withoutCancelVerification(task.payload);
+        // C-2: a 401 read keeps the worker's marker in `last_error`, so the projection and the FT-26 re-arm still see the
+        // task; the refusal reason and the audit row keep `authorization_required`.
+        const storedError = errorCode === 'authorization_required' ? REWARD_AUTHORIZATION_REQUIRED : errorCode;
+        const changed = await tx.outbox.updateMany({ where: { id: task.id, status: 'cancel_verification' }, data: {
+          status: nextStatus, lastError: storedError, leaseToken: null, leaseUntil: null, payload,
+        } });
+        if (changed.count !== 1) return { status: 'not_cancelled', reason: errorCode, queue };
         if (errorCode === 'queue_delete_reward_diverged') {
           await tx.queue.updateMany({ where: { id: queueId, lifecycleStatus: 'deleting' }, data: { remoteSyncStatus: 'diverged', version: { increment: 1 } } });
         }
         const updatedQueue = await tx.queue.findUnique({ where: { id: queueId } });
         await tx.auditLog.create({ data: {
-          queueId, event: 'queue.deletion_cancellation_not_confirmed', origin: 'panel',
-          previousState: 'cancel_verification', nextState: 'unknown', reason: errorCode,
-          safeDetail: { rewardId: queue.rewardId, operationId: task.id },
+          queueId, event: 'queue.deletion_cancellation_not_confirmed', actorId, origin,
+          previousState: 'cancel_verification', nextState: nextStatus, reason: errorCode,
+          safeDetail: { rewardId: queue.rewardId, operationId: task.id, restored, previousStatus },
         } });
         return { status: 'not_cancelled', reason: errorCode, queue: updatedQueue };
       });
     },
 
-    async confirmQueueDeletionCancellation({ queueId, operationId, expectedVersion, reward }) {
+    async confirmQueueDeletionCancellation({ queueId, operationId, expectedVersion, reward, actorId = null, origin = 'panel' }) {
       return withQueueTransaction(prisma, queueId, async (tx) => {
         await tx.$queryRaw`SELECT id FROM outbox WHERE entity_id = ${queueId} AND operation_type LIKE 'reward.%' ORDER BY id FOR UPDATE`;
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
-        const task = await tx.outbox.findFirst({ where: { id: operationId, entityId: queueId, operationType: 'reward.delete', status: 'cancel_verification' } });
+        const task = await tx.outbox.findFirst({ where: { id: operationId, entityId: queueId, operationType: { in: QUEUE_DELETION_CANCEL_TARGET_TYPES }, status: 'cancel_verification' } });
         if (!queue || !task || queue.lifecycleStatus !== 'deleting') throw repositoryError('QUEUE_DELETION_CANCELLATION_STALE', 'Queue deletion changed during cancellation verification');
         if (queue.version !== expectedVersion) throw repositoryError('QUEUE_DELETION_CANCELLATION_STALE', 'Queue changed during cancellation verification');
         if (!matchesManagedRewardState(reward, queue) || reward.isPaused !== true) throw repositoryError('QUEUE_DELETION_CANCELLATION_UNVERIFIED', 'Twitch reward does not match the paused managed queue');
-        const otherProcessing = await tx.outbox.findFirst({ where: { entityId: queueId, operationType: { in: rewardOperationTypes }, status: 'processing' }, select: { id: true } });
-        if (otherProcessing) throw repositoryError('QUEUE_REWARD_OPERATION_PROCESSING', 'A Twitch reward operation is still processing');
+        const rewardTasks = await tx.outbox.findMany({ where: { entityId: queueId, operationType: { in: rewardOperationTypes } } });
+        if (rewardTasks.some(({ status }) => status === 'processing')) throw repositoryError('QUEUE_REWARD_OPERATION_PROCESSING', 'A Twitch reward operation is still processing');
+        const payload = withoutCancelVerification(task.payload);
         const changedTask = await tx.outbox.updateMany({ where: { id: task.id, status: 'cancel_verification' }, data: {
-          status: 'cancelled', lastError: 'queue_deletion_cancelled_by_operator', leaseToken: null, leaseUntil: null,
+          status: 'cancelled', lastError: 'queue_deletion_cancelled_by_operator', leaseToken: null, leaseUntil: null, payload,
         } });
         if (changedTask.count !== 1) throw repositoryError('QUEUE_DELETION_CANCELLATION_STALE', 'Queue deletion changed during cancellation verification');
+        // Every other non-final deletion task of this queue (the delete or its pause) is cancelled with it; history stays.
+        const otherIds = rewardTasks
+          .filter((other) => other.id !== task.id && CANCELLABLE_DELETE_STATUSES.includes(other.status)
+            && (other.operationType === 'reward.delete' || (other.operationType === 'reward.set_open' && payloadObject(other.payload).deleteAfterConfirm === true)))
+          .map(({ id }) => id);
+        const others = otherIds.length ? await tx.outbox.updateMany({ where: { id: { in: otherIds }, status: { in: CANCELLABLE_DELETE_STATUSES } }, data: {
+          status: 'cancelled', lastError: 'queue_deletion_cancelled_by_operator', leaseToken: null, leaseUntil: null,
+        } }) : { count: 0 };
         const changedQueue = await tx.queue.updateMany({ where: { id: queueId, lifecycleStatus: 'deleting', version: expectedVersion }, data: {
           lifecycleStatus: 'active', isArchived: true, isOpen: false, remoteSyncStatus: 'synced', version: { increment: 1 },
         } });
         if (changedQueue.count !== 1) throw repositoryError('QUEUE_DELETION_CANCELLATION_STALE', 'Queue changed during cancellation verification');
+        const financialTasksLeftRunning = await tx.outbox.count({ where: { operationType: { in: financialOperationTypes }, status: { in: ['pending', 'retry', 'processing'] }, redemption: { queueId } } });
         const updatedQueue = await tx.queue.findUnique({ where: { id: queueId } });
         await tx.auditLog.create({ data: {
-          queueId, event: 'queue.deletion_cancelled', origin: 'panel', previousState: 'deleting', nextState: 'active_closed_archived', reason: 'operator_cancelled_queue_deletion_after_reward_verification',
-          safeDetail: { rewardId: queue.rewardId, operationId: task.id, remoteSyncStatus: 'synced', isPaused: true },
+          queueId, event: 'queue.deletion_cancelled', actorId, origin, previousState: 'deleting', nextState: 'active_closed_archived', reason: 'operator_cancelled_queue_deletion_after_reward_verification',
+          safeDetail: { rewardId: queue.rewardId, operationId: task.id, remoteSyncStatus: 'synced', isPaused: true, cancelledTasks: 1 + others.count, financialTasksLeftRunning },
         } });
         return { status: 'cancelled', queue: updatedQueue };
       });

@@ -551,3 +551,46 @@ describe('OPS-22 FT-26 queue deletion worker', () => {
     expect(Object.keys(blockedRetry.blockers).sort()).toEqual(['blockedCount', 'pendingCount']);
   });
 });
+
+// OPS-22 FT-36 (#100), U36-06 (Orion addendum): a late DELETE lands after a verified cancel. The queue came back
+// archived and closed with the reward paused; the operator shows it and opens it. The open action reads the reward
+// first and never writes to a reward it cannot prove, so the queue is never reopened on Twitch without its reward.
+describe('OPS-22 FT-36 open action after a verified cancel (late DELETE)', () => {
+  const queue = { id: 'queue-1', title: 'Reopened', cost: 50, rewardPrompt: '', uidMode: 'hidden', rewardId: 'reward-1', lifecycleStatus: 'active', isArchived: false, isOpen: true, remoteSyncStatus: 'pending_open' };
+  function openHarness(getReward) {
+    const task = { id: 'open-task', operationType: 'reward.set_open', attempts: 1, leaseToken: 'open-lease', payload: { isOpen: true, queueVersion: 5, requestMayHaveReachedTwitch: false }, queue };
+    const repository = {
+      claimNextRewardOperation: vi.fn(async () => task),
+      prepareRewardOpen: vi.fn(async () => true),
+      confirmRewardOpen: vi.fn(async () => true),
+      retryRewardOperation: vi.fn(async () => true),
+      failedRewardOperation: vi.fn(async () => true),
+      unknownRewardOperation: vi.fn(async () => true),
+    };
+    const twitch = { getReward: vi.fn(getReward), setRewardOpen: vi.fn(async () => { throw new Error('the open must never be written'); }) };
+    return { repository, twitch, worker: createRewardOutboxWorker({ repository, twitch, clock: () => new Date('2026-11-04T12:00:00Z'), random: () => 0.5 }) };
+  }
+
+  it('U36-06: an absent reward (null or a real 404) fails the open safely; no open is written and nothing is confirmed', async () => {
+    for (const [name, read] of [['null', async () => null], ['real 404', async () => { throw twurpleHttpError(404, 'Not Found'); }]]) {
+      const { repository, twitch, worker } = openHarness(read);
+      const outcome = await worker.processOne();
+      expect(twitch.getReward, name).toHaveBeenCalledWith('reward-1');
+      expect(twitch.setRewardOpen, name).not.toHaveBeenCalled();
+      expect(repository.prepareRewardOpen, name).not.toHaveBeenCalled();
+      expect(repository.confirmRewardOpen, name).not.toHaveBeenCalled();
+      expect(['unknown', 'retry'], name).toContain(outcome);
+    }
+    const absent = openHarness(async () => null);
+    await expect(absent.worker.processOne()).resolves.toBe('unknown');
+    expect(absent.repository.unknownRewardOperation).toHaveBeenCalledWith('open-task', 'reward_open_reward_diverged', 'open-lease');
+  });
+
+  it('U36-06: an inconclusive read keeps the open in retry without writing to Twitch', async () => {
+    const { repository, twitch, worker } = openHarness(async () => { throw twurpleHttpError(503, 'Service Unavailable'); });
+    await expect(worker.processOne()).resolves.toBe('retry');
+    expect(twitch.setRewardOpen).not.toHaveBeenCalled();
+    expect(repository.confirmRewardOpen).not.toHaveBeenCalled();
+    expect(repository.retryRewardOperation).toHaveBeenCalledWith('open-task', expect.objectContaining({ errorCode: 'reward_open_lookup_failed' }), 'open-lease');
+  });
+});

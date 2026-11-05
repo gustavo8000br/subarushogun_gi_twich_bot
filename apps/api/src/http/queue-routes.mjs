@@ -4,7 +4,7 @@ import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES, resolveCommandPolicy } fro
 import { createErrorDiagnosticReporter } from '../observability/error-diagnostics.mjs';
 import { financialOperationHealth } from '../outbox/financial-retry-policy.mjs';
 import { evaluatePendingQueueRewardCompatibility, summarizePendingQueueRewardCompatibility } from '../twitch/pending-queue-reward-compatibility.mjs';
-import { getQueueDeletionProjection } from '../../../shared/panel/queue-action-state.mjs';
+import { QUEUE_DELETION_CANCEL_REFUSALS, getQueueDeletionProjection, normalizeDeletionCancelReason } from '../../../shared/panel/queue-action-state.mjs';
 
 function canonicalValue(value) {
   if (Array.isArray(value)) return value.map(canonicalValue);
@@ -806,11 +806,12 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     if (body.confirm !== true) return reply.code(400).send({ code: 'QUEUE_DELETE_CANCEL_CONFIRMATION_REQUIRED', error: 'Confirme explicitamente o cancelamento da exclusão.' });
     try {
       const result = await domainService.cancelQueueDeletion({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
-      return { status: result.status, reason: result.reason, ...(result.queue ? { queue: queueDto(result.queue, { operator: true }) } : {}) };
+      return { status: result.status, reason: normalizeDeletionCancelReason(result.reason), ...(result.queue ? { queue: queueDto(result.queue, { operator: true }) } : {}) };
     } catch (error) {
       const code = error?.code;
       if (code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code, error: 'Fila não encontrada.' });
-      if (['QUEUE_DELETION_NOT_PENDING', 'QUEUE_REWARD_OPERATION_PROCESSING', 'QUEUE_DELETION_CANCELLATION_STALE', 'QUEUE_DELETION_CANCELLATION_UNVERIFIED'].includes(code)) {
+      // OPS-22 FT-36 (architect-review-ft36 §1.5): every refusal is a 409 with an enumerated `code`; the panel maps by code.
+      if ([...QUEUE_DELETION_CANCEL_REFUSALS, 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', 'QUEUE_DELETION_CANCELLATION_STALE', 'QUEUE_DELETION_CANCELLATION_UNVERIFIED'].includes(code)) {
         return reply.code(409).send({ code, error: 'Não foi possível cancelar a exclusão neste estado. Atualize o painel e revise a operação da reward.' });
       }
       return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.delete_cancel', error, message: 'Não foi possível verificar o cancelamento da exclusão.' });

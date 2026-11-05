@@ -1909,10 +1909,14 @@ describe('PostgreSQL queue repository', () => {
     };
     const cancelService = createQueueDomainService({ repository, getTwitch: () => ({ getReward: async () => reward }) });
 
+    // OPS-22 FT-36, Orion decision (2026-10-30): after a possibly-sent DELETE a NEGATIVE read is a 409 refusal; the
+    // conclusive negative read still leaves the task `unknown` with its reason and is audited with the actor.
     await expect(cancelService.cancelQueueDeletion({ queueId: queue.id, actorId: 'operator-cancel' }))
-      .resolves.toMatchObject({ status: 'not_cancelled', reason });
+      .rejects.toMatchObject({ code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED' });
 
     expect(await prisma.outbox.findUnique({ where: { id: deletion.id } })).toMatchObject({ status: 'unknown', lastError: reason, payload: { requestMayHaveReachedTwitch: true, safeToDelete: true } });
+    expect(await prisma.auditLog.findMany({ where: { queueId: queue.id, event: 'queue.deletion_cancellation_not_confirmed' } }))
+      .toMatchObject([{ actorId: 'operator-cancel', nextState: 'unknown', reason, safeDetail: { restored: false, previousStatus: 'unknown' } }]);
     expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ lifecycleStatus: 'deleting', isOpen: false });
   });
 

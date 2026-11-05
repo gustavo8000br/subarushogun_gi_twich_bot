@@ -33,7 +33,7 @@ let prisma;
 let otherPrisma;
 let repository;
 let otherRepository;
-let now = new Date('2026-11-04T12:00:00.000Z');
+let now = new Date('2030-01-01T12:00:00.000Z');
 const clock = () => now;
 
 function docker(args) {

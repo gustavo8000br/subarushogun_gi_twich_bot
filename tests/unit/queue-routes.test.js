@@ -1083,6 +1083,35 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  // OPS-22 FT-36 (#100), U36-03: every refusal of "cancel deletion" is a 409 with an enumerated `code`; a 2xx
+  // `not_cancelled` carries an enumerated `reason` (the legacy one is answered with its alias); the old 200 `already_deleted`
+  // is gone.
+  it('U36-03: maps every cancel-deletion refusal to 409 with its code and answers not_cancelled with an enumerated reason', async () => {
+    const domainService = { cancelQueueDeletion: vi.fn() };
+    const h = await createHarness({ domainService });
+    const cancel = () => h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete/cancel', headers: h.headers, payload: { confirm: true } });
+    for (const code of ['QUEUE_DELETION_ALREADY_COMPLETED', 'QUEUE_DELETION_NOT_PENDING', 'QUEUE_REWARD_OPERATION_PROCESSING',
+      'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', 'QUEUE_DELETION_PAUSE_IN_PROGRESS', 'QUEUE_DELETION_CANCELLATION_STALE', 'QUEUE_DELETION_CANCELLATION_UNVERIFIED']) {
+      domainService.cancelQueueDeletion.mockRejectedValueOnce(Object.assign(new Error('private detail'), { code }));
+      const response = await cancel();
+      expect(response.statusCode, code).toBe(409);
+      expect(response.json().code, code).toBe(code);
+      expect(response.body, code).not.toContain('private detail');
+    }
+    const queue = { id: 'queue-id', slug: 'abismo', title: 'Abismo', cost: 100, uidMode: 'hidden', lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_unknown', version: 3 };
+    domainService.cancelQueueDeletion.mockResolvedValueOnce({ status: 'not_cancelled', reason: 'queue_deletion_cancel_verification_failed', queue });
+    const legacy = await cancel();
+    expect(legacy.statusCode).toBe(200);
+    expect(legacy.json()).toMatchObject({ status: 'not_cancelled', reason: 'queue_deletion_cancel_verification_unavailable' });
+    for (const reason of ['queue_delete_reward_absent', 'queue_delete_reward_diverged', 'queue_delete_cancel_reward_not_paused', 'queue_deletion_cancel_verification_unavailable', 'authorization_required']) {
+      domainService.cancelQueueDeletion.mockResolvedValueOnce({ status: 'not_cancelled', reason, queue });
+      const response = await cancel();
+      expect(response.statusCode, reason).toBe(200);
+      expect(response.json(), reason).toMatchObject({ status: 'not_cancelled', reason });
+    }
+    await h.app.close();
+  });
+
   // OPS-22 FT-26 (#99), C26-01 / AC 15, 18: code-only deletion contract.
   it('C26-01: projects the deletion state of deleting queues with enumerated values only', async () => {
     const h = await createHarness({ domainService: {} });

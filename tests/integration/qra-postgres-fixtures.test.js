@@ -513,19 +513,19 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
         headers: { ...headers, 'idempotency-key': randomUUID() },
         payload: { confirm: true },
       });
-      expect(uncertainCancel.statusCode).toBe(200);
-      expect(uncertainCancel.json()).toMatchObject({
-        status: 'not_cancelled', reason: 'queue_deletion_cancel_verification_failed',
-        queue: { id: uncertainQueue.id, lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_unknown' },
-      });
+      // OPS-22 FT-36, Orion decision (option A, 2026-11-04): a non-conclusive read after a possibly-sent DELETE is a
+      // 409 refusal; the task is restored to its previous status (`unknown` here) and the read is audited with the actor.
+      expect(uncertainCancel.statusCode).toBe(409);
+      expect(uncertainCancel.json()).toMatchObject({ code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED' });
+      expect(uncertainCancel.body).not.toContain('private adapter failure');
       expect(await prisma.queue.findUnique({ where: { id: uncertainQueue.id } }))
         .toMatchObject({ lifecycleStatus: 'deleting', remoteSyncStatus: 'delete_unknown', isOpen: false });
       expect(await prisma.outbox.findUnique({ where: { id: uncertainTask.id } }))
-        .toMatchObject({ status: 'unknown', lastError: 'queue_deletion_cancel_verification_failed', payload: { requestMayHaveReachedTwitch: true } });
+        .toMatchObject({ status: 'unknown', lastError: 'queue_deletion_cancel_verification_unavailable', payload: { requestMayHaveReachedTwitch: true } });
       expect(await prisma.auditLog.findMany({ where: { queueId: uncertainQueue.id }, orderBy: { createdAt: 'asc' } }))
         .toMatchObject([
           { event: 'queue.deletion_cancel_verification_requested', actorId, nextState: 'cancel_verification' },
-          { event: 'queue.deletion_cancellation_not_confirmed', nextState: 'unknown', reason: 'queue_deletion_cancel_verification_failed' },
+          { event: 'queue.deletion_cancellation_not_confirmed', actorId, nextState: 'unknown', reason: 'queue_deletion_cancel_verification_unavailable' },
         ]);
       getReward.mockImplementation(async (rewardId) => rewardId === uncertainQueue.rewardId
         ? { ...deletionReward, id: uncertainQueue.rewardId, title: uncertainQueue.title, cost: uncertainQueue.cost, prompt: uncertainQueue.rewardPrompt }
@@ -581,6 +581,44 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
         .toMatchObject({ lifecycleStatus: 'deleting', remoteSyncStatus: 'diverged', isOpen: false, version: 2 });
       expect(await prisma.outbox.findUnique({ where: { id: divergedTask.id } }))
         .toMatchObject({ status: 'unknown', lastError: 'queue_delete_reward_diverged' });
+
+      // OPS-22 FT-36, twin of the uncertain case (Orion option A): with no DELETE attempt, a failed read keeps the
+      // 200 `not_cancelled` answer, now with the `_unavailable` reason, and restores the previous status.
+      const unsentQueue = await seedQraQueue(prisma, {
+        slugPrefix: 'qra-delete-cancel-unsent',
+        queue: {
+          lifecycleStatus: 'deleting', isArchived: true, isOpen: false,
+          remoteSyncStatus: 'delete_unknown', rewardId: `managed-unsent-${randomUUID()}`,
+        },
+        entries: [],
+      });
+      const unsentTask = await prisma.outbox.create({
+        data: {
+          operationType: 'reward.delete', entityType: 'queue', entityId: unsentQueue.id,
+          idempotencyKey: `queue:${unsentQueue.id}:reward.delete`, payload: { requestMayHaveReachedTwitch: false },
+          status: 'unknown', lastError: 'network_timeout',
+        },
+      });
+      getReward.mockRejectedValueOnce(Object.assign(new Error('private adapter failure'), { statusCode: 503 }));
+      const unsentCancel = await app.inject({
+        method: 'POST',
+        url: `/api/queues/${unsentQueue.id}/delete/cancel`,
+        headers: { ...headers, 'idempotency-key': randomUUID() },
+        payload: { confirm: true },
+      });
+      expect(unsentCancel.statusCode).toBe(200);
+      expect(unsentCancel.json()).toMatchObject({
+        status: 'not_cancelled', reason: 'queue_deletion_cancel_verification_unavailable',
+        queue: { id: unsentQueue.id, lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_unknown' },
+      });
+      expect(unsentCancel.body).not.toContain('private adapter failure');
+      expect(await prisma.outbox.findUnique({ where: { id: unsentTask.id } }))
+        .toMatchObject({ status: 'unknown', lastError: 'queue_deletion_cancel_verification_unavailable', payload: { requestMayHaveReachedTwitch: false } });
+      expect(await prisma.auditLog.findMany({ where: { queueId: unsentQueue.id }, orderBy: { createdAt: 'asc' } }))
+        .toMatchObject([
+          { event: 'queue.deletion_cancel_verification_requested', actorId, nextState: 'cancel_verification' },
+          { event: 'queue.deletion_cancellation_not_confirmed', actorId, nextState: 'unknown', reason: 'queue_deletion_cancel_verification_unavailable' },
+        ]);
 
       const resendQueue = await seedQraQueue(prisma, {
         slugPrefix: 'qra-call-resend',

@@ -140,8 +140,9 @@ describe('queue deletion projection', () => {
     for (const status of ['unknown', 'failed', 'conflict']) {
       expect(getQueueDeletionProjection(deleting, facts({ rewardDelete: { status, lastError: 'queue_delete_reward_diverged' } })), status).toMatchObject({ deletionState: 'blocked', blockReason: 'reward_operation_unconfirmed' });
     }
+    // OPS-22 FT-36 (F19, D-36-5): a BLOCKED pause stage is cancellable; this case said `false` before FT-36.
     expect(getQueueDeletionProjection({ ...deleting, remoteSyncStatus: 'close_unknown' }, facts({ rewardDelete: null, rewardPause: { status: 'unknown', lastError: 'reward_open_result_unknown' } })))
-      .toMatchObject({ deletionState: 'blocked', blockReason: 'reward_operation_unconfirmed', canCancelDeletion: false });
+      .toMatchObject({ deletionState: 'blocked', blockReason: 'reward_operation_unconfirmed', canCancelDeletion: true });
   });
 
   it('derives canCancelDeletion and cancellationInProgress from the same predicate as the cancel begin (no remote read)', () => {

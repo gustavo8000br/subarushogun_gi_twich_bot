@@ -1,5 +1,6 @@
 import { decideEntryTransition } from './entry-transitions.mjs';
 import { matchesManagedRewardState } from '../twitch/reward-state.mjs';
+import { twitchHttpError } from '../twitch/http-error.mjs';
 
 /** @typedef {{entryId: string, to: string, origin?: string, actorId?: string|null, reason: string, deadlineCutoff?: Date}} TransitionInput */
 /** @typedef {{status: string, source: string}} EntrySnapshot */
@@ -63,35 +64,38 @@ export function createQueueDomainService({ repository, getTwitch = () => null })
       if (!repository.beginQueueDeletionCancellation || !repository.confirmQueueDeletionCancellation || !repository.failQueueDeletionCancellation) {
         throw new Error('Queue deletion cancellation is unavailable');
       }
+      // OPS-22 FT-36 (#100): begin (refusals are thrown with their `code`), one read-only Twitch read, then confirm or fail.
       const reservation = await repository.beginQueueDeletionCancellation({ queueId, actorId, origin });
       if (reservation.status !== 'verification_required') return reservation;
+      const fail = async (errorCode, conclusive) => {
+        const result = await repository.failQueueDeletionCancellation({ queueId, operationId: reservation.operationId, errorCode, conclusive, actorId, origin });
+        // Orion decision (2026-10-30): after a possibly-sent DELETE only a positive read may cancel; anything else is a
+        // refusal, raised AFTER the task was restored (or set unknown) and the read was audited.
+        if (reservation.requestMayHaveReachedTwitch === true) {
+          throw Object.assign(new Error('The reward delete may have reached Twitch'), { code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED' });
+        }
+        return result;
+      };
       let reward;
       try {
         const twitch = getTwitch();
         if (!twitch?.getReward) throw new Error('Twitch reward verification is unavailable');
         reward = await twitch.getReward(reservation.rewardId);
       } catch (error) {
-        const status = Number(error?.statusCode ?? error?.status);
-        return repository.failQueueDeletionCancellation({
-          queueId, operationId: reservation.operationId,
-          errorCode: status === 404 ? 'queue_delete_reward_absent' : 'queue_deletion_cancel_verification_failed',
-        });
+        const { httpStatus } = twitchHttpError(error);
+        if (httpStatus === 404) return fail('queue_delete_reward_absent', true);
+        return fail(httpStatus === 401 ? 'authorization_required' : 'queue_deletion_cancel_verification_unavailable', false);
       }
-      if (!reward) return repository.failQueueDeletionCancellation({
-        queueId, operationId: reservation.operationId, errorCode: 'queue_delete_reward_absent',
-      });
-      if (!matchesManagedRewardState(reward, reservation.queue) || reward.isPaused !== true) {
-        return repository.failQueueDeletionCancellation({
-          queueId, operationId: reservation.operationId, errorCode: 'queue_delete_reward_diverged',
-        });
-      }
+      if (!reward) return fail('queue_delete_reward_absent', true);
+      if (!matchesManagedRewardState(reward, reservation.queue)) return fail('queue_delete_reward_diverged', true);
+      if (reward.isPaused !== true) return fail('queue_delete_cancel_reward_not_paused', true);
       try {
         return await repository.confirmQueueDeletionCancellation({
-          queueId, operationId: reservation.operationId, expectedVersion: reservation.expectedVersion, reward,
+          queueId, operationId: reservation.operationId, expectedVersion: reservation.expectedVersion, reward, actorId, origin,
         });
       } catch (error) {
         await repository.failQueueDeletionCancellation({
-          queueId, operationId: reservation.operationId, errorCode: 'queue_deletion_cancel_verification_stale',
+          queueId, operationId: reservation.operationId, errorCode: 'queue_deletion_cancel_verification_stale', conclusive: false, actorId, origin,
         });
         throw error;
       }
