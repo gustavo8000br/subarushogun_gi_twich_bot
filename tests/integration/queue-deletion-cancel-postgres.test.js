@@ -328,16 +328,16 @@ describe('OPS-22 FT-36 cancel deletion on isolated PostgreSQL', () => {
     expect(await prisma.outbox.findUnique({ where: { id: positive.deletion.id } })).toMatchObject({ status: 'cancelled', payload: possiblySent });
 
     const cases = [
-      ['503', (twitch) => { twitch.state.rewardError = twurpleHttpError(503, 'Service Unavailable'); }, 'retry', 'queue_deletion_cancel_verification_unavailable', true],
-      ['401', (twitch) => { twitch.state.rewardError = twurpleHttpError(401, 'Unauthorized'); }, 'retry', 'authorization_required', true],
-      ['absent', (twitch) => { twitch.state.rewardExists = false; }, 'unknown', 'queue_delete_reward_absent', false],
-      ['not paused', (twitch) => { twitch.state.paused = false; }, 'unknown', 'queue_delete_cancel_reward_not_paused', false],
+      ['503', (twitch) => { twitch.state.rewardError = twurpleHttpError(503, 'Service Unavailable'); }, 'retry', 'queue_deletion_cancel_verification_unavailable', true, 'verification_unavailable'],
+      ['401', (twitch) => { twitch.state.rewardError = twurpleHttpError(401, 'Unauthorized'); }, 'retry', 'authorization_required', true, 'authorization_required'],
+      ['absent', (twitch) => { twitch.state.rewardExists = false; }, 'unknown', 'queue_delete_reward_absent', false, 'reward_absent'],
+      ['not paused', (twitch) => { twitch.state.paused = false; }, 'unknown', 'queue_delete_cancel_reward_not_paused', false, 'reward_not_paused'],
     ];
-    for (const [name, arrange, nextStatus, reason, restored] of cases) {
+    for (const [name, arrange, nextStatus, reason, restored, publicReason] of cases) {
       const { queue, deletion } = await seedDeletingQueue({ deleteStatus: 'retry', deleteLastError: 'queue_delete_response_unknown', deletePayload: possiblySent, nextAttemptAt: minutesFromNow(5) });
       const twitch = fakeTwitch(queue);
       arrange(twitch);
-      await expect(serviceFor(twitch).cancelQueueDeletion({ queueId: queue.id, actorId: 'operator-1' }), name).rejects.toMatchObject({ code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED' });
+      await expect(serviceFor(twitch).cancelQueueDeletion({ queueId: queue.id, actorId: 'operator-1' }), name).rejects.toMatchObject({ code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', reason: publicReason }); // FT-53: closed public reason, never the internal code
       expect(await prisma.outbox.findUnique({ where: { id: deletion.id } }), name).toMatchObject({ status: nextStatus, lastError: reason === 'authorization_required' ? 'twitch_authorization_required' : reason, payload: possiblySent });
       expect(await prisma.queue.findUnique({ where: { id: queue.id } }), name).toMatchObject({ lifecycleStatus: 'deleting', isOpen: false });
       expect(await auditRows(queue.id, 'queue.deletion_cancellation_not_confirmed'), name).toMatchObject([{ actorId: 'operator-1', nextState: nextStatus, reason, safeDetail: { restored, previousStatus: 'retry' } }]);
@@ -564,6 +564,10 @@ describe('OPS-22 FT-36 cancel deletion on isolated PostgreSQL', () => {
     const after = await prisma.queue.findUnique({ where: { id: queue.id } });
     expect(after.remoteSyncStatus).toBe('open_unknown');
     expect(after.remoteSyncStatus).not.toBe('synced');
+    // TS-18 (AC-T18-1): local isOpen semantics. `setQueueOpen(true)` stores the requested state locally while the remote sync is
+    // pending/unknown, so the flag stays true even though Twitch was never reopened (writes are []). Mutation (AC-T18-2): if the
+    // late-DELETE branch wrote `isOpen: false` this assertion fails.
+    expect(after.isOpen).toBe(true);
     expect(await auditRows(queue.id, 'queue.open_state_confirmed')).toEqual([]);
     expect(await auditRows(queue.id, 'queue.open_state_unknown')).toMatchObject([{ reason: 'reward_open_reward_diverged' }]);
     await expect(repository.setQueueOpen(queue.id, true, 'operator-1')).resolves.toMatchObject({ status: 'open_unknown' });
