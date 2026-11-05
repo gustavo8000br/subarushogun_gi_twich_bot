@@ -355,6 +355,7 @@ panel.command.role_join	e
 panel.command.access_fixed	Acesso fixo:
 panel.command.marked_roles	O cargo escolhido e os cargos superiores podem usar este comando.
 panel.command.threshold_label	Nível mínimo da audiência
+panel.command.reload	Recarregar permissões
 panel.command.threshold.select	Escolha o nível mínimo
 panel.command.threshold.help	O grupo escolhido e os cargos superiores herdam acesso.
 panel.command.audience.proposed	Depois de salvar: {roles}.

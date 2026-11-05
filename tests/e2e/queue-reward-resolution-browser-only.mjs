@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
+import { assertDialogLayoutAtViewports } from './fixtures/dialog-layout.mjs';
 import { qraQueueDto } from './fixtures/qra-api-fixtures.mjs';
 
 const appOrigin = process.env.APP_ORIGIN ?? 'https://localhost:3000';
@@ -73,6 +74,7 @@ try {
   await page.getByRole('button', { name: 'Link reward', exact: true }).click();
   const lookupAlert = dialog.getByRole('alert');
   await lookupAlert.waitFor({ timeout: 10_000 });
+  await assertDialogLayoutAtViewports(page, page.locator('dialog.reward-resolution-dialog[open]'), 'reward resolution dialog');
   const alertText = await lookupAlert.innerText();
   assert.match(alertText, /Could not read Twitch rewards/);
   assert.match(alertText, /REF-LOOKUP-0001/);

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright-core';
 import { qraQueueDto } from './fixtures/qra-api-fixtures.mjs';
+import { assertDialogLayoutAtViewports } from './fixtures/dialog-layout.mjs';
 
 const appOrigin = process.env.APP_ORIGIN ?? 'https://localhost:3000';
 const origin = new URL(appOrigin);
@@ -122,6 +123,7 @@ try {
   const editButton = page.getByRole('button', { name: 'Edit reward' });
   await editButton.waitFor({ timeout: 15_000 });
   await editButton.click();
+  await assertDialogLayoutAtViewports(page, page.locator('dialog.reward-settings-dialog[open]'), 'reward settings dialog');
   await page.getByRole('textbox', { name: 'Reward name' }).fill('Arena Plus');
   await page.getByRole('spinbutton', { name: 'Points cost' }).fill('250');
   await page.getByRole('button', { name: 'Request Twitch update' }).click();

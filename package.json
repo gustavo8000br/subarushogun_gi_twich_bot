@@ -36,6 +36,7 @@
     "test:e2e:queue-creation:browser-only": "node tests/e2e/queue-creation-uncertain-browser-only.mjs",
     "test:e2e:queue-creation-accepted:browser-only": "node tests/e2e/queue-creation-accepted-browser-only.mjs",
     "test:e2e:widget-link:browser-only": "node tests/e2e/widget-link-dialog-browser-only.mjs",
+    "test:e2e:panel-layout:browser-only": "node tests/e2e/panel-layout-browser-only.mjs",
     "build:frontend": "next build apps/frontend",
     "validate:version": "node apps/infra/scripts/validate-version.mjs",
     "validate:port-denylist": "node apps/infra/scripts/validate-port-denylist.mjs",
