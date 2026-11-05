@@ -115,8 +115,12 @@ O widget não recebe desenho novo aqui. A revisão cobre só os estados existent
 - `docs/stories.md` (entrada no índice)
 - `docs/pt-BR/stories.md` (entrada no índice)
 
+- `docs/stories/OPS-25/obs-native-runbook.md` e `docs/pt-BR/stories/OPS-25/obs-native-runbook.md` (novos, `@dev` 2026-11-05): roteiro para o `@qa` (links novos do painel, backup e edição da coleção de cenas do OBS, AC-W-1..5, conferência do canal de testes, `ping` ao vivo, D-6 ao vivo). Nada foi executado.
+
 ## Change Log
 
 - 2026-10-27 — `@sm` (River): story redigida a partir da observação do proprietário de que o bug de recarga da OPS-13 / #57 parece não ocorrer no overlay Next. Status Draft. Issue pendente.
 - 2026-10-28 — `@sm` (River): aplicada a correção obrigatória 1 do `@po`. O CA 4 não cita mais "cache de 5 s" (nenhuma fonte o sustenta); agora indica o polling documentado de um segundo com `no-store` em `/overlay/api/widget` (CA 3 da OPS-15, OPS-18) e deixa o limite exato para o plano de execução do `@qa`. Status inalterado (Draft; o status é do `@po`).
 - 2026-10-28 — `@sm` (River): evidência do CA 4 corrigida. A citação da OPS-18 para o polling de um segundo não se sustentava (a OPS-18 não declara intervalo); o CA agora cita a fonte real, `apps/shared/panel/overlay-renderer.mjs:176` (intervalo de 1000 ms) e `:129` (`cache: 'no-store'`). Redação do CA inalterada no restante. Status inalterado (Draft).
+- 2026-11-05 — `@po` (Pax): por decisão do dono um **subconjunto** (CA 1-3, 5-8 da OPS-25 como CA-W-1..7) roda no OBS nativo desta máquina antes do bump 0.3.0-beta, sem iniciar transmissão nem resgate real; o CA 4 (chat `!fila conta`) espera o OK do dono para uma mensagem real de chat; CA 9-10 inalterados. GO 8,8/10 em [`po-validation-bugs-pre-bump.md`](../../../pt-BR/stories/OPS-15/po-validation-bugs-pre-bump.md). Status continua Rascunho (ainda sem issue).
+- 2026-11-05 — `@dev` (Dex): roteiro do OBS nativo para o `@qa` adicionado (ver File List). Sem mudança de código; status inalterado.

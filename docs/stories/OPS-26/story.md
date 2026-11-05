@@ -119,9 +119,13 @@ The streamer sees a truthful latency and the whole bot status inside the chat, a
 - `docs/stories.md` (index entry)
 - `docs/pt-BR/stories.md` (index entry)
 
+- Slice A (D-8 `ping`, recorded by `@dev`, 2026-11-05; awaiting the single `@qa` gate, not committed): `apps/api/src/twitch/shared-api-probe.mjs` (new), `apps/api/src/health-route.mjs` (private cache and `createTwitchHealthBridge` removed; `sharedProbe`), `apps/api/src/server.mjs`, `apps/api/src/twitch/integration.mjs` (`probeEpoch`), `apps/api/src/commands/help.mjs`, `apps/api/src/commands/chat-handler.mjs`, `apps/shared/localization/discover-catalog-module.mjs`, chat and panel catalogs (`chat.ping.response`, `chat.ping.error`; `chat.ping.unavailable` removed; `panel.command.description.global_queue_ping`), tests `shared-api-probe` (new), `ping-texts` (new), `command-help`, `chat-command-handler`, `health-route`, `localization-catalog-route`. 9 mutations killed. AC-D8-9 (live) stays owner-gated.
+
 ## Change Log
 
 - 2026-10-27 — `@sm` (River): story drafted from defect D-8 (LB-23) and the owner request for the streamer-only `status` command. Status Draft. Blocked until the branch is merged into `main`.
 - 2026-10-28 — `@sm` (River): applied `@po` required corrections 1-3 and should-fix 1-2. AC 1 now fixes the version form (`vMAJOR.MINOR.PATCH-stage`, no commit segment); D-8 and OW-17 are named with their inventory IDs (ST-19, TS-13, TS-14, OW-17, already in the inventory since the fifth update); the LB-23 PASS versus D-8 explanation is in the header; the write set names the post-wave-2 catalog path; AC 5 states the 500-character bound. Status unchanged (Draft; `@po` owns status).
 - 2026-10-28 — `@sm` (River): pt-BR decision 2 aligned to the en text (version form fixed without the commit segment; removed the stale "with or without the commit segment" wording that contradicted AC 1). No change to the en body.
 - 2026-10-30 — `@sm` (River): recorded that inventory items TS-13 and TS-14 are part of this story (owner-approved merge); no AC, scope or status change.
+- 2026-11-05 — `@po` (Pax): by owner decision the defect D-8 enters before the 0.3.0-beta bump as **slice A (`ping` only)**; the ST-01 dependency is lifted for this slice; `status` (AC 5-6) stays Draft after the bump. Cause of D-8 found by reading the code (the chat reads a passive `/health` snapshot that is `null` after 60 s without a `/health` request); measurement, ACs AC-D8-1..9 and order in [`po-validation-bugs-pre-bump.md`](../OPS-15/po-validation-bugs-pre-bump.md). GO 9.0/10. Status stays Draft (no issue yet).
+- 2026-11-05 — `@dev` (Dex): slice A (D-8 `ping`) implemented test-first with the shared probe (30 s success, 5 s failure, 5 s limit, `performance.now()`); `status` stays Draft. Status unchanged.

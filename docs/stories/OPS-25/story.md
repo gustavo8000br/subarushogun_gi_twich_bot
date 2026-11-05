@@ -115,8 +115,12 @@ The widget has no new design here. The review covers the existing states only. A
 - `docs/stories.md` (index entry)
 - `docs/pt-BR/stories.md` (index entry)
 
+- `docs/stories/OPS-25/obs-native-runbook.md` and `docs/pt-BR/stories/OPS-25/obs-native-runbook.md` (new, `@dev` 2026-11-05): runbook for `@qa` (new panel links, OBS scene collection backup and edit, AC-W-1..5, test-channel check, live `ping`, live D-6). Nothing was executed.
+
 ## Change Log
 
 - 2026-10-27 — `@sm` (River): story drafted from the owner observation that the OPS-13 / #57 reload bug seems not to occur on the Next overlay. Status Draft. Issue pending.
 - 2026-10-28 — `@sm` (River): applied `@po` required correction 1. AC 4 no longer cites a "5 s cache" (no source supports it); it now states the documented one-second `no-store` poll of `/overlay/api/widget` (OPS-15 AC 3, OPS-18) and leaves the exact bound to the `@qa` execution plan. Status unchanged (Draft; `@po` owns status).
 - 2026-10-28 — `@sm` (River): AC 4 evidence corrected. The OPS-18 citation for the one-second poll did not hold (OPS-18 declares no interval); the AC now cites the real source, `apps/shared/panel/overlay-renderer.mjs:176` (1000 ms interval) and `:129` (`cache: 'no-store'`). AC wording otherwise unchanged. Status unchanged (Draft).
+- 2026-11-05 — `@po` (Pax): by owner decision a **subset** (OPS-25 AC 1-3, 5-8 as AC-W-1..7) runs on the native OBS of this machine before the 0.3.0-beta bump, without starting a stream or a real redemption; AC 4 (chat `!fila conta`) waits for the owner's OK for a real chat message; AC 9-10 unchanged. GO 8.8/10 in [`po-validation-bugs-pre-bump.md`](../OPS-15/po-validation-bugs-pre-bump.md). Status stays Draft (no issue yet).
+- 2026-11-05 — `@dev` (Dex): added the native OBS runbook for `@qa` (see File List). No code change; status unchanged.

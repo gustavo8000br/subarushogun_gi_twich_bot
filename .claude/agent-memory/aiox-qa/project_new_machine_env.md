@@ -30,5 +30,9 @@ Owner moved to a fresh Ubuntu install on 2026-10-23. Quirks observed in the @qa 
 - To prove a move stages as renames without touching the real index (QA never stages): `cp .git/index .local/qa-audit/<gate>/sim-index`, `GIT_INDEX_FILE=<copy> git add -A -- <old> <new>`, `GIT_INDEX_FILE=<copy> git diff --cached -M --name-status`, then delete the copy (2026-10-28 Wave 2 gate: 15 x R100).
 - Never `cp` mutation backups to `/dev/shm` or anywhere outside the repo (slip on 2026-10-28); keep them in `.local/qa-audit/<gate>/`.
 
+- 2026-11-06 gate: OBS 32.2.2 is a user **Flatpak** (config in `~/.var/app/com.obsproject.Studio/config/obs-studio`, NOT the `~/.config/obs-studio` the owner authorized); `test:e2e:overlay` also needs Compose on :3437 + OBS WebSocket :4455 + CDP :9222. Ask the owner to authorize the Flatpak path before touching it.
+- zsh: `"$T:apps/x"` is parsed as the `:a` modifier; write `"${T}:apps/x"` for `git show tree:path`.
+- Atomic commit plan method that worked: node script with a temporary `GIT_INDEX_FILE`, per-path `wt` content for the last group touching a path and a recipe for earlier groups (patch hunks or `wt` minus lines), then `git diff` between successive trees = per-group patches; verify by replaying patches in a second index and by `git archive <tree>` snapshots with lint/unit per group. It caught a non-atomic group (D-8 without its panel catalog hunk).
+
 **Why:** avoids misreading infra failures as functional ones, and avoids wrongly blocking E2E on this machine.
 **How to apply:** check `which opengrep actionlint`, `google-chrome --version` and `docker images` before a gate; verify these still hold.
