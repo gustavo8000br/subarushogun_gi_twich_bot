@@ -2,7 +2,7 @@
 
 [Português (pt-BR)](../../pt-BR/stories/OPS-27/story.md)
 
-**Status:** Draft (drafted by `@sm` on 2026-11-04; not yet validated by `@po`). **Issue:** [#104](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/104) (created by `@devops` before 2026-11-05 from [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); no issue comments).
+**Status:** Ready (`@po` GO 9.0/10 on 2026-11-05 with issue #104, see [po-validation.md](po-validation.md); drafted by `@sm` on 2026-11-04). Ready means validated for planning; the slice gates below still apply. **Issue:** [#104](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/104) (created by `@devops` before 2026-11-05 from [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); no issue comments).
 **Source:** idea #5 of the [improvement survey](../../process/improvement-ideas-2026-11-04.md) (owner request, 2026-11-04). Evidence: a Claude session URL reached 45 commits of this public repository; the protection that existed was only text in `AGENTS.md` (rule "never expose the session URL"). A text rule does not stop an agent whose tool adds a default attribution line. Orion's decision (2026-11-04): this idea starts first, right after the OPS-22 package.
 **Related:** OPS-28 (OpenGrep rules for code; secrets in source code are shared ground, see "Dependencies"); OPS-24 (script language and Biome); OPS-30 and OPS-29 (they also add CI jobs; workflow edits are serialized); [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (9.5 ruler, idea #5, actions AÇ-21..AÇ-26).
 **Registered items:** inventory ST-20 (this story), FT-45 and FT-46 (slices); see [backlog-inventory](../../process/backlog-inventory.md).
@@ -45,7 +45,7 @@ Evidence classes stay separate: unit (pure function), local hook (real Git in a 
 3. **Given** one positive fixture and one look-alike negative fixture for each credential family listed by `@architect`, **when** the pure function runs, **then** every positive is found and no negative is.
 4. **Given** a pull request whose range, files or body carry a planted leak, **when** the CI job runs, **then** it fails; **given** a clean pull request, **then** it passes. The job reads the body as data, never as shell text. (Local fixtures prove the logic; the CI run needs a PR or a workflow dispatch, delegated to the orchestrator.)
 5. **Given** a draft issue body with a planted leak, **when** the documented pre-send check runs, **then** it exits non-zero; **given** the `issues`-event run (if adopted), **then** the run fails and no comment is posted.
-6. **Given** the current tree and the commit range of the branch, **when** the baseline scan runs, **then** it reports zero unaccepted findings; every accepted finding is listed in the story evidence with its reason, and the output lists hashes and paths only.
+6. **Given** the current tree and the pull-request range of the branch (`origin/main..HEAD`; old history already pushed and local backup branches are out of this range and are handled by the owner-reserved process, never fixed by this story), **when** the baseline scan runs, **then** it reports zero unaccepted findings; every accepted finding is listed in the story evidence with its reason, and the output lists hashes and paths only.
 7. **Given** the check's own tests, **when** each pattern is weakened by hand (one mutation per rule, recorded by `@qa`), **then** at least one test fails for each mutation; the test files build the forbidden strings at run time so the check does not flag its own tests.
 8. **Given** `git commit --no-verify`, **when** the commit reaches a pull request, **then** the CI job still fails it: the CI is the layer that cannot be skipped, and this is written in the documentation.
 9. **Given** the documentation, **then** it explains in English and pt-BR how to activate the hook, how to add a pattern and how to add an allowlist entry with its reason; the documentation-contract tests pass; `AGENTS.md` is not edited by agents.
@@ -78,6 +78,7 @@ Nothing blocks the validation or the start: no owner decision is needed before `
 4. **Workflow injection through a PR or issue body.** Mitigation: body as data (AC 4), reviewed by `@architect` and `@devops`.
 5. **Pattern regex cost on large files.** Mitigation: bounded patterns and a size limit decided by `@architect`, tested with a large fixture.
 6. **Edit conflicts on shared workflow files.** Mitigation: serialization above.
+7. **False negatives: a leak the patterns do not match** (new token formats, URL variants such as upper case, `http://`, no trailing slash or percent-encoding, other hosts that the `AGENTS.md` rule also names). Mitigation: the pattern list is versioned with a public source per family; `@architect` fixes the case, URL-variant and encoded-string decisions; each decision has a positive fixture (AC 3, plus a variant case if `@architect` asks for one); the documentation states that the check is a barrier and not a proof of absence, and how to add a pattern (AC 9). Test that covers it: the AC 3 fixtures (one positive per family and per URL variant decided) and the AC 7 hand mutation per rule.
 
 ## Complexity (estimate by `@sm`, to be confirmed by `@architect`)
 
@@ -108,12 +109,12 @@ Current score (Orion's estimate): **5.0**. Target: **9.5**. The `@qa` attests th
 
 ## Planning gates before implementation
 
-- [ ] `@po` validation (10 points) and GO.
+- [x] `@po` validation (10 points) and GO (9.0/10, 2026-11-05, [po-validation.md](po-validation.md)).
 - [x] `@devops` created the GitHub issue [#104](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/104) (seen on the real board on 2026-11-05).
 - [ ] `@architect`: pattern list with sources, hook mechanism, CI trigger, body-as-data design, allowlist format, size limit, tool ownership against OPS-28.
 - [ ] `@qa` test plan (planted leaks, hand mutations, evidence classes).
-- [ ] `@analyst` note only if a token-format GAP exists; [research-index.md](../../research-index.md) checked first.
-- [ ] UX gate: not applicable (developer-facing only); `@po` confirms at validation.
+- [ ] Research LACUNA (recorded by `@po` 2026-11-05): [research-index.md](../../research-index.md) has no note on credential or token formats nor on Git hook mechanisms. `@architect` closes it by citing public provider documentation and the Git documentation for each family and for the hooks; `@analyst` only if `@architect` cannot cite a public source for a family. Golden rule: no new research otherwise.
+- [x] UX gate: not applicable (developer-facing only); `@po` confirmed at validation (2026-11-05): no user-facing text, no screen; the output lines are developer messages governed by AC 11.
 
 ## Definition of Done
 
@@ -157,3 +158,5 @@ Implementation files will be listed here by `@dev` after the gates.
 
 - 2026-11-04 — `@sm` (River): story drafted from idea #5 of the improvement survey. Status Draft. Slices FT-45 and FT-46 registered.
 - 2026-11-05 — `@sm` (River): reviewed before the `@po` (section above): added AC 11 (clear, fail-closed failure), the section Owner dependencies and the Red/Green table; recorded issue #104 and the satisfied start dependency. Status stays Draft.
+- 2026-11-05 — `@po` (Pax): `*validate-story-draft` 10 points = 9.0/10, **GO**. Status Draft → Ready (issue #104). No AC changed. Four required corrections for `@sm` (false-negative risk, ruler exit criteria 1 to 11, range definition of the baseline, research LACUNA note) and conditions for `@architect`; none blocks the start of the design. Details: [po-validation.md](po-validation.md).
+- 2026-11-05 — `@sm` (River): applied the four `@po` corrections: Risk 7 (false negatives), ruler exit criteria 1 to 11 (in improvement-actions), AC 6 range pinned to `origin/main..HEAD`, research LACUNA recorded in the planning gates. Only the AC 6 range was reworded. Status stays Ready.

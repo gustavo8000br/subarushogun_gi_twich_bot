@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-27/story.md)
 
-**Status:** Draft (redigida pelo `@sm` em 2026-11-04; ainda não validada pelo `@po`). **Issue:** [#104](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/104) (criada pelo `@devops` antes de 2026-11-05 a partir de [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); sem comentários em issues).
+**Status:** Ready (Pronta; GO do `@po` 9,0/10 em 2026-11-05 com a issue #104, ver [po-validation.md](po-validation.md); redigida pelo `@sm` em 2026-11-04). Ready significa validada para planejamento; os gates de fatia abaixo continuam valendo. **Issue:** [#104](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/104) (criada pelo `@devops` antes de 2026-11-05 a partir de [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); sem comentários em issues).
 **Origem:** ideia nº 5 do [levantamento de melhorias](../../process/improvement-ideas-2026-11-04.md) (pedido do proprietário, 2026-11-04). Evidência: a URL de uma sessão do Claude chegou a 45 commits deste repositório público; a proteção existente era só um texto no `AGENTS.md` (regra "nunca expor a URL da sessão"). Uma regra em texto não impede um agente cuja ferramenta acrescenta uma linha de atribuição por padrão. Decisão do Orion (2026-11-04): esta ideia começa primeiro, logo depois do pacote da OPS-22.
 **Relacionadas:** OPS-28 (regras do OpenGrep para código; segredo em código é terreno comum, ver "Dependências"); OPS-24 (linguagem do script e Biome); OPS-30 e OPS-29 (também acrescentam jobs de CI; as edições de workflow são em série); [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (régua de 9,5, ideia nº 5, ações AÇ-21..AÇ-26).
 **Itens registrados:** inventário ST-20 (esta story), FT-45 e FT-46 (fatias); ver [backlog-inventory](../../process/backlog-inventory.md).
@@ -45,7 +45,7 @@ As classes de evidência ficam separadas: unitária (função pura), hook local 
 3. **Dado** um caso positivo e um caso negativo parecido para cada família de credencial listada pelo `@architect`, **quando** a função pura roda, **então** todo positivo é achado e nenhum negativo é.
 4. **Dado** um pull request cujo intervalo, arquivos ou corpo carregam um vazamento plantado, **quando** o job de CI roda, **então** ele falha; **dado** um pull request limpo, **então** ele passa. O job lê o corpo como dado, nunca como texto de shell. (Os casos locais provam a lógica; a execução no CI precisa de um PR ou de um disparo manual do workflow, delegado ao orquestrador.)
 5. **Dado** o rascunho de um corpo de issue com um vazamento plantado, **quando** a verificação documentada antes do envio roda, **então** ela sai com código diferente de zero; **dada** a execução no evento `issues` (se adotada), **então** a execução falha e nenhum comentário é postado.
-6. **Dado** a árvore atual e o intervalo de commits da branch, **quando** a varredura-base roda, **então** ela informa zero achados não aceitos; todo achado aceito é listado na evidência da story com seu motivo, e a saída lista apenas hashes e caminhos.
+6. **Dado** a árvore atual e o intervalo do pull request da branch (`origin/main..HEAD`; o histórico antigo já enviado e as branches locais de backup ficam fora deste intervalo e seguem o processo reservado ao proprietário, nunca corrigidos por esta story), **quando** a varredura-base roda, **então** ela informa zero achados não aceitos; todo achado aceito é listado na evidência da story com seu motivo, e a saída lista apenas hashes e caminhos.
 7. **Dado** os testes da própria verificação, **quando** cada padrão é enfraquecido à mão (uma mutação por regra, registrada pelo `@qa`), **então** pelo menos um teste falha para cada mutação; os arquivos de teste montam as strings proibidas em tempo de execução para que a verificação não acuse os próprios testes.
 8. **Dado** `git commit --no-verify`, **quando** o commit chega a um pull request, **então** o job de CI ainda o reprova: o CI é a camada que não pode ser pulada, e isso está escrito na documentação.
 9. **Dada** a documentação, **então** ela explica em inglês e em pt-BR como ativar o hook, como acrescentar um padrão e como acrescentar uma exceção com seu motivo; os testes de contrato de documentação passam; o `AGENTS.md` não é editado por agentes.
@@ -78,6 +78,7 @@ Nada bloqueia a validação nem o início: nenhuma decisão do proprietário é 
 4. **Injeção em workflow pelo corpo de um PR ou de uma issue.** Mitigação: corpo como dado (CA 4), revisado pelo `@architect` e pelo `@devops`.
 5. **Custo da regex em arquivos grandes.** Mitigação: padrões limitados e um limite de tamanho decidido pelo `@architect`, testado com um arquivo grande.
 6. **Conflito de edição em workflows compartilhados.** Mitigação: a serialização acima.
+7. **Falsos negativos: um vazamento que os padrões não reconhecem** (formatos novos de token, variantes de URL como maiúsculas, `http://`, sem barra final ou codificação percentual, outros hosts que a regra do `AGENTS.md` também cita). Mitigação: a lista de padrões é versionada, com uma fonte pública por família; o `@architect` fixa as decisões sobre maiúsculas, variantes de URL e strings codificadas; cada decisão tem um caso positivo (CA 3, mais um caso de variante se o `@architect` pedir); a documentação afirma que a verificação é uma barreira e não uma prova de ausência, e explica como acrescentar um padrão (CA 9). Teste que cobre o risco: os casos do CA 3 (um positivo por família e por variante de URL decidida) e a mutação à mão por regra do CA 7.
 
 ## Complexidade (estimativa do `@sm`, a confirmar pelo `@architect`)
 
@@ -108,12 +109,12 @@ Nota atual (estimativa do Orion): **5,0**. Meta: **9,5**. O `@qa` atesta a nota 
 
 ## Gates de planejamento antes da implementação
 
-- [ ] Validação do `@po` (10 pontos) e GO.
+- [x] Validação do `@po` (10 pontos) e GO (9,0/10, 2026-11-05, [po-validation.md](po-validation.md)).
 - [x] O `@devops` criou a issue no GitHub [#104](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/104) (vista no quadro real em 2026-11-05).
 - [ ] `@architect`: lista de padrões com fontes, mecanismo do hook, gatilho do CI, desenho do corpo como dado, formato da lista de exceções, limite de tamanho, divisão de responsabilidade com a OPS-28.
 - [ ] Plano de testes do `@qa` (vazamentos plantados, mutações à mão, classes de evidência).
-- [ ] Nota do `@analyst` só se houver LACUNA de formato de token; [research-index.md](../../research-index.md) consultado antes.
-- [ ] Gate de UX: não se aplica (voltado a quem desenvolve); o `@po` confirma na validação.
+- [ ] LACUNA de pesquisa (registrada pelo `@po` em 2026-11-05): [research-index.md](../../research-index.md) não tem nota sobre formatos de credencial e de token nem sobre mecanismos de hook do Git. O `@architect` fecha a lacuna citando a documentação pública dos provedores para cada família e a documentação do Git para os hooks; o `@analyst` só entra se o `@architect` não conseguir citar fonte pública para uma família. Regra de ouro: sem pesquisa nova fora disso.
+- [x] Gate de UX: não se aplica (voltado a quem desenvolve); o `@po` confirmou na validação (2026-11-05): não há texto para a pessoa usuária nem tela; as linhas de saída são mensagens de desenvolvimento regidas pelo CA 11.
 
 ## Definição de pronto
 
@@ -157,3 +158,5 @@ Os arquivos de implementação serão listados aqui pelo `@dev` depois dos gates
 
 - 2026-11-04 — `@sm` (River): story redigida a partir da ideia nº 5 do levantamento de melhorias. Status Draft. Fatias FT-45 e FT-46 registradas.
 - 2026-11-05 — `@sm` (River): revisada antes do `@po` (seção acima): acrescentados o CA 11 (falha clara que fecha por padrão), a seção Dependências do proprietário e a tabela Red/Green; registrados a issue #104 e a dependência de início atendida. O status continua Draft.
+- 2026-11-05 — `@po` (Pax): `*validate-story-draft` 10 pontos = 9,0/10, **GO**. Status Draft → Ready (issue #104). Nenhum CA alterado. Quatro correções exigidas do `@sm` (risco de falso negativo, critérios de saída da régua 1 a 11, definição do intervalo da linha de base, nota de LACUNA de pesquisa) e condições para o `@architect`; nenhuma bloqueia o início do desenho. Detalhes: [po-validation.md](po-validation.md).
+- 2026-11-05 — `@sm` (River): aplicadas as quatro correções do `@po`: Risco 7 (falsos negativos), critérios de saída da régua 1 a 11 (em improvement-actions), intervalo do CA 6 fixado em `origin/main..HEAD`, LACUNA de pesquisa registrada nos gates de planejamento. Só a faixa do CA 6 foi reescrita. O status continua Ready.
