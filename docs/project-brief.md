@@ -24,7 +24,7 @@ The primary operator is the streamer who wants to manage several activities with
 - Restart/reconnection recovery preserves queue order, history, and pending operations.
 - Operators can see and resolve connectivity, reconciliation, financial, and reward-management issues locally.
 - First run requires Docker Compose v2 and a browser, without host Node.js/PostgreSQL or manual `.env`/YAML edits.
-- Product code is JavaScript ESM and is organized under `apps/web`, `apps/api`, `apps/infra`, and other `apps/*` modules only as needed. The repository's `.env.example` is AIOX framework scaffolding, not product configuration.
+- Product code is JavaScript ESM and is organized under `apps/frontend` (Next.js panel and OBS overlay), `apps/api`, `apps/infra`, `apps/shared`, and other `apps/*` modules only as needed (the former `apps/web` vanilla panel was removed in the OPS-15 cutover). The repository's `.env.example` is AIOX framework scaffolding, not product configuration.
 
 ## Quality and governance
 

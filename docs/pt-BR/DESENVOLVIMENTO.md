@@ -1,118 +1,110 @@
 # Guia de desenvolvimento
 
-[Read in English](../DEVELOPMENT.md) · [Voltar ao README](../../README.pt-BR.md)
+[English](../DEVELOPMENT.md) · [Voltar ao README](../../README.pt-BR.md)
 
-## Requisitos
+Versão atual: `0.3.0-beta`. Situação por plataforma (2026-10-21): validado por uma pessoa somente no Ubuntu Linux; o Windows está planejado; **o macOS não foi validado** (o CI roda apenas o smoke do instalador em `macos-15`).
 
-- Node.js `24.20.0` e npm.
-- Docker Engine/Desktop com Compose v2 para testes de integração PostgreSQL e validação do Compose.
-- Acesso Git ao repositório. A suíte automatizada não exige credenciais Twitch.
-- OpenGrep `1.30.0` disponível no `PATH` para o gate local de análise estática.
+## 1. Requisitos
 
-## Instalar e verificar
+- Node.js `24.20.0` (fixado no `package.json`; não troque) e npm.
+- Docker Engine/Desktop com Compose v2 (PostgreSQL descartável, verificações do Compose).
+- OpenGrep `1.30.0` no `PATH` para o gate de análise estática.
+- Credenciais da Twitch não são necessárias para a suíte automatizada.
+
+## 2. Como rodar tudo
 
 ```sh
-npm ci
+npm ci                     # uma vez após clonar ou quando o lockfile mudar
+npm run dev                # igual a npm run dev:start
+```
 
-**Situação por plataforma (2026-10-21):** validado por uma pessoa somente no Ubuntu Linux. O Windows está planejado e será aceito pelo proprietário. **O macOS não foi validado** (sem host macOS disponível); ele compartilha a base Unix com o Linux, então o mesmo fluxo pode funcionar, mas isso é uma suposição. O CI roda apenas o smoke do instalador em `macos-15`.
+O `npm run dev` verifica Node, dependências e Docker, sobe um PostgreSQL isolado, faz snapshot antes das migrations e inicia o Fastify (somente API, `127.0.0.1:${APP_PORT:-3109}`) e o painel Next.js com HTTPS e hot reload em `https://localhost:${NEXT_DEV_PORT:-3000}`. **Abra sempre `https://localhost:3000`, nunca `127.0.0.1`** (a origem HTTPS de desenvolvimento usada na validação de sessão e CSRF é `localhost`). O overlay do OBS é a rota `/overlay` do Next (não existe `/overlay.html`).
 
-npm run build
-npm run lint
-npm run typecheck
-npm test
-npm run review:static
-npm run validate:version
-npm run validate:localization
+| Comando | O que faz |
+|---|---|
+| `npm run dev` / `npm run dev:start` | API + Next + PostgreSQL descartável (veja acima) |
+| `npm run dev:stop` | para os processos de desenvolvimento **e apaga o volume do banco de desenvolvimento** (os snapshots em `.local/dev-db/backups/` são mantidos) |
+| `npm run dev:stop -- --keep-data` | para os processos e só o contêiner `db`; mantém os volumes |
+| `npm run dev:db:start` / `dev:db:stop` | inicia ou para só o banco de desenvolvimento (mantém os dados) |
+| `npm run build` | constrói a imagem implantável (`compose.yaml` + `compose.build.yaml`) |
+| `npm run build:frontend` | constrói só o frontend Next.js |
+
+Pontos importantes:
+
+- O banco de desenvolvimento usa a porta `55432` do host, em um projeto Compose chamado `queuebot-dev-<últimos 28 caracteres do caminho do checkout>`. Dois checkouts que terminam com o mesmo texto devem definir valores diferentes de `DEV_COMPOSE_PROJECT` (letras minúsculas, dígitos, `-`, `_`; até 63 caracteres). Senha e snapshots ficam em `.local/dev-db/`, separados do `compose.yaml` do produto.
+- A primeira execução cria o `.env.product.local` ignorado a partir do `.env.product.example` (nunca sobrescreve). Um `DATABASE_URL` explícito pula o Docker e as migrations automáticas: use só um banco descartável. Defina `APP_PORT` e `FASTIFY_DEV_ORIGIN` juntos para mudar a porta da API.
+- O Next faz proxy de `/api/*`, `/overlay/api/*`, `/health` e `/callback` para o Fastify (`apps/frontend/scripts/dev-proxy-config.mjs`). No Codespaces, encaminhe a porta `3000`; a configuração de desenvolvimento aceita o host exato do Codespaces. Reinicie ao mudar a origem de desenvolvimento ou a configuração do Next.
+- O `dev:stop` recusa remover qualquer coisa a menos que o arquivo seja o `compose.dev.yaml` na raiz do repositório, o projeto tenha o prefixo `queuebot-dev-` e todo contêiner/volume tenha o rótulo `com.docker.compose.project` correspondente. Com `DATABASE_URL` explícito, só para os processos.
+- Nunca rode `docker compose down -v` a menos que queira apagar os dados de desenvolvimento. As imagens locais do Compose usam `IMAGE_TAG=dev`; nunca publique essa tag.
+
+## 3. Testes e gates
+
+O `@dev` testa durante a implementação (test-first: Red, Green, Refactor). O `@qa` roda a bateria completa de forma independente **uma vez, ao fim da story ou do pacote**; não há commit de fatia antes desse gate. O CI do GitHub só confirma o que o `@qa` já rodou.
+
+```sh
+npm run lint && npm run typecheck && npm test
+npm run review:static                 # OpenGrep, único revisor estático
+npm run validate:version && npm run validate:localization && npm run validate:port-denylist
 docker compose config --quiet
-```
-
-Os testes de integração PostgreSQL criam recursos isolados. Eles não devem usar nem apagar os volumes ativos do produto.
-
-## GitHub Codespaces
-
-O repositório inclui um Dev Container para desenvolvimento reproduzível no GitHub Codespaces. Ele instala Node.js `24.20.0`, Docker Engine com Compose v2 para verificações isoladas de PostgreSQL/Compose, GitHub CLI, OpenGrep `1.30.0`, Codex CLI `0.161.0` e as dependências exatas de `package-lock.json` por `npm ci`. O Codespace usa seu próprio daemon e armazenamento Docker; ele não acessa nem apaga volumes Docker do seu computador.
-
-Para continuar em uma branch enviada ao GitHub, abra o repositório, escolha essa branch e selecione **Code → Codespaces → Create codespace on …**. O GitHub constrói `.devcontainer/devcontainer.json` e executa `.devcontainer/post-create.sh`. Aguarde essa preparação terminar antes de rodar testes. Para builds Docker e a suíte completa, um Codespace com 4 núcleos é um ponto inicial prático; disponibilidade da máquina e cobrança dependem do seu plano e cota do GitHub. Pare o Codespace quando terminar para interromper o uso de computação; o workspace é preservado quando parado.
-
-O Codex é instalado, mas não autenticado automaticamente. No terminal do Codespace, execute `codex login --device-auth` e conclua o login no navegador. Assim, as credenciais da conta não entram no Git nem nos segredos do repositório. Execute `codex` na raiz do repositório para iniciar uma sessão. A extensão Codex para VS Code também é sugerida no Dev Container, mas o CLI funciona de forma independente.
-
-O ambiente preparado inclui as ferramentas usadas pelos gates existentes do projeto. Ainda é necessário criar o Codespace pelo GitHub depois que esta branch for enviada; nenhum dado de produto, token Twitch, volume Docker local ou credencial do host é copiado para lá. Consulte o [guia de configuração do GitHub Codespaces](https://docs.github.com/en/codespaces/setting-up-your-project-for-codespaces/adding-a-dev-container-configuration/introduction-to-dev-containers), o [Docker-in-Docker Feature](https://github.com/devcontainers/features/tree/main/src/docker-in-docker), o [Codex CLI](https://developers.openai.com/codex/cli) e o [guia de instalação do OpenGrep](https://github.com/opengrep/opengrep/blob/main/INSTALL.md).
-
-### Verificações focadas
-
-#### Desenvolvimento do Next.js e Fastify
-
-`npm run dev` nomeia o projeto Compose do PostgreSQL descartável com os últimos 28 caracteres do caminho do checkout. Se dois checkouts terminarem com o mesmo texto, defina `DEV_COMPOSE_PROJECT` (letras minúsculas, dígitos, `-`, `_`; até 63 caracteres) em cada um para que não compartilhem o volume do banco. Sem a variável, o nome e os dados atuais continuam iguais.
-
-```sh
-npm ci
-npm run dev
-```
-
-Execute `npm ci` uma vez após clonar ou quando precisar reinstalar dependências; ele instala versões exatas do lockfile e não precisa rodar a cada inicialização. Antes de criar arquivos locais ou provisionar/migrar o banco, `npm run dev` verifica Node.js `24.20.0`, dependências Next/Prisma locais e (se `DATABASE_URL` estiver vazia) Docker Compose v2 com engine acessível. Uma falha informa o pré-requisito e a recuperação. Em seguida, inicia PostgreSQL isolado, cria snapshot antes das migrations, executa Fastify somente API em modo watch em `127.0.0.1:${APP_PORT:-3109}` e Next com HTTPS/HMR em `https://localhost:${NEXT_DEV_PORT:-3000}`. No Codespaces, encaminhe a porta `3000`. Next encaminha `/api/*`, `/overlay/api/*`, `/health` e `/callback` ao Fastify (`apps/frontend/scripts/dev-proxy-config.mjs:19-28`); o overlay OBS é a própria rota Next `/overlay` e não há alias `/overlay.html` (removido na Onda 3 do cutover da OPS-15). A configuração permite loopback e o hostname exato do Codespaces, enviando a origem HTTPS correspondente para validar sessão/CSRF. Reinicie após alterar a origem de desenvolvimento ou config Next. Na primeira execução, cria `.env.product.local` ignorado pelo Git a partir do exemplo, sem substituir arquivo existente. Deixe `DATABASE_URL` vazia para usar o DB gerenciado, ligado somente ao loopback da porta host `55432`, em projeto/volume Compose específico da worktree; senha e snapshots ficam em `.local/dev-db/`. Esses recursos são separados do `compose.yaml` de produto. Use `npm run dev:db:stop` para parar preservando os dados e `npm run dev:db:start` para iniciar somente o DB. Não use `docker compose down -v` se não pretende apagar dados de desenvolvimento. Um `DATABASE_URL` explícito ignora Docker e migrations automáticas; use apenas DB descartável. Ao mudar a porta da API, configure juntos `APP_PORT` e `FASTIFY_DEV_ORIGIN`. Usuários finais usam o instalador da plataforma com imagem pré-compilada; mantenedores compilam localmente com `npm run build` (Compose runtime + `compose.build.yaml`). `npm run build:frontend` compila a exportação frontend independentemente.
-
-Imagens Compose locais usam `IMAGE_TAG=dev` por padrão. Não publique essa tag como artefato de main/release; somente o workflow validado da branch main promove `IMAGE_TAG=main`, enquanto instaladores fixam uma imagem versionada/digest validada.
-
-```sh
-npm run dev:db:start
-npm run dev
-# depois de terminar de desenvolver:
-npm run dev:db:stop
-```
-
-`npm run dev:start` é o mesmo ponto de entrada de `npm run dev` (ambos continuam funcionando). Durante a execução, ele registra o próprio PID e os PIDs filhos da API/Next em `.local/dev-server/state.json` (ignorado pelo Git); o arquivo é removido ao encerrar.
-
-`npm run dev:stop` encerra os processos registrados pelo `dev:start` (SIGTERM e SIGKILL após 10 segundos; no Linux confirma antes que o PID registrado ainda é o `dev-server.mjs`) e depois executa `docker compose -f compose.dev.yaml -p <projeto dev> down --volumes --rmi local` somente para o projeto de desenvolvimento. Antes de remover qualquer coisa, recusa (saída diferente de zero) a menos que o arquivo seja o `compose.dev.yaml` da raiz do repositório, o projeto seja o resolvido por `DEV_COMPOSE_PROJECT` ou pelo caminho do checkout e use o prefixo `queuebot-dev-`, e todo container/volume tenha o rótulo `com.docker.compose.project` correspondente (containers também precisam apontar para esse `compose.dev.yaml`). Ele imprime os containers, volumes e imagens removidos e termina com código 0 e uma mensagem quando nada está em execução. "Imagens" significa apenas imagens construídas localmente para o projeto dev (`--rmi local`); hoje o `compose.dev.yaml` não constrói nenhuma, então a imagem compartilhada `postgres` baixada é mantida. Com `DATABASE_URL` explícito, apenas os processos são encerrados.
-
-> **Atenção:** `npm run dev:stop` APAGA o volume do banco de desenvolvimento, incluindo todos os dados de desenvolvimento. Os snapshots pré-migration em `.local/dev-db/backups/` são mantidos.
-
-Para parar tudo preservando os dados, execute `npm run dev:stop -- --keep-data` (o `--` repassa a flag pelo npm). Ele encerra os processos do dev server e somente o container `db` (`stop db`), preservando volumes e imagens, com as mesmas travas de arquivo/projeto/rótulos; nunca executa `down`. Qualquer outra opção é recusada antes de parar algo. Projetos recusados por não terem o prefixo `queuebot-dev-` recebem mensagem explicando como removê-los manualmente.
-
-Para executar o smoke seguro do overlay em Chromium contra a prévia Next ativa, use `npm run test:e2e:overlay:browser-only`. Ele requer Chrome local e intercepta todas as respostas da API do overlay com fixtures no navegador; não grava no PostgreSQL, Twitch, Docker ou OBS. Esta é apenas evidência de navegador/frontend, não aceite de API real nem de OBS/CEF nativo. O comando separado `npm run test:e2e:overlay` continua sendo o cenário conectado ao OBS e pode criar/remover fontes OBS e dados de Compose descartáveis.
-
-Para executar o smoke Chromium QRA-23 do cancelamento de exclusão de fila, use `npm run test:e2e:queue-lifecycle:browser-only` contra a prévia Next local ativa. Ele intercepta respostas da API do painel e verifica o conflito em processamento, o alerta localizado acessível, a referência diagnóstica segura e os headers same-origin CSRF/idempotência. Não grava na API/banco do produto nem na Twitch e não é evidência de operação persistida.
-
-Para os contratos de layout da TS-10 (anel de foco da navegação, empilhamento da política de comandos a 390 e 320 px), rode `npm run test:e2e:panel-layout:browser-only` contra o preview Next local; o dimensionamento dos diálogos de recompensa a 390 e 768 px faz parte de `test:e2e:queue-reward-settings:browser-only` e `test:e2e:queue-reward-resolution:browser-only`. Todos usam fixtures interceptadas e não são evidência de axe nem de tecnologia assistiva.
-
-```sh
-npm run lint:api && npm run typecheck:api
-npm run lint:infra && npm run typecheck:infra
+npm test -- --run tests/unit/<arquivo>.test.js   # um arquivo
+npm run lint:api && npm run typecheck:api        # por área: api, infra, frontend
 npm run lint:frontend && npm run typecheck:frontend
-npm test -- --run tests/unit/<arquivo-de-teste>.test.js
 ```
 
-`compose.yaml` contém somente runtime pull-only e é consumido pelo instalador. `npm run build` combina explicitamente esse arquivo com `compose.build.yaml` para gerar a imagem; o CI usa o mesmo par. O [workflow CI do GitHub Actions](../../.github/workflows/ci.yml) roda em pull requests e chama os gates compartilhados de qualidade. A publicação de imagem da main e as releases com tag usam workflows separados; consulte o [guia CI/CD](CI-CD.md) para gatilhos, permissões, tags de imagem e recuperação.
+Garantias de PostgreSQL exigem testes de integração em um PostgreSQL isolado com migrations reais (nunca SQLite nem mocks do Prisma); eles provisionam recursos descartáveis e não podem tocar os volumes ativos do produto.
 
-## Estrutura do projeto
+### Scripts de navegador (`*-browser-only`)
+
+Catorze scripts executam o painel ou o overlay no Chrome local contra o preview Next em execução, com toda resposta da API interceptada por fixtures. Eles nunca escrevem no PostgreSQL, na Twitch, no Docker nem no OBS, e **não** são evidência de OBS/CEF nativo, axe nem tecnologia assistiva. Inicie `npm run dev` e rode um deles, por exemplo:
+
+```sh
+APP_ORIGIN=https://localhost:3000 npm run test:e2e:overlay:browser-only
+```
+
+Scripts (todos chamados `test:e2e:<nome>:browser-only`, exceto `overlay:parity-browser-only`): `overlay`, `overlay:parity`, `queue-lifecycle`, `queue-outcome`, `queue-call-resend`, `queue-settings`, `queue-reward-settings`, `manual-entry`, `manual-entry-outcomes`, `queue-reward-resolution`, `queue-creation`, `queue-creation-accepted`, `widget-link`, `panel-layout`. `CHROME_CHANNEL` escolhe o navegador. O `npm run test:e2e:overlay` separado é o cenário completo conectado ao OBS e pode criar ou remover fontes do OBS e dados descartáveis do Compose.
+
+### OBS nativo (Linux, Flatpak ou não)
+
+As verificações de OBS/CEF nativo e da Twitch ao vivo são feitas pelo `@qa` no canal de teste do proprietário, seguindo o [roteiro de OBS nativo](stories/OPS-25/obs-native-runbook.md) (backup da coleção de cenas primeiro; caminho Flatpak `~/.var/app/com.obsproject.Studio/config/obs-studio/basic/scenes/`; sem iniciar transmissão e sem resgate real sem o OK explícito do proprietário). Links de widget nunca são escritos em documentos, logs ou commits.
+
+## 4. O que fazer ao mudar X
+
+| Você muda | Faça |
+|---|---|
+| Comportamento (qualquer código) | Escreva primeiro o teste que falha; registre o comando exato e o resultado na story bilíngue ([Contribuição](CONTRIBUICAO.md)) |
+| UI do painel ou do overlay | Planeje e revise com o `@ux-design-expert` (mínimo 9,0/10); atualize o script `*-browser-only` correspondente; localize em en, es e pt-BR (`npm run validate:localization`) |
+| Schema do banco | Passe pelo `@data-engineer`; migration Prisma + teste de integração em PostgreSQL isolado |
+| Comandos de chat | Atualize o catálogo de comandos e as mensagens nos três idiomas; mantenha `ping`/`status` como comandos de sistema |
+| Scripts, portas, Compose | Atualize este guia, o `README.md`, o par en e os testes de contrato (`tests/unit/documentation-contract.test.js`) |
+| Versão ou changelog | Siga `docs/pt-BR/VERSIONING.md` e o `AGENTS.md`; atualize o changelog em en e pt-BR juntos; `npm run validate:version` |
+| Qualquer documento | Mantenha a paridade en/pt-BR e os links relativos |
+
+## 5. Estrutura do projeto
 
 ```text
-apps/api/    API Fastify, domínio, schema e migrations Prisma
-apps/infra/  Compose e scripts operacionais
-apps/frontend/ App Router Next.js do painel e do overlay OBS
-apps/shared/    Módulos compartilhados por Next e API (`apps/shared/panel` contém apenas os helpers de painel/overlay; os catálogos de primeira parte ficam em `apps/shared/localization/catalogs/`, fora de `apps/shared/panel`, desde a Onda 2 do cutover; o Next não pode importar `apps/web`)
-tests/       Testes unitários, integração e aceite de navegador
-docs/        Stories e guias específicos de usuário/desenvolvimento
+apps/api/       API Fastify, domínio, schema Prisma e migrations
+apps/frontend/  Painel Next.js App Router e overlay do OBS (único painel; não existe apps/web)
+apps/shared/    Módulos compartilhados por Next e API (helpers do painel, catálogos de localização)
+apps/infra/     Compose e scripts operacionais
+tests/          Testes unitários, de integração e de aceitação em navegador
+docs/           Stories, processo, pesquisa e referências (docs/archive guarda o histórico longo)
 ```
 
-Para mudanças de comportamento, siga o processo test-first de [Como contribuir](CONTRIBUICAO.md) e registre as evidências na story bilíngue correspondente.
+## 6. GitHub Codespaces
 
-### Níveis de log de diagnóstico da API
+O Dev Container (`.devcontainer/devcontainer.json`, `post-create.sh`) instala Node.js `24.20.0`, Docker Engine com Docker Compose v2, GitHub CLI, OpenGrep `1.30.0`, Codex CLI `0.161.0` e roda `npm ci`. O Codespace tem seu próprio daemon e armazenamento Docker, então não alcança volumes do seu computador. Abra a branch no GitHub, escolha **Code → Codespaces → Create codespace on …** e aguarde o post-create terminar. Uma máquina de 4 núcleos é um bom ponto de partida; pare o Codespace ao terminar. O Codex vem instalado, mas sem login: execute `codex login --device-auth` e depois `codex`. Nenhum dado de produto, token da Twitch ou credencial do host é copiado. Referências: [configuração do Dev Container](https://docs.github.com/en/codespaces/setting-up-your-project-for-codespaces/adding-a-dev-container-configuration/introduction-to-dev-containers), [Docker-in-Docker](https://github.com/devcontainers/features/tree/main/src/docker-in-docker), [Codex CLI](https://developers.openai.com/codex/cli), [instalação do OpenGrep](https://github.com/opengrep/opengrep/blob/main/INSTALL.md).
 
-A API aceita `APP_LOG_LEVEL` pelo Compose. O padrão é `info`; os níveis disponíveis são `emergency`, `alert`, `critical`, `error`, `warn`, `notice`, `info`, `verbose`, `debug` e `trace`. O nível escolhido inclui a própria severidade e as mais graves. O diagnóstico de associação de rewards registra totais agregados em `info` e códigos seguros dos motivos de incompatibilidade em `verbose`; rewards brutos, títulos, IDs, descrições, tokens e mensagens de erro nunca são registrados. Um nível ausente ou inválido volta para `info`.
+## 7. CI e entrega
 
-Em um clone local do código, inicie temporariamente o bot com mais detalhes:
+O `compose.yaml` é a configuração de runtime somente com pull usada pelo instalador. O [CI](../../.github/workflows/ci.yml) roda em pull requests e chama os gates de qualidade compartilhados; a publicação da imagem da main e os releases com tag são workflows separados (veja o [guia de CI/CD](CI-CD.md)). Quem usa o produto instala uma imagem pré-compilada com o instalador da plataforma; mantenedores constroem localmente com `npm run build`. Commits, push e PRs pertencem ao `@devops`, depois do veredito do `@qa`.
+
+## 8. Níveis de log de diagnóstico da API
+
+A API lê `APP_LOG_LEVEL` pelo Compose (padrão `info`). Níveis, do mais grave ao menos grave: `emergency`, `alert`, `critical`, `error`, `warn`, `notice`, `info`, `verbose`, `debug`, `trace`; um limite inclui o próprio nível e os mais graves. O diagnóstico de vínculo de resgates registra contagens agregadas em `info` e códigos seguros de divergência em `verbose`; resgates, títulos, IDs, prompts, tokens e mensagens de erro brutos da Twitch nunca são registrados.
 
 ```sh
 APP_LOG_LEVEL=verbose docker compose up -d --force-recreate bot
 docker compose logs -f bot
 ```
 
-No PowerShell:
-
-```powershell
-$env:APP_LOG_LEVEL = 'verbose'
-docker compose up -d --force-recreate bot
-docker compose logs -f bot
-```
-
-Depois, retorne ao padrão com `APP_LOG_LEVEL=info docker compose up -d --force-recreate bot` (no PowerShell, defina a variável como `info` antes do comando). Esses comandos recriam somente o serviço bot e preservam os volumes do banco e dos segredos.
+PowerShell: defina antes `$env:APP_LOG_LEVEL = 'verbose'`. Para voltar: `APP_LOG_LEVEL=info docker compose up -d --force-recreate bot`. Esses comandos recriam só o serviço do bot e preservam os volumes de banco e segredos.

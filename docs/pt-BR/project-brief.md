@@ -24,7 +24,7 @@ A operadora principal é a streamer que precisa gerenciar várias atividades sem
 - Recuperação após reinício/reconexão preserva a ordem das filas, o histórico e as operações pendentes.
 - Operadores conseguem ver e resolver localmente problemas de conectividade, reconciliação, operações financeiras e recompensas.
 - Primeira execução exige Docker Compose v2 e navegador, sem Node.js/PostgreSQL no host ou edição manual de `.env`/YAML.
-- O código do produto usa JavaScript ESM em `apps/web`, `apps/api`, `apps/infra` e outros módulos `apps/*` somente quando necessário. O `.env.example` do repositório pertence ao scaffolding do framework AIOX, não é configuração do produto.
+- O código do produto usa JavaScript ESM em `apps/frontend` (painel Next.js e overlay do OBS), `apps/api`, `apps/infra`, `apps/shared` e outros módulos `apps/*` somente quando necessário (o antigo painel vanilla `apps/web` foi removido no cutover da OPS-15). O `.env.example` do repositório pertence ao scaffolding do framework AIOX, não é configuração do produto.
 
 ## Qualidade e governança
 

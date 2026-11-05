@@ -2,6 +2,8 @@
 
 [Português brasileiro](pt-BR/ROADMAP.md) · [Back to README](../README.md)
 
+> **Current (2026-11-05):** version `0.3.0-beta` ships the Next.js panel cutover, financial recovery and the real `ping`; the table below is the 2026-10-21 snapshot. For the up-to-date picture and the 0.4.0-beta scope see the [project roadmap](project-completion-roadmap.md) and the [story index](stories.md).
+
 Status checked against the story files on 2026-10-21. The product stage is `beta` (`.release-stage`); no public release has been published yet. Open issues are planning/acceptance work, not a promise of release timing. The dependency order of the remaining work is kept in the [project completion roadmap](project-completion-roadmap.md); this table only summarizes each story's recorded status.
 
 | Story | Status |
