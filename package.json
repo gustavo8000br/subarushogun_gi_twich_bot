@@ -55,7 +55,6 @@
     "review:static": "opengrep scan --config .opengrep/rules.yml --no-git-ignore --error --exclude=apps/frontend/.next --exclude=apps/frontend/out apps"
   },
   "dependencies": {
-    "@fastify/static": "10.1.5",
     "@prisma/adapter-pg": "6.19.3",
     "@prisma/client": "6.19.3",
     "@twurple/api": "8.2.0",

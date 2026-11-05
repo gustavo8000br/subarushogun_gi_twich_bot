@@ -22,6 +22,12 @@ describe('combined local development runtime config', () => {
     expect(config.frontend.args).toContain(resolve('/repo', '.local', 'dev-tls', 'localhost.crt'));
   });
 
+  it('sets no API_ONLY flag: the API serves no browser file at all (FT-43, AC-43-1)', () => {
+    const config = buildDevRuntimeConfig({ DATABASE_URL: 'postgresql://dev:dev@127.0.0.1:5432/queuebot' }, '/repo');
+    expect(Object.keys(config.api.env)).not.toContain('API_ONLY');
+    expect(Object.keys(config.frontend.env)).not.toContain('API_ONLY');
+  });
+
   it('allows explicit local ports, certificate paths, and an API origin', () => {
     const config = buildDevRuntimeConfig({
       DATABASE_URL: 'postgresql://dev:dev@127.0.0.1:5432/queuebot', APP_PORT: '3109', NEXT_DEV_PORT: '3101',

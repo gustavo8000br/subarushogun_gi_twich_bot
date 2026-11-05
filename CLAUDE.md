@@ -26,7 +26,7 @@ Ao retomar uma sessão, leia primeiro `docs/session-handoff.md` e `docs/pt-BR/se
 ## Decisões do proprietário (invioláveis)
 
 - **Revisão estática:** o único revisor é o OpenGrep (`npm run review:static`). Nunca use nem reintroduza o provedor de revisão antigo (não planejado no projeto; o nome dele é bloqueado por `tests/unit/aiox-static-review.test.js`). Ao atualizar o framework AIOX, reaplique as customizações de OpenGrep e remova qualquer arquivo ou trecho desse provedor.
-- **`legacy`:** é apenas referência histórica; não é fallback nem alvo de rollback. Após a migração para o painel Next.js, o painel vanilla será removido por completo (com autorização explícita).
+- **`legacy`:** é apenas referência histórica; não é fallback nem alvo de rollback. O painel vanilla já foi removido por completo (ondas 1 a 4 do cutover da OPS-15, com autorização explícita do proprietário); o painel é o Next.js.
 - **Escopo de trabalho:** trabalhe apenas dentro do diretório do projeto; não escreva em `/tmp` nem em outros locais.
 
 ## UX e pesquisa

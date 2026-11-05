@@ -17,7 +17,6 @@ export function buildDevRuntimeConfig(env = process.env, repositoryRoot = proces
     NODE_ENV: 'development',
     APP_PORT: appPort,
     APP_HOST: env.APP_HOST ?? '127.0.0.1',
-    API_ONLY: 'true',
     PUBLIC_BASE_URL: env.PUBLIC_BASE_URL ?? panelDevOrigin,
     PRODUCT_LOCALE_PROJECTION_FILE: productLocaleProjectionFile,
     PANEL_DEV_ORIGIN: panelDevOrigin,

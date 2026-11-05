@@ -33,6 +33,19 @@ describe('API process serves no browser files (OPS-15 cutover wave 1)', () => {
       .map((path) => relative(root, path));
     expect(importers).toEqual([]);
   });
+
+  it('declares no static file server dependency and has no API_ONLY flag in the application sources (FT-43, AC-43-1/2)', () => {
+    const packageJson = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+    const declared = { ...packageJson.dependencies, ...packageJson.devDependencies, ...packageJson.optionalDependencies };
+    expect(Object.keys(declared)).not.toContain('@fastify/static');
+    const lock = JSON.parse(readFileSync(join(root, 'package-lock.json'), 'utf8'));
+    expect(Object.keys(lock.packages)).not.toContain('node_modules/@fastify/static');
+    const flagReaders = ['apps/api/src', 'apps/frontend/scripts', 'apps/infra']
+      .flatMap((directory) => listApplicationSources(join(root, directory)))
+      .filter((path) => /\bAPI_ONLY\b|\bapiOnly\b/.test(readFileSync(path, 'utf8')))
+      .map((path) => relative(root, path));
+    expect(flagReaders).toEqual([]);
+  });
 });
 
 // OPS-15 cutover wave 3: the vanilla overlay and every `/overlay.html` alias are retired
