@@ -15,6 +15,16 @@ import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog
 const INITIAL_RETRY_MS = 5_000;
 const MAX_RETRY_MS = 5 * 60 * 1_000;
 
+// D-6 (FT-55): closed lists so no Twitch free text, token, UID or chat body can reach the degraded log line.
+const EVENTSUB_DEGRADED_REASONS = new Set(['eventsub_disconnected', 'eventsub_startup_disconnected', 'subscription_revoked']);
+const REVOKED_SUBSCRIPTION_TYPES = new Set(['channel.chat.message', 'channel.channel_points_custom_reward_redemption.add', 'channel.channel_points_custom_reward_redemption.update']);
+const REVOKE_STATUSES = new Set([
+  'authorization_revoked', 'user_removed', 'version_removed', 'notification_failures_exceeded', 'beta_maintenance', 'moderator_removed',
+  'chat_user_banned', 'websocket_disconnected', 'websocket_failed_ping_pong', 'websocket_received_inbound_traffic',
+  'websocket_connection_unused', 'websocket_internal_error', 'websocket_network_timeout', 'websocket_network_error', 'websocket_failed_to_reconnect',
+]);
+const allowlisted = (list, value) => (typeof value === 'string' && list.has(value) ? value : 'other');
+
 function retryDelay(attempt, random) {
   const base = Math.min(MAX_RETRY_MS, INITIAL_RETRY_MS * (2 ** attempt));
   const jittered = Math.round(base * (0.8 + random() * 0.4));
@@ -49,6 +59,7 @@ export async function createTwitchIntegration({
   let rewardStatus = credential?.accessToken && credential?.refreshToken ? 'unknown' : 'not_configured';
   let channelEligibility = null;
   let twitchApiProbe = null;
+  let probeEpoch = 0; // bumped whenever the Twurple session is dropped/recreated so a cached ping never survives it (D-8)
   let api;
   let twitch;
   let processor;
@@ -65,9 +76,28 @@ export async function createTwitchIntegration({
   let reconciliationPromise = null;
   let authLost = false;
   let eventSubAvailable = false;
+  // OPS-26 pre-bump D-6 (FT-55): one structured line per EventSub-caused `degraded` transition, written at the single choke
+  // point so no future source is silent. Reconciliation sources keep their own FT-24 line (no duplicate).
+  let lastDegradedKey = null;
+  const logIntegrationDegraded = (details) => {
+    const reason = details.revokedSubscription !== undefined ? 'subscription_revoked' : details.reason;
+    if (!EVENTSUB_DEGRADED_REASONS.has(reason)) return null;
+    const type = reason === 'subscription_revoked' ? allowlisted(REVOKED_SUBSCRIPTION_TYPES, details.revokedSubscription) : undefined;
+    const revokeStatus = reason === 'subscription_revoked' ? allowlisted(REVOKE_STATUSES, details.revokeStatus) : undefined;
+    const key = [reason, type, revokeStatus].join('|');
+    if (key === lastDegradedKey) return key;
+    try {
+      logEvent({
+        event: 'twitch_integration_degraded', level: 'warn', source: 'twitch.integration',
+        details: { reason, ...(type === undefined ? {} : { type, revokeStatus }) },
+      });
+    } catch { /* Logging must never change the integration status. */ }
+    return key;
+  };
   const publishStatus = (nextStatus, details = {}) => {
     if (stopped) return;
     status = nextStatus;
+    lastDegradedKey = nextStatus === 'degraded' ? logIntegrationDegraded(details) : null;
     onStatus({ status: nextStatus, ...details });
   };
   const loadAuthorizationCredential = async () => {
@@ -79,7 +109,7 @@ export async function createTwitchIntegration({
     authRuntime?.stop?.(); authRuntime = undefined;
     if (reconcileTimer) clearIntervalImpl(reconcileTimer);
     reconcileTimer = undefined;
-    api = undefined; twitch = undefined; processor = undefined; reconciler = undefined; twitchApiProbe = null;
+    api = undefined; twitch = undefined; processor = undefined; reconciler = undefined; twitchApiProbe = null; probeEpoch += 1;
     eventSubAvailable = false;
     if (!stopped && credential?.accessToken && credential?.refreshToken) chatStatus = 'connecting';
   };
@@ -270,6 +300,7 @@ export async function createTwitchIntegration({
     get chatStatus() { return chatStatus; },
     get rewardStatus() { return rewardStatus; },
     get lastReconciliationAt() { return lastReconciliationAt; },
+    get probeEpoch() { return probeEpoch; },
     get ready() { return lastAttempt; },
     async probeTwitchApi() { return twitchApiProbe ? twitchApiProbe() : false; },
     async validateAndSaveApplication({ clientId, clientSecret }) {

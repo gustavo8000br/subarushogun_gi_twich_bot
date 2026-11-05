@@ -597,6 +597,127 @@ describe('Twitch integration lifecycle', () => {
     integration.stop();
   });
 
+  // OPS-26/OPS-15 pre-bump D-6 (FT-55): every `degraded` transition from EventSub explains itself with a closed reason.
+  describe('twitch_integration_degraded log (D-6, AC-D6-1..4)', () => {
+    const degradedLines = (h) => h.logEvent.mock.calls.map(([line]) => line).filter((line) => line.event === 'twitch_integration_degraded');
+
+    it('AC-D6-1: a disconnect after the socket was established logs eventsub_disconnected once', async () => {
+      const h = harness();
+      const integration = await h.integrationPromise;
+      await integration.ready;
+      h.callbacks.onDisconnect({ established: true });
+      expect(integration.status).toBe('degraded');
+      expect(degradedLines(h)).toEqual([{
+        event: 'twitch_integration_degraded', level: 'warn', source: 'twitch.integration', details: { reason: 'eventsub_disconnected' },
+      }]);
+      integration.stop();
+    });
+
+    it('AC-D6-1/4: a startup disconnect logs eventsub_startup_disconnected once per failed attempt (the retrying status in between ends the transition)', async () => {
+      const h = harness();
+      const integration = await h.integrationPromise;
+      await integration.ready;
+      h.callbacks.onDisconnect({ established: false });
+      expect(degradedLines(h)).toEqual([expect.objectContaining({ details: { reason: 'eventsub_startup_disconnected' } })]);
+      expect(integration.status).toBe('retrying');
+      expect(degradedLines(h)).toHaveLength(1);
+      h.callbacks.onDisconnect({ established: false });
+      expect(degradedLines(h)).toHaveLength(2);
+      integration.stop();
+    });
+
+    it('AC-D6-1: a revoked subscription logs subscription_revoked with the allowlisted type and revokeStatus', async () => {
+      const h = harness();
+      const integration = await h.integrationPromise;
+      await integration.ready;
+      h.callbacks.onRevoked('channel.channel_points_custom_reward_redemption.add', 'authorization_revoked');
+      expect(degradedLines(h)).toEqual([{
+        event: 'twitch_integration_degraded', level: 'warn', source: 'twitch.integration',
+        details: { reason: 'subscription_revoked', type: 'channel.channel_points_custom_reward_redemption.add', revokeStatus: 'authorization_revoked' },
+      }]);
+      integration.stop();
+    });
+
+    it('AC-D6-1: an unknown type or revokeStatus (Twitch free text) is logged as "other"', async () => {
+      const h = harness();
+      const integration = await h.integrationPromise;
+      await integration.ready;
+      h.callbacks.onRevoked('channel.secret-user-12345', 'Bearer abc.def free text');
+      expect(degradedLines(h)).toEqual([expect.objectContaining({ details: { reason: 'subscription_revoked', type: 'other', revokeStatus: 'other' } })]);
+      expect(JSON.stringify(h.logEvent.mock.calls)).not.toMatch(/secret-user|Bearer|free text/);
+      integration.stop();
+    });
+
+    it('AC-D6-3: the same reason while already degraded writes one line; a different reason or a recovery writes a new one', async () => {
+      const h = harness();
+      const integration = await h.integrationPromise;
+      await integration.ready;
+      h.callbacks.onDisconnect({ established: true });
+      h.callbacks.onDisconnect({ established: true });
+      expect(degradedLines(h)).toHaveLength(1);
+      h.callbacks.onRevoked('channel.chat.message', 'user_removed');
+      expect(degradedLines(h)).toHaveLength(2);
+      await h.callbacks.onReconnected();
+      expect(integration.status).toBe('connected');
+      h.callbacks.onDisconnect({ established: true });
+      expect(degradedLines(h)).toHaveLength(3);
+      integration.stop();
+    });
+
+    it('AC-D6-3: a logger that throws never changes the published status', async () => {
+      const h = harness();
+      const integration = await h.integrationPromise;
+      await integration.ready;
+      h.logEvent.mockImplementation(() => { throw new Error('log sink down'); });
+      h.onStatus.mockClear();
+      expect(() => h.callbacks.onDisconnect({ established: true })).not.toThrow();
+      expect(integration.status).toBe('degraded');
+      expect(h.onStatus).toHaveBeenCalledWith({ status: 'degraded', reason: 'eventsub_disconnected' });
+      integration.stop();
+    });
+
+    it('AC-D6-2/4: a partial reconciliation keeps only the FT-24 line (no duplicate integration line) and the order follows the events', async () => {
+      const h = harness();
+      const integration = await h.integrationPromise;
+      await integration.ready;
+      h.reconciler.run.mockResolvedValueOnce({ status: 'partial', finishedAt: new Date('2026-10-27T12:00:00Z'), issues: [{ code: 'redemption_verification_failed', httpStatus: 401 }] });
+      await integration.reconcileNow();
+      expect(degradedLines(h)).toEqual([]);
+      expect(h.logEvent.mock.calls.map(([line]) => line.event)).toEqual(['twitch_reconciliation_degraded']);
+      h.callbacks.onDisconnect({ established: true });
+      expect(h.logEvent.mock.calls.map(([line]) => line.event)).toEqual(['twitch_reconciliation_degraded', 'twitch_integration_degraded']);
+      integration.stop();
+    });
+
+    it('AC-D6-3: the serialized line carries no token, UID, chat text or connection string', async () => {
+      const h = harness();
+      const integration = await h.integrationPromise;
+      await integration.ready;
+      h.callbacks.onDisconnect({ established: true });
+      h.callbacks.onRevoked('channel.chat.message', 'user_removed');
+      expect(JSON.stringify(degradedLines(h))).not.toMatch(/access-token|refresh-token|client-1|channel-1|Bearer|postgres/i);
+      integration.stop();
+    });
+  });
+
+  it('D-8: probeEpoch changes whenever the Twurple session is dropped, so a cached ping never survives a rebuild', async () => {
+    const timeouts = [];
+    const h = harness();
+    const integration = await createTwitchIntegration({
+      credentialRepository: { getAuthRecord: vi.fn(async () => ({ clientId: 'client-1', broadcasterId: 'channel-1', accessToken: 'a', refreshToken: 'r' })) },
+      authRuntimeFactory: h.authRuntimeFactory, apiFactory: h.apiFactory, adapterFactory: h.adapterFactory,
+      eventSubRuntimeFactory: h.eventSubRuntimeFactory, reconcilerFactory: h.reconcilerFactory,
+      setTimeoutImpl: (callback) => { timeouts.push(callback); return timeouts.length; }, clearTimeoutImpl: vi.fn(), random: () => 0.5,
+    });
+    await integration.ready;
+    const before = integration.probeEpoch;
+    h.callbacks.onDisconnect({ established: false });
+    await timeouts[0]();
+    await integration.ready;
+    expect(integration.probeEpoch).toBeGreaterThan(before);
+    integration.stop();
+  });
+
   it('exposes a safe Twitch API probe only after an eligible authenticated adapter is ready', async () => {
     const h = harness();
     const integration = await h.integrationPromise;
