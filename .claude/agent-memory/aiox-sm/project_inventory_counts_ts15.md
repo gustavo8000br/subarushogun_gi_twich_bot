@@ -1,12 +1,12 @@
 ---
 name: inventory-counts-ts15
-description: Inventory 110 items / board 66 active + 46 archived cards after the 2026-10-30 merges; next free IDs TS-18, FT-45; merged cards go to board section 5.1
+description: Latest inventory/board counts (2026-11-06) and next free IDs; supersedes older 110/66 figures
 metadata:
   type: project
 ---
 
-2026-10-30: owner-approved merges (lots A and B) plus TS-16, FT-44, TS-17. Inventory = 110 (ST 19, FT 44, GV 13, TS 17, OW 17; P0 6, P1 42, P2 52, P3 10). Board = 112 cards = 66 active (28 issue cards + 36 drafts + 2 legacy) + 46 archived (table in kanban-board-design section 5.1). Active by Situação: Backlog 5, Rascunho 2, Aguardando decisão 5, Pronto 12, Em andamento 4, Em revisão 3, Bloqueado 31, Concluído 2 (TS-01, TS-15).
+2026-11-06: inventory 147 items (ST 23, FT 67, GV 13, TS 26, OW 18; P0 6, P1 47, P2 72, P3 22). Board plan 150 cards = 102 active (33 issue cards + 69 drafts) + 48 archived. Active by Situação: Backlog 37, Rascunho 7, Aguardando decisão 2, Pronto 12, Em andamento 5, Em revisão 8, Bloqueado 30, Concluído 1. Next free IDs: TS-27, FT-68, OW-19, ST-24.
 
-**Why:** counts live in four files (inventory + board, en and pt-BR); QA gates cite them, so they must move together. QA gate files and old "Update" paragraphs are historical and are not edited. Merged IDs stay in the inventory (traceability); only their cards are archived; no issue is closed without the owner's OK.
+**Why:** counts live in four files (inventory + board, en and pt-BR) plus stories.md and session-handoff; the `@qa` method = count rows of the board card table + archived table (5.1). Merged IDs stay in the inventory.
 
-**How to apply:** next IDs are TS-18 and FT-45. Check counts with a script (rows of the card table + archived table = inventory rows). Survivor rule used: the more advanced card survives, ties go to the lower ID, unless the owner names one. OPS-14 (#65) still has no story file (inventory section 4, item 16). Pending for others: `@po` on FT-07 and FT-44 placement, `@architect` on the order of the OPS-21 cycles. Related: [[ops24-typescript-biome-draft]].
+**How to apply:** verify with a script before editing counts; Update paragraphs of older dates are historical and stay. Pending IDs 2026-11-06 are drafts (no issue yet). See [[ops24-typescript-biome-draft]].
