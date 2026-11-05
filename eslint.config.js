@@ -29,7 +29,7 @@ export default [
     },
   },
   {
-    files: ['apps/web/**/*.js', 'apps/frontend/**/*.jsx'],
+    files: ['apps/frontend/**/*.jsx'],
     languageOptions: {
       globals: {
         document: 'readonly',
@@ -46,7 +46,7 @@ export default [
       'no-restricted-imports': ['error', {
         patterns: [{
           group: ['**/web/*', '**/web/**'],
-          message: 'Import shared modules from apps/shared (apps/web is the vanilla panel and will be removed).',
+          message: 'Import shared modules from apps/shared; the vanilla panel tree no longer exists.',
         }],
       }],
     },

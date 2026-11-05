@@ -27,7 +27,7 @@ function toRepoPath(path) {
 }
 
 function isSharedTarget(repoPath) {
-  return repoPath.startsWith('apps/web/') || repoPath.startsWith('apps/shared/');
+  return repoPath.startsWith('apps/shared/');
 }
 
 function collectSharedTargets() {
@@ -70,7 +70,7 @@ function isCovered(repoPath, sources) {
 }
 
 describe('Dockerfile frontend build stage', () => {
-  it('copies every apps/web and apps/shared module imported by the Next frontend', () => {
+  it('copies every apps/shared module imported by the Next frontend', () => {
     const sources = frontendBuildCopySources();
     const targets = collectSharedTargets();
     expect(targets.size).toBeGreaterThan(0);
@@ -78,14 +78,9 @@ describe('Dockerfile frontend build stage', () => {
     expect(missing).toEqual([]);
   });
 
-  it('never imports apps/web from the Next frontend after the S-03 relocation', () => {
-    const webTargets = [...collectSharedTargets()].filter(([path]) => path.startsWith('apps/web/')).map(([path, from]) => `${path} (imported by ${from})`);
-    expect(webTargets).toEqual([]);
-  });
-
-  it('copies nothing from apps/web into the frontend build stage: the catalogs ship inside apps/shared (OPS-15 cutover wave 2)', () => {
-    const webSources = frontendBuildCopySources().filter((source) => source.startsWith('apps/web'));
-    expect(webSources).toEqual([]);
+  it('copies nothing from the removed vanilla tree into the frontend build stage: the catalogs ship inside apps/shared (FT-42)', () => {
+    expect(existsSync(join(root, 'apps/web'))).toBe(false);
+    expect(frontendBuildCopySources().filter((source) => source.startsWith('apps/web'))).toEqual([]);
     expect(frontendBuildCopySources()).toContain('apps/shared');
     expect(readFileSync(join(root, 'Dockerfile'), 'utf8')).not.toMatch(/apps\/web/);
   });

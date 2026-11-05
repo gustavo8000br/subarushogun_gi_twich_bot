@@ -4,8 +4,6 @@
     "jsx": "preserve"
   },
   "include": [
-    "apps/web/**/*.js",
-    "apps/web/**/*.mjs",
     "apps/shared/panel/**/*.mjs"
   ]
 }

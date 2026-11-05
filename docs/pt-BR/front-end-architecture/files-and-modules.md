@@ -2,7 +2,7 @@
 [English](../../front-end-architecture/files-and-modules.md)
 
 
-O código Next.js fica em `apps/frontend/`; os arquivos do frontend vanilla que ainda estão em `apps/web/` não são mais servidos desde a Onda 1 do cutover; os arquivos do overlay vanilla foram removidos na Onda 3, os catálogos foram para `apps/shared/localization/catalogs` na Onda 2 e o painel vanilla é removido na Onda 4. O novo código da aplicação continua em JavaScript ESM com JSDoc:
+O código Next.js fica em `apps/frontend/`; os arquivos do overlay vanilla foram removidos na Onda 3, os catálogos foram para `apps/shared/localization/catalogs` na Onda 2 e o painel vanilla (`apps/web/`) foi removido na Onda 4 (FT-42). O novo código da aplicação continua em JavaScript ESM com JSDoc:
 
 ```text
 apps/frontend/
@@ -16,7 +16,6 @@ apps/frontend/
   features/panel-shell/ inicialização da sessão local, navegação e composição do shell
   features/overview/    resumos read-only e apresentação de projeções
 apps/shared/localization/catalogs/  catálogos TSV de primeira parte (desde a Onda 2)
-apps/web/               arquivos do frontend vanilla, não servidos desde a Onda 1; removidos na Onda 4
 ```
 
 O shell do painel inicializa `/api/session` antes das leituras protegidas, carrega as projeções allowlisted de `/api/state` e do operador `/api/queues`, e consulta `/api/localization/catalogs` em runtime. Somente o catálogo first-party pt-BR é embutido como fallback de renderização estática; a API runtime fornece o conjunto completo de idiomas instalados e é a autoridade para a seleção persistida. Projeção de fila inválida mostra erro de API em vez de resumo vazio. Mutações preservam CSRF, idempotência e revisão esperada.

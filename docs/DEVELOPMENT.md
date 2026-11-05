@@ -72,10 +72,12 @@ To run the safe Chromium overlay smoke against the active Next preview, use `npm
 
 For the QRA-23 queue deletion-cancellation browser smoke, run `npm run test:e2e:queue-lifecycle:browser-only` against the active loopback Next preview. It intercepts panel API responses and asserts the processing conflict, accessible localized alert, safe diagnostic reference, and same-origin CSRF/idempotency headers. It does not write to the product API/database or Twitch and is not persisted-operation evidence.
 
+For the TS-10 layout contracts (navigation focus ring, command-policy stacking at 390 and 320 px), run `npm run test:e2e:panel-layout:browser-only` against the active loopback Next preview; reward dialog sizing at 390 and 768 px is part of `test:e2e:queue-reward-settings:browser-only` and `test:e2e:queue-reward-resolution:browser-only`. All use intercepted fixtures and are not axe or assistive-technology evidence.
+
 ```sh
 npm run lint:api && npm run typecheck:api
 npm run lint:infra && npm run typecheck:infra
-npm run lint:web && npm run typecheck:web
+npm run lint:frontend && npm run typecheck:frontend
 npm test -- --run tests/unit/<test-file>.test.js
 ```
 
@@ -87,7 +89,6 @@ npm test -- --run tests/unit/<test-file>.test.js
 apps/api/    Fastify API, domain, Prisma schema and migrations
 apps/infra/  Compose and operational scripts
 apps/frontend/ Next.js App Router panel and OBS overlay
-apps/web/      Vanilla panel files (not served since cutover Wave 1; removed in Wave 4)
 apps/shared/    Modules shared by Next and the API (`apps/shared/panel` holds only the panel/overlay helpers; the first-party catalogs live in `apps/shared/localization/catalogs/`, outside `apps/shared/panel`, since cutover Wave 2; Next must not import `apps/web`)
 tests/       Unit, integration, and browser acceptance tests
 docs/        Stories and focused user/developer references

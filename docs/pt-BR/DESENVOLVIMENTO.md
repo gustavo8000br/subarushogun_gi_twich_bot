@@ -72,10 +72,12 @@ Para executar o smoke seguro do overlay em Chromium contra a prévia Next ativa,
 
 Para executar o smoke Chromium QRA-23 do cancelamento de exclusão de fila, use `npm run test:e2e:queue-lifecycle:browser-only` contra a prévia Next local ativa. Ele intercepta respostas da API do painel e verifica o conflito em processamento, o alerta localizado acessível, a referência diagnóstica segura e os headers same-origin CSRF/idempotência. Não grava na API/banco do produto nem na Twitch e não é evidência de operação persistida.
 
+Para os contratos de layout da TS-10 (anel de foco da navegação, empilhamento da política de comandos a 390 e 320 px), rode `npm run test:e2e:panel-layout:browser-only` contra o preview Next local; o dimensionamento dos diálogos de recompensa a 390 e 768 px faz parte de `test:e2e:queue-reward-settings:browser-only` e `test:e2e:queue-reward-resolution:browser-only`. Todos usam fixtures interceptadas e não são evidência de axe nem de tecnologia assistiva.
+
 ```sh
 npm run lint:api && npm run typecheck:api
 npm run lint:infra && npm run typecheck:infra
-npm run lint:web && npm run typecheck:web
+npm run lint:frontend && npm run typecheck:frontend
 npm test -- --run tests/unit/<arquivo-de-teste>.test.js
 ```
 
@@ -87,7 +89,6 @@ npm test -- --run tests/unit/<arquivo-de-teste>.test.js
 apps/api/    API Fastify, domínio, schema e migrations Prisma
 apps/infra/  Compose e scripts operacionais
 apps/frontend/ App Router Next.js do painel e do overlay OBS
-apps/web/      Arquivos do painel vanilla (não servidos desde a Onda 1 do cutover; removidos na Onda 4)
 apps/shared/    Módulos compartilhados por Next e API (`apps/shared/panel` contém apenas os helpers de painel/overlay; os catálogos de primeira parte ficam em `apps/shared/localization/catalogs/`, fora de `apps/shared/panel`, desde a Onda 2 do cutover; o Next não pode importar `apps/web`)
 tests/       Testes unitários, integração e aceite de navegador
 docs/        Stories e guias específicos de usuário/desenvolvimento

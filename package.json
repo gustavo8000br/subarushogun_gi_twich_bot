@@ -48,10 +48,10 @@
     "typecheck": "tsc --noEmit",
     "lint:api": "eslint apps/api --max-warnings=0",
     "lint:infra": "eslint apps/infra --max-warnings=0",
-    "lint:web": "eslint apps/web apps/shared/panel --max-warnings=0",
+    "lint:frontend": "eslint apps/shared/panel --max-warnings=0",
     "typecheck:api": "tsc --noEmit -p tsconfig.api.json",
     "typecheck:infra": "tsc --noEmit -p tsconfig.infra.json",
-    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
+    "typecheck:frontend": "tsc --noEmit -p tsconfig.frontend.json",
     "review:static": "opengrep scan --config .opengrep/rules.yml --no-git-ignore --error --exclude=apps/frontend/.next --exclude=apps/frontend/out apps"
   },
   "dependencies": {

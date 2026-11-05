@@ -25,7 +25,7 @@ describe('first-party localization catalog location (OPS-15 cutover wave 2)', ()
     expect(resolveFirstPartyCatalogRoot(root)).toBe(join(root, 'apps/shared/localization/catalogs'));
   });
 
-  it('keeps exactly the 5 first-party modules with the 3 required locales at the shared path, and none under apps/web', () => {
+  it('keeps exactly the 5 first-party modules with the 3 required locales at the shared path, and no vanilla tree', () => {
     const catalogRoot = join(root, 'apps/shared/localization/catalogs');
     expect(readdirSync(catalogRoot).sort()).toEqual(MODULES);
     for (const moduleName of MODULES) {

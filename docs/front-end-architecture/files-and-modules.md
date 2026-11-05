@@ -2,7 +2,7 @@
 [Português brasileiro](../pt-BR/front-end-architecture/files-and-modules.md)
 
 
-The Next.js source lives in `apps/frontend/`; the vanilla frontend files still in `apps/web/` are no longer served since cutover Wave 1; the vanilla overlay files were removed in Wave 3, the catalogs moved to `apps/shared/localization/catalogs` in Wave 2 and the vanilla panel is removed in Wave 4. New application code remains JavaScript ESM with JSDoc:
+The Next.js source lives in `apps/frontend/`; the vanilla overlay files were removed in Wave 3, the catalogs moved to `apps/shared/localization/catalogs` in Wave 2 and the vanilla panel (`apps/web/`) was removed in Wave 4 (FT-42). New application code remains JavaScript ESM with JSDoc:
 
 ```text
 apps/frontend/
@@ -16,7 +16,6 @@ apps/frontend/
   features/panel-shell/ local session bootstrap, navigation and shell composition
   features/overview/    read-only overview summaries and projection presentation
 apps/shared/localization/catalogs/  first-party TSV catalogs (since Wave 2)
-apps/web/               vanilla frontend files, not served since Wave 1; removed in Wave 4
 ```
 
 The panel shell bootstraps `/api/session` before protected reads, loads the allowlisted `/api/state` and operator `/api/queues` projections, and fetches `/api/localization/catalogs` at runtime. Only a first-party pt-BR catalog is embedded as a static render fallback; the runtime API supplies the complete installed locale set and is authoritative for persisted language selection. Invalid queue projections show an API error instead of an empty queue summary. Mutations keep CSRF, idempotency and expected-revision contracts.

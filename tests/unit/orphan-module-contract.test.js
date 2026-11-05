@@ -2,12 +2,12 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-// OPS-15 cutover wave 0: a module in the vanilla panel directory or a frontend script
+// OPS-15 cutover wave 0: a frontend script
 // must have at least one consumer outside the test suite. Tests alone do not keep
 // code alive; code that only a test imports is dead and must be removed with its test.
 const root = join(import.meta.dirname, '../..');
 
-const GUARDED_DIRECTORIES = ['apps/web', 'apps/frontend/scripts'];
+const GUARDED_DIRECTORIES = ['apps/frontend/scripts'];
 const GUARDED_EXTENSIONS = ['.mjs', '.js'];
 const CONSUMER_EXTENSIONS = ['.mjs', '.js', '.jsx', '.ts', '.tsx', '.html', '.json', '.yaml', '.yml'];
 const SKIPPED_DIRECTORIES = new Set(['node_modules', '.next', 'out']);

@@ -43,19 +43,14 @@ function importsOf(file) {
 }
 
 describe('apps/shared/panel module boundary (OPS-15 S-03)', () => {
-  it('keeps the modules shared by Next and the vanilla panel under apps/shared/panel only', () => {
+  it('keeps the modules shared by the Next panel under apps/shared/panel', () => {
     for (const name of SHARED_PANEL_MODULES) {
       expect(existsSync(join(root, 'apps/shared/panel', name)), `apps/shared/panel/${name}`).toBe(true);
-      expect(existsSync(join(root, 'apps/web', name)), `apps/web/${name} must not exist`).toBe(false);
     }
   });
 
-  it('forbids Next, shared and API server code from importing apps/web', () => {
-    const files = ['apps/frontend', 'apps/shared', 'apps/api/src'].flatMap((directory) => listSources(join(root, directory)));
-    const offenders = files.flatMap((file) => importsOf(file)
-      .filter(({ target }) => target.startsWith('apps/web/'))
-      .map(({ specifier }) => `${toRepoPath(file)} -> ${specifier}`));
-    expect(offenders).toEqual([]);
+  it('has no vanilla panel directory (FT-42; the merged import and path guards below cover the rest)', () => {
+    expect(existsSync(join(root, 'apps/web'))).toBe(false);
   });
 
   it('spells no apps/web path as a string in Next, shared, API or infra code (TS-04, OPS-15 cutover wave 2)', () => {
@@ -77,7 +72,7 @@ describe('apps/shared/panel module boundary (OPS-15 S-03)', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('resolves every relative import of apps, the vanilla entrypoints and tests to an existing file', () => {
+  it('resolves every relative import of apps and tests to an existing file', () => {
     const files = ['apps', 'tests'].flatMap((directory) => listSources(join(root, directory)));
     const unresolved = files.flatMap((file) => importsOf(file)
       .filter(({ target }) => !existsSync(join(root, target)))
@@ -85,17 +80,7 @@ describe('apps/shared/panel module boundary (OPS-15 S-03)', () => {
     expect(unresolved).toEqual([]);
   });
 
-  it('points the vanilla panel entrypoint at the shared panel prefix', () => {
-    const app = readFileSync(join(root, 'apps/web/app.js'), 'utf8');
-    for (const name of SHARED_PANEL_MODULES.filter((module) => !module.startsWith('overlay-renderer'))) {
-      expect(app).toContain(`from '../shared/panel/${name}'`);
-    }
-  });
-
   it('has no vanilla overlay: the Next /overlay route is the only overlay document (OPS-15 cutover wave 3)', () => {
-    for (const name of ['overlay.html', 'overlay.js', 'overlay.css']) {
-      expect(existsSync(join(root, 'apps/web', name)), `apps/web/${name} must not exist`).toBe(false);
-    }
     expect(existsSync(join(root, 'apps/frontend/app/(overlay)/overlay/page.jsx'))).toBe(true);
   });
 });
