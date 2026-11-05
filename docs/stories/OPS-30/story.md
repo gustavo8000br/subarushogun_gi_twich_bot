@@ -2,7 +2,7 @@
 
 [Português (pt-BR)](../../pt-BR/stories/OPS-30/story.md)
 
-**Status:** Draft (drafted by `@sm` on 2026-11-04; not yet validated by `@po`). **Issue:** pending (`@devops` creates it from [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); no issue comments).
+**Status:** Draft (drafted by `@sm` on 2026-11-04; not yet validated by `@po`). **Issue:** [#105](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/105) (created by `@devops` before 2026-11-05 from [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); no issue comments).
 **Source:** idea #1 of the [improvement survey](../../process/improvement-ideas-2026-11-04.md) (owner request, 2026-11-04); inventory item **TS-17**, whose own story this is (owner decision of 2026-10-30: own story, going through `@qa`). Evidence: no workflow runs the browser scripts; `queue-lifecycle` stayed broken in 4 of 4 runs without any alert (finding M-2, a harness defect fixed in `8bb05d8`).
 **Related:** TS-15 (flaky Chromium queue-deletion test, done), OPS-15 wave 4 / FT-42 (repoints the `web` job, renamed `frontend`), OPS-27 and OPS-29 (they also change CI jobs; workflow edits are serialized), [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (9.5 ruler, idea #1, actions AÇ-01..AÇ-05).
 **Registered items:** inventory ST-23 (this story), TS-17 (the test item it delivers), FT-51 and FT-52 (slices); see [backlog-inventory](../../process/backlog-inventory.md).

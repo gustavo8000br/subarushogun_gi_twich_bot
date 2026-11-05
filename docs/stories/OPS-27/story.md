@@ -2,7 +2,7 @@
 
 [Português (pt-BR)](../../pt-BR/stories/OPS-27/story.md)
 
-**Status:** Draft (drafted by `@sm` on 2026-11-04; not yet validated by `@po`). **Issue:** pending (`@devops` creates it from [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); no issue comments).
+**Status:** Draft (drafted by `@sm` on 2026-11-04; not yet validated by `@po`). **Issue:** [#104](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/104) (created by `@devops` before 2026-11-05 from [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); no issue comments).
 **Source:** idea #5 of the [improvement survey](../../process/improvement-ideas-2026-11-04.md) (owner request, 2026-11-04). Evidence: a Claude session URL reached 45 commits of this public repository; the protection that existed was only text in `AGENTS.md` (rule "never expose the session URL"). A text rule does not stop an agent whose tool adds a default attribution line. Orion's decision (2026-11-04): this idea starts first, right after the OPS-22 package.
 **Related:** OPS-28 (OpenGrep rules for code; secrets in source code are shared ground, see "Dependencies"); OPS-24 (script language and Biome); OPS-30 and OPS-29 (they also add CI jobs; workflow edits are serialized); [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (9.5 ruler, idea #5, actions AÇ-21..AÇ-26).
 **Registered items:** inventory ST-20 (this story), FT-45 and FT-46 (slices); see [backlog-inventory](../../process/backlog-inventory.md).
@@ -50,14 +50,25 @@ Evidence classes stay separate: unit (pure function), local hook (real Git in a 
 8. **Given** `git commit --no-verify`, **when** the commit reaches a pull request, **then** the CI job still fails it: the CI is the layer that cannot be skipped, and this is written in the documentation.
 9. **Given** the documentation, **then** it explains in English and pt-BR how to activate the hook, how to add a pattern and how to add an allowlist entry with its reason; the documentation-contract tests pass; `AGENTS.md` is not edited by agents.
 10. **Given** the quality gates, **when** they run, **then** `npm run lint`, `npm run typecheck`, `npm test`, `npm run validate:localization`, `npm run validate:version`, `npm run validate:port-denylist` and `npm run review:static` are green.
+11. **Given** any failing check (local hook, manual run or CI), **when** it rejects an input, **then** the failure is clear and fail-closed: a non-zero exit code that differs from the code of an internal error (values fixed by `@architect`); one line per finding with the rule id and the location (commit, file and line, or the body name) and a pointer to the documentation section on the allowlist, never the matched value; an internal error (unreadable file, input above the size limit, allowlist entry without a reason) also fails and says so, and never passes silently.
 
 ## Dependencies
 
-- **Starts after** the OPS-22 package is committed (Orion, 2026-11-04). No other story blocks it.
+- **Starts after** the OPS-22 package is committed: satisfied on 2026-11-05 (committed and pushed, HEAD `1767c24`, CI of PR #101 11/11 green; Orion, 2026-11-04). No other story blocks it.
 - **Workflow edit** (FT-46): no workflow file changes without the `@architect` design and the `@devops` review; serialize with OPS-29 and OPS-30, which edit the same workflows (one write set at a time).
 - **OPS-28:** both stories deal with secrets. `@architect` fixes which tool owns what: this check covers commits, bodies and all versioned files; OpenGrep covers source-code constructs. No duplicated pattern list.
 - **OPS-24:** the script starts as `.mjs`; if `apps/` is converted later, the script follows the folder rule `@architect` sets.
 - **Known false positives (allowlist seed, to be confirmed by the baseline):** the rule text in `AGENTS.md`; handoffs and QA gates that cite the pattern; the improvement survey that states the pattern; framework documents under `.aiox-core/` about LLM routing. The seed is data in the allowlist with a reason each, not a hidden exception in code.
+
+## Owner dependencies
+
+Nothing blocks the validation or the start: no owner decision is needed before `@po` validates, and the 9.5 score does not depend on the owner. Items reserved to the owner that this story touches (agents only propose):
+
+- The wording of the rule in `AGENTS.md` or `CLAUDE.md` (AC 9): agents propose text; the owner edits.
+- Repository settings that complement the check (push protection, a required status check on the new CI job, branch rules): optional; the story works without them.
+- A real credential found by the baseline scan (AC 6): the story stops and reports to the orchestrator; rotation, history rewrite and force push are owner-reserved.
+- Merge of the pull request, tag and release.
+- The optional `issues`-event run: technical, decided by `@architect` with `@devops`; it becomes an owner item only if it needs a new permission or secret.
 
 ## Risks
 
@@ -84,14 +95,21 @@ A leak stops at the commit or at the pull request instead of at a public history
 4. **CI:** workflow-contract test pins the job; a pull request or dispatch run with a planted leak on a throwaway branch fails, a clean run passes.
 5. **Gates:** the seven project gates; `@qa` issues the verdict before `@devops` commits.
 
+Red/Green by slice (each behavior starts with a failing test):
+
+| Slice | Red (written first, fails for the right reason) | Green (smallest change that passes) | Guard |
+|---|---|---|---|
+| FT-45 | Unit: a positive and a look-alike per rule against a function that finds nothing; hook: a real `git commit` with a planted trailer is expected to be rejected before the hook exists | Pure function with the rules listed by `@architect`; `commit-msg` and `pre-commit` hooks; allowlist loader with a reason per entry | Output never echoes the match (AC 1, AC 11); size limit; one hand mutation per rule (AC 7) |
+| FT-46 | Workflow-contract test fails while the job does not exist; a planted-leak run on a throwaway branch is expected red | CI job over the commit range, the tracked files and the PR body passed as data; documented pre-send step for issue bodies | Injection test with a hostile body (quotes, command substitution, newlines); baseline scan (AC 6); `--no-verify` commit still red in CI (AC 8) |
+
 ## Meta 9,5 (survey of 2026-11-04)
 
-Current score (Orion's estimate): **5.0**. Target: **9.5**. The `@qa` attests the score with the ruler of [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (idea #5): the four dimensions (coverage, automation, proof, operation) must average 9.5 with none below 9.0. Exit criteria: all four surfaces covered by the hook and by CI (ACs 1, 2, 4, 5); every pattern with a positive and a negative test (AC 3); one hand mutation per rule fails a test (AC 7); zero unaccepted baseline findings (AC 6); documentation in both languages (AC 9). No part depends on the owner, so agents can reach 9.5.
+Current score (Orion's estimate): **5.0**. Target: **9.5**. The `@qa` attests the score with the ruler of [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (idea #5): the four dimensions (coverage, automation, proof, operation) must average 9.5 with none below 9.0. Exit criteria: all four surfaces covered by the hook and by CI (ACs 1, 2, 4, 5); every pattern with a positive and a negative test (AC 3); one hand mutation per rule fails a test (AC 7); zero unaccepted baseline findings (AC 6); documentation in both languages (AC 9); a clear, fail-closed failure output (AC 11). No part depends on the owner, so agents can reach 9.5.
 
 ## Planning gates before implementation
 
 - [ ] `@po` validation (10 points) and GO.
-- [ ] `@devops` creates the GitHub issue (body from [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md)).
+- [x] `@devops` created the GitHub issue [#104](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/104) (seen on the real board on 2026-11-05).
 - [ ] `@architect`: pattern list with sources, hook mechanism, CI trigger, body-as-data design, allowlist format, size limit, tool ownership against OPS-28.
 - [ ] `@qa` test plan (planted leaks, hand mutations, evidence classes).
 - [ ] `@analyst` note only if a token-format GAP exists; [research-index.md](../../research-index.md) checked first.
@@ -99,7 +117,7 @@ Current score (Orion's estimate): **5.0**. Target: **9.5**. The `@qa` attests th
 
 ## Definition of Done
 
-- ACs 1 to 10 have Red-first evidence by class; the CI part is executed on a pull request or dispatch or explicitly recorded as pending.
+- ACs 1 to 11 have Red-first evidence by class; the CI part is executed on a pull request or dispatch or explicitly recorded as pending.
 - Quality gates green; `@qa` verdict and 9.5 attestation recorded; File List and checklists updated in English and pt-BR.
 
 ## SM draft validation (story-draft-checklist, 2026-11-04)
@@ -111,6 +129,19 @@ Current score (Orion's estimate): **5.0**. Target: **9.5**. The `@qa` attests th
 5. Testing: classes separated; hand mutation; self-flagging avoided. PASS.
 6. Static analysis: `npm run review:static` in the gates. PASS.
 - Result: ready for `@po`. Nothing was invented beyond the survey; the S to M estimate change is recorded above.
+
+## SM review before the `@po` (story-draft-checklist, 2026-11-05)
+
+Re-checked after the QA gate of 2026-11-05 (PASS 9.1; OPS-22 package committed and pushed).
+
+1. Acceptance criteria testable (Given/When/Then with named outputs): PASS; AC 11 added so the failure is clear and fail-closed.
+2. Slices FT-45 and FT-46 with order, scope and a Red/Green table: PASS.
+3. Scope covers the local hook/guard, the sweep of commits, PR bodies, issue bodies and files, and a clear failure: PASS (surfaces map to ACs 1, 2, 4, 5; baseline to AC 6; failure to AC 11).
+4. Test plan Red/Green with separate evidence classes and hand mutations: PASS.
+5. Target 9.5 with the ruler and exit criteria; no part depends on the owner: PASS.
+6. Owner-reserved items listed (section Owner dependencies): PASS.
+7. Issue exists (#104) and the start dependency is satisfied: PASS.
+- Result: **ready for the `@po`**. Changes of this review: AC 11, Owner dependencies, Red/Green table, issue link, satisfied dependency. Nothing was invented beyond the survey; the token-format list stays with `@architect`.
 
 ## File List
 
@@ -125,3 +156,4 @@ Implementation files will be listed here by `@dev` after the gates.
 ## Change Log
 
 - 2026-11-04 — `@sm` (River): story drafted from idea #5 of the improvement survey. Status Draft. Slices FT-45 and FT-46 registered.
+- 2026-11-05 — `@sm` (River): reviewed before the `@po` (section above): added AC 11 (clear, fail-closed failure), the section Owner dependencies and the Red/Green table; recorded issue #104 and the satisfied start dependency. Status stays Draft.

@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-28/story.md)
 
-**Status:** Draft (redigida pelo `@sm` em 2026-11-04; ainda não validada pelo `@po`). **Issue:** pendente (o `@devops` cria a partir de [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); sem comentários em issues).
+**Status:** Draft (redigida pelo `@sm` em 2026-11-04; ainda não validada pelo `@po`). **Issue:** [#107](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/107) (criada pelo `@devops` antes de 2026-11-05 a partir de [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); sem comentários em issues).
 **Origem:** ideia nº 4 do [levantamento de melhorias](../../process/improvement-ideas-2026-11-04.md) (pedido do proprietário, 2026-11-04). Evidência: `.opengrep/rules.yml` tem duas regras (`no-unsafe-html-sink`, `no-credential-logging`); a primeira já traz uma busca de texto simples por `dangerouslySetInnerHTML` que não é uma regra estruturada de JSX e não tem teste. Decisão permanente do proprietário: **o OpenGrep é o único revisor estático**; o provedor de revisão antigo não está planejado e o nome dele é bloqueado por `tests/unit/aiox-static-review.test.js`.
 **Relacionadas:** OPS-27 (segredos em commits, arquivos e corpos; terreno comum), OPS-24 (o CA 7 faz as duas regras atuais varrerem `.ts`), [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (régua de 9,5, ideia nº 4, ações AÇ-16..AÇ-20).
 **Itens registrados:** inventário ST-21 (esta story), FT-47 e FT-48 (fatias); ver [backlog-inventory](../../process/backlog-inventory.md).

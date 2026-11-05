@@ -2,7 +2,7 @@
 
 [Português (pt-BR)](../../pt-BR/stories/OPS-28/story.md)
 
-**Status:** Draft (drafted by `@sm` on 2026-11-04; not yet validated by `@po`). **Issue:** pending (`@devops` creates it from [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); no issue comments).
+**Status:** Draft (drafted by `@sm` on 2026-11-04; not yet validated by `@po`). **Issue:** [#107](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/107) (created by `@devops` before 2026-11-05 from [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); no issue comments).
 **Source:** idea #4 of the [improvement survey](../../process/improvement-ideas-2026-11-04.md) (owner request, 2026-11-04). Evidence: `.opengrep/rules.yml` has two rules (`no-unsafe-html-sink`, `no-credential-logging`); the first already carries a plain-text match for `dangerouslySetInnerHTML` that is not a structured JSX rule and has no test. Owner decision (permanent): **OpenGrep is the only static reviewer**; the former review provider is not planned and its name is blocked by `tests/unit/aiox-static-review.test.js`.
 **Related:** OPS-27 (secrets in commits, files and bodies; shared ground), OPS-24 (AC 7 makes both existing rules scan `.ts`), [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (9.5 ruler, idea #4, actions AÇ-16..AÇ-20).
 **Registered items:** inventory ST-21 (this story), FT-47 and FT-48 (slices); see [backlog-inventory](../../process/backlog-inventory.md).

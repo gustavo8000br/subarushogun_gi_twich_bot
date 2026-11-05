@@ -212,6 +212,7 @@ Observação (opcional):
 Quem executa depois: `@po` registra na story; `@devops` ajusta o quadro.
 Efeito no quadro: OW-07: A vai a Concluído (limitação documentada); B vai a Bloqueado (depende de um Mac); C fica em Aguardando decisão.
 Tipo: Reservada (sem marca, espera o dono)
+**Registrada em 2026-11-05:** opção **B** marcada na issue #69 pelo dono (`docs/human_decisions/done/recorded-project-decisions.md`). Efeito: OW-07 vai a Bloqueado até haver acesso a um Mac; nenhum resultado de macOS é afirmado. As caixas do dono na issue ficam como ele as deixou.
 
 ### D-06 — Merge do PR #101 na `main`
 **Por que importa:** Merge na `main` é reservado a você. O PR #101 está aberto e o `@qa` deve emitir o veredito final sobre o estado do PR. Na redação deste documento todos os checks da CI estavam verdes.
@@ -860,10 +861,10 @@ Sem gates próprios: issue índice, sem story.
 
 ## 7. Counts
 
-15 decisions (D-01..D-15) and 8 owner actions (A-01..A-08) over 34 open issues plus the index issue. Board counts before the ticks of 2026-10-30: 66 active, 46 archived, 110 inventory items. After the owner ticked D-14 = A (2026-10-30), recorded 2026-11-04: **64 active, 48 archived** (#17 and #18 moved to archived), 110 inventory items, 112 cards in total. Also ticked: D-01 = B (ST-11 to Rascunho), D-12 = A (TS-02 to Pronto), D-13 = A (TS-07 to Pronto, TS-11 measures first). Current counts after the improvement survey of 2026-11-04 (12 new items, no owner decision created): 122 inventory items, **76 active**, 48 archived, 124 cards in total ([inventory](backlog-inventory.md)).
+15 decisions (D-01..D-15) and 8 owner actions (A-01..A-08) over 34 open issues plus the index issue. Board counts before the ticks of 2026-10-30: 66 active, 46 archived, 110 inventory items. After the owner ticked D-14 = A (2026-10-30), recorded 2026-11-04: **64 active, 48 archived** (#17 and #18 moved to archived), 110 inventory items, 112 cards in total. Also ticked: D-01 = B (ST-11 to Rascunho), D-12 = A (TS-02 to Pronto), D-13 = A (TS-07 to Pronto, TS-11 measures first). Current counts after the improvement survey of 2026-11-04 (12 new items, no owner decision created): 122 inventory items, **76 active**, 48 archived, 124 cards in total ([inventory](backlog-inventory.md)). Owner ticks recorded on 2026-11-05 (issue #69): D-04 registered as A (defer; he ticked B before testing and clarified it), D-05 = B (OW-07 to Bloqueado), D-06 = A (wait) and D-07 = A (postpone). Counts after the QA gate of 2026-11-05: **127 inventory items, 82 active cards (33 issues + 49 drafts), 48 archived, 130 cards in total** in the plan; the real board shows 77 active before the 5 new items are loaded ([reconciliation](kanban-board-design.md), section 5.3).
 
 ## Reserved vs default decisions (owner rule, 2026-10-30)
 
 Each decision block carries a `Tipo:` line.
-- **Reservada (waits for the owner, a missing tick means "wait"):** D-04 (native OBS/CEF acceptance), D-05 (accept macOS unvalidated), D-06 (merge of PR #101 into `main`), D-07 (tag and release of `v0.3.0-beta`), D-15 (delete the backup branch).
+- **Reservada (waits for the owner, a missing tick means "wait"):** D-04 (native OBS/CEF acceptance), D-05 (accept macOS unvalidated), D-06 (merge of PR #101 into `main`), D-07 (tag and release of `v0.3.0-beta`), D-15 (delete the backup branch). Status on 2026-11-05: D-04 (registered A, defer), D-05 (B), D-06 (A, wait) and D-07 (A, postpone) have an answer; D-15 is resolved with no action (the backup branch is gone). Reserved decisions still without an answer: none.
 - **Padrão (a missing tick means "apply the recommended option"):** D-01 to D-03 and D-08 to D-14. When the item reaches the head of the implementation line without a tick, the orchestrator applies the recommended option, records it in `docs/human_decisions/` with the note "applied by default", and the owner may revert it by ticking another option.

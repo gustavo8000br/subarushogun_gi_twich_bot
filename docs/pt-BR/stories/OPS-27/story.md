@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-27/story.md)
 
-**Status:** Draft (redigida pelo `@sm` em 2026-11-04; ainda não validada pelo `@po`). **Issue:** pendente (o `@devops` cria a partir de [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); sem comentários em issues).
+**Status:** Draft (redigida pelo `@sm` em 2026-11-04; ainda não validada pelo `@po`). **Issue:** [#104](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/104) (criada pelo `@devops` antes de 2026-11-05 a partir de [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); sem comentários em issues).
 **Origem:** ideia nº 5 do [levantamento de melhorias](../../process/improvement-ideas-2026-11-04.md) (pedido do proprietário, 2026-11-04). Evidência: a URL de uma sessão do Claude chegou a 45 commits deste repositório público; a proteção existente era só um texto no `AGENTS.md` (regra "nunca expor a URL da sessão"). Uma regra em texto não impede um agente cuja ferramenta acrescenta uma linha de atribuição por padrão. Decisão do Orion (2026-11-04): esta ideia começa primeiro, logo depois do pacote da OPS-22.
 **Relacionadas:** OPS-28 (regras do OpenGrep para código; segredo em código é terreno comum, ver "Dependências"); OPS-24 (linguagem do script e Biome); OPS-30 e OPS-29 (também acrescentam jobs de CI; as edições de workflow são em série); [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (régua de 9,5, ideia nº 5, ações AÇ-21..AÇ-26).
 **Itens registrados:** inventário ST-20 (esta story), FT-45 e FT-46 (fatias); ver [backlog-inventory](../../process/backlog-inventory.md).
@@ -50,14 +50,25 @@ As classes de evidência ficam separadas: unitária (função pura), hook local 
 8. **Dado** `git commit --no-verify`, **quando** o commit chega a um pull request, **então** o job de CI ainda o reprova: o CI é a camada que não pode ser pulada, e isso está escrito na documentação.
 9. **Dada** a documentação, **então** ela explica em inglês e em pt-BR como ativar o hook, como acrescentar um padrão e como acrescentar uma exceção com seu motivo; os testes de contrato de documentação passam; o `AGENTS.md` não é editado por agentes.
 10. **Dados** os quality gates, **quando** rodam, **então** `npm run lint`, `npm run typecheck`, `npm test`, `npm run validate:localization`, `npm run validate:version`, `npm run validate:port-denylist` e `npm run review:static` ficam verdes.
+11. **Dada** qualquer verificação que falhe (hook local, execução manual ou CI), **quando** ela rejeita uma entrada, **então** a falha é clara e fecha por padrão: código de saída diferente de zero e distinto do código de erro interno (valores fixados pelo `@architect`); uma linha por achado com o id da regra e o local (commit, arquivo e linha, ou o nome do corpo) e a indicação da seção da documentação sobre a lista de exceções, nunca o valor encontrado; um erro interno (arquivo ilegível, entrada acima do limite de tamanho, entrada da lista de exceções sem motivo) também falha e diz isso, nunca passa em silêncio.
 
 ## Dependências
 
-- **Começa depois** do commit do pacote da OPS-22 (Orion, 2026-11-04). Nenhuma outra story a bloqueia.
+- **Começa depois** do commit do pacote da OPS-22: atendido em 2026-11-05 (comitado e enviado, HEAD `1767c24`, CI do PR #101 11/11 verde; Orion, 2026-11-04). Nenhuma outra story a bloqueia.
 - **Edição de workflow** (FT-46): nenhum arquivo de workflow muda sem o desenho do `@architect` e a revisão do `@devops`; em série com a OPS-29 e a OPS-30, que editam os mesmos workflows (um conjunto de escrita por vez).
 - **OPS-28:** as duas stories tratam de segredos. O `@architect` fixa quem é dono de quê: esta verificação cobre commits, corpos e todos os arquivos versionados; o OpenGrep cobre construções do código-fonte. Sem lista de padrões duplicada.
 - **OPS-24:** o script começa como `.mjs`; se `apps/` for convertido depois, o script segue a regra de pasta que o `@architect` fixar.
 - **Falsos positivos conhecidos (semente da lista de exceções, a confirmar pela varredura-base):** o texto da regra no `AGENTS.md`; handoffs e gates do QA que citam o padrão; o levantamento de melhorias que enuncia o padrão; documentos do framework em `.aiox-core/` sobre roteamento de LLM. A semente é dado na lista de exceções, com um motivo cada, não uma exceção escondida no código.
+
+## Dependências do proprietário
+
+Nada bloqueia a validação nem o início: nenhuma decisão do proprietário é necessária antes de o `@po` validar, e a nota 9,5 não depende do proprietário. Itens reservados ao proprietário que esta story toca (os agentes só propõem):
+
+- O texto da regra no `AGENTS.md` ou no `CLAUDE.md` (CA 9): os agentes propõem o texto; o proprietário edita.
+- Configurações do repositório que complementam a verificação (proteção de push, check obrigatório no novo job de CI, regras de branch): opcionais; a story funciona sem elas.
+- Uma credencial real achada pela varredura-base (CA 6): a story para e informa o orquestrador; rotação, reescrita de histórico e force push são reservados ao proprietário.
+- Merge do pull request, tag e release.
+- A execução opcional no evento `issues`: técnica, decidida pelo `@architect` com o `@devops`; só vira item do proprietário se exigir permissão ou segredo novo.
 
 ## Riscos
 
@@ -84,14 +95,21 @@ Um vazamento para no commit ou no pull request em vez de terminar em uma reescri
 4. **CI:** o teste de contrato do workflow fixa o job; uma execução em PR ou disparo manual com um vazamento plantado em uma branch descartável falha, uma execução limpa passa.
 5. **Gates:** os sete gates do projeto; o `@qa` emite o veredito antes de o `@devops` comitar.
 
+Red/Green por fatia (cada comportamento começa com um teste que falha):
+
+| Fatia | Red (escrito primeiro, falha pelo motivo certo) | Green (menor mudança que passa) | Guarda |
+|---|---|---|---|
+| FT-45 | Unitário: um caso positivo e um parecido por regra contra uma função que não acha nada; hook: um `git commit` real com um trailer plantado deve ser rejeitado antes de o hook existir | Função pura com as regras listadas pelo `@architect`; hooks `commit-msg` e `pre-commit`; leitor da lista de exceções com um motivo por entrada | A saída nunca repete o achado (CA 1, CA 11); limite de tamanho; uma mutação à mão por regra (CA 7) |
+| FT-46 | O teste de contrato do workflow falha enquanto o job não existe; uma execução com vazamento plantado em branch descartável deve ficar vermelha | Job de CI sobre o intervalo de commits, os arquivos versionados e o corpo do PR passado como dado; passo documentado antes de enviar corpos de issue | Teste de injeção com corpo hostil (aspas, substituição de comando, quebras de linha); varredura-base (CA 6); commit com `--no-verify` continua vermelho no CI (CA 8) |
+
 ## Meta 9,5 (levantamento de 2026-11-04)
 
-Nota atual (estimativa do Orion): **5,0**. Meta: **9,5**. O `@qa` atesta a nota com a régua de [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (ideia nº 5): as quatro dimensões (cobertura, automação, prova, operação) precisam ter média 9,5, nenhuma abaixo de 9,0. Critérios de saída: as quatro superfícies cobertas pelo hook e pelo CI (CAs 1, 2, 4, 5); todo padrão com um teste positivo e um negativo (CA 3); uma mutação à mão por regra faz um teste falhar (CA 7); zero achados-base não aceitos (CA 6); documentação nos dois idiomas (CA 9). Nenhuma parte depende do proprietário, então os agentes podem chegar a 9,5.
+Nota atual (estimativa do Orion): **5,0**. Meta: **9,5**. O `@qa` atesta a nota com a régua de [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (ideia nº 5): as quatro dimensões (cobertura, automação, prova, operação) precisam ter média 9,5, nenhuma abaixo de 9,0. Critérios de saída: as quatro superfícies cobertas pelo hook e pelo CI (CAs 1, 2, 4, 5); todo padrão com um teste positivo e um negativo (CA 3); uma mutação à mão por regra faz um teste falhar (CA 7); zero achados-base não aceitos (CA 6); documentação nos dois idiomas (CA 9); saída de falha clara que fecha por padrão (CA 11). Nenhuma parte depende do proprietário, então os agentes podem chegar a 9,5.
 
 ## Gates de planejamento antes da implementação
 
 - [ ] Validação do `@po` (10 pontos) e GO.
-- [ ] O `@devops` cria a issue no GitHub (corpo de [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md)).
+- [x] O `@devops` criou a issue no GitHub [#104](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/104) (vista no quadro real em 2026-11-05).
 - [ ] `@architect`: lista de padrões com fontes, mecanismo do hook, gatilho do CI, desenho do corpo como dado, formato da lista de exceções, limite de tamanho, divisão de responsabilidade com a OPS-28.
 - [ ] Plano de testes do `@qa` (vazamentos plantados, mutações à mão, classes de evidência).
 - [ ] Nota do `@analyst` só se houver LACUNA de formato de token; [research-index.md](../../research-index.md) consultado antes.
@@ -99,7 +117,7 @@ Nota atual (estimativa do Orion): **5,0**. Meta: **9,5**. O `@qa` atesta a nota 
 
 ## Definição de pronto
 
-- CAs 1 a 10 com evidência Red-first por classe; a parte do CI é executada em PR ou disparo manual ou registrada explicitamente como pendente.
+- CAs 1 a 11 com evidência Red-first por classe; a parte do CI é executada em PR ou disparo manual ou registrada explicitamente como pendente.
 - Quality gates verdes; veredito do `@qa` e atestado do 9,5 registrados; File List e checklists atualizados em inglês e pt-BR.
 
 ## Validação do rascunho pelo SM (story-draft-checklist, 2026-11-04)
@@ -111,6 +129,19 @@ Nota atual (estimativa do Orion): **5,0**. Meta: **9,5**. O `@qa` atesta a nota 
 5. Testes: classes separadas; mutação à mão; auto-acusação evitada. PASS.
 6. Análise estática: `npm run review:static` nos gates. PASS.
 - Resultado: pronta para o `@po`. Nada foi inventado além do levantamento; a mudança de estimativa de P para M está registrada acima.
+
+## Revisão do SM antes do `@po` (story-draft-checklist, 2026-11-05)
+
+Reverificada depois do gate de QA de 2026-11-05 (PASS 9,1; pacote da OPS-22 comitado e enviado).
+
+1. Critérios de aceite testáveis (Dado/Quando/Então com saídas nomeadas): PASS; o CA 11 foi acrescentado para que a falha seja clara e feche por padrão.
+2. Fatias FT-45 e FT-46 com ordem, escopo e tabela Red/Green: PASS.
+3. O escopo cobre o hook/guarda local, a varredura de commits, corpos de PR, corpos de issue e arquivos, e uma falha clara: PASS (as superfícies mapeiam para os CAs 1, 2, 4, 5; a varredura-base para o CA 6; a falha para o CA 11).
+4. Plano de testes Red/Green com classes de evidência separadas e mutações à mão: PASS.
+5. Meta 9,5 com a régua e os critérios de saída; nenhuma parte depende do proprietário: PASS.
+6. Itens reservados ao proprietário listados (seção Dependências do proprietário): PASS.
+7. A issue existe (#104) e a dependência de início está atendida: PASS.
+- Resultado: **pronta para o `@po`**. Mudanças desta revisão: CA 11, Dependências do proprietário, tabela Red/Green, link da issue, dependência atendida. Nada foi inventado além do levantamento; a lista de formatos de token continua com o `@architect`.
 
 ## File List
 
@@ -125,3 +156,4 @@ Os arquivos de implementação serão listados aqui pelo `@dev` depois dos gates
 ## Change Log
 
 - 2026-11-04 — `@sm` (River): story redigida a partir da ideia nº 5 do levantamento de melhorias. Status Draft. Fatias FT-45 e FT-46 registradas.
+- 2026-11-05 — `@sm` (River): revisada antes do `@po` (seção acima): acrescentados o CA 11 (falha clara que fecha por padrão), a seção Dependências do proprietário e a tabela Red/Green; registrados a issue #104 e a dependência de início atendida. O status continua Draft.

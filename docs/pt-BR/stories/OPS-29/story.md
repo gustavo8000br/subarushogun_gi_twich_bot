@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-29/story.md)
 
-**Status:** Draft (redigida pelo `@sm` em 2026-11-04; ainda não validada pelo `@po`). **Issue:** pendente (o `@devops` cria a partir de [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); sem comentários em issues).
+**Status:** Draft (redigida pelo `@sm` em 2026-11-04; ainda não validada pelo `@po`). **Issue:** [#106](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/106) (criada pelo `@devops` antes de 2026-11-05 a partir de [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); sem comentários em issues).
 **Origem:** ideia nº 10 do [levantamento de melhorias](../../process/improvement-ideas-2026-11-04.md) (pedido do proprietário, 2026-11-04). Evidência: o bug `create_host_path` do Compose só apareceu em um runner novo, porque toda execução anterior acontecia com a pasta já criada ([session-handoff](../../session-handoff.md), estado de 2026-10-30).
 **Relacionadas:** OPS-30 e OPS-27 (também acrescentam ou mudam jobs de CI; as edições de workflow são em série); OPS-12 (UX do instalador para o `rc`, adiada); OPS-15 (a onda 4 do cutover reaponta o job `web`); [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (régua de 9,5, ideia nº 10, ações AÇ-43..AÇ-47).
 **Itens registrados:** inventário ST-22 (esta story), FT-49 e FT-50 (fatias); ver [backlog-inventory](../../process/backlog-inventory.md).

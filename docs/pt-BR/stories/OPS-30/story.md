@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-30/story.md)
 
-**Status:** Draft (redigida pelo `@sm` em 2026-11-04; ainda não validada pelo `@po`). **Issue:** pendente (o `@devops` cria a partir de [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); sem comentários em issues).
+**Status:** Draft (redigida pelo `@sm` em 2026-11-04; ainda não validada pelo `@po`). **Issue:** [#105](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/105) (criada pelo `@devops` antes de 2026-11-05 a partir de [improvement-issue-bodies-2026-11-04.md](../../process/improvement-issue-bodies-2026-11-04.md); sem comentários em issues).
 **Origem:** ideia nº 1 do [levantamento de melhorias](../../process/improvement-ideas-2026-11-04.md) (pedido do proprietário, 2026-11-04); item **TS-17** do inventário, cuja story própria é esta (decisão do proprietário de 2026-10-30: story própria, passando pelo `@qa`). Evidência: nenhum workflow roda os scripts de navegador; o `queue-lifecycle` ficou quebrado em 4 de 4 execuções sem nenhum alerta (achado M-2, defeito do harness corrigido em `8bb05d8`).
 **Relacionadas:** TS-15 (teste instável de exclusão de fila no Chromium, concluído), OPS-15 onda 4 / FT-42 (reaponta o job `web`, renomeado `frontend`), OPS-27 e OPS-29 (também mudam jobs de CI; as edições de workflow são em série), [improvement-actions-2026-11-04.md](../../process/improvement-actions-2026-11-04.md) (régua de 9,5, ideia nº 1, ações AÇ-01..AÇ-05).
 **Itens registrados:** inventário ST-23 (esta story), TS-17 (o item de teste que ela entrega), FT-51 e FT-52 (fatias); ver [backlog-inventory](../../process/backlog-inventory.md).

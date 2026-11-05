@@ -212,6 +212,7 @@ Observação (opcional):
 Quem executa depois: `@po` registra na story; `@devops` ajusta o quadro.
 Efeito no quadro: OW-07: A vai a Concluído (limitação documentada); B vai a Bloqueado (depende de um Mac); C fica em Aguardando decisão.
 Tipo: Reservada (sem marca, espera o dono)
+**Registrada em 2026-11-05:** opção **B** marcada na issue #69 pelo dono (`docs/human_decisions/done/recorded-project-decisions.md`). Efeito: OW-07 vai a Bloqueado até haver acesso a um Mac; nenhum resultado de macOS é afirmado. As caixas do dono na issue ficam como ele as deixou.
 
 ### D-06 — Merge do PR #101 na `main`
 **Por que importa:** Merge na `main` é reservado a você. O PR #101 está aberto e o `@qa` deve emitir o veredito final sobre o estado do PR. Na redação deste documento todos os checks da CI estavam verdes.
@@ -860,10 +861,10 @@ Sem gates próprios: issue índice, sem story.
 
 ## 7. Contagens
 
-15 decisões (D-01..D-15) e 8 ações do proprietário (A-01..A-08) em 34 issues abertas mais a issue índice. Contagens do quadro antes das marcações de 2026-10-30: 66 ativos, 46 arquivados, 110 itens do inventário. Depois que o proprietário marcou a D-14 = A (2026-10-30), registrada em 2026-11-04: **64 ativos, 48 arquivados** (#17 e #18 passaram a arquivados), 110 itens do inventário, 112 cards no total. Também marcadas: D-01 = B (ST-11 a Rascunho), D-12 = A (TS-02 a Pronto), D-13 = A (TS-07 a Pronto, a TS-11 mede primeiro). Contagens atuais depois do levantamento de melhorias de 2026-11-04 (12 itens novos, nenhuma decisão do proprietário criada): 122 itens do inventário, **76 ativos**, 48 arquivados, 124 cards no total ([inventário](backlog-inventory.md)).
+15 decisões (D-01..D-15) e 8 ações do proprietário (A-01..A-08) em 34 issues abertas mais a issue índice. Contagens do quadro antes das marcações de 2026-10-30: 66 ativos, 46 arquivados, 110 itens do inventário. Depois que o proprietário marcou a D-14 = A (2026-10-30), registrada em 2026-11-04: **64 ativos, 48 arquivados** (#17 e #18 passaram a arquivados), 110 itens do inventário, 112 cards no total. Também marcadas: D-01 = B (ST-11 a Rascunho), D-12 = A (TS-02 a Pronto), D-13 = A (TS-07 a Pronto, a TS-11 mede primeiro). Contagens atuais depois do levantamento de melhorias de 2026-11-04 (12 itens novos, nenhuma decisão do proprietário criada): 122 itens do inventário, **76 ativos**, 48 arquivados, 124 cards no total ([inventário](backlog-inventory.md)). Marcações do proprietário registradas em 2026-11-05 (issue #69): D-04 registrada como A (adiar; ele marcou B antes de testar e esclareceu), D-05 = B (OW-07 a Bloqueado), D-06 = A (esperar) e D-07 = A (adiar). Contagens depois do gate de QA de 2026-11-05: **127 itens do inventário, 82 cards ativos (33 issues + 49 rascunhos), 48 arquivados, 130 cards no total** no plano; o quadro real mostra 77 ativos antes de carregar os 5 itens novos ([reconciliação](kanban-board-design.md), seção 5.3).
 
 ## Decisões reservadas e decisões padrão (regra do dono, 2026-10-30)
 
 Cada bloco de decisão leva uma linha `Tipo:`.
-- **Reservada (espera o dono; sem marca significa "esperar"):** D-04 (aceite nativo de OBS/CEF), D-05 (aceitar o macOS sem validação), D-06 (merge do PR #101 na `main`), D-07 (tag e release da `v0.3.0-beta`), D-15 (apagar a branch de backup).
+- **Reservada (espera o dono; sem marca significa "esperar"):** D-04 (aceite nativo de OBS/CEF), D-05 (aceitar o macOS sem validação), D-06 (merge do PR #101 na `main`), D-07 (tag e release da `v0.3.0-beta`), D-15 (apagar a branch de backup). Situação em 2026-11-05: D-04 (registrada A, adiar), D-05 (B), D-06 (A, esperar) e D-07 (A, adiar) têm resposta; a D-15 está resolvida sem ação (a branch de backup não existe mais). Decisões reservadas ainda sem resposta: nenhuma.
 - **Padrão (sem marca significa "aplicar a opção recomendada"):** D-01 a D-03 e D-08 a D-14. Quando o item chega à frente da fila de implementação sem marca, o orquestrador aplica a opção recomendada, registra em `docs/human_decisions/` com a nota "aplicada por padrão", e o dono pode reverter marcando outra opção.
