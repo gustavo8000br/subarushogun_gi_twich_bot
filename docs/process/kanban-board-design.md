@@ -363,6 +363,8 @@ By Situação, the real board (Backlog 14, Bloqueado 29, Em andamento 5, Pronto 
 | Owner decision | Move Situação (from Aguardando decisão to Pronto/Bloqueado/Concluído), record the decision in Por quê / decisão |
 | End of session | Run the check (`gh project item-list -L 200 --format json`), fix drifts, update Atualizado em; publish the handoff summary as a Project status update (not an issue comment; see D7) |
 
+**Routine note (2026-11-05):** `LEG-17` and `LEG-18` (the two legacy cards, issues #17 and #18) were archived by D-14 on 2026-10-30. Do **not** reload them when the board is reloaded or reconciled; they are history only and stay archived (never deleted, issues not closed).
+
 ### 6.2 `@sm` reorganizes (events)
 
 - New story or issue: set Fase, Área, Tipo, Prioridade, Dificuldade, Depende de, Ordem and Story.

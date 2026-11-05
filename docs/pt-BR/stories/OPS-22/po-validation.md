@@ -201,3 +201,58 @@ Sem mudança de status (a OPS-22 continua **Ready**; FT-24 entregue).
 - Proprietário: A-05 (validação visual, humana e assistiva) e OW-16 (checagem ao vivo, CA 19); nenhuma é exigida para o Done.
 - `@devops`: quatro commits depois do veredito do `@qa`; push e PR conforme a delegação.
 - Os itens L-2..L-5 do gate do `@qa` de 2026-11-04 seguem com seus responsáveis e não tocam o escopo da OPS-22.
+
+## Revalidação da FT-36 (2026-11-05) — escopo entregue frente à story e aos CAs (`@po`, Pax)
+
+**Validador:** `@po` (Pax), YOLO. **Pergunta:** o GO de 9,5/10 de 2026-10-27 não cobria a FT-36 (que entrou depois); a issue #80 mostra "revalidação do escopo alterado (FT-36) em aberto". O escopo final (cancelamento verificado, textos, recusas) está dentro da story e dos CAs, e algum CA mudou sem registro? **Entradas:** [story.md](story.md) (CA 21, Dev Notes da FT-36 e da FT-23, CP-5, CP-6), [architect-review-ft36.md](architect-review-ft36.md), [ft-36-data-engineer-confirmation.md](ft-36-data-engineer-confirmation.md), [ux-plan-ft23-ft36.md](ux-plan-ft23-ft36.md), [qa-gate-2026-11-05.md](../OPS-15/qa-gate-2026-11-05.md) (PASS 9,1, M-1 resolvido; L-1..L-7). Apenas documentos; esta validação não leu nem rodou código ou testes, e as classes de evidência são as do gate citado.
+
+### Veredito
+
+**FT-36: GO — 9,0/10** para o escopo entregue (provisório anterior 7,5; depois 9,1 de planejamento em 2026-11-04). O escopo entregue está dentro da story e do CA 21 (mais os CAs 8, 20 e 22 onde o tocam). **Nenhum CA mudou sem o registro de uma decisão.** Há três lacunas documentais (texto de CA ainda não alinhado a decisões já registradas em outros documentos) e dois limites de evidência; nenhum bloqueia o commit do pacote, e o PASS 9,1 do `@qa` permanece. A nota de UX 9,1 continua sendo revisão estática (validação visual, navegador real, tecnologia assistiva e teste de leitura NÃO feitos; ação A-05 do proprietário).
+
+### O escopo final cabe no CA 21?
+
+| Item do escopo final | Onde está registrado | Dentro do CA 21 / da story? |
+|---|---|---|
+| Cancelar só exclusão de fila Channel Points pendente ou bloqueada | CA 21; arquiteto D-36-8; entregue `QUEUE_DELETION_NOT_PENDING` para manual/convertida | **Sim na intenção; a frase "só Channel Points" não está no CA 21** (lacuna A) |
+| Cancelamento verificado: leitura `cancel_verification` somente de leitura; reabrir só se a recompensa exata existe e está pausada; leitura inconclusiva restaura o status anterior; só leitura negativa conclusiva põe `unknown` | CA 21 (texto do Orion), arquiteto §1.2, D-36-4, F20 | Sim |
+| Decisão do Orion: cancelar permitido com DELETE possivelmente enviado se a leitura for positiva; `QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED` só com leitura inconclusiva ou negativa | CA 21, adendo de 2026-10-30 (c) | Sim (substitui F21/D-36-6) |
+| Códigos de recusa `QUEUE_DELETION_ALREADY_COMPLETED`, `QUEUE_DELETION_PAUSE_IN_PROGRESS`, `QUEUE_REWARD_OPERATION_PROCESSING`, `QUEUE_DELETION_NOT_PENDING` (409, nada gravado) | O CA 21 nomeia os três primeiros; arquiteto §1.5; entregue conforme as Dev Notes | Sim |
+| Etapa de pausa bloqueada cancelável (F19); `queue_delete_cancel_reward_not_paused` | Arquiteto D-36-5; Dev Notes | Sim (CA 21 "pendente ou bloqueada" e "reversão da pausa não verificada") |
+| A recompensa continua pausada após o cancelamento; a fila volta ativa, arquivada e fechada; a pausa só é revertida pela ação de abrir existente | Arquiteto D-36-1 (pediu ao `@po` reescrever o CA 21); plano de UX; entregue | **O comportamento é coerente com a leitura segura do CA 21, mas o texto do CA ainda diz "sua recompensa é reaberta com segurança (a pausa da recompensa é revertida por escrita verificada)"** (lacuna A) |
+| Entradas removidas continuam removidas; devoluções em andamento seguem; nada é apagado (I2, I3) | CA 21 ("a devolução continua definitiva"), arquiteto I2/I3, textos de UX | Sim |
+| Ator em toda linha de auditoria do cancelamento (F22), allowlist de `safeDetail` | Arquiteto §1.5, confirmação do data-engineer (c), CA 21 ("a auditoria registra ator, instante e estado anterior") | Sim |
+| F18 (nova exclusão após um cancelamento) | Arquiteto D-36-7; entregue na FT-26 (CP-2) como `[AUTO-DECISION]` | Sim (necessário ao caminho de retomada da FT-26; gate do QA (e) aceitou) |
+| Campos do servidor `canCancelDeletion`, `cancellationInProgress`; textos de UI e os três novos códigos 409 | Arquiteto F17/D-36-6; plano de UX R2, R6; story da FT-23 | Sim (a parte de UI pertence à FT-23 pela OD-22-1) |
+| Projeção de `manual_contradicted` (CP-5) | Dev Notes CP-5; texto do plano de UX; auditoria do CA 14(b) | Rastreável (CA 11 e 14(b)); sem mudança de CA |
+| Marcador de 401 numa tarefa restaurada (CP-6, C-2) | Dev Notes CP-6; CA 16 | Sim |
+| Textos: 3 chaves alteradas e 26 novas em en/es/pt-BR | Plano de UX seções 4.1 e 4.2 (9,1, estático) | Sim, com a nota L-3 abaixo |
+
+### Decisões registradas que mudaram texto e os CAs que tocam
+
+- **CA 8 e CA 20** mantêm o nome provisório `retry_exhausted` e apontam para "Itens em aberto". As decisões estão registradas (arquiteto §2: `attempts_exhausted`, `payload.cycleStartAttempts`, `financial.operation_retry_requested`; confirmação do data-engineer 6; o código entregue as usa). O texto do CA não foi atualizado. Decisão registrada, redação defasada (lacuna B).
+- **A decisão do Orion de 2026-10-30** disse que as fixtures `qra-postgres-fixtures` ~:457-488 e ~:497-528 "continuam válidas". A entrega mostrou que a segunda (leitura inconclusiva após tentativa de DELETE) precisa virar 409 pela mesma regra. A mudança foi autorizada pelo Orion em 2026-11-04 (opção A) e registrada nas Dev Notes e no gate do `@qa` (a); **não** estava registrada neste arquivo. Registrado agora: **a mudança da fixture e a segunda mudança em `queue-repository.test.js` ~:1912 são coerentes com o CA 21** ("a recusa vale SOMENTE quando a leitura é inconclusiva ou negativa após uma tentativa de DELETE"); ambas são mais estritas, nenhuma mais frouxa. O `@po` reconhece a `[AUTO-DECISION]` do `@dev` para ~:1912.
+- **`[AUTO-DECISION]`s da FT-26 que tocam o caminho do cancelamento** (resolução manual contradita de `redemption.fulfill` é rearmada com a própria intenção; rearme na reautorização; novos nomes de auditoria): coerentes com o CA 14(b), o CA 16 e o catálogo de auditoria confirmado em 2026-11-05 ([audit-catalog-confirmation.md](audit-catalog-confirmation.md): 0 renomeações, 2 condições pequenas, item de ordem de locks). O `@po` reconhece.
+
+### Lacunas e correções exigidas (documentos; nenhuma bloqueia o commit)
+
+| # | Lacuna | Correção exata | Responsável |
+|---|---|---|---|
+| A | O CA 21 não traz D-36-1 e D-36-8. | Substituir "a fila é reaberta e sua recompensa é reaberta com segurança (a pausa da recompensa é revertida por escrita verificada, nunca presumida)" por: "**a exclusão de uma fila Channel Points pendente ou bloqueada é cancelada: a fila volta a ativa, arquivada e fechada, com a recompensa verificada como pausada por leitura positiva; a pausa só é revertida pela ação de abrir existente, cuja escrita é verificada**". Acrescentar "Exclusões manuais e convertidas mantêm `QUEUE_DELETION_NOT_PENDING`" (en e pt-BR). O texto do CA é do `@po`; a redação vem aqui porque o escopo desta validação limitou as escritas a documentos de validação. | `@sm` aplica, `@po` aprova |
+| B | Redação defasada: CA 8 (`retry_exhausted`), ponteiros dos CAs 5 e 20 para "Itens em aberto", seção "Complexidade" ("a reavaliar"), seção "Itens em aberto" (itens 1, 2, 4, 5 ainda PENDENTES), linha de status ("Implementação só depois..."). | Escrever os valores resolvidos: `attempts_exhausted`; `cycleStartAttempts` e `financial.operation_retry_requested`; `resolved_manual` fora de `blockingOperations`; manter `twitch_reconciliation_degraded`; complexidade 20 COMPLEX (FT-36 M, FT-23 M) conforme o arquiteto; marcar os itens como RESOLVIDOS com link para a nota do arquiteto. Nenhum requisito muda. | `@sm` |
+| C | O adendo de 2026-10-30 (c) diz que as duas fixtures "continuam válidas". | Substituído pela opção A do Orion de 2026-11-04 (esta seção). Sem editar o texto antigo. | registrado aqui |
+
+### Limites de evidência a escrever na story como limites explícitos (não bloqueiam)
+
+1. **L-1 (gate do QA):** o PG36-16 prova "sem escrita na Twitch" e `open_unknown`, mas não o flag local `isOpen`. O CA 21 diz que a fila "nunca é reaberta como se a recompensa estivesse ativa". Aceito pela prova do lado da Twitch mais o raciocínio de que nenhum resgate chega a uma recompensa que não existe mais; a semântica do flag (`isOpen` continua verdadeiro enquanto a sincronização é desconhecida) precisa ser escrita na story, ou uma asserção de `isOpen` ser acrescentada. `@dev`/`@sm`, antes do Done.
+2. **Gate do QA (f):** uma tarefa de pausa restaurada por uma leitura de cancelamento para `unknown`/`failed` não é rearmada após a reautorização (só `retry` com o marcador). O CA 16 está atendido no caso que nomeia; escrever o caso da pausa restaurada como limite ("tentar agora" é a saída).
+3. **L-2:** com DELETE possivelmente enviado, uma leitura 401 responde `QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED` e o motivo real fica só na linha de auditoria. Coerente com o CA 21 (toda leitura não positiva após tentativa de DELETE é recusada); o texto do painel pode sugerir que houve exclusão em vez de "reconecte". Aceito; o `@ux-design-expert` pode refinar numa janela futura.
+4. **L-3:** os quatro textos no singular extras (`confirm.delete_local.one`, `confirm.delete_converted.one`, en/es/pt-BR) e a palavra "reward" herdada no pt-BR não estavam no plano de UX. Precisam de reconhecimento registrado do `@ux-design-expert`; derivações mecânicas, sem mudança de nota.
+5. **Condições de UX R1, R2, R3, R5, R6** estão provadas pelos testes automáticos do gate (seção 4); o 9,1 continua válido e estático. O R8 é aritmética sobre valores CSS declarados, não medição de pixels.
+
+### Estado após esta revalidação
+
+- Escopo e CAs do pacote ampliado: **GO** (FT-25/FT-26/FT-36/FT-23). Nota da FT-36 **9,0/10** (deduções: texto do CA 21 não alinhado -0,4, seções defasadas -0,3, flag local do L-1 sem asserção -0,2, textos no singular do L-3 sem reconhecimento de UX -0,1).
+- O status continua **InReview** (definido pelo `@dev`); a story vai a Done pelo `@qa`, como já decidido. Nenhum CA foi alterado por esta validação.
+- A caixa "revalidação do escopo alterado (FT-36)" da issue #80 pode ser marcada pelo `@devops` a partir desta seção (apenas o corpo da issue, sem comentários).
+- Não decidido por esta validação e não alegado: validação visual, em navegador real, com tecnologia assistiva e teste de leitura (A-05); Twitch ao vivo (CA 19 / OW-16); Windows e macOS.

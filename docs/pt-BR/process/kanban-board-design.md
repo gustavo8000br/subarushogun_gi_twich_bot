@@ -362,6 +362,8 @@ Por Situação, o quadro real (Backlog 14, Bloqueado 29, Em andamento 5, Pronto 
 | Decisão do proprietário | Mover Situação (de Aguardando decisão para Pronto/Bloqueado/Concluído), registrar a decisão em Por quê / decisão |
 | Fim de sessão | Rodar a verificação (`gh project item-list -L 200 --format json`), corrigir desvios, atualizar Atualizado em; publicar o resumo do handoff como status update do Project (não é comentário de issue; ver D7) |
 
+**Nota de rotina (2026-11-05):** `LEG-17` e `LEG-18` (os dois cards legados, issues #17 e #18) foram arquivados pela D-14 em 2026-10-30. **Não** os recarregue quando o quadro for recarregado ou reconciliado; são só histórico e continuam arquivados (nunca excluídos, issues não fechadas).
+
 ### 6.2 `@sm` reorganiza (eventos)
 
 - Nova story ou issue: definir Fase, Área, Tipo, Prioridade, Dificuldade, Depende de, Ordem e Story.

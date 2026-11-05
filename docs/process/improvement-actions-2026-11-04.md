@@ -173,7 +173,7 @@ Exit criteria: ACs 1 to 10 of [OPS-28](../stories/OPS-28/story.md). Owner part: 
 | P | A planted leak in each surface fails; one hand mutation per rule fails a test; the output never echoes the matched value; the check does not flag its own tests. | The planted-leak records and the mutation record. |
 | O | Baseline scan with zero unaccepted findings (hashes and paths only); allowlist with a reason per entry (rule text in `AGENTS.md`, handoffs and gates that cite the pattern, framework documents); documentation in both languages. | The baseline report and the allowlist. |
 
-Exit criteria: ACs 1 to 10 of [OPS-27](../stories/OPS-27/story.md). Owner part: none (a history rewrite or a rotation would be owner-reserved and is out of scope). Dependencies: the OPS-22 package committed; workflow edits serialized with ideas 1 and 10.
+Exit criteria: ACs 1 to 11 of [OPS-27](../stories/OPS-27/story.md). Owner part: none (a history rewrite or a rotation would be owner-reserved and is out of scope). Dependencies: the OPS-22 package committed; workflow edits serialized with ideas 1 and 10.
 
 | ID | Agent (model) | Input | Output | Done when |
 |---|---|---|---|---|

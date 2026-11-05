@@ -173,7 +173,7 @@ Critérios de saída: CAs 1 a 10 da [OPS-28](../stories/OPS-28/story.md). Parte 
 | P | Um vazamento plantado em cada superfície falha; uma mutação à mão por regra faz um teste falhar; a saída nunca repete o valor encontrado; a verificação não acusa os próprios testes. | Os registros dos vazamentos plantados e das mutações. |
 | O | Varredura-base com zero achados não aceitos (apenas hashes e caminhos); lista de exceções com um motivo por entrada (texto da regra no `AGENTS.md`, handoffs e gates que citam o padrão, documentos do framework); documentação nos dois idiomas. | O relatório da varredura-base e a lista de exceções. |
 
-Critérios de saída: CAs 1 a 10 da [OPS-27](../stories/OPS-27/story.md). Parte do proprietário: nenhuma (reescrever histórico ou rotacionar credencial seria reservado ao proprietário e está fora do escopo). Dependências: o pacote da OPS-22 comitado; edições de workflow em série com as ideias 1 e 10.
+Critérios de saída: CAs 1 a 11 da [OPS-27](../stories/OPS-27/story.md). Parte do proprietário: nenhuma (reescrever histórico ou rotacionar credencial seria reservado ao proprietário e está fora do escopo). Dependências: o pacote da OPS-22 comitado; edições de workflow em série com as ideias 1 e 10.
 
 | ID | Agente (modelo) | Entrada | Saída | Pronto quando |
 |---|---|---|---|---|

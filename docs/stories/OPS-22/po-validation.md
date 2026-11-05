@@ -201,3 +201,58 @@ No status change (OPS-22 stays **Ready**; FT-24 delivered).
 - Owner: A-05 (visual, human, assistive validation) and OW-16 (live check, AC 19); neither is required for Done.
 - `@devops`: four commits after the `@qa` verdict; push and PR as delegated.
 - Follow-up of the 2026-11-04 `@qa` gate (L-2..L-5) stays with their owners and does not touch OPS-22 scope.
+
+## Revalidation FT-36 (2026-11-05) — delivered scope against the story and the ACs (`@po`, Pax)
+
+**Validator:** `@po` (Pax), YOLO. **Question:** the GO 9.5/10 of 2026-10-27 did not cover FT-36 (it entered later); issue #80 shows "revalidation of the changed scope (FT-36) open". Is the final scope (verified cancel, texts, refusals) inside the story and its ACs, and did any AC change without a record? **Inputs:** [story.md](story.md) (AC 21, Dev Notes FT-36 and FT-23, CP-5, CP-6), [architect-review-ft36.md](architect-review-ft36.md), [ft-36-data-engineer-confirmation.md](ft-36-data-engineer-confirmation.md), [ux-plan-ft23-ft36.md](ux-plan-ft23-ft36.md), [qa-gate-2026-11-05.md](../OPS-15/qa-gate-2026-11-05.md) (PASS 9.1, M-1 resolved; L-1..L-7). Documents only; no code or test was read or run by this validation, and evidence classes are those of the cited gate.
+
+### Verdict
+
+**FT-36: GO — 9.0/10** for the delivered scope (previous provisional 7.5, then 9.1 for planning on 2026-11-04). The delivered scope is inside the story and inside AC 21 (plus ACs 8, 20 and 22 where they touch it). **No AC was changed without a record of a decision.** There are three documentary gaps (AC text not yet aligned with decisions already recorded elsewhere) and two evidence limits; none blocks the commit of the package, and the `@qa` PASS 9.1 stands. The 9.1 UX score remains a static review (visual, real browser, assistive technology and reading test NOT done; owner action A-05).
+
+### Does the final scope fit AC 21?
+
+| Item of the final scope | Where it is recorded | Inside AC 21 / the story? |
+|---|---|---|
+| Cancel only for a Channel Points deletion that is pending or blocked | AC 21; architect D-36-8; delivered `QUEUE_DELETION_NOT_PENDING` for manual/converted | **Yes in intent; the sentence "Channel Points only" is not in AC 21** (gap A) |
+| Verified cancel: read-only `cancel_verification`; reopen only when the exact reward exists and is paused; non-conclusive read restores the previous status; only a conclusive negative read sets `unknown` | AC 21 (Orion text), architect §1.2, D-36-4, F20 | Yes |
+| Orion decision: cancel allowed with a possibly-sent DELETE on a positive read; `QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED` only on an inconclusive or negative read | AC 21, addendum of 2026-10-30 (c) | Yes (supersedes F21/D-36-6) |
+| Refusal codes `QUEUE_DELETION_ALREADY_COMPLETED`, `QUEUE_DELETION_PAUSE_IN_PROGRESS`, `QUEUE_REWARD_OPERATION_PROCESSING`, `QUEUE_DELETION_NOT_PENDING` (409, nothing written) | AC 21 names the first three; architect §1.5; delivered per Dev Notes | Yes |
+| Blocked pause stage cancellable (F19); `queue_delete_cancel_reward_not_paused` | Architect D-36-5; Dev Notes | Yes (AC 21 "pending or blocked" and "pause revert not verified") |
+| Reward stays paused after a cancel; the queue returns active, archived and closed; the pause is reverted only by the existing open action | Architect D-36-1 (asked `@po` to reword AC 21); UX plan; delivered | **Behavior is consistent with the safe reading of AC 21, but the AC text still says "its reward is reopened safely (the reward pause is reverted by a verified write)"** (gap A) |
+| Removed entries stay removed; refunds in flight keep running; nothing deleted (I2, I3) | AC 21 ("refund stays final"), architect I2/I3, UX texts | Yes |
+| Actor on every cancel audit row (F22), `safeDetail` allowlist | Architect §1.5, data confirmation (c), AC 21 ("audit records actor, timestamp and previous state") | Yes |
+| F18 (re-delete after a cancel) | Architect D-36-7; delivered in FT-26 (CP-2) as an `[AUTO-DECISION]` | Yes (needed by the FT-26 resume path; QA gate (e) accepted) |
+| Server fields `canCancelDeletion`, `cancellationInProgress`; UI texts and the three new 409 codes | Architect F17/D-36-6; UX plan R2, R6; FT-23 story | Yes (UI part belongs to FT-23 under OD-22-1) |
+| `manual_contradicted` projection (CP-5) | Dev Notes CP-5; UX plan text; AC 14(b) audit | Traceable (AC 11 and 14(b)); no AC change |
+| 401 marker on a restored task (CP-6, C-2) | Dev Notes CP-6; AC 16 | Yes |
+| Texts: 3 amended and 26 new keys in en/es/pt-BR | UX plan sections 4.1 and 4.2 (9.1, static) | Yes, with the L-3 note below |
+
+### Registered decisions that changed text and the ACs they touch
+
+- **AC 8 and AC 20** keep the provisional name `retry_exhausted` and point to "Open items". The decisions are recorded (architect §2: `attempts_exhausted`, `payload.cycleStartAttempts`, `financial.operation_retry_requested`; data confirmation 6; the delivered code uses them). The AC text was not updated. Recorded decision, stale wording (gap B).
+- **Orion decision of 2026-10-30** said the existing fixtures `qra-postgres-fixtures` ~:457-488 and ~:497-528 "stay valid". The delivery showed that the second one (inconclusive read after a DELETE attempt) must become a 409 under that same rule. The change was authorized by the Orion on 2026-11-04 (option A) and recorded in the Dev Notes and in the `@qa` gate (a); it was **not** recorded in this file. Recorded now: **the fixture change and the second change in `queue-repository.test.js` ~:1912 are consistent with AC 21** ("refusal applies ONLY when the read is inconclusive or negative after a DELETE attempt"); both are stricter, none looser. `@po` acknowledges the `[AUTO-DECISION]` of `@dev` for ~:1912.
+- **FT-26 `[AUTO-DECISION]`s that touch the cancel path** (a contradicted manual resolution of a `redemption.fulfill` is re-armed with its own intent; re-authorization re-arm; new audit names): consistent with AC 14(b), AC 16 and the audit catalogue confirmed on 2026-11-05 ([audit-catalog-confirmation.md](audit-catalog-confirmation.md): 0 renames, 2 small conditions, lock-order item). `@po` acknowledges.
+
+### Gaps and required corrections (documents; none blocks the commit)
+
+| # | Gap | Exact correction | Owner |
+|---|---|---|---|
+| A | AC 21 does not carry D-36-1 and D-36-8. | Replace "the queue is reopened and its reward is reopened safely (the reward pause is reverted by a verified write, never assumed)" by: "**the deletion of a pending or blocked Channel Points queue is cancelled: the queue returns to active, archived and closed with the reward verified as paused by a positive read; the pause is reverted only by the existing open action, whose write is verified**". Add "Manual and converted deletions keep `QUEUE_DELETION_NOT_PENDING`" (en and pt-BR). The `@po` owns the AC text; the wording is given here because the brief of this validation limited writes to validation documents. | `@sm` applies, `@po` approves |
+| B | Stale wording: AC 8 (`retry_exhausted`), AC 5 and AC 20 pointers to "Open items", section "Complexity" ("to re-evaluate"), section "Open items" (items 1, 2, 4, 5 still PENDING), status line ("Implementation only after..."). | Write the settled values: `attempts_exhausted`; `cycleStartAttempts` and `financial.operation_retry_requested`; `resolved_manual` not counted in `blockingOperations`; keep `twitch_reconciliation_degraded`; complexity 20 COMPLEX (FT-36 M, FT-23 M) per the architect; mark the open items RESOLVED with a link to the architect note. No requirement changes. | `@sm` |
+| C | The addendum of 2026-10-30 (c) says the two fixtures "stay valid". | Superseded by the Orion option A of 2026-11-04 (this section). No edit to the old text. | recorded here |
+
+### Evidence limits to write into the story as explicit limits (not blockers)
+
+1. **L-1 (QA gate):** PG36-16 proves "no write to Twitch" and `open_unknown`, but not the local `isOpen` flag. AC 21 says the queue is "never reopened as if the reward were active". Accepted on the Twitch-side proof plus the reasoning that no redemption can arrive for a reward that no longer exists; the flag semantics (`isOpen` stays true while the sync is unknown) must be written in the story, or an `isOpen` assertion added. `@dev`/`@sm`, before Done.
+2. **QA gate (f):** a pause task restored by a cancel read to `unknown`/`failed` is not re-armed after re-authorization (only `retry` with the marker is). AC 16 is met for the case it names; write the restored-pause case as a limit ("retry now" is the way out).
+3. **L-2:** with a possibly-sent DELETE, a 401 read answers `QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED` and the real reason is only in the audit row. Consistent with AC 21 (every non-positive read after a DELETE attempt is refused); the panel text may suggest a delete happened rather than "reconnect". Accepted; `@ux-design-expert` may refine in a later window.
+4. **L-3:** the four extra singular texts (`confirm.delete_local.one`, `confirm.delete_converted.one`, en/es/pt-BR) and the inherited pt-BR word "reward" were not in the UX plan. They need a recorded acknowledgement from `@ux-design-expert`; mechanical derivations, so no change of score.
+5. **UX conditions R1, R2, R3, R5, R6** are proven by the automatic tests of the gate (section 4); the 9.1 stays valid and static. R8 is arithmetic on declared CSS values, not a pixel measurement.
+
+### State after this revalidation
+
+- Scope and ACs of the widened package: **GO** (FT-25/FT-26/FT-36/FT-23). FT-36 score **9.0/10** (deductions: AC 21 text not aligned -0.4, stale sections -0.3, L-1 local flag not asserted -0.2, L-3 singular texts without UX acknowledgement -0.1).
+- Status stays **InReview** (set by `@dev`); the story moves to Done by `@qa` as already decided. No AC was changed by this validation.
+- Issue #80 box "revalidation of the changed scope (FT-36)" can be ticked by `@devops` from this section (issue body only, no comments).
+- Not decided by this validation and not claimed: visual, real-browser, assistive-technology and reading-test validation (A-05); live Twitch (AC 19 / OW-16); Windows and macOS.
