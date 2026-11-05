@@ -26,3 +26,7 @@
 - **D-05 (issue #69), option B:** get a Mac and validate before `rc`. Effect: OW-07 stays Blocked until there is access to a Mac; no macOS result is claimed.
 - **D-06 (issue #69), option A:** wait. Effect: no merge of PR #101 now; the merge stays reserved to the owner and Orion asks again when the final `@qa` verdict and the CI are green.
 - **D-07 (issue #69), option A:** postpone. Effect: no tag and no release of `v0.3.0-beta` until the cutover ends and the PR is merged.
+
+## Owner ticks recorded on 2026-11-05 (issue #83)
+
+- **D-08 (issue #83), option A:** delegate the language-selector placement to the FT-01 UX plan (`@ux-design-expert` compares the options and proposes with a minimum score of 9.0). The owner ticked A with no timestamp; read from the issue body on 2026-11-05. Effect: OW-10 moves from Awaiting decision to Done; no UI change until the FT-01 plan is approved.

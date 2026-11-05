@@ -26,3 +26,7 @@
 - **D-05 (issue #69), opção B:** conseguir um Mac e validar antes do `rc`. Efeito: OW-07 fica Bloqueado até haver acesso a um Mac; nenhum resultado de macOS é afirmado.
 - **D-06 (issue #69), opção A:** aguardar. Efeito: nenhum merge do PR #101 agora; o merge segue reservado ao dono e o Orion volta a perguntar quando o veredito final do `@qa` e a CI estiverem verdes.
 - **D-07 (issue #69), opção A:** adiar. Efeito: nenhuma tag nem release da `v0.3.0-beta` até o fim do cutover e o merge do PR.
+
+## Marcas do dono registradas em 2026-11-05 (issue #83)
+
+- **D-08 (issue #83), opção A:** delegar o lugar do seletor de idioma ao plano de UX da FT-01 (o `@ux-design-expert` compara as opções e propõe com nota mínima 9,0). O dono marcou A sem carimbo; lida no corpo da issue em 2026-11-05. Efeito: OW-10 sai de Aguardando decisão para Concluído; nenhuma mudança de UI até o plano da FT-01 ser aprovado.
