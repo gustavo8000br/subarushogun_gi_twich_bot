@@ -56,7 +56,7 @@ function openDialog(container, trigger) {
 describe('Next queue deletion cancellation feedback (persistent region)', () => {
   it.each([
     ['panel.queue.delete.cancel.stale', 'O estado da exclusão mudou antes'],
-    ['panel.queue.delete.cancel.processing', 'Uma operação da reward na Twitch ainda está em andamento'],
+    ['panel.queue.delete.cancel.processing', 'Uma operação da recompensa na Twitch ainda está em andamento'],
     ['panel.queue.delete.cancel.uncertain', 'Não foi possível confirmar se o cancelamento foi concluído'],
   ])('announces %s as an accessible error without claiming cancellation', async (key, copy) => {
     const onAction = vi.fn().mockResolvedValue({ status: 'error', key });
@@ -208,7 +208,7 @@ describe('K23-08 / R1 and AC 3: delete results by queue type', () => {
 
   it('local and converted queues keep the reused texts', async () => {
     await runDelete(activeConverted, { status: 'deleted' }, [{ id: 'other', lifecycleStatus: 'active' }]);
-    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('a reward Twitch continua pausada'));
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('a recompensa da Twitch continua pausada'));
     cleanup();
     await runDelete(activeLocal, { status: 'deleted' }, [{ id: 'other', lifecycleStatus: 'active' }]);
     await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Ela não tinha recompensa na Twitch'));

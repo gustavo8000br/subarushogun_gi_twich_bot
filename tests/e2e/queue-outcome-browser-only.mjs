@@ -189,17 +189,17 @@ try {
   // E23-05 every cancel-deletion refusal: right element (alert), right text, never "cancelled".
   {
     const rows = [
-      ['409 ALREADY_COMPLETED', { status: 409, body: { code: 'QUEUE_DELETION_ALREADY_COMPLETED', error: 'privado' } }, /A Twitch já confirmou que a reward foi excluída/, 'Atualizar filas'],
+      ['409 ALREADY_COMPLETED', { status: 409, body: { code: 'QUEUE_DELETION_ALREADY_COMPLETED', error: 'privado' } }, /A Twitch já confirmou que a recompensa foi excluída/, 'Atualizar filas'],
       ['409 PAUSE_IN_PROGRESS', { status: 409, body: { code: 'QUEUE_DELETION_PAUSE_IN_PROGRESS', error: 'privado' } }, /ainda está sendo pausada na Twitch/, null],
       ['409 REMOTE_DELETE_ATTEMPTED', { status: 409, body: { code: 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED', error: 'privado' } }, /pode já ter chegado à Twitch/, 'Revisar as operações'],
       ['409 PROCESSING', { status: 409, body: { code: 'QUEUE_REWARD_OPERATION_PROCESSING', error: 'privado' } }, /ainda está em andamento/, 'Atualizar filas'],
       ['409 NOT_PENDING', { status: 409, body: { code: 'QUEUE_DELETION_NOT_PENDING', error: 'privado' } }, /O estado da exclusão mudou/, 'Atualizar filas'],
-      ['409 UNVERIFIED', { status: 409, body: { code: 'QUEUE_DELETION_CANCELLATION_UNVERIFIED', error: 'privado' } }, /não conseguiu confirmar o estado da reward/, null],
+      ['409 UNVERIFIED', { status: 409, body: { code: 'QUEUE_DELETION_CANCELLATION_UNVERIFIED', error: 'privado' } }, /não conseguiu confirmar o estado da recompensa/, null],
       ['404 NOT_FOUND', { status: 404, body: { code: 'QUEUE_NOT_FOUND', error: 'privado' } }, /Esta fila não existe mais/, 'Atualizar filas'],
-      ['200 reward_absent', { body: { status: 'not_cancelled', reason: 'queue_delete_reward_absent' } }, /não encontrou mais esta reward/, 'Revisar as operações'],
+      ['200 reward_absent', { body: { status: 'not_cancelled', reason: 'queue_delete_reward_absent' } }, /não encontrou mais esta recompensa/, 'Revisar as operações'],
       ['200 reward_diverged', { body: { status: 'not_cancelled', reason: 'queue_delete_reward_diverged' } }, /não corresponde à configuração pausada/, 'Revisar as operações'],
       ['200 reward_not_paused', { body: { status: 'not_cancelled', reason: 'queue_delete_cancel_reward_not_paused' } }, /porque a recompensa na Twitch não está pausada/, 'Revisar as operações'],
-      ['200 verification_unavailable', { body: { status: 'not_cancelled', reason: 'queue_deletion_cancel_verification_unavailable' } }, /não conseguiu confirmar o estado da reward/, null],
+      ['200 verification_unavailable', { body: { status: 'not_cancelled', reason: 'queue_deletion_cancel_verification_unavailable' } }, /não conseguiu confirmar o estado da recompensa/, null],
       ['200 authorization_required', { body: { status: 'not_cancelled', reason: 'authorization_required' } }, /A Twitch recusou a autorização/, 'Conexão Twitch'],
       ['503 uncertain', { status: 503, headers: { 'x-error-reference': 'cancel-op-17' }, body: { code: 'INTERNAL_ERROR', error: 'privado' } }, /Não foi possível confirmar se o cancelamento foi concluído/, 'Atualizar filas'],
     ];

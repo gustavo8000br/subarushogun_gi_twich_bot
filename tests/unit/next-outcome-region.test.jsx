@@ -267,7 +267,7 @@ describe('K23-02 / K23-10 / AC 1, 4: the delete message survives the card and fo
     const card = (await screen.findByRole('heading', { level: 2, name: 'Arena' })).closest('article');
     fireEvent.click(within(card).getByRole('button', { name: 'Cancelar exclusão' }));
     fireEvent.click(within(document.querySelector('dialog[open]')).getAllByRole('button')[1]);
-    await waitFor(() => expect(container.querySelector('.outcome-region [role="alert"]').textContent).toContain('A Twitch já confirmou que a reward foi excluída'));
+    await waitFor(() => expect(container.querySelector('.outcome-region [role="alert"]').textContent).toContain('A Twitch já confirmou que a recompensa foi excluída'));
   });
 });
 
