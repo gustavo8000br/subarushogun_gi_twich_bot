@@ -2,6 +2,10 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## Release fix: tag identity — 2026-11-05
+
+- **2026-11-05 — `release.yml` (OPS-15):** `Publish versioned release` failed at `git tag -a` with `Committer identity unknown`; the tag step now sets `user.name`/`user.email` (`github-actions[bot]`) before tagging, and `tests/unit/release-workflow-tag-contract.test.js` locks identity, `contents: write`, checkout credentials and the `gh release create` flags.
+
 ## Release fix: Windows installer step — 2026-11-05
 
 - **2026-11-05 — `release.yml` (OPS-15):** the shared "Package one installer" step ran in `pwsh` on Windows, where `"$RELEASE_IMAGE_REF"` expanded empty (`--image-tag requires a value.`); it now sets `shell: bash` explicitly, and `tests/unit/release-workflow-shell-contract.test.js` blocks bash-style env expansion in PowerShell steps of every workflow.
