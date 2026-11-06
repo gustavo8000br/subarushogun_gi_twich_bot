@@ -37,3 +37,13 @@
 - **OWN-15 (screen reader), owner risk acceptance (2026-11-05):** accepted without validation. **OW-06** reads "checked by agents in the browser (OWN-16 to OWN-18 pending in FT-09); screen reader accepted without validation". The checklist box in issue #69 is not ticked, because no validation took place.
 - **OW-10, concluded:** D-08 = A (issue #83) recorded; the card is Concluído. FT-63 stays open.
 - **Branch cleanup (owner, 2026-11-05):** `docs/post-cutover-docs`, `feat/ops-15-next-panel`, `fix/release-windows-installer`, `fix/release-tag-identity` and `legacy` were deleted (remote and local) and two local backups deleted locally, after the tag and the merged PRs; no history rewrite (the audit found `origin/main` clean). Names and SHAs are kept outside the repository.
+
+## Owner decisions recorded on 2026-11-05/06 (OPS-31, queue flow, OPS-32)
+
+- **OPS-31 (issue #115), refund by group, 2026-11-06:** the refund happens only when the service ends (the redemption stays `UNFULFILLED` during the service and becomes `CANCELED` on conclusion). On cancel, skip or no-show the streamer decides on the spot whether the points return. One OAuth scope per enabled group. A failed group lookup shows "check group" and never refunds or fulfills by itself. Subscriber = paid + gifted + Prime, and the streamer counts as a member of the group. Points are held until the service ends, and the panel explains this on the control itself.
+- **Queue flow, 2026-11-06:** `fulfill` stays at the start of the confirmed service for normal redemptions.
+- **OPS-32 (issue #117), queue cycle calendar, 2026-11-06:** the queue restarts automatically for known games (the streamer chooses the game and the server); when the game is chosen the product suggests queues and rewards as editable presets, created only after confirmation; the restarted queue goes to the "Old queues" tab for 7 days; the default policy for pending redemptions after the 7 days is set by the streamer in Settings. Pending owner decision: OD-32-1 (does OPS-32 enter the 0.4.0-beta or come later; recommended: later), no box ticked.
+- **FT-09, 2026-11-06:** blocked only by FT-06.
+- **Screen reader, 2026-11-05/06:** risk accepted without validation (see OWN-15 above).
+- **`legacy`, 2026-11-06:** stays until the owner deletes it himself (it is covered by a ruleset). Divergence: the 2026-11-05 branch cleanup above records it as deleted; on 2026-11-06 the remote has only `main` and a local `legacy` branch still exists. No branch was touched by `@devops`.
+- **OW-18** dismissed and **OW-10** concluded with D-08 = A (already recorded above).
