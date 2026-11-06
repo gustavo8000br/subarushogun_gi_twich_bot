@@ -63,6 +63,7 @@ See also: [current roadmap](project-completion-roadmap.md) · [backlog inventory
 | OPS-29 | Clean install in CI on Linux, macOS and Windows | [#106](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/106) | Draft | [OPS-29](stories/OPS-29/story.md) |
 | OPS-30 | CI job for the browser E2E scripts (0.4.0-beta) | [#105](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/105) | Draft | [OPS-30](stories/OPS-30/story.md) |
 | OPS-31 | Natural queue notices and refund of channel points by group (owner proposal, 0.4.0-beta+) | [#115](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/115) | Ready | [OPS-31](stories/OPS-31/story.md) |
+| OPS-32 | Queue cycle calendar: automatic reset by game, per-game presets and the "Old queues" tab (candidate for the 0.4.0-beta) | [#117](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/117) | Draft | [OPS-32](stories/OPS-32/story.md) |
 | OPS-16 | Explain the custom queue call-message variables | [#72](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/72) | Backlog | [OPS-16](stories/OPS-16/story.md) |
 | OPS-12 | Installer UX planning for the release candidate | [#60](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/60) | Ready for Review; deferred until `rc` | [OPS-12](stories/OPS-12/story.md) |
 | DOC-2 | Product screenshots and visual UX preflight | [#40](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/40) | Planned | [DOC-2](stories/DOC-2/story.md) |

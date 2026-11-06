@@ -37,3 +37,13 @@
 - **OWN-15 (leitor de tela), aceite de risco do dono (2026-11-05):** aceito sem validação. A **OW-06** passa a dizer "checada por agentes no navegador (OWN-16 a OWN-18 pendentes da FT-09); leitor de tela aceito sem validação". A caixa do checklist na issue #69 não é marcada, porque não houve validação.
 - **OW-10, concluída:** D-08 = A (issue #83) registrada; o card está Concluído. A FT-63 continua aberta.
 - **Limpeza de branches (dono, 2026-11-05):** `docs/post-cutover-docs`, `feat/ops-15-next-panel`, `fix/release-windows-installer`, `fix/release-tag-identity` e `legacy` foram apagadas (remoto e local) e dois backups locais foram apagados só localmente, depois da tag e dos PRs mesclados; sem reescrita de histórico (a auditoria achou a `origin/main` limpa). Nomes e SHAs ficam fora do repositório.
+
+## Decisões do dono registradas em 2026-11-05/06 (OPS-31, fluxo da fila, OPS-32)
+
+- **OPS-31 (issue #115), devolução por grupo, 2026-11-06:** a devolução só acontece ao terminar o atendimento (o resgate fica `UNFULFILLED` durante o atendimento e vira `CANCELED` ao concluir). Ao cancelar, pular ou marcar não compareceu, o streamer decide na hora se os pontos voltam. Um escopo OAuth por grupo ativado. Falha na consulta do grupo mostra "verificar grupo" e nunca devolve nem cumpre sozinha. Inscrito = pagos + presenteados + Prime, e o streamer conta como membro do grupo. Os pontos ficam retidos até o fim do atendimento, e o painel explica isso no próprio controle.
+- **Fluxo da fila, 2026-11-06:** o `fulfill` continua ao iniciar o atendimento confirmado, para resgates normais.
+- **OPS-32 (issue #117), calendário de ciclos da fila, 2026-11-06:** a fila reinicia sozinha para jogos conhecidos (o streamer escolhe o jogo e o servidor); ao escolher o jogo, o produto sugere filas e recompensas como presets editáveis, criados só depois da confirmação; a fila reiniciada vai para a guia "Filas antigas" por 7 dias; a política padrão para resgates pendentes depois dos 7 dias é definida pelo streamer em Configurações. Decisão pendente do dono: OD-32-1 (a OPS-32 entra na 0.4.0-beta ou depois; recomendado: depois), sem caixa marcada.
+- **FT-09, 2026-11-06:** bloqueada só pela FT-06.
+- **Leitor de tela, 2026-11-05/06:** risco aceito sem validação (ver OWN-15 acima).
+- **`legacy`, 2026-11-06:** fica até o dono apagá-la ele mesmo (há um ruleset). Divergência: a limpeza de branches de 2026-11-05 acima a registra como apagada; em 2026-11-06 o remoto tem só a `main` e ainda existe uma branch `legacy` local. O `@devops` não mexeu em nenhuma branch.
+- **OW-18** dispensada e **OW-10** concluída com D-08 = A (já registradas acima).
