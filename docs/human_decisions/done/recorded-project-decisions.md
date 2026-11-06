@@ -30,3 +30,10 @@
 ## Owner ticks recorded on 2026-11-05 (issue #83)
 
 - **D-08 (issue #83), option A:** delegate the language-selector placement to the FT-01 UX plan (`@ux-design-expert` compares the options and proposes with a minimum score of 9.0). The owner ticked A with no timestamp; read from the issue body on 2026-11-05. Effect: OW-10 moves from Awaiting decision to Done; no UI change until the FT-01 plan is approved.
+
+## Owner decisions executed on 2026-11-05 (release)
+- **D-06 and D-07 (issue #69), executed:** PR #101 was merged earlier and, with the owner authorization of 2026-11-05 (release only), the pre-release `v0.3.0-0d0b595-beta` was published by the release workflow after PRs #111 (Windows packaging step) and #112 (bot identity before the annotated tag). No `rc` or stable action was taken.
+- **OW-18, dismissed by the owner (2026-11-05):** the scene source replacement is no longer required; the card is Concluído and archived, never deleted. Agents did not touch any OBS file.
+- **OWN-15 (screen reader), owner risk acceptance (2026-11-05):** accepted without validation. **OW-06** reads "checked by agents in the browser (OWN-16 to OWN-18 pending in FT-09); screen reader accepted without validation". The checklist box in issue #69 is not ticked, because no validation took place.
+- **OW-10, concluded:** D-08 = A (issue #83) recorded; the card is Concluído. FT-63 stays open.
+- **Branch cleanup (owner, 2026-11-05):** `docs/post-cutover-docs`, `feat/ops-15-next-panel`, `fix/release-windows-installer`, `fix/release-tag-identity` and `legacy` were deleted (remote and local) and two local backups deleted locally, after the tag and the merged PRs; no history rewrite (the audit found `origin/main` clean). Names and SHAs are kept outside the repository.
