@@ -62,6 +62,7 @@ Veja também: [roteiro atual](project-completion-roadmap.md) · [inventário do 
 | OPS-28 | Ampliar as regras de varredura estática do OpenGrep | [#107](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/107) | Rascunho | [OPS-28](stories/OPS-28/story.md) |
 | OPS-29 | Instalação limpa no CI em Linux, macOS e Windows | [#106](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/106) | Rascunho | [OPS-29](stories/OPS-29/story.md) |
 | OPS-30 | Job de CI para os scripts E2E de navegador (0.4.0-beta) | [#105](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/105) | Rascunho | [OPS-30](stories/OPS-30/story.md) |
+| OPS-31 | Fila natural e devolução de pontos do canal por grupo (proposta do dono, 0.4.0-beta+) | [#115](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/115) | Pronta | [OPS-31](stories/OPS-31/story.md) |
 | OPS-16 | Explicar as variáveis da mensagem de chamada personalizada | [#72](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/72) | Backlog | [OPS-16](stories/OPS-16/story.md) |
 | OPS-12 | Planejamento da UX do instalador para o release candidate | [#60](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/60) | Pronta para revisão; adiada até o `rc` | [OPS-12](stories/OPS-12/story.md) |
 | DOC-2 | Capturas de tela do produto e pré-voo visual de UX | [#40](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/40) | Planejada | [DOC-2](stories/DOC-2/story.md) |
