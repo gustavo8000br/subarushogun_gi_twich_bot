@@ -2,6 +2,10 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## Correção da release: identidade da tag — 2026-11-05
+
+- **2026-11-05 — `release.yml` (OPS-15):** `Publish versioned release` falhou em `git tag -a` com `Committer identity unknown`; o passo da tag agora define `user.name`/`user.email` (`github-actions[bot]`) antes de criar a tag, e `tests/unit/release-workflow-tag-contract.test.js` trava identidade, `contents: write`, credenciais do checkout e as flags do `gh release create`.
+
 ## Correção da release: passo do instalador Windows — 2026-11-05
 
 - **2026-11-05 — `release.yml` (OPS-15):** o passo compartilhado "Package one installer" rodava em `pwsh` no Windows, onde `"$RELEASE_IMAGE_REF"` expandia vazio (`--image-tag requires a value.`); agora define `shell: bash` explicitamente, e `tests/unit/release-workflow-shell-contract.test.js` bloqueia expansão de variável no estilo bash em passos PowerShell de todos os workflows.
