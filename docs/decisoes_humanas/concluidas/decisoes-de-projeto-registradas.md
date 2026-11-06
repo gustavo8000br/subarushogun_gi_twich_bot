@@ -30,3 +30,10 @@
 ## Marcas do dono registradas em 2026-11-05 (issue #83)
 
 - **D-08 (issue #83), opção A:** delegar o lugar do seletor de idioma ao plano de UX da FT-01 (o `@ux-design-expert` compara as opções e propõe com nota mínima 9,0). O dono marcou A sem carimbo; lida no corpo da issue em 2026-11-05. Efeito: OW-10 sai de Aguardando decisão para Concluído; nenhuma mudança de UI até o plano da FT-01 ser aprovado.
+
+## Decisões do dono executadas em 2026-11-05 (release)
+- **D-06 e D-07 (issue #69), executadas:** o PR #101 foi mesclado antes e, com a autorização do dono de 2026-11-05 (somente esta release), a pré-release `v0.3.0-0d0b595-beta` foi publicada pelo workflow de release depois dos PRs #111 (passo de empacotamento no Windows) e #112 (identidade do bot antes da tag anotada). Nenhuma ação de `rc` ou stable foi feita.
+- **OW-18, dispensada pelo dono (2026-11-05):** a troca da fonte na cena deixou de ser exigida; o card está Concluído e arquivado, nunca apagado. Os agentes não tocaram em nenhum arquivo do OBS.
+- **OWN-15 (leitor de tela), aceite de risco do dono (2026-11-05):** aceito sem validação. A **OW-06** passa a dizer "checada por agentes no navegador (OWN-16 a OWN-18 pendentes da FT-09); leitor de tela aceito sem validação". A caixa do checklist na issue #69 não é marcada, porque não houve validação.
+- **OW-10, concluída:** D-08 = A (issue #83) registrada; o card está Concluído. A FT-63 continua aberta.
+- **Limpeza de branches (dono, 2026-11-05):** `docs/post-cutover-docs`, `feat/ops-15-next-panel`, `fix/release-windows-installer`, `fix/release-tag-identity` e `legacy` foram apagadas (remoto e local) e dois backups locais foram apagados só localmente, depois da tag e dos PRs mesclados; sem reescrita de histórico (a auditoria achou a `origin/main` limpa). Nomes e SHAs ficam fora do repositório.
