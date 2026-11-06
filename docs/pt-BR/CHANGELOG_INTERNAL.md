@@ -2,6 +2,10 @@
 
 [English](../../CHANGELOG_INTERNAL.md)
 
+## Correção da release: passo do instalador Windows — 2026-11-05
+
+- **2026-11-05 — `release.yml` (OPS-15):** o passo compartilhado "Package one installer" rodava em `pwsh` no Windows, onde `"$RELEASE_IMAGE_REF"` expandia vazio (`--image-tag requires a value.`); agora define `shell: bash` explicitamente, e `tests/unit/release-workflow-shell-contract.test.js` bloqueia expansão de variável no estilo bash em passos PowerShell de todos os workflows.
+
 ## Bugs pré-bump: TS-18, D-6 (FT-55), `ping` da D-8, FT-53, FT-54 — 2026-11-05
 
 - **2026-11-05 — TS-18 (OPS-22):** o PG36-16 agora afirma o `isOpen` armazenado após um DELETE tardio (`true`, porque `setQueueOpen(true)` mantém o flag pedido enquanto a sincronização é desconhecida). Só teste; 3 mutações mortas.

@@ -164,6 +164,7 @@ jobs:
       - name: Package one installer for this operating system
         env:
           RELEASE_IMAGE_REF: ${{ needs.resolve-release-image.outputs.image_ref }}
+        shell: bash
         run: node apps/infra/scripts/package-installer.mjs --platform ${{ matrix.platform }} --output "${{ runner.temp }}/queuebot-installer" --image-tag "$RELEASE_IMAGE_REF"
       - name: Launch installer with isolated fake Docker
         env:
