@@ -336,7 +336,7 @@ autoClaude:
   migratedAt: '2026-01-29T02:25:00Z'
   worktree:
     enabled: true
-    autoCreate: on_story_start
+    autoCreate: manual
     autoCleanup: manual
     maxWorktrees: 10
     staleDays: 30
@@ -365,15 +365,15 @@ boundary:
     - .aiox-core/core/config/schemas/**
     - .aiox-core/core/config/template-overrides.js
 models:
-  active: claude-sonnet-4-6
+  active: claude-sonnet-5-5
   registry:
-    claude-opus-4-6:
+    claude-opus-5-5:
       contextWindow: 1000000
       avgTokensPerPrompt: 1500
-    claude-sonnet-4-6:
+    claude-sonnet-5-5:
       contextWindow: 200000
       avgTokensPerPrompt: 1500
-    claude-haiku-4-5:
+    claude-haiku-5-5:
       contextWindow: 200000
       avgTokensPerPrompt: 1200
 frameworkDocsLocation: docs/framework
