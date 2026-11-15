@@ -13,6 +13,7 @@
     { "file": "queue-clear-browser-only.mjs", "npm": "test:e2e:queue-clear:browser-only" },
     { "file": "queue-creation-accepted-browser-only.mjs", "npm": "test:e2e:queue-creation-accepted:browser-only" },
     { "file": "queue-creation-uncertain-browser-only.mjs", "npm": "test:e2e:queue-creation:browser-only" },
+    { "file": "queue-fulfillment-feedback-browser-only.mjs", "npm": "test:e2e:queue-fulfillment-feedback:browser-only" },
     { "file": "queue-lifecycle-browser-only.mjs", "npm": "test:e2e:queue-lifecycle:browser-only" },
     { "file": "queue-manual-entry-outcomes-browser-only.mjs", "npm": "test:e2e:manual-entry-outcomes:browser-only" },
     { "file": "queue-manual-entry-recovery-browser-only.mjs", "npm": "test:e2e:manual-entry:browser-only" },
