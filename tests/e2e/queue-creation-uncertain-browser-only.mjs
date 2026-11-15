@@ -57,7 +57,6 @@ const catalog = {
   'panel.queue.action_result.saving': 'Saving…',
   'panel.queue.creation_result.uncertain': 'The result could not be confirmed. Do not submit again yet; open queues and reload to check whether it was created.',
   'panel.queue.creation_result.open_queues': 'Open queues',
-  'panel.queue.creation_result.open_queues': 'Open queues',
   'panel.error.reference': 'Reference: {id}',
   'panel.error.invalid_queue_settings': 'Check the queue settings.',
   'panel.error.generic': 'Could not complete the action. Try again.',
