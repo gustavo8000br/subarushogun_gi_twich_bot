@@ -1,0 +1,43 @@
+name: Browser-only scripts
+
+# D-13: runs the tests/e2e/*-browser-only.mjs scripts (fixture-driven Chrome checks of the Next panel and overlay)
+# against a disposable Next dev server. No PostgreSQL, Docker volumes, Twitch, OBS or secrets are used.
+# Rollout: this workflow is not part of the required quality-gates aggregate (non-blocking first).
+# The script list lives in tests/e2e/browser-only-manifest.json; exclusions need an explicit reason there.
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-only-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-only:
+    name: Browser-only scripts (Chrome)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Install Chrome for Playwright
+        run: |
+          npx playwright-core install --with-deps chrome
+          google-chrome --version
+      - name: Run every browser-only script against a disposable Next dev server
+        run: npm run test:e2e:browser-only:ci
