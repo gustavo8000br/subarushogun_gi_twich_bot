@@ -1,5 +1,7 @@
 # Handoff de Continuidade do Overlay Next.js
 
+> **ARQUIVADO em 2026-11-14 (D-07) - registro histórico, NÃO siga as instruções abaixo.** Superado por trabalho posterior; o cutover foi concluído, a branch `legacy` não existe mais e as regras mudaram. Estado atual: [`current-state.md`](../../current-state.md). Resumo deste e dos demais handoffs arquivados: [`RUN-LOG.md`](RUN-LOG.md).
+
 ### Continuação mais recente — runtime QRA-04 reward-settings (2026-10-20)
 
 A rota Fastify real em PostgreSQL descartável retorna DTO 202 exato com `operationStatus: pending`, persiste `pending_update` versão 2, configurações anteriores na outbox idempotente `reward.update` e auditoria do ator do painel. Versão esperada obsoleta retorna `STALE_QUEUE_VERSION` exato sem duplicar tarefa; a leitura protegida da lista corresponde ao DTO aceito. Fixture QRA focada passou 6/6; suíte serial completa passou 153 arquivos/1.463 testes. Passaram os nove E2Es browser-only, paridade do overlay em 1.041 ms; lint/typecheck/localização/versão/denylist/diff/OpenGrep passaram. Sem worker/adapter Twitch nem alteração/confirmação remota. Preserve prévia e dados; sem bump/commit/push/cutover/remoção vanilla.

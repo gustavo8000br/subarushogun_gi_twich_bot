@@ -1,21 +1,23 @@
-# Retomar os agentes interrompidos — briefs exatos (2026-10-27)
+# Resume the interrupted agents — exact briefs (2026-10-27)
 
-[English](../../handoffs/resume-agents-2026-10-27.md)
+> **ARCHIVED 2026-11-14 (D-07) - historical record, do NOT follow the instructions below.** Superseded by later work; the cutover is complete, the `legacy` branch no longer exists and the rules changed. Current state: [`current-state.md`](../../current-state.md). Summary of this and the other archived handoffs: [`RUN-LOG.md`](RUN-LOG.md).
 
-> **ENCERRADO (2026-10-28): os três briefs foram concluídos. Não os dispare de novo.** Agente 1 (`@dev`, Onda 3) → `906fd5c` (código) e `8e20277` (notas de arquitetura); agentes 2 (`@sm`) e 3 (`@po`) → `0604799` (alinhamento das OPS-15/22/23/24, stories novas OPS-25 e OPS-26 em Draft); snapshot da memória → `0e5f1c9`. Issue da Onda 3: #95 (sub-issue da #69). O gate do `@qa` saiu como [`qa-gate-2026-10-28.md`](../stories/OPS-15/qa-gate-2026-10-28.md) (não `qa-gate-2026-10-27e.md`, como planejado abaixo): **CONCERNS 9,0/10**. Os itens em aberto (K-1..K-4, L-3, L-4, M-1) e os próximos passos estão no topo de [`session-handoff.md`](../session-handoff.md). O texto abaixo fica como registro histórico.
+[Português brasileiro](../../pt-BR/handoffs/_archive/resume-agents-2026-10-27.md)
 
-**PRIMEIRA COISA na próxima sessão (histórico, concluído):** disparar de novo exatamente os três agentes interrompidos pelo limite de cota, com os briefs abaixo (como foram enviados, mais o ponto onde cada um parou), para não perder a linha de raciocínio. O Orion é ativado primeiro.
+> **CLOSED (2026-10-28): all three briefs are done. Do not re-dispatch them.** Agent 1 (`@dev`, Wave 3) → `906fd5c` (code) and `8e20277` (architecture notes); agents 2 (`@sm`) and 3 (`@po`) → `0604799` (OPS-15/22/23/24 alignment, new Draft stories OPS-25 and OPS-26); memory snapshot → `0e5f1c9`. Wave 3 issue: #95 (sub-issue of #69). The `@qa` gate was written as [`qa-gate-2026-10-28.md`](../../stories/OPS-15/qa-gate-2026-10-28.md) (not `qa-gate-2026-10-27e.md`, as planned below): **CONCERNS 9.0/10**. Open items (K-1..K-4, L-3, L-4, M-1) and the next steps are at the top of [`session-handoff.md`](../../session-handoff.md). The text below is kept as a historical record.
 
-## Contexto comum
+**FIRST THING next session (historical, done):** re-dispatch exactly the three agents that were interrupted by the quota limit, with the briefs below (as originally sent, plus where each one stopped), so the line of thought is not lost. Orion activates first. Briefs are kept in pt-BR as sent to the agents.
 
-- Repositório: /home/gustavo/projects/subarushogun_gi_twich_bot, branch `feat/ops-15-next-panel`, HEAD `0224bce` (3 commits locais à frente do origin: `384a7e7`, `6ebf191`, `0224bce`).
+## Common context
+
+- Repositório: <project checkout>, branch `feat/ops-15-next-panel`, HEAD `0224bce` (3 commits locais à frente do origin: `384a7e7`, `6ebf191`, `0224bce`).
 - Responder em português do Brasil com acentuação correta; não mencionar outros Projects/repos da conta; nada de segredos; só o Orion fala com o proprietário; Orion (`@aiox-master`) é ativado primeiro.
 - Concorrência: os três agentes gravam arquivos DIFERENTES (listados em cada brief); só o `@dev` da onda 3 usa Docker/portas.
 
-## Agente 1 — @dev, onda 3 do cutover (código) — CONCLUÍDO (`906fd5c`, `8e20277`)
+## Agent 1 — @dev, cutover wave 3 (code) — DONE (`906fd5c`, `8e20277`)
 
 ```text
-Você é o @dev (Dex) do projeto em /home/gustavo/projects/subarushogun_gi_twich_bot (branch `feat/ops-15-next-panel`, HEAD `0224bce`). Responda em português do Brasil com acentuação correta. NÃO faça `git add`, commit, merge nem push. Trabalhe só dentro do projeto. Não mencione outros Projects/repos da conta. Prefixe comandos Node com `source ~/.nvm/nvm.sh && nvm use >/dev/null &&` (Node 24.20.0); Docker direto (senão `sg docker -c "bash -c '...'"`).
+Você é o @dev (Dex) do projeto em <project checkout> (branch `feat/ops-15-next-panel`, HEAD `0224bce`). Responda em português do Brasil com acentuação correta. NÃO faça `git add`, commit, merge nem push. Trabalhe só dentro do projeto. Não mencione outros Projects/repos da conta. Prefixe comandos Node com `source ~/.nvm/nvm.sh && nvm use >/dev/null &&` (Node 24.20.0); Docker direto (senão `sg docker -c "bash -c '...'"`).
 ## CONCORRÊNCIA
 Você é o ÚNICO que usa Docker/portas. Um @po edita `docs/stories/OPS-15/story.md` (+ pt-BR) e um @sm edita OPS-22 story, inventário, quadro, `docs/stories.md` e cria stories novas: NÃO toque em `docs/stories/**` exceto criar `docs/stories/OPS-15/cutover-wave-3.md` + `docs/pt-BR/stories/OPS-15/cutover-wave-3.md`. Pode editar código, testes, `package.json`, `CHANGELOG_INTERNAL.md` + pt-BR.
 ## RETOMADA — ONDE PAROU (2026-10-27, interrompido por cota)
@@ -25,10 +27,10 @@ O proprietário AUTORIZOU EXPRESSAMENTE o cutover incremental (2026-10-27): beta
 Escopo EXATO (NÃO remova o painel vanilla `app.js`/`index.html`/`styles.css`, nem catálogos: ondas 2 e 4): (1) remover overlay vanilla e aliases de `/overlay.html` (rewrite, redirects, rota estática no Fastify); gerador de URL do link do widget → rota do Next, no MESMO commit; (2) test-first (link aponta para a rota do Next; `/overlay.html` não é servido; `orphan-module-contract.test.js` verde) com Red e Green registrados; (3) changelog interno en = pt-BR e `cutover-wave-3.md` + pt-BR (o que saiu, provas de consumidores, Red/Green, riscos, como reverter). Verificação: unitários, E2E do overlay, `compose-runtime` (confirmando `/overlay.html` 404 e `/overlay` ok), lint, typecheck, `npm test`, review:static, validações, `docker compose -f compose.yaml -f compose.build.yaml config --quiet`, `git diff --check`. Entrega: Red/Green, arquivos, buscas de consumidores, exit codes, recursos Docker criados/removidos, desvios e riscos (um OBS já configurado com o link antigo deixa de funcionar: aceitável, sem usuários).
 ```
 
-## Agente 2 — @sm, stories e quadro — CONCLUÍDO (`0604799`)
+## Agent 2 — @sm, stories and board — DONE (`0604799`)
 
 ```text
-Você é o @sm (River) do projeto em /home/gustavo/projects/subarushogun_gi_twich_bot (branch `feat/ops-15-next-panel`, HEAD `0224bce`). Responda em português do Brasil com acentuação correta. Não implemente código, não opere o GitHub, não mencione outros Projects/repos da conta.
+Você é o @sm (River) do projeto em <project checkout> (branch `feat/ops-15-next-panel`, HEAD `0224bce`). Responda em português do Brasil com acentuação correta. Não implemente código, não opere o GitHub, não mencione outros Projects/repos da conta.
 ## CONCORRÊNCIA
 Você edita APENAS: `docs/stories/OPS-22/story.md` (+ pt-BR), stories NOVAS (IDs livres: confira `docs/stories.md`; esperado OPS-25 e OPS-26) em `docs/stories/<ID>/story.md` + pt-BR, `docs/stories.md` (+ pt-BR), `docs/process/backlog-inventory.md` e `docs/process/kanban-board-design.md` (+ pt-BR). Releia antes de editar; edições pequenas; liste as linhas.
 ## RETOMADA — ONDE PAROU (2026-10-27, interrompido por cota)
@@ -42,10 +44,10 @@ Você tinha começado a ESCREVER a story nova em inglês ("Now write the new sto
 6. en = pt-BR e contagens coerentes. Resposta final: IDs criados, linhas alteradas por arquivo, contagens e edições pendentes para o @po.
 ```
 
-## Agente 3 — @po, alinhamento das OPS-15/23/24 — CONCLUÍDO (`0604799`)
+## Agent 3 — @po, OPS-15/23/24 alignment — DONE (`0604799`)
 
 ```text
-Você é o @po (Pax) do projeto em /home/gustavo/projects/subarushogun_gi_twich_bot (branch `feat/ops-15-next-panel`, HEAD `0224bce`). Responda em português do Brasil com acentuação correta. Não implemente código, não opere o GitHub, não mencione outros Projects/repos da conta.
+Você é o @po (Pax) do projeto em <project checkout> (branch `feat/ops-15-next-panel`, HEAD `0224bce`). Responda em português do Brasil com acentuação correta. Não implemente código, não opere o GitHub, não mencione outros Projects/repos da conta.
 ## CONCORRÊNCIA
 Você edita APENAS `docs/stories/OPS-15/story.md` e `docs/pt-BR/stories/OPS-15/story.md`, `docs/stories/OPS-23/story.md` e `docs/stories/OPS-24/story.md` (+ pt-BR), e os `po-validation.md` de OPS-22/23/24 (+ pt-BR).
 ## RETOMADA — ONDE PAROU (2026-10-27, interrompido por cota)
@@ -57,7 +59,7 @@ Você estava aplicando as edições em inglês da OPS-15 ("Applying the English 
 4. Liste decisões que ainda dependem do proprietário, sem decidir. Resposta final: o que foi alterado (arquivo e linhas), pendências e decisões abertas.
 ```
 
-## Depois que os três terminarem (ordem fixa) — itens 1 e 2 CONCLUÍDOS (gate `qa-gate-2026-10-28.md`, issue #95, commits acima); item 3 continua no topo de `session-handoff.md`
+## Depois que os três terminarem (ordem fixa) — items 1 and 2 DONE (gate `qa-gate-2026-10-28.md`, issue #95, commits above); item 3 continues at the top of `session-handoff.md`
 1. **`@qa`** (único rodando testes): valida onda 3 (suíte completa em paralelo e em série, E2E do overlay, `compose-runtime`, OpenGrep, actionlint, contratos de docs), os documentos do `@dev` de arquitetura (22 arquivos já prontos: arquitetura + `CHANGELOG-beta.md`, pendência M-1 do gate 27d), as edições do `@po`/`@sm` e as stories novas. Gate `docs/stories/OPS-15/qa-gate-2026-10-27e.md` (+ pt-BR).
 2. **`@devops`**: comita por pathspec o que o `@qa` liberar (onda 3 num commit próprio; sem push), cria a issue da onda 3 (FT-39, sub-issue da #69) e as issues das stories novas só quando prontas, e sincroniza o Project #5 (duas vias; `BOARD_DATE`; #57 em Rascunho).
 3. Depois: onda 2 (catálogos), FT-21 e FT-22 (mesmo arquivo, em sequência), FT-25/FT-26 (OPS-22), OPS-24, OPS-23; decisão de PR/CI; validação ao vivo automatizada.

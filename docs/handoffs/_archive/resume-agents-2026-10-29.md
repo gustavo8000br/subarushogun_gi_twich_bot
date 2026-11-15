@@ -1,5 +1,7 @@
 # Resume agents — 2026-10-29 (quota interruption at 90%)
 
+> **ARCHIVED 2026-11-14 (D-07) - historical record, do NOT follow the instructions below.** Superseded by later work; the cutover is complete, the `legacy` branch no longer exists and the rules changed. Current state: [`current-state.md`](../../current-state.md). Summary of this and the other archived handoffs: [`RUN-LOG.md`](RUN-LOG.md).
+
 Owner warned at 90% session quota (safe limit 85%). The running agent was stopped; nothing else was running. **First thing next session: re-dispatch the agent below with its brief, before any new work.**
 
 ## State of the repository at the stop
