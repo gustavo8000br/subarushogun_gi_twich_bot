@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
@@ -51,7 +51,7 @@ describe('GitHub Actions application CI contract', () => {
     expect(qualityWorkflow).toContain('npm run review:static');
     expect(qualityWorkflow).toContain('npm run validate:version');
     expect(qualityWorkflow).toContain('npm run validate:localization');
-    expect(qualityWorkflow).toContain('actionlint -shellcheck= -ignore');
+    expect(qualityWorkflow).toContain('actionlint -ignore');
     expect(qualityWorkflow).toContain('v1.7.12');
     expect(qualityWorkflow).toContain('8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8');
     expect(qualityWorkflow).toContain('docker compose -f compose.yaml -f compose.build.yaml config --quiet');
@@ -154,7 +154,7 @@ describe('GitHub Actions application CI contract', () => {
     expect(releaseWorkflow).toContain('docker pull --platform linux/amd64 "$IMAGE"');
     expect(releaseWorkflow).toContain('Create the version tag from the verified main commit');
     expect(releaseWorkflow).toContain('git tag -a "$RELEASE_TAG" "$SOURCE_SHA"');
-    expect(releaseWorkflow).toContain('git push origin "refs/tags/$RELEASE_TAG"');
+    expect(releaseWorkflow).toContain('push origin "refs/tags/$RELEASE_TAG"');
     expect(releaseWorkflow).not.toContain('inputs.release_tag');
     expect(releaseWorkflow).not.toContain('docker login ghcr.io');
     expect(releaseWorkflow).toContain('contents: write');
@@ -200,5 +200,125 @@ describe('GitHub Actions application CI contract', () => {
       expect(content).toMatch(/embeds `<version-tag>@sha256:<manifest-digest>`|grava em cada instalador `<tag-da-versão>@sha256:<digest-do-manifest>`/i);
       expect(content).not.toMatch(/immutable source images|imagens imutáveis|immutable per-commit|tags imutáveis/i);
     }
+  });
+});
+
+describe('Windows runner workflow contract (C1 / LA-25)', () => {
+  const workflowFiles = ['ci.yml', 'quality-gates.yml', 'main-cd.yml', 'release.yml'];
+  const isWindowsJob = (job) => {
+    const runsOn = String(job['runs-on'] ?? '');
+    if (/windows/i.test(runsOn)) return true;
+    return /matrix\.runner/.test(runsOn) && (job.strategy?.matrix?.include ?? []).some((entry) => /windows/i.test(entry.runner));
+  };
+  // Bash-only expansion: $UPPER_CASE variables, ${VAR}, $(command), `set -e`, `[[ ... ]]`, `|| true`-style bash idioms.
+  const bashStyle = /(?<![\w$])\$(?:\{[A-Za-z_]|\(|[A-Z_][A-Z0-9_]*\b)|\bset -[euo]|\[\[ |printf '[^']*%s/;
+  const powershellStyle = /\$env:[A-Za-z_]|\$LASTEXITCODE|Write-Host|Set-Content|\bGet-[A-Z]/;
+  const windowsSteps = workflowFiles.flatMap((file) => {
+    const parsed = parseWorkflow(readFileSync(`${root}/.github/workflows/${file}`, 'utf8'));
+    return Object.entries(parsed.jobs ?? {}).filter(([, job]) => job.steps && isWindowsJob(job))
+      .flatMap(([jobName, job]) => job.steps.filter((step) => step.run).map((step) => ({ file, jobName, step })));
+  });
+
+  it('finds Windows jobs in the quality gates, Main CD and the release workflow', () => {
+    const jobs = new Set(windowsSteps.map(({ file, jobName }) => `${file}:${jobName}`));
+    expect(jobs).toContain('quality-gates.yml:installer-smoke');
+    expect(jobs).toContain('quality-gates.yml:windows-quality');
+    expect(jobs).toContain('main-cd.yml:beta-windows-installer');
+    expect([...jobs].some((job) => job.startsWith('release.yml:'))).toBe(true);
+  });
+
+  it('never runs bash-style expansion in a step that would use the Windows default shell (pwsh)', () => {
+    for (const { file, jobName, step } of windowsSteps) {
+      const where = `${file}:${jobName}:${step.name}`;
+      const withoutExpressions = step.run.replace(/\$\{\{[\s\S]*?\}\}/g, 'EXPR');
+      if (step.shell === 'bash') {
+        expect(powershellStyle.test(withoutExpressions), `${where} declares bash but uses PowerShell syntax`).toBe(false);
+      } else {
+        expect(bashStyle.test(withoutExpressions), `${where} uses bash syntax without shell: bash`).toBe(false);
+        if (step.shell !== undefined) expect(['pwsh', 'powershell', 'cmd'], `${where} shell`).toContain(step.shell);
+      }
+    }
+  });
+
+  it('declares the shell explicitly on every run step of the Windows quality job', () => {
+    const steps = windowsSteps.filter(({ file, jobName }) => file === 'quality-gates.yml' && jobName === 'windows-quality');
+    expect(steps.length).toBeGreaterThanOrEqual(3);
+    for (const { step } of steps) expect(['bash', 'pwsh'], `${step.name} needs an explicit shell`).toContain(step.shell);
+  });
+
+  it('runs install, typecheck and the Windows contract tests on windows-latest with the pinned Node.js', () => {
+    const job = parseWorkflow(qualityWorkflow).jobs['windows-quality'];
+    expect(job['runs-on']).toBe('windows-latest');
+    expect(job['timeout-minutes']).toBeLessThanOrEqual(20);
+    const setup = job.steps.find((step) => step.uses?.startsWith('actions/setup-node@820762786026740c76f36085b0efc47a31fe5020'));
+    expect(setup.with['node-version']).toBe('24.20.0');
+    expect(job.steps.find((step) => step.uses?.startsWith('actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10'))).toBeDefined();
+    const commands = job.steps.filter((step) => step.run).map((step) => step.run.trim());
+    expect(commands).toContain('npm ci');
+    expect(commands).toContain('npm run typecheck');
+    const tests = commands.find((command) => command.startsWith('npx vitest run'));
+    expect(tests).toContain('tests/unit/windows-native-contract.test.js');
+    expect(tests).toContain('tests/unit/windows-installer-contract.test.js');
+  });
+
+  it('keeps the Windows quality job out of the required aggregate until a real Windows run proves it stable', () => {
+    const quality = parseWorkflow(qualityWorkflow);
+    expect(quality.jobs['quality-gate'].needs).not.toContain('windows-quality');
+    expect(quality.jobs['windows-quality'].needs).toBeUndefined();
+  });
+
+  it('keeps the native installer smoke covering install, update, health-free start and both uninstall policies on Windows', () => {
+    const smoke = readFileSync(`${root}/tests/platform/installer-native.mjs`, 'utf8');
+    for (const fragment of ["'--silent update'", "'--silent uninstall --keep-data'", "'--silent uninstall --erase-data --confirm-erase'", 'volumes and data preserved', 'down --volumes --remove-orphans']) {
+      expect(smoke).toContain(fragment);
+    }
+  });
+});
+
+describe('CI hardening contract (zizmor artipacked, Dependabot, ShellCheck, P-02)', () => {
+  const workflowDir = `${root}/.github/workflows`;
+  const workflowFiles = readdirSync(workflowDir).filter((name) => name.endsWith('.yml'));
+  const checkoutSteps = workflowFiles.flatMap((name) => {
+    const parsed = parseWorkflow(readFileSync(`${workflowDir}/${name}`, 'utf8'));
+    return Object.entries(parsed.jobs ?? {}).flatMap(([jobId, job]) =>
+      (job.steps ?? []).filter((step) => step.uses?.startsWith('actions/checkout@')).map((step) => ({ name, jobId, step })));
+  });
+
+  it('finds the checkout steps this contract protects', () => {
+    expect(checkoutSteps.length).toBeGreaterThanOrEqual(12);
+  });
+
+  it.each(checkoutSteps.map((entry) => [`${entry.name}:${entry.jobId}`, entry.step]))(
+    'does not persist the GITHUB_TOKEN after checkout in %s',
+    (_label, step) => {
+      expect(step.with?.['persist-credentials']).toBe(false);
+    },
+  );
+
+  it('runs actionlint with ShellCheck enabled so run: scripts are linted', () => {
+    expect(qualityWorkflow).toContain('actionlint -ignore');
+    expect(qualityWorkflow).not.toMatch(/actionlint\s+-shellcheck=/);
+  });
+
+  it('configures Dependabot weekly, grouped and capped for github-actions, npm, docker and docker-compose', () => {
+    const config = yaml.load(readFileSync(`${root}/.github/dependabot.yml`, 'utf8'));
+    expect(config.version).toBe(2);
+    const byEcosystem = Object.fromEntries(config.updates.map((update) => [update['package-ecosystem'], update]));
+    expect(Object.keys(byEcosystem).sort()).toEqual(['docker', 'docker-compose', 'github-actions', 'npm']);
+    for (const update of Object.values(byEcosystem)) {
+      expect(update.directory).toBe('/');
+      expect(update.schedule.interval).toBe('weekly');
+      expect(update['open-pull-requests-limit']).toBeLessThanOrEqual(3);
+      expect(Object.keys(update.groups ?? {}).length).toBeGreaterThan(0);
+    }
+    expect(byEcosystem.npm.groups['npm-minor-patch']['update-types'].sort()).toEqual(['minor', 'patch']);
+  });
+
+  it('lints tests/**/*.mjs and tests/**/*.jsx with ESLint (P-02)', () => {
+    const eslintConfig = readFileSync(`${root}/eslint.config.js`, 'utf8');
+    const baseFiles = eslintConfig.match(/^\s+files: \[('apps\/\*\*[^\]]*)\],$/m)?.[1] ?? '';
+    expect(baseFiles).toContain("'tests/**/*.js'");
+    expect(baseFiles).toContain("'tests/**/*.mjs'");
+    expect(baseFiles).toContain("'tests/**/*.jsx'");
   });
 });

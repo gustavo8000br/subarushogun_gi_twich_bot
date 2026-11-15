@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -37,6 +39,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -69,6 +73,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -90,6 +96,29 @@ jobs:
           QUEUEBOT_EXPECTED_IMAGE_TAG: ${{ steps.installer-version.outputs.version }}
           QUEUEBOT_EXPECTED_PRODUCT_VERSION: ${{ steps.installer-version.outputs.version }}
         run: node tests/platform/installer-native.mjs
+  windows-quality:
+    name: Windows install, typecheck, and installer contract tests
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+          cache: npm
+      - name: Install locked dependencies
+        shell: bash
+        run: npm ci
+      - name: Typecheck application JavaScript
+        shell: bash
+        run: npm run typecheck
+      - name: Run Windows installer and development contract tests
+        shell: bash
+        run: npx vitest run tests/unit/windows-native-contract.test.js tests/unit/windows-installer-contract.test.js
   tests:
     name: Vitest unit, PostgreSQL, and Compose integration
     runs-on: ubuntu-24.04
@@ -97,6 +126,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -116,6 +147,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -146,7 +179,7 @@ jobs:
           "$RUNNER_TEMP/actionlint" -version
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - name: Lint GitHub Actions workflows
-        run: actionlint -shellcheck= -ignore 'unexpected key "queue" for "concurrency" section'
+        run: actionlint -ignore 'unexpected key "queue" for "concurrency" section'
       - name: Scan application source
         run: npm run review:static
       - name: Validate product version identity
@@ -161,6 +194,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Materialize source identity for this image build

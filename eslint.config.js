@@ -5,7 +5,7 @@ export default [
     ignores: ['node_modules/**', 'coverage/**', 'apps/frontend/.next/**', 'apps/frontend/out/**'],
   },
   {
-    files: ['apps/**/*.js', 'apps/**/*.mjs', 'apps/**/*.jsx', 'tests/**/*.js'],
+    files: ['apps/**/*.js', 'apps/**/*.mjs', 'apps/**/*.jsx', 'tests/**/*.js', 'tests/**/*.mjs', 'tests/**/*.jsx'],
     ...eslint.configs.recommended,
     languageOptions: {
       ecmaVersion: 'latest',
@@ -37,6 +37,36 @@ export default [
         FormData: 'readonly',
         React: 'readonly',
       },
+    },
+  },
+  {
+    // P-02: tests/**/*.{mjs,jsx} were skipped silently; jsdom unit tests and browser-only e2e scripts use DOM globals.
+    files: ['tests/**/*.mjs', 'tests/**/*.jsx'],
+    languageOptions: {
+      globals: {
+        document: 'readonly',
+        window: 'readonly',
+        navigator: 'readonly',
+        location: 'readonly',
+        localStorage: 'readonly',
+        sessionStorage: 'readonly',
+        Storage: 'readonly',
+        WebSocket: 'readonly',
+        performance: 'readonly',
+        structuredClone: 'readonly',
+        getComputedStyle: 'readonly',
+        CSS: 'readonly',
+        Event: 'readonly',
+        KeyboardEvent: 'readonly',
+        DOMException: 'readonly',
+        HTMLDialogElement: 'readonly',
+        FormData: 'readonly',
+        React: 'readonly',
+      },
+    },
+    rules: {
+      // Classic JSX transform in tests needs the React import even though ESLint cannot see the JSX use.
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^React$' }],
     },
   },
   {
