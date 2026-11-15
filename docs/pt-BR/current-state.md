@@ -13,7 +13,7 @@
 ## Meta do beta
 
 - O `v1.0.0-beta` exige pelo menos 26 de 32 funcionalidades planejadas testadas e funcionais. Ledger: [`open-acceptance-criteria-2026-11-10.md`](process/open-acceptance-criteria-2026-11-10.md).
-- Contagem honesta (D-04): **20 firmes + 2 provisórias** (funcionalidades 14 e 24, decididas pelo `@qa` no G2), não 22. A trava do dinheiro segue aberta: as funcionalidades 7 e 9 são N. O Windows (28 a 30) depende da execução do dono.
+- Contagem honesta (D-04): **20 firmes + 3 provisórias** (funcionalidades 14, 23 e 24; a 23 incluída pelo gate do `@qa` da OPS-19, PASS 9,3, 2026-11-14, pendente de observação Twitch ao vivo do fulfill), não 23. A trava do dinheiro segue aberta: as funcionalidades 7 e 9 são N. O Windows (28 a 30) depende da execução do dono.
 - Próximo bump: rc/stable com OK do dono; bumps alpha/beta seguem o `AGENTS.md`. A linha `restart: unless-stopped` espera a próxima seção do changelog: [`pending-changelog-entries.md`](process/pending-changelog-entries.md).
 
 ## Regras que mudaram há pouco

@@ -41,7 +41,7 @@ Credit: Y = tested and functional by the criterion in (b) (firm); **Y\*** = prov
 | 20 | Widget resilience: API restart, production build, legibility (OPS-25) | N | LA-09 to LA-13 [`@qa` gate G1 2026-11-13, report `docs/stories/OPS-15/qa-gate-g1-2026-11-13.md`: stays N; LA-09, LA-10, LA-11, LA-12, LA-13 and D-1 PASS in native OBS; TLS trust in OBS, Compose restart from OBS and the mobile checklist not proven] |
 | 21 | Widget links and capabilities (FND-7) | Y | QA 9.2; OBS |
 | 22 | Queue calls, presence, removed rewards (OPS-11) | Y | Classes PG, FX (QA 10/10); the TW requirement of (b)2 is met only through the chat family TW of feature 6 (stated here, D-04) |
-| 23 | Reward confirmation at service start (OPS-19) | N | Story In Progress; `@qa` checks at the gate and may convert it to Y |
+| 23 | Reward confirmation at service start (OPS-19) | **Y\*** | Previously N (story In Progress, awaiting the gate). `@qa` gate 2026-11-14 (report `.local/audit-2026-11-14/ledger/qa-ops19.md`): PASS 9.3/10; real PostgreSQL plus real browser (22/22 browser-only scripts, including `queue-fulfillment-feedback`); 7 production money mutations all detected. Provisional (D-04): there is no live Twitch observation of the fulfill at service start, so (b)2 is not confirmed; flips to Y with one TW observation |
 | 24 | Current Account identity (OPS-18) | **Y\*** | Class TW (`conta` equals the widget, one observation). Provisional (D-04): the story was never gated and has no task list, so (b)3 "no known open defect" cannot be checked; `@qa` decides at G2 (feature 23, same story state, is N) |
 | 25 | First use and update on a clean Linux machine (FT-49) | **Y** | LA-20 [`@qa` gate G1 2026-11-13, report `docs/stories/OPS-15/qa-gate-g1-2026-11-13.md`: Y; clean clone, `npm ci`, `dev:start`, stop/start keep data and a real new-migration upgrade keeps data (BR + PG)] |
 | 26 | Panel resilience and setup friction (FT-44, FT-66, FT-67) | **Y** | LA-16, LA-17, LA-19 [`@qa` gate G1 2026-11-13, report `docs/stories/OPS-15/qa-gate-g1-2026-11-13.md`: Y; FT-66 banner, FT-67 message on the real failing action at 127.0.0.1, FT-44 timeout after 10.4 s with a hung API (BR)] |
@@ -67,16 +67,16 @@ Without a real Windows run, features 28 to 30 stay **N** in the formula. If the 
 
 ### (c) Formula and current percentage
 
-`P = firm credited features / planned features`. Planned = 32. 80% of 32 = 25.6, so **26 firm features** are needed. **Current (D-04, 2026-11-14): 20 firm + 2 provisional of 32** = 62.5% firm (68.8% only if both provisional credits are confirmed). Firm Y: 1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 13, 15, 16, 18, 19, 21, 22, 25, 26, 27. Provisional Y\*: 14, 24. History: 19 / 32 = 59.4% before gate G1 (2026-11-13); G1 counted 22 / 32 = 68.8% by counting the two provisional features as firm.
+`P = firm credited features / planned features`. Planned = 32. 80% of 32 = 25.6, so **26 firm features** are needed. **Current (D-04, 2026-11-14, recounted after the OPS-19 gate): 20 firm + 3 provisional of 32** = 62.5% firm (71.9% only if all three provisional credits are confirmed; 26 firm are needed). Firm Y: 1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 13, 15, 16, 18, 19, 21, 22, 25, 26, 27. Provisional Y\*: 14, 23, 24 (23 added by the OPS-19 `@qa` gate, PASS 9.3, 2026-11-14; it was N, so the firm count does not change). History: 19 / 32 = 59.4% before gate G1 (2026-11-13); G1 counted 22 / 32 = 68.8% by counting the two provisional features as firm.
 
 **Guard (owner-visible rule proposed here):** the percentage alone does not release the label. Features 7 to 10 (money) and 28 and 30 (Windows install and OBS) must be Y; they cannot sit in the declared-caveat set. Gate target: **at least 28 / 32 (87.5%)**, so one late failure does not drop the launch below 80%.
 
 | Step | Credited | Percentage | Note |
 |---|---|---|---|
-| Now (after gate G1, 2026-11-13, recounted by D-04) | 20 firm + 2 provisional | 62.5% firm | 7, 9 and 20 did not earn credit (live Twitch and OBS TLS proof missing); the planned 25 was not reached; G1 reported 22 by counting features 14 and 24 as firm |
-| After the remaining agent-only work (+ features 7, 9, 20) | 23 firm (25 if both provisional are confirmed) | 71.9% (78.1%) | Still below 80%: agents alone do not get there without OPS-31 or Windows |
-| + OPS-31 (features 31, 32) | 25 firm (27 with both provisional) | 78.1% (84.4%) | The formula passes only if both provisional credits are confirmed; the guard still fails without Windows |
-| + Windows run by the owner (features 28, 29, 30) | 28 firm (30 with both provisional) | 87.5% (93.8%) | Meets the gate target of 28; declared caveats: features 17 and 23 (6.3%) |
+| Now (after gate G1, 2026-11-13, recounted by D-04; feature 23 became Y\* at the OPS-19 gate, 2026-11-14) | 20 firm + 3 provisional (was 20 + 2 before the OPS-19 gate) | 62.5% firm (71.9% with all three) | 7, 9 and 20 did not earn credit (live Twitch and OBS TLS proof missing); the planned 25 was not reached; G1 reported 22 by counting features 14 and 24 as firm |
+| After the remaining agent-only work (+ features 7, 9, 20) | 23 firm (26 if all three provisional are confirmed) | 71.9% (81.3%) | Still below 80%: agents alone do not get there without OPS-31 or Windows |
+| + OPS-31 (features 31, 32) | 25 firm (28 with all three provisional) | 78.1% (87.5%) | The formula passes only if all three provisional credits are confirmed; the guard still fails without Windows |
+| + Windows run by the owner (features 28, 29, 30) | 28 firm (31 with all three provisional) | 87.5% (96.9%) | Meets the gate target of 28; declared caveat: feature 17 (3.1%; feature 23 is no longer a caveat, it is Y\*) |
 
 **Why SSE, TypeScript, `status` and OPS-32 stay out:** the formula passes at 84.4% without them, none is a money or guard feature, and each adds change risk before delivery. They are not planned launch features (see "Future"). Any new feature added to the launch set raises the denominator and the number needed.
 
