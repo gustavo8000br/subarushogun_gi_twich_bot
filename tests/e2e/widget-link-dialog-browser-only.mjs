@@ -41,13 +41,13 @@ const browser = await chromium.launch({
 const browserVersion = browser.version();
 const json = (route, status, body) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
-async function openPage({ viewport = { width: 1280, height: 900 }, grantClipboard = true } = {}) {
+async function openPage({ viewport = { width: 1280, height: 900 }, grantClipboard = true, widgets = [existing] } = {}) {
   const context = await browser.newContext({ ignoreHTTPSErrors: true, serviceWorkers: 'block', viewport });
   if (grantClipboard) await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: origin.origin });
   const page = await context.newPage();
   const consoleTexts = [];
   page.on('console', (message) => consoleTexts.push(message.text()));
-  const state = { widgets: [existing], lastSecret: null };
+  const state = { widgets: [...widgets], lastSecret: null };
   await page.route('**/*', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -71,6 +71,16 @@ async function openPage({ viewport = { width: 1280, height: 900 }, grantClipboar
       const widget = state.widgets.find((item) => item.id === regenerate[1]);
       state.lastSecret = nextSecret(widget.id.slice(0, 8));
       return json(route, 200, { widget: { ...widget, version: widget.version + 1 }, capabilityUrl: state.lastSecret });
+    }
+    const revoke = url.pathname.match(/^\/api\/overlay-widgets\/([^/]+)\/revoke$/);
+    if (revoke && method === 'POST') {
+      state.widgets = state.widgets.map((item) => item.id === revoke[1] ? { ...item, capabilityActive: false, version: item.version + 1 } : item);
+      return json(route, 200, {});
+    }
+    const removal = url.pathname.match(/^\/api\/overlay-widgets\/([^/]+)$/);
+    if (removal && method === 'DELETE') {
+      state.widgets = state.widgets.filter((item) => item.id !== removal[1]);
+      return json(route, 200, {});
     }
     return json(route, 404, { code: 'NOT_FOUND' });
   });
@@ -226,6 +236,80 @@ try {
       if (view === 'link') await linkDialog(page).getByRole('button', { name: text('panel.widget.link.done') }).click();
     }
     results.push('390x844: dialog and every action fit horizontally, buttons >= 44 px, link and confirm views');
+    await context.close();
+  }
+
+  // S-13 UX review F-01 (draft guard), F-04 (focus), F-05/F-08 (control border, touch height) in real Chromium.
+  {
+    const { context, page } = await openPage();
+    const edit = card(page, existing.id).getByRole('button', { name: text('panel.widget.action.edit') });
+    await edit.click();
+    const textarea = page.locator('textarea[name="fixedText"]');
+    await textarea.fill('Typed draft');
+    await page.mouse.click(4, 4);
+    const discard = page.getByRole('alertdialog', { name: text('panel.widget.editor.discard.title') });
+    await discard.waitFor();
+    assert.equal(await textarea.inputValue(), 'Typed draft', 'draft survives the backdrop press');
+    assert.equal(await focusedText(page), text('panel.widget.editor.discard.keep'), 'least destructive action is focused');
+    await page.keyboard.press('Escape');
+    await discard.waitFor({ state: 'detached' });
+    assert.equal(await textarea.inputValue(), 'Typed draft');
+    assert.ok(await focusedIs(page, textarea), 'keep editing returns focus to the field');
+    await page.keyboard.press('Escape');
+    await discard.waitFor();
+    await discard.getByRole('button', { name: text('panel.widget.editor.discard.confirm') }).click();
+    await page.getByRole('dialog', { name: text('panel.widget.editor.edit') }).waitFor({ state: 'detached' });
+    assert.ok(await focusedIs(page, edit), 'discard returns focus to the Edit button');
+    await page.getByRole('button', { name: text('panel.widgets.create') }).first().click();
+    await page.mouse.click(4, 4);
+    await page.getByRole('dialog', { name: text('panel.widget.editor.create') }).waitFor({ state: 'detached' });
+    assert.equal(await page.getByRole('alertdialog').count(), 0, 'a pristine create form closes without asking');
+    results.push('F-01: dirty editor asks before discarding (backdrop, Escape), keep editing restores focus, pristine form closes directly');
+    await context.close();
+  }
+
+  {
+    const other = { ...existing, id: '33333333-3333-4333-8333-333333333333', fixedText: 'Other' };
+    const { context, page } = await openPage({ widgets: [existing, other] });
+    const names = await card(page, existing.id).getByRole('button').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label')));
+    assert.equal(new Set(names).size, names.length, 'card action names are unique within a card');
+    const allNames = await page.locator('.widget-card button').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label')));
+    assert.equal(new Set(allNames).size, allNames.length, 'card action names are unique across cards');
+    await card(page, existing.id).getByRole('button', { name: text('panel.widget.action.revoke') }).click();
+    const dialog = page.getByRole('alertdialog');
+    assert.match(await dialog.getAttribute('aria-describedby').then((id) => page.locator(`#${id}`).innerText()), /\(11111111\)$/, 'confirmation names the widget');
+    await dialog.getByRole('button', { name: text('panel.dialog.confirm') }).click();
+    await page.waitForFunction((id) => document.activeElement?.dataset?.widgetAction === 'generate'
+      && document.activeElement.closest('[data-widget-id]')?.dataset.widgetId === id, existing.id);
+    await card(page, existing.id).getByRole('button', { name: text('panel.widget.action.delete') }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: text('panel.dialog.confirm') }).click();
+    await page.waitForFunction((id) => document.activeElement?.dataset?.widgetAction === 'edit'
+      && document.activeElement.closest('[data-widget-id]')?.dataset.widgetId === id, other.id);
+    await card(page, other.id).getByRole('button', { name: text('panel.widget.action.delete') }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: text('panel.dialog.confirm') }).click();
+    await page.waitForFunction(() => document.activeElement?.dataset?.widgetAction === 'create');
+    results.push('F-02/F-03/F-04: unique action names, confirmation names the widget, focus after revoke (Generate link), delete (next Edit) and last delete (Create)');
+    await context.close();
+  }
+
+  {
+    const { context, page } = await openPage({ viewport: { width: 390, height: 844 } });
+    await card(page, existing.id).getByRole('button', { name: text('panel.widget.action.edit') }).click();
+    await page.locator('.widget-editor-form select[name="sourceType"]').waitFor();
+    const metrics = await page.evaluate(() => {
+      const parse = (value) => value.match(/[\d.]+/g).slice(0, 3).map(Number);
+      const lum = ([r, g, b]) => { const [x, y, z] = [r, g, b].map((v) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }); return 0.2126 * x + 0.7152 * y + 0.0722 * z; };
+      const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((m, n) => n - m); return (hi + 0.05) / (lo + 0.05); };
+      const surface = parse(getComputedStyle(document.querySelector('.widget-editor')).backgroundColor);
+      return [...document.querySelectorAll('.widget-editor-form input:not([type="color"]), .widget-editor-form select, .widget-editor-form textarea')].map((control) => ({
+        name: control.name, height: control.getBoundingClientRect().height, border: ratio(parse(getComputedStyle(control).borderTopColor), surface),
+      }));
+    });
+    for (const control of metrics) {
+      assert.ok(control.border >= 3, `${control.name}: border contrast ${control.border.toFixed(2)} >= 3`);
+      if (control.name !== 'fixedText') assert.ok(control.height >= 44, `${control.name}: ${control.height}px >= 44`);
+    }
+    results.push(`F-05/F-08: ${metrics.length} editor controls have computed border contrast >= 3:1 and (single-line) height >= 44 px at 390x844`);
     await context.close();
   }
 

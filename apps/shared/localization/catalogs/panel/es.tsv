@@ -403,7 +403,6 @@ panel.widget.preview.waiting	4 en espera
 panel.widget.preview.open	Abierta
 panel.widget.preview.called	Viewer llamado
 panel.widget.fixed_text_label	Texto fijo
-panel.widget.text_color	Color del texto
 panel.widget.background_color	Color de fondo
 panel.widget.background_opacity	Opacidad del fondo (%)
 panel.widget.font	Fuente
@@ -568,8 +567,6 @@ panel.queue_settings.local_eyebrow	CONFIGURACIÓN LOCAL
 panel.queue_settings.uid_policy_hint	Edita la política del UID y la recompensa en “Editar recompensa”; solo se indicará que están sincronizados cuando Twitch lo confirme.
 panel.queue_settings.save	Guardar configuración
 panel.widget.font_size	Tamaño (px)
-panel.widget.font_weight	Grosor
-panel.widget.width	Ancho (px o auto)
 panel.widget.height	Alto (px o auto)
 panel.widget.margin_top	Margen superior
 panel.widget.margin_right	Margen derecho
@@ -843,3 +840,17 @@ panel.queue.confirm.delete_local.one	¿Eliminar la cola local “{title}”? Se 
 panel.queue.confirm.delete_converted.many	¿Eliminar la cola manual “{title}”? Se quitarán {count} entradas activas. La eliminación seguirá pendiente hasta confirmar todos los canjes conocidos, las solicitudes de sincronización con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
 panel.queue.confirm.delete_converted.other	¿Eliminar la cola manual “{title}”? Se quitarán {count} entradas activas. La eliminación seguirá pendiente hasta confirmar todos los canjes conocidos, las solicitudes de sincronización con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
 panel.queue.confirm.delete_converted.one	¿Eliminar la cola manual “{title}”? Se quitará {count} entrada activa. La eliminación seguirá pendiente hasta confirmar todos los canjes conocidos, las solicitudes de sincronización con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
+panel.widget.action.named	{action}: {label} ({id})
+panel.widget.confirm.target	Widget: {label} ({id})
+panel.widget.editor.discard.title	¿Descartar los cambios?
+panel.widget.editor.discard.body	Los cambios sin guardar de este widget se perderán.
+panel.widget.editor.discard.keep	Seguir editando
+panel.widget.editor.discard.confirm	Descartar cambios
+panel.widget.identity.with_queue	{source} · {queue}
+panel.widget.weight.300	Ligera (300)
+panel.widget.weight.400	Normal (400)
+panel.widget.weight.500	Media (500)
+panel.widget.weight.600	Seminegrita (600)
+panel.widget.weight.700	Negrita (700)
+panel.widget.weight.800	Extranegrita (800)
+panel.widget.weight.900	Negra (900)

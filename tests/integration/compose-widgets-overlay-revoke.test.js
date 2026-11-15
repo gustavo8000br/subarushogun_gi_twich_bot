@@ -130,7 +130,7 @@ describe('E2 widgets capability create -> overlay -> revoke (isolated Compose, r
       await overlay.waitForFunction((text) => document.getElementById('overlay-value')?.textContent === text, probeText, { timeout: 30_000 });
 
       // Revoke in the panel UI; the overlay must clear within the 1 s poll window (+ margin), and the API must refuse the old bearer.
-      await panel.locator('[data-widget-id]').first().getByRole('button', { name: 'Revogar', exact: true }).click();
+      await panel.locator('[data-widget-id]').first().getByRole('button', { name: /^Revogar:/ }).click();
       await panel.getByRole('alertdialog').getByRole('button', { name: 'Confirmar', exact: true }).click();
       await panel.getByText('Link do widget revogado.').waitFor({ timeout: 30_000 });
       const revokedAt = Date.now();

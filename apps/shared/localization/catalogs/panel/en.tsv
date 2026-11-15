@@ -403,7 +403,6 @@ panel.widget.preview.waiting	4 waiting
 panel.widget.preview.open	Open
 panel.widget.preview.called	Viewer called
 panel.widget.fixed_text_label	Fixed text
-panel.widget.text_color	Text color
 panel.widget.background_color	Background color
 panel.widget.background_opacity	Background opacity (%)
 panel.widget.font	Font
@@ -565,8 +564,6 @@ panel.queue_settings.local_eyebrow	LOCAL SETTINGS
 panel.queue_settings.uid_policy_hint	Edit the UID policy and reward under “Edit reward”; changes are shown as synchronized only after Twitch confirms them.
 panel.queue_settings.save	Save settings
 panel.widget.font_size	Size (px)
-panel.widget.font_weight	Weight
-panel.widget.width	Width (px or auto)
 panel.widget.height	Height (px or auto)
 panel.widget.margin_top	Top margin
 panel.widget.margin_right	Right margin
@@ -836,3 +833,17 @@ panel.queue.confirm.delete_local.other	Delete local queue “{title}”? {count}
 panel.queue.confirm.delete_local.one	Delete local queue “{title}”? {count} active entry will be removed. This queue has no linked Twitch reward or redemption.
 panel.queue.confirm.delete_converted.other	Delete manual queue “{title}”? {count} active entries will be removed. Deletion will remain pending until all known redemptions, Twitch synchronization requests, and related points refunds are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.
 panel.queue.confirm.delete_converted.one	Delete manual queue “{title}”? {count} active entry will be removed. Deletion will remain pending until all known redemptions, Twitch synchronization requests, and related points refunds are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.
+panel.widget.action.named	{action}: {label} ({id})
+panel.widget.confirm.target	Widget: {label} ({id})
+panel.widget.editor.discard.title	Discard your changes?
+panel.widget.editor.discard.body	The unsaved changes to this widget will be lost.
+panel.widget.editor.discard.keep	Keep editing
+panel.widget.editor.discard.confirm	Discard changes
+panel.widget.identity.with_queue	{source} · {queue}
+panel.widget.weight.300	Light (300)
+panel.widget.weight.400	Regular (400)
+panel.widget.weight.500	Medium (500)
+panel.widget.weight.600	Semibold (600)
+panel.widget.weight.700	Bold (700)
+panel.widget.weight.800	Extra bold (800)
+panel.widget.weight.900	Black (900)
