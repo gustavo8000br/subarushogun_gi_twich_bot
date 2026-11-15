@@ -3,7 +3,7 @@
   "generatedBy": "@devops environment-bootstrap preflight",
   "project": {
     "name": "subarushogun_gi_twich_bot",
-    "path": "/home/gustavo/projects/subarushogun_gi_twich_bot",
+    "path": "<project checkout>",
     "applicationLayout": ["apps/web", "apps/api", "apps/infra", "apps/* as needed"],
     "frameworkEnvExampleIsProductConfig": false
   },

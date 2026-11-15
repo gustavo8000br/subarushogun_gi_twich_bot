@@ -4,7 +4,7 @@
 
 - Author: `@analyst` (Atlas). Date: 2026-11-10. Branch at audit time: `main` (`dcfe3da`).
 - Labels: **VERIFIED** (read in this session or measured in the repository), **PARTIAL** (secondary source or incomplete), **UNVERIFIED** (inference).
-- Scope: research and read-only audit. No file under version control was changed, nothing was committed, nothing was written to GitHub. No secret value appears in this note; findings are shown only as file, line or number, pattern and mask (`****`). `~/passwd.txt` was **not** read.
+- Scope: research and read-only audit. No file under version control was changed, nothing was committed, nothing was written to GitHub. No secret value appears in this note; findings are shown only as file, line or number, pattern and mask (`****`). a plaintext password file in the owner's home was **not** read.
 - Owner request (2026-11-10): read the CISO Advisor article and say whether the owner's credentials were pushed to the repository.
 
 ## 1. Verdict
@@ -57,7 +57,7 @@ Patterns (added lines of all revisions): GitHub tokens (`ghp_`, `gho_`, `ghu_`, 
 | Token/password assignments | 6 files | All are code reading an environment variable or a literal fixture (`process.env.OBS_WS_PASSWORD`, `temporary-app-token`, `options.password`) |
 | Entropy | 18 files | Prisma/story URLs, migration names, the OBS WebSocket auth test vector (inputs `secret`, `salt`, `challenge`), skill reference text. No credential |
 | Session URL | 0 real URLs | `AGENTS.md` line 146 and 24 docs mention the rule or the word `Claude-Session`, never an actual Claude session link. 0 commit messages carry the trailer or a URL. Issue #104 only names the trailer in text |
-| Personal data (low) | see below | `/home/gustavo` or `/media/gustavo` paths in 19 files; `~/passwd.txt` named as a path only in `docs/session-handoff.md` (en and pt-BR lines 98 and 109) and `docs/stories/OPS-15/qa-gate-2026-10-23.md`; no content |
+| Personal data (low) | see below | `/home/<user>` or `/media/<user>` paths in 19 files; a plaintext password file in the owner's home named as a path only in `docs/session-handoff.md` (en and pt-BR lines 98 and 109) and `docs/stories/OPS-15/qa-gate-2026-10-23.md`; no content |
 | GitHub | 55 PRs, 63 issues, release body, 3 assets | 0 secrets. Release assets (`.bat`, `.command`, `.sh`) hold no `client_secret`, token or password assignment |
 | Tracked sensitive files | 0 | `git ls-files` shows no `.env`, `.local/`, `settings.local.json`, `.pem`, `.key`, `.dump`, `.sqlite`, `.db`. Only the two `.env*.example` files; their secret-named keys have no values |
 | Deleted sensitive files in history | 0 | `git log --diff-filter=D` shows none |
@@ -65,9 +65,9 @@ Patterns (added lines of all revisions): GitHub tokens (`ghp_`, `gho_`, `ghu_`, 
 
 Low-severity observations (not credential leaks):
 
-1. Two author addresses appear in commit metadata: a personal mail domain (public by design in git) and a machine-hostname address on 2 commits (`@OptiPlex-790.local`). Treat as public; not a secret.
+1. Two author addresses appear in commit metadata: a personal mail domain (public by design in git) and a machine-hostname address on 2 commits (`@<machine-hostname>.local`). Treat as public; not a secret.
 2. `.gitignore` covers `.env`, `.env.local`, `.env.*.local`, `runtime-secrets/`, `data/`, `backups/`, `*.dump`, `*.sql`, `*.key`, `*.pem`, `.claude/settings.local.json`, `.local/` but **not** `.env.production`, `.env.dev`, `.env.staging`, `secrets.json`, `credentials.json`. Nothing like that exists today; it is a prevention gap (see recommendations).
-3. The path `~/passwd.txt` is named in docs. It reveals only that a password file exists in the owner's home, outside the repository. Consider rewording to "a local credentials file".
+3. The path a plaintext password file in the owner's home is named in docs. It reveals only that a password file exists in the owner's home, outside the repository. Consider rewording to "a local credentials file".
 
 ## 5. Recommendations
 
