@@ -29,3 +29,6 @@ apps/infra/scripts/windows/*.txt text eol=crlf
 *.jpg binary
 *.ico binary
 *.woff2 binary
+
+# Windows launchers inside the framework keep their working-tree bytes as committed.
+.aiox-core/**/*.cmd -text

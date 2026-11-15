@@ -23,6 +23,21 @@ describe('pool error handler', () => {
     expect(lines[0]).not.toMatch(/s3cret|postgresql:|queuebot|terminating/);
   });
 
+  it('passes logEvent exactly the fixed set of fields (no message, stack or extra keys)', () => {
+    const pool = new EventEmitter();
+    const logEvent = vi.fn();
+    attachPoolErrorHandler(pool, { logEvent });
+    pool.emit('error', Object.assign(new Error('secret detail'), { code: 'ECONNRESET', stack: 'trace' }));
+    expect(logEvent).toHaveBeenCalledTimes(1);
+    const input = logEvent.mock.calls[0][0];
+    expect(Object.keys(input).sort()).toEqual(['details', 'errorCode', 'errorType', 'event', 'level', 'source']);
+    expect(input).toStrictEqual({
+      event: 'database_pool_error', level: 'error', source: 'api.database',
+      errorType: 'DatabasePoolError', errorCode: 'ECONNRESET',
+      details: { reason: 'idle_client_lost' },
+    });
+  });
+
   it('never throws even if the logger itself fails', () => {
     const pool = new EventEmitter();
     attachPoolErrorHandler(pool, { logEvent: vi.fn(() => { throw new Error('log down'); }) });
