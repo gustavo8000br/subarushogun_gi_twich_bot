@@ -386,6 +386,82 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it.each([
+    ['manual_only', { queueMode: 'manual_only' }],
+    ['channel_points', { cost: 100 }],
+  ])('rejects an unknown call-message placeholder when creating a %s queue (FT-02 CH-2)', async (_mode, modeFields) => {
+    const h = await createHarness();
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues', headers: h.headers, payload: {
+      slug: 'nova', title: 'Nova', callMessage: '{user}, sua vez! {secret}', ...modeFields,
+    } });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ code: 'INVALID_CALL_MESSAGE_TEMPLATE' });
+    expect(h.repository.createManualQueue).not.toHaveBeenCalled();
+    expect(h.repository.createQueueWithRewardIntent).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it.each([
+    ['a non-string value', 42],
+    ['more than 350 characters', `{user} ${'a'.repeat(350)}`],
+    ['a control character', '{user},\nsua vez!'],
+  ])('rejects a call message with %s when creating a queue, like the settings route', async (_case, callMessage) => {
+    const h = await createHarness();
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues', headers: h.headers, payload: {
+      slug: 'nova', title: 'Nova', queueMode: 'manual_only', callMessage,
+    } });
+
+    expect(response.statusCode).toBe(400);
+    expect(h.repository.createManualQueue).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it.each([undefined, null])('keeps the default call message when creation omits it (%s)', async (callMessage) => {
+    const h = await createHarness();
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues', headers: h.headers, payload: {
+      slug: 'nova', title: 'Nova', queueMode: 'manual_only', callMessage,
+    } });
+
+    expect(response.statusCode).toBe(201);
+    expect(h.repository.createManualQueue).toHaveBeenCalledWith(expect.objectContaining({ callMessage: '{user}, sua vez!' }));
+    await h.app.close();
+  });
+
+  it('accepts every documented placeholder when creating a queue', async () => {
+    const h = await createHarness();
+    const callMessage = '{user}: {queue} #{position} {uid} {account}';
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues', headers: h.headers, payload: {
+      slug: 'nova', title: 'Nova', cost: 100, callMessage,
+    } });
+
+    expect(response.statusCode).toBe(201);
+    expect(h.repository.createQueueWithRewardIntent).toHaveBeenCalledWith(expect.objectContaining({ callMessage }));
+    await h.app.close();
+  });
+
+  it.each([0, 121, 1.5, '10'])('rejects an invalid call timeout (%s) when creating a Channel Points queue (QRA-02)', async (callTimeoutMin) => {
+    const h = await createHarness();
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues', headers: h.headers, payload: {
+      slug: 'nova', title: 'Nova', cost: 100, callTimeoutMin,
+    } });
+
+    expect(response.statusCode).toBe(400);
+    expect(h.repository.createQueueWithRewardIntent).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it.each([[null, null], [1, 1], [120, 120], [undefined, 10]])('accepts call timeout %s when creating a Channel Points queue', async (callTimeoutMin, expected) => {
+    const h = await createHarness();
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues', headers: h.headers, payload: {
+      slug: 'nova', title: 'Nova', cost: 100, callTimeoutMin,
+    } });
+
+    expect(response.statusCode).toBe(201);
+    expect(h.repository.createQueueWithRewardIntent).toHaveBeenCalledWith(expect.objectContaining({ callTimeoutMin: expected }));
+    await h.app.close();
+  });
+
   it('requests a durable switch to manual-only mode through a protected route', async () => {
     const h = await createHarness();
     h.repository.requestManualModeTransition = vi.fn(async () => ({ status: 'pending', queue: { ...h.repository.queue, queueMode: 'channel_points', modeTransitionStatus: 'pending_pause', isOpen: false, remoteSyncStatus: 'pending_close', rewardId: 'reward-1' } }));

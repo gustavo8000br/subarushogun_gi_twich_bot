@@ -56,6 +56,25 @@ function containsControlCharacters(value) {
   });
 }
 
+const DEFAULT_CALL_MESSAGE = '{user}, sua vez!';
+const CALL_MESSAGE_PLACEHOLDERS = new Set(['user', 'queue', 'position', 'uid', 'account']);
+const INVALID_CALL_MESSAGE_TEMPLATE_MESSAGE = 'O modelo de chamada contém um campo não permitido.';
+
+/** @param {unknown} value */
+function isValidCallMessageText(value) {
+  return typeof value === 'string' && value.length <= 350 && !containsControlCharacters(value);
+}
+
+/** @param {string} value */
+function hasUnknownCallMessagePlaceholder(value) {
+  return [...value.matchAll(/\{([^}]+)\}/g)].some(([, name]) => !CALL_MESSAGE_PLACEHOLDERS.has(name));
+}
+
+/** @param {unknown} value */
+function isValidCallTimeout(value) {
+  return value === null || (Number.isInteger(value) && Number(value) >= 1 && Number(value) <= 120);
+}
+
 function queueDto(queue, { operator = false } = {}) {
   return {
     id: queue.id, slug: queue.slug, aliases: queue.aliases ?? [], title: queue.title,
@@ -371,15 +390,20 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
         || (queueMode === 'manual_only' && body.cost !== undefined && body.cost !== null)
         || ['maxRedemptionsPerStream', 'maxRedemptionsPerUserPerStream', 'globalCooldownSeconds'].some((field) => body[field] !== undefined && body[field] !== null && (!Number.isInteger(body[field]) || body[field] < 1 || body[field] > 2147483647))
         || !['hidden', 'visible'].includes(body.uidMode ?? 'hidden')) return reply.code(400).send({ error: 'Revise o nome, o custo e o modo de UID da fila.' });
+      if (body.callTimeoutMin !== undefined && !isValidCallTimeout(body.callTimeoutMin)) {
+        return reply.code(400).send({ error: 'Revise o prazo de chamada da fila.' });
+      }
+      const callMessage = body.callMessage ?? DEFAULT_CALL_MESSAGE;
+      if (!isValidCallMessageText(callMessage)) return reply.code(400).send({ error: 'Revise as configurações da fila.' });
+      if (hasUnknownCallMessagePlaceholder(callMessage)) {
+        return reply.code(400).send({ code: 'INVALID_CALL_MESSAGE_TEMPLATE', error: INVALID_CALL_MESSAGE_TEMPLATE_MESSAGE });
+      }
       if (queueMode === 'manual_only') {
         if (body.maxRedemptionsPerStream != null || body.maxRedemptionsPerUserPerStream != null || body.globalCooldownSeconds != null || body.rewardPrompt != null) {
           return reply.code(400).send({ error: 'Filas manuais não aceitam configurações de recompensa Twitch.' });
         }
-        if (body.callTimeoutMin !== undefined && body.callTimeoutMin !== null && (!Number.isInteger(body.callTimeoutMin) || body.callTimeoutMin < 1 || body.callTimeoutMin > 120)) {
-          return reply.code(400).send({ error: 'Revise o prazo de chamada da fila.' });
-        }
         const queue = await repository.createManualQueue({
-          ...keys, title: body.title.trim(), callMessage: validCallMessage(body.callMessage),
+          ...keys, title: body.title.trim(), callMessage,
           callTimeoutMin: body.callTimeoutMin === undefined ? 10 : body.callTimeoutMin,
           uidMode: body.uidMode ?? 'hidden', actorId: localRequest.localSession?.id ?? null,
         });
@@ -390,7 +414,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
         maxRedemptionsPerStream: body.maxRedemptionsPerStream ?? null,
         maxRedemptionsPerUserPerStream: body.maxRedemptionsPerUserPerStream ?? null,
         globalCooldownSeconds: body.globalCooldownSeconds ?? null,
-        callMessage: validCallMessage(body.callMessage), callTimeoutMin: body.callTimeoutMin === undefined ? 10 : body.callTimeoutMin,
+        callMessage, callTimeoutMin: body.callTimeoutMin === undefined ? 10 : body.callTimeoutMin,
         uidMode: body.uidMode ?? 'hidden', isOpen: false, actorId: localRequest.localSession?.id ?? null,
       });
       return reply.code(201).send(queueDto(result.queue, { operator: true }));
@@ -848,7 +872,6 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
 
 const REMOTE_DELETE_PUBLIC_REASONS = new Set(Object.values(QUEUE_DELETION_REMOTE_DELETE_REASONS));
 function safePrompt(value) { return typeof value === 'string' ? value.trim().slice(0, 180) : ''; }
-function validCallMessage(value) { return typeof value === 'string' && value.length <= 350 ? value : '{user}, sua vez!'; }
 function userError(error) {
   if (error?.code === 'DUPLICATE_QUEUE_KEY') return 'Esse identificador ou apelido já está em uso.';
   if (error?.code === 'RESERVED_QUEUE_KEY') return 'Esse identificador é reservado para um comando.';
