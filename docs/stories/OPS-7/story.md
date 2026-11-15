@@ -2,6 +2,8 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-7/story.md)
 
+> **Historical record (2026-11-14, D-09).** This Done story describes the era in which it was delivered (vanilla panel / `apps/web`, contracts and version plans that were later replaced). The evidence below is unchanged and is not rewritten. Do not read it as the current design: see [`docs/current-state.md`](../../current-state.md), `AGENTS.md` and the current stories (OPS-15 and later).
+
 **Status:** Done — independent QA passed 10/10 on 2026-10-07.
 **Planning:** Spec Pipeline approved (critique 4.85/5); implementation TDD is underway.
 **Issue:** [#39](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/39)

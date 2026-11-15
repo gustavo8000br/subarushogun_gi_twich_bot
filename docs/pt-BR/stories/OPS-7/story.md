@@ -2,6 +2,8 @@
 
 [English](../../../stories/OPS-7/story.md)
 
+> **Registro histórico (2026-11-14, D-09).** Esta story Done descreve a época em que foi entregue (painel vanilla / `apps/web`, contratos e planos de versão que depois foram substituídos). A evidência abaixo está intacta e não foi reescrita. Não a leia como o desenho atual: veja [`docs/pt-BR/current-state.md`](../../current-state.md), o `AGENTS.md` e as stories atuais (OPS-15 em diante).
+
 **Estado:** Done — QA independente aprovado com 10/10 em 2026-10-07.
 **Planejamento:** Spec Pipeline aprovado (crítica 4,85/5); implementação TDD em andamento.
 **Issue:** [#39](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/39)

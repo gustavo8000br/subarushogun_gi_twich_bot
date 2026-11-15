@@ -2,6 +2,8 @@
 
 [English](../../../stories/FND-7/story.md)
 
+> **Registro histórico (2026-11-14, D-09).** Esta story Done descreve a época em que foi entregue (painel vanilla / `apps/web`, contratos e planos de versão que depois foram substituídos). A evidência abaixo está intacta e não foi reescrita. Não a leia como o desenho atual: veja [`docs/pt-BR/current-state.md`](../../current-state.md), o `AGENTS.md` e as stories atuais (OPS-15 em diante).
+
 **Complexidade:** COMPLEX (19/25; reavaliada em 2026-10-06)
 **Executor:** @dev
 **Quality gate:** @architect

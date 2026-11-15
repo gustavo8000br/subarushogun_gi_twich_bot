@@ -2,6 +2,8 @@
 
 [Português brasileiro](../../pt-BR/stories/FND-8/story.md)
 
+> **Historical record (2026-11-14, D-09).** This Done story describes the era in which it was delivered (vanilla panel / `apps/web`, contracts and version plans that were later replaced). The evidence below is unchanged and is not rewritten. Do not read it as the current design: see [`docs/current-state.md`](../../current-state.md), `AGENTS.md` and the current stories (OPS-15 and later).
+
 **Status:** Done and merged in PR #31 (`b6ccd0f`); issue #18 is closed. Product locale persistence, dynamic community catalogs, localized panel/chat/OBS/setup/lifecycle copy, native Windows lifecycle CI, strict plural/unsafe-markup validation, and regression coverage are implemented. Independent AIOX-QA passed 9.2/10. Windows lifecycle behavior passed the native `windows-latest` CI scenario; streamer/Twitch live writes and macOS host behavior remain unverified. This delivery also completes the Twitch status-label and precedence behavior tracked by OPS-2/issue #21.
 **Complexity:** COMPLEX (22/25).
 **GitHub issue:** [#18](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/18)

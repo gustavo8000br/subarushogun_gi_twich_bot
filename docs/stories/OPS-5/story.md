@@ -2,6 +2,8 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-5/story.md)
 
+> **Historical record (2026-11-14, D-09).** This Done story describes the era in which it was delivered (vanilla panel / `apps/web`, contracts and version plans that were later replaced). The evidence below is unchanged and is not rewritten. Do not read it as the current design: see [`docs/current-state.md`](../../current-state.md), `AGENTS.md` and the current stories (OPS-15 and later).
+
 **Status:** Done — owner-reported Windows beta startup regression corrected; native Windows runner passed and the formal QA gate passed 10/10. No physical host uninstall is claimed.
 **Planning source:** product owner request on 2026-10-06.
 **GitHub issue:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30), reopened on 2026-10-07 for the corrective increment after PR #36.
