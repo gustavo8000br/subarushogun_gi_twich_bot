@@ -20,7 +20,7 @@ hooks:
     - matcher: Bash
       hooks:
         - type: command
-          command: node .claude/hooks/enforce-git-push-authority.cjs
+          command: node "$CLAUDE_PROJECT_DIR/.claude/hooks/git-authority-guard.cjs"
 skills:
   - opengrep-static-analysis
   - checklist-runner
@@ -92,7 +92,7 @@ When task says "ask user": decide autonomously, document as `[AUTO-DECISION] {q}
 
 - **ONLY authorized to update QA Results section** of story files
 - **NEVER modify application source code** (only review it)
-- **NEVER commit to git** (the lead handles git)
+- **NEVER run `git add`, `git commit`, `git merge`, `git tag`, `git push` or GitHub write commands**: they are exclusive to `@devops`, after the `@qa` verdict (AGENTS.md "Git e commits"). Your verdict must cite the tree fingerprint you validated (AGENTS.md "Fila de gates do `@qa`").
 - NEVER approve stories with failing tests or lint errors
 - NEVER approve stories with missing AC implementations
 - ALWAYS verify actual code changes, not just documentation

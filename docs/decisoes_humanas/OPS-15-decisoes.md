@@ -14,6 +14,7 @@ Responda com os IDs e as letras das opções quando uma escolha for solicitada. 
 - [HD-01 — Caminho de runtime Windows](concluidas/HD-01-caminho-runtime-windows.md)
 - [Decisões de projeto registradas](concluidas/decisoes-de-projeto-registradas.md)
 - [HD-02 — Contrato de compatibilidade do overlay](concluidas/HD-02-contrato-compatibilidade-overlay.md) — **Superada** (2026-10-28, OW-09 e Onda 3 do cutover)
+- [HD-03 — Aceite nativo OBS/CEF](concluidas/HD-03-aceite-nativo-obs-cef.md) — **Arquivada** (2026-11-14, D-14: superada pelas execuções nativas do `@qa` no Linux; Windows/macOS seguem como itens do dono)
 
 ## Em revisão
 
@@ -21,4 +22,4 @@ Nenhuma decisão em revisão.
 
 ## Aguardando
 
-- [HD-03 — Aceite nativo OBS/CEF](aguardando/HD-03-aceite-nativo-obs-cef.md)
+Nenhuma decisão aguardando.

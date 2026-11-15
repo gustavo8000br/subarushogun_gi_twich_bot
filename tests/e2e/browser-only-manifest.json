@@ -1,0 +1,20 @@
+{
+  "description": "Single source of truth for the *-browser-only scripts run by the CI job 'browser-only' (.github/workflows/browser-only.yml). tests/unit/browser-only-ci-contract.test.js fails when a tests/e2e/*-browser-only.mjs file is in neither list.",
+  "covered": [
+    { "file": "overlay-browser-only.mjs", "npm": "test:e2e:overlay:browser-only" },
+    { "file": "overlay-parity-browser-only.mjs", "npm": "test:e2e:overlay:parity-browser-only" },
+    { "file": "panel-layout-browser-only.mjs", "npm": "test:e2e:panel-layout:browser-only" },
+    { "file": "queue-call-resend-browser-only.mjs", "npm": "test:e2e:queue-call-resend:browser-only" },
+    { "file": "queue-creation-accepted-browser-only.mjs", "npm": "test:e2e:queue-creation-accepted:browser-only" },
+    { "file": "queue-creation-uncertain-browser-only.mjs", "npm": "test:e2e:queue-creation:browser-only" },
+    { "file": "queue-lifecycle-browser-only.mjs", "npm": "test:e2e:queue-lifecycle:browser-only" },
+    { "file": "queue-manual-entry-outcomes-browser-only.mjs", "npm": "test:e2e:manual-entry-outcomes:browser-only" },
+    { "file": "queue-manual-entry-recovery-browser-only.mjs", "npm": "test:e2e:manual-entry:browser-only" },
+    { "file": "queue-outcome-browser-only.mjs", "npm": "test:e2e:queue-outcome:browser-only" },
+    { "file": "queue-reward-resolution-browser-only.mjs", "npm": "test:e2e:queue-reward-resolution:browser-only" },
+    { "file": "queue-reward-settings-recovery-browser-only.mjs", "npm": "test:e2e:queue-reward-settings:browser-only" },
+    { "file": "queue-settings-recovery-browser-only.mjs", "npm": "test:e2e:queue-settings:browser-only" },
+    { "file": "widget-link-dialog-browser-only.mjs", "npm": "test:e2e:widget-link:browser-only" }
+  ],
+  "excluded": []
+}

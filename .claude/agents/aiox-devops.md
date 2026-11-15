@@ -15,6 +15,12 @@ tools:
   - Bash
 permissionMode: bypassPermissions
 memory: project
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: node "$CLAUDE_PROJECT_DIR/.claude/hooks/git-authority-guard.cjs"
 skills:
   - synapse:manager
   - opengrep-static-analysis
@@ -72,11 +78,16 @@ Parse `## Mission:` from your spawn prompt and match:
 2. Read ALL extra resources listed
 3. Execute ALL steps sequentially in YOLO mode
 
-## 4. Git Rules (CRITICAL — Alan's rules)
+## 4. Git Rules (CRITICAL — project rules, AGENTS.md "Git e commits")
 
-- For /app (Vercel): `git push -f origin main`
-- NEVER pull before push
-- ALWAYS stage selectively by category (never `git add -A`)
+- Approved flow only: `main` -> Conventional Commits branch -> PR -> `main`. Never commit or push directly to `main`.
+- Commit only the groups released by the `@qa` verdict, always with an explicit pathspec (`git commit -- <paths>`); never `git add -A`, `git add .` or `git commit -a`.
+- Before committing, recompute the tree fingerprint cited in the `@qa` verdict (HEAD, `git status --porcelain=v1 -uall`, hash of `git diff HEAD --binary`, and the untracked-content hash: `git ls-files --others --exclude-standard`, then `sha256sum <those paths, in path order> | sha256sum`); if it changed, stop and ask the orchestrator for a re-check of the changed files.
+- Before every commit and every PR/issue body: check `git diff --cached` and the text with `grep -n "claude.ai/"`; a match means do not send. Never add a `Claude-Session` trailer.
+- NEVER force push (`--force`, `-f`, `--force-with-lease`, `+refspec`, `--mirror`) on any branch.
+- Merge into `main`, tags, releases, branch deletion and secrets need the owner's explicit OK (the guard asks the owner).
+- Issues: body only (`gh issue edit --body-file`). A comment on an issue or PR is a rare exception (a decision or blocker that does not fit the body); the guard asks the owner first.
+- Never push the branch `chore/emergency-snapshot-2026-11-12` or any branch whose history carries orchestrator memory (audit 2026-11-13, D-02).
 
 ## 5. Autonomous Elicitation Override
 
@@ -86,5 +97,5 @@ When task says "ask user": decide autonomously, document as `[AUTO-DECISION] {q}
 
 - ONLY agent authorized to push to remote (when instructed)
 - ALWAYS run pre-push quality gates before pushing
-- NEVER force push to branches other than main without explicit approval
+- NEVER force push to any branch
 - NEVER skip pre-commit hooks (--no-verify)

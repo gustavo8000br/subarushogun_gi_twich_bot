@@ -4,7 +4,7 @@
 
 ## Scope and method
 
-Read-only audit by `@architect` (Aria) on branch `feat/ops-15-next-panel`. Reviewed `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md`, `.claude/rules/*.md`, `.github/copilot-instructions.md`, `.github/agents/*.md`, `docs/CONTRIBUTING.md`, `docs/VERSIONING.md`, selected AIOX tasks/agent definitions, `.aiox-core/core-config.yaml`, the personal project memory (`~/.claude/projects/-home-gustavo-projects-subarushogun-gi-twich-bot/memory/`), `.claude/agent-memory/**`, CI workflows, and the rule-pinning tests `tests/unit/documentation-contract.test.js` and `tests/unit/aiox-static-review.test.js`. No tests, Docker or web research were run (internal audit; golden rule). Line numbers refer to the working tree at audit time. The superseded static-review provider is not named here because a test blocks its name in every project file.
+Read-only audit by `@architect` (Aria) on branch `feat/ops-15-next-panel`. Reviewed `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md`, `.claude/rules/*.md`, `.github/copilot-instructions.md`, `.github/agents/*.md`, `docs/CONTRIBUTING.md`, `docs/VERSIONING.md`, selected AIOX tasks/agent definitions, `.aiox-core/core-config.yaml`, the personal project memory (`~/.claude/projects/<memory-folder-slug>/memory/`), `.claude/agent-memory/**`, CI workflows, and the rule-pinning tests `tests/unit/documentation-contract.test.js` and `tests/unit/aiox-static-review.test.js`. No tests, Docker or web research were run (internal audit; golden rule). Line numbers refer to the working tree at audit time. The superseded static-review provider is not named here because a test blocks its name in every project file.
 
 ## Findings
 

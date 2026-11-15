@@ -55,7 +55,7 @@ Garantias de PostgreSQL exigem testes de integração em um PostgreSQL isolado c
 
 ### Scripts de navegador (`*-browser-only`)
 
-Catorze scripts executam o painel ou o overlay no Chrome local contra o preview Next em execução, com toda resposta da API interceptada por fixtures. Eles nunca escrevem no PostgreSQL, na Twitch, no Docker nem no OBS, e **não** são evidência de OBS/CEF nativo, axe nem tecnologia assistiva. Inicie `npm run dev` e rode um deles, por exemplo:
+Catorze scripts executam o painel ou o overlay no Chrome local (o CI os roda por `npm run test:e2e:browser-only:ci`, veja [CI-CD](CI-CD.md)) contra o preview Next em execução, com toda resposta da API interceptada por fixtures. Eles nunca escrevem no PostgreSQL, na Twitch, no Docker nem no OBS, e **não** são evidência de OBS/CEF nativo, axe nem tecnologia assistiva. Inicie `npm run dev` e rode um deles, por exemplo:
 
 ```sh
 APP_ORIGIN=https://localhost:3000 npm run test:e2e:overlay:browser-only

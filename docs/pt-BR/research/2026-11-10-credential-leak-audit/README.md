@@ -4,7 +4,7 @@
 
 - Autor: `@analyst` (Atlas). Data: 2026-11-10. Branch na auditoria: `main` (`dcfe3da`).
 - Rótulos: **VERIFICADO** (lido nesta sessão ou medido no repositório), **PARCIAL** (fonte secundária ou incompleta), **NÃO VERIFICADO** (inferência).
-- Escopo: pesquisa e auditoria somente leitura. Nenhum arquivo versionado foi alterado, nada foi commitado, nada foi escrito no GitHub. Nenhum valor de segredo aparece nesta nota; os achados aparecem só como arquivo, linha ou número, padrão e máscara (`****`). O `~/passwd.txt` **não** foi lido.
+- Escopo: pesquisa e auditoria somente leitura. Nenhum arquivo versionado foi alterado, nada foi commitado, nada foi escrito no GitHub. Nenhum valor de segredo aparece nesta nota; os achados aparecem só como arquivo, linha ou número, padrão e máscara (`****`). O um arquivo de senha em texto puro na pasta pessoal do dono **não** foi lido.
 - Pedido do dono (2026-11-10): ler o artigo do CISO Advisor e dizer se as credenciais dele foram empurradas para o repositório.
 
 ## 1. Veredito
@@ -57,7 +57,7 @@ Padrões (linhas adicionadas de todas as revisões): tokens do GitHub (`ghp_`, `
 | Atribuições de token/senha | 6 arquivos | Todas são código lendo variável de ambiente ou fixture literal (`process.env.OBS_WS_PASSWORD`, `temporary-app-token`, `options.password`) |
 | Entropia | 18 arquivos | URLs do Prisma/stories, nomes de migration, o vetor de teste de autenticação do OBS WebSocket (entradas `secret`, `salt`, `challenge`), texto de referência de skill. Nenhuma credencial |
 | URL de sessão | 0 URLs reais | O `AGENTS.md` linha 146 e 24 docs citam a regra ou a palavra `Claude-Session`, nunca um link real de sessão do Claude. 0 mensagens de commit trazem o trailer ou URL. A issue #104 só nomeia o trailer em texto |
-| Dados pessoais (baixa) | veja abaixo | Caminhos `/home/gustavo` ou `/media/gustavo` em 19 arquivos; `~/passwd.txt` citado só como caminho em `docs/session-handoff.md` (en e pt-BR, linhas 98 e 109) e `docs/stories/OPS-15/qa-gate-2026-10-23.md`; sem conteúdo |
+| Dados pessoais (baixa) | veja abaixo | Caminhos `/home/<user>` ou `/media/<user>` em 19 arquivos; um arquivo de senha em texto puro na pasta pessoal do dono citado só como caminho em `docs/session-handoff.md` (en e pt-BR, linhas 98 e 109) e `docs/stories/OPS-15/qa-gate-2026-10-23.md`; sem conteúdo |
 | GitHub | 55 PRs, 63 issues, corpo da release, 3 artefatos | 0 segredos. Os artefatos (`.bat`, `.command`, `.sh`) não têm `client_secret`, token nem atribuição de senha |
 | Arquivos sensíveis versionados | 0 | `git ls-files` não mostra `.env`, `.local/`, `settings.local.json`, `.pem`, `.key`, `.dump`, `.sqlite`, `.db`. Só os dois `.env*.example`; as chaves com nome de segredo não têm valor |
 | Arquivos sensíveis apagados no histórico | 0 | `git log --diff-filter=D` não mostra nenhum |
@@ -65,9 +65,9 @@ Padrões (linhas adicionadas de todas as revisões): tokens do GitHub (`ghp_`, `
 
 Observações de baixa gravidade (não são vazamento de credencial):
 
-1. Dois endereços de autor aparecem nos metadados dos commits: um domínio de e-mail pessoal (público por natureza no git) e um endereço com o nome da máquina em 2 commits (`@OptiPlex-790.local`). Trate como público; não é segredo.
+1. Dois endereços de autor aparecem nos metadados dos commits: um domínio de e-mail pessoal (público por natureza no git) e um endereço com o nome da máquina em 2 commits (`@<machine-hostname>.local`). Trate como público; não é segredo.
 2. O `.gitignore` cobre `.env`, `.env.local`, `.env.*.local`, `runtime-secrets/`, `data/`, `backups/`, `*.dump`, `*.sql`, `*.key`, `*.pem`, `.claude/settings.local.json`, `.local/`, mas **não** `.env.production`, `.env.dev`, `.env.staging`, `secrets.json`, `credentials.json`. Nada assim existe hoje; é uma lacuna de prevenção (veja as recomendações).
-3. O caminho `~/passwd.txt` é citado nos docs. Revela só que existe um arquivo de senha na home do dono, fora do repositório. Considere reescrever como "um arquivo local de credenciais".
+3. O caminho um arquivo de senha em texto puro na pasta pessoal do dono é citado nos docs. Revela só que existe um arquivo de senha na home do dono, fora do repositório. Considere reescrever como "um arquivo local de credenciais".
 
 ## 5. Recomendações
 

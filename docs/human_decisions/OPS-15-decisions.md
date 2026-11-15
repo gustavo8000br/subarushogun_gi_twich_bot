@@ -14,6 +14,7 @@ Reply with decision IDs and option letters when a choice is requested. A choice 
 - [HD-01 — Windows runtime path](done/HD-01-windows-runtime-path.md)
 - [Recorded project decisions](done/recorded-project-decisions.md)
 - [HD-02 — Overlay compatibility contract](done/HD-02-overlay-compatibility-contract.md) — **Superseded** (2026-10-28, OW-09 and cutover Wave 3)
+- [HD-03 — Native OBS/CEF acceptance](done/HD-03-native-obs-cef-acceptance.md) — **Archived** (2026-11-14, D-14: superseded by the `@qa` native Linux runs; Windows/macOS stay owner items)
 
 ## In review
 
@@ -21,4 +22,4 @@ No decision is in review.
 
 ## Awaiting
 
-- [HD-03 — Native OBS/CEF acceptance](awaiting/HD-03-native-obs-cef-acceptance.md)
+No decision is awaiting.

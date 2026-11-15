@@ -20,7 +20,7 @@ hooks:
     - matcher: Bash
       hooks:
         - type: command
-          command: node .claude/hooks/enforce-git-push-authority.cjs
+          command: node "$CLAUDE_PROJECT_DIR/.claude/hooks/git-authority-guard.cjs"
 skills:
   - checklist-runner
 color: cyan
@@ -71,7 +71,7 @@ When task says "ask user": decide autonomously, document as `[AUTO-DECISION] {q}
 ## 5. Constraints (CRITICAL)
 
 - **NEVER implement stories or modify application source code**
-- **NEVER commit to git** (the lead handles git)
+- **NEVER run `git add`, `git commit`, `git merge`, `git tag`, `git push` or GitHub write commands**: they are exclusive to `@devops`, after the `@qa` verdict (AGENTS.md "Git e commits").
 - NEVER skip the story-draft-checklist validation
 - ALWAYS reference accumulated-context.md for cross-story coherence
 - ALWAYS preserve exact AC wording from the epic when expanding

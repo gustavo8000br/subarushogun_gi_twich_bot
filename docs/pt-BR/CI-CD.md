@@ -10,12 +10,22 @@ Este guia explica como se relacionam as verificações das pull requests, a publ
 | --- | --- | --- | --- |
 | `ci.yml` | Pull request destinada à `main`; execução manual | Chama `quality-gates.yml` e apresenta um único check agregado estável | Nenhuma |
 | `quality-gates.yml` | Reutilizável por `workflow_call` | Lint e typecheck de API/infra/web, lint/typecheck compartilhados, smoke test do instalador em Linux/macOS/Windows, Vitest com PostgreSQL/Compose, actionlint, OpenGrep/versão/localização, validação Compose e build da imagem de produção | Nenhuma |
+| `browser-only.yml` | Pull request destinada à `main`; execução manual | Roda os scripts `tests/e2e/*-browser-only.mjs` (guiados por fixtures) no Chrome contra um servidor de desenvolvimento Next descartável (D-13). Fora do agregado obrigatório de quality-gates enquanto não for bloqueante | Nenhuma (`contents: read`) |
 | `main-cd.yml` | Push para `main` | Executa novamente os gates compartilhados para o commit mesclado e publica imagens Linux validadas | `packages: write` somente no job publicador |
-| `release.yml` | Push de tag de versão `v*` | Valida tag/origem e CD bem-sucedido da main, gera instaladores nativos e publica notas bilíngues | `contents: write` somente no job de release |
+| `release.yml` | Somente `workflow_dispatch` manual, a partir da `main`, pelo proprietário do repositório (sem gatilho de tag ou push) | Valida tag/origem e CD bem-sucedido da main, gera instaladores nativos e publica notas bilíngues | `contents: write` somente no job de release |
 
 Pull requests nunca executam o publicador GHCR. O ruleset ativo `main-pr-and-ci` exige o check estável do workflow reutilizável; não exige o job de publicação exclusivo da main. O GitHub nomeia checks reutilizáveis como `<job chamador> / <job reutilizável>`, então o contexto obrigatório é conferido numa execução real de PR.
 
 O workflow compartilhado termina com um job agregado que exige sucesso em todas as validações. Falha, cancelamento ou job constituinte ignorado fazem o agregado falhar. O linter de workflows está fixado em actionlint `1.7.12`; a integração ShellCheck fica desativada porque este gate valida os workflows do GitHub Actions. A supressão estreita para o aviso de schema `queue` é necessária porque essa versão do linter ainda não reconhece a sintaxe `concurrency.queue: max` suportada pelo GitHub. O OpenGrep `1.30.0` é instalado a partir de um commit de origem fixado em um `HOME` isolado e vazio; a assinatura do binário da release é verificada com Cosign `2.5.0`, e o instalador fixado do Cosign confere o checksum do binário baixado. Os arquivos de smoke test dos instaladores são temporários e não são enviados como artefatos na CI comum; somente o workflow de release envia os instaladores testados `.bat`, `.command` e `.sh`.
+
+## Job de scripts browser-only (D-13)
+
+O `browser-only.yml` roda cada script listado em `covered` no `tests/e2e/browser-only-manifest.json` por meio de `npm run test:e2e:browser-only:ci` (`tests/e2e/run-browser-scripts.mjs`). O driver cria um certificado TLS de loopback em `.local/browser-only-ci/`, sobe o `next dev` em HTTPS, executa cada script com `APP_ORIGIN` apontando para ele, imprime um resumo PASS/FAIL e sai com código diferente de zero se algum falhar. Toda resposta de API é uma fixture interceptada, então o job não usa PostgreSQL, Docker, Twitch, OBS, volumes nem segredos. O job instala o Chrome com `npx playwright-core install --with-deps chrome`.
+
+- **Implantação:** o workflow é separado do `quality-gates.yml` e não é exigido pelo ruleset (primeiro não bloqueante). Torná-lo bloqueante depois significa incluí-lo no agregado e no ruleset, com o OK do proprietário.
+- **Exclusões:** a lista `excluded` do manifesto guarda scripts que não rodam em runner hospedado (OBS/CEF nativo, Twitch real), cada um com motivo escrito. Hoje está vazia porque todos os scripts usam fixtures. Esses scripts não são evidência de OBS/CEF nativo, axe nem tecnologia assistiva.
+- **Contrato:** `tests/unit/browser-only-ci-contract.test.js` falha quando um novo `tests/e2e/*-browser-only.mjs` não está em nenhuma das listas, quando um script npm não roda o seu arquivo ou quando o workflow perde gatilhos, permissões somente leitura ou Actions fixadas.
+- **Rodar localmente:** `npm run test:e2e:browser-only:ci` (todos) ou `node tests/e2e/run-browser-scripts.mjs --only panel-layout` (um). Exige o Chrome local (`CHROME_CHANNEL` escolhe o navegador). Em uma worktree git cujo `node_modules` é symlink, o Turbopack falha; use `BROWSER_ONLY_NEXT_ARGS=--webpack`.
 
 ## Tags e segurança da publicação
 

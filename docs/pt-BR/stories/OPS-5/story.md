@@ -2,6 +2,8 @@
 
 [English](../../../stories/OPS-5/story.md)
 
+> **Registro histórico (2026-11-14, D-09).** Esta story Done descreve a época em que foi entregue (painel vanilla / `apps/web`, contratos e planos de versão que depois foram substituídos). A evidência abaixo está intacta e não foi reescrita. Não a leia como o desenho atual: veja [`docs/pt-BR/current-state.md`](../../current-state.md), o `AGENTS.md` e as stories atuais (OPS-15 em diante).
+
 **Status:** Done — regressão de inicialização beta no Windows reportada pelo proprietário corrigida; runner nativo Windows passou e o gate QA formal aprovou com 10/10. Não alegamos desinstalação física no host.
 **Origem do planejamento:** solicitação do proprietário em 2026-10-06.
 **Issue GitHub:** [#30](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/30), reaberta em 2026-10-07 para o incremento corretivo após a PR #36.

@@ -2,6 +2,8 @@
 
 [English](../../../stories/FND-8/story.md)
 
+> **Registro histórico (2026-11-14, D-09).** Esta story Done descreve a época em que foi entregue (painel vanilla / `apps/web`, contratos e planos de versão que depois foram substituídos). A evidência abaixo está intacta e não foi reescrita. Não a leia como o desenho atual: veja [`docs/pt-BR/current-state.md`](../../current-state.md), o `AGENTS.md` e as stories atuais (OPS-15 em diante).
+
 **Status:** Done e mesclada na PR #31 (`b6ccd0f`); issue #18 fechada. Persistência de locale, catálogos comunitários dinâmicos, textos localizados do painel/chat/OBS/configuração/ciclo de vida, CI nativo Windows, validação estrita de plurais/marcação insegura e regressões estão implementados. QA independente AIOX-QA aprovou com 9,2/10. Ciclo de vida Windows passou no cenário nativo `windows-latest`; escritas reais na Twitch e comportamento nativo macOS seguem sem validação. A entrega também concluiu os rótulos de status Twitch e comportamento de precedência acompanhados pela OPS-2/issue #21.
 **Complexidade:** COMPLEX (22/25).
 **Issue GitHub:** [#18](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/18)

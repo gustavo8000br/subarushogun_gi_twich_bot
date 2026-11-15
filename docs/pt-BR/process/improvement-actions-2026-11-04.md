@@ -67,7 +67,7 @@ O "teto só com agentes" das ideias 8 e 9 é calculado com a régua, não chutad
 
 ## 4. Ordem recomendada
 
-Um agente por vez enquanto a cota semanal está apertada (proprietário, 2026-10-29); um conjunto de escrita por vez em cada arquivo (os workflows são compartilhados pelas ideias 5, 1 e 10; `.opengrep/rules.yml` pelas ideias 4 e 3).
+Um agente por vez enquanto a cota semanal está apertada (proprietário, 2026-10-29) [regra substituída em 2026-11-14: execução por faixas, ver `AGENTS.md`]; um conjunto de escrita por vez em cada arquivo (os workflows são compartilhados pelas ideias 5, 1 e 10; `.opengrep/rules.yml` pelas ideias 4 e 3).
 
 | Passo | Ideia | Por que aqui | Ordem no quadro |
 |---|---|---|---|

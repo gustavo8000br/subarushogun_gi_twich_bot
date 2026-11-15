@@ -2,6 +2,8 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-11/story.md)
 
+> **Historical record (2026-11-14, D-09).** This Done story describes the era in which it was delivered (vanilla panel / `apps/web`, contracts and version plans that were later replaced). The evidence below is unchanged and is not rewritten. Do not read it as the current design: see [`docs/current-state.md`](../../current-state.md), `AGENTS.md` and the current stories (OPS-15 and later).
+
 **Status:** Done — independent QA PASS (10/10); AC 1–6 quality gate complete. No real screen-reader session is claimed.
 **Priority:** High
 **Executor:** `$aiox-dev`; `$aiox-data-engineer` coordinates any persistence, migration, index, transaction, and PostgreSQL test design.

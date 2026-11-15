@@ -1,209 +1,122 @@
-# Claude Code Hooks
+# Hooks do Claude Code neste repositório (estado real, 2026-11-14)
 
-Sistema de governança automática para regras do CLAUDE.md.
+Este arquivo descreve **só o que existe e o que está ligado** no SubaruShogun
+Twitch Bot. Os hooks Python do template do framework não existem aqui e não
+são documentados.
+Regras normativas: `AGENTS.md` ("Git e commits", "Guarda-corpo versionado",
+"Limite dos hooks", "`permissionMode: bypassPermissions` mantido").
 
-## Arquitetura
+## Arquivos nesta pasta
 
-```
-UserPromptSubmit Hooks
-└── (all prompts)  → synapse-engine.cjs
+| Arquivo | Papel | Ligado onde |
+|---|---|---|
+| `git-authority-guard.cjs` | Autoridade de Git/GitHub e escrita dos arquivos de governança | `.claude/settings.json` (`PreToolUse`, matcher `Bash\|Write\|Edit\|MultiEdit\|NotebookEdit`) e no frontmatter de todos os agentes em `.claude/agents/` |
+| `read-only-bash-guard.cjs` | Allowlist de `Bash` somente leitura | Frontmatter de `aiox-search` (`--role=search`), `aiox-grep` (`--role=grep`) e `aiox-audit` (`--role=audit`) |
+| `lib/shell-words.cjs` | Tokenizador de comandos usado pelos dois hooks acima | Biblioteca, sem registro próprio |
+| `enforce-git-push-authority.cjs` | Cópia do template do framework | **Não está ligado** aqui; o frontmatter dos agentes não o referencia (um teste de contrato garante) |
+| `synapse-engine.cjs`, `synapse-wrapper.cjs`, `precompact-wrapper.cjs` | Hooks do template do framework (contexto SYNAPSE e digest de compactação) | **Não estão registrados** em `.claude/settings.json` |
 
-PreToolUse Hooks
-├── Read          → read-protection.py
-├── Write|Edit    → enforce-architecture-first.py
-│                 → write-path-validation.py
-│                 → mind-clone-governance.py
-│                 → code-intel-pretool.cjs
-└── Bash          → sql-governance.py
-                  → slug-validation.py
-                  → enforce-git-push-authority.cjs
+`.claude/settings.json` registra um único hook: o `git-authority-guard.cjs`
+em `PreToolUse`. Além disso mantém `permissions.deny` para força, `reset
+--hard`, `clean -f`, `filter-branch`, `gh repo delete`, `gh release delete` e
+leituras de `.env*`, `runtime-secrets/`, `backups/`, `data/`, `*.pem`, `*.key`.
 
-PreCompact Hooks
-└── (manual+auto)  → precompact-session-digest.cjs
-```
+## `git-authority-guard.cjs`: classes e decisões
 
-## Hooks Disponíveis
+Identidade: o tipo do subagente que o harness grava na entrada do hook
+(`agent_type`); sem ele, a sessão principal, que vale como `@devops` somente se
+`AIOX_ACTIVE_AGENT` estiver no ambiente do processo do Claude Code. Prefixo
+digitado no comando é ignorado de propósito.
 
-### 1. read-protection.py
-**Trigger:** `Read`
-**Comportamento:** BLOQUEIA (exit 2)
+**Negar por padrão para quem não é o `@devops`:** só passa o que está na
+allowlist de leitura de Git/GitHub.
 
-Impede leitura parcial (`limit`/`offset`) em arquivos protegidos:
-- `.claude/CLAUDE.md`
-- `.claude/rules/*.md`
-- `.aiox-core/development/agents/*.md`
-- `supabase/docs/SCHEMA.md`
-- `package.json`, `tsconfig.json`
-- `app/components/ui/icons/icon-map.ts`
+| Classe | O que cobre | `aiox-devops` | Sessão principal | Outros subagentes |
+|---|---|---|---|---|
+| A | Publicação remota (push, escrita de PR/issue, `gh api` de escrita) | permitido | pergunta | nega |
+| B | Escrita no histórico/estado local (add, commit, stash, fetch, ...) | permitido | pergunta | nega |
+| C | Reservado ao dono (merge em `main`, tag, release, apagar, comentário raro, alvo de push montado em tempo de execução) | pergunta | pergunta | nega |
+| D | Destruição ou contorno (force, `reset --hard`, `--no-verify` e abreviações, alias, `GIT_CONFIG_*`, `--config-env`, config que executa programa) | nega | nega | nega |
+| E | Verbo montado em tempo de execução | nega | nega | nega |
+| U | Fora da allowlist de leitura (verbo `git`/grupo `gh` desconhecido, `gh api graphql` de consulta) | permitido | pergunta | nega |
+| G | Escrita nos arquivos de governança pelo shell (`sed -i`, `tee`, redirecionamento, interpretador) | pergunta | pergunta | nega |
 
-### 2. enforce-architecture-first.py
-**Trigger:** `Write|Edit`
-**Comportamento:** BLOQUEIA (exit 2)
+Escrita com as ferramentas `Write`/`Edit` em `.claude/settings.json`,
+`.claude/settings.local.json`, `.claude/hooks/**` e `.claude/agents/**` sempre
+pergunta ao dono.
 
-Exige documentação aprovada antes de criar código em paths protegidos:
-- `supabase/functions/` → requer doc em `docs/architecture/` ou `docs/approved-plans/`
-- `supabase/migrations/` → requer doc ou permite edição de arquivo existente
+## `read-only-bash-guard.cjs`
 
-### 3. write-path-validation.py
-**Trigger:** `Write|Edit`
-**Comportamento:** AVISA (exit 0 + stderr)
+Falha fechada: o que não está na allowlist é negado. Além dos comandos de
+leitura, nega caminhos fora do repositório (absolutos existentes, `~`, `..`,
+links simbólicos), nomes de credencial (`.npmrc`, `.netrc`, `.ssh`, `.config/gh`,
+`.git/config`, ...), variáveis (`$VAR`), redirecionamento de entrada e saída, e
+opções que executam ou escrevem (`rg --pre`, `sort --compress-program`,
+`ugrep --filter`, `file -C`, `git diff --textconv`, ...). O `aiox-audit` pode
+rodar somente `npm run <script fixo>`; não há `npx` nem vitest.
 
-Avisa quando documentos parecem estar no path errado:
-- Sessions/handoffs → `docs/sessions/YYYY-MM/`
-- Architecture → `docs/architecture/`
-- Guides → `docs/guides/`
+## Hook local antigo do dono (`.claude/settings.local.json`)
 
-### 4. sql-governance.py
-**Trigger:** `Bash`
-**Comportamento:** BLOQUEIA (exit 2)
+O arquivo `.claude/settings.local.json` é ignorado pelo Git e pertence ao dono.
+Hoje ele liga a cópia de template
+`.aiox-core/infrastructure/templates/grok-hooks/enforce-git-push-authority.cjs`
+em `PreToolUse` (matcher `Bash|run_terminal_command`) e o
+`synapse-wrapper.cjs` do mesmo diretório em `UserPromptSubmit`.
 
-Intercepta comandos SQL perigosos:
-- `CREATE TABLE/VIEW/FUNCTION/TRIGGER`
-- `ALTER TABLE`
-- `DROP TABLE/VIEW/FUNCTION`
-- `CREATE TABLE AS SELECT` (backup proibido)
+O que o hook antigo aceita e recusa:
 
-**Exceções permitidas:**
-- `supabase migration` (CLI oficial)
-- `pg_dump` (backup/export)
+- Casa expressões regulares com o **texto** do comando: recusa qualquer comando
+  cujo texto contenha `git push`, `gh pr create`, `gh pr merge`, escrita de PR
+  pela API ou mutação GraphQL de PR, mesmo dentro de `echo`, heredoc ou `python3`
+  que só edita um arquivo.
+- Libera quando o agente ativo resolve para `devops` por variável de ambiente,
+  por prefixo `AIOX_ACTIVE_AGENT=devops` no próprio comando ou por arquivos-ponte
+  (`.aiox/active-agent*`). A identidade é cooperativa: qualquer processo do
+  espaço de trabalho a define.
+- Roda **junto** com o `git-authority-guard.cjs`; vale o mais restritivo.
 
-### 5. slug-validation.py
-**Trigger:** `Bash`
-**Comportamento:** BLOQUEIA (exit 2)
+Retirar ou trocar esse hook é decisão e passo do dono; nenhum agente edita o
+`settings.local.json`. Enquanto ele existir, escreva textos que contenham esses
+verbos com `Write`/`Edit`, nunca por heredoc.
 
-Valida formato snake_case em slugs:
-- Pattern: `^[a-z0-9]+(_[a-z0-9]+)*$`
-- ✅ `jose_carlos_amorim`
-- ❌ `jose-carlos-amorim` (hyphen)
-- ❌ `JoseAmorim` (camelCase)
+## Limite dos hooks
 
-### 6. mind-clone-governance.py
-**Trigger:** `Write|Edit`
-**Comportamento:** BLOQUEIA (exit 2)
+Os hooks leem o texto do comando. Processos filhos (`npm run`, `npx`, `node`,
+interpretadores, `vitest`, `eslint`) executam código que o hook não enxerga.
+Credenciais, proteção de branch e o gate do `@qa` são a barreira real.
+Resíduos aceitos (auditoria 2026-11-14): o corpo de um heredoc é lido linha a
+linha como se fosse comando; `Read`, `Grep` e `Glob` dos agentes de leitura não
+passam pela allowlist de `Bash`; e `gh api graphql` somente leitura cai na
+classe U.
 
-Impede criação de mind clones sem DNA extraído previamente.
+## `bypassPermissions` e a pendência V-HOOK
 
-**O que é bloqueado:**
-- Criar novo arquivo `squads/*/agents/*.md` que pareça ser um mind clone
-- Mind clones = agents baseados em pessoas reais (não funcionais)
+Os dez agentes AIOX de escrita usam `permissionMode: bypassPermissions`; os
+três agentes de leitura usam `plan`. Presume-se que hooks `PreToolUse` também
+rodam sob `bypassPermissions`, mas isso **não foi comprovado nesta instalação**:
+é a verificação V-HOOK, do `@qa`, em sessão real. Estado: mantido, não
+comprovado.
 
-**O que NÃO é bloqueado:**
-- Editar arquivos existentes (permite updates)
-- Agents funcionais (identificados por sufixo):
-  - `-chief`, `-orchestrator`, `-chair`
-  - `-validator`, `-calculator`, `-generator`, `-extractor`, `-analyzer`
-  - `-architect`, `-mapper`, `-designer`, `-engineer`
-  - `tools-*`, `process-*`, `workflow-*`
+## Divergência de configuração
 
-**Locais de DNA verificados:**
-- `squads/{pack}/data/minds/{agent_id}_dna.yaml`
-- `squads/{pack}/data/minds/{agent_id}_dna.md`
-- `squads/{pack}/data/{agent_id}-dna.yaml`
-- `outputs/minds/{agent_id}/`
+`.aiox-core/core-config.yaml` tem `boundary.frameworkProtection: false` neste
+projeto. As regras de negação L1/L2 do framework descritas em `.claude/CLAUDE.md`
+**não estão ativas**; a proteção vem dos hooks acima, de `permissions.deny` e
+do `@qa`.
 
-**Solução quando bloqueado:**
-1. Execute o pipeline de extração de DNA: `/squad-creator` → `*collect-sources` → `*extract-voice-dna` → `*extract-thinking-dna`
-2. OU se é agent funcional, renomeie com sufixo apropriado
+## Entrada e saída dos hooks
 
-### 7. enforce-git-push-authority.cjs
-**Trigger:** `Bash`
-**Comportamento:** BLOQUEIA via `permissionDecision: deny`
+Entrada em JSON pelo stdin (`tool_name`, `tool_input`, `cwd`, `agent_type` quando
+a chamada vem de subagente). Saída: `hookSpecificOutput.permissionDecision` com
+`allow`, `ask` ou `deny`. Código de saída 0 libera ou segue a decisão; 2
+bloqueia e mostra o stderr. Mensagens nunca trazem caminhos, usuário ou host.
 
-Impede operações remotas que são exclusivas do `@devops`:
-- `git push`
-- `gh pr create`
-- `gh pr merge`
+## Testes
 
-**Exceções permitidas:**
-- Sessões/comandos com `AIOX_ACTIVE_AGENT=devops`
-- Alias compatíveis: `github-devops`, `aiox-devops`
+- `tests/unit/git-authority-guard.test.js`: classificação, decisão por papel,
+  processo do hook e o guarda de leitura.
+- `tests/unit/claude-governance-contract.test.js`: agentes, fiação, privacidade
+  e este contrato.
 
-## Exit Codes
-
-| Code | Significado |
-|------|-------------|
-| 0 | Permitido (operação continua) |
-| 2 | Bloqueado (operação cancelada, mostra stderr) |
-| Outro | Erro não-bloqueante |
-
-## Input Format
-
-Hooks recebem JSON via stdin:
-
-```json
-{
-  "session_id": "abc123",
-  "hook_event_name": "PreToolUse",
-  "tool_name": "Read",
-  "tool_input": {
-    "file_path": "/path/to/file",
-    "limit": 100
-  },
-  "cwd": "/path/to/project"
-}
-```
-
-## Debugging
-
-Para testar um hook manualmente:
-
-```bash
-echo '{"tool_name": "Read", "tool_input": {"file_path": ".claude/CLAUDE.md", "limit": 100}}' | python3 .claude/hooks/read-protection.py
-echo $?  # Deve retornar 2 (bloqueado)
-```
-
-## Configuração
-
-Hooks são registrados em `.claude/settings.json` (framework, commitado) ou `.claude/settings.local.json` (overrides locais).
-
-**IMPORTANTE:** Claude Code NÃO usa filesystem discovery. Cada hook DEVE ser registrado explicitamente com o evento correto.
-
-### Registro de Hooks JS (.cjs)
-
-| Hook | Evento | Matcher | Descrição |
-|------|--------|---------|-----------|
-| `synapse-engine.cjs` | `UserPromptSubmit` | — | SYNAPSE context engine |
-| `code-intel-pretool.cjs` | `PreToolUse` | `Write\|Edit` | Code intelligence injection |
-| `enforce-git-push-authority.cjs` | `PreToolUse` | `Bash` | Agent Authority para operações remotas |
-| `precompact-session-digest.cjs` | `PreCompact` | — | Session digest capture |
-
-### Exemplo de Configuração
-
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/synapse-engine.cjs\"", "timeout": 10 }]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/code-intel-pretool.cjs\"", "timeout": 10 }]
-      }
-    ],
-    "PreCompact": [
-      {
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/precompact-session-digest.cjs\"", "timeout": 10 }]
-      }
-    ]
-  }
-}
-```
-
-O installer (`ide-config-generator.js`) usa `HOOK_EVENT_MAP` para registrar automaticamente cada hook no evento correto durante `npx aiox-core install`.
-
-## Manutenção
-
-Para adicionar novo hook:
-
-1. Criar arquivo `.claude/hooks/novo-hook.cjs` (deve ler stdin JSON, mesmo pattern do synapse-engine.cjs)
-2. Adicionar mapeamento em `HOOK_EVENT_MAP` no `ide-config-generator.js`
-3. Documentar neste README
-4. Testar com casos reais
-
----
-
-*Criado: 2026-01-24*
-*Arquitetura: docs/architecture/claude-md-governance-system.md*
+Para experimentar um comando sem executá-lo, use um script de teste ou o
+Vitest; não rode o hook por heredoc com texto de publicação (ver acima).

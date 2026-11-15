@@ -55,7 +55,7 @@ PostgreSQL guarantees need integration tests on an isolated PostgreSQL with real
 
 ### Browser scripts (`*-browser-only`)
 
-Fourteen scripts run the panel or overlay in local Chrome against the running Next preview, with every API response intercepted by fixtures. They never write to PostgreSQL, Twitch, Docker or OBS, and they are **not** native OBS/CEF, axe or assistive-technology evidence. Start `npm run dev`, then run one, for example:
+Fourteen scripts run the panel or overlay in local Chrome (CI runs them via `npm run test:e2e:browser-only:ci`, see [CI-CD](CI-CD.md)) against the running Next preview, with every API response intercepted by fixtures. They never write to PostgreSQL, Twitch, Docker or OBS, and they are **not** native OBS/CEF, axe or assistive-technology evidence. Start `npm run dev`, then run one, for example:
 
 ```sh
 APP_ORIGIN=https://localhost:3000 npm run test:e2e:overlay:browser-only

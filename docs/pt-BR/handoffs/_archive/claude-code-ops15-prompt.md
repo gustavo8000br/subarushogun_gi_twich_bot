@@ -1,5 +1,7 @@
 # Prompt para Claude Code — continuidade da OPS-15
 
+> **ARQUIVADO em 2026-11-14 (D-07) - registro histórico, NÃO siga as instruções abaixo.** Superado por trabalho posterior; o cutover foi concluído, a branch `legacy` não existe mais e as regras mudaram. Estado atual: [`current-state.md`](../../current-state.md). Resumo deste e dos demais handoffs arquivados: [`RUN-LOG.md`](RUN-LOG.md).
+
 Copie o texto abaixo para iniciar a próxima sessão do Claude Code:
 
 ```text

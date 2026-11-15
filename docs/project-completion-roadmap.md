@@ -49,7 +49,7 @@ Dependency order inside the scope: OPS-24 first slices, then OPS-23; the rest is
 
 ## 5. Risks
 
-- **Quota and serial work:** one agent at a time; one `@qa` gate per bundle. Plan by bundle, not by slice.
+- **Quota and lanes:** execution by lanes (up to 3 read lanes and 1 write lane; a second write lane only with disjoint write sets, no hot file and its own worktree when both touch code; exclusive resources one at a time; "multi-agents off" forces serial execution). One `@qa` gate per bundle. Plan by bundle, not by slice. (Replaces the earlier "one agent at a time" rule, 2026-11-14.)
 - **Unproven platforms:** Windows, macOS and production Twitch cancellation have no evidence yet; claims stay limited to what ran.
 - **Dense history:** long evidence lives in stories and the [archive](archive/stories-history.md); keep this page and the [story index](stories.md) short.
 - **Test stability:** flaky Chromium cases are tracked as TS items (see 0.4.0-beta).

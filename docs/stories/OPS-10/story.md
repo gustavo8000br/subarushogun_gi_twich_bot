@@ -2,6 +2,8 @@
 
 [Português brasileiro](../../pt-BR/stories/OPS-10/story.md)
 
+> **Historical record (2026-11-14, D-09).** This Done story describes the era in which it was delivered (vanilla panel / `apps/web`, contracts and version plans that were later replaced). The evidence below is unchanged and is not rewritten. Do not read it as the current design: see [`docs/current-state.md`](../../current-state.md), `AGENTS.md` and the current stories (OPS-15 and later).
+
 **Status:** Done
 **Executor:** `$aiox-devops` for workflow/ruleset operations; `$aiox-dev` for contract tests and implementation.
 **Quality gate:** `$aiox-architect` architecture review and independent `$aiox-qa` validation.

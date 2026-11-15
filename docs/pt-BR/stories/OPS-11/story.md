@@ -2,6 +2,8 @@
 
 [English](../../../stories/OPS-11/story.md)
 
+> **Registro histórico (2026-11-14, D-09).** Esta story Done descreve a época em que foi entregue (painel vanilla / `apps/web`, contratos e planos de versão que depois foram substituídos). A evidência abaixo está intacta e não foi reescrita. Não a leia como o desenho atual: veja [`docs/pt-BR/current-state.md`](../../current-state.md), o `AGENTS.md` e as stories atuais (OPS-15 em diante).
+
 **Status:** Done — QA independente PASS (10/10); gate de qualidade AC 1–6 concluído. Não se alega sessão real com leitor de tela.
 **Prioridade:** Alta
 **Executor:** `$aiox-dev`; `$aiox-data-engineer` coordena decisões de persistência, migration, índices, transações e testes PostgreSQL.

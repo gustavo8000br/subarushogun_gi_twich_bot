@@ -1,5 +1,7 @@
 # Next.js Overlay Continuation Handoff
 
+> **ARCHIVED 2026-11-14 (D-07) - historical record, do NOT follow the instructions below.** Superseded by later work; the cutover is complete, the `legacy` branch no longer exists and the rules changed. Current state: [`current-state.md`](../../current-state.md). Summary of this and the other archived handoffs: [`RUN-LOG.md`](RUN-LOG.md).
+
 ### Latest continuation — QRA-04 reward-settings runtime (2026-10-20)
 
 The real Fastify route against disposable PostgreSQL returns the exact 202 DTO with `operationStatus: pending`, persists version-2 `pending_update`, previous settings in the idempotent `reward.update` outbox and panel actor audit. A stale expected version returns exact `STALE_QUEUE_VERSION` and does not duplicate the task; the protected list read matches the accepted DTO. Focused QRA fixture passed 6/6; full serial suite passed 153 files/1,463 tests. All nine browser-only E2Es passed, overlay parity in 1,041 ms; lint/typecheck/localization/version/denylist/diff/OpenGrep passed. No Twitch worker/adapter or remote mutation/confirmation. Keep the active preview and data; no bump/commit/push/cutover/vanilla removal.

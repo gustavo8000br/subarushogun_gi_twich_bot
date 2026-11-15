@@ -2,6 +2,18 @@
 
 You are working with Synkra AIOX, an AI-Orchestrated System for Full Stack Development.
 
+> **Nota do projeto (SubaruShogun Twitch Bot): precedência do `AGENTS.md`.** Este arquivo é o texto do
+> framework; onde ele divergir de `AGENTS.md` e de `CLAUDE.md` da raiz, vale o `AGENTS.md`. Em especial:
+> criação e merge de PR, push, tag e release são **só do `@devops`** (merge, tag e release ainda pedem o
+> OK do proprietário); a bateria completa de testes antes do push é **só do `@qa`** (o `@dev` testa durante
+> a implementação); `@dev` e demais agentes não rodam `git add`, `git commit`, `git merge` nem `git push`.
+> As trilhas de "Git & GitHub Integration" e "Testing Requirements" abaixo são genéricas do framework.
+>
+> **Divergência de configuração:** `boundary.frameworkProtection` está `false` em
+> `.aiox-core/core-config.yaml` neste projeto, então as deny rules das camadas L1/L2 descritas na seção
+> "Framework vs Project Boundary" **não estão ativas**; a proteção real vem dos hooks de
+> `.claude/hooks/` (ver o README ali), de `permissions.deny` em `.claude/settings.json` e do `@qa`.
+
 <!-- AIOX-MANAGED-START: core-framework -->
 ## Core Framework Understanding
 
@@ -87,7 +99,7 @@ When an agent is active:
 - Use TypeScript/JavaScript best practices
 
 ### Testing Requirements
-- Run all tests before marking tasks complete
+- Run the tests of the touched area before marking tasks complete (`@dev`); the full battery runs once, with `@qa`, at the end of the story (AGENTS.md)
 - Ensure linting passes: `npm run lint`
 - Verify type checking: `npm run typecheck`
 - Add tests for new features
@@ -125,7 +137,7 @@ O AIOX usa um modelo de 4 camadas (L1-L4) para separar artefatos do framework e 
 | **L3** Project Config | Mutable (exceptions) | `.aiox-core/data/`, `agents/*/MEMORY.md`, `core-config.yaml` | Allow rules permitem |
 | **L4** Project Runtime | ALWAYS modify | `docs/stories/`, `packages/`, `squads/`, `tests/` | Trabalho do projeto |
 
-**Toggle:** `core-config.yaml` → `boundary.frameworkProtection: true/false` controla se deny rules são ativas (default: true para projetos, false para contribuidores do framework).
+**Toggle:** `core-config.yaml` → `boundary.frameworkProtection: true/false` controla se deny rules são ativas (neste projeto o valor é `false`, ver a nota no topo; o padrão `true` do framework não vale aqui).
 
 > **Referência formal:** `.claude/settings.json` (deny/allow rules), `.claude/rules/agent-authority.md`
 <!-- AIOX-MANAGED-END: framework-boundary -->
@@ -240,7 +252,7 @@ try {
 
 ### GitHub CLI Usage
 - Ensure authenticated: `gh auth status`
-- Use for PR creation: `gh pr create`
+- PR creation, push and merge are exclusive to `@devops` (AGENTS.md); other agents only read, e.g. `gh pr view` and `gh pr list`
 - Check org access: `gh api user/memberships`
 
 <!-- AIOX-MANAGED-START: aiox-patterns -->
@@ -293,7 +305,7 @@ await story.save();
 
 ### Development Commands
 - `npm run dev` - Start development
-- `npm test` - Run tests
+- `npm test` - Run tests (full battery: `@qa` only; `@dev` runs the touched area with `npx vitest run <file>`)
 - `npm run lint` - Check code style
 - `npm run build` - Build project
 <!-- AIOX-MANAGED-END: common-commands -->

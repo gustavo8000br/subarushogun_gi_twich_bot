@@ -36,3 +36,6 @@ Thumbs.db
 .claude/settings.local.json
 .aiox/install-log.txt
 .local/
+.claude/worktrees/
+.aiox/active-agent
+.aiox/active-agent.json

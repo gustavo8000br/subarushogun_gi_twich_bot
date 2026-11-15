@@ -30,7 +30,7 @@ Lean SDC skill. **Task is source of truth.**
 5. Per task: implement → tests → mark `[x]` only when gates pass → update File List.
 6. Allowed story edits only: checkboxes, File List, Dev Agent Record, Change Log, Status to InProgress / ready-for-review.
 7. **Forbidden story edits:** title, description, AC, scope (PO-owned).
-8. Local commits only. Push → `@devops`.
+8. No commits (project override, AGENTS.md "Git e commits"): save checkpoints as patches under `.local/`; `@devops` commits after the `@qa` verdict, with an explicit pathspec.
 
 ## Quality gates before done
 

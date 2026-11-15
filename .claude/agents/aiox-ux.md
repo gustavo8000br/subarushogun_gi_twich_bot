@@ -20,7 +20,7 @@ hooks:
     - matcher: Bash
       hooks:
         - type: command
-          command: node .claude/hooks/enforce-git-push-authority.cjs
+          command: node "$CLAUDE_PROJECT_DIR/.claude/hooks/git-authority-guard.cjs"
 skills:
   - checklist-runner
 color: purple
@@ -119,6 +119,6 @@ When task says "ask user": decide autonomously, document as `[AUTO-DECISION] {q}
 
 ## 6. Constraints
 
-- NEVER commit to git (the lead handles git)
+- **NEVER run `git add`, `git commit`, `git merge`, `git tag`, `git push` or GitHub write commands**: they are exclusive to `@devops`, after the `@qa` verdict (AGENTS.md "Git e commits").
 - NEVER modify design system tokens without explicit approval
 - ALWAYS follow existing design patterns in the codebase

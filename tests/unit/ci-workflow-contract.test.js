@@ -123,15 +123,14 @@ describe('GitHub Actions application CI contract', () => {
     expect(main.jobs['beta-windows-installer'].needs).toContain('publish-image');
   });
 
-  it('creates the release tag on demand and auto-publishes rc/stable after main merges', () => {
+  it('creates the release tag on demand and publishes only on manual dispatch in every stage', () => {
     const release = parseWorkflow(releaseWorkflow);
-    expect(Object.keys(release.on)).toEqual(['push', 'workflow_dispatch']);
-    expect(release.on.push.branches).toEqual(['main']);
+    expect(Object.keys(release.on)).toEqual(['workflow_dispatch']);
     expect(release.on.workflow_dispatch).toEqual({});
     expect(release.concurrency['cancel-in-progress']).toBe(false);
     expect(release.concurrency.queue).toBe('max');
     expect(release.permissions).toEqual({ contents: 'read' });
-    expect(release.jobs['prepare-release'].if).toContain("github.event_name == 'push'");
+    expect(release.jobs['prepare-release'].if).not.toContain('push');
     expect(release.jobs['prepare-release'].if).toContain("github.actor == 'gustavo8000br'");
     expect(release.jobs['prepare-release'].if).toContain("github.triggering_actor == 'gustavo8000br'");
     expect(release.jobs['prepare-release'].if).toContain("github.ref == 'refs/heads/main'");
@@ -148,9 +147,10 @@ describe('GitHub Actions application CI contract', () => {
     expect(releaseWorkflow).toContain('--image-tag "$RELEASE_IMAGE_REF"');
     expect(releaseWorkflow).toContain('actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333');
     expect(releaseWorkflow).toContain('gh release create');
-    expect(releaseWorkflow).toContain('--prerelease');
+    expect(releaseWorkflow).toContain('alpha|beta|rc) release_args+=(--prerelease --latest=false)');
+    expect(releaseWorkflow).toContain('stable) release_args+=(--latest)');
     expect(releaseWorkflow).toContain('release_tag="v${base_version}-${short_sha}-${stage}"');
-    expect(releaseWorkflow).toContain('"$stage" != "rc" && "$stage" != "stable"');
+    expect(releaseWorkflow).not.toContain('GITHUB_EVENT_NAME');
     expect(releaseWorkflow).toContain('docker pull --platform linux/amd64 "$IMAGE"');
     expect(releaseWorkflow).toContain('Create the version tag from the verified main commit');
     expect(releaseWorkflow).toContain('git tag -a "$RELEASE_TAG" "$SOURCE_SHA"');

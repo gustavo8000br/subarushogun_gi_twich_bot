@@ -67,7 +67,7 @@ The "ceiling with agents only" for ideas 8 and 9 is computed with the ruler, not
 
 ## 4. Recommended order
 
-One agent at a time while the weekly quota is tight (owner, 2026-10-29); one write set at a time per file (workflows are shared by ideas 5, 1 and 10; `.opengrep/rules.yml` by ideas 4 and 3).
+One agent at a time while the weekly quota is tight (owner, 2026-10-29) [rule superseded on 2026-11-14: execution by lanes, see `AGENTS.md`]; one write set at a time per file (workflows are shared by ideas 5, 1 and 10; `.opengrep/rules.yml` by ideas 4 and 3).
 
 | Step | Idea | Why here | Board order |
 |---|---|---|---|

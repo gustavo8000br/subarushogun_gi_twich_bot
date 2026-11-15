@@ -1,5 +1,7 @@
 # Retomada de agentes — 2026-10-29 (interrupção por cota em 90%)
 
+> **ARQUIVADO em 2026-11-14 (D-07) - registro histórico, NÃO siga as instruções abaixo.** Superado por trabalho posterior; o cutover foi concluído, a branch `legacy` não existe mais e as regras mudaram. Estado atual: [`current-state.md`](../../current-state.md). Resumo deste e dos demais handoffs arquivados: [`RUN-LOG.md`](RUN-LOG.md).
+
 O dono avisou 90% da cota de sessão (limite seguro 85%). O agente em execução foi parado; nada mais rodava. **Primeira coisa na próxima sessão: redisparar o agente abaixo com o brief, antes de qualquer trabalho novo.**
 
 ## Estado do repositório na parada
