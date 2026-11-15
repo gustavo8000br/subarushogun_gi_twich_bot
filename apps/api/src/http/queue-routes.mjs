@@ -442,13 +442,13 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     }
     const settings = Object.fromEntries(keys.filter((key) => key !== 'expectedVersion').map((key) => [key, body[key]]));
     if (!Object.keys(settings).length
-      || ('callTimeoutMin' in settings && settings.callTimeoutMin !== null && (!Number.isInteger(settings.callTimeoutMin) || settings.callTimeoutMin < 1 || settings.callTimeoutMin > 120))
-      || ('callMessage' in settings && (typeof settings.callMessage !== 'string' || settings.callMessage.length > 350 || containsControlCharacters(settings.callMessage)))
+      || ('callTimeoutMin' in settings && !isValidCallTimeout(settings.callTimeoutMin))
+      || ('callMessage' in settings && !isValidCallMessageText(settings.callMessage))
       || Object.entries(settings).some(([key, value]) => !['callTimeoutMin', 'callMessage'].includes(key) && typeof value !== 'boolean')) {
       return reply.code(400).send({ code: 'INVALID_QUEUE_SETTINGS', error: 'Revise as configurações da fila.' });
     }
-    if (typeof settings.callMessage === 'string' && [...settings.callMessage.matchAll(/\{([^}]+)\}/g)].some(([, name]) => !['user', 'queue', 'position', 'uid', 'account'].includes(name))) {
-      return reply.code(400).send({ code: 'INVALID_CALL_MESSAGE_TEMPLATE', error: 'O modelo de chamada contém um campo não permitido.' });
+    if (typeof settings.callMessage === 'string' && hasUnknownCallMessagePlaceholder(settings.callMessage)) {
+      return reply.code(400).send({ code: 'INVALID_CALL_MESSAGE_TEMPLATE', error: INVALID_CALL_MESSAGE_TEMPLATE_MESSAGE });
     }
     try {
       const queue = await repository.updateLocalQueueSettings({ queueId: localRequest.params.queueId, expectedVersion: body.expectedVersion, settings, actorId: localRequest.localSession?.id ?? null, origin: 'panel' });
