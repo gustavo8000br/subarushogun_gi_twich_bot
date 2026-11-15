@@ -91,6 +91,7 @@ Use `!<queue> atender [user]` to start service. Starting service stops the absen
 | Viewer leaves after being called or while in service | Controlled by **Request a refund if a called viewer leaves**; default is off. |
 | A called viewer does not begin service in time | Controlled by **Request a refund after a no-show**; default is off. |
 | Clear a queue or delete it | Requests cancellation for all active reward entries, regardless of the three options above. |
+| A viewer who already has an active entry in the same queue redeems the reward again (`duplicate_active_entry`) | No second entry is created. The bot automatically requests cancellation of the new redemption; the points return after Twitch confirms. The existing entry is not changed. |
 | Manually added entry | No Twitch points are involved. |
 
 Starting service alone does not consume points; completion does. An externally confirmed cancellation or completion is recorded without sending a second request. If Twitch's final state cannot be confirmed or conflicts with the requested result, the panel keeps the issue visible for review. Removing a reward is delayed until outstanding cancellations are confirmed because deleting a reward too early can affect its pending redemptions.

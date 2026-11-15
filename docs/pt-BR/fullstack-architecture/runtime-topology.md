@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-  Browser[Navegador local da operadora] -->|https://127.0.0.1:3000| Next[servidor Next.js apps/frontend :3000]
+  Browser[Navegador local da operadora] -->|https://localhost:3000| Next[servidor Next.js apps/frontend :3000]
   OBS[OBS Browser Source] -->|/overlay?ref=...#token| Next
   Next -->|rewrites /api, /overlay/api, /health, /callback| API[apps/api Fastify + domínio, loopback :3109]
   API --> DB[(PostgreSQL / Prisma)]
