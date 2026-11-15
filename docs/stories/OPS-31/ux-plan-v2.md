@@ -1,0 +1,382 @@
+# OPS-31 — UX plan v2: settlement policy, live sessions and pending decisions
+
+[Português (pt-BR)](../../pt-BR/stories/OPS-31/ux-plan-v2.md)
+
+**Author:** `@ux-design-expert` (Uma) — **Date:** 2026-11-15 — **Mode:** YOLO (owner absent; decisions marked `[AUTO-DECISION]`).
+**Extends:** [ux-plan.md](ux-plan.md) (v1, 2026-11-11). v1 stays valid for everything not repeated here (decision dialog, batch dialog, own list, reauthorization, widget). Where v2 contradicts v1, v2 wins and says so.
+**Design:** [architect-design-v2.md](architect-design-v2.md) v2.7 (sections 3.2, 3.8, 3.10, 3.11, 3.12, 3.13, 3.15, 3.16, 18) — **Owner decisions:** [decisions-for-owner.md](decisions-for-owner.md) (O-1..O-10, Q-1..Q-4, Merge, LIVE-1, DB-5). **Research:** [EventSub stream.online](../../research/2026-11-15-eventsub-stream-online/README.md) (summary only; no new research).
+**Evidence class:** **static review** of the design, the decisions and the panel catalogs (`apps/shared/localization/catalogs/panel/en.tsv`, `chat/en.tsv`) and of the `operations` feature (`apps/frontend/features/operations/`). **No browser, no screenshot, no assistive technology was run.** See section 7.
+**Revision 2026-11-15 (plan v2.1, design v2.6):** adds the two cap controls (`reentry_cap_hold`, `reentry_cap_counts_manual`) with the effective budget from the API, their disabled and read-only states, the warning for `at_n` with N = 1, the line for a limit loosened after a hold, the sixth cause `batch_deferred` and the `{budget}` in the cap text (decisions U-16..U-19; sections 2.1, 2.2, 3, 4.1, 4.2). The batch dialog stays with no option pre-checked (U-6, owner decided). Static review only.
+**Revision 2026-11-15 (plan v2.2, design v2.7, two owner decisions):** (1) saving `at_n` with a limit of 1 now asks for a **confirmation dialog** (new decision U-20; section 2.1 item 10; keys in 4.1; accessibility in section 3); the permanent note of U-19a stays and now announces the confirmation; this closes open point 14 and G-B13, and replaces the architect's recommendation of no dialog (design 3.16 E). (2) The policy block is **hidden** before P7 and shown only when the API says `enforcementActive` (U-1, U-18); the plain-text read-only look and its key are removed. Static review only.
+
+## 1. Decisions of this plan
+
+| # | Question | Decision | Reason |
+|---|---|---|---|
+| U-1 | Where do S1..S5 live | One `<fieldset>` "What happens to the points" in the queue settings form, after the "Points of the Channel" block of v1 2.1, split in four sub-fieldsets (closing an entry; conclusion; chat clear; repeated refunds). **Hidden (not rendered, no placeholder, no text) until P7 ships**: the panel renders the block only when `GET` returns `enforcementActive: true`; `false`, absent or a failed read renders nothing. The API refusal before P7 stays as the guard for direct calls (v1 2.1 item 7). Owner decided 2026-11-15; design 3.16 D | Same form, same save, same feedback region. One sub-fieldset per decision point matches the design (one decision point each) |
+| U-2 | Words for the five values | `wait` = "Wait for my decision (default)"; `refund` = "Return the points"; `fulfill` = "Complete the redemption (points are kept)"; `legacy` = "Keep today's behavior". The mark on an entry is "Waiting for your decision" (the streamer's words, `awaiting_choice`) | The streamer reads consequences, not state names. The label of each value says what happens to the points |
+| U-3 | Safe default made visible | `wait` is pre-selected on new queues and tagged "(default)"; each value has its consequence as visible helper text, never a tooltip. Under `wait`: "Nothing is sent to Twitch until you decide." | Money rule of the design: the product never refunds or fulfills in silence |
+| U-4 | `legacy` | Shown only on queues that exist at the upgrade and still hold `legacy`; labelled "Keep today's behavior" with its consequence; **once another value is saved, `legacy` disappears for that queue** and the helper says so before saving. Not selectable again `[AUTO-DECISION, design left it to UX]` | Returning to an inert mode would hide the money behavior. One-way keeps the screen honest |
+| U-5 | S2..S4 when members cannot exist | The sub-fieldsets for S2, S3, S4 stay visible but **disabled with the reason as text**: "Used when you choose 'Return the points when service ends' and at least one group." (v1 2.1 item 5 pattern, `aria-describedby`) | The streamer learns the setting exists; a hidden setting cannot be found |
+| U-6 | Policy change and rows already waiting | A change never acts on rows already waiting. After saving, the feedback says how many keep waiting and offers "Decide for the {count} waiting…" which opens the **batch dialog of v1 2.3**. The option that matches the new setting is **tagged "Matches your setting" but NOT pre-checked** `[AUTO-DECISION]` | The design proposes a preselected option; both refund and complete are final money actions, so one extra explicit click is kept (v1 rule: no silent choice). The architect/PO may overrule, but the cost of the click is small |
+| U-7 | Conversion of S1 when enabling `refund_on_end` on a `legacy` queue | A confirmation `<dialog>` before saving: "Turning this on changes 'Keep today's behavior' to 'Wait for my decision' for this queue." Buttons "Save and change" / "Back" | The design says the conversion is audited and shown in the dialog |
+| U-8 | Merge window setting | A **channel-level** setting in Settings, section "Live detection" (not per queue): whole minutes, 1 to 60, default 10, labelled by consequence. The range 1-60 is the design's proposal; this plan agrees (below 1 is meaningless, above 60 would merge separate shows) | The design stores it channel-wide (`live_session_policy`) |
+| U-9 | Live state visibility | A text status "Live / Offline / Unknown" in the Settings "Live detection" section, and the same short text under the repeated-refund limit field. On the Queues page, **only when the state is offline or unknown and at least one queue has a limit**, one small line. No live region (not time critical) | Visible where it explains a rule, silent elsewhere. Announcing every change would be noise |
+| U-10 | LIV-1 in the UI | A permanent sentence in "Live detection": "Ending a live never clears or changes your queues. They stay as they are until you reset them." The Queues page repeats a short form when the state is offline: "Your queues stay as they are." | Removes the fear that an offline stream cleared the queue (owner rule) |
+| U-11 | Count of pending decisions (O-7) | Counts `awaiting_choice` + `check_group` (both need a decision). Badge on the queue card (v1 2.5, link to the section) and a count in the navigation item "Queues" with a visually hidden full text. No timer, no "old" marker | O-7 A: no time limit in OPS-31 |
+| U-12 | `settled_external` (O-6) | Mark "Settled on Twitch" on the entry and a **collapsed history** under Pending decisions ("Settled on Twitch", latest 20 `[AUTO-DECISION, the number is a proposal]`). **No chat message.** A decision attempt on it answers "Already settled on Twitch. Nothing was sent." | O-6 A. The streamer must know the app stopped touching it |
+| U-13 | Cap hold | A refund held by the limit appears in Pending decisions as "Waiting for your decision" with the cause line "Held back by the repeat-refund limit", the count **and the effective budget** (v2.1), in the window actually used; the decision dialog is the same and **never blocked** | Design 3.10 / 3.15 / DB-5: waits, never turns into fulfill, the streamer can refund by hand |
+| U-14 | Manual resolution of `conflict` and `failed` (O-1) | Reuse the Operations action "Record manual resolution" and its confirmation, with a specific confirmation text per state. For `conflict` the confirmation and the row show the remote status last read. Result text unchanged ("does not confirm the result with Twitch") | O-1 A (`remoteConfirmed:false`). Same pattern as `unknown`, so no new learning |
+| U-15 | Chat | One neutral points notice for waiting: `chat.notice.points.waiting_decision`. The chat is never told: live start/end, `check_group`, `settled_external`, the cap. The chat `limpar` reply gains the pending count | O-6, v1 rule "check group sends no message", and the cap is internal |
+| U-16 | The two cap controls (G-B6, AC 39) (v2.1) | Two controls in the "Limit on repeated refunds" sub-fieldset, below the limit and hours fields. **Where it holds** (`reentry_cap_hold`): two radios, "Let N refunds through, hold the next one (default)" = `after_n` and "Hold the refund number N already" = `at_n`, each with a worked example for 3. **Counting my own refunds** (`reentry_cap_counts_manual`): one checkbox "Refunds I choose myself also count toward the limit (default)". Internal names never appear. Both are saved with the same Save and the same policy revision | The streamer picks how the live behaves (owner). Radios with an example avoid ordinals ("3rd", "4th") in the label; one checkbox fits one boolean |
+| U-17 | Effective budget (v2.1) | One visible line under the hold radios shows the number from the API field `effectiveBudget`: "Saved setting: {budget} automatic refunds per person go through in each live; the next one waits for your decision." (`.one/.other`), and for 0 "Saved setting: no automatic refund goes through; every one waits for your decision." It is shown only when `effectiveBudget` is a number (cap on); `null` or missing shows nothing, never 0. **The client never computes the budget**; while the form has unsaved edits the line keeps the "Saved setting:" prefix so it is not read as a preview | Design 3.15 B/E: the API returns the budget so no client recomputes it; the prefix keeps the line honest during editing |
+| U-18 | Disabled and read-only states (v2.1) | **Cap off** (S5 radio "No limit"): both controls are disabled (fieldset `disabled`) with the visible reason "Used when you choose a limit above." and keep their stored values. **Before P7**: the API refuses a change (`SETTLEMENT_MODE_UNAVAILABLE`, reason `policy_not_active`), so the block is **hidden** before P7 (U-1; owner decision, design 3.16 D). There is no read-only look, no "Not available yet" text and no key for it. A `deleting` or archived queue follows the settings form's existing behavior for those queues (v1); this plan adds no new text for it | Design 3.15 E: inert while the cap is `NULL`, refused before P7, refused on `deleting`/archived. A greyed control alone would hide the reason, so the reason is text |
+| U-19 | `at_n` with N = 1, loosened limit and the sixth cause (v2.1) | (a) **N = 1 with `at_n`** gives budget 0, a legitimate "no automatic refund" choice: a permanent visible note under the hold radios says so plainly and, when that is the current choice, adds "This is your current choice."; it never blocks saving and is not a live region; **saving it asks for a confirmation (U-20)** and the note says so. (b) **Loosened after a hold:** a held row whose count is now below the budget keeps its normal cause line and gets a second line "The limit was changed after this was held. Counted now: {count}. Allowed automatically: {budget}. This one keeps waiting until you decide." The words "over the limit" and "above the limit" are never used for a pending row. (c) **`batch_deferred`**: cause line "You chose to decide this one by one when you cleared or deleted the queue. Nothing was sent to Twitch." | Design 3.15 B, F, G, H. The product never turns a held row into an action by itself, so the line says why it still waits |
+| U-20 | Confirmation before saving `at_n` with a limit of 1 (v2.2; owner decision, closes G-B13) | A modal confirmation dialog (`<dialog>` opened with `showModal()`, `role="alertdialog"`) opens when the person presses Save and the form would **save** "Hold the refund number N already" together with a limit of exactly 1. Title "Hold every automatic refund?"; body states that no automatic refund goes through, every one waits in Pending decisions, nothing is sent to Twitch until the person decides, and that the setting can be changed at any time. Two buttons: "Back" (cancel; **initial focus**) and "Save this choice" (confirm). It does **not** open when: the limit is above 1; the choice is "Let N refunds through" (`after_n`); "No limit" is chosen (the controls are disabled and the limit is not saved); the form values equal what is already saved (`hold` is `at_n` and the limit is 1 in both, so a save that only changes other fields does not ask again); or the block is not rendered (before P7). Esc, the Back button and closing it any other way cancel: nothing is sent, the edits stay as typed, focus returns to Save. Confirm sends the same request the Save would have sent. The dialog is raised on Save only, never while typing, and its text has no typed number, so it never needs to change after opening | The owner wants a deliberate act for a choice that changes how every automatic refund behaves. Safe side kept: focus starts on Back so a stray Enter does not confirm, and cancel loses nothing. The trigger is a comparison of two literal form values (`at_n`, 1), not a budget computation, so it respects the rule that the client never computes the budget (U-17). Replaces the architect's recommendation of no dialog (design 3.16 E), which was explicitly left to product and UX |
+
+## 2. Screens and flows
+
+### 2.1 Settlement policy block (queue settings)
+
+Placed after the v1 "Points of the Channel" fieldset. Intro paragraph (visible, `aria-describedby` of the outer fieldset): "Choose what the app does in each case. Waiting for your decision is the safe choice: nothing is sent to Twitch until you decide."
+
+Each sub-fieldset is a radio group; each radio has a label and a helper line, both always visible.
+
+| Sub-fieldset (legend) | Setting | Radios (order) |
+|---|---|---|
+| "When an entry closes and no refund switch applies" (helper: "For example, a no-show while the no-show refund switch is off.") | S1 | Wait (default) · Return the points · Complete the redemption (points are kept) · Keep today's behavior (only legacy queues) |
+| "When service is concluded without having started" (people in a chosen group) | S2 | Wait (default) · Return the points (counts as the end of the service) · Complete the redemption (points are kept) |
+| "When a moderator concludes by chat" (people in a chosen group) | S3 | Wait (default) · Return the points |
+| "When the queue is cleared by chat" (people in a chosen group) | S4 | Wait (default) · Return the points · Complete the redemption (points are kept) |
+| "Limit on repeated refunds" | S5 | Radio "No limit (default)" / radio "Limit to [number] automatic refunds per person in each live" |
+| (same sub-fieldset) "Where the limit holds a refund" (v2.1) | S5a | Let N refunds through, hold the next one (default) · Hold the refund number N already |
+| (same sub-fieldset) | S5b | Checkbox "Refunds I choose myself also count toward the limit (default)" |
+
+Rules:
+
+1. **Helpers state the consequence.** Wait: "The redemption stays open on Twitch and appears in Pending decisions. Nothing is sent until you choose. Twitch may close an open redemption by itself; if it does, we show it as settled on Twitch." Refund: "The app asks Twitch to return the points, without asking you." Complete: "The app marks the redemption as completed, without asking you. The points are not returned." Legacy: "Nothing is requested when the entry closes; an open redemption can still be returned when the queue is deleted. After you choose another option, this one cannot be selected again."
+2. **Disagreement rule** (one visible line under S2 and S3): "If two settings disagree, the app waits for your decision."
+3. **S5.** The number field (1 to 20) is enabled only when the second radio is chosen and has its own label and error. Under it, three lines of visible text: "Counted per live. A new live that starts within {minutes} minutes of the previous one counts as the same live (change this in Settings, Live detection)."; "When the limit applies, the refund waits for your decision. You can still refund by hand."; "If the live is unknown, the app counts the last [hours] hours instead." with the hours field (1 to 72, default 12) next to it, label "Hours counted when the live is unknown". The current live state (2.3) is shown under the radios in one line. (v2.1) The words "over the limit" are not used, because with `at_n` the refund is held before the count passes N; the text says "when the limit applies".
+4. **Save** reuses the form feedback regions. Success: "Policy saved. It applies from now on; people already waiting are not changed." plus, if the queue has waiting items, the sentence "{count} already waiting keep waiting." and the button "Decide for the {count} waiting…" (opens the v1 batch dialog; radios not pre-checked; the option equal to the new setting carries the tag "Matches your setting").
+5. **Stale** (`SETTLEMENT_POLICY_STALE`): `role="alert"` "Another change was saved first. Reload the settings and review them." with a "Reload" button; unsaved edits are kept visible until reload.
+6. **Conversion dialog** (U-7) and the "applies to new decisions" sentence of v1 2.1 item 8 coexist; the policy sentence is the one above.
+7. The S5 and S1 blocks do not mention internal names (`awaiting_choice`, `legacy_residue`, `reentry_cap`); the panel uses the words in section 4.
+8. **S5a and S5b (v2.1; U-16..U-18).** Order inside the sub-fieldset: S5 radios and number, hours field, S5a legend and radios, the effective-budget line (U-17), the `at_n` note (U-19a), the S5b checkbox, then the three explanatory lines of item 3. S5a is a radio group with its own `<legend>`; each radio shows its example as helper text via `aria-describedby`; "N" in the labels is the literal letter, never replaced by the typed value (so the label does not change while typing). S5b is a single checkbox with its helper via `aria-describedby`; its helper says that a refund the streamer chooses is never held in either case and that changing it also changes how earlier refunds of the current live are counted. Both controls are sent on save only when changed (a missing field means unchanged). A validation error from the API names the field and is shown next to that control.
+9. **Disabled / read-only (v2.1).** See U-18. The reason is always visible text next to the group; the greyed state is never the only signal. When the cap is turned on in the same edit, the controls become enabled without moving focus. There is no pre-P7 look: the whole block is absent (U-1).
+10. **Confirmation dialog for `at_n` with a limit of 1 (v2.2; U-20).** Pressing Save evaluates the form: if it would save `at_n` and a limit of exactly 1 and that differs from the saved pair, the dialog opens instead of sending; otherwise the save goes ahead as before. Text (visible, no tooltips): title "Hold every automatic refund?"; body "With this choice and a limit of 1, no automatic refund goes through. Every one waits for your decision in Pending decisions, and nothing is sent to Twitch until you decide. You can change this setting at any time."; buttons "Back" and "Save this choice". Order in the DOM and the tab order: Back, then Save this choice. While the request runs, "Save this choice" is disabled and the dialog stays open until the result; on success it closes and the usual success text appears in the form feedback region; on a stale revision (`SETTLEMENT_POLICY_STALE`) or a validation error it closes and the matching form message appears (item 5 or the field error), edits kept. If the legacy conversion dialog (U-7) also applies, that one opens first; Back in either dialog cancels the whole save, and Save this choice follows the conversion dialog. Clicking the backdrop does not close the dialog (avoids an accidental cancel or confirm).
+
+### 2.2 Entry marks and the pending section (updates v1 2.4 and 2.5)
+
+States and how the streamer sees them:
+
+| State | Mark on the entry (text + icon from the existing icon set; never color only) | Pending decisions | Actions |
+|---|---|---|---|
+| `held_for_service` | "Points held until the end" (v1) | No (it is not a decision) | Complete (v1 hint) |
+| `awaiting_choice` | "Waiting for your decision" | Yes, with a cause line (below) | "Decide…" |
+| `check_group` | "Check group" (v1) | Yes | "Check again", "Decide…" |
+| `settled_external` | "Settled on Twitch" | History only (collapsed) | None |
+| `intent_recorded` | Existing OPS-22 vocabulary on the Operations screen | No | Operations screen |
+
+**Cause lines** on `awaiting_choice` rows (plain text, one per row, closed list of **six** causes (v2.1, design 3.13 A and 3.15 G); names are not shown): "Your setting says to wait for your decision." (`policy_wait`); "Closed without anyone to ask (timer, chat or the viewer)." (`cannot_ask`); "Cleared by chat." (`chat_clear`); "Open redemption found while deleting the queue. Nothing was sent to Twitch." (`legacy_residue`); "Held back by the repeat-refund limit: {count} refunds already in this live; the limit lets {budget} through automatically. You can still refund by hand." (`reentry_cap`; variants for the last live, for the hours fallback and for budget 0, section 4.2); "You chose to decide this one by one when you cleared or deleted the queue. Nothing was sent to Twitch." (`batch_deferred`). The list is no longer a hypothesis: `@architect` closed it in design 3.13 A. **Loosened line (U-19b):** only for `reentry_cap`, when the reading shows `count` below `budget`, a second line follows the cause line. The numbers `{count}`, `{budget}`, the window kind, `{time}` and `{hours}` come from the pending-decisions route (`capDetail`) at reading time, are never stored on the entry and are never guessed by the panel.
+
+**Decision dialog for non-members.** Waiting rows may belong to people who are not in a group (policy S1, S4 or the cap). The dialog is the v1 component with `body_generic`: "The redemption of {user} is open and nothing was sent to Twitch yet." Buttons are the same two ("Refund the points" / "Do not refund (final)") and "Back"; the helper texts are the v1 ones. For a held-back refund the cause line is shown in the dialog body too.
+
+**Pending section additions.**
+- The heading count is the badge count (U-11).
+- Rows are ordered oldest first within a queue (no timer, no urgency marker).
+- A history `<details>` "Settled on Twitch" at the end of the section, closed by default. Row: name, "{time} ago", outcome text ("Twitch completed this redemption outside the app. The app will do nothing more." or "Twitch canceled this redemption outside the app (points returned). The app will do nothing more."). Empty: "Nothing settled outside the app."
+- Queue in `deleting`: the card says "Deletion waiting for {count} decisions." and links to the section (design 3.7).
+- A decision on a row that became `settled_external` meanwhile: the dialog closes and the card feedback says "Already settled on Twitch. Nothing was sent." (`role="status"`).
+
+### 2.3 Live detection (channel Settings) and the merge window
+
+Section "Live detection" in channel Settings:
+
+1. **State line** (`<p>`, text + icon, not a live region): "Live since {time}" / "Offline. The last live ended at {time}." / "Offline. No live seen yet." / "Live status unknown."
+2. **Reason line** under "unknown" and the first offline case, only when the fallback is in use: no live seen yet; Twitch stopped sending live notices (with the existing "Reconnect to Twitch" button); live open for a long time without confirmation. Text: "Meanwhile, queues with a limit count the hours set on each queue." (section 4.3).
+3. **Merge window**: number input "Same live if the new one starts within (minutes)", whole numbers 1 to 60, default 10 shown as the initial value and in the helper: "If your connection drops and the stream returns within this time, it counts as the same live for the repeated-refund limit. Default 10; allowed 1 to 60." Error: "Enter a whole number from 1 to 60." (`aria-invalid`, `aria-describedby`, `role="alert"` on submit failure only). Saved: "Saved. It applies to lives that start from now on."
+4. **Notes** (visible, no tooltips): "Reruns, premieres and playlists do not count as a live." and the LIV-1 sentence (U-10).
+5. The section is read-only information plus one field; it needs only a Save button of its own, reusing the Settings form pattern.
+
+Queues page (U-9, U-10): one `<p>` above the queue cards, shown only when (offline or unknown) and a queue has a limit: "You are offline. Your queues stay as they are." / "Live status unknown. The repeated-refund limit counts hours until it is known." No role, no focus change.
+
+### 2.4 Live states and what they mean for the cap (copy rules)
+
+| State | Panel line | Cap window used (design 3.11 D) |
+|---|---|---|
+| live | "Live since {time}" | The current session |
+| offline, last session known | "Offline. The last live ended at {time}." | The **last** session (Q-3): a refund now counts against it and nobody is blocked; over the limit the refund waits |
+| offline, no session ever | "Offline. No live seen yet." | Hours fallback |
+| unknown (revoked, stale) | "Live status unknown." + reason | Hours fallback |
+
+When the cap holds a refund, the cause line names the window actually used (this live, the last live, or the hours), so the streamer is never told "this live" when the count came from the fallback.
+
+### 2.5 Queue card and navigation count (O-7)
+
+- Card badge (v1 2.5): "{count} waiting for your decision", text and icon, link to the section. Shown only when count > 0.
+- Navigation: the "Queues" item shows the number next to its label; the link text is "Queues" plus a visually hidden " — {count} decisions waiting" (`.one/.other`). It is not a live region and does not steal focus.
+- Count unknown (the state field missing or the request failed): **show nothing** and show the section error (2.7), never "0".
+
+### 2.6 Manual resolution of `conflict` and `failed` (Operations; O-1)
+
+The Operations screen already offers "Record manual resolution" for `unknown` (`panel.operation.action.resolve`). v2 enables the same action for `conflict` and `failed`:
+
+1. **Row for `conflict`**: after the status "Conflict · review required" one detail line: "We asked Twitch to {return the points | complete the redemption}, but Twitch shows this redemption as {open | completed | canceled (points returned)}." and, when available, "Last read from Twitch at {time}." (the time is a `HYPOTHESIS` for `@data-engineer`; without it the line is omitted, nothing else changes).
+2. **Confirmation** (`<dialog>` already used): for `conflict`: "Twitch and the app disagree about this redemption. Record that you reviewed it and stop automatic tracking? This does not change anything on Twitch and does not confirm the result. Twitch showed: {status}." For `failed`: "The app could not complete this operation. Record that you reviewed it and stop automatic tracking? This does not confirm the result with Twitch. If the points were not returned, return them yourself in the Twitch dashboard."
+3. Buttons and result unchanged: the existing "Record manual resolution" / "Cancel" and the result "Manual resolution recorded. This does not confirm the result with Twitch." The row then reads "Resolved manually · Twitch did not confirm". If Twitch still shows the redemption open afterwards, the existing text "Twitch still lists this redemption as open after your manual resolution…" applies.
+4. Money wording rule: never "refunded" for a `failed` operation; the screen says what the app tried, what Twitch shows, and what the streamer recorded.
+
+### 2.7 Empty, loading and error states
+
+| Place | State | Text / behavior |
+|---|---|---|
+| Pending section | none | "Nothing waiting for a decision." (v1) |
+| Pending section | loading | `role="status"` "Loading pending decisions…" |
+| Pending section | request failed | `role="alert"` "Could not load pending decisions. Try again." + "Try again" button; the badge is hidden |
+| History | none | "Nothing settled outside the app." |
+| Live section | state loading | "Checking the live status…" (static text) |
+| Live section | unknown | text of 2.3 item 2; never an error styling for a normal state |
+| Policy save | generic failure | the panel's generic text with `referenceId`; nothing changed |
+| Policy save | stale | 2.1 item 5 |
+| Merge window | invalid | 2.3 item 3 |
+| Decision | uncertain / stale / already decided | v1 keys `panel.settlement.error.*` and `choice.already_*`, plus `already_settled` |
+| Operations | conflict without remote read | the detail line is omitted; the generic row stays |
+
+## 3. Accessibility and responsiveness (additions to v1 section 4)
+
+- **Radios and fieldsets:** one `<fieldset>` + `<legend>` per setting; each radio has a visible label and its helper via `aria-describedby`; the disabled S2..S4 fieldsets carry the reason with `aria-describedby` and `disabled` on the group (the reason is text, not only a greyed control).
+- **Number inputs:** a real `<label>`, `inputmode="numeric"`, `min`/`max`, `aria-invalid` and an error id in `aria-describedby`; errors are not announced on every keystroke, only on submit or blur; `type="number"` spin buttons are not relied on.
+- **Live regions:** no new region. Policy and merge-window results go to the form's existing `status`/`alert`. The live state line, the badge, the navigation count and the Queues-page line are plain text (not announced); the only announcement a person gets is the result of their own action.
+- **Focus:** after saving the policy focus stays on the Save button (also after the confirmation dialog of U-20 closes); "Decide for the {count} waiting…" moves focus to the dialog title (v1 rule); when the conversion dialog closes focus returns to Save; when a history item or pending row disappears focus goes to the section heading.
+- **Targets, contrast, reflow:** as v1 (44 x 44 px, 4.5:1 text, 3:1 control borders, 320/390/768 px and 200% zoom, no horizontal scroll). Helper text wraps (`overflow-wrap: anywhere`); radios and helpers stack at 320 px. The state line uses text plus an icon (existing icon set; `app/components/ui/icons/icon-map.ts` does not exist in this repo, no icon is invented); color alone never conveys live/offline/unknown.
+- **Cap controls (v2.1):** the S5a radios and the S5b checkbox have visible labels and helpers by `aria-describedby`; the disabled state uses the fieldset `disabled` plus a visible reason (disabled controls leave the tab order, so the reason is read in page order, not on focus); before P7 the block is absent, so a screen reader meets nothing. The `at_n` N = 1 note and the effective-budget line are always-present static text (no live region): a person using a screen reader who changes the radio is not told at that moment, so the note is also referenced by `aria-describedby` from the number field and from the `at_n` radio and is read when either gets focus. Targets are 44 x 44 px for the checkbox and the radios (the label is part of the target).
+- **Confirmation dialog (v2.2; U-20):** native `<dialog>` opened with `showModal()` and `role="alertdialog"` (a confirmation that needs an answer before the page continues; the page behind is inert), `aria-labelledby` the title, `aria-describedby` the body so the consequence is read on open. Initial focus goes to **Back** (the safe, non-committing button) with an explicit `autofocus`/`focus()`; focus stays inside while open (native modal behavior). Esc cancels (same as Back). On any close, focus returns to the Save button that opened it, including after a failed or stale save; after success focus also stays on Save (consistent with the rule above). No new live region: the result goes to the form's existing `status`/`alert`. Buttons are 44 x 44 px, stack at 320 px and keep the focus ring visible (3:1). The dialog is not opened by typing, blur or radio changes.
+- **Time:** "{time}" is rendered in the panel locale and the browser's time zone with the full date when it is not today; the same value is exposed in `<time datetime>`.
+- **Motion:** none required.
+- **Screen readers:** designed for, **not run** (risk accepted by the owner, as in v1).
+- **Language:** everything below exists in en, es and pt-BR; Spanish says "directo" for a live.
+
+## 4. Catalog keys
+
+Rules as v1 section 7: no jargon; no internal names; no user id or login; plural keys carry `.one` and `.other` (Spanish `.many` where the validator requires it); pt-BR keeps "recompensa", "Pontos do Canal" and "resgate". Keys marked **reuse** already exist.
+
+### 4.1 Panel — policy block
+
+| Key | en | es | pt-BR |
+|---|---|---|---|
+| `panel.policy.legend` | What happens to the points | Qué pasa con los puntos | O que acontece com os pontos |
+| `panel.policy.intro` | Choose what the app does in each case. Waiting for your decision is the safe choice: nothing is sent to Twitch until you decide. | Elige qué hace la app en cada caso. Esperar tu decisión es lo más seguro: no se envía nada a Twitch hasta que decidas. | Escolha o que o app faz em cada caso. Esperar a sua decisão é o mais seguro: nada é enviado à Twitch até você decidir. |
+| `panel.policy.value.wait` | Wait for my decision (default) | Esperar mi decisión (predeterminado) | Esperar a minha decisão (padrão) |
+| `panel.policy.value.wait_help` | The redemption stays open on Twitch and appears in Pending decisions. Nothing is sent until you choose. Twitch may close an open redemption by itself; if it does, we show it as settled on Twitch. | El canje queda abierto en Twitch y aparece en Decisiones pendientes. No se envía nada hasta que elijas. Twitch puede cerrar un canje abierto por su cuenta; si lo hace, lo mostramos como liquidado en Twitch. | O resgate fica aberto na Twitch e aparece em Decisões pendentes. Nada é enviado até você escolher. A Twitch pode encerrar por conta própria um resgate aberto; se isso acontecer, mostramos como liquidado na Twitch. |
+| `panel.policy.value.refund` | Return the points | Devolver los puntos | Devolver os pontos |
+| `panel.policy.value.refund_help` | The app asks Twitch to return the points, without asking you. | La app pide a Twitch que devuelva los puntos, sin preguntarte. | O app pede à Twitch a devolução dos pontos, sem perguntar a você. |
+| `panel.policy.value.refund_end` | Return the points (counts as the end of the service) | Devolver los puntos (cuenta como fin de la atención) | Devolver os pontos (conta como fim do atendimento) |
+| `panel.policy.value.fulfill` | Complete the redemption (points are kept) | Completar el canje (los puntos se quedan) | Concluir o resgate (os pontos ficam retidos) |
+| `panel.policy.value.fulfill_help` | The app marks the redemption as completed, without asking you. The points are not returned. | La app marca el canje como completado, sin preguntarte. Los puntos no se devuelven. | O app marca o resgate como concluído, sem perguntar a você. Os pontos não são devolvidos. |
+| `panel.policy.value.legacy` | Keep today's behavior | Mantener el comportamiento actual | Manter o comportamento atual |
+| `panel.policy.value.legacy_help` | Nothing is requested when the entry closes; an open redemption can still be returned when the queue is deleted. After you choose another option, this one cannot be selected again. | No se pide nada al cerrar la entrada; un canje abierto aún puede devolverse al eliminar la cola. Después de elegir otra opción, esta ya no se podrá volver a elegir. | Nada é solicitado quando a entrada é encerrada; um resgate aberto ainda pode ser devolvido quando a fila for excluída. Depois que você escolher outra opção, esta não poderá ser escolhida de novo. |
+| `panel.policy.s1.legend` | When an entry closes and no refund switch applies | Cuando se cierra una entrada y ninguna opción de devolución aplica | Quando uma entrada é encerrada e nenhuma chave de devolução se aplica |
+| `panel.policy.s1.help` | For example, a no-show while the no-show refund switch is off. | Por ejemplo, una ausencia con la opción de devolver por ausencia desactivada. | Por exemplo, uma ausência com a chave de devolver por ausência desligada. |
+| `panel.policy.s2.legend` | When service is concluded without having started (people in a chosen group) | Cuando se concluye sin haber empezado la atención (personas de un grupo elegido) | Quando o atendimento é concluído sem ter começado (pessoas de um grupo escolhido) |
+| `panel.policy.s3.legend` | When a moderator concludes by chat (people in a chosen group) | Cuando un moderador concluye por el chat (personas de un grupo elegido) | Quando um moderador conclui pelo chat (pessoas de um grupo escolhido) |
+| `panel.policy.s4.legend` | When the queue is cleared by chat (people in a chosen group) | Cuando la cola se vacía por el chat (personas de un grupo elegido) | Quando a fila é limpa pelo chat (pessoas de um grupo escolhido) |
+| `panel.policy.s4.help` | People outside the groups are refunded as today. The chat reply shows the counts. | Las personas fuera de los grupos reciben la devolución como hasta ahora. La respuesta del chat muestra las cantidades. | Quem está fora dos grupos tem a devolução como hoje. A resposta no chat mostra as quantidades. |
+| `panel.policy.disagree` | If two settings disagree, the app waits for your decision. | Si dos opciones no coinciden, la app espera tu decisión. | Se duas opções divergirem, o app espera a sua decisão. |
+| `panel.policy.members_only` | Used when you choose “Return the points when service ends” and at least one group. | Se usa cuando eliges «Devolver los puntos al terminar la atención» y al menos un grupo. | Usado quando você escolhe “Devolver os pontos ao terminar o atendimento” e ao menos um grupo. |
+| `panel.policy.cap.legend` | Limit on repeated refunds | Límite de devoluciones repetidas | Limite de devoluções repetidas |
+| `panel.policy.cap.none` | No limit (default) | Sin límite (predeterminado) | Sem limite (padrão) |
+| `panel.policy.cap.limit` | Limit automatic refunds per person to | Limitar las devoluciones automáticas por persona a | Limitar as devoluções automáticas por pessoa a |
+| `panel.policy.cap.per_live` | in each live | en cada directo | em cada live |
+| `panel.policy.cap.explain` | Counted per live. A new live that starts within {minutes} minutes of the previous one counts as the same live (change this in Settings, Live detection). | Se cuenta por directo. Un directo nuevo que empieza dentro de {minutes} minutos del anterior cuenta como el mismo (cámbialo en Ajustes, Detección de directos). | Contado por live. Uma live nova que começa até {minutes} minutos depois da anterior conta como a mesma (altere em Configurações, Detecção de live). |
+| `panel.policy.cap.over` | When the limit applies, the refund waits for your decision. You can still refund by hand. | Cuando se aplica el límite, la devolución espera tu decisión. Aún puedes devolver a mano. | Quando o limite se aplica, a devolução espera a sua decisão. Você ainda pode devolver manualmente. |
+| `panel.policy.cap.hours` | Hours counted when the live is unknown | Horas contadas cuando no se conoce el directo | Horas contadas quando a live é desconhecida |
+| `panel.policy.cap.error` | Enter a whole number from 1 to 20. | Escribe un número entero de 1 a 20. | Digite um número inteiro de 1 a 20. |
+| `panel.policy.cap.hours_error` | Enter a whole number from 1 to 72. | Escribe un número entero de 1 a 72. | Digite um número inteiro de 1 a 72. |
+| `panel.policy.cap.hold.legend` (v2.1) | Where the limit holds a refund | Dónde retiene el límite una devolución | Onde o limite retém uma devolução |
+| `panel.policy.cap.hold.after_n` | Let N refunds through, hold the next one (default) | Dejar pasar N devoluciones y retener la siguiente (predeterminado) | Deixar passar N devoluções e reter a seguinte (padrão) |
+| `panel.policy.cap.hold.after_n_help` | Example with 3: the first 3 refunds go through and the 4th waits for your decision. | Ejemplo con 3: pasan las 3 primeras devoluciones y la 4.ª espera tu decisión. | Exemplo com 3: as 3 primeiras devoluções passam e a 4ª espera a sua decisão. |
+| `panel.policy.cap.hold.at_n` | Hold the refund number N already | Retener ya la devolución número N | Reter já a devolução número N |
+| `panel.policy.cap.hold.at_n_help` | Example with 3: the first 2 refunds go through and the 3rd waits for your decision. | Ejemplo con 3: pasan las 2 primeras devoluciones y la 3.ª espera tu decisión. | Exemplo com 3: as 2 primeiras devoluções passam e a 3ª espera a sua decisão. |
+| `panel.policy.cap.hold.note_one` | With the second choice and a limit of 1, no automatic refund goes through: every one waits for your decision. Saving it asks you to confirm. | Con la segunda opción y un límite de 1, ninguna devolución automática pasa: todas esperan tu decisión. Al guardar se te pedirá confirmar. | Com a segunda opção e um limite de 1, nenhuma devolução automática passa: todas esperam a sua decisão. Ao salvar, você será convidado a confirmar. |
+| `panel.policy.cap.hold.note_one_active` | This is your current choice. | Es tu elección actual. | Esta é a sua escolha atual. |
+| `panel.policy.cap.budget.one` / `.other` | Saved setting: {budget} automatic refund per person goes through in each live; the next one waits for your decision. / {budget} automatic refunds … go through … | Opción guardada: pasa {budget} devolución automática por persona en cada directo; la siguiente espera tu decisión. / pasan {budget} devoluciones automáticas … | Opção salva: {budget} devolução automática por pessoa passa em cada live; a seguinte espera a sua decisão. / {budget} devoluções automáticas … passam … |
+| `panel.policy.cap.budget.zero` | Saved setting: no automatic refund goes through; every one waits for your decision. | Opción guardada: ninguna devolución automática pasa; todas esperan tu decisión. | Opção salva: nenhuma devolução automática passa; todas esperam a sua decisão. |
+| `panel.policy.cap.manual.label` | Refunds I choose myself also count toward the limit (default) | Las devoluciones que elijo yo también cuentan para el límite (predeterminado) | As devoluções que eu escolho também contam para o limite (padrão) |
+| `panel.policy.cap.manual.help` | On: a refund you make by hand uses one of the person's automatic refunds. Off: only automatic refunds count. A refund you choose is never held, either way. Changing this also changes how earlier refunds in the current live are counted. | Activado: una devolución que haces a mano gasta una de las devoluciones automáticas de la persona. Desactivado: solo cuentan las automáticas. Una devolución que eliges tú nunca se retiene, en ningún caso. Cambiarlo también cambia cómo se cuentan las devoluciones anteriores del directo actual. | Ligado: uma devolução feita à mão usa uma das devoluções automáticas da pessoa. Desligado: só contam as automáticas. Uma devolução que você escolhe nunca é retida, em nenhum dos casos. Alterar isto também muda como as devoluções anteriores da live atual são contadas. |
+| `panel.policy.cap.hold.confirm.title` (v2.2) | Hold every automatic refund? | ¿Retener todas las devoluciones automáticas? | Reter todas as devoluções automáticas? |
+| `panel.policy.cap.hold.confirm.body` (v2.2) | With this choice and a limit of 1, no automatic refund goes through. Every one waits for your decision in Pending decisions, and nothing is sent to Twitch until you decide. You can change this setting at any time. | Con esta opción y un límite de 1, ninguna devolución automática pasa. Todas esperan tu decisión en Decisiones pendientes y no se envía nada a Twitch hasta que decidas. Puedes cambiar esta opción en cualquier momento. | Com esta opção e um limite de 1, nenhuma devolução automática passa. Todas esperam a sua decisão em Decisões pendentes, e nada é enviado à Twitch até você decidir. Você pode alterar esta opção a qualquer momento. |
+| `panel.policy.cap.hold.confirm.save` (v2.2) | Save this choice | Guardar esta opción | Salvar esta opção |
+| `panel.policy.cap.hold.confirm.back` (v2.2) | Back | Volver | Voltar |
+| `panel.policy.cap.disabled` | Used when you choose a limit above. | Se usa cuando eliges un límite arriba. | Usado quando você escolhe um limite acima. |
+| `panel.policy.saved` | Policy saved. It applies from now on; people already waiting are not changed. | Política guardada. Vale desde ahora; las personas que ya esperan no cambian. | Política salva. Vale a partir de agora; quem já está esperando não é alterado. |
+| `panel.policy.saved_waiting.one` / `.other` | {count} already waiting keeps waiting. / {count} already waiting keep waiting. | Ya espera {count} y sigue esperando. / Ya esperan {count} y siguen esperando. | {count} já aguardando continua aguardando. / {count} já aguardando continuam aguardando. |
+| `panel.policy.decide_waiting` | Decide for the {count} waiting… | Decidir para las {count} que esperan… | Decidir para as {count} aguardando… |
+| `panel.policy.stale` | Another change was saved first. Reload the settings and review them. | Antes se guardó otro cambio. Recarga los ajustes y revísalos. | Outra alteração foi salva antes. Recarregue as configurações e revise. |
+| `panel.policy.reload` | Reload | Recargar | Recarregar |
+| `panel.policy.legacy_converted` | Turning this on changes “Keep today's behavior” to “Wait for my decision” for this queue. | Al activarlo, «Mantener el comportamiento actual» pasa a «Esperar mi decisión» en esta cola. | Ao ligar, “Manter o comportamento atual” passa a “Esperar a minha decisão” nesta fila. |
+| `panel.policy.legacy_converted_save` | Save and change | Guardar y cambiar | Salvar e alterar |
+| `panel.settlement.choice.matches_setting` | Matches your setting | Coincide con tu opción | Corresponde à sua opção |
+| `panel.settlement.choice.keep_waiting` | Keep waiting | Seguir esperando | Continuar aguardando |
+
+### 4.2 Panel — marks, causes, pending and settled
+
+| Key | en | es | pt-BR |
+|---|---|---|---|
+| `panel.entry.mark.awaiting_choice` | **reuse** v1: Waiting for your decision | Esperando tu decisión | Aguardando sua decisão |
+| `panel.entry.mark.settled_external` | Settled on Twitch | Liquidado en Twitch | Liquidado na Twitch |
+| `panel.pending.cause.policy_wait` | Your setting says to wait for your decision. | Tu opción es esperar tu decisión. | A sua opção é esperar a sua decisão. |
+| `panel.pending.cause.cannot_ask` | Closed without anyone to ask (timer, chat or the viewer). | Cerrada sin nadie a quien preguntar (temporizador, chat o la propia persona). | Encerrada sem ninguém para perguntar (temporizador, chat ou a própria pessoa). |
+| `panel.pending.cause.chat_clear` | Cleared by chat. | Vaciada por el chat. | Limpa pelo chat. |
+| `panel.pending.cause.legacy_residue` | Open redemption found while deleting the queue. Nothing was sent to Twitch. | Canje abierto encontrado al eliminar la cola. No se envió nada a Twitch. | Resgate aberto encontrado ao excluir a fila. Nada foi enviado à Twitch. |
+| `panel.pending.cause.reentry_cap.live.one` / `.other` (v2.1: `{budget}`) | Held back by the repeat-refund limit: {count} refund already in this live; the limit lets {budget} through automatically. You can still refund by hand. / {count} refunds already in this live; … | Retenida por el límite de devoluciones repetidas: {count} devolución ya en este directo; el límite deja pasar {budget} automáticamente. Aún puedes devolver a mano. / {count} devoluciones … | Retida pelo limite de devoluções repetidas: {count} devolução já nesta live; o limite deixa passar {budget} automaticamente. Você ainda pode devolver manualmente. / {count} devoluções … |
+| `panel.pending.cause.reentry_cap.last_live.one` / `.other` | Held back by the repeat-refund limit: {count} refund already in the last live (ended at {time}); the limit lets {budget} through automatically. You can still refund by hand. | Retenida por el límite de devoluciones repetidas: {count} devolución ya en el último directo (terminó a las {time}); el límite deja pasar {budget} automáticamente. Aún puedes devolver a mano. | Retida pelo limite de devoluções repetidas: {count} devolução já na última live (terminou às {time}); o limite deixa passar {budget} automaticamente. Você ainda pode devolver manualmente. |
+| `panel.pending.cause.reentry_cap.hours.one` / `.other` | Held back by the repeat-refund limit: {count} refund already in the last {hours} hours (live unknown); the limit lets {budget} through automatically. You can still refund by hand. | Retenida por el límite de devoluciones repetidas: {count} devolución ya en las últimas {hours} horas (directo desconocido); el límite deja pasar {budget} automáticamente. Aún puedes devolver a mano. | Retida pelo limite de devoluções repetidas: {count} devolução já nas últimas {hours} horas (live desconhecida); o limite deixa passar {budget} automaticamente. Você ainda pode devolver manualmente. |
+| `panel.pending.cause.reentry_cap.zero` (v2.1, budget 0) | Held back: this queue's limit lets no automatic refund through. You can still refund by hand. | Retenida: el límite de esta cola no deja pasar ninguna devolución automática. Aún puedes devolver a mano. | Retida: o limite desta fila não deixa passar nenhuma devolução automática. Você ainda pode devolver manualmente. |
+| `panel.pending.cause.reentry_cap.loosened` (v2.1, second line) | The limit was changed after this was held. Counted now: {count}. Allowed automatically: {budget}. This one keeps waiting until you decide. | El límite se cambió después de retener esta. Contadas ahora: {count}. Permitidas automáticamente: {budget}. Esta sigue esperando hasta que decidas. | O limite foi alterado depois de reter esta. Contadas agora: {count}. Permitidas automaticamente: {budget}. Esta continua aguardando até você decidir. |
+| `panel.pending.cause.batch_deferred` (v2.1) | You chose to decide this one by one when you cleared or deleted the queue. Nothing was sent to Twitch. | Elegiste decidir una por una al vaciar o eliminar la cola. No se envió nada a Twitch. | Você escolheu decidir uma a uma ao limpar ou excluir a fila. Nada foi enviado à Twitch. |
+| `panel.pending.badge_nav.one` / `.other` (hidden text) | {count} decision waiting / {count} decisions waiting | {count} decisión pendiente / {count} decisiones pendientes | {count} decisão pendente / {count} decisões pendentes |
+| `panel.pending.deleting.one` / `.other` | Deletion waiting for {count} decision. / … {count} decisions. | Eliminación esperando {count} decisión. / … {count} decisiones. | Exclusão aguardando {count} decisão. / … {count} decisões. |
+| `panel.pending.loading` | Loading pending decisions… | Cargando decisiones pendientes… | Carregando decisões pendentes… |
+| `panel.pending.load_error` | Could not load pending decisions. Try again. | No se pudieron cargar las decisiones pendientes. Inténtalo de nuevo. | Não foi possível carregar as decisões pendentes. Tente de novo. |
+| `panel.pending.retry` | Try again | Reintentar | Tentar de novo |
+| `panel.settled.title` | Settled on Twitch | Liquidado en Twitch | Liquidado na Twitch |
+| `panel.settled.empty` | Nothing settled outside the app. | Nada liquidado fuera de la app. | Nada liquidado fora do app. |
+| `panel.settled.fulfilled` | Twitch completed this redemption outside the app. The app will do nothing more. | Twitch completó este canje fuera de la app. La app no hará nada más. | A Twitch concluiu este resgate fora do app. O app não fará mais nada. |
+| `panel.settled.canceled` | Twitch canceled this redemption outside the app (points returned). The app will do nothing more. | Twitch canceló este canje fuera de la app (puntos devueltos). La app no hará nada más. | A Twitch cancelou este resgate fora do app (pontos devolvidos). O app não fará mais nada. |
+| `panel.settlement.choice.already_settled` | Already settled on Twitch. Nothing was sent. | Ya liquidado en Twitch. No se envió nada. | Já liquidado na Twitch. Nada foi enviado. |
+| `panel.settlement.choice.body_generic` | The redemption of {user} is open and nothing was sent to Twitch yet. | El canje de {user} está abierto y aún no se envió nada a Twitch. | O resgate de {user} está aberto e nada foi enviado à Twitch ainda. |
+
+(v2.2) `panel.policy.cap.hold.confirm.back` has the same words as the Back button of the conversion dialog (U-7); if the catalog already has a shared "Back" key, `@dev` reuses it and drops this one. `panel.policy.cap.readonly` of v2.1 is removed (U-18).
+
+(`.one/.other` pairs in the table list both forms in one cell for reading; the catalog needs two rows. The Spanish `.many` form follows the validator.)
+
+(v2.1) The API picks the `reentry_cap` variant (`capDetail.window`: `live`, `last_live`, `hours`; budget 0 selects `.zero`; `count` below `budget` adds `.loosened`). The `batch_deferred` text is true for the panel clear and delete dialogs; the chat `limpar` never produces this cause. The Spanish in this file uses "tú"; "Elegiste" is the past tense of the same form.
+
+### 4.3 Panel — live detection
+
+| Key | en | es | pt-BR |
+|---|---|---|---|
+| `panel.live.title` | Live detection | Detección de directos | Detecção de live |
+| `panel.live.state.live` | Live since {time} | En directo desde las {time} | Ao vivo desde {time} |
+| `panel.live.state.offline` | Offline. The last live ended at {time}. | Fuera de directo. El último directo terminó a las {time}. | Offline. A última live terminou às {time}. |
+| `panel.live.state.never` | Offline. No live seen yet. | Fuera de directo. Aún no se vio ningún directo. | Offline. Nenhuma live vista ainda. |
+| `panel.live.state.unknown` | Live status unknown. | Estado del directo desconocido. | Estado da live desconhecido. |
+| `panel.live.state.loading` | Checking the live status… | Comprobando el estado del directo… | Verificando o estado da live… |
+| `panel.live.fallback.none_known` | No live seen yet, so queues with a limit count the hours set on each queue. | Aún no se vio ningún directo, así que las colas con límite cuentan las horas definidas en cada una. | Nenhuma live vista ainda, então as filas com limite contam as horas definidas em cada uma. |
+| `panel.live.fallback.revoked` | Twitch stopped sending live notices. Reconnect to Twitch. Meanwhile, queues with a limit count the hours set on each queue. | Twitch dejó de enviar avisos de directo. Reconecta con Twitch. Mientras tanto, las colas con límite cuentan las horas definidas en cada una. | A Twitch parou de enviar avisos de live. Reconecte com a Twitch. Enquanto isso, as filas com limite contam as horas definidas em cada uma. |
+| `panel.live.fallback.stale` | The live has been open for a long time without confirmation. Queues with a limit count the hours set on each queue until it is confirmed. | El directo lleva abierto mucho tiempo sin confirmación. Las colas con límite cuentan las horas definidas en cada una hasta que se confirme. | A live está aberta há muito tempo sem confirmação. As filas com limite contam as horas definidas em cada uma até a confirmação. |
+| `panel.live.merge.label` | Same live if the new one starts within (minutes) | Mismo directo si el nuevo empieza dentro de (minutos) | Mesma live se a nova começar em até (minutos) |
+| `panel.live.merge.help` | If your connection drops and the stream returns within this time, it counts as the same live for the repeated-refund limit. Default {default}; allowed 1 to 60. | Si se corta tu conexión y el directo vuelve dentro de este tiempo, cuenta como el mismo para el límite de devoluciones repetidas. Predeterminado {default}; permitido de 1 a 60. | Se a sua conexão cair e a transmissão voltar dentro deste tempo, conta como a mesma live para o limite de devoluções repetidas. Padrão {default}; permitido de 1 a 60. |
+| `panel.live.merge.error` | Enter a whole number from 1 to 60. | Escribe un número entero de 1 a 60. | Digite um número inteiro de 1 a 60. |
+| `panel.live.merge.saved` | Saved. It applies to lives that start from now on. | Guardado. Vale para los directos que empiecen desde ahora. | Salvo. Vale para as lives que começarem a partir de agora. |
+| `panel.live.types_note` | Reruns, premieres and playlists do not count as a live. | Las reposiciones, estrenos y listas de reproducción no cuentan como directo. | Reprises, estreias e playlists não contam como live. |
+| `panel.live.liv1` | Ending a live never clears or changes your queues. They stay as they are until you reset them. | Terminar un directo nunca vacía ni cambia tus colas. Se quedan como están hasta que las reinicies. | Encerrar uma live nunca limpa nem altera suas filas. Elas ficam como estão até você reiniciá-las. |
+| `panel.live.queues_offline` | You are offline. Your queues stay as they are. | No estás en directo. Tus colas se quedan como están. | Você está offline. Suas filas ficam como estão. |
+| `panel.live.queues_unknown` | Live status unknown. The repeated-refund limit counts hours until it is known. | Estado del directo desconocido. El límite de devoluciones repetidas cuenta horas hasta que se conozca. | Estado da live desconhecido. O limite de devoluções repetidas conta horas até ser conhecido. |
+
+### 4.4 Panel — Operations (O-1)
+
+| Key | en | es | pt-BR |
+|---|---|---|---|
+| `panel.operation.conflict.detail` | We asked Twitch to {intent}, but Twitch shows this redemption as {remote}. | Pedimos a Twitch {intent}, pero Twitch muestra este canje como {remote}. | Pedimos à Twitch {intent}, mas a Twitch mostra este resgate como {remote}. |
+| `panel.operation.conflict.intent.cancel` | return the points | que devolviera los puntos | que devolvesse os pontos |
+| `panel.operation.conflict.intent.fulfill` | complete the redemption | que completara el canje | que concluísse o resgate |
+| `panel.operation.conflict.remote.unfulfilled` | open | abierto | aberto |
+| `panel.operation.conflict.remote.fulfilled` | completed | completado | concluído |
+| `panel.operation.conflict.remote.canceled` | canceled (points returned) | cancelado (puntos devueltos) | cancelado (pontos devolvidos) |
+| `panel.operation.conflict.read_at` | Last read from Twitch at {time}. | Última lectura de Twitch a las {time}. | Última leitura da Twitch às {time}. |
+| `panel.operation.confirm.resolve_conflict` | Twitch and the app disagree about this redemption. Record that you reviewed it and stop automatic tracking? This does not change anything on Twitch and does not confirm the result. Twitch showed: {status}. | Twitch y la app no coinciden sobre este canje. ¿Registrar que lo revisaste y detener el seguimiento automático? Esto no cambia nada en Twitch ni confirma el resultado. Twitch mostró: {status}. | A Twitch e o app divergem sobre este resgate. Registrar que você revisou e parar o acompanhamento automático? Isso não altera nada na Twitch nem confirma o resultado. A Twitch mostrou: {status}. |
+| `panel.operation.confirm.resolve_failed` | The app could not complete this operation. Record that you reviewed it and stop automatic tracking? This does not confirm the result with Twitch. If the points were not returned, return them yourself in the Twitch dashboard. | La app no pudo completar esta operación. ¿Registrar que la revisaste y detener el seguimiento automático? Esto no confirma el resultado con Twitch. Si los puntos no se devolvieron, devuélvelos tú en el panel de Twitch. | O app não conseguiu concluir esta operação. Registrar que você revisou e parar o acompanhamento automático? Isso não confirma o resultado com a Twitch. Se os pontos não foram devolvidos, devolva você mesmo no painel da Twitch. |
+
+Reused unchanged: `panel.operation.action.resolve`, `panel.operations.action_manual_resolution`, `panel.operation.status.*`, `panel.operation.manual_contradicted`.
+
+### 4.5 Chat
+
+| Key | en | es | pt-BR |
+|---|---|---|---|
+| `chat.notice.points.waiting_decision` | @{user}, the streamer will decide about your points from {queue}. | @{user}, el streamer decidirá sobre tus puntos de la cola {queue}. | @{user}, o streamer vai decidir sobre os seus pontos da fila {queue}. |
+| `chat.queue.clear_done_pending` | Queue cleared: {count} people removed; {refunds} refunds requested; {pending} waiting for the streamer's decision. | Cola vaciada: {count} personas quitadas; {refunds} devoluciones solicitadas; {pending} esperan la decisión del streamer. | Fila limpa: {count} pessoas removidas; {refunds} devoluções solicitadas; {pending} aguardam a decisão do streamer. |
+| `chat.queue.points_waiting` (proposal) | {user} was concluded. The points wait for the streamer's decision. | {user} fue concluido. Los puntos esperan la decisión del streamer. | {user} foi concluído. Os pontos aguardam a decisão do streamer. |
+
+`chat.notice.points.waiting_decision` replaces `pending_decision` where the person did not "leave" (policy wait, chat clear, cap); it is neutral, so the cap and the group stay private. `chat.queue.clear_done` (existing) is used when `pending` is zero. `chat.queue.points_waiting` is a proposal: the `@architect` must confirm that a command reply exists for the moderator `concluir` under S3 `wait`; if not, drop the key. No chat text exists for live start/end, `check_group`, `settled_external` or the cap hit (O-6, v1 rule).
+
+## 5. Scores (static review, 0-10; minimum 9.0)
+
+| Item | Score | Main reason / residual |
+|---|---|---|
+| Policy block S1..S5 (grouping, defaults, consequence text, `legacy`; hidden before P7) | 9.1 | Consequence stated on every value, safe default pre-selected, one-way `legacy`, fewer states (no pre-P7 look). Residual: the block is long; real density at 320 px not seen |
+| "Apply to the waiting" and no pre-check (U-6) | 9.0 | Deliberate extra click on a final action; deviates from the design's "preselected"; needs `@architect`/`@po` acknowledgement |
+| Live detection, merge window, LIV-1 text | 9.2 | Placement matches the channel-wide setting; plain wording; the 1-60 range is a hypothesis |
+| States live / offline / unknown and the window used | 9.1 | Text + icon, no live region; the cause line names the window actually used. Residual: icon choice not validated |
+| `awaiting_choice`, `settled_external`, causes, history | 9.0 | Plain causes; the cause code list is a hypothesis; the history size is a proposal |
+| Count on card and navigation (O-7) | 9.1 | Never shows "0" when unknown; hidden text for the nav. Residual: nav layout unseen |
+| Manual resolution of `conflict`/`failed` (O-1) | 9.2 | Reuses the `unknown` pattern; says what Twitch showed and that nothing is confirmed. Residual: remote read time availability |
+| Texts pt-BR / en / es | 9.1 | Short, no internal names. Residual: Spanish and Portuguese by the agent, no native review |
+| Accessibility and responsiveness (design) | 9.0 | Reuses proven patterns; every measurement pending |
+| Cap controls S5a/S5b: labels, effective budget, `at_n` N = 1 note, disabled and read-only states (v2.1) | 9.1 | Plain words with a worked example, no ordinals in labels, budget only from the API with a "Saved setting" prefix, reason as text, no new live region. Residual: whether "Let N refunds through" is understood without the example is untested; density at 320 px not seen |
+| Confirmation dialog for `at_n` with a limit of 1 (v2.2; U-20) | 9.1 | Initial focus on the safe button, Esc and Back lose nothing, shown only when the saved pair would change, consequence in plain words, no new live region. Residual: `alertdialog` on a native `<dialog>` and the focus return are intent, not run with a screen reader; friction for a legitimate choice is accepted by the owner |
+| Pending lines: `{budget}`, sixth cause, loosened line (v2.1) | 9.0 | Never says "over the limit" for a held row; says why it still waits. Residual: rows with a cause plus a loosened line may be long on small screens; Spanish and Portuguese by the agent |
+| **Overall** | **9.1 / 10** | Re-scored 2026-11-15 for the v2.1 scope (cap controls, loosened line, sixth cause) and the v2.2 scope (confirmation dialog, block hidden before P7); every new row is at least 9.0. Valid only for this scope and only as a **static** review. **Not** a visual, browser or assistive-technology validation |
+
+## 6. Open points and hypotheses
+
+1. **Cause list** (2.2) is a reading of the design; `reentry_cap` and `legacy_residue` are named there, the rest is to be confirmed by `@architect`/`@dev`.
+2. **Remote status read time** for the `conflict` row: the design says it is a hypothesis (`@data-engineer`). The UI omits the line when absent.
+3. **Merge-window range 1-60**: design proposal, accepted here; `@po` confirms.
+4. **History of settled items** (latest 20): a proposal; needs a list field in the API and a limit agreed with `@architect`.
+5. **No pre-check** in "Apply to the waiting" (U-6) differs from the design text; flagged for `@architect`/`@po`.
+6. **`legacy` one-way** (U-4) is this plan's decision; `@architect` must make the API refuse returning to `legacy`.
+7. **Time zone** of the state line: browser local time; if the panel has no common time helper, `@dev` reuses the one used by the Operations screen.
+8. **Chat reply for moderator `concluir` under S3 `wait`**: proposal (4.5).
+9. **Expiry of an open (`UNFULFILLED`) redemption on Twitch** remains an open real-test fact (v1 section 9); the `wait` helper wording "Twitch may close an open redemption by itself" must be re-read after the real test.
+10. **(v2.1) Pre-P7 rendering.** U-1 says the policy block is not rendered until P7; design 3.15 says "read-only before P7". **DECIDED (design 3.16 D, v2.7; owner 2026-11-15): hidden before P7**, as U-1 says; design 3.15 H reads the same. The panel renders the block only when `enforcementActive` is true. The read-only look and its key are removed. **CLOSED.**
+11. **(v2.1) Wording of S5a.** "Let N refunds through, hold the next one" and "Hold the refund number N already" are the plan's plain-language proposal; `@po` confirms. The literal "N" in a label is deliberate; a variant that substitutes the typed number is possible but changes the label while typing.
+12. **(v2.1) Budget line while editing.** The "Saved setting:" line shows the stored value only. A live preview would need the client to recompute the budget, which the design forbids (3.15 E); not offered.
+13. **(v2.1) `capDetail` fields.** The pending line needs `count`, `budget`, `window` (`live`/`last_live`/`hours`), `endedAt` and `hours` from the route (design 3.13 B.4, 3.15 E); `@dev` confirms the names. If `budget` is missing the row shows the cause text without `{budget}` (fallback to the earlier wording) and no loosened line.
+14. **(v2.1) `at_n` with N = 1 as a first-class choice.** The API accepts it; **DECIDED by the owner 2026-11-15 (closes G-B13): a confirmation dialog before saving (U-20, section 2.1 item 10).** The permanent note stays and mentions the confirmation. **CLOSED.** Design 3.16 E ("no dialog") and test row `K39-02` must be aligned by `@architect` and `@qa`.
+
+## 7. What was NOT validated
+
+- No browser, no screenshot, no 320/390/768 px or 200% zoom test: layout, wrapping, 44 px targets and the density of the policy block are intent, not measurement.
+- No contrast measurement (palette values not recomputed).
+- No screen reader (NVDA, VoiceOver, TalkBack) and no keyboard-only run: the owner accepted the risk; recorded as "not run".
+- No real Twitch run: how `stream.online`/`stream.offline` behave (delay, restarts, subscription cost), the real revocation path, the content of a conflict read, what the Twitch dashboard shows after a failed refund (the sentence "return them yourself in the Twitch dashboard" is generic and not tested).
+- (v2.2) The confirmation dialog was not opened in any browser: the initial focus, the focus return, Esc, the `alertdialog` reading and the stacking at 320 px are intent. Whether a native `<dialog role="alertdialog">` behaves the same in NVDA, VoiceOver and TalkBack was not checked. Whether people understand "Hold every automatic refund?" was not asked.
+- (v2.1) No user was asked whether "Let N refunds through, hold the next one" and "Hold the refund number N already" are understood; the worked examples are the safeguard and are untested. `effectiveBudget` and `capDetail` were read from the design, not from running code (the API does not exist yet).
+- The panel code was read for catalogs and the Operations feature only; the queue settings form and the Queues page were not re-read line by line in this pass (v1 read them for patterns).
+- Spanish and Portuguese were written by the agent; no native review; plural `.many` for Spanish not checked against `npm run validate:localization`.
+- The icon map file named in the agent rules does not exist in this repository; no icon was chosen.
+
+## 8. Checklist for `@qa`
+
+**Browser, each at 320, 390 and 768 px (and 200% zoom at 320):**
+- [ ] Policy block: five sub-fieldsets in order; `wait` pre-selected and tagged "(default)" on a new queue; every radio shows its helper; S2..S4 disabled with the reason text when `refund_on_end` or groups are off; `legacy` visible only on a legacy queue and absent after saving another value.
+- [ ] Number fields (S5 limit 1-20, hours 1-72, merge 1-60): labels, errors on submit/blur, `aria-invalid`, non-integers and out-of-range refused, blank limit not accepted when "Limit" is chosen.
+- [ ] (v2.1) Cap controls: the "Where the limit holds a refund" radios with their examples; the checkbox "Refunds I choose myself also count toward the limit"; both disabled with the reason text when "No limit" is chosen and keeping their values; with `enforcementActive` false, absent or the read failing, **no part of the block is on the page** (no text, no placeholder, no read-only look); the `effectiveBudget` line shows the API number (`.one`, `.other`, zero text), is absent when `null` or missing and keeps the "Saved setting:" prefix with unsaved edits; the `at_n` + N = 1 note is always visible and gets "This is your current choice." when it applies; saving with it is allowed; a `PUT` with only one of the two fields leaves the other unchanged; an invalid value shows the API field error next to the control; a stale revision keeps the edits.
+- [ ] (v2.2) Confirmation dialog (`K39-02`, U-20): Save with `at_n` and limit 1 (differing from the saved pair) opens the dialog and sends nothing; title and body in en, es, pt-BR; initial focus on Back; tab cycles Back, Save this choice and stays inside; Esc and Back close it with nothing sent, edits kept, focus on Save; backdrop click does not close it; Save this choice sends once (button disabled while running), closes, shows the success text, focus on Save; a stale revision or API error closes it and shows the form message with edits kept; the screen reader (if run) reads title and body on open.
+- [ ] (v2.2) The dialog does **not** open for: limit 2 or more; `after_n` with limit 1; "No limit"; a form equal to the saved pair (`at_n`, 1) with only another field changed; typing or radio changes (only Save raises it); the block absent before P7. With the legacy conversion also due, the conversion dialog opens first and Back in either cancels the whole save.
+- [ ] (v2.1) Loosened limit: hold a refund, raise N (or switch to `after_n`), reload Pending: the row keeps the cause line, adds the loosened line with `count` and `budget`, never says "over the limit"; the decision dialog still works; a row with `count` at or above `budget` has no loosened line.
+- [ ] (v2.1) Sixth cause: "decide one by one" in the clear and delete dialogs produces the `batch_deferred` line in en, es, pt-BR; no option is pre-checked in that dialog.
+- [ ] Save feedback: success sentence, "{count} already waiting keep waiting", the "Decide for the {count} waiting…" dialog with no option pre-checked and the matching option tagged; stale shows `alert` plus Reload and keeps unsaved edits.
+- [ ] Conversion dialog when enabling `refund_on_end` on a legacy queue.
+- [ ] Live detection: the four state lines (live, offline, never, unknown), the three fallback reasons, reconnect button on revoked, merge field default 10, saved sentence, LIV-1 sentence, types note; the Queues-page line appears only for offline/unknown with a limit; no live region is created for any of them.
+- [ ] LIV-1 in the UI: after the live ends (fake stream-offline), no queue card, entry or count changes and no message appears except the state line.
+- [ ] Pending: count badge on card and "Queues" nav (hidden text read as "N decisions waiting"); count never "0" when the request fails; error `alert` + "Try again"; cause lines for each of the six causes; cap line names the window used (live, last live, hours); decision dialog with `body_generic` for a non-member; "Already settled on Twitch" on a stale decision; history `<details>` closed by default, outcome texts, empty text.
+- [ ] Marks: "Waiting for your decision", "Settled on Twitch", "Check group" are text, not color only.
+- [ ] Operations: "Record manual resolution" available for `unknown`, `conflict` and `failed`; the conflict detail line (and its absence without a read time); the two confirmation texts; the result text says it does not confirm; no word "refunded" for a failed operation.
+- [ ] Chat (fake, then real): `waiting_decision` text in en, es, pt-BR; clear reply with `pending`; no chat message for live start/end, `check_group`, `settled_external` or the cap hit.
+- [ ] Catalog: `npm run validate:localization` with every new key, plural forms, three languages.
+- [ ] Keyboard only: tab order of the policy block follows visual order; dialogs trap and restore focus; no focus theft on state refresh.
+- [ ] Contrast at least 4.5:1 for text and marks (measure); targets at least 44 px.
+
+**Screen reader:** not requested (risk accepted by the owner); record as "not run".
+
+## 9. Notes for other agents
+
+- `@architect`: confirm the cause list (closed by design 3.13 A, v2.1); confirm S1 `legacy` is one-way in the API; confirm the settled history field and limit; decide whether "Apply to the waiting" keeps no pre-check (U-6); confirm the moderator `concluir` chat reply (4.5); confirm `GET /api/state` exposes the pending count (awaiting + check) and `liveSession`.
+- (v2.1) `@architect`: confirm the `capDetail` field names (`count`, `budget`, `window`, `endedAt`, `hours`) and that budget 0 is sent as a number; align design 3.16 D and E with this plan: the block is hidden before P7 (open point 10, closed) and a confirmation dialog is shown for `at_n` with a limit of 1 (open point 14, closed; the design recommended none). `@po`: record U-16..U-20 and the S5a wording (open point 11) against AC 27, 35, 37 and 39; AC 39 gains the confirmation before saving `at_n` with a limit of 1, and the pre-P7 hidden block replaces any read-only wording. `@dev`: the "N" in S5a labels is literal; never compute the budget in the client; add the catalog keys of 4.1 and 4.2 in three languages with `.one/.other` where marked.
+- `@po`: record U-4, U-6, U-12 and the merge-window range in the story; the privacy statement is unchanged by this plan (no new data is shown beyond display names and times).
+- `@dev`: reuse the v1 decision-dialog component for every row (member or not); do not invent icons; do not mount new live regions; read the Operations feature before extending the resolve action.
+- `@data-engineer`: whether the remote status read time is stored (2.6 item 1).
+- (v2.2) `@qa`: `K39-02` now asserts the dialog (not its absence): see the two v2.2 checklist items; MG-16 and MG-17 (the manual-gate rows for the cap setting) must drop any pre-P7 read-only case and add the dialog flow, its cancel path and the cases where it must not open. `@dev`: build the dialog with the native `<dialog>`; focus Back on open; reuse the shared Back key if it exists; evaluate the trigger from the form values and the saved pair only.
+- `@qa`: the checklist above plus the v1 checklist for what v2 does not change.
