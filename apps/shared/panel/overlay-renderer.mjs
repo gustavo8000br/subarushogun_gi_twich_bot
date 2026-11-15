@@ -44,9 +44,11 @@ function renderStyle(widget, value, input) {
   const green = Number.parseInt(style.backgroundColor.slice(3, 5), 16);
   const blue = Number.parseInt(style.backgroundColor.slice(5, 7), 16);
   widget.style.boxSizing = 'border-box';
-  widget.style.display = 'flex';
+  widget.style.display = 'grid';
+  widget.style.gridTemplateColumns = 'minmax(0, 1fr)';
+  widget.style.gridTemplateRows = '1fr auto';
   widget.style.alignItems = 'center';
-  widget.style.justifyContent = ({ left: 'flex-start', center: 'center', right: 'flex-end' })[style.alignment];
+  widget.style.justifyItems = ({ left: 'start', center: 'center', right: 'end' })[style.alignment];
   widget.style.color = style.textColor;
   widget.style.backgroundColor = `rgba(${red}, ${green}, ${blue}, ${alpha})`;
   widget.style.fontFamily = style.fontFamily;

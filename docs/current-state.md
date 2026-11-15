@@ -13,7 +13,7 @@
 ## Beta target
 
 - `v1.0.0-beta` needs at least 26 of 32 planned features tested and functional. Ledger: [`docs/process/open-acceptance-criteria-2026-11-10.md`](process/open-acceptance-criteria-2026-11-10.md).
-- Honest count (D-04): **20 firm + 2 provisional** (features 14 and 24, decided by the `@qa` at G2), not 22. Money guard still open: features 7 and 9 are N. Windows (28 to 30) needs the owner's run.
+- Honest count (D-04): **20 firm + 3 provisional** (features 14, 23 and 24; 23 added by the `@qa` gate of OPS-19, PASS 9.3, 2026-11-14, pending a live Twitch observation of the fulfill), not 23. Money guard still open: features 7 and 9 are N. Windows (28 to 30) needs the owner's run.
 - Next bump: owner decides rc/stable; alpha/beta bumps follow `AGENTS.md`. The `restart: unless-stopped` line is waiting for the next changelog section: [`docs/process/pending-changelog-entries.md`](process/pending-changelog-entries.md).
 
 ## Rules that changed recently

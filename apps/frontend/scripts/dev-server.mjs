@@ -1,8 +1,9 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
+import { createInterface } from 'node:readline';
 import { ensureLocalTlsCertificate } from '../../infra/src/bootstrap-secret.mjs';
-import { buildDevRuntimeConfig } from './dev-runtime-config.mjs';
+import { buildDevRuntimeConfig, panelAddressLine, rewriteNextBannerLine } from './dev-runtime-config.mjs';
 import { ensureDevelopmentEnvFile } from './dev-env.mjs';
 import { migrateDevelopmentDatabase, startDevelopmentDatabase } from './dev-database.mjs';
 import { runDevelopmentPreflight } from './dev-preflight.mjs';
@@ -30,8 +31,19 @@ async function main() {
     cwd: repositoryRoot, env: runtimeEnvironment, stdio: 'inherit',
   });
   const frontend = spawn(config.frontend.command, config.frontend.args, {
-    cwd: repositoryRoot, env: { ...config.frontend.env, NODE_EXTRA_CA_CERTS: runtimeEnvironment.NODE_EXTRA_CA_CERTS }, stdio: 'inherit',
+    cwd: repositoryRoot,
+    env: {
+      ...config.frontend.env,
+      NODE_EXTRA_CA_CERTS: runtimeEnvironment.NODE_EXTRA_CA_CERTS,
+      ...(process.stdout.isTTY && !process.env.NO_COLOR ? { FORCE_COLOR: process.env.FORCE_COLOR ?? '1' } : {}),
+    },
+    stdio: ['inherit', 'pipe', 'inherit'],
   });
+  // Show the panel address (localhost) instead of the bound 127.0.0.1 in Next's banner (LA-16).
+  createInterface({ input: frontend.stdout }).on('line', (line) => {
+    process.stdout.write(`${rewriteNextBannerLine(line, config.frontend.banner)}\n`);
+  });
+  process.stdout.write(`${panelAddressLine(config.api.env.PANEL_DEV_ORIGIN)}\n`);
   const children = [api, frontend];
   await writeDevelopmentServerState(repositoryRoot, { pid: process.pid, children: children.map((child) => child.pid).filter((pid) => pid !== undefined) });
   process.once('exit', () => { void removeDevelopmentServerState(repositoryRoot, process.pid); });

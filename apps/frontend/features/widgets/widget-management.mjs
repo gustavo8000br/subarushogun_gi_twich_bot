@@ -37,3 +37,9 @@ export function validateWidgetProjection(input) {
   }
   return input;
 }
+
+// Minimum widget/Browser Source height that keeps the status line inside the box
+// (LA-12): text line (font size x 1.4, the worst measured line-height factor) plus the 20 px status row.
+export function minimumWidgetHeight(fontSize) {
+  return Math.ceil(Number(fontSize) * 1.4) + 20;
+}

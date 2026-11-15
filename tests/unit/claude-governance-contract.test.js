@@ -181,6 +181,14 @@ describe('governance hardening contract (audit F7-F15)', () => {
     for (const file of ['AGENTS.md', 'CLAUDE.md', '.claude/CLAUDE.md', '.claude/hooks/README.md']) {
       expect(read(file), file).not.toMatch(/gustavo8000br|(?<![./\w-])agent-memory(?![\w/*-])|\/home\/|\/Users\/|C:\\Users/);
     }
+    const docsDir = new URL('docs/', root);
+    const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const child = new URL(entry.name + (entry.isDirectory() ? '/' : ''), dir);
+      return entry.isDirectory() ? walk(child) : [child];
+    });
+    for (const file of walk(docsDir).filter((url) => /\.(md|json|ya?ml)$/.test(url.pathname))) {
+      expect(readFileSync(file, 'utf8'), file.pathname).not.toMatch(/gustavo8000br\/agent-memory/);
+    }
     expect(read('AGENTS.md')).toContain('repositório privado de memória');
     expect(read('CLAUDE.md')).toContain('repositório privado de memória');
   });

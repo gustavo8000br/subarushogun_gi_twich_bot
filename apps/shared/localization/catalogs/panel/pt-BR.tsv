@@ -117,7 +117,13 @@ panel.locale.description	O idioma selecionado também será usado nas mensagens 
 panel.locale.available	Idioma disponível
 panel.error.generic	Não foi possível concluir. Tente novamente.
 panel.error.local_load	Não foi possível conectar à API local. Confira se o serviço está ativo e atualize a página.
+panel.error.read_timeout	A API local não respondeu a tempo. Verifique se o serviço está em execução e atualize a página.
+panel.error.wrong_host	A sessão não vale em {host}. Este painel só funciona em localhost.
+panel.error.wrong_host_action	Abrir {url}
 panel.error.reference	Referência: {id}
+panel.error.reference_copy	Copiar referência
+panel.error.reference_copied	Referência copiada
+panel.error.reference_copy_failed	Não foi possível copiar automaticamente. Selecione o código e copie.
 panel.error.locale_conflict	O idioma mudou em outra solicitação. Atualize a página.
 panel.form.queue_name	Nome da fila
 panel.form.create_queue	Criar fila
@@ -356,6 +362,7 @@ panel.command.access_fixed	Acesso fixo:
 panel.command.marked_roles	O cargo escolhido e os cargos superiores podem usar este comando.
 panel.command.threshold_label	Nível mínimo da audiência
 panel.command.reload	Recarregar permissões
+panel.command.conflict	As permissões mudaram em outro lugar. Recarregue as permissões antes de salvar de novo. Sua edição é mantida até você recarregar.
 panel.command.threshold.select	Escolha o nível mínimo
 panel.command.threshold.help	O grupo escolhido e os cargos superiores herdam acesso.
 panel.command.audience.proposed	Depois de salvar: {roles}.
@@ -396,7 +403,6 @@ panel.widget.preview.waiting	4 aguardando
 panel.widget.preview.open	Aberta
 panel.widget.preview.called	Viewer chamado
 panel.widget.fixed_text_label	Texto fixo
-panel.widget.text_color	Cor do texto
 panel.widget.background_color	Cor do fundo
 panel.widget.background_opacity	Opacidade do fundo (%)
 panel.widget.font	Fonte
@@ -561,8 +567,6 @@ panel.queue_settings.local_eyebrow	CONFIGURAÇÃO LOCAL
 panel.queue_settings.uid_policy_hint	A política de UID e a recompensa são editadas em “Editar recompensa”, com sincronização confirmada pela Twitch.
 panel.queue_settings.save	Salvar configurações
 panel.widget.font_size	Tamanho (px)
-panel.widget.font_weight	Peso
-panel.widget.width	Largura (px ou auto)
 panel.widget.height	Altura (px ou auto)
 panel.widget.margin_top	Margem superior
 panel.widget.margin_right	Margem direita
@@ -764,6 +768,8 @@ panel.widget.style.shadow_x	Deslocamento X da sombra (px)
 panel.widget.style.shadow_y	Deslocamento Y da sombra (px)
 panel.widget.style.width	Largura (px ou auto)
 panel.widget.style.height	Altura (px ou auto)
+panel.widget.height_hint	Altura mínima para este tamanho de fonte: {min} px (texto mais 20 px para a linha de status). No OBS, deixe a altura da fonte Navegador em pelo menos {min} px, ou a linha de status será cortada.
+panel.widget.height_below_min	Esta altura é menor que {min} px. A linha de status pode ser cortada enquanto aparece.
 panel.widget.style.margin_top	Margem superior (px)
 panel.widget.style.margin_right	Margem direita (px)
 panel.widget.style.margin_bottom	Margem inferior (px)
@@ -795,7 +801,7 @@ panel.widget.link.show	Mostrar link
 panel.widget.link.hide	Ocultar link
 panel.widget.link.hidden_label	Link oculto
 panel.widget.link.confirm_close.title	Fechar sem copiar o link?
-panel.widget.link.confirm_close.body	Este link não poderá ser exibido de novo. Para usar o widget depois, gere um novo link no card dele — este link deixará de funcionar.
+panel.widget.link.confirm_close.body	Este link não poderá ser exibido de novo. Para usar o widget depois, gere um novo link no cartão dele — este link deixará de funcionar.
 panel.widget.link.confirm_close.back	Voltar ao link
 panel.widget.link.confirm_close.confirm	Fechar mesmo assim
 panel.widget.notice.link_closed_uncopied	Link fechado sem copiar. Use "Regenerar link" no card do widget quando precisar.
@@ -834,3 +840,17 @@ panel.queue.confirm.delete_local.one	Excluir a fila local “{title}”? {count}
 panel.queue.confirm.delete_converted.many	Excluir a fila manual “{title}”? {count} entradas ativas serão removidas. A exclusão ficará pendente até a confirmação de todos os resgates conhecidos, das solicitações de sincronização com a Twitch e das devoluções de pontos relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A recompensa da Twitch permanecerá pausada e intacta.
 panel.queue.confirm.delete_converted.other	Excluir a fila manual “{title}”? {count} entradas ativas serão removidas. A exclusão ficará pendente até a confirmação de todos os resgates conhecidos, das solicitações de sincronização com a Twitch e das devoluções de pontos relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A recompensa da Twitch permanecerá pausada e intacta.
 panel.queue.confirm.delete_converted.one	Excluir a fila manual “{title}”? {count} entrada ativa será removida. A exclusão ficará pendente até a confirmação de todos os resgates conhecidos, das solicitações de sincronização com a Twitch e das devoluções de pontos relacionadas. Resgates posteriores da Twitch também serão detectados e registrados para cancelamento. A recompensa da Twitch permanecerá pausada e intacta.
+panel.widget.action.named	{action}: {label} ({id})
+panel.widget.confirm.target	Widget: {label} ({id})
+panel.widget.editor.discard.title	Descartar as alterações?
+panel.widget.editor.discard.body	As alterações não salvas deste widget serão perdidas.
+panel.widget.editor.discard.keep	Continuar editando
+panel.widget.editor.discard.confirm	Descartar alterações
+panel.widget.identity.with_queue	{source} · {queue}
+panel.widget.weight.300	Leve (300)
+panel.widget.weight.400	Normal (400)
+panel.widget.weight.500	Médio (500)
+panel.widget.weight.600	Seminegrito (600)
+panel.widget.weight.700	Negrito (700)
+panel.widget.weight.800	Extranegrito (800)
+panel.widget.weight.900	Preto (900)

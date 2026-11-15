@@ -43,3 +43,34 @@
 ## Plano de testes, riscos e metas
 
 Plano aceito: unitário com Twurple falso, PostgreSQL isolado com migrations reais, widget no OBS nativo como classe separada, execução real no canal de testes autorizado pelo `@qa` com os seis itens em aberto (nota, seção 11), sete gates. Os riscos (corrida cumprir/cancelar, falha de consulta, retenção, abuso, UID em log, taxa do chat) são cobertos pelos AC 4, 13-15, 18-19, 21, 23, 27. Meta de UX >= 9,0 antes do `@dev`; veredito do `@qa` antes de o `@devops` comitar. Itens do proprietário: reautorização do canal (novos escopos), os resgates reais (Orion no Chrome), aceite da retenção de pontos (feito).
+
+## Reconfirmação após o desenho do `@architect` (2026-11-11)
+
+**Validador:** `@po` (Pax), YOLO. **Fontes:** [architect-design](architect-design.md) (D-31-1..D-31-11, redações da seção 9, itens do proprietário da seção 11). **Veredito: GO reconfirmado, 9,3/10** (anterior 8,7). O status continua **Pronta** (a issue #115 existe). Nenhuma ação de código, git ou GitHub foi feita.
+
+| # | Ponto | Antes | Agora | Observação |
+|---|---|---|---|---|
+| 1 | Título claro | 1,0 | 1,0 | Inalterado. |
+| 2 | Descrição | 1,0 | 1,0 | Inalterado. |
+| 3 | CAs testáveis | 0,9 | 1,0 | 33 CAs; as questões de desenho em aberto nos CA 10, 20 e 26 agora são concretas (uma lista por canal, máx. 500; "não devolver" = cumprir na escolha; lote em dois passos com contagens). Os novos CA 29-33 são Dado/Quando/Então. |
+| 4 | Escopo DENTRO/FORA | 0,9 | 0,9 | Opções presenteado/nível explicitamente fora; R1/R2 são backlog, não escopo. |
+| 5 | Dependências | 0,7 | 0,9 | Ordem FT-71..FT-78 confirmada com dependências reais (FT-72 após FT-71; FT-76 após 72, 74, 75; FT-77 após 76; FT-73 independente); OPS-20 substituída. Em aberto: gates do `@data-engineer` e do `@ux-design-expert`. |
+| 6 | Complexidade | 0,9 | 1,0 | 19, COMPLEX (escopo 5, integração 4, infraestrutura 2, conhecimento 3, risco 5); confirmada pelo `@architect`. |
+| 7 | Valor de negócio | 0,9 | 0,9 | Inalterado. |
+| 8 | Riscos | 0,8 | 0,8 | O desenho lista dez riscos com residuais (seção 5); a story mantém os sete e aponta para o desenho. Sem aumento: a lista da story não foi reescrita. |
+| 9 | Definition of Done | 0,8 | 0,9 | Cobre os CA 1-33 por classe. |
+| 10 | Alinhamento com as fontes | 0,8 | 0,9 | Cada CA novo rastreia a uma decisão D-31; a extensão do CA 26 foi confirmada pelo `@architect`. |
+
+**Checklist de 10 pontos:** todos passam (>= 7 exigido; total 9,3).
+
+**Decisões desta passagem (AUTO-DECISION, reversíveis):**
+- OW-31-1: manter "nada automático para membros" (motivo: regra do proprietário de 2026-11-06; a alternativa contradiz o CA 31). O proprietário pode reverter; nada bloqueia.
+- Máximo de 500 na lista própria: aceito (CA 10).
+- Numeração: CAs novos acrescentados como 29-33, para que as referências do inventário, do quadro e do handoff aos CA 1-28 continuem válidas.
+
+**O que muda para o plano de testes (para o `@qa`):** PostgreSQL isolado com **barreira de corrida** (pares concluir x remover-sem-devolver, duas escolhas opostas, iniciar x remover, duas "tentar agora", limpar x concluir; exatamente uma tarefa financeira; `settlement.contradictory_request` quando as escolhas diferem) e uma execução **sem o advisory lock** provando que só o índice único recusa a segunda tarefa; testes de migração (filas existentes ficam `fulfill_on_start`, cada restrição recusa a linha inválida; a API recusa `refund_on_end` antes da FT-76, CA 30); decisão imutável; contagens do lote por resultado, instantâneo vencido recusado, exclusão aguarda enquanto houver estado pendente (CA 32); mapeamento da consulta para 401/403/429/5xx/tempo esgotado/malformado/escopo ausente com Twurple falso, blocos de 100, espera no 429 e depois `unknown`; cancelamento duplo com a classe **real** do Twurple (CA 19); limitador com relógio injetado; logs sem ID, login ou rótulo; canal real em duas execuções (avisos após FT-71..73, dinheiro após FT-74..77) com os seis itens em aberto. Um gate do `@qa` ao final; FT-76 e FT-77 são validadas juntas.
+
+**Pendências (não feitas aqui):**
+- `@devops`: encerrar a issue #76 como substituída pela #115 (ou atualizar o corpo; nunca comentário) e atualizar a entrada da OPS-20 no inventário e no quadro; registrar R1 (sem trabalho) e R2 (sequência: cumprir um resgate normal após não comparecimento ou remoção durante a chamada com a chave desligada) no backlog.
+- Gates de especialistas ainda abertos: `@data-engineer` (perguntas da seção 10 do desenho), `@ux-design-expert` (>= 9,0), plano de testes do `@qa`.
+- Proprietário: nada bloqueia. Só para a FT-78: reconectar o canal de testes com os novos escopos e fazer os resgates reais.

@@ -11,6 +11,9 @@ import { getManualQueueEntryFailureKey, getQueueEntryActionFailureFeedback, getQ
 import { createQueueWithRefresh, getQueueCreationFailureKey, getQueueCreationFeedback } from '../queues/queue-creation.mjs';
 import { getOutcomeFromCode, navigateTo, resolvePostActionRoute } from './post-action-route.mjs';
 import { readOutcomeFromLocation } from './outcome-url.mjs';
+import { wrongHostForPanel } from './wrong-host.mjs';
+import { loadFailureReferenceId } from './safe-reference-id.mjs';
+import { WRONG_ORIGIN_EVENT } from '../../lib/api/wrong-origin.mjs';
 import { getQueueSettingsFailureKey, getQueueSettingsFeedback, saveQueueSettingsWithRetry } from '../queues/queue-settings.mjs';
 import { loadQueueHistory as fetchQueueHistory } from '../queues/queue-history.mjs';
 import { confirmQueueClear as confirmQueueClearRequest, getQueueClearFailureFeedback, previewQueueClear as previewQueueClearRequest } from '../queues/queue-clear.mjs';
@@ -30,6 +33,10 @@ export function PanelProvider({ children, fallbackCatalog }) {
   const [queueSummary, setQueueSummary] = useState({ queues: 0, waiting: 0, inService: 0 });
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState('');
+  // E7: server-made id of a failed first load (5xx only); never set for timeouts, network failures or the wrong host.
+  const [loadErrorReference, setLoadErrorReference] = useState(null);
+  // D-3: a mutation refused for its Origin (403) at a loopback IP literal; shown as the wrong-host message, not the generic text.
+  const [wrongOrigin, setWrongOrigin] = useState(false);
   const [localeNotice, setLocaleNotice] = useState(null);
   const [saving, setSaving] = useState(false);
   const [queueAction, setQueueAction] = useState(null);
@@ -49,6 +56,12 @@ export function PanelProvider({ children, fallbackCatalog }) {
   useEffect(() => { projectionRef.current = queueProjection; }, [queueProjection]);
 
   useEffect(() => {
+    const onWrongOrigin = () => setWrongOrigin(true); // the alert itself shows only at a loopback IP literal
+    window.addEventListener(WRONG_ORIGIN_EVENT, onWrongOrigin);
+    return () => window.removeEventListener(WRONG_ORIGIN_EVENT, onWrongOrigin);
+  }, []);
+
+  useEffect(() => {
     let alive = true;
     apiClient.initializeSession().then(() => loadPanelSnapshot(apiClient.request)).then(({ bundle, state, setup, queues, health }) => {
       if (!alive) return;
@@ -61,12 +74,15 @@ export function PanelProvider({ children, fallbackCatalog }) {
       setHealthState(health);
       setQueueProjection(queues);
       setQueueSummary(summarizeQueues(queues));
+      setLoadErrorReference(null);
       setStatus('ready');
       setLastRefreshAt(Date.now());
-    }).catch(() => {
+    }).catch((loadError) => {
       if (alive) {
         setStatus('unavailable');
-        setError('panel.error.local_load');
+        // Wrong host first (its own fix); then a hung API (LA-19); otherwise the generic text.
+        setError(wrongHostForPanel() ? 'panel.error.wrong_host' : loadError?.timedOut ? 'panel.error.read_timeout' : 'panel.error.local_load');
+        setLoadErrorReference(wrongHostForPanel() ? null : loadFailureReferenceId(loadError));
       }
     });
     return () => { alive = false; };
@@ -567,7 +583,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
     }
   }, [saving, queueProjection]);
 
-  const value = useMemo(() => ({ panelOutcome, dismissPanelOutcome, refreshFromOutcome, reportQueueOutcome, catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueLifecycleNotice, queueCallRecovery, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, runQueueLifecycleAction, loadQueueRewardCandidates, resolveQueueReward, saveQueueRewardSettings, addManualQueueEntry, loadQueueHistory, previewQueueClear, confirmQueueClear, refreshQueueProjection, queueClearRefreshRequired, queueCallRefreshRequired, createQueue, saveQueueSettings }), [panelOutcome, dismissPanelOutcome, refreshFromOutcome, reportQueueOutcome, catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, saving, queueAction, queueLifecycleNotice, queueCallRecovery, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, runQueueLifecycleAction, loadQueueRewardCandidates, resolveQueueReward, saveQueueRewardSettings, addManualQueueEntry, loadQueueHistory, previewQueueClear, confirmQueueClear, refreshQueueProjection, queueClearRefreshRequired, queueCallRefreshRequired, createQueue, saveQueueSettings]);
+  const value = useMemo(() => ({ panelOutcome, dismissPanelOutcome, refreshFromOutcome, reportQueueOutcome, catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, loadErrorReference, wrongOrigin, saving, queueAction, queueLifecycleNotice, queueCallRecovery, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, runQueueLifecycleAction, loadQueueRewardCandidates, resolveQueueReward, saveQueueRewardSettings, addManualQueueEntry, loadQueueHistory, previewQueueClear, confirmQueueClear, refreshQueueProjection, queueClearRefreshRequired, queueCallRefreshRequired, createQueue, saveQueueSettings }), [panelOutcome, dismissPanelOutcome, refreshFromOutcome, reportQueueOutcome, catalogs, locales, localeState, localeNotice, runtimeState, setupState, healthState, queueProjection, queueSummary, status, error, loadErrorReference, wrongOrigin, saving, queueAction, queueLifecycleNotice, queueCallRecovery, queueCreation, queueSettingsAction, refreshing, refreshNotice, lastRefreshAt, refreshOverview, t, changeLocale, toggleQueueIntake, runQueueEntryAction, runQueueLifecycleAction, loadQueueRewardCandidates, resolveQueueReward, saveQueueRewardSettings, addManualQueueEntry, loadQueueHistory, previewQueueClear, confirmQueueClear, refreshQueueProjection, queueClearRefreshRequired, queueCallRefreshRequired, createQueue, saveQueueSettings]);
   return <PanelContext.Provider value={value}>{children}</PanelContext.Provider>;
 }
 

@@ -43,10 +43,10 @@ export function registerLocalSession(app, { randomBytes = generateRandomBytes, p
     const origin = request.headers.origin;
     if (origin) {
       let originUrl;
-      try { originUrl = new URL(origin); } catch { return reply.code(403).send({ error: 'Origem inválida.' }); }
+      try { originUrl = new URL(origin); } catch { return reply.code(403).send({ error: 'Origem inválida.', code: 'ORIGIN_NOT_ALLOWED' }); }
       const localOrigin = originUrl.protocol === 'https:' && localHosts.has(originUrl.hostname) && originUrl.port === String(port);
       if (!localOrigin && origin !== allowedDevelopmentOrigin) {
-        return reply.code(403).send({ error: 'Origem inválida.' });
+        return reply.code(403).send({ error: 'Origem inválida.', code: 'ORIGIN_NOT_ALLOWED' });
       }
     }
     const id = parseCookies(request.headers.cookie)[cookieName];

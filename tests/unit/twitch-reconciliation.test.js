@@ -143,6 +143,42 @@ describe('Twitch recovery reconciliation', () => {
     expect(repository.markQueueRemoteUnknown).toHaveBeenCalledWith('queue-1', 'reward_verification_failed', undefined);
   });
 
+  // FT-69: a reward the product itself deleted answers 404 on lookup; that is the expected state of a deleted tombstone.
+  const deletedTombstone = { id: 'queue-1', version: 9, queueMode: 'channel_points', rewardId: 'reward-1', isOpen: false, isArchived: true, lifecycleStatus: 'deleted', uidMode: 'hidden', remoteSyncStatus: 'deleted' };
+  const tombstoneRepository = (queue = deletedTombstone) => ({
+    listManagedQueues: vi.fn(async () => []),
+    claimConvertedTombstoneReconciliationPage: vi.fn(async () => ({ status: 'acquired', leaseId: '10000000-0000-4000-8000-000000000001', queues: [queue] })),
+    listUnresolvedRedemptions: vi.fn(async () => [{ redemptionId: 'late-1', broadcasterId: 'broadcaster-1', rewardId: 'reward-1', userId: 'viewer-1', entry: { status: 'removed' } }]),
+  });
+
+  it('treats a 404 lookup of the reward the product deleted as the expected state (no partial, no issue, no unknown mark)', async () => {
+    const { reconciler, repository, twitch } = dependencies({
+      repository: tombstoneRepository(),
+      twitch: { getReward: vi.fn(async () => { throw twurpleHttpError(404); }), getRedemptionStatus: vi.fn(async () => 'UNFULFILLED') },
+    });
+    const result = await reconciler.run();
+    expect(result).toMatchObject({ status: 'complete', issues: [] });
+    expect(repository.markQueueRemoteUnknown).not.toHaveBeenCalled();
+    expect(repository.retireQueueForConfirmedRewardAbsence).not.toHaveBeenCalled();
+    // known financial records of the tombstone are still reconciled
+    expect(repository.listUnresolvedRedemptions).toHaveBeenCalledWith('queue-1');
+    expect(twitch.getRedemptionStatus).toHaveBeenCalledWith('late-1', 'reward-1');
+  });
+
+  it.each([401, 403, 429, 500])('keeps partial for a tombstone lookup failing with HTTP %s (real failures keep their signal)', async (status) => {
+    const { reconciler } = dependencies({
+      repository: tombstoneRepository(),
+      twitch: { getReward: vi.fn(async () => { throw twurpleHttpError(status); }) },
+    });
+    await expect(reconciler.run()).resolves.toMatchObject({ status: 'partial', issues: [{ code: 'reward_verification_failed', httpStatus: status }] });
+  });
+
+  it('keeps partial for a 404 on an ACTIVE queue (the expectation covers only a confirmed deletion)', async () => {
+    const { reconciler, repository } = dependencies({ twitch: { getReward: vi.fn(async () => { throw twurpleHttpError(404); }) } });
+    await expect(reconciler.run()).resolves.toMatchObject({ status: 'partial', issues: [{ code: 'reward_verification_failed', httpStatus: 404 }] });
+    expect(repository.markQueueRemoteUnknown).toHaveBeenCalled();
+  });
+
   it('reconciles unresolved terminal financial work for channel-points tombstones', async () => {
     const tombstone = { id: 'queue-1', version: 7, queueMode: 'channel_points', rewardId: 'reward-1', isOpen: false, isArchived: true, lifecycleStatus: 'deleted', uidMode: 'hidden', remoteSyncStatus: 'unknown' };
     const { reconciler, repository, processor } = dependencies({

@@ -1,3 +1,4 @@
+import { createErrorDiagnosticReporter } from '../observability/error-diagnostics.mjs';
 function safeWidgetDto(widget) {
   return {
     id: widget.id,
@@ -23,7 +24,8 @@ function onlyKeys(value, allowed) {
   return Object.keys(value).every((key) => allowed.has(key));
 }
 
-function sendError(reply, error) {
+/** Expected refusals keep their `{error}` body; any other failure is reported as a safe diagnostic and carries a `referenceId`. */
+function sendError(request, reply, error, reportDiagnostic) {
   const status = error?.code === 'OVERLAY_WIDGET_VERSION_CONFLICT' ? 409
     : error?.code === 'OVERLAY_WIDGET_NOT_FOUND' ? 404
       : String(error?.code ?? '').startsWith('INVALID_') ? 400 : 503;
@@ -31,20 +33,27 @@ function sendError(reply, error) {
     : status === 404 ? 'Este widget não está disponível.'
       : status === 400 ? 'Revise os campos do widget e tente novamente.'
         : 'Não foi possível concluir a operação do widget agora.';
-  return reply.code(status).send({ error: message });
+  if (status !== 503) return reply.code(status).send({ error: message });
+  const method = typeof request.method === 'string' ? request.method.toLowerCase() : 'unknown';
+  const route = typeof request.routeOptions?.url === 'string' ? request.routeOptions.url : 'unknown';
+  const safeRoute = route.replace(/[^A-Za-z0-9_.-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 48) || 'unknown';
+  const referenceId = reportDiagnostic({ source: `http.${method}.${safeRoute}`, error });
+  reply.header('x-error-reference', referenceId);
+  return reply.code(status).send({ error: message, referenceId });
 }
 
 /** Register local widget management and capability-only read routes. */
-export function registerOverlayRoutes(app, { repository, widgetService, projectionService }) {
+export function registerOverlayRoutes(app, { repository, widgetService, projectionService, reportDiagnostic = createErrorDiagnosticReporter() }) {
+  const failWith = (request, reply, error) => sendError(request, reply, error, reportDiagnostic);
   app.addHook('onRequest', async (_request, reply) => {
     reply.header('x-content-type-options', 'nosniff');
   });
 
-  app.get('/api/overlay-widgets', async (_request, reply) => {
+  app.get('/api/overlay-widgets', async (request, reply) => {
     reply.header('cache-control', 'no-store');
     try {
       return (await repository.list()).map(safeWidgetDto);
-    } catch (error) { return sendError(reply, error); }
+    } catch (error) { return failWith(request, reply, error); }
   });
 
   app.post('/api/overlay-widgets', async (request, reply) => {
@@ -58,7 +67,7 @@ export function registerOverlayRoutes(app, { repository, widgetService, projecti
       /** @type {any} */ (request).overlaySecretResponse = true;
       reply.header('cache-control', 'no-store').code(201);
       return { widget: safeWidgetDto(result.widget), capabilityUrl: result.capabilityUrl };
-    } catch (error) { return sendError(reply, error); }
+    } catch (error) { return failWith(request, reply, error); }
   });
 
   app.patch('/api/overlay-widgets/:id', async (request, reply) => {
@@ -68,7 +77,7 @@ export function registerOverlayRoutes(app, { repository, widgetService, projecti
       return reply.code(400).send({ error: 'Revise os campos do widget e tente novamente.' });
     }
     try { return safeWidgetDto(await repository.update({ id: request.params.id, expectedVersion: body.expectedVersion, changes: body.changes })); }
-    catch (error) { return sendError(reply, error); }
+    catch (error) { return failWith(request, reply, error); }
   });
 
   app.post('/api/overlay-widgets/:id/regenerate', async (request, reply) => {
@@ -81,7 +90,7 @@ export function registerOverlayRoutes(app, { repository, widgetService, projecti
       /** @type {any} */ (request).overlaySecretResponse = true;
       reply.header('cache-control', 'no-store');
       return { widget: safeWidgetDto(result.widget), capabilityUrl: result.capabilityUrl };
-    } catch (error) { return sendError(reply, error); }
+    } catch (error) { return failWith(request, reply, error); }
   });
 
   app.post('/api/overlay-widgets/:id/revoke', async (request, reply) => {
@@ -90,7 +99,7 @@ export function registerOverlayRoutes(app, { repository, widgetService, projecti
       return reply.code(400).send({ error: 'Revise os campos do widget e tente novamente.' });
     }
     try { return safeWidgetDto(await widgetService.revoke({ id: request.params.id, expectedVersion: body.expectedVersion })); }
-    catch (error) { return sendError(reply, error); }
+    catch (error) { return failWith(request, reply, error); }
   });
 
   app.delete('/api/overlay-widgets/:id', async (request, reply) => {
@@ -99,7 +108,7 @@ export function registerOverlayRoutes(app, { repository, widgetService, projecti
       return reply.code(400).send({ error: 'Revise os campos do widget e tente novamente.' });
     }
     try { return safeWidgetDto(await repository.delete({ id: request.params.id, expectedVersion: body.expectedVersion })); }
-    catch (error) { return sendError(reply, error); }
+    catch (error) { return failWith(request, reply, error); }
   });
 
   app.get('/overlay/api/widget', async (request, reply) => {

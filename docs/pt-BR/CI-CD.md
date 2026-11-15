@@ -13,6 +13,7 @@ Este guia explica como se relacionam as verificações das pull requests, a publ
 | `browser-only.yml` | Pull request destinada à `main`; execução manual | Roda os scripts `tests/e2e/*-browser-only.mjs` (guiados por fixtures) no Chrome contra um servidor de desenvolvimento Next descartável (D-13). Fora do agregado obrigatório de quality-gates enquanto não for bloqueante | Nenhuma (`contents: read`) |
 | `main-cd.yml` | Push para `main` | Executa novamente os gates compartilhados para o commit mesclado e publica imagens Linux validadas | `packages: write` somente no job publicador |
 | `release.yml` | Somente `workflow_dispatch` manual, a partir da `main`, pelo proprietário do repositório (sem gatilho de tag ou push) | Valida tag/origem e CD bem-sucedido da main, gera instaladores nativos e publica notas bilíngues | `contents: write` somente no job de release |
+| `branch-cleanup.yml` | Agenda semanal (dry-run até `BRANCH_CLEANUP_ENABLED` ser `true`); disparo manual (`dry_run` vem `true`) | Apaga branches remotas já totalmente mergeadas na `main` (ver "Limpeza de branches já mergeadas") | `contents: write` só no job de apagar |
 
 Pull requests nunca executam o publicador GHCR. O ruleset ativo `main-pr-and-ci` exige o check estável do workflow reutilizável; não exige o job de publicação exclusivo da main. O GitHub nomeia checks reutilizáveis como `<job chamador> / <job reutilizável>`, então o contexto obrigatório é conferido numa execução real de PR.
 
@@ -50,6 +51,19 @@ O build usa caches do GitHub Actions separados por arquitetura. As imagens `main
 - Falha no build/publicação de imagem aparece em `Main CD`; após resolver uma causa transitória, reexecute o workflow para o mesmo commit. As tags main só são promovidas quando as imagens das duas arquiteturas estiverem disponíveis e a verificação confirmar que a origem continua atual.
 - Uma release com falha não conclui parcialmente: os instaladores nativos precisam passar e a origem exata da tag precisa ter CD bem-sucedido. Resolva a causa e reexecute o workflow da mesma tag.
 - Para voltar uma instalação, selecione uma identidade completa de imagem publicada anteriormente como `IMAGE_TAG` no Compose ou reinstale o instalador correspondente àquela tag. Não sobrescreva nem reaproveite uma versão publicada. Siga as práticas normais de backup antes de alterar uma instalação ativa.
+
+## Limpeza de branches já mergeadas
+
+O `branch-cleanup.yml` roda toda segunda-feira (04:17 UTC) e por disparo manual. Ele apaga branches remotas já totalmente mergeadas na `main`. A configuração `delete_branch_on_merge` do repositório cobre os merges novos; este workflow cobre branches mergeadas antes ou por outros meios. A lógica de seleção está em `apps/infra/scripts/branch-cleanup.mjs`.
+
+- **O que apaga:** só branches cuja ponta é ancestral da `main` (`git merge-base --is-ancestor`), com commit da ponta de pelo menos 7 dias (a carência olha a data do commit da ponta, não a idade da branch: uma branch criada há muito tempo com último commit recente é mantida, e uma branch nova apontando para um commit antigo pode qualificar de imediato) e nome simples (letras, dígitos, `.`, `_`, `-`, `/`). No máximo 20 por execução, das mais antigas; o resumo avisa quando há mais.
+- **O que nunca apaga:** `main` e a branch padrão, branches protegidas, cabeças de PR aberto, branches com commits fora da `main`, branches recentes e nomes com caracteres incomuns (listados como ignorados).
+- **Branches mergeadas por squash não são cobertas:** o merge por squash cria um commit novo, então a ponta da branch nunca é ancestral da `main` e este workflow nunca a apaga. Essas branches saem pela configuração nativa `delete_branch_on_merge` do repositório, que já está ligada.
+- **Dry-run primeiro:** o disparo manual vem com `dry_run: true` e só escreve o plano. O agendamento semanal também roda em dry-run até a variável de repositório `BRANCH_CLEANUP_ENABLED` valer exatamente `true` (sensível a maiúsculas: `TRUE`, ` true`, `1` ou vazio continuam em dry-run; o script `branch-cleanup.mjs` faz essa comparação porque o operador `==` do Actions ignora maiúsculas). Para ligar, depois de conferir o resumo de um disparo manual em dry-run: `gh variable set BRANCH_CLEANUP_ENABLED --body true` (só o proprietário ou o `@devops`). Para desligar: `gh variable delete BRANCH_CLEANUP_ENABLED` (ou qualquer outro valor).
+- **Inatividade:** o GitHub desativa workflows agendados em repositórios sem atividade por 60 dias. Se a execução semanal deixar de aparecer na aba Actions, reative-a lá (ou rode manualmente).
+- **Permissões:** o job `plan` lê conteúdo e pull requests; só o job `delete` tem `contents: write`. Antes de cada exclusão o job confere de novo que a branch ainda aponta para o commit planejado e que não há PR aberto para ela; caso contrário, pula a branch. Resposta vazia ou não numérica na consulta de PR aberto conta como erro (a branch é pulada e registrada), nunca como "nenhum PR".
+- **Resultados:** o resumo da execução lista cada branch como `deleted`, `skipped` ou `failed` e os totais. A falha numa branch não interrompe as demais; o job termina com erro se alguma falhou. A exclusão real ainda não foi exercitada no GitHub.
+- **Restaurar:** o resumo da execução lista nome, hash da ponta e data do último commit. Restaure com `git push origin <hash>:refs/heads/<branch>`.
 
 ## Referências oficiais consultadas
 

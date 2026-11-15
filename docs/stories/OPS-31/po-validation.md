@@ -43,3 +43,34 @@
 ## Test plan, risks and targets
 
 Plan accepted: unit with fake Twurple, isolated PostgreSQL with real migrations, widget on native OBS as a separate class, real run in the authorized test channel by the `@qa` with the six open items (note section 11), seven gates. Risks (race fulfill/cancel, lookup failure, retention, abuse, UID in logs, chat rate limit) are covered by ACs 4, 13-15, 18-19, 21, 23, 27. UX target >= 9.0 before the `@dev`; `@qa` verdict before `@devops` commits. Owner items: reauthorization of the channel (new scopes), the real redemptions (Orion in Chrome), points-retention acceptance (done).
+
+## Reconfirmation after the `@architect` design (2026-11-11)
+
+**Validator:** `@po` (Pax), YOLO. **Sources:** [architect-design](architect-design.md) (D-31-1..D-31-11, section 9 wording, section 11 owner items). **Verdict: GO reconfirmed, 9.3/10** (previous 8.7). Status stays **Ready** (issue #115 exists). No code, git or GitHub action was taken.
+
+| # | Point | Before | Now | Note |
+|---|---|---|---|---|
+| 1 | Clear title | 1.0 | 1.0 | Unchanged. |
+| 2 | Description | 1.0 | 1.0 | Unchanged. |
+| 3 | Testable ACs | 0.9 | 1.0 | 33 ACs; the open design questions in ACs 10, 20 and 26 are now concrete (one list per channel, max 500; "do not refund" = fulfill at the choice; two-step batch with counts). New ACs 29-33 are Given/When/Then. |
+| 4 | Scope IN/OUT | 0.9 | 0.9 | Gifted/tier options explicitly out; R1/R2 are backlog, not scope. |
+| 5 | Dependencies | 0.7 | 0.9 | Order FT-71..FT-78 confirmed with real dependencies (FT-72 after FT-71; FT-76 after 72, 74, 75; FT-77 after 76; FT-73 independent); OPS-20 substituted. Open: `@data-engineer` and `@ux-design-expert` gates. |
+| 6 | Complexity | 0.9 | 1.0 | 19, COMPLEX (scope 5, integration 4, infrastructure 2, knowledge 3, risk 5); confirmed by `@architect`. |
+| 7 | Business value | 0.9 | 0.9 | Unchanged. |
+| 8 | Risks | 0.8 | 0.8 | The design lists ten risks with residuals (section 5); the story keeps its seven and points to the design. Not raised: the story list was not rewritten. |
+| 9 | Definition of Done | 0.8 | 0.9 | Covers ACs 1-33 by class. |
+| 10 | Alignment with sources | 0.8 | 0.9 | Every new AC traces to a D-31 decision; the AC 26 extension is confirmed by `@architect`. |
+
+**Checklist of 10 points:** all pass (>= 7 required; total 9.3).
+
+**Decisions of this pass (AUTO-DECISION, reversible):**
+- OW-31-1: keep "nothing automatic for members" (reason: owner rule of 2026-11-06; the alternative contradicts AC 31). The owner may reverse it; it blocks nothing.
+- Own-list maximum 500: accepted (AC 10).
+- Numbering: new ACs appended as 29-33 so that references in the inventory, board and handoff to ACs 1-28 stay valid.
+
+**What changes for the test plan (to `@qa`):** isolated PostgreSQL with a **race barrier** (pairs conclude x remove-with-no-refund, two opposite choices, start x remove, two "retry now", clear x conclude; exactly one financial task; `settlement.contradictory_request` when the choices differ) and a run **without the advisory lock** proving the unique index alone refuses the second task; migration tests (existing queues keep `fulfill_on_start`, every constraint refuses the invalid row; the API refuses `refund_on_end` before FT-76, AC 30); the decision is immutable; batch counts by outcome, stale snapshot refused, deletion waits while a pending state exists (AC 32); lookup mapping for 401/403/429/5xx/timeout/malformed/missing scope with a fake Twurple, chunks of 100, 429 wait then `unknown`; double cancel with the **real** Twurple class (AC 19); limiter with an injected clock; logs with no id, login or label; real channel in two runs (notices after FT-71..73, money after FT-74..77) with the six open items. One `@qa` gate at the end; FT-76 and FT-77 are validated together.
+
+**Pending (not done here):**
+- `@devops`: close issue #76 as superseded by #115 (or update its body; never a comment) and update the OPS-20 entry in the inventory and board; register R1 (no work) and R2 (follow-up: fulfill a normal redemption after a no-show or a called removal with the switch off) in the backlog.
+- Specialist gates still open: `@data-engineer` (questions of design section 10), `@ux-design-expert` (>= 9.0), `@qa` test plan.
+- Owner: nothing blocking. For FT-78 only: reconnect the test channel with the new scopes and make the real redemptions.

@@ -8,7 +8,7 @@ const options = new Map();
 for (let index = 2; index < process.argv.length; index += 2) {
   const name = process.argv[index];
   const value = process.argv[index + 1];
-  if (!['--platform', '--output', '--image-tag', '--product-version'].includes(name)) {
+  if (!['--platform', '--output', '--image-tag', '--product-version', '--password-hash-env'].includes(name)) {
     process.stderr.write(`Unknown argument: ${name}\n`);
     process.exit(2);
   }
@@ -27,6 +27,22 @@ const validProductVersion = /^(main|v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\
 if (!['linux', 'macos', 'windows'].includes(platform)) {
   process.stderr.write('Usage: node apps/infra/scripts/package-installer.mjs --platform <linux|macos|windows> --output <directory> [--image-tag <main|materialized-version[@sha256:digest]>]\n');
   process.exit(2);
+}
+// Owner-only test build: the PBKDF2 password hash comes from an environment variable (never from argv, which the process
+// list exposes) and is validated before use. Without --password-hash-env the output is the unchanged production installer.
+const passwordHashEnv = options.get('--password-hash-env');
+let testPasswordHash = null;
+if (passwordHashEnv !== undefined) {
+  const hashFormat = /^pbkdf2-sha256\$(\d{6,7})\$([A-Za-z0-9+/]{22}==)\$([A-Za-z0-9+/]{43}=)$/;
+  const parts = hashFormat.exec(process.env[passwordHashEnv] ?? '');
+  const canonical = (text, length) => Buffer.from(text, 'base64').length === length && Buffer.from(text, 'base64').toString('base64') === text;
+  const iterations = Number(parts?.[1]);
+  if (platform !== 'windows' || !/^[A-Z][A-Z0-9_]*$/.test(passwordHashEnv) || !parts
+    || iterations < 100000 || iterations > 2000000 || !canonical(parts[2], 16) || !canonical(parts[3], 32)) {
+    process.stderr.write('The test password guard needs --platform windows and a valid PBKDF2 hash (pbkdf2-sha256$<iterations>$<salt>$<hash>) in the named upper-case environment variable.\n');
+    process.exit(2);
+  }
+  testPasswordHash = parts[0];
 }
 if (!validImageTag.test(imageTag)) {
   process.stderr.write('Invalid image reference; use main or a materialized version identity, optionally pinned by its SHA-256 digest.\n');
@@ -55,7 +71,16 @@ let artifact;
 if (platform === 'windows') {
   filename = 'subarushogun_twich_bot_setup.bat';
   const source = await readFile(join(root, 'apps/infra/installer/installer.ps1'), 'utf8');
-  const powershell = source.replace('__COMPOSE_B64__', composeBase64).replaceAll('__IMAGE_TAG__', imageTag).replaceAll('__PRODUCT_VERSION__', productVersion);
+  let powershell = source.replace('__COMPOSE_B64__', composeBase64).replaceAll('__IMAGE_TAG__', imageTag).replaceAll('__PRODUCT_VERSION__', productVersion);
+  if (testPasswordHash) {
+    // The guard runs right after the command line is parsed (so --help still works) and before any other action.
+    const eol = source.includes('\r\n') ? '\r\n' : '\n';
+    const anchor = `if ($parseStatus -ne 0) { exit $parseStatus }${eol}`;
+    if (powershell.split(anchor).length !== 2) throw new Error('Test password guard anchor not found exactly once in installer.ps1.');
+    const guard = (await readFile(join(root, 'apps/infra/installer/test-password-guard.ps1'), 'utf8'))
+      .replace(/\r?\n/g, eol).replace('__TEST_PASSWORD_HASH__', () => testPasswordHash);
+    powershell = powershell.replace(anchor, () => `${anchor}${guard}`);
+  }
   const encoded = Buffer.from(powershell, 'utf16le').toString('base64').match(/.{1,76}/g).join('\r\n');
   artifact = [
     '@echo off',
@@ -71,7 +96,8 @@ if (platform === 'windows') {
     ':endpayload',
     ':run',
     'set "QUEUEBOT_INSTALLER_ARGS=%*"',
-    `powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$raw=[IO.File]::ReadAllText('%~f0');$encoded=[regex]::Match($raw,'(?s):payload\\r?\\n(.*?)\\r?\\n:endpayload').Groups[1].Value -replace '\\s','';$code=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encoded));& ([ScriptBlock]::Create($code));exit $LASTEXITCODE"`,
+    'set "QUEUEBOT_SELF=%~f0"',
+    `powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$raw=[IO.File]::ReadAllText($env:QUEUEBOT_SELF);$encoded=[regex]::Match($raw,'(?s):payload\\r?\\n(.*?)\\r?\\n:endpayload').Groups[1].Value -replace '\\s','';$code=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encoded));& ([ScriptBlock]::Create($code));exit $LASTEXITCODE"`,
     'exit /b %errorlevel%',
     '',
   ].join('\r\n');

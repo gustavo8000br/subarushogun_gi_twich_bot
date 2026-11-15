@@ -2,7 +2,7 @@
 
 [English](../../../stories/OPS-19/story.md)
 
-**Status:** Em andamento — comportamento solicitado pelo proprietário; implementação na `feat/ops-15-next-panel`. **Issue:** [#78](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/78), criada por `$aiox-devops`.
+**Status:** Em andamento (InReview pendente) — implementada e testada pelo `@dev`; gate do `@qa` PASS 9,3 em 2026-11-14; NÃO está Done: ainda não há observação Twitch ao vivo do fulfill ao iniciar o atendimento. **Issue:** [#78](https://github.com/gustavo8000br/subarushogun_gi_twich_bot/issues/78), criada por `$aiox-devops`.
 **Relacionado:** outbox financeira FND-3; ciclo de fila/recompensa FND-9; paridade do painel OPS-15 (sem ampliar o escopo da OPS-15).
 **Coordenação de dados:** Reutilizar `Redemption.expectedStatus`, a outbox existente de intenção única por resgate, leases/retries do worker e reconciliação remota. Sem migration de schema ou operação no banco ativo.
 
@@ -33,16 +33,29 @@ para que a recompensa não continue pendente na Twitch enquanto o atendimento se
 - Este registro foi incluído após a implementação da interface, quando o proprietário estabeleceu a regra obrigatória de UX primeiro; ele não afirma que a implementação anterior foi planejada sob essa regra.
 - Necessidade: o streamer precisa saber que o atendimento local começou enquanto o fulfillment Twitch continua pendente, sem receber uma falsa confirmação da Twitch.
 - Feedback planejado: manter o resultado na fila afetada como estado inline (não apenas toast transitório); distinguir fulfillment pendente de ação local aceita cuja atualização da fila falhou; manter a verdade final Twitch na projeção existente de operações. Usar cópia alinhada em EN/ES/pt-BR e expor semanticamente o estado sem mover o foco.
-- Revisão AIOX UX delimitada da implementação: **9,4/10** (somente código). O feedback Next revisado aparece inline com `role="status"`; o toast vanilla também é um status polite e o próprio texto informa pendência/falha de atualização, então a cor não é o único sinal. A cópia é localizada e evita falsa confirmação. Não foram realizados testes de browser, contraste, leitor de tela ou pesquisa com usuários; esta nota não representa OPS-19 nem o produto em geral.
+- Revisão AIOX UX delimitada da implementação: **9,4/10** (somente código). O feedback Next revisado aparece inline com `role="status"`; o próprio texto informa pendência/falha de atualização, então a cor não é o único sinal. A cópia é localizada e evita falsa confirmação. Não foram realizados testes de browser, contraste, leitor de tela ou pesquisa com usuários; esta nota não representa OPS-19 nem o produto em geral.
 - Base de acessibilidade: o critério WCAG 2.1 4.1.3 do W3C exige que mensagens de status sejam programaticamente determináveis sem exigir foco. A técnica W3C `role=status` descreve um padrão suficiente. Consulte [WCAG 2.1 4.1.3](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-21/) e [WAI ARIA22](https://www.w3.org/WAI/WCAG21/Techniques/aria/ARIA22). Essas fontes orientaram a revisão, mas não significam conformidade completa.
+
+## Tarefas
+
+- [x] Intenção atômica `redemption.fulfill` e estado esperado `FULFILLED` em `called → in_progress`; uma intenção por resgate (CA 1, 4) — `entry-transitions.mjs:35-37,53-54`, `queue-repository.mjs:1892-1895,2359-2380,2700-2735`; testes PostgreSQL em `tests/integration/queue-repository.test.js` (~1601, 1637, 1660, 1679, 1705).
+- [x] `FULFILLED` externo durante `in_progress` confirma o resgate sem concluir o atendimento (CA 3) — `redemption-processor.mjs:14-33`; unit `twitch-event-processor`.
+- [x] Feedback verdadeiro de pendência no chat e no painel Next (CA 5) — `chat-handler.mjs:226-228`, `queue-entry-actions.mjs:53-58`; unit `chat-command-handler`, `next-queue-entry-actions`.
+- [x] Cópia EN/ES/pt-BR alinhada, sem migration, sem bump de versão (CA 7) — `npm run validate:localization` verde.
+- [x] Evidência do `@dev`: 137 testes unit e 163 testes de integração PostgreSQL verdes (PostgreSQL descartável isolado, migrations reais), lint, typecheck.
+- [x] Script browser-only do feedback inline `role="status"`: `tests/e2e/queue-fulfillment-feedback-browser-only.mjs` (variante pendente e variante com atualização falha, fixtures interceptadas), incluído em `tests/e2e/browser-only-manifest.json` e `package.json`; passou pelo `tests/e2e/run-browser-scripts.mjs` em 2026-11-14.
+- [x] Gate e veredito independentes do `@qa`: PASS 9,3/10 em 2026-11-14 (PostgreSQL real, browser-only 22/22, 7 mutações de dinheiro em produção detectadas; funcionalidade 23 do ledger = Y\* provisória, D-04). Relatório: `.local/audit-2026-11-14/ledger/qa-ops19.md`.
+- [ ] Observação Twitch ao vivo do fulfill ao iniciar o atendimento (não feito; CA 2 e 6 não alegam write Twitch real, só fakes).
 
 ## Lista de arquivos
 
 - `apps/api/src/domain/entry-transitions.mjs` e `apps/api/src/persistence/queue-repository.mjs` — intenção de fulfillment ao iniciar o serviço e proteção de intenção única em transições posteriores.
 - `apps/api/src/twitch/redemption-processor.mjs` — registro do fulfillment remoto durante serviço ativo sem encerrar o estado local do atendimento.
-- `apps/api/src/commands/chat-handler.mjs`, `apps/frontend/features/queues/queue-entry-actions.mjs`, `apps/web/app.js` — feedback verdadeiro de pendência no chat e nas duas implementações do painel.
-- `apps/web/localization/catalogs/{panel,chat}/{en,es,pt-BR}.tsv`, `CHANGELOG-beta.md`, `docs/pt-BR/CHANGELOG-beta.md` — feedback localizado e notas beta.
-- `tests/unit/{entry-transitions,twitch-event-processor,next-queue-entry-actions,chat-command-handler,vanilla-fulfillment-feedback}.test.js`, `tests/integration/queue-repository.test.js` — regressões de comportamento, evento externo, feedback dos dois painéis, atomicidade e intenção única.
+- `apps/api/src/commands/chat-handler.mjs`, `apps/frontend/features/queues/queue-entry-actions.mjs` — feedback verdadeiro de pendência no chat e no painel Next.
+- `apps/shared/localization/catalogs/{panel,chat}/{en,es,pt-BR}.tsv`, `CHANGELOG-beta.md`, `docs/pt-BR/CHANGELOG-beta.md` — feedback localizado e notas beta.
+- `tests/unit/{entry-transitions,twitch-event-processor,next-queue-entry-actions,chat-command-handler}.test.js`, `tests/integration/queue-repository.test.js` — regressões de comportamento, evento externo, feedback do painel, atomicidade e intenção única.
+- `tests/e2e/queue-fulfillment-feedback-browser-only.mjs`, `tests/e2e/browser-only-manifest.json`, `package.json` — cobertura browser-only do status inline de fulfillment.
+- `tests/integration/compose-widgets-overlay-revoke.test.js` — primeira espera tolerante à subida a frio (correção de flake alheia, pacote do critério #23 do ledger).
 - `docs/stories/OPS-19/story.md`, `docs/pt-BR/stories/OPS-19/story.md`, `docs/stories.md`, `docs/pt-BR/stories.md` e handoffs bilíngues.
 
 ## Histórico de alterações
@@ -53,3 +66,4 @@ para que a recompensa não continue pendente na Twitch enquanto o atendimento se
 | 2026-10-19 | Implementados intenção atômica de fulfillment ao iniciar o serviço, sincronização de evento remoto sem concluir prematuramente o atendimento, proteção de intenção única e feedback localizado de pendência. Evidências focadas estão no handoff ativo. | `$aiox-dev` |
 | 2026-10-19 | Estado remoto de resgate divergente agora é marcado como conflito, não confirmado; adicionadas regressões PostgreSQL e do feedback do painel vanilla. A pesquisa confirmou que a Twitch só atualiza resgates `UNFULFILLED` e reporta mudanças por EventSub. | `$aiox-dev` |
 | 2026-10-20 | Registrados o plano UX e a revisão delimitada de **9,4/10 somente código** para o feedback de fulfillment em filas/chat; verificações browser e de tecnologia assistiva continuam pendentes. | `$aiox-ux-design-expert` |
+| 2026-11-14 | Removidas as referências ao painel vanilla removido (`apps/web/app.js`, teste `vanilla-fulfillment-feedback`); mapeados os arquivos atuais; incluído o checklist de tarefas; incluído o script browser-only do status inline de fulfillment; status mantido honesto (sem veredito do `@qa`, sem observação Twitch ao vivo). Nenhum código de produção alterado. | `$aiox-dev` |

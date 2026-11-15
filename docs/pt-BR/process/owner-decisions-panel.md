@@ -14,7 +14,7 @@ O quadro mostrava cards "Aguardando decisão" com recomendação, mas o propriet
 
 Os blocos da seção 5 estão em português, idioma dos corpos das issues e do que o proprietário lê e marca. O `@devops` acrescenta o espelho em inglês sem caixas (ver o [modelo de corpo de issue](issue-body-template.md)). Links relativos viram links do GitHub ao colar.
 
-## 2. Mapa D-NN para issue (15 decisões)
+## 2. Mapa D-NN para issue (16 decisões)
 
 | ID | Issue | Origem | Pergunta |
 |---|---|---|---|
@@ -31,9 +31,9 @@ Os blocos da seção 5 estão em português, idioma dos corpos das issues e do q
 | D-11 | #79 | OW-15 | Fatias 3 e 4 da OPS-21 precisam anteceder o corte do OPS-15? |
 | D-12 | issue índice | TS-02 / OW-12 | Remover ou reescrever 3 testes de status histórico |
 | D-13 | issue índice | TS-07 / OW-12 | Um contêiner PostgreSQL por execução da suíte |
-| D-14 | issue índice | D9 do desenho do quadro | Arquivar os cards legados #17 e #18 |
-| D-15 | issue índice | OW-14 | Quando apagar a branch de backup `backup/ops-15-before-history-fix` |
-| D-16 | issue índice | W2-2 (auditoria 2026-11-13) | Exceção da regra de sub-issues: criar as sub-issues das fatias planejadas só quando cada story ficar Ready (A, recomendado; registrada no `AGENTS.md`) ou todas agora (B) |
+| D-14 | issue índice | D9 do desenho do quadro | Arquivar os cards legados #17 e #18. **DECIDIDA: opção A (2026-10-30)** |
+| D-15 | issue índice | OW-14 | Quando apagar a branch de backup `backup/ops-15-before-history-fix`. **RESOLVIDA sem ação (2026-11-05)**: a branch de backup remota não existe mais |
+| D-16 | issue índice | W2-2 (auditoria 2026-11-13) | Exceção da regra de sub-issues: criar as sub-issues das fatias planejadas só quando cada story ficar Ready (A) ou todas agora (B). **DECIDIDA: opção A (2026-11-14)**, exceção registrada no `AGENTS.md` (linha 100) |
 
 Issues abertas sem decisão pendente: #19, #40, #48, #57, #60, #74, #76, #77, #78, #80, #81, #82, #84, #85, #86, #87, #88, #89, #90, #91, #92, #93, #94, #95, #96, #98, #99, #100. Cada uma recebe mesmo assim a linha `Nenhuma decisão pendente.` e a lista `## Gates`.
 
@@ -862,7 +862,7 @@ Sem gates próprios: issue índice, sem story.
 
 ## 7. Contagens
 
-15 decisões (D-01..D-15) e 8 ações do proprietário (A-01..A-08) em 34 issues abertas mais a issue índice. Contagens do quadro antes das marcações de 2026-10-30: 66 ativos, 46 arquivados, 110 itens do inventário. Depois que o proprietário marcou a D-14 = A (2026-10-30), registrada em 2026-11-04: **64 ativos, 48 arquivados** (#17 e #18 passaram a arquivados), 110 itens do inventário, 112 cards no total. Também marcadas: D-01 = B (ST-11 a Rascunho), D-12 = A (TS-02 a Pronto), D-13 = A (TS-07 a Pronto, a TS-11 mede primeiro). Contagens atuais depois do levantamento de melhorias de 2026-11-04 (12 itens novos, nenhuma decisão do proprietário criada): 122 itens do inventário, **76 ativos**, 48 arquivados, 124 cards no total ([inventário](backlog-inventory.md)). Marcações do proprietário registradas em 2026-11-05 (issue #69): D-04 registrada como A (adiar; ele marcou B antes de testar e esclareceu), D-05 = B (OW-07 a Bloqueado), D-06 = A (esperar) e D-07 = A (adiar). Contagens depois do gate de QA de 2026-11-05: **127 itens do inventário, 82 cards ativos (33 issues + 49 rascunhos), 48 arquivados, 130 cards no total** no plano; o quadro real mostra 77 ativos antes de carregar os 5 itens novos ([reconciliação](kanban-board-design.md), seção 5.3).
+16 decisões (D-01..D-16; contadas pelas linhas da tabela da seção 2, sendo a D-16 decidida no nível da auditoria, sem bloco de issue) e 8 ações do proprietário (A-01..A-08) em 34 issues abertas mais a issue índice. Contagens do quadro antes das marcações de 2026-10-30: 66 ativos, 46 arquivados, 110 itens do inventário. Depois que o proprietário marcou a D-14 = A (2026-10-30), registrada em 2026-11-04: **64 ativos, 48 arquivados** (#17 e #18 passaram a arquivados), 110 itens do inventário, 112 cards no total. Também marcadas: D-01 = B (ST-11 a Rascunho), D-12 = A (TS-02 a Pronto), D-13 = A (TS-07 a Pronto, a TS-11 mede primeiro). Contagens atuais depois do levantamento de melhorias de 2026-11-04 (12 itens novos, nenhuma decisão do proprietário criada): 122 itens do inventário, **76 ativos**, 48 arquivados, 124 cards no total ([inventário](backlog-inventory.md)). Marcações do proprietário registradas em 2026-11-05 (issue #69): D-04 registrada como A (adiar; ele marcou B antes de testar e esclareceu), D-05 = B (OW-07 a Bloqueado), D-06 = A (esperar) e D-07 = A (adiar). Contagens depois do gate de QA de 2026-11-05: **127 itens do inventário, 82 cards ativos (33 issues + 49 rascunhos), 48 arquivados, 130 cards no total** no plano; o quadro real mostra 77 ativos antes de carregar os 5 itens novos ([reconciliação](kanban-board-design.md), seção 5.3).
 
 ## Decisões reservadas e decisões padrão (regra do dono, 2026-10-30)
 

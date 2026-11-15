@@ -7,12 +7,26 @@ Escopo: o OBS DESTA máquina (Linux), autorizado pelo proprietário. **Sem inici
 ## 0. Antes de tudo
 
 1. Confirme o checkout: `pwd`, `git rev-parse --show-toplevel`, `git branch --show-current`; registre `git rev-parse --short HEAD` e as versões do OBS e do CEF (OBS: Ajuda > Sobre).
-2. Inicie o produto do jeito do projeto (`npm run dev` ou o Compose do produto); abra o painel local em `https://localhost:3000`.
+2. Inicie o produto do jeito do projeto (`npm run dev` ou o Compose do produto); abra o painel local em `https://localhost:3000`. **Nunca transmita com `dev:start` (ou `npm run dev`).** Eles rodam o servidor de desenvolvimento (recarga automática, build de desenvolvimento, mais lento, sem endurecimento): use-os só para testes como este roteiro. Para transmitir ao vivo use o build de produção ou o Compose do produto.
 3. **Confira o canal.** Painel > "Conexão Twitch": o canal conectado deve ser o **canal de testes** do proprietário, não o canal de produção. Se não for, pare e pergunte ao proprietário. Registre o nome de exibição do canal só nas notas da execução, nunca token nem ID.
+
+## 0.1 Confiar na CA local dentro do OBS (decisão D-5 do proprietário, 2026-11-13)
+
+O painel nunca pede para ignorar erros de certificado, e este roteiro também não: **sem desvio de certificado e sem fallback para HTTP** no OBS. A Browser Source (CEF) precisa confiar na CA local do produto, `localhost-ca.crt` (somente o certificado público; a chave privada fica no volume de segredos do Docker).
+
+1. **Ache o arquivo da CA.** Compose ou instalador no Linux: `$HOME/.local/share/subarushogun-gi-twitch-bot/.local/localhost-ca.crt`. Instalador do Windows: `%LOCALAPPDATA%\SubaruShogun\subarushogun-gi-twitch-bot\.local\localhost-ca.crt`. Checkout do repositório: `.local/localhost-ca.crt`. Se o volume foi removido, o bootstrap criou uma CA nova: importe o arquivo novo e remova a entrada antiga (veja a [instalação](../../INSTALACAO.md)).
+2. **Confirme o sintoma primeiro.** Sem confiança, a Browser Source mostra `net::ERR_CERT_AUTHORITY_INVALID` (visto em 2026-10-06 e de novo em 2026-11-13). Confiar na CA no navegador comum (os comandos do [guia de instalação](../../INSTALACAO.md)) **não** faz o OBS confiar nela: o OBS tem o próprio Chromium (CEF) com repositório de certificados próprio.
+3. **OBS nativo no Linux.** Importe `localhost-ca.crt` no repositório de certificados que o processo CEF do OBS lê. Em 2026-10-06 a CA foi importada num **perfil NSS temporário do CEF** (não no repositório comum do usuário) e removida depois; qual repositório o OBS lê por padrão, e o comando de importação, não foram registrados. Essa importação fez a fonte carregar em TLS 1.3 com estado de segurança `secure` (Ubuntu 24.04, OBS 32.2.2 Flathub, `obs-browser` 2.26.9, CEF 127.0.6533.120). **O comando exato de importação não foi registrado no repositório e não é reproduzido aqui; não adivinhe um.** A execução do `@qa` deve registrar o comando usado e a leitura do resultado.
+4. **OBS Flatpak (`com.obsproject.Studio`).** O app roda em sandbox com home próprio (`~/.var/app/com.obsproject.Studio/`): importar no `$HOME` do host não o alcança. A evidência de 2026-10-06 foi no build Flathub; o local do repositório no sandbox não foi registrado. Não validado.
+5. **Windows.** O guia de instalação importa a CA em `Cert:\CurrentUser\Root` com `Import-Certificate` (confiança do navegador). Se a Browser Source do OBS no Windows usa esse repositório **não foi validado**; nada é afirmado para o Windows.
+6. **Verifique.** Reabra a Browser Source (ou reinicie o OBS). Passa: o widget carrega em HTTPS sem erro de certificado. Falha: qualquer erro de certificado; pare e registre, não contorne. Remova qualquer importação temporária que você tenha feito ao fim do teste.
+7. **Não validado em 2026-11-13:** confiança TLS no OBS com a CA atual do Compose em qualquer plataforma (o harness de 2026-11-13 ignorou erros de certificado num daemon CDP; o repositório NSS do OBS estava vazio), local do repositório no Flatpak, Windows, macOS.
 
 ## 1. Obter os novos links dos widgets
 
 Painel > "Widgets do OBS". Para o widget de conta use "Gerar link" (ou "Regenerar link" se já existir um; o anterior deixa de funcionar). O diálogo "Copie este link para o OBS" mostra o link uma única vez: use "Copie agora" e depois "Pronto, copiei o link". Ele não pode ser visto de novo; se perder, gere outro. Faça o mesmo para cada widget usado nas cenas.
+
+**URL legada `/overlay.html`.** Cenas antigas podem ter uma Browser Source com URL `.../overlay.html?ref=...#...`. Esse alias foi removido na Onda 3 do cutover e não é mais servido: a rota do overlay é `/overlay?ref=<referência>#<capacidade>`. Troque toda fonte `/overlay.html` por um link novo gerado aqui (o link antigo não pode ser convertido). Existe widget de nome da fila (fonte "Nome de uma fila", `queue_name`): crie um por fila se a cena antiga mostrava o nome da fila.
 
 ## 2. Backup e edição da coleção de cenas do OBS (OBS FECHADO)
 
@@ -26,6 +40,8 @@ Painel > "Widgets do OBS". Para o widget de conta use "Gerar link" (ou "Regenera
 ## 3. Validação do widget (AC-W-1..5, com capturas)
 
 Tire uma captura por estado (carregando, autorizado, desatualizado/indisponível, não autorizado) sobre cena transparente e escura, mais uma cena clara, e confira que a linha pequena de status fica DENTRO da caixa da fonte (risco 1 do UX: corte quando a altura da fonte é igual à altura do rótulo).
+
+**Altura.** A linha de status do widget (por exemplo, "Atualização atrasada") é desenhada dentro da caixa do widget. Deixe a altura do widget, e a altura da fonte Navegador (Browser Source) do OBS, em pelo menos `ceil(tamanho da fonte x 1,4) + 20` px. Exemplo: fonte 32 precisa de 65 px. Com altura menor, o OBS corta a linha de status. O formulário do widget mostra esse mínimo para o tamanho de fonte escolhido.
 
 | AC | Faça | Registre |
 |---|---|---|
@@ -47,4 +63,4 @@ Precisa do proprietário: uma mensagem real no chat do canal de testes (não pre
 
 ## 5. D-6 ao vivo (diagnóstico, depende do proprietário)
 
-Precisa do "pode transmitir" do proprietário. Sem ele, a D-6 continua "diagnosticável; causa raiz pendente de evidência ao vivo". Quando ele autorizar, inicie a transmissão e acompanhe o log JSON da API em busca de linhas com `event: "twitch_integration_degraded"` (e a antiga `twitch_reconciliation_degraded`) enquanto o `/health` mostra `twitch_integration: degraded`. A linha nomeia `details.reason` (`eventsub_disconnected`, `eventsub_startup_disconnected`, `subscription_revoked` com `type` e `revokeStatus`). Registre o motivo e a ordem das linhas; nunca cole texto de chat, tokens ou IDs. Um `degraded` silencioso (estado sem nenhuma dessas linhas) é, por si só, um achado a relatar.
+Precisa do "pode transmitir" do proprietário. Transmita só com o build de produção ou o Compose do produto, nunca com `dev:start`. Sem ele, a D-6 continua "diagnosticável; causa raiz pendente de evidência ao vivo". Quando ele autorizar, inicie a transmissão e acompanhe o log JSON da API em busca de linhas com `event: "twitch_integration_degraded"` (e a antiga `twitch_reconciliation_degraded`) enquanto o `/health` mostra `twitch_integration: degraded`. A linha nomeia `details.reason` (`eventsub_disconnected`, `eventsub_startup_disconnected`, `subscription_revoked` com `type` e `revokeStatus`). Registre o motivo e a ordem das linhas; nunca cole texto de chat, tokens ou IDs. Um `degraded` silencioso (estado sem nenhuma dessas linhas) é, por si só, um achado a relatar.

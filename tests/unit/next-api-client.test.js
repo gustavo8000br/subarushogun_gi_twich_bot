@@ -7,6 +7,29 @@ function response(body, { status = 200, headers = {} } = {}) {
 }
 
 describe('Next same-origin API client', () => {
+  it('announces a 403 ORIGIN_NOT_ALLOWED refusal once, keeps the safe error and ignores other refusals (D-3)', async () => {
+    const events = [];
+    const listener = () => events.push('wrong-origin');
+    globalThis.window = new globalThis.EventTarget();
+    globalThis.CustomEvent ??= class extends globalThis.Event {};
+    globalThis.window.addEventListener('panel:wrong-origin', listener);
+    try {
+      const fetchImpl = vi.fn()
+        .mockResolvedValueOnce(response({ csrfToken: 'a'.repeat(64) }))
+        .mockResolvedValueOnce(response({ error: 'Origem inválida.', code: 'ORIGIN_NOT_ALLOWED' }, { status: 403 }))
+        .mockResolvedValueOnce(response({ error: 'x', code: 'ORIGIN_NOT_ALLOWED' }, { status: 409 }))
+        .mockResolvedValueOnce(response({ error: 'Sessão ou proteção CSRF inválida.' }, { status: 403 }));
+      const api = createApiClient({ fetchImpl });
+      await expect(api.request('/api/x', { method: 'POST' })).rejects.toMatchObject({ status: 403, code: 'ORIGIN_NOT_ALLOWED', message: 'The request could not be completed.' });
+      expect(events).toHaveLength(1);
+      await expect(api.request('/api/x', { method: 'POST' })).rejects.toMatchObject({ status: 409 });
+      await expect(api.request('/api/x', { method: 'POST' })).rejects.toMatchObject({ status: 403 });
+      expect(events).toHaveLength(1);
+    } finally {
+      delete globalThis.window;
+    }
+  });
+
   it('initializes a local session and adds CSRF and idempotency headers to mutations', async () => {
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce(response({ csrfToken: 'a'.repeat(64) }))

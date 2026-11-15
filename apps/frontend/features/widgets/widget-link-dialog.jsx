@@ -101,7 +101,7 @@ export function WidgetLinkDialog({ t, url, onClosed }) {
         <span id="widget-link-label" className="widget-link-label">{t('panel.widget.local_widget_url')}</span>
         <div className="widget-link-row">
           {revealed
-            ? <input className="widget-link-value" type="text" readOnly value={url} aria-labelledby="widget-link-label" autoComplete="off" spellCheck={false} dir="ltr" />
+            ? <input className="widget-link-value" type="text" readOnly value={url} aria-labelledby="widget-link-label" onFocus={(event) => event.currentTarget.select()} autoComplete="off" spellCheck={false} dir="ltr" />
             : <span className="widget-link-value widget-link-masked"><span aria-hidden="true">{MASK}</span><span className="widget-link-visually-hidden">{t('panel.widget.link.hidden_label')}</span></span>}
           <button className="button button-secondary" type="button" onClick={() => setRevealed((value) => !value)}>{t(revealed ? 'panel.widget.link.hide' : 'panel.widget.link.show')}</button>
         </div>

@@ -118,7 +118,7 @@ if ($TestMode -and $env:QUEUEBOT_TEST_INPUT_FILE -and (Test-Path -LiteralPath $e
   $script:TestInputLines = [IO.File]::ReadAllLines($env:QUEUEBOT_TEST_INPUT_FILE)
 }
 if (Test-Path -LiteralPath $EnvFile) {
-  $existing = (Get-Content -LiteralPath $EnvFile | Where-Object { $_ -match '^PRODUCT_INITIAL_LOCALE=(pt-BR|en|es)$' } | Select-Object -First 1) -replace '^PRODUCT_INITIAL_LOCALE=', ''
+  $existing = (Get-Content -LiteralPath $EnvFile -Encoding UTF8 | Where-Object { $_ -match '^PRODUCT_INITIAL_LOCALE=(pt-BR|en|es)$' } | Select-Object -First 1) -replace '^PRODUCT_INITIAL_LOCALE=', ''
   if ($existing) { $script:Locale = $existing } else { $script:Locale = 'pt-BR' }
 }
 function T([string]$Key) {
@@ -327,28 +327,34 @@ function Read-Port {
     catch { if ($listener) { $listener.Stop() }; Write-Host (T 'portBusy') }
   }
 }
+function Write-EnvFile($Value) {
+  # UTF-8 without BOM on Windows PowerShell 5.1 and 7: an accented profile path must survive (ASCII would turn it into '?').
+  $lines = New-Object System.Collections.Generic.List[string]
+  foreach ($item in $Value) { foreach ($line in @($item)) { if ($null -ne $line) { $lines.Add([string]$line) } } }
+  [IO.File]::WriteAllLines($EnvFile, $lines.ToArray(), (New-Object System.Text.UTF8Encoding($false)))
+}
 function Save-Config([int]$Port) {
   New-Item -ItemType Directory -Force -Path $InstallHome | Out-Null
   if (-not (Test-Path $EnvFile)) {
     $communityCatalogDirectory = if ($env:LOCAL_COMMUNITY_CATALOG_DIRECTORY) { $env:LOCAL_COMMUNITY_CATALOG_DIRECTORY } else { '.local\community-catalogs' }
     if (-not [IO.Path]::IsPathRooted($communityCatalogDirectory)) { $communityCatalogDirectory = Join-Path $InstallHome $communityCatalogDirectory }
-    Set-Content -LiteralPath $EnvFile -Encoding ascii -Value @("APP_PORT=$Port","IMAGE_TAG=$ReleaseImageTag","PRODUCT_INITIAL_LOCALE=$script:Locale","LOCAL_COMMUNITY_CATALOG_DIRECTORY=$communityCatalogDirectory")
+    Write-EnvFile -Value @("APP_PORT=$Port","IMAGE_TAG=$ReleaseImageTag","PRODUCT_INITIAL_LOCALE=$script:Locale","LOCAL_COMMUNITY_CATALOG_DIRECTORY=$communityCatalogDirectory")
     return
   }
 
-  $communityCatalogDirectory = Get-Content -LiteralPath $EnvFile | Where-Object { $_ -match '^LOCAL_COMMUNITY_CATALOG_DIRECTORY=' } | Select-Object -First 1
+  $communityCatalogDirectory = Get-Content -LiteralPath $EnvFile -Encoding UTF8 | Where-Object { $_ -match '^LOCAL_COMMUNITY_CATALOG_DIRECTORY=' } | Select-Object -First 1
   if (-not $communityCatalogDirectory) {
     $directory = if ($env:LOCAL_COMMUNITY_CATALOG_DIRECTORY) { $env:LOCAL_COMMUNITY_CATALOG_DIRECTORY } else { '.local\community-catalogs' }
     if (-not [IO.Path]::IsPathRooted($directory)) { $directory = Join-Path $InstallHome $directory }
     $communityCatalogDirectory = "LOCAL_COMMUNITY_CATALOG_DIRECTORY=$directory"
   }
-  $lines = @(Get-Content -LiteralPath $EnvFile | Where-Object { $_ -notmatch '^(APP_PORT|IMAGE_TAG|PRODUCT_INITIAL_LOCALE)=' })
+  $lines = @(Get-Content -LiteralPath $EnvFile -Encoding UTF8 | Where-Object { $_ -notmatch '^(APP_PORT|IMAGE_TAG|PRODUCT_INITIAL_LOCALE)=' })
   $preservedLines = @($lines | Where-Object { $_ -notmatch '^LOCAL_COMMUNITY_CATALOG_DIRECTORY=' })
-  Set-Content -LiteralPath $EnvFile -Encoding ascii -Value @("APP_PORT=$Port","IMAGE_TAG=$ReleaseImageTag","PRODUCT_INITIAL_LOCALE=$script:Locale",$communityCatalogDirectory,$preservedLines)
+  Write-EnvFile -Value @("APP_PORT=$Port","IMAGE_TAG=$ReleaseImageTag","PRODUCT_INITIAL_LOCALE=$script:Locale",$communityCatalogDirectory,$preservedLines)
   Write-ComposeFile
 }
 function Save-ImageTag {
-  $lines = @(Get-Content -LiteralPath $EnvFile)
+  $lines = @(Get-Content -LiteralPath $EnvFile -Encoding UTF8)
   $found = $false
   $updated = foreach ($line in $lines) {
     if ($line -match '^IMAGE_TAG=') {
@@ -356,7 +362,7 @@ function Save-ImageTag {
     } else { $line }
   }
   if (-not $found) { $updated += "IMAGE_TAG=$ReleaseImageTag" }
-  Set-Content -LiteralPath $EnvFile -Encoding ascii -Value $updated
+  Write-EnvFile -Value $updated
 }
 function Wait-Panel([int]$Port) {
   if ($TestMode) { return $true }
@@ -370,9 +376,9 @@ function Wait-Panel([int]$Port) {
 function Setup-Product {
   if (-not (Ensure-Docker)) { $script:OperationFailed=$true; return }
   if (Test-Path -LiteralPath $EnvFile) {
-    $portLine=Get-Content $EnvFile | Where-Object { $_ -match '^APP_PORT=\d+$' } | Select-Object -First 1
+    $portLine=Get-Content $EnvFile -Encoding UTF8 | Where-Object { $_ -match '^APP_PORT=\d+$' } | Select-Object -First 1
     $port=if ($portLine) { [int]($portLine -replace '^APP_PORT=','') } else { 3000 }
-    $currentLocale=(Get-Content $EnvFile | Where-Object { $_ -match '^PRODUCT_INITIAL_LOCALE=(pt-BR|en|es)$' } | Select-Object -First 1) -replace '^PRODUCT_INITIAL_LOCALE=',''
+    $currentLocale=(Get-Content $EnvFile -Encoding UTF8 | Where-Object { $_ -match '^PRODUCT_INITIAL_LOCALE=(pt-BR|en|es)$' } | Select-Object -First 1) -replace '^PRODUCT_INITIAL_LOCALE=',''
     if ($currentLocale) { $script:Locale=$currentLocale }
     if ($script:NonInteractive) {
       if ($script:CliLocale) { $script:Locale=$script:CliLocale }
@@ -404,9 +410,9 @@ function Setup-Product {
 }
 function Update-Product {
   if (-not (Test-Path $EnvFile) -or -not (Ensure-Docker)) { Write-Host (T 'failure'); $script:OperationFailed=$true; return }
-  $localeLine=Get-Content $EnvFile | Where-Object { $_ -match '^PRODUCT_INITIAL_LOCALE=(pt-BR|en|es)$' } | Select-Object -First 1
+  $localeLine=Get-Content $EnvFile -Encoding UTF8 | Where-Object { $_ -match '^PRODUCT_INITIAL_LOCALE=(pt-BR|en|es)$' } | Select-Object -First 1
   if ($localeLine) { $script:Locale=$localeLine -replace '^PRODUCT_INITIAL_LOCALE=','' }
-  $portLine=Get-Content $EnvFile | Where-Object { $_ -match '^APP_PORT=\d+$' } | Select-Object -First 1
+  $portLine=Get-Content $EnvFile -Encoding UTF8 | Where-Object { $_ -match '^APP_PORT=\d+$' } | Select-Object -First 1
   $port=if ($portLine) { [int]($portLine -replace '^APP_PORT=','') } else { 3000 }
   if ($script:NonInteractive) { $choice=if ($script:DataPolicy -eq 'erase') { '2' } else { '1' } }
   else { Write-Host (T 'update'); $choice=Read-Answer (T 'choice') }
@@ -434,7 +440,7 @@ function Update-Product {
   if ((Compose @('up','-d'))) { if (-not (Wait-Panel $newPort)) { $script:OperationFailed=$true } } else { Write-Host (T 'failure'); $script:OperationFailed=$true }
 }
 function Uninstall-Product {
-  $localeLine=Get-Content $EnvFile -ErrorAction SilentlyContinue | Where-Object { $_ -match '^PRODUCT_INITIAL_LOCALE=(pt-BR|en|es)$' } | Select-Object -First 1
+  $localeLine=Get-Content $EnvFile -Encoding UTF8 -ErrorAction SilentlyContinue | Where-Object { $_ -match '^PRODUCT_INITIAL_LOCALE=(pt-BR|en|es)$' } | Select-Object -First 1
   if ($localeLine) { $script:Locale=$localeLine -replace '^PRODUCT_INITIAL_LOCALE=','' }
   if (-not (Ensure-Docker)) { $script:OperationFailed=$true; return }
   Write-Host (T 'inspect')

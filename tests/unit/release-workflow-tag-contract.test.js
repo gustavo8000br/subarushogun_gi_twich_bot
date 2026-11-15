@@ -25,14 +25,19 @@ describe('release.yml publish job: annotated tag contract', () => {
 
   it('runs the tag step in bash and sends the tag to origin after creating it', () => {
     expect(tagStep.shell).toBe('bash');
-    const sendAt = tagStep.run.indexOf('git push origin "refs/tags/$RELEASE_TAG"');
+    const sendAt = tagStep.run.indexOf('push origin "refs/tags/$RELEASE_TAG"');
     expect(sendAt).toBeGreaterThan(tagStep.run.indexOf('git tag -a'));
   });
 
-  it('grants contents: write to the job and keeps checkout credentials for the tag upload', () => {
+  it('grants contents: write to the job and authenticates only the tag upload with the job token', () => {
     expect(job.permissions.contents).toBe('write');
     const checkout = job.steps.find((step) => /actions\/checkout/.test(step.uses ?? ''));
-    expect(checkout.with?.['persist-credentials']).not.toBe(false);
+    // zizmor artipacked: checkout does not persist the token...
+    expect(checkout.with?.['persist-credentials']).toBe(false);
+    // ...so the tag upload must supply it explicitly, scoped to that single git command.
+    expect(tagStep.env.GH_TOKEN).toBeTruthy();
+    expect(tagStep.run).toMatch(/git -c "http\.https:\/\/github\.com\/\.extraheader=AUTHORIZATION: basic \$auth_header" push origin/);
+    expect(tagStep.run).toContain('::add-mask::$auth_header');
   });
 
   it('publishes with GH_TOKEN and --verify-tag, marking only alpha/beta/rc as prerelease', () => {

@@ -117,7 +117,13 @@ panel.locale.description	El idioma seleccionado también se usa en los mensajes 
 panel.locale.available	Idioma disponible
 panel.error.generic	No se pudo completar la acción. Inténtalo de nuevo.
 panel.error.local_load	No se pudo conectar con la API local. Comprueba que el servicio esté activo y actualiza la página.
+panel.error.read_timeout	La API local no respondió a tiempo. Comprueba que el servicio esté en ejecución y actualiza la página.
+panel.error.wrong_host	La sesión no es válida en {host}. Este panel solo funciona en localhost.
+panel.error.wrong_host_action	Abrir {url}
 panel.error.reference	Referencia: {id}
+panel.error.reference_copy	Copiar referencia
+panel.error.reference_copied	Referencia copiada
+panel.error.reference_copy_failed	No se pudo copiar automáticamente. Selecciona el código y cópialo.
 panel.error.locale_conflict	El idioma cambió en otra solicitud. Actualiza la página.
 panel.form.queue_name	Nombre de la cola
 panel.form.create_queue	Crear cola
@@ -356,6 +362,7 @@ panel.command.access_fixed	Acceso fijo:
 panel.command.marked_roles	El cargo elegido y los cargos superiores pueden usar este comando.
 panel.command.threshold_label	Nivel mínimo de audiencia
 panel.command.reload	Recargar permisos
+panel.command.conflict	Los permisos cambiaron en otro lugar. Recarga los permisos antes de guardar de nuevo. Tu edición se mantiene hasta que recargues.
 panel.command.threshold.select	Elige un nivel mínimo
 panel.command.threshold.help	El grupo elegido y los cargos superiores heredan el acceso.
 panel.command.audience.proposed	Después de guardar: {roles}.
@@ -396,7 +403,6 @@ panel.widget.preview.waiting	4 en espera
 panel.widget.preview.open	Abierta
 panel.widget.preview.called	Viewer llamado
 panel.widget.fixed_text_label	Texto fijo
-panel.widget.text_color	Color del texto
 panel.widget.background_color	Color de fondo
 panel.widget.background_opacity	Opacidad del fondo (%)
 panel.widget.font	Fuente
@@ -561,8 +567,6 @@ panel.queue_settings.local_eyebrow	CONFIGURACIÓN LOCAL
 panel.queue_settings.uid_policy_hint	Edita la política del UID y la recompensa en “Editar recompensa”; solo se indicará que están sincronizados cuando Twitch lo confirme.
 panel.queue_settings.save	Guardar configuración
 panel.widget.font_size	Tamaño (px)
-panel.widget.font_weight	Grosor
-panel.widget.width	Ancho (px o auto)
 panel.widget.height	Alto (px o auto)
 panel.widget.margin_top	Margen superior
 panel.widget.margin_right	Margen derecho
@@ -764,6 +768,8 @@ panel.widget.style.shadow_x	Desplazamiento X de sombra (px)
 panel.widget.style.shadow_y	Desplazamiento Y de sombra (px)
 panel.widget.style.width	Ancho (px o auto)
 panel.widget.style.height	Alto (px o auto)
+panel.widget.height_hint	Altura mínima para este tamaño de letra: {min} px (texto más 20 px para la línea de estado). En OBS, pon la altura de la fuente Navegador en al menos {min} px; si no, la línea de estado se corta.
+panel.widget.height_below_min	Esta altura es menor que {min} px. La línea de estado puede cortarse mientras se muestra.
 panel.widget.style.margin_top	Margen superior (px)
 panel.widget.style.margin_right	Margen derecho (px)
 panel.widget.style.margin_bottom	Margen inferior (px)
@@ -834,3 +840,17 @@ panel.queue.confirm.delete_local.one	¿Eliminar la cola local “{title}”? Se 
 panel.queue.confirm.delete_converted.many	¿Eliminar la cola manual “{title}”? Se quitarán {count} entradas activas. La eliminación seguirá pendiente hasta confirmar todos los canjes conocidos, las solicitudes de sincronización con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
 panel.queue.confirm.delete_converted.other	¿Eliminar la cola manual “{title}”? Se quitarán {count} entradas activas. La eliminación seguirá pendiente hasta confirmar todos los canjes conocidos, las solicitudes de sincronización con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
 panel.queue.confirm.delete_converted.one	¿Eliminar la cola manual “{title}”? Se quitará {count} entrada activa. La eliminación seguirá pendiente hasta confirmar todos los canjes conocidos, las solicitudes de sincronización con Twitch y las devoluciones de puntos relacionadas. Los canjes posteriores de Twitch también se detectarán y registrarán para su cancelación. La recompensa de Twitch permanecerá pausada e intacta.
+panel.widget.action.named	{action}: {label} ({id})
+panel.widget.confirm.target	Widget: {label} ({id})
+panel.widget.editor.discard.title	¿Descartar los cambios?
+panel.widget.editor.discard.body	Los cambios sin guardar de este widget se perderán.
+panel.widget.editor.discard.keep	Seguir editando
+panel.widget.editor.discard.confirm	Descartar cambios
+panel.widget.identity.with_queue	{source} · {queue}
+panel.widget.weight.300	Ligera (300)
+panel.widget.weight.400	Normal (400)
+panel.widget.weight.500	Media (500)
+panel.widget.weight.600	Seminegrita (600)
+panel.widget.weight.700	Negrita (700)
+panel.widget.weight.800	Extranegrita (800)
+panel.widget.weight.900	Negra (900)

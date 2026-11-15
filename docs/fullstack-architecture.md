@@ -10,7 +10,7 @@ One local installation, one Twitch broadcaster/client, one bot process, local Po
 
 ```mermaid
 flowchart LR
-  Browser[Local operator browser] -->|https://127.0.0.1:3000| Next[apps/frontend Next.js server :3000]
+  Browser[Local operator browser] -->|https://localhost:3000| Next[apps/frontend Next.js server :3000]
   OBS[OBS Browser Source] -->|/overlay?ref=...#token| Next
   Next -->|rewrites /api, /overlay/api, /health, /callback| API[apps/api Fastify + domain, loopback :3109]
   API --> DB[(PostgreSQL / Prisma)]

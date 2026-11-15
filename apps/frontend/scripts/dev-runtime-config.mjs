@@ -1,5 +1,26 @@
 import { resolve } from 'node:path';
 
+/**
+ * Next prints the bound address ("Local:" and "Network:"), which is the loopback IPv4 literal the
+ * server binds to. The panel is reached at https://localhost:<port> (the certificate and the session
+ * origin are for "localhost"), so the banner shows that address instead (LA-16 / FT-66).
+ * The bind stays on 127.0.0.1: measured with Next 16.4.1, `--hostname localhost` binds whichever
+ * address the OS resolver returns first, which is not deterministic across operating systems.
+ * @param {string} line
+ * @param {{ from: string, to: string, port: string } | undefined} banner
+ */
+export function rewriteNextBannerLine(line, banner) {
+  if (!banner) return line;
+  return line.split(`https://${banner.from}:${banner.port}`).join(`https://${banner.to}:${banner.port}`);
+}
+
+/** First-party line with the exact panel address (LA-16); the port comes from the configuration. */
+export function panelAddressLine(panelOrigin) {
+  return panelOrigin.startsWith('https://localhost:')
+    ? `Open the panel at ${panelOrigin} \u2014 use localhost, not 127.0.0.1.`
+    : `Open the panel at ${panelOrigin}.`;
+}
+
 export function buildDevRuntimeConfig(env = process.env, repositoryRoot = process.cwd()) {
   const certDirectory = resolve(repositoryRoot, env.DEV_TLS_DIRECTORY ?? '.local/dev-tls');
   const productLocaleProjectionFile = resolve(repositoryRoot, env.PRODUCT_LOCALE_PROJECTION_FILE ?? '.local/dev/product-locale.state');
@@ -37,6 +58,7 @@ export function buildDevRuntimeConfig(env = process.env, repositoryRoot = proces
         '--experimental-https-cert', resolve(certDirectory, 'localhost.crt'),
         '--experimental-https-ca', resolve(certDirectory, 'localhost-ca.crt'),
       ],
+      banner: codespacesOrigin ? undefined : { from: nextHost, to: 'localhost', port: nextDevPort },
       env: { ...runtimeEnvironment, FASTIFY_DEV_ORIGIN: env.FASTIFY_DEV_ORIGIN ?? `https://localhost:${appPort}` },
     },
     tlsDirectory: certDirectory,

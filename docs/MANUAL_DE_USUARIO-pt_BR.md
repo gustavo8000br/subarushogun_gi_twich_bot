@@ -91,6 +91,7 @@ Use `!<fila> atender [usuario]` para iniciar o atendimento. Isso encerra o prazo
 | A própria pessoa sai depois de chamada ou durante o atendimento | Controlado por **Solicitar reembolso se a pessoa chamada sair**; padrão desligado. |
 | A pessoa chamada não inicia o atendimento a tempo | Controlado por **Solicitar reembolso quando houver ausência**; padrão desligado. |
 | Limpar ou apagar uma fila | Pede o cancelamento de todas as entradas ativas com recompensa, independentemente das três opções acima. |
+| Uma pessoa que já tem entrada ativa na mesma fila resgata a recompensa de novo (`duplicate_active_entry`) | Nenhuma segunda entrada é criada. O bot pede automaticamente o cancelamento do novo resgate; os pontos voltam após a confirmação da Twitch. A entrada existente não muda. |
 | Entrada adicionada manualmente | Não envolve Pontos do Canal da Twitch. |
 
 Iniciar o atendimento não consome pontos; concluir é que faz isso. Um cancelamento ou uma conclusão confirmados externamente são registrados sem enviar um segundo pedido. Se o estado final na Twitch não puder ser confirmado ou contrariar o resultado solicitado, o painel mantém o problema visível para análise. A recompensa só é removida depois que os cancelamentos pendentes são confirmados, porque removê-la antes pode afetar esses resgates.

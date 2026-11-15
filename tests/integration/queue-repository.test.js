@@ -19,6 +19,7 @@ import { createTwitchCredentialRepository } from '../../apps/api/src/persistence
 import { createCredentialFingerprint } from '../../apps/api/src/twitch/credential-fingerprint.mjs';
 import { createTwitchRedemptionProcessor } from '../../apps/api/src/twitch/redemption-processor.mjs';
 import { createTwitchReconciler } from '../../apps/api/src/twitch/reconciliation.mjs';
+import { twurpleHttpError } from '../helpers/twurple-real-instances.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const containerName = `queuebot-repo-${process.pid}-${randomUUID().slice(0, 8)}`;
@@ -548,6 +549,43 @@ describe('PostgreSQL queue repository', () => {
     expect(await prisma.outbox.findUnique({ where: { idempotencyKey: `financial:${redemption.id}` } })).toMatchObject({ operationType: 'redemption.cancel', status: 'pending' });
     expect((await repository.listManagedQueues()).some(({ id }) => id === queue.id)).toBe(false);
     await expectConvertedTombstoneInReconciliationPage(queue.id);
+  });
+
+  it('FT-69: reconciling a deleted queue whose reward answers 404 stays complete and keeps the tombstone untouched', async () => {
+    const queue = await repository.createQueue({ slug: `ft69-${randomUUID().slice(0, 8)}`, title: 'Deleted reward 404', cost: 100 });
+    const rewardId = `reward-${randomUUID()}`;
+    await prisma.queue.update({ where: { id: queue.id }, data: { rewardId, rewardOrigin: 'bot_created', remoteSyncStatus: 'synced', isOpen: true } });
+    await repository.requestManualModeTransition({ queueId: queue.id, actorId: 'operator-1' });
+    const pause = await repository.claimNextRewardOperation();
+    expect(await repository.confirmRewardOpen(pause.id, { isOpen: false }, pause.leaseToken)).toBe(true);
+    expect((await queueService.deleteQueue({ queueId: queue.id, actorId: 'operator-1' })).queue.lifecycleStatus).toBe('deleted');
+    const before = await prisma.queue.findUnique({ where: { id: queue.id } });
+
+    await prisma.setting.upsert({
+      where: { key: tombstoneCursorKey },
+      create: { key: tombstoneCursorKey, value: { schemaVersion: 1, revision: 0, lastId: null, leaseId: null, leaseUntil: null } },
+      update: { value: { schemaVersion: 1, revision: 0, lastId: null, leaseId: null, leaseUntil: null } },
+    });
+    const lookedUp = [];
+    const processor = createTwitchRedemptionProcessor({ repository, domainService: queueService, broadcasterId: 'broadcaster-1' });
+    const reconciler = createTwitchReconciler({
+      // The shared database holds tombstones of earlier tests: claim a page wide enough to include this one.
+      repository: { ...repository, listManagedQueues: async () => [], claimConvertedTombstoneReconciliationPage: () => repository.claimConvertedTombstoneReconciliationPage({ limit: 100 }) },
+      broadcasterId: 'broadcaster-1',
+      twitch: {
+        getReward: async (id) => { lookedUp.push(id); throw twurpleHttpError(404); },
+        listUnfulfilledRedemptions: async () => [],
+        getRedemptionStatus: async () => 'UNFULFILLED',
+      },
+      processor,
+    });
+
+    const result = await reconciler.run();
+    expect(lookedUp).toContain(rewardId);
+    expect(result.status).toBe('complete');
+    expect(result.issues.filter(({ code }) => code === 'reward_verification_failed')).toEqual([]);
+    const after = await prisma.queue.findUnique({ where: { id: queue.id } });
+    expect(after).toMatchObject({ lifecycleStatus: 'deleted', remoteSyncStatus: before.remoteSyncStatus, version: before.version });
   });
 
   it('cancels a Twitch redemption received while a reward-backed queue is switching to manual mode', async () => {

@@ -1,0 +1,77 @@
+name: Branch cleanup
+
+on:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only list the branches that would be deleted'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: branch-cleanup
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Plan merged branch cleanup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      count: ${{ steps.plan.outputs.count }}
+      dry_run: ${{ steps.plan.outputs.dry_run }}
+      plan: ${{ steps.plan.outputs.plan }}
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+      - name: Select fully merged branches
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          # The script decides (apps/infra/scripts/branch-cleanup.mjs, resolveDryRun) because Actions' `==`
+          # ignores case: a manual run follows the dry_run input (default true); the weekly schedule stays
+          # a dry run unless the repository variable BRANCH_CLEANUP_ENABLED is exactly 'true'.
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_DRY_RUN: ${{ inputs.dry_run }}
+          BRANCH_CLEANUP_ENABLED: ${{ vars.BRANCH_CLEANUP_ENABLED }}
+        run: node apps/infra/scripts/branch-cleanup.mjs plan
+
+  delete:
+    name: Delete merged branches
+    needs: plan
+    if: needs.plan.outputs.count != '0' && needs.plan.outputs.dry_run != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+      - name: Delete the planned branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PLAN: ${{ needs.plan.outputs.plan }}
+        run: node apps/infra/scripts/branch-cleanup.mjs delete

@@ -13,6 +13,7 @@ This guide explains how pull request checks, main image publication, and tagged 
 | `browser-only.yml` | Pull request targeting `main`; manual dispatch | Runs the fixture-driven `tests/e2e/*-browser-only.mjs` scripts in Chrome against a disposable Next dev server (D-13). Not part of the required quality-gates aggregate while it is non-blocking | None (`contents: read`) |
 | `main-cd.yml` | Push to `main` | Re-runs the shared quality gates for the merged commit, then builds and publishes validated Linux images | `packages: write` only in the publishing job |
 | `release.yml` | Manual `workflow_dispatch` only, from `main`, by the repository owner (no tag or push trigger) | Validates the tag/source and successful main CD run, builds native installer assets, then publishes bilingual release notes | `contents: write` only in the release job |
+| `branch-cleanup.yml` | Weekly schedule (dry run until `BRANCH_CLEANUP_ENABLED` is `true`); manual dispatch (`dry_run` defaults to true) | Deletes remote branches already fully merged into `main` (see "Merged branch cleanup") | `contents: write` only in the delete job |
 
 Pull requests never run the GHCR publisher. The active `main-pr-and-ci` ruleset requires the stable reusable workflow check; it does not require a main-only publishing job. GitHub names reusable workflow checks as `<caller job> / <reusable job>`, so the configured required context is verified from an actual PR run.
 
@@ -50,6 +51,19 @@ The image build uses GitHub Actions cache scopes separated by architecture. `mai
 - A failed image build/publish is visible in `Main CD`; rerun that workflow for the same source commit after addressing a transient cause. The main tags are promoted only after both architecture images are available and the source-current check passes.
 - A failed tagged release does not create a successful partial release: native installers must pass and the exact tagged source must have a successful main CD run. Rerun the failed release workflow for the same tag after resolving the failure.
 - To roll an installation back, select a previously published full image identity as `IMAGE_TAG` for Compose or reinstall its matching tagged installer. Do not overwrite or retag a published version. Follow the normal backup practices before changing an active installation.
+
+## Merged branch cleanup
+
+`branch-cleanup.yml` runs every Monday (04:17 UTC) and on manual dispatch. It deletes remote branches that are already fully merged into `main`. The repository setting `delete_branch_on_merge` covers new merges; this workflow covers branches merged earlier or by other means. The selection logic is in `apps/infra/scripts/branch-cleanup.mjs`.
+
+- **What it deletes:** only branches whose tip is an ancestor of `main` (`git merge-base --is-ancestor`), whose tip commit is at least 7 days old (the grace period looks at the date of the tip commit, not at the age of the branch: a branch created long ago whose last commit is recent is kept, and a new branch pointing at an old commit can qualify at once), with a plain name (letters, digits, `.`, `_`, `-`, `/`). At most 20 per run, oldest first; the summary warns when more qualify.
+- **What it never deletes:** `main` and the default branch, protected branches, heads of open pull requests, branches with commits not in `main`, recent branches, and names with unusual characters (reported as skipped).
+- **Squash-merged branches are not covered:** a squash merge creates a new commit, so the branch tip is never an ancestor of `main` and this workflow never deletes it. Those branches are removed by the native `delete_branch_on_merge` repository setting, which is already on.
+- **Dry run first:** a manual dispatch defaults to `dry_run: true` and only writes the plan. The weekly schedule also runs as a dry run until the repository variable `BRANCH_CLEANUP_ENABLED` is exactly `true` (case-sensitive: `TRUE`, ` true`, `1` or empty stay a dry run; the script `branch-cleanup.mjs` makes this comparison because the `==` operator of Actions ignores case). To enable it, after reviewing the summary of a manual dry run: `gh variable set BRANCH_CLEANUP_ENABLED --body true` (owner or `@devops` only). To disable it again: `gh variable delete BRANCH_CLEANUP_ENABLED` (or set it to any other value).
+- **Inactivity:** GitHub disables scheduled workflows in a repository with no activity for 60 days. If the weekly run stops appearing in the Actions tab, re-enable it there (or run it manually).
+- **Permissions:** the `plan` job reads contents and pull requests; only the `delete` job has `contents: write`. Before each deletion the delete job re-checks that the branch still points to the planned commit and that no pull request is open for it; otherwise it skips the branch. An empty or non-numeric answer from the open-pull-request lookup counts as an error (the branch is skipped and recorded), never as "no pull request".
+- **Results:** the run summary lists each branch with `deleted`, `skipped` or `failed` plus totals. A failure on one branch does not stop the others; the job exits with an error if any branch failed. Manual runs of the delete path with real deletion have not been exercised on GitHub yet.
+- **Restore:** the run summary lists branch name, tip hash and last commit date. Restore with `git push origin <tip-hash>:refs/heads/<branch>`.
 
 ## Official references consulted
 

@@ -32,6 +32,7 @@ const COPY = {
   'panel.widget.fixed_text_label': 'Widget text field',
   'panel.widget.link.title': 'Copy this link to OBS',
   'panel.widget.local_widget_url': 'Widget URL',
+  'panel.widget.identity.with_queue': '{source} · {queue}',
   'panel.widget.preview.account': 'Sample account',
   'panel.widget.preview.queue': 'Sample queue',
   'panel.widget.status.active': 'Link active',
@@ -44,6 +45,13 @@ const COPY = {
   'panel.widget.action.revoke': 'Revoke',
   'panel.widget.action.generate': 'Generate link',
   'panel.widget.action.delete': 'Delete',
+  'panel.widget.action.named': '{action}: {label} ({id})',
+  'panel.widget.confirm.target': 'Widget: {label} ({id})',
+  'panel.widget.editor.discard.title': 'Discard your changes?',
+  'panel.widget.editor.discard.body': 'The unsaved changes to this widget will be lost.',
+  'panel.widget.editor.discard.keep': 'Keep editing',
+  'panel.widget.editor.discard.confirm': 'Discard changes',
+  'panel.dialog.confirm_action': 'CONFIRM ACTION',
   'panel.widget.confirm.regenerate': 'The current link will stop working. Generate a new link now?',
   'panel.widget.confirm.revoke': 'The OBS source will stop receiving data. Revoke this link?',
   'panel.widget.confirm.delete': 'Delete this widget? Its current URL will be invalidated and cannot be recovered.',
@@ -63,7 +71,6 @@ const COPY = {
   'panel.widget.preview_eyebrow': 'SIMULATED PREVIEW',
   'panel.widget.preview_example': 'Widget example',
   'panel.widget.link_eyebrow': 'ONE-TIME LINK',
-  'panel.widget.local_widget_url': 'Widget URL',
   'panel.widget.link.copied': 'Link copied.',
   'panel.widget.link.copy_fallback': 'Couldn’t copy automatically. Show the link, select it and copy it before closing — it won’t be shown again.',
   'panel.widget.link_lifetime_help': 'The link cannot be viewed again after this dialog closes. If you lose it, generate a new link; the previous one will be invalidated.',
@@ -105,7 +112,6 @@ const COPY = {
   'panel.error.generic': 'Could not complete. Try again.',
 };
 
-const t = (key, options = {}) => translatePanel({ 'pt-BR': COPY }, 'pt-BR', key, options);
 const style = {
   textColor: '#FFFFFF', backgroundColor: '#000000', backgroundOpacity: 0, fontFamily: 'system-ui', fontSize: 32,
   fontWeight: 700, alignment: 'center', effect: 'none', outlineWidth: 1, shadowBlur: 0, shadowOffsetX: 0,
@@ -210,11 +216,11 @@ describe('Next OBS widget management page', () => {
     });
     renderPage({ request });
     const card = await screen.findByRole('article');
-    fireEvent.click(within(card).getByRole('button', { name: 'Edit' }));
+    fireEvent.click(within(card).getByRole('button', { name: /^Edit:/ }));
     fireEvent.change(screen.getByLabelText('Widget text field'), { target: { value: 'Ready now' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save widget' }));
     await waitFor(() => expect(request).toHaveBeenCalledWith(`/api/overlay-widgets/${existing.id}`, expect.objectContaining({ method: 'PATCH' })));
-    const [path, options] = request.mock.calls.find(([candidate, opts]) => candidate.endsWith(existing.id) && opts?.method === 'PATCH');
+    const [, options] = request.mock.calls.find(([candidate, opts]) => candidate.endsWith(existing.id) && opts?.method === 'PATCH');
     expect(JSON.parse(options.body)).toMatchObject({ expectedVersion: 3, changes: { sourceType: 'fixed_text', fixedText: 'Ready now' } });
     expect(screen.queryByRole('dialog', { name: /ONE-TIME LINK/i })).toBeNull();
   });
@@ -229,7 +235,7 @@ describe('Next OBS widget management page', () => {
     });
     renderPage({ request });
     const card = await screen.findByRole('article');
-    fireEvent.click(within(card).getByRole('button', { name: 'Regenerate link' }));
+    fireEvent.click(within(card).getByRole('button', { name: /^Regenerate link:/ }));
     expect(await screen.findByText(/current link will stop working/i)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     await waitFor(() => expect(request).toHaveBeenCalledWith(`/api/overlay-widgets/${active.id}/regenerate`, expect.objectContaining({ method: 'POST' })));
@@ -243,7 +249,7 @@ describe('Next OBS widget management page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close anyway' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(screen.getByText(/Link closed without copying/)).toBeTruthy();
-    await waitFor(() => expect(document.activeElement).toBe(within(screen.getByRole('article')).getByRole('button', { name: 'Regenerate link' })));
+    await waitFor(() => expect(document.activeElement).toBe(within(screen.getByRole('article')).getByRole('button', { name: /^Regenerate link:/ })));
     expect(document.body.innerHTML).not.toContain('replacement-secret');
   });
 
@@ -256,7 +262,7 @@ describe('Next OBS widget management page', () => {
     });
     renderPage({ request });
     const card = await screen.findByRole('article');
-    fireEvent.click(within(card).getByRole('button', { name: 'Edit' }));
+    fireEvent.click(within(card).getByRole('button', { name: /^Edit:/ }));
     const fixedText = screen.getByLabelText('Widget text field');
     fireEvent.change(fixedText, { target: { value: 'Draft survives' } });
     let listReads = 0;
@@ -314,7 +320,7 @@ describe('Next OBS widget management page', () => {
     });
     renderPage({ request });
     const card = await screen.findByRole('article');
-    fireEvent.click(within(card).getByRole('button', { name: 'Edit' }));
+    fireEvent.click(within(card).getByRole('button', { name: /^Edit:/ }));
     fireEvent.change(screen.getByLabelText('Widget text field'), { target: { value: 'Local draft' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save widget' }));
     expect(await screen.findByText(/widget changed/i)).toBeTruthy();
@@ -347,7 +353,7 @@ describe('one-time widget link dialog guards (jsdom stub, not browser evidence)'
     });
     renderPage({ request });
     const card = await screen.findByRole('article');
-    fireEvent.click(within(card).getByRole('button', { name: 'Regenerate link' }));
+    fireEvent.click(within(card).getByRole('button', { name: /^Regenerate link:/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }));
     const dialog = await screen.findByRole('dialog', { name: 'Copy this link to OBS' });
     return { dialog, request };
@@ -409,7 +415,7 @@ describe('one-time widget link dialog guards (jsdom stub, not browser evidence)'
     fireEvent.click(screen.getByRole('button', { name: 'Done, I copied the link' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(screen.queryByText(/Link closed without copying/)).toBeNull();
-    await waitFor(() => expect(document.activeElement).toBe(within(screen.getByRole('article')).getByRole('button', { name: 'Regenerate link' })));
+    await waitFor(() => expect(document.activeElement).toBe(within(screen.getByRole('article')).getByRole('button', { name: /^Regenerate link:/ })));
   });
 
   it('after copying, Escape closes like Done', async () => {
@@ -507,6 +513,145 @@ describe('one-time widget link dialog guards (jsdom stub, not browser evidence)'
     fireEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }));
     await waitFor(() => expect(within(dialog).getByRole('status').textContent).toBe('Link copied.'));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Done, I copied the link' }));
-    await waitFor(() => expect(document.activeElement).toBe(within(screen.getByRole('article')).getByRole('button', { name: 'Edit' })));
+    await waitFor(() => expect(document.activeElement).toBe(within(screen.getByRole('article')).getByRole('button', { name: /^Edit:/ })));
+  });
+});
+
+const IDS = ['11111111-1234-4234-8234-123456789abc', '22222222-1234-4234-8234-123456789abc', '33333333-1234-4234-8234-123456789abc'];
+function twoWidgetsRequest(initial) {
+  let list = initial;
+  const request = vi.fn(async (path, options) => {
+    const match = /^\/api\/overlay-widgets\/([^/]+)(\/revoke)?$/.exec(path);
+    if (match && options?.method === 'DELETE') { list = list.filter((item) => item.id !== match[1]); return {}; }
+    if (match?.[2] && options?.method === 'POST') { list = list.map((item) => item.id === match[1] ? { ...item, capabilityActive: false, version: item.version + 1 } : item); return {}; }
+    if (path === '/api/overlay-widgets' && !options?.method) return list;
+    return {};
+  });
+  return request;
+}
+const cardOf = (id) => document.querySelector(`[data-widget-id="${id}"]`);
+
+describe('S-13 UX review fixes (F-01 to F-04)', () => {
+  async function openDirtyEditor() {
+    renderPage({ request: twoWidgetsRequest([widget({ id: IDS[0], sourceType: 'fixed_text', fixedText: 'Ready' })]) });
+    const opener = within(await screen.findByRole('article')).getByRole('button', { name: /^Edit:/ });
+    opener.focus(); // a browser click focuses the button; fireEvent.click does not
+    fireEvent.click(opener);
+    const field = screen.getByLabelText('Widget text field');
+    field.focus();
+    fireEvent.change(field, { target: { value: 'Typed draft' } });
+    return field;
+  }
+  const closers = {
+    'backdrop press': () => fireEvent.mouseDown(document.querySelector('.widget-editor-backdrop')),
+    Escape: () => fireEvent.keyDown(document, { key: 'Escape' }),
+    'close button': () => fireEvent.click(screen.getByRole('button', { name: 'Close' })),
+    'cancel button': () => fireEvent.click(screen.getByRole('button', { name: 'Cancel' })),
+  };
+
+  it.each(Object.entries(closers))('asks before discarding a dirty draft on %s and keeps the text on "Keep editing"', async (_name, close) => {
+    const field = await openDirtyEditor();
+    close();
+    const confirm = await screen.findByRole('alertdialog', { name: 'Discard your changes?' });
+    expect(document.getElementById(confirm.getAttribute('aria-describedby')).textContent).toMatch(/unsaved changes/);
+    expect(document.activeElement.textContent).toBe('Keep editing');
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Keep editing' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.getByLabelText('Widget text field').value).toBe('Typed draft');
+    await waitFor(() => expect(document.activeElement).toBe(field));
+  });
+
+  it('does not let the browser default of a backdrop press blur the focus away from the discard dialog', async () => {
+    await openDirtyEditor();
+    expect(fireEvent.mouseDown(document.querySelector('.widget-editor-backdrop'))).toBe(false);
+    expect(fireEvent.mouseDown(screen.getByLabelText('Widget text field'))).toBe(true);
+  });
+
+  it('U-8: keeps the editor inert while the discard confirmation is open and restores it afterwards', async () => {
+    const field = await openDirtyEditor();
+    const editor = screen.getByRole('dialog', { hidden: true });
+    expect(editor.hasAttribute('inert')).toBe(false);
+    closers['close button']();
+    const confirm = await screen.findByRole('alertdialog', { name: 'Discard your changes?' });
+    expect(editor.hasAttribute('inert')).toBe(true);
+    expect(confirm.closest('[inert]')).toBeNull();
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Keep editing' }));
+    expect(editor.hasAttribute('inert')).toBe(false);
+    await waitFor(() => expect(document.activeElement).toBe(field));
+  });
+
+  it('discards the dirty draft only after the explicit confirmation and returns focus to the opener', async () => {
+    await openDirtyEditor();
+    closers['backdrop press']();
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Discard changes' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(within(screen.getByRole('article')).getByRole('button', { name: /^Edit:/ })));
+  });
+
+  it.each(Object.entries(closers))('closes a clean form directly on %s (including a pristine create form)', async (_name, close) => {
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Create your first widget' }));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    close();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('treats a form edited back to its original value as clean', async () => {
+    const field = await openDirtyEditor();
+    fireEvent.change(field, { target: { value: 'Ready' } });
+    closers.Escape();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('names the widget in the regenerate, revoke and delete confirmations, linked by aria-describedby', async () => {
+    renderPage({ request: twoWidgetsRequest([widget({ id: IDS[0], sourceType: 'fixed_text', fixedText: 'A' }), widget({ id: IDS[1], sourceType: 'queue_name', queueId: 'queue-1' })]) });
+    await screen.findAllByRole('article');
+    for (const [name, text] of [['Regenerate link', /will stop working/], ['Revoke', /Revoke this link/], ['Delete', /Delete this widget/]]) {
+      fireEvent.click(within(cardOf(IDS[1])).getByRole('button', { name: new RegExp(`^${name}:`) }));
+      const dialog = await screen.findByRole('alertdialog');
+      expect(dialog.textContent).toMatch(text);
+      const target = document.getElementById(dialog.getAttribute('aria-describedby'));
+      expect(target.textContent).toBe('Widget: Queue name · Test queue (22222222)');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    }
+  });
+
+  it('gives every card action a unique accessible name that contains its visible text, and unique headings', async () => {
+    renderPage({ request: twoWidgetsRequest([widget({ id: IDS[0], sourceType: 'fixed_text', fixedText: 'A' }), widget({ id: IDS[1], sourceType: 'fixed_text', fixedText: 'B', capabilityActive: false })]) });
+    await screen.findAllByRole('article');
+    const buttons = screen.getAllByRole('button').filter((button) => button.closest('.widget-card'));
+    const names = buttons.map((button) => button.getAttribute('aria-label'));
+    expect(buttons).toHaveLength(7);
+    expect(new Set(names).size).toBe(names.length);
+    for (const button of buttons) expect(button.getAttribute('aria-label').startsWith(button.textContent)).toBe(true);
+    expect(screen.getByRole('button', { name: 'Delete: Fixed text (11111111)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Generate link: Fixed text (22222222)' })).toBeTruthy();
+    const headings = screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent);
+    expect(new Set(headings).size).toBe(2);
+  });
+
+  it('moves focus after delete to the next card Edit, then the previous one, then Create', async () => {
+    renderPage({ request: twoWidgetsRequest(IDS.map((id) => widget({ id, sourceType: 'fixed_text', fixedText: id.slice(0, 2) }))) });
+    await screen.findAllByRole('article');
+    const remove = async (id, expectedFocus) => {
+      fireEvent.click(within(cardOf(id)).getByRole('button', { name: /^Delete:/ }));
+      fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Confirm' }));
+      await waitFor(() => expect(cardOf(id)).toBeNull());
+      await waitFor(() => expect(document.activeElement).toBe(expectedFocus()));
+    };
+    await remove(IDS[1], () => within(cardOf(IDS[2])).getByRole('button', { name: /^Edit:/ }));
+    await remove(IDS[2], () => within(cardOf(IDS[0])).getByRole('button', { name: /^Edit:/ }));
+    await remove(IDS[0], () => screen.getByRole('button', { name: 'Create widget' }));
+  });
+
+  it('moves focus after revoke to the same card Generate link', async () => {
+    renderPage({ request: twoWidgetsRequest(IDS.slice(0, 2).map((id) => widget({ id, sourceType: 'fixed_text', fixedText: 'x' }))) });
+    await screen.findAllByRole('article');
+    fireEvent.click(within(cardOf(IDS[0])).getByRole('button', { name: /^Revoke:/ }));
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(document.activeElement).toBe(within(cardOf(IDS[0])).getByRole('button', { name: /^Generate link:/ })));
   });
 });

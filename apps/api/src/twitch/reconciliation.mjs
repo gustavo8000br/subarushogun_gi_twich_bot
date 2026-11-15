@@ -35,22 +35,30 @@ export function createTwitchReconciler({ repository, twitch, processor, broadcas
           if (!queue.rewardId) continue;
           let reward;
           let rewardVerificationFailed = false;
+          // FT-69: Twitch answers 404 for a reward that no longer exists. For a queue whose deletion is already
+          // confirmed (tombstone) that is the expected state, not a verification failure; every other status
+          // (401, 403, 429, 5xx, network) and every 404 on a live queue keep the `partial` signal.
+          let deletedRewardAbsentAsExpected = false;
           try {
             reward = await twitch.getReward(queue.rewardId);
           } catch (error) {
-            rewardVerificationFailed = true;
-            result.status = 'partial';
-            result.issues.push(remoteIssue({ queueId: queue.id, code: 'reward_verification_failed' }, error));
-            if (!historicalTombstone) await repository.markQueueRemoteUnknown?.(queue.id, 'reward_verification_failed', queue.version);
+            if (historicalTombstone && twitchHttpError(error).httpStatus === 404) {
+              deletedRewardAbsentAsExpected = true;
+            } else {
+              rewardVerificationFailed = true;
+              result.status = 'partial';
+              result.issues.push(remoteIssue({ queueId: queue.id, code: 'reward_verification_failed' }, error));
+              if (!historicalTombstone) await repository.markQueueRemoteUnknown?.(queue.id, 'reward_verification_failed', queue.version);
+            }
           }
-          if (reward === undefined && !rewardVerificationFailed) {
+          if (reward === undefined && !rewardVerificationFailed && !deletedRewardAbsentAsExpected) {
             rewardVerificationFailed = true;
             result.status = 'partial';
             result.issues.push({ queueId: queue.id, code: 'reward_verification_failed' });
             if (!historicalTombstone) await repository.markQueueRemoteUnknown?.(queue.id, 'reward_verification_failed', queue.version);
           }
           if (!reward) {
-            if (!rewardVerificationFailed) {
+            if (!rewardVerificationFailed && !deletedRewardAbsentAsExpected) {
               const retired = await repository.retireQueueForConfirmedRewardAbsence?.({ queueId: queue.id, expectedVersion: queue.version, rewardId: queue.rewardId });
               if (retired) result.issues.push({ queueId: queue.id, code: 'reward_confirmed_absent' });
               else {

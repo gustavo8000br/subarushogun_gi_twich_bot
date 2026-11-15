@@ -47,6 +47,7 @@ const catalog = {
   'panel.summary.viewers_waiting': 'viewers waiting', 'panel.summary.in_service': 'IN SERVICE',
   'panel.summary.called_or_started': 'called or started', 'panel.section.local': 'LOCAL',
   'panel.error.local_load': 'The local API is unavailable.',
+  'panel.error.read_timeout': 'The local API did not answer in time.',
   'panel.connection.connect_title': 'Connect your channel', 'panel.connection.connect_description': 'Connect Twitch to finish setup.',
   'panel.connection.connect_channel': 'Connect channel',
   'panel.overview.next_empty_title': 'Create your first queue',
@@ -162,5 +163,14 @@ describe('Next overview runtime parity', () => {
     const pendingLink = screen.getByRole('link', { name: /Unresolved operations/ });
     expect(pendingLink.querySelector('strong')?.textContent).toBe('241');
     expect(pendingLink.textContent).toContain('7 need review');
+  });
+
+  it('G1-3: after a read timeout shows the alert and no "checking local data" next-step card', async () => {
+    apiClient.initializeSession.mockResolvedValue({ csrfToken: 'x'.repeat(24) });
+    apiClient.request.mockImplementation(async () => { throw Object.assign(new Error('timeout'), { timedOut: true }); });
+    render(<PanelShell fallbackCatalog={{ 'pt-BR': catalog }} />);
+    await waitFor(() => expect(screen.getAllByRole('alert').map((element) => element.textContent).join(' ')).toContain('The local API did not answer in time.'));
+    expect(screen.queryByText('Checking local data')).toBeNull();
+    expect(document.querySelector('.migration-card')).toBeNull();
   });
 });

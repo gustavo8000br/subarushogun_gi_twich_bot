@@ -117,7 +117,13 @@ panel.locale.description	The selected language is also used for bot messages. Co
 panel.locale.available	Available language
 panel.error.generic	Could not complete the action. Try again.
 panel.error.local_load	Could not connect to the local API. Check that the service is running, then refresh the page.
+panel.error.read_timeout	The local API did not answer in time. Check that the service is running, then refresh the page.
+panel.error.wrong_host	The session is not valid at {host}. This panel only works at localhost.
+panel.error.wrong_host_action	Open {url}
 panel.error.reference	Reference: {id}
+panel.error.reference_copy	Copy reference
+panel.error.reference_copied	Reference copied
+panel.error.reference_copy_failed	Could not copy automatically. Select the code and copy it.
 panel.error.locale_conflict	The language changed in another request. Refresh the page.
 panel.form.queue_name	Queue name
 panel.form.create_queue	Create queue
@@ -356,6 +362,7 @@ panel.command.access_fixed	Fixed access:
 panel.command.marked_roles	The selected role and higher roles can use this command.
 panel.command.threshold_label	Minimum audience
 panel.command.reload	Reload permissions
+panel.command.conflict	The permissions changed elsewhere. Reload the permissions before saving again. Your edit is kept until you reload.
 panel.command.threshold.select	Choose a minimum audience
 panel.command.threshold.help	The selected audience and higher roles inherit access.
 panel.command.audience.proposed	After saving: {roles}.
@@ -396,7 +403,6 @@ panel.widget.preview.waiting	4 waiting
 panel.widget.preview.open	Open
 panel.widget.preview.called	Viewer called
 panel.widget.fixed_text_label	Fixed text
-panel.widget.text_color	Text color
 panel.widget.background_color	Background color
 panel.widget.background_opacity	Background opacity (%)
 panel.widget.font	Font
@@ -558,8 +564,6 @@ panel.queue_settings.local_eyebrow	LOCAL SETTINGS
 panel.queue_settings.uid_policy_hint	Edit the UID policy and reward under “Edit reward”; changes are shown as synchronized only after Twitch confirms them.
 panel.queue_settings.save	Save settings
 panel.widget.font_size	Size (px)
-panel.widget.font_weight	Weight
-panel.widget.width	Width (px or auto)
 panel.widget.height	Height (px or auto)
 panel.widget.margin_top	Top margin
 panel.widget.margin_right	Right margin
@@ -761,6 +765,8 @@ panel.widget.style.shadow_x	Shadow offset X (px)
 panel.widget.style.shadow_y	Shadow offset Y (px)
 panel.widget.style.width	Width (px or auto)
 panel.widget.style.height	Height (px or auto)
+panel.widget.height_hint	Minimum height for this font size: {min} px (text plus 20 px for the status line). In OBS, set the Browser Source height to at least {min} px, or the status line is cut off.
+panel.widget.height_below_min	This height is below {min} px. The status line may be cut off while it is shown.
 panel.widget.style.margin_top	Top margin (px)
 panel.widget.style.margin_right	Right margin (px)
 panel.widget.style.margin_bottom	Bottom margin (px)
@@ -827,3 +833,17 @@ panel.queue.confirm.delete_local.other	Delete local queue “{title}”? {count}
 panel.queue.confirm.delete_local.one	Delete local queue “{title}”? {count} active entry will be removed. This queue has no linked Twitch reward or redemption.
 panel.queue.confirm.delete_converted.other	Delete manual queue “{title}”? {count} active entries will be removed. Deletion will remain pending until all known redemptions, Twitch synchronization requests, and related points refunds are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.
 panel.queue.confirm.delete_converted.one	Delete manual queue “{title}”? {count} active entry will be removed. Deletion will remain pending until all known redemptions, Twitch synchronization requests, and related points refunds are confirmed. Later Twitch redemptions will still be detected and recorded for cancellation. The Twitch reward will remain paused and untouched.
+panel.widget.action.named	{action}: {label} ({id})
+panel.widget.confirm.target	Widget: {label} ({id})
+panel.widget.editor.discard.title	Discard your changes?
+panel.widget.editor.discard.body	The unsaved changes to this widget will be lost.
+panel.widget.editor.discard.keep	Keep editing
+panel.widget.editor.discard.confirm	Discard changes
+panel.widget.identity.with_queue	{source} · {queue}
+panel.widget.weight.300	Light (300)
+panel.widget.weight.400	Regular (400)
+panel.widget.weight.500	Medium (500)
+panel.widget.weight.600	Semibold (600)
+panel.widget.weight.700	Bold (700)
+panel.widget.weight.800	Extra bold (800)
+panel.widget.weight.900	Black (900)

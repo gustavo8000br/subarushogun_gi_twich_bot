@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '../../lib/api/client.mjs';
 import { usePanel } from '../panel-shell/panel-provider.jsx';
+import { WrongHostMessage } from '../panel-shell/wrong-host-message.jsx';
+import { wrongHostForPanel } from '../panel-shell/wrong-host.mjs';
+import { safeReferenceId } from '../panel-shell/safe-reference-id.mjs';
 import {
   getOperationActions,
   getOperationGroup,
@@ -23,11 +26,6 @@ const STATUS_CLASSES = new Set([
   'pending', 'retry', 'processing', 'unknown', 'conflict', 'failed',
   'confirmed', 'resolved_manual', 'cancelled', 'cancel_verification',
 ]);
-
-function safeReferenceId(error) {
-  return typeof error?.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(error.referenceId)
-    ? error.referenceId : null;
-}
 
 function OperationCard({ operation, queues, locale, t, saving, anySaving, onAction }) {
   const count = operation.attempts;
@@ -78,6 +76,7 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
   const [notice, setNotice] = useState(null);
   const [confirmation, setConfirmation] = useState(null);
   const [loadErrorReference, setLoadErrorReference] = useState(null);
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
   const requestInFlight = useRef(false);
   const operationsRef = useRef(null);
   const confirmationDialog = useRef(null);
@@ -95,12 +94,14 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
       setOperations(result);
       setLoading(false);
       setLoadErrorReference(null);
+      setLoadTimedOut(false);
       if (quiet) setNotice(null);
       return { ok: true };
     } catch (error) {
       setLoading(false);
       const referenceId = safeReferenceId(error);
       setLoadErrorReference(referenceId);
+      setLoadTimedOut(error?.timedOut === true);
       if (operationsRef.current === null) {
         setOperations(null);
         setNotice(null);
@@ -230,6 +231,8 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
     : 'panel.operation.action.continue_delete';
   const noticeReference = notice?.referenceId ? t('panel.error.reference', { values: { id: notice.referenceId } }) : null;
 
+  // LA-17: opened by a loopback IP, the load failure is a wrong-host problem, not a stopped service.
+  const wrongHost = !loading && operations === null ? wrongHostForPanel() : null;
   return (
     <>
       <section className="page-heading">
@@ -245,7 +248,7 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
       </section>
       {notice ? <div className={`operation-notice${notice.error ? ' is-error' : ''}`} role={notice.error ? 'alert' : 'status'}><p>{t(notice.key, { values: notice.values })}</p>{noticeReference ? <small>{noticeReference}</small> : null}</div> : null}
       {loading && operations === null ? <p className="status-card" role="status">{t('panel.operations.loading')}</p> : null}
-      {!loading && operations === null ? <section className="status-card error-card" role="alert"><p>{t('panel.error.local_load')}</p>{loadErrorReference ? <small>{t('panel.error.reference', { values: { id: loadErrorReference } })}</small> : null}<button type="button" className="button button-secondary" onClick={() => void loadOperations()}>{t('panel.operations.refresh')}</button></section> : null}
+      {!loading && operations === null ? <section className="status-card error-card" role="alert">{wrongHost ? <WrongHostMessage wrongHost={wrongHost} t={t} /> : <p>{t(loadTimedOut ? 'panel.error.read_timeout' : 'panel.error.local_load')}</p>}{loadErrorReference ? <small>{t('panel.error.reference', { values: { id: loadErrorReference } })}</small> : null}<button type="button" className="button button-secondary" onClick={() => void loadOperations()}>{t('panel.operations.refresh')}</button></section> : null}
       {!loading && operations?.length === 0 ? <section className="operation-empty"><h2>{t('panel.operations.empty')}</h2><p>{t('panel.operations.empty_hint')}</p></section> : null}
       {grouped?.length ? <div className="operation-groups">
         {grouped.map((group) => <section className="operation-group" key={group.id} aria-labelledby={`operation-group-${group.id}`}>

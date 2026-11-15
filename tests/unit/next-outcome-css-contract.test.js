@@ -80,3 +80,21 @@ describe('C23-01 / UX-15: no outcome animation outside prefers-reduced-motion: n
     expect(css).toMatch(/\.queue-list-card h2\[tabindex\][^{}]*\{[^}]*scroll-margin-top/);
   });
 });
+
+describe('E7 C-1: the reference copy-feedback live regions stay in the accessibility tree', () => {
+  const feedbackRules = rules(css).filter(({ selector }) => /\.reference-feedback/.test(selector));
+
+  it('declares reference-feedback rules', () => {
+    expect(feedbackRules.length).toBeGreaterThan(0);
+  });
+
+  it('never uses display:none or visibility:hidden on .reference-feedback (empty regions are only visually hidden)', () => {
+    for (const { selector, body } of feedbackRules) {
+      expect(body, selector).not.toMatch(/display\s*:\s*none/);
+      expect(body, selector).not.toMatch(/visibility\s*:\s*hidden/);
+    }
+    const empty = feedbackRules.find(({ selector }) => /:empty/.test(selector));
+    expect(empty?.body).toMatch(/clip-path\s*:\s*inset\(50%\)/);
+    expect(empty?.body).toMatch(/width\s*:\s*1px/);
+  });
+});

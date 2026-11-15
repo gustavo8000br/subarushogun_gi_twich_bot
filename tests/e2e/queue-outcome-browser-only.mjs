@@ -64,8 +64,6 @@ await page.route('**/*', async (route) => {
 
 const statusText = async () => (await page.locator('.outcome-region [role="status"]').textContent()) ?? '';
 const alertText = async () => (await page.locator('.outcome-region [role="alert"]').textContent()) ?? '';
-const activeId = () => page.evaluate(() => document.activeElement?.id ?? '');
-const activeTag = () => page.evaluate(() => document.activeElement?.tagName ?? '');
 
 async function openQueues() {
   await page.goto(`${appOrigin}/queues/`);

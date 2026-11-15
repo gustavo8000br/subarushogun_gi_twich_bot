@@ -34,6 +34,7 @@ jobs:
       - name: Check out trusted main commit
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
+          persist-credentials: false
           ref: ${{ github.sha }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
@@ -45,9 +46,11 @@ jobs:
           node apps/infra/scripts/materialize-version.mjs --root "$GITHUB_WORKSPACE" --output "$RUNNER_TEMP/VERSION"
           PRODUCT_VERSION="$(cat "$RUNNER_TEMP/VERSION")"
           printf 'PRODUCT_VERSION=%s\n' "$PRODUCT_VERSION" >> "$GITHUB_ENV"
-          printf 'source_sha=%s\n' "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
-          printf 'stage=%s\n' "$(tr -d '\r\n' < .release-stage)" >> "$GITHUB_OUTPUT"
-          printf 'version=%s\n' "$PRODUCT_VERSION" >> "$GITHUB_OUTPUT"
+          {
+            printf 'source_sha=%s\n' "$GITHUB_SHA"
+            printf 'stage=%s\n' "$(tr -d '\r\n' < .release-stage)"
+            printf 'version=%s\n' "$PRODUCT_VERSION"
+          } >> "$GITHUB_OUTPUT"
       - name: Log in to GitHub Container Registry
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -126,6 +129,7 @@ jobs:
       - name: Check out the published source commit
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
+          persist-credentials: false
           ref: ${{ needs.publish-image.outputs.source_sha }}
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

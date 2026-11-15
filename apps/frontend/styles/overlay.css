@@ -18,31 +18,42 @@ body {
 
 .overlay-widget {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  align-items: center;
   box-sizing: border-box;
   width: max-content;
   max-width: 100%;
   min-height: 1em;
   padding: 0;
-  transition: opacity 120ms ease;
 }
 
 .overlay-value {
   display: block;
+  transition: opacity 120ms ease;
   max-width: 100%;
   overflow-wrap: anywhere;
 }
 
 .overlay-status {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  color: rgb(255 255 255 / 78%);
-  font: 12px/1.2 system-ui, sans-serif;
+  --overlay-status-fg: #ffffff;
+  /* OPS-15 D-2: native OBS blends the browser layer in linear light, so 0.72 measured only 3.19:1 on a white scene (Chrome
+     showed 9.29:1). 0.90 measured 7.11:1 in OBS. Measure changes in OBS, not only in Chrome. */
+  --overlay-status-bg: rgba(0, 0, 0, 0.9);
+  justify-self: start;
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--overlay-status-fg);
+  background: var(--overlay-status-bg);
+  font: 500 12px/16px system-ui, sans-serif;
+  text-shadow: none;
 }
 
-.overlay-widget.is-stale { opacity: .82; }
+.overlay-status:empty { display: none; }
+
+.overlay-widget.is-stale .overlay-value { opacity: .82; }
 
 @media (prefers-reduced-motion: reduce) {
-  .overlay-widget { transition: none; }
+  .overlay-value { transition: none; }
 }
