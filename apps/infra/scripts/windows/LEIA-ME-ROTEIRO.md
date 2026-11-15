@@ -1,0 +1,28 @@
+# Roteiro de validacao no Windows 10 - SubaruShogun Twitch Bot
+
+Tempo total: cerca de 60 a 90 minutos (instalar 5-10 min por rodada). Use um canal de TESTE da Twitch. **Nunca cole nem fotografe** tokens, Client Secret, chave de transmissao, UID ou o link do widget (ele contem um segredo).
+
+## Como abrir
+1. Use o `subarushogun_twich_bot_setup.bat` NOVO que ja esta nesta pasta, ao lado do script (corrigido para caminhos com acento, espaco e apostrofo). NAO baixe o da release `v0.3.0-0d0b595-beta`: e anterior a correcao.
+2. Abra o Docker Desktop e espere ficar pronto.
+3. Clique com o botao direito em `Validar-SubaruShogun.ps1` > **Executar com PowerShell**; ou, no PowerShell:
+   `powershell -ExecutionPolicy Bypass -File .\Validar-SubaruShogun.ps1 -InstaladorPath "$env:USERPROFILE\Downloads\subarushogun_twich_bot_setup.bat"`
+4. Para so simular (nao altera nada): acrescente `-WhatIf`. Para conferir a sintaxe: `-Parse`. Para os passos opcionais: `-Opcionais`. Idioma: `-Idioma en` ou `es`.
+
+O script pergunta **S/N** antes de instalar, atualizar ou desinstalar (e diz o efeito nos dados) e, nos passos manuais, **P = PASS, F = FAIL, S = PULAR** mais uma observacao curta (sem credenciais).
+
+## Passos (mesmos IDs do script)
+- **PRE-01..10 (automatico, 1 min):** Windows, PowerShell, Docker/WSL2, portas, Node, OBS, disco, internet, caminho do usuario (PRE-10, informativo: acento/espaco/apostrofo). FAIL no Docker: abra o Docker Desktop e rode de novo.
+- **OWN-01 Instalacao nova:** a janela preta do instalador abre. Escolha o idioma, `1) Instalar/Iniciar`, a porta (Enter = 3000); teste uma porta ocupada (deve pedir outra). Anote/print a URL de callback. O script confere health e 2 containers + 2 volumes. Se falhar: guarde a mensagem exata da tela.
+- **OWN-02 Atualizar mantem dados:** crie uma fila e uma entrada no painel, depois `2) Atualizar` > `1) Manter dados`. Esperado: "Update complete", mesma URL, dados presentes, volumes identicos.
+- **OWN-03 Desinstalar mantendo dados:** `3) Desinstalar` > `1`. Esperado: containers somem, volumes ficam; reinstale (`1`) e a fila volta.
+- **OWN-04 Desinstalar apagando dados (DESTRUTIVO, so em instalacao de teste):** o script cria o container `other-check`, voce roda `3) Desinstalar` > `2` e digita `APAGAR` (palavra errada cancela). Esperado: produto sem containers/volumes/pasta e `other-check` ainda rodando. Depois reinstale (OWN-01).
+- **LB-02-a Paginas do painel:** abra e atualize `/queues`, `/new-queue`, `/operations`, `/commands`, `/widgets`, `/settings`; troque o idioma (persiste); crie fila, adicione, chame e conclua uma entrada.
+- **LB-02-b Persistencia:** reinicie o Windows (ou o Docker Desktop), espere o Docker e rode `.\Validar-SubaruShogun.ps1 -Somente LB-02-b`. Esperado: health ok e dados ainda la.
+- **LB-02-c Canal de teste:** em `/connection` conecte o canal de TESTE; crie fila e recompensa, resgate uma vez, chame e conclua.
+- **LB-04-a OBS Browser Source:** em `/widgets` copie o link (nao compartilhe); no OBS adicione Fonte Navegador 1920x1080, "Desligar fonte quando nao visivel" desligado. Confira transparencia, atualizacao em ~2 s, resize e recuperacao (ocultar/mostrar ou atualizar cache). Anote a versao do OBS.
+- **LB-04-b Duas fontes:** adicione uma segunda fonte com o mesmo link; as duas atualizam.
+- **OWN-05 / OWN-06 (opcionais, `-Opcionais`):** caminho de desenvolvedor (`npm ci`, `npm run dev`, `dev:start`, `dev:stop -- --keep-data`).
+
+## O que devolver ao Orion
+O arquivo `Relatorio-SubaruShogun-AAAAMMDD-HHMMSS.zip` em `Documentos\SubaruShogunTeste\` (nao tem segredos; o script mascara e nunca le o `.env`). Se algo falhou, informe tambem a mensagem exata da tela. Se rodou em varias rodadas, envie todos os .zip.

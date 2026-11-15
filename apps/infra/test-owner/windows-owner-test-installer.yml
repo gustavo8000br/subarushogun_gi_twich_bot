@@ -1,0 +1,77 @@
+# Owner-only Windows test installer. DO NOT place this file in .github/workflows on main: the devops agent copies it
+# only into the branch test/windows-owner (see README.md in this folder). It builds ONE installer that asks for a test
+# password (compared by PBKDF2 hash) and publishes it as a DRAFT pre-release. No artifact is uploaded: artifacts of a
+# public repository can be downloaded by any signed-in account and the installer embeds the hash.
+# The run starts only when apps/infra/test-owner/RUN-MARKER changes in the pushed commit (empty commits do not trigger).
+# The draft targets main (GITHUB_TOKEN has no workflow scope) and never gets published.
+name: Windows owner test installer
+
+on:
+  push:
+    branches:
+      - test/windows-owner
+    paths:
+      - apps/infra/test-owner/RUN-MARKER
+
+permissions: {}
+
+concurrency:
+  group: test-windows-owner
+  cancel-in-progress: false
+
+jobs:
+  build-and-draft:
+    name: Build the owner test installer and create the draft pre-release
+    if: ${{ github.ref == 'refs/heads/test/windows-owner' && github.actor == 'gustavo8000br' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: windows-owner-test
+    permissions:
+      contents: write # create the draft pre-release; no other scope is granted
+    steps:
+      - name: Check out the test branch without keeping credentials
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+      - name: Install locked packager dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Set up Buildx for registry manifest inspection
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Resolve the exact public image digest
+        id: image
+        env:
+          IMAGE_TAG: v0.3.0-0d0b595-beta
+        run: |
+          set -euo pipefail
+          manifest="$RUNNER_TEMP/image-manifest.json"
+          docker buildx imagetools inspect --raw "ghcr.io/$GITHUB_REPOSITORY:$IMAGE_TAG" > "$manifest"
+          jq -e 'any(.manifests[]; .platform.os == "linux" and .platform.architecture == "amd64")' "$manifest" > /dev/null
+          digest="sha256:$(sha256sum "$manifest" | cut -d ' ' -f 1)"
+          printf 'image_ref=%s@%s\n' "$IMAGE_TAG" "$digest" >> "$GITHUB_OUTPUT"
+      - name: Package the password-protected Windows installer
+        env:
+          IMAGE_REF: ${{ steps.image.outputs.image_ref }}
+          TEST_INSTALLER_PASSWORD_HASH: ${{ secrets.TEST_INSTALLER_PASSWORD_HASH }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${TEST_INSTALLER_PASSWORD_HASH:-}" ]]; then
+            echo "The Environment secret is missing or empty; nothing was built." >&2
+            exit 1
+          fi
+          node apps/infra/scripts/package-installer.mjs --platform windows --image-tag "$IMAGE_REF" --password-hash-env TEST_INSTALLER_PASSWORD_HASH --output "$RUNNER_TEMP/owner-test" > /dev/null
+          (cd "$RUNNER_TEMP/owner-test" && sha256sum subarushogun_twich_bot_setup.bat > subarushogun_twich_bot_setup.bat.sha256)
+      - name: Create the draft pre-release (visible only to people with write access)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "test-windows-$GITHUB_RUN_ID" \
+            "$RUNNER_TEMP/owner-test/subarushogun_twich_bot_setup.bat" \
+            "$RUNNER_TEMP/owner-test/subarushogun_twich_bot_setup.bat.sha256" \
+            --draft --prerelease --target main \
+            --title "TEST (private, do not share) $GITHUB_RUN_ID" \
+            --notes "Owner-only Windows test installer, built from commit $GITHUB_SHA of test/windows-owner. NEVER publish this draft; delete it after the test."

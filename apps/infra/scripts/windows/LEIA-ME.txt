@@ -1,0 +1,8 @@
+﻿SubaruShogun - pacote de validacao no Windows 10
+
+1. Abra o Docker Desktop.
+2. Use o subarushogun_twich_bot_setup.bat desta pasta (o .bat NOVO ja esta ao lado do script; NAO use o da release v0.3.0-0d0b595-beta: ele e anterior a correcao de caminhos com acento/apostrofo).
+3. Clique direito em Validar-SubaruShogun.ps1 > Executar com PowerShell
+   (ou: powershell -ExecutionPolicy Bypass -File .\Validar-SubaruShogun.ps1 -InstaladorPath "%USERPROFILE%\Downloads\subarushogun_twich_bot_setup.bat")
+4. Siga LEIA-ME-ROTEIRO.txt (passos com os mesmos IDs).
+5. Devolva ao Orion o .zip de Documentos\SubaruShogunTeste. NAO inclua segredos.

@@ -20,6 +20,10 @@ Dockerfile text eol=lf
 # renormalization so existing index content is not rewritten.
 *.ps1 eol=crlf
 
+# Owner-facing Windows validation kit text files: CRLF in the working tree
+# (BOM + CRLF contract in tests/unit/windows-validation-script-contract.test.js); the index keeps LF.
+apps/infra/scripts/windows/*.txt text eol=crlf
+
 # Binary assets.
 *.png binary
 *.jpg binary
