@@ -126,6 +126,34 @@ describe('branch cleanup deletion', () => {
     expect(calls.some((call) => call.startsWith('DELETE'))).toBe(false);
   });
 
+  it('treats an empty, missing or non-numeric open-PR answer as an error, never as no pull request', async () => {
+    for (const answer of ['', undefined, 'abc', ' ', '-1', '1.5', 'NaN']) {
+      const calls = [];
+      const api = async (method, path) => {
+        calls.push(`${method} ${path}`);
+        if (path.includes('/git/ref/')) return 'sha-feat/a\n';
+        if (path.includes('/pulls?')) return answer;
+        return '';
+      };
+      const out = await deletePlannedBranches({ planned: plannedOf('feat/a'), repo, api });
+      expect(out.results[0]).toMatchObject({ status: 'skipped', detail: 'could not confirm that no pull request is open' });
+      expect(calls.some((call) => call.startsWith('DELETE'))).toBe(false);
+    }
+  });
+
+  it('deletes only when the open-PR answer is the number 0', async () => {
+    const reply = (answer) => async (method, path) => {
+      if (path.includes('/git/ref/')) return 'sha-feat/a';
+      return path.includes('/pulls?') ? answer : '';
+    };
+    const zero = await deletePlannedBranches({ planned: plannedOf('feat/a'), repo, api: reply('0') });
+    expect(zero.counts.deleted).toBe(1);
+    const zeroNumber = await deletePlannedBranches({ planned: plannedOf('feat/a'), repo, api: reply(0) });
+    expect(zeroNumber.counts.deleted).toBe(1);
+    const one = await deletePlannedBranches({ planned: plannedOf('feat/a'), repo, api: reply('1') });
+    expect(one.results[0].detail).toContain('pull request is open');
+  });
+
   it('refuses invalid names and main without calling the API', async () => {
     const { api, calls } = makeApi({ refs: {} });
     const out = await deletePlannedBranches({ planned: plannedOf('main', 'feat/$(id)', '-rf'), repo, api });

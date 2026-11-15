@@ -13,6 +13,18 @@ export const MIN_AGE_DAYS = 7;
 // Only plain ref names are ever deleted; anything else is reported and skipped (names are data, not code).
 const SAFE_BRANCH_NAME = /^[A-Za-z0-9_][A-Za-z0-9._/-]*$/;
 
+/**
+ * Decides dry run vs real deletion from the raw workflow inputs. Fail-safe and case-sensitive: the only way
+ * to delete is an exact 'false' dispatch input, or (on any other event) the variable being exactly 'true'.
+ * Anything else ('TRUE', ' true', '1', '', missing) stays a dry run. Actions' `==` ignores case, so the
+ * comparison lives here instead of in the workflow expression.
+ * @param {{EVENT_NAME?:string, DISPATCH_DRY_RUN?:string, BRANCH_CLEANUP_ENABLED?:string}} env
+ */
+export function resolveDryRun(env) {
+  if (env.EVENT_NAME === 'workflow_dispatch') return env.DISPATCH_DRY_RUN !== 'false';
+  return env.BRANCH_CLEANUP_ENABLED !== 'true';
+}
+
 export function isSafeBranchName(name) {
   return typeof name === 'string'
     && name.length <= 200
@@ -108,7 +120,7 @@ function writeSummary(text) {
 
 async function plan() {
   const repo = process.env.GITHUB_REPOSITORY;
-  const dryRun = process.env.DRY_RUN !== 'false'; // anything but the exact string 'false' stays a dry run
+  const dryRun = resolveDryRun(process.env);
   const defaultBranch = (await gh(['api', `repos/${repo}`, '--jq', '.default_branch'])).trim();
   const remote = await ghJson(['api', '--paginate', `repos/${repo}/branches?per_page=100`, '--jq',
     '.[] | {name: .name, sha: .commit.sha, protected: .protected}']);
@@ -161,11 +173,16 @@ export async function deletePlannedBranches({ planned, repo, api }) {
         record(name, sha, 'skipped', `the branch moved to ${current} since the plan`);
         continue;
       }
-      const openPrs = Number(String(await api(
+      const answer = String(await api(
         'GET', `repos/${repo}/pulls?state=open&per_page=1&head=${encodeURIComponent(`${owner}:${name}`)}`, 'length',
-      )).trim());
-      if (openPrs !== 0) {
-        record(name, sha, 'skipped', Number.isFinite(openPrs) ? 'a pull request is open for this branch' : 'could not confirm that no pull request is open');
+      )).trim();
+      // Only a plain count is an answer. An empty or garbled reply is an error, never "no pull request".
+      if (!/^\d+$/.test(answer)) {
+        record(name, sha, 'skipped', 'could not confirm that no pull request is open');
+        continue;
+      }
+      if (Number(answer) !== 0) {
+        record(name, sha, 'skipped', 'a pull request is open for this branch');
         continue;
       }
       await api('DELETE', `repos/${repo}/git/refs/heads/${encoded}`);

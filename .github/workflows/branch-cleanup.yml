@@ -44,10 +44,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          # Manual runs follow the dry_run input (default true). The weekly schedule stays a dry run
-          # until the repository variable BRANCH_CLEANUP_ENABLED is exactly 'true'.
-          # format() keeps 'false' a non-empty string, so the && / || chain cannot fall through to the variable.
-          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && format('{0}', inputs.dry_run) || (vars.BRANCH_CLEANUP_ENABLED == 'true' && 'false' || 'true') }}
+          # The script decides (apps/infra/scripts/branch-cleanup.mjs, resolveDryRun) because Actions' `==`
+          # ignores case: a manual run follows the dry_run input (default true); the weekly schedule stays
+          # a dry run unless the repository variable BRANCH_CLEANUP_ENABLED is exactly 'true'.
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_DRY_RUN: ${{ inputs.dry_run }}
+          BRANCH_CLEANUP_ENABLED: ${{ vars.BRANCH_CLEANUP_ENABLED }}
         run: node apps/infra/scripts/branch-cleanup.mjs plan
 
   delete:
