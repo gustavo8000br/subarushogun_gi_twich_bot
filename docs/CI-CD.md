@@ -10,12 +10,22 @@ This guide explains how pull request checks, main image publication, and tagged 
 | --- | --- | --- | --- |
 | `ci.yml` | Pull request targeting `main`; manual dispatch | Calls `quality-gates.yml`; reports one stable aggregate required check | None |
 | `quality-gates.yml` | Reusable `workflow_call` | API/infra/web lint and typecheck, shared lint/typecheck, installer smoke on Linux/macOS/Windows, Vitest with PostgreSQL/Compose, actionlint, OpenGrep/version/localization checks, Compose validation, and production image build | None |
+| `browser-only.yml` | Pull request targeting `main`; manual dispatch | Runs the fixture-driven `tests/e2e/*-browser-only.mjs` scripts in Chrome against a disposable Next dev server (D-13). Not part of the required quality-gates aggregate while it is non-blocking | None (`contents: read`) |
 | `main-cd.yml` | Push to `main` | Re-runs the shared quality gates for the merged commit, then builds and publishes validated Linux images | `packages: write` only in the publishing job |
 | `release.yml` | Manual `workflow_dispatch` only, from `main`, by the repository owner (no tag or push trigger) | Validates the tag/source and successful main CD run, builds native installer assets, then publishes bilingual release notes | `contents: write` only in the release job |
 
 Pull requests never run the GHCR publisher. The active `main-pr-and-ci` ruleset requires the stable reusable workflow check; it does not require a main-only publishing job. GitHub names reusable workflow checks as `<caller job> / <reusable job>`, so the configured required context is verified from an actual PR run.
 
 The shared workflow ends in an aggregate job that requires every validation job to finish successfully. Failed, canceled, or skipped constituent jobs fail the aggregate. The workflow linter is pinned to actionlint `1.7.12`; ShellCheck integration is disabled because this gate validates GitHub Actions workflows. Its narrow `queue` schema warning suppression is needed because GitHub's supported `concurrency.queue: max` syntax is not yet recognized by that linter release. OpenGrep `1.30.0` is installed from its pinned source commit into an isolated empty `HOME`; its release binary signature is verified with Cosign `2.5.0`, and the pinned Cosign installer verifies its downloaded binary checksum. Installer smoke files are temporary and are not uploaded from normal CI; only the release workflow uploads the tested `.bat`, `.command`, and `.sh` installers.
+
+## Browser-only scripts job (D-13)
+
+`browser-only.yml` runs every script listed under `covered` in `tests/e2e/browser-only-manifest.json` through `npm run test:e2e:browser-only:ci` (`tests/e2e/run-browser-scripts.mjs`). The driver creates a loopback TLS certificate under `.local/browser-only-ci/`, starts `next dev` over HTTPS, runs each script with `APP_ORIGIN` pointing to it, prints a PASS/FAIL summary and exits non-zero if any script failed. Every API response is an intercepted fixture, so the job needs no PostgreSQL, Docker, Twitch, OBS, volumes or secrets. The job installs Chrome with `npx playwright-core install --with-deps chrome`.
+
+- **Rollout:** the workflow is separate from `quality-gates.yml` and not required by the ruleset (non-blocking first). Making it blocking later means adding it to the aggregate and the ruleset, with the owner's OK.
+- **Exclusions:** the `excluded` list in the manifest holds scripts that cannot run on a hosted runner (native OBS/CEF, real Twitch), each with a written reason. It is empty today because all scripts are fixture-driven. These scripts are not native OBS/CEF, axe or assistive-technology evidence.
+- **Contract:** `tests/unit/browser-only-ci-contract.test.js` fails when a new `tests/e2e/*-browser-only.mjs` is in neither list, when an npm script does not run its file, or when the workflow loses its triggers, read-only permissions or pinned actions.
+- **Run locally:** `npm run test:e2e:browser-only:ci` (all) or `node tests/e2e/run-browser-scripts.mjs --only panel-layout` (one). It needs local Chrome (`CHROME_CHANNEL` selects the browser). In a git worktree whose `node_modules` is a symlink, Turbopack fails; set `BROWSER_ONLY_NEXT_ARGS=--webpack`.
 
 ## Image tags and publication safety
 
