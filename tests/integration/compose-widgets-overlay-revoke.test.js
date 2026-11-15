@@ -99,9 +99,13 @@ describe('E2 widgets capability create -> overlay -> revoke (isolated Compose, r
     try {
       const panelContext = await browser.newContext({ ignoreHTTPSErrors: true, serviceWorkers: 'block' });
       const panel = await panelContext.newPage();
-      const catalogsReady = panel.waitForResponse((response) => new URL(response.url()).pathname === '/api/localization/catalogs', { timeout: 90_000 });
-      await panel.goto(`${origin}/widgets/`, { waitUntil: 'domcontentloaded' });
-      await catalogsReady;
+      // Cold start: the first Next.js compile of /widgets/ plus the first catalog fetch can exceed 90 s on a cold Docker/CPU cache
+      // (observed once, 2026-11-14). Warm the route explicitly with a generous bound, then assert the catalogs response with the
+      // same strict check; a real failure (non-2xx or never arriving) still fails the test.
+      const catalogsReady = panel.waitForResponse((response) => new URL(response.url()).pathname === '/api/localization/catalogs', { timeout: 180_000 });
+      await panel.goto(`${origin}/widgets/`, { waitUntil: 'domcontentloaded', timeout: 180_000 });
+      const catalogsResponse = await catalogsReady;
+      expect(catalogsResponse.ok(), `localization catalogs responded ${catalogsResponse.status()}`).toBe(true);
 
       // Create a fixed-text widget through the real UI; read the one-time link from the link dialog.
       await panel.getByRole('button', { name: 'Criar widget' }).first().click();
@@ -147,5 +151,5 @@ describe('E2 widgets capability create -> overlay -> revoke (isolated Compose, r
     } finally {
       await browser.close();
     }
-  }, 240_000);
+  }, 360_000);
 });
