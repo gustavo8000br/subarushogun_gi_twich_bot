@@ -14,7 +14,7 @@ The board showed "Aguardando decisão" cards with a recommendation but gave the 
 
 The blocks in section 5 are written in Portuguese, the language of the issue bodies and of what the owner reads and ticks. `@devops` adds the English mirror without checkboxes (see the [issue body template](issue-body-template.md)). Relative links must be turned into GitHub links when pasted.
 
-## 2. Map D-NN to issue (15 decisions)
+## 2. Map D-NN to issue (16 decisions)
 
 | ID | Issue | Source | Question |
 |---|---|---|---|
@@ -31,9 +31,9 @@ The blocks in section 5 are written in Portuguese, the language of the issue bod
 | D-11 | #79 | OW-15 | Fatias 3 e 4 da OPS-21 precisam anteceder o corte do OPS-15? |
 | D-12 | index issue | TS-02 / OW-12 | Remover ou reescrever 3 testes de status histórico |
 | D-13 | index issue | TS-07 / OW-12 | Um contêiner PostgreSQL por execução da suíte |
-| D-14 | index issue | D9 do desenho do quadro | Arquivar os cards legados #17 e #18 |
-| D-15 | index issue | OW-14 | Quando apagar a branch de backup `backup/ops-15-before-history-fix` |
-| D-16 | index issue | W2-2 (audit 2026-11-13) | Exceção da regra de sub-issues: criar as sub-issues das fatias planejadas só quando cada story ficar Ready (A, recomendado; registrada no `AGENTS.md`) ou todas agora (B) |
+| D-14 | index issue | D9 do desenho do quadro | Arquivar os cards legados #17 e #18. **DECIDIDA: opção A (2026-10-30)** |
+| D-15 | index issue | OW-14 | Quando apagar a branch de backup `backup/ops-15-before-history-fix`. **RESOLVIDA sem ação (2026-11-05)**: a branch de backup remota não existe mais |
+| D-16 | index issue | W2-2 (audit 2026-11-13) | Exceção da regra de sub-issues: criar as sub-issues das fatias planejadas só quando cada story ficar Ready (A) ou todas agora (B). **DECIDIDA: opção A (2026-11-14)**, exceção registrada no `AGENTS.md` (linha 100) |
 
 Open issues with no pending decision: #19, #40, #48, #57, #60, #74, #76, #77, #78, #80, #81, #82, #84, #85, #86, #87, #88, #89, #90, #91, #92, #93, #94, #95, #96, #98, #99, #100. Each one still gets the `Nenhuma decisão pendente.` line and its `## Gates` list.
 
@@ -862,7 +862,7 @@ Sem gates próprios: issue índice, sem story.
 
 ## 7. Counts
 
-15 decisions (D-01..D-15) and 8 owner actions (A-01..A-08) over 34 open issues plus the index issue. Board counts before the ticks of 2026-10-30: 66 active, 46 archived, 110 inventory items. After the owner ticked D-14 = A (2026-10-30), recorded 2026-11-04: **64 active, 48 archived** (#17 and #18 moved to archived), 110 inventory items, 112 cards in total. Also ticked: D-01 = B (ST-11 to Rascunho), D-12 = A (TS-02 to Pronto), D-13 = A (TS-07 to Pronto, TS-11 measures first). Current counts after the improvement survey of 2026-11-04 (12 new items, no owner decision created): 122 inventory items, **76 active**, 48 archived, 124 cards in total ([inventory](backlog-inventory.md)). Owner ticks recorded on 2026-11-05 (issue #69): D-04 registered as A (defer; he ticked B before testing and clarified it), D-05 = B (OW-07 to Bloqueado), D-06 = A (wait) and D-07 = A (postpone). Counts after the QA gate of 2026-11-05: **127 inventory items, 82 active cards (33 issues + 49 drafts), 48 archived, 130 cards in total** in the plan; the real board shows 77 active before the 5 new items are loaded ([reconciliation](kanban-board-design.md), section 5.3).
+16 decisions (D-01..D-16; counted from the rows of the table in section 2, D-16 being decided at the audit level with no issue block) and 8 owner actions (A-01..A-08) over 34 open issues plus the index issue. Board counts before the ticks of 2026-10-30: 66 active, 46 archived, 110 inventory items. After the owner ticked D-14 = A (2026-10-30), recorded 2026-11-04: **64 active, 48 archived** (#17 and #18 moved to archived), 110 inventory items, 112 cards in total. Also ticked: D-01 = B (ST-11 to Rascunho), D-12 = A (TS-02 to Pronto), D-13 = A (TS-07 to Pronto, TS-11 measures first). Current counts after the improvement survey of 2026-11-04 (12 new items, no owner decision created): 122 inventory items, **76 active**, 48 archived, 124 cards in total ([inventory](backlog-inventory.md)). Owner ticks recorded on 2026-11-05 (issue #69): D-04 registered as A (defer; he ticked B before testing and clarified it), D-05 = B (OW-07 to Bloqueado), D-06 = A (wait) and D-07 = A (postpone). Counts after the QA gate of 2026-11-05: **127 inventory items, 82 active cards (33 issues + 49 drafts), 48 archived, 130 cards in total** in the plan; the real board shows 77 active before the 5 new items are loaded ([reconciliation](kanban-board-design.md), section 5.3).
 
 ## Reserved vs default decisions (owner rule, 2026-10-30)
 
