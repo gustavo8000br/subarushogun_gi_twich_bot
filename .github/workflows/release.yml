@@ -1,9 +1,6 @@
 name: Publish GitHub Release
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch: {}
 
 permissions:
@@ -17,7 +14,7 @@ concurrency:
 jobs:
   prepare-release:
     name: Resolve the version and validate main
-    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.actor == 'gustavo8000br' && github.triggering_actor == 'gustavo8000br')) }}
+    if: ${{ github.ref == 'refs/heads/main' && github.actor == 'gustavo8000br' && github.triggering_actor == 'gustavo8000br' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 80
     permissions:
@@ -48,13 +45,6 @@ jobs:
             exit 1
           fi
           release_tag="v${base_version}-${short_sha}-${stage}"
-          if [[ "$GITHUB_EVENT_NAME" == "push" && "$stage" != "rc" && "$stage" != "stable" ]]; then
-            echo "Automatic prereleases are limited to rc and stable stages; $stage remains owner-triggered."
-            printf 'should_release=false\n' >> "$GITHUB_OUTPUT"
-            printf 'release_tag=%s\n' "$release_tag" >> "$GITHUB_OUTPUT"
-            printf 'source_sha=%s\n' "$source_sha" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
           git fetch --no-tags origin main:refs/remotes/origin/main
           if ! git merge-base --is-ancestor "$source_sha" origin/main; then
             echo "Only commits already present on main can be released." >&2
@@ -289,4 +279,12 @@ jobs:
           set -euo pipefail
           stage="${RELEASE_TAG##*-}"
           release_args=("$RELEASE_TAG" release-assets/* --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md" --verify-tag)
-          gh release create "${release_args[@]}" --prerelease
+          case "$stage" in
+            alpha|beta|rc) release_args+=(--prerelease --latest=false) ;;
+            stable) release_args+=(--latest) ;;
+            *)
+              echo "Unknown release stage: $stage" >&2
+              exit 1
+              ;;
+          esac
+          gh release create "${release_args[@]}"

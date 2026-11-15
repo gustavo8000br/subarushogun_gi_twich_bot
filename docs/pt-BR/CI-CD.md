@@ -11,7 +11,7 @@ Este guia explica como se relacionam as verificações das pull requests, a publ
 | `ci.yml` | Pull request destinada à `main`; execução manual | Chama `quality-gates.yml` e apresenta um único check agregado estável | Nenhuma |
 | `quality-gates.yml` | Reutilizável por `workflow_call` | Lint e typecheck de API/infra/web, lint/typecheck compartilhados, smoke test do instalador em Linux/macOS/Windows, Vitest com PostgreSQL/Compose, actionlint, OpenGrep/versão/localização, validação Compose e build da imagem de produção | Nenhuma |
 | `main-cd.yml` | Push para `main` | Executa novamente os gates compartilhados para o commit mesclado e publica imagens Linux validadas | `packages: write` somente no job publicador |
-| `release.yml` | Push de tag de versão `v*` | Valida tag/origem e CD bem-sucedido da main, gera instaladores nativos e publica notas bilíngues | `contents: write` somente no job de release |
+| `release.yml` | Somente `workflow_dispatch` manual, a partir da `main`, pelo proprietário do repositório (sem gatilho de tag ou push) | Valida tag/origem e CD bem-sucedido da main, gera instaladores nativos e publica notas bilíngues | `contents: write` somente no job de release |
 
 Pull requests nunca executam o publicador GHCR. O ruleset ativo `main-pr-and-ci` exige o check estável do workflow reutilizável; não exige o job de publicação exclusivo da main. O GitHub nomeia checks reutilizáveis como `<job chamador> / <job reutilizável>`, então o contexto obrigatório é conferido numa execução real de PR.
 

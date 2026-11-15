@@ -11,7 +11,7 @@ This guide explains how pull request checks, main image publication, and tagged 
 | `ci.yml` | Pull request targeting `main`; manual dispatch | Calls `quality-gates.yml`; reports one stable aggregate required check | None |
 | `quality-gates.yml` | Reusable `workflow_call` | API/infra/web lint and typecheck, shared lint/typecheck, installer smoke on Linux/macOS/Windows, Vitest with PostgreSQL/Compose, actionlint, OpenGrep/version/localization checks, Compose validation, and production image build | None |
 | `main-cd.yml` | Push to `main` | Re-runs the shared quality gates for the merged commit, then builds and publishes validated Linux images | `packages: write` only in the publishing job |
-| `release.yml` | Push of a version tag `v*` | Validates the tag/source and successful main CD run, builds native installer assets, then publishes bilingual release notes | `contents: write` only in the release job |
+| `release.yml` | Manual `workflow_dispatch` only, from `main`, by the repository owner (no tag or push trigger) | Validates the tag/source and successful main CD run, builds native installer assets, then publishes bilingual release notes | `contents: write` only in the release job |
 
 Pull requests never run the GHCR publisher. The active `main-pr-and-ci` ruleset requires the stable reusable workflow check; it does not require a main-only publishing job. GitHub names reusable workflow checks as `<caller job> / <reusable job>`, so the configured required context is verified from an actual PR run.
 

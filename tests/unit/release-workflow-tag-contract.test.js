@@ -35,10 +35,12 @@ describe('release.yml publish job: annotated tag contract', () => {
     expect(checkout.with?.['persist-credentials']).not.toBe(false);
   });
 
-  it('publishes with GH_TOKEN, --verify-tag and --prerelease', () => {
+  it('publishes with GH_TOKEN and --verify-tag, marking only alpha/beta/rc as prerelease', () => {
     const publish = job.steps.find((step) => /gh release create/.test(step.run ?? ''));
     expect(publish.env.GH_TOKEN).toBeTruthy();
     expect(publish.run).toContain('--verify-tag');
-    expect(publish.run).toContain('--prerelease');
+    expect(publish.run).toContain('alpha|beta|rc) release_args+=(--prerelease --latest=false)');
+    expect(publish.run).toContain('stable) release_args+=(--latest)');
+    expect(publish.run).not.toMatch(/gh release create[^\n]*--prerelease/);
   });
 });
