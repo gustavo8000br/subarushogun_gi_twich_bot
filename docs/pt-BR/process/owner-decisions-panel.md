@@ -33,6 +33,7 @@ Os blocos da seção 5 estão em português, idioma dos corpos das issues e do q
 | D-13 | issue índice | TS-07 / OW-12 | Um contêiner PostgreSQL por execução da suíte |
 | D-14 | issue índice | D9 do desenho do quadro | Arquivar os cards legados #17 e #18 |
 | D-15 | issue índice | OW-14 | Quando apagar a branch de backup `backup/ops-15-before-history-fix` |
+| D-16 | issue índice | W2-2 (auditoria 2026-11-13) | Exceção da regra de sub-issues: criar as sub-issues das fatias planejadas só quando cada story ficar Ready (A, recomendado; registrada no `AGENTS.md`) ou todas agora (B) |
 
 Issues abertas sem decisão pendente: #19, #40, #48, #57, #60, #74, #76, #77, #78, #80, #81, #82, #84, #85, #86, #87, #88, #89, #90, #91, #92, #93, #94, #95, #96, #98, #99, #100. Cada uma recebe mesmo assim a linha `Nenhuma decisão pendente.` e a lista `## Gates`.
 
@@ -193,7 +194,7 @@ Tipo: Padrão (sem marca, aplica-se a opção recomendada)
 
 ### D-04 — Aceite nativo do overlay no OBS/CEF (HD-03)
 **Por que importa:** O corte do painel vanilla só é proposto depois do aceite nativo; teste em Chromium não substitui o OBS. A HD-03 está pendente e nenhuma execução nativa está registrada.
-**Contexto:** [HD-03](../../decisoes_humanas/aguardando/HD-03-aceite-nativo-obs-cef.md); [documentação do OBS Browser Source](https://obsproject.com/kb/browser-source). Letras da HD-03: A aqui = C lá; B aqui = A lá; C aqui = B lá.
+**Contexto:** [HD-03](../../decisoes_humanas/concluidas/HD-03-aceite-nativo-obs-cef.md) (arquivada em 2026-11-14, D-14: superada pelas execuções nativas do `@qa` no Linux; Windows/macOS seguem como itens do dono); [documentação do OBS Browser Source](https://obsproject.com/kb/browser-source). Letras da HD-03: A aqui = C lá; B aqui = A lá; C aqui = B lá.
 - [ ] **A — Adiar o aceite (recomendado)**: a HD-03 segue pendente até existir uma sessão real de OBS (ação A-02).
 - [ ] **B — Aceitar após teste nativo bem-sucedido**: marque só depois de rodar a matriz do overlay; informe versões do OBS/CEF em Observação.
 - [ ] **C — Rejeitar com achado reproduzível**: informe plataforma, versões e o caso que falhou em Observação.

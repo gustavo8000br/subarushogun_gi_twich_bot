@@ -1,11 +1,11 @@
 # HD-03 — Native OBS/CEF acceptance owner outcome
 
-**Status:** Awaiting: no native OBS/CEF run or owner acceptance is recorded.
-**Português:** [HD-03 — Resultado do proprietário para aceite nativo OBS/CEF](../../decisoes_humanas/aguardando/HD-03-aceite-nativo-obs-cef.md)
+**Status:** **Archived** (2026-11-14, D-14): superseded by the independent `@qa` native OBS runs on Linux (gate G1 2026-11-13 and the live runs recorded in the OPS-15 story). Windows and macOS native acceptance stay owner items (ledger features 28 to 30; macOS before `rc`) and no longer block anything here. The text below is the original record (2026-10-19).
+**Português:** [HD-03 — Resultado do proprietário para aceite nativo OBS/CEF](../../decisoes_humanas/concluidas/HD-03-aceite-nativo-obs-cef.md)
 
 ### HD-03 — Native OBS/CEF acceptance owner outcome
 
-**Status:** Pending. No native OBS/CEF run or owner acceptance is recorded for the current migration checkpoint.
+**Status (original, 2026-10-19):** Pending. No native OBS/CEF run or owner acceptance is recorded for the current migration checkpoint.
 
 | Option | Choice | Effect |
 | --- | --- | --- |

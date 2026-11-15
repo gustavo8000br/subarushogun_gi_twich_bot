@@ -1,11 +1,11 @@
 # HD-03 — Resultado do proprietário para aceite nativo OBS/CEF
 
-**Status:** Aguardando: não há execução nativa OBS/CEF nem aceite do proprietário registrado.
-**English:** [HD-03 — Native OBS/CEF acceptance owner outcome](../../human_decisions/awaiting/HD-03-native-obs-cef-acceptance.md)
+**Status:** **Arquivada** (2026-11-14, D-14): superada pelas execuções nativas independentes do `@qa` no OBS em Linux (gate G1 de 2026-11-13 e as execuções ao vivo registradas na story OPS-15). O aceite nativo no Windows e no macOS continua sendo item do dono (ledger, funcionalidades 28 a 30; macOS antes do `rc`) e não bloqueia mais nada aqui. O texto abaixo é o registro original (2026-10-19).
+**English:** [HD-03 — Native OBS/CEF acceptance owner outcome](../../human_decisions/done/HD-03-native-obs-cef-acceptance.md)
 
 ### HD-03 — Resultado do proprietário para aceite nativo OBS/CEF
 
-**Status:** Pendente. Não há execução nativa OBS/CEF nem aceite do proprietário registrada neste checkpoint da migração.
+**Status (original, 2026-10-19):** Pendente. Não há execução nativa OBS/CEF nem aceite do proprietário registrada neste checkpoint da migração.
 
 | Opção | Escolha | Efeito |
 | --- | --- | --- |
