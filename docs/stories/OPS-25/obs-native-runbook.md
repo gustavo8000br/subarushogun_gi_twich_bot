@@ -7,12 +7,26 @@ Scope: the OBS of THIS machine (Linux), as authorized by the owner. **No stream 
 ## 0. Before anything
 
 1. Confirm the checkout: `pwd`, `git rev-parse --show-toplevel`, `git branch --show-current`; record `git rev-parse --short HEAD` and the OBS and CEF versions (OBS: Help > About).
-2. Start the product the project way (`npm run dev` or the Compose product); open the local panel at `https://localhost:3000`.
+2. Start the product the project way (`npm run dev` or the Compose product); open the local panel at `https://localhost:3000`. **Never stream with `dev:start` (or `npm run dev`).** They run the development server (hot reload, development build, slower, not hardened): use them only for tests like this runbook. For a live stream use the production build or the Compose product.
 3. **Check the channel.** Panel > "Twitch connection": the connected channel must be the owner's **test channel**, not the production channel. If it is not, stop and ask the owner. Record the channel display name only in the run notes, not the token or any ID.
+
+## 0.1 Trust the local CA inside OBS (owner decision D-5, 2026-11-13)
+
+The panel never asks you to ignore certificate errors, and neither does this runbook: **no certificate bypass and no HTTP fallback** in OBS. The Browser Source (CEF) must trust the product's local CA, `localhost-ca.crt` (public certificate only; the private key stays in the Docker secrets volume).
+
+1. **Find the CA file.** Compose or installer on Linux: `$HOME/.local/share/subarushogun-gi-twitch-bot/.local/localhost-ca.crt`. Windows installer: `%LOCALAPPDATA%\SubaruShogun\subarushogun-gi-twitch-bot\.local\localhost-ca.crt`. Repository checkout: `.local/localhost-ca.crt`. If the volume was removed, bootstrap created a new CA: import the new file and remove the old entry (see [installation](../../INSTALLATION.md)).
+2. **Confirm the symptom first.** Without trust, the Browser Source shows `net::ERR_CERT_AUTHORITY_INVALID` (seen on 2026-10-06 and again on 2026-11-13). Trusting the CA in your regular browser (the commands in the [installation guide](../../INSTALLATION.md)) does **not** make OBS trust it: OBS has its own Chromium (CEF) with its own certificate store.
+3. **Native OBS on Linux.** Import `localhost-ca.crt` into the certificate store that the OBS CEF process reads. On 2026-10-06 the CA was imported into a **temporary CEF NSS profile** (not the regular user store) and removed afterward; which store OBS reads by default, and the import command, were not recorded. That import made the source load over TLS 1.3 with security state `secure` (Ubuntu 24.04, OBS 32.2.2 Flathub, `obs-browser` 2.26.9, CEF 127.0.6533.120). **The exact import command was not recorded in the repository and is not reproduced here; do not guess one.** The `@qa` run must record the command it used and the read-back of the result.
+4. **Flatpak OBS (`com.obsproject.Studio`).** The app runs in a sandbox with its own home (`~/.var/app/com.obsproject.Studio/`): importing into the host `$HOME` store does not reach it. The 2026-10-06 evidence was on the Flathub build; the sandbox store location used was not recorded. Not validated.
+5. **Windows.** The installer guide imports the CA into `Cert:\CurrentUser\Root` with `Import-Certificate` (browser trust). Whether the OBS Browser Source on Windows uses that store is **not validated**; nothing is claimed for Windows.
+6. **Verify.** Reopen the Browser Source (or restart OBS). Pass: the widget loads over HTTPS with no certificate error. Fail: any certificate error; stop and record it, do not work around it. Remove any temporary trust import you added when the test ends.
+7. **Not validated as of 2026-11-13:** TLS trust inside OBS with the current Compose CA on any platform (the 2026-11-13 harness ignored certificate errors in a CDP daemon; the OBS NSS store was empty), Flatpak store location, Windows, macOS.
 
 ## 1. Get the new widget links
 
 Panel > "OBS widgets". For the account widget use "Generate link" (or "Regenerate link" if one exists; the previous link stops working). The dialog "Copy this link to OBS" shows the link once: use "Copy now", then "Done, I copied the link". It cannot be viewed again; if lost, regenerate. Do the same for every widget currently used in the scenes.
+
+**Legacy URL `/overlay.html`.** Old scenes may hold a Browser Source whose URL is `.../overlay.html?ref=...#...`. That alias was removed in cutover Wave 3 and is no longer served: the overlay route is `/overlay?ref=<reference>#<capability>`. Replace every `/overlay.html` source with a new link generated here (the old link cannot be converted). A queue-name widget exists (source "Queue name", `queue_name`): create one per queue if the old scene showed a queue name.
 
 ## 2. Back up and edit the OBS scene collection (OBS CLOSED)
 
@@ -26,6 +40,8 @@ Panel > "OBS widgets". For the account widget use "Generate link" (or "Regenerat
 ## 3. Widget validation (AC-W-1..5, with screenshots)
 
 Take a screenshot per state (loading, authorized, stale/unavailable, unauthorized) over a transparent and a dark scene, plus one light scene, and check that the small status line is INSIDE the source box (UX risk 1: clipping when the source height equals the label height).
+
+**Height.** The widget status line (for example "Update delayed") is drawn inside the widget box. Set the widget height, and the OBS Browser Source height, to at least `ceil(font size x 1.4) + 20` px. Example: font size 32 needs 65 px. With a smaller height the status line is cut off by OBS. The widget form shows this minimum for the chosen font size.
 
 | AC | Do | Record |
 |---|---|---|
@@ -47,4 +63,4 @@ Needs the owner: a real chat message on the test channel (no stream is needed, b
 
 ## 5. Live D-6 (diagnosis, owner-gated)
 
-Needs the owner's "pode transmitir". Without it, D-6 stays "diagnosable; root cause pending live evidence". When the owner allows it, start the stream and watch the API log JSON for lines with `event: "twitch_integration_degraded"` (and the older `twitch_reconciliation_degraded`) while `/health` shows `twitch_integration: degraded`. The line names `details.reason` (`eventsub_disconnected`, `eventsub_startup_disconnected`, `subscription_revoked` with `type` and `revokeStatus`). Record the reason and the order of the lines; never paste chat text, tokens or IDs. A silent `degraded` (status without any of those lines) is itself a finding to report.
+Needs the owner's "pode transmitir". Stream only with the production build or the Compose product, never with `dev:start`. Without it, D-6 stays "diagnosable; root cause pending live evidence". When the owner allows it, start the stream and watch the API log JSON for lines with `event: "twitch_integration_degraded"` (and the older `twitch_reconciliation_degraded`) while `/health` shows `twitch_integration: degraded`. The line names `details.reason` (`eventsub_disconnected`, `eventsub_startup_disconnected`, `subscription_revoked` with `type` and `revokeStatus`). Record the reason and the order of the lines; never paste chat text, tokens or IDs. A silent `degraded` (status without any of those lines) is itself a finding to report.
