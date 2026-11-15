@@ -21,6 +21,7 @@
     { "file": "queue-reward-resolution-browser-only.mjs", "npm": "test:e2e:queue-reward-resolution:browser-only" },
     { "file": "queue-reward-settings-recovery-browser-only.mjs", "npm": "test:e2e:queue-reward-settings:browser-only" },
     { "file": "queue-settings-recovery-browser-only.mjs", "npm": "test:e2e:queue-settings:browser-only" },
+    { "file": "route-parity-browser-only.mjs", "npm": "test:e2e:route-parity:browser-only" },
     { "file": "settings-locale-browser-only.mjs", "npm": "test:e2e:settings-locale:browser-only" },
     { "file": "widget-link-dialog-browser-only.mjs", "npm": "test:e2e:widget-link:browser-only" }
   ],

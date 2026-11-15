@@ -45,6 +45,7 @@
     "test:e2e:operations-outcomes:browser-only": "node tests/e2e/operations-outcomes-browser-only.mjs",
     "test:e2e:queue-clear:browser-only": "node tests/e2e/queue-clear-browser-only.mjs",
     "test:e2e:queue-archive-local:browser-only": "node tests/e2e/queue-archive-local-browser-only.mjs",
+    "test:e2e:route-parity:browser-only": "node tests/e2e/route-parity-browser-only.mjs",
     "test:e2e:overview-degraded:browser-only": "node tests/e2e/overview-degraded-browser-only.mjs",
     "build:frontend": "next build apps/frontend",
     "validate:version": "node apps/infra/scripts/validate-version.mjs",
