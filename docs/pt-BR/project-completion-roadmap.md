@@ -49,7 +49,7 @@ Ordem de dependência no escopo: primeiro as fatias iniciais da OPS-24, depois a
 
 ## 5. Riscos
 
-- **Cota e trabalho em série:** um agente por vez; um gate de `@qa` por pacote. Planeje por pacote, não por fatia.
+- **Cota e faixas:** execução por faixas (até 3 de leitura e 1 de escrita; uma segunda faixa de escrita só com conjuntos disjuntos, nenhum arquivo quente e worktree própria se as duas mexem em código; recursos exclusivos um de cada vez; "multi-agents off" força a série). Um gate de `@qa` por pacote. Planeje por pacote, não por fatia. (Substitui a regra anterior "um agente por vez", 2026-11-14.)
 - **Plataformas sem prova:** Windows, macOS e cancelamento de produção na Twitch ainda não têm evidência; as afirmações ficam limitadas ao que rodou.
 - **Histórico denso:** a evidência longa fica nas stories e no [arquivo](archive/stories-history.md); mantenha esta página e o [índice de stories](stories.md) curtos.
 - **Estabilidade de testes:** casos instáveis do Chromium estão como itens TS (veja a 0.4.0-beta).
