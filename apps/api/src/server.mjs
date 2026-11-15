@@ -28,6 +28,8 @@ import { createStructuredLogger } from './observability/structured-logger.mjs';
 import { registerSafeHttpErrorHandler } from './http/safe-http-error-handler.mjs';
 import { createTwitchRouteIntegrationProxy } from './twitch/route-integration-proxy.mjs';
 import { resolveApiHost } from './runtime-config.mjs';
+import { createGracefulShutdown } from './graceful-shutdown.mjs';
+import { attachPoolErrorHandler } from './persistence/pool-error-handler.mjs';
 
 const databaseUrl = await createDatabaseUrl();
 const pool = new pg.Pool({ connectionString: databaseUrl });
@@ -36,6 +38,8 @@ const tlsCertificate = await readFile(process.env.TLS_CERT_FILE ?? '/run/secrets
 const app = Fastify({ logger: false, bodyLimit: 32 * 1024, https: { key: tlsKey, cert: tlsCertificate } });
 const logEvent = createStructuredLogger({ level: process.env.APP_LOG_LEVEL ?? 'info' });
 const reportDiagnostic = createErrorDiagnosticReporter({ logger: logEvent });
+// D-1: an idle client lost on a database restart must not crash the API; the pool reconnects on the next query.
+attachPoolErrorHandler(pool, { logEvent });
 registerSafeHttpErrorHandler(app, { reportDiagnostic });
 const productVersion = (await readFile(new URL('../../../VERSION', import.meta.url), 'utf8')).trim();
 const port = Number(process.env.PUBLIC_PORT ?? process.env.APP_PORT ?? 3000);
@@ -133,17 +137,17 @@ runtime = await createApplicationRuntime({ app, pool, prisma, repository, creden
     return chatHandler(event);
   } });
 
-let closing = false;
-async function shutdown() {
-  if (closing) return;
-  closing = true;
-  await runtime?.stop();
-}
+const gracefulShutdown = createGracefulShutdown({
+  stop: () => runtime.stop(),
+  closeIdleConnections: () => app.server.closeIdleConnections(),
+  closeAllConnections: () => app.server.closeAllConnections(),
+});
+const shutdown = () => gracefulShutdown.shutdown();
 process.on('SIGTERM', () => void shutdown());
 process.on('SIGINT', () => void shutdown());
 
 try {
-  await app.listen({ host: resolveApiHost(), port: apiPort });
+  if (!gracefulShutdown.closing) await app.listen({ host: resolveApiHost(), port: apiPort });
 } catch {
   await shutdown();
   process.stderr.write('Local application server failed to start. Check runtime configuration and database health.\n');

@@ -534,6 +534,22 @@ describe('OPS-22 FT-36 cancel deletion on isolated PostgreSQL', () => {
     }
   });
 
+  it('PG36-10b (TS-19, M2): the repository itself refuses to confirm a cancellation on a reward that is not paused (backstop behind the domain check)', async () => {
+    const { queue, deletion } = await seedDeletingQueue({ deleteStatus: 'pending' });
+    const reservation = await repository.beginQueueDeletionCancellation({ queueId: queue.id, actorId: 'operator-1' });
+    expect(reservation).toMatchObject({ status: 'verification_required', operationId: deletion.id });
+    const notPaused = await fakeTwitch(queue, { paused: false }).getReward(queue.rewardId);
+    expect(notPaused).toMatchObject({ isPaused: false });
+
+    await expect(repository.confirmQueueDeletionCancellation({
+      queueId: queue.id, operationId: reservation.operationId, expectedVersion: reservation.expectedVersion, reward: notPaused, actorId: 'operator-1',
+    })).rejects.toMatchObject({ code: 'QUEUE_DELETION_CANCELLATION_UNVERIFIED' });
+
+    expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ lifecycleStatus: 'deleting', remoteSyncStatus: 'delete_pending' });
+    expect(await prisma.outbox.findUnique({ where: { id: deletion.id } })).toMatchObject({ status: 'cancel_verification' });
+    expect(await auditRows(queue.id, 'queue.deletion_cancelled')).toEqual([]);
+  });
+
   it('PG36-14 (T36-14): a legacy cancel_verification row without payload.cancelVerification resumes and restores to unknown', async () => {
     const { queue, deletion } = await seedDeletingQueue({ deleteStatus: 'cancel_verification', deletePayload: { requestMayHaveReachedTwitch: false, safeToDelete: false, marker: 'legacy' } });
     const twitch = fakeTwitch(queue);

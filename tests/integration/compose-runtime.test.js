@@ -103,6 +103,49 @@ async function waitForHealthyBot() {
   throw lastError ?? new Error('Compose bot did not become healthy');
 }
 
+/**
+ * TS-22: reload, then wait for the queue projection requested by the RELOADED document before asserting any card content.
+ * The cards render only after the static page hydrates and `GET /api/queues` answers; on a loaded host that wait used to be
+ * folded into the 30 s default of the first `locator.waitFor()` after `page.reload()` (4 different lines failed, none alone).
+ * Requests of the previous document that were still in flight are ignored: only requests started after the document
+ * navigation request count. The listeners are registered BEFORE the reload so a fast answer is never missed, and a timeout
+ * names the failed requests instead of a bare locator timeout.
+ */
+async function reloadAwaitingQueueProjection(page, origin, { timeout = 90_000 } = {}) {
+  let navigated = false;
+  const fresh = new Set();
+  const failed = [];
+  let settle;
+  const answered = new Promise((resolve) => { settle = resolve; });
+  const isProjection = (request) => {
+    const url = new URL(request.url());
+    return url.origin === origin && url.pathname === '/api/queues' && request.method() === 'GET';
+  };
+  const onRequest = (request) => {
+    if (request.isNavigationRequest() && request.frame() === page.mainFrame()) { navigated = true; return; }
+    if (navigated && isProjection(request)) fresh.add(request);
+  };
+  const onResponse = (response) => { if (fresh.has(response.request())) settle(response.status()); };
+  const onFailed = (request) => failed.push(`${new URL(request.url()).pathname} ${request.failure()?.errorText ?? ''}`);
+  page.on('request', onRequest);
+  page.on('response', onResponse);
+  page.on('requestfailed', onFailed);
+  let timer;
+  try {
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    const status = await Promise.race([
+      answered,
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`The reloaded document never received /api/queues within ${timeout} ms (failed requests: ${failed.join('; ') || 'none'})`)), timeout); }),
+    ]);
+    if (status !== 200) throw new Error(`The reloaded document received /api/queues HTTP ${status}`);
+  } finally {
+    clearTimeout(timer);
+    page.off('request', onRequest);
+    page.off('response', onResponse);
+    page.off('requestfailed', onFailed);
+  }
+}
+
 describe('isolated Compose first-run and restart acceptance', () => {
   beforeAll(async () => {
     localCertDirectory = mkdtempSync(join(tmpdir(), 'queuebot local tls '));
@@ -825,7 +868,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
         'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
         `INSERT INTO entries (id, queue_id, twitch_user_id, user_login, display_name, source, status, position) VALUES ('${firstWaitingEntryId}', '${dto.id}', 'ops15-first-user', 'ops15first', 'OPS15FirstWaiter', 'manual', 'waiting', 1), ('${secondWaitingEntryId}', '${dto.id}', 'ops15-second-user', 'ops15second', 'OPS15SecondWaiter', 'manual', 'waiting', 2)`,
       ]);
-      await page.reload({ waitUntil: 'domcontentloaded' });
+      await reloadAwaitingQueueProjection(page, origin);
       await queueCard.getByText('OPS15FirstWaiter', { exact: true }).waitFor();
       await queueCard.getByText('OPS15SecondWaiter', { exact: true }).waitFor();
       const moveResponsePromise = page.waitForResponse((response) => {
@@ -919,7 +962,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
         'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
         `UPDATE entries SET status = 'called', position = null, called_at = NOW(), call_deadline_at = NOW() + INTERVAL '3 minutes' WHERE id = '${firstWaitingEntryId}'`,
       ]);
-      await page.reload({ waitUntil: 'domcontentloaded' });
+      await reloadAwaitingQueueProjection(page, origin);
       const calledEntryRow = queueCard.locator('.queue-entry-row').filter({ hasText: 'OPS15FirstWaiter' });
       const attendResponsePromise = page.waitForResponse((response) => {
         const responseUrl = new URL(response.url());
@@ -933,7 +976,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
       expect(await attendResponse.json()).toEqual({
         id: firstWaitingEntryId, status: 'in_progress', financialDecision: 'no_operation',
       });
-      await page.reload({ waitUntil: 'domcontentloaded' });
+      await reloadAwaitingQueueProjection(page, origin);
       const attendProjection = await page.evaluate(async () => {
         const response = await fetch('/api/queues');
         return { status: response.status, queues: await response.json() };
@@ -954,7 +997,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
       expect(await completeResponse.json()).toEqual({
         id: firstWaitingEntryId, status: 'completed', financialDecision: 'no_operation',
       });
-      await page.reload({ waitUntil: 'domcontentloaded' });
+      await reloadAwaitingQueueProjection(page, origin);
       const completeProjection = await page.evaluate(async () => {
         const response = await fetch('/api/queues');
         return { status: response.status, queues: await response.json() };
@@ -1018,7 +1061,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
         'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
         `UPDATE queues SET is_archived = true, is_open = false, version = version + 1 WHERE id = '${dto.id}'`,
       ]);
-      await page.reload({ waitUntil: 'domcontentloaded' });
+      await reloadAwaitingQueueProjection(page, origin);
       await queueCard.getByRole('button', { name: 'Mostrar esta fila para viewers', exact: true }).waitFor();
       const unarchiveResponsePromise = page.waitForResponse((response) => {
         const responseUrl = new URL(response.url());
@@ -1056,7 +1099,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
         'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
         `INSERT INTO redemptions (redemption_id, broadcaster_id, reward_id, user_id, queue_id, redeemed_at, remote_status, sync_status, created_at, updated_at) VALUES ('${refundRedemptionId}', 'ops15-broadcaster', 'ops15-synthetic-refund-reward', 'ops15-refund-user', '${dto.id}', NOW(), 'UNFULFILLED', 'observed', NOW(), NOW()); INSERT INTO entries (id, queue_id, twitch_user_id, user_login, display_name, source, redemption_id, status, position) VALUES ('${refundEntryId}', '${dto.id}', 'ops15-refund-user', 'ops15refund', 'OPS15RefundViewer', 'redemption', '${refundRedemptionId}', 'waiting', 1), ('${plainEntryId}', '${dto.id}', 'ops15-plain-user', 'ops15plain', 'OPS15PlainViewer', 'manual', NULL, 'waiting', 2)`,
       ]);
-      await page.reload({ waitUntil: 'domcontentloaded' });
+      await reloadAwaitingQueueProjection(page, origin);
       await queueCard.getByText('OPS15RefundViewer', { exact: true }).waitFor();
       const refundPreviewPromise = page.waitForResponse((response) => {
         const responseUrl = new URL(response.url());
@@ -1113,7 +1156,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
         'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
         `UPDATE queues SET queue_mode = 'channel_points', reward_origin = 'bot_created', reward_id = 'ops15-synthetic-manual-mode-reward', cost = 1, mode_transition_status = 'none', remote_sync_status = 'synced', is_open = true WHERE id = '${dto.id}'`,
       ]);
-      await page.reload({ waitUntil: 'domcontentloaded' });
+      await reloadAwaitingQueueProjection(page, origin);
       const manualModeResponsePromise = page.waitForResponse((response) => {
         const responseUrl = new URL(response.url());
         return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/manual-mode`
@@ -1144,7 +1187,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
         'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
         `UPDATE queues SET queue_mode = 'channel_points', reward_origin = 'bot_created', reward_id = 'ops15-synthetic-delete-reward', cost = 1, mode_transition_status = 'none', remote_sync_status = 'synced', is_open = false WHERE id = '${dto.id}'`,
       ]);
-      await page.reload({ waitUntil: 'domcontentloaded' });
+      await reloadAwaitingQueueProjection(page, origin);
       const deleteResponsePromise = page.waitForResponse((response) => {
         const responseUrl = new URL(response.url());
         return responseUrl.origin === origin && responseUrl.pathname === `/api/queues/${dto.id}/delete`
@@ -1177,7 +1220,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
         'exec', '--no-TTY', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'queuebot', '-d', 'queuebot', '-c',
         `UPDATE queues SET queue_mode = 'channel_points', reward_origin = 'bot_created', reward_id = 'ops15-synthetic-uncertain-reward', cost = 1, mode_transition_status = 'none', remote_sync_status = 'unknown', version = version + 1 WHERE id = '${dto.id}'`,
       ]);
-      await page.reload({ waitUntil: 'domcontentloaded' });
+      await reloadAwaitingQueueProjection(page, origin);
       const uncertainProjection = await page.evaluate(async () => {
         const response = await fetch('/api/queues');
         return { status: response.status, body: await response.json() };

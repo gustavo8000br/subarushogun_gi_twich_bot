@@ -40,6 +40,24 @@ describe('local panel session and CSRF protection', () => {
     await app.close();
   });
 
+  it('marks an origin refusal with the closed code ORIGIN_NOT_ALLOWED (D-3) and nothing else with it', async () => {
+    const app = Fastify();
+    registerLocalSession(app);
+    app.post('/api/mutate', async () => ({ ok: true }));
+    const session = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
+    const cookie = session.cookies[0];
+    for (const origin of ['https://127.0.0.1:3001', 'not a url']) {
+      const response = await app.inject({ method: 'POST', url: '/api/mutate', headers: {
+        host: 'localhost:3000', origin, cookie: `${cookie.name}=${cookie.value}`, 'x-csrf-token': session.json().csrfToken,
+      } });
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toEqual({ error: 'Origem inválida.', code: 'ORIGIN_NOT_ALLOWED' });
+    }
+    const csrf = await app.inject({ method: 'POST', url: '/api/mutate', headers: { host: 'localhost:3000', origin: 'https://localhost:3000', cookie: `${cookie.name}=${cookie.value}` } });
+    expect(csrf.json().code).toBeUndefined();
+    await app.close();
+  });
+
   it('accepts only the exact explicitly configured loopback HTTP origin for local Next development', async () => {
     const app = Fastify();
     registerLocalSession(app, { developmentOrigin: 'http://localhost:3000', port: 3109 });
