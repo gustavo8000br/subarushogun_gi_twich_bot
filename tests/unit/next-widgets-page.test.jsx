@@ -63,7 +63,6 @@ const COPY = {
   'panel.widget.preview_eyebrow': 'SIMULATED PREVIEW',
   'panel.widget.preview_example': 'Widget example',
   'panel.widget.link_eyebrow': 'ONE-TIME LINK',
-  'panel.widget.local_widget_url': 'Widget URL',
   'panel.widget.link.copied': 'Link copied.',
   'panel.widget.link.copy_fallback': 'Couldn’t copy automatically. Show the link, select it and copy it before closing — it won’t be shown again.',
   'panel.widget.link_lifetime_help': 'The link cannot be viewed again after this dialog closes. If you lose it, generate a new link; the previous one will be invalidated.',
@@ -105,7 +104,6 @@ const COPY = {
   'panel.error.generic': 'Could not complete. Try again.',
 };
 
-const t = (key, options = {}) => translatePanel({ 'pt-BR': COPY }, 'pt-BR', key, options);
 const style = {
   textColor: '#FFFFFF', backgroundColor: '#000000', backgroundOpacity: 0, fontFamily: 'system-ui', fontSize: 32,
   fontWeight: 700, alignment: 'center', effect: 'none', outlineWidth: 1, shadowBlur: 0, shadowOffsetX: 0,
@@ -214,7 +212,7 @@ describe('Next OBS widget management page', () => {
     fireEvent.change(screen.getByLabelText('Widget text field'), { target: { value: 'Ready now' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save widget' }));
     await waitFor(() => expect(request).toHaveBeenCalledWith(`/api/overlay-widgets/${existing.id}`, expect.objectContaining({ method: 'PATCH' })));
-    const [path, options] = request.mock.calls.find(([candidate, opts]) => candidate.endsWith(existing.id) && opts?.method === 'PATCH');
+    const [, options] = request.mock.calls.find(([candidate, opts]) => candidate.endsWith(existing.id) && opts?.method === 'PATCH');
     expect(JSON.parse(options.body)).toMatchObject({ expectedVersion: 3, changes: { sourceType: 'fixed_text', fixedText: 'Ready now' } });
     expect(screen.queryByRole('dialog', { name: /ONE-TIME LINK/i })).toBeNull();
   });

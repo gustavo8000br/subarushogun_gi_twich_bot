@@ -7,6 +7,7 @@ import { getRuntimeHealthSeverity, projectRuntimeHealth, summarizeUnresolvedOper
 import { PanelProvider, usePanel } from './panel-provider.jsx';
 import { getOverviewNextAction } from '../../../shared/panel/panel-navigation.mjs';
 import OutcomeRegion from './outcome-region.jsx';
+import { PanelLoadError, WrongOriginAlert } from './wrong-host-message.jsx';
 
 const NAVIGATION = Object.freeze([
   ['overview', 'panel.navigation.overview', true, '/'],
@@ -21,7 +22,7 @@ const NAVIGATION = Object.freeze([
 
 function PanelFrame({ activePage, children }) {
   const activeNavigationItem = useRef(null);
-  const { status, error, runtimeState, setupState, healthState, queueSummary, localeState, refreshing, refreshNotice, lastRefreshAt, refreshOverview, panelOutcome, dismissPanelOutcome, refreshFromOutcome, t } = usePanel();
+  const { status, error, loadErrorReference, wrongOrigin, runtimeState, setupState, healthState, queueSummary, localeState, refreshing, refreshNotice, lastRefreshAt, refreshOverview, panelOutcome, dismissPanelOutcome, refreshFromOutcome, t } = usePanel();
   const currentLabel = NAVIGATION.find(([id]) => id === activePage)?.[1] ?? 'panel.navigation.overview';
   const nextAction = status === 'ready' ? getOverviewNextAction(setupState, queueSummary.queues) : null;
   const nextStep = !nextAction
@@ -89,8 +90,9 @@ function PanelFrame({ activePage, children }) {
         </header>
         <main className="page-content" id="main-content">
           <OutcomeRegion outcome={panelOutcome} t={t} locale={localeState.locale} onDismiss={dismissPanelOutcome} onRefresh={refreshFromOutcome} />
+          {wrongOrigin ? <WrongOriginAlert t={t} /> : null}
           {status === 'loading' ? <p className="status-card" role="status">{t('panel.health.database.checking')}…</p> : null}
-          {status === 'unavailable' ? <p className="status-card error-card" role="alert">{t(error)}</p> : null}
+          {status === 'unavailable' ? <PanelLoadError error={error} referenceId={loadErrorReference} t={t} /> : null}
           {activePage === 'overview' ? <>
               <div className="page-heading">
                 <div><p className="eyebrow">{t('panel.overview.eyebrow')}</p><h1>{t('panel.navigation.overview')}</h1><p className="page-description">{t('panel.overview.description')}</p></div>
@@ -104,10 +106,10 @@ function PanelFrame({ activePage, children }) {
               </div>
               {refreshNotice?.status === 'success' ? <p className="status-card overview-refresh-notice" role="status">{t('panel.overview.refreshed')}</p> : null}
               {refreshNotice?.status === 'error' ? <p className="status-card error-card overview-refresh-notice" role="alert">{t('panel.overview.refresh_failed')}</p> : null}
-              <section className="migration-card" aria-labelledby="migration-title">
+              {status !== 'unavailable' ? <section className="migration-card" aria-labelledby="migration-title">
                 <div className="migration-icon" aria-hidden="true">✦</div>
                 <div className="next-step-content"><p className="eyebrow">{t('panel.overview.next_eyebrow')}</p><h2 id="migration-title">{t(nextStep.title)}</h2><p>{t(nextStep.description)}</p>{nextStep.href ? <a className="next-step-link" href={nextStep.href}>{t(nextStep.label)} <span aria-hidden="true">→</span></a> : null}</div>
-              </section>
+              </section> : null}
               {status === 'ready' ? (
                 <>
               <section className="health-section" aria-labelledby="health-title">

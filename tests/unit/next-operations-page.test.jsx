@@ -25,7 +25,6 @@ const COPY = {
   'panel.error.local_load': 'Could not connect to the local API.',
   'panel.error.reference': 'Reference: {id}',
   'panel.operations.refresh_failed': 'Could not refresh operations.',
-  'panel.error.reference': 'Reference: {id}',
   'panel.operations.reconcile': 'Reconcile with Twitch now',
   'panel.reconciliation.running': 'Reconciliation in progress…',
   'panel.reconciliation.complete.one': 'Reconciliation complete. Imported {count} redemption.',
@@ -175,13 +174,13 @@ describe('Next Operations page', () => {
   });
 
   it('preserves the partial reconciliation state and issue count', async () => {
-    const { request } = renderPage({ reconciliationPromise: { status: 'partial', imported: 1, issues: [{ code: 'reward_verification_failed' }] } });
+    renderPage({ reconciliationPromise: { status: 'partial', imported: 1, issues: [{ code: 'reward_verification_failed' }] } });
     fireEvent.click(await screen.findByRole('button', { name: 'Reconcile with Twitch now' }));
     expect(await screen.findByText('Reconciliation completed with 1 issue.')).toBeTruthy();
   });
 
   it('rejects a failed reconciliation response without issue details', async () => {
-    const { request } = renderPage({ reconciliationPromise: { status: 'failed', imported: 0, issues: [] } });
+    renderPage({ reconciliationPromise: { status: 'failed', imported: 0, issues: [] } });
     fireEvent.click(await screen.findByRole('button', { name: 'Reconcile with Twitch now' }));
     expect(await screen.findByText('Could not reconcile with Twitch.')).toBeTruthy();
   });

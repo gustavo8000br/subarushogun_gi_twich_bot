@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolve } from 'node:path';
-import { buildDevRuntimeConfig } from '../../apps/frontend/scripts/dev-runtime-config.mjs';
+import { buildDevRuntimeConfig, panelAddressLine, rewriteNextBannerLine } from '../../apps/frontend/scripts/dev-runtime-config.mjs';
 
 describe('combined local development runtime config', () => {
   it('starts the API and Next on separate ports with local-only API binding and a same-origin proxy', () => {
@@ -72,5 +72,38 @@ describe('combined local development runtime config', () => {
     const config = buildDevRuntimeConfig({ NEXT_DEV_PORT: '3012' }, '/repo');
     expect(config.api.env.PANEL_DEV_ORIGIN).toBe('https://localhost:3012');
     expect(config.api.env.OVERLAY_PUBLIC_BASE_URL).toBe('https://localhost:3012');
+  });
+
+  describe('panel address in the Next banner (LA-16 / FT-66)', () => {
+    const base = { DATABASE_URL: 'postgresql://dev:dev@127.0.0.1:5432/queuebot' };
+
+    it('keeps the deterministic 127.0.0.1 bind and shows https://localhost:<port> in the Local and Network lines', () => {
+      const config = buildDevRuntimeConfig({ ...base, NEXT_DEV_PORT: '3101' }, '/repo');
+      expect(config.frontend.args[config.frontend.args.indexOf('--hostname') + 1]).toBe('127.0.0.1');
+      expect(config.frontend.banner).toEqual({ from: '127.0.0.1', to: 'localhost', port: '3101' });
+      expect(rewriteNextBannerLine('- Local:         https://127.0.0.1:3101', config.frontend.banner)).toBe('- Local:         https://localhost:3101');
+      expect(rewriteNextBannerLine('- Network:       https://127.0.0.1:3101', config.frontend.banner)).toBe('- Network:       https://localhost:3101');
+      expect(rewriteNextBannerLine('\u001b[1m- Local:\u001b[22m https://127.0.0.1:3101', config.frontend.banner)).toBe('\u001b[1m- Local:\u001b[22m https://localhost:3101');
+    });
+
+    it('leaves other lines, other ports and other hosts untouched', () => {
+      const banner = { from: '127.0.0.1', to: 'localhost', port: '3000' };
+      for (const line of ['✓ Ready in 414ms', 'GET / 200 in 5ms', 'proxy https://127.0.0.1:3109/api', 'https://example.test:3000']) {
+        expect(rewriteNextBannerLine(line, banner)).toBe(line);
+      }
+      expect(rewriteNextBannerLine('https://127.0.0.1:3000', undefined)).toBe('https://127.0.0.1:3000');
+    });
+
+    it('prints one first-party line with the configured panel address', () => {
+      const config = buildDevRuntimeConfig({ ...base, NEXT_DEV_PORT: '3101' }, '/repo');
+      const line = panelAddressLine(config.api.env.PANEL_DEV_ORIGIN);
+      expect(line).toBe('Open the panel at https://localhost:3101 \u2014 use localhost, not 127.0.0.1.');
+      expect(panelAddressLine('https://example-3000.app.github.dev')).toBe('Open the panel at https://example-3000.app.github.dev.');
+    });
+
+    it('does not rewrite anything for the Codespaces forwarded origin', () => {
+      const config = buildDevRuntimeConfig({ ...base, CODESPACE_NAME: 'example', GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: 'app.github.dev' }, '/repo');
+      expect(config.frontend.banner).toBeUndefined();
+    });
   });
 });

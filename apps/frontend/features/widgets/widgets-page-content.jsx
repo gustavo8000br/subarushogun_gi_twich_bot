@@ -1,11 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '../../lib/api/client.mjs';
 import { usePanel } from '../panel-shell/panel-provider.jsx';
 import { buildOverlayWidgetPayload, countOverlayTextCodePoints } from '../../../shared/panel/overlay-widget-form.mjs';
 import { WidgetLinkDialog } from './widget-link-dialog.jsx';
-import { createWidgetFormValues, QUEUE_WIDGET_SOURCES, validateWidgetProjection, WIDGET_SOURCE_KEYS, WIDGET_STYLE_FIELDS } from './widget-management.mjs';
+import { wrongHostForPanel } from '../panel-shell/wrong-host.mjs';
+import { WrongHostMessage } from '../panel-shell/wrong-host-message.jsx';
+import { WRONG_ORIGIN_CODE } from '../../lib/api/wrong-origin.mjs';
+import { createWidgetFormValues, DEFAULT_WIDGET_STYLE, minimumWidgetHeight, QUEUE_WIDGET_SOURCES, validateWidgetProjection, WIDGET_SOURCE_KEYS, WIDGET_STYLE_FIELDS } from './widget-management.mjs';
 
 function safeReferenceId(error) {
   return typeof error?.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(error.referenceId)
@@ -185,7 +188,7 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
         : { key: 'panel.widget.notice.refresh_failed', values: { action: t(`panel.widget.notice.action_${action}`) }, tone: 'error', referenceId: loadErrorReferenceRef.current });
     } catch (error) {
       if (error?.status === 409) setConflictMissing(false);
-      setNotice({ key: error?.status === 409 ? 'panel.widget.notice.conflict' : 'panel.widget.notice.error', tone: 'error', referenceId: safeReferenceId(error) });
+      setNotice(failureNotice(error, { key: error?.status === 409 ? 'panel.widget.notice.conflict' : 'panel.widget.notice.error', tone: 'error', referenceId: safeReferenceId(error) }));
     } finally { setBusy(false); }
   }
 
@@ -208,7 +211,7 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
         : { key: 'panel.widget.notice.refresh_failed', values: { action: t(`panel.widget.notice.action_${action === 'revoke' ? 'revoked' : 'deleted'}`) }, tone: 'error', referenceId: loadErrorReferenceRef.current });
     } catch (error) {
       setConfirmation(null);
-      setNotice({ key: error?.status === 409 ? 'panel.widget.notice.conflict' : 'panel.widget.notice.error', tone: 'error', referenceId: safeReferenceId(error) });
+      setNotice(failureNotice(error, { key: error?.status === 409 ? 'panel.widget.notice.conflict' : 'panel.widget.notice.error', tone: 'error', referenceId: safeReferenceId(error) }));
     } finally { setBusy(false); }
   }
 
@@ -258,7 +261,7 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
       <button className="button button-primary" type="button" data-widget-action="create" onClick={() => openEditor()}>{t('panel.widgets.create')}</button>
     </div>
     <p className="status-card widgets-obs-help">{t('panel.widget.obs_help')}</p>
-    {notice && !editor && loadStatus !== 'error' ? <div className={`status-card${notice.tone === 'error' ? ' error-card' : ''}`} role={notice.tone === 'error' ? 'alert' : 'status'}><p>{t(notice.key, notice.values ? { values: notice.values } : undefined)}</p>{notice.referenceId ? <small>{t('panel.widget.notice.reference', { values: { id: notice.referenceId } })}</small> : null}<button className="button button-secondary" type="button" onClick={() => void loadWidgets()}>{t('panel.widgets.refresh')}</button></div> : null}
+    {notice && !editor && loadStatus !== 'error' ? <div className={`status-card${notice.tone === 'error' ? ' error-card' : ''}`} role={notice.tone === 'error' ? 'alert' : 'status'}><p><NoticeText notice={notice} t={t} /></p>{notice.referenceId ? <small>{t('panel.widget.notice.reference', { values: { id: notice.referenceId } })}</small> : null}<button className="button button-secondary" type="button" onClick={() => void loadWidgets()}>{t('panel.widgets.refresh')}</button></div> : null}
     <section className="widgets-section" aria-labelledby="widgets-list-title">
       <div className="section-heading"><div><p className="eyebrow">{t('panel.widgets.list_eyebrow')}</p><h2 id="widgets-list-title">{t('panel.widgets.list_title')}</h2></div></div>
       {loadStatus === 'loading' ? <p className="status-card" role="status">{t('panel.widgets.loading')}</p> : null}
@@ -294,8 +297,14 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
           </> : null}
           {values.sourceType === 'fixed_text' ? <label><span>{t('panel.widget.fixed_text_label')}</span><textarea name="fixedText" aria-label={t('panel.widget.fixed_text_label')} maxLength={960} value={values.fixedText} onChange={updateValue} aria-describedby="widget-fixed-count"/><small id="widget-fixed-count">{countOverlayTextCodePoints(values.fixedText)}/240</small></label> : null}
           <label><span>{t('panel.widget.fallback_label')}</span><input name="fallbackText" aria-label={t('panel.widget.fallback_label')} maxLength={960} value={values.fallbackText} onChange={updateValue} aria-describedby="widget-fallback-count"/><small id="widget-fallback-count">{countOverlayTextCodePoints(values.fallbackText)}/240</small></label>
-          <fieldset><legend>{t('panel.widget.appearance')}</legend><div className="widget-style-grid">{WIDGET_STYLE_FIELDS.map((field) => <label key={field}>{t(STYLE_LABELS[field])}{renderStyleInput(field, values[field], updateValue)}</label>)}</div></fieldset>
-          {notice ? <div className={`status-card${notice.tone === 'error' ? ' error-card' : ''}`} role={notice.tone === 'error' ? 'alert' : 'status'}><p>{t(notice.key, notice.values ? { values: notice.values } : undefined)}</p>{notice.referenceId ? <small>{t('panel.widget.notice.reference', { values: { id: notice.referenceId } })}</small> : null}{notice.key === 'panel.widget.notice.conflict' && editor.id ? <><p>{t('panel.widget.conflict.refresh_hint')}</p><button className="button button-secondary" type="button" disabled={busy} onClick={() => void refreshConflictWidget()}>{t('panel.widget.conflict.refresh')}</button></> : null}{conflictLatest ? <div className="widget-conflict-latest"><h3>{t('panel.widget.conflict.latest_title')}</h3><p>{t(WIDGET_SOURCE_KEYS[conflictLatest.sourceType] ?? 'panel.widget.source.fixed_text')}</p><p>{conflictLatest.sourceType === 'fixed_text' ? conflictLatest.fixedText : conflictLatest.fallbackText || t('panel.widget.preview_example')}</p><p>{conflictLatest.fallbackText}</p><button className="button button-secondary" type="button" disabled={busy} onClick={replaceDraftWithLatest}>{t('panel.widget.conflict.replace_draft')}</button></div> : null}</div> : null}
+          <fieldset><legend>{t('panel.widget.appearance')}</legend><div className="widget-style-grid">{WIDGET_STYLE_FIELDS.map((field) => field === 'height'
+            ? <Fragment key={field}>
+              <label>{t(STYLE_LABELS[field])}{renderStyleInput(field, values[field], updateValue, t, 'widget-height-hint')}</label>
+              <small id="widget-height-hint" className="widget-style-hint">{t('panel.widget.height_hint', { values: { min: formMinimumHeight(values) } })}</small>
+              {isHeightBelowMinimum(values) ? <small className="widget-style-hint widget-style-warning" role="status">{t('panel.widget.height_below_min', { values: { min: formMinimumHeight(values) } })}</small> : null}
+            </Fragment>
+            : <label key={field}>{t(STYLE_LABELS[field])}{renderStyleInput(field, values[field], updateValue, t)}</label>)}</div></fieldset>
+          {notice ? <div className={`status-card${notice.tone === 'error' ? ' error-card' : ''}`} role={notice.tone === 'error' ? 'alert' : 'status'}><p><NoticeText notice={notice} t={t} /></p>{notice.referenceId ? <small>{t('panel.widget.notice.reference', { values: { id: notice.referenceId } })}</small> : null}{notice.key === 'panel.widget.notice.conflict' && editor.id ? <><p>{t('panel.widget.conflict.refresh_hint')}</p><button className="button button-secondary" type="button" disabled={busy} onClick={() => void refreshConflictWidget()}>{t('panel.widget.conflict.refresh')}</button></> : null}{conflictLatest ? <div className="widget-conflict-latest"><h3>{t('panel.widget.conflict.latest_title')}</h3><p>{t(WIDGET_SOURCE_KEYS[conflictLatest.sourceType] ?? 'panel.widget.source.fixed_text')}</p><p>{conflictLatest.sourceType === 'fixed_text' ? conflictLatest.fixedText : conflictLatest.fallbackText || t('panel.widget.preview_example')}</p><p>{conflictLatest.fallbackText}</p><button className="button button-secondary" type="button" disabled={busy} onClick={replaceDraftWithLatest}>{t('panel.widget.conflict.replace_draft')}</button></div> : null}</div> : null}
           <div className="widget-editor-actions"><button className="button button-secondary" type="button" disabled={busy} onClick={() => setEditor(null)}>{t(conflictMissing ? 'panel.widget.close_without_saving' : 'panel.widget.cancel')}</button><button className="button button-primary" type="submit" disabled={busy || conflictMissing || (QUEUE_WIDGET_SOURCES.has(values.sourceType) && !activeQueues.length)}>{t(busy ? 'panel.widget.saving' : 'panel.widget.save')}</button></div>
         </form><div className="widget-preview-box"><p className="eyebrow">{t('panel.widget.preview_eyebrow')}</p><div className="widget-live-preview" style={previewStyle(values)}>{previewText}</div></div></div>
       </section>
@@ -307,8 +316,41 @@ export function WidgetsPageView({ t, request = apiClient.request, queues = [], i
   </>;
 }
 
-function renderStyleInput(field, value, onChange) {
-  const common = { name: field, value, onChange };
+// D-3: a mutation refused for its Origin at a loopback IP literal is explained (with the localhost link) inside the
+// dialog, where the person is looking, instead of the generic text. NoticeText shows it only at a loopback IP literal.
+function failureNotice(error, fallback) {
+  return error?.code === WRONG_ORIGIN_CODE ? { key: 'panel.error.wrong_host', tone: 'error', wrongHost: true } : fallback;
+}
+
+function NoticeText({ notice, t }) {
+  const wrongHost = notice.wrongHost ? wrongHostForPanel() : null;
+  if (wrongHost) return <WrongHostMessage wrongHost={wrongHost} t={t} />;
+  return t(notice.key === 'panel.error.wrong_host' ? 'panel.widget.notice.error' : notice.key, notice.values ? { values: notice.values } : undefined);
+}
+
+function formMinimumHeight(values) {
+  const size = String(values.fontSize).trim() === '' || !Number.isFinite(Number(values.fontSize)) ? DEFAULT_WIDGET_STYLE.fontSize : Number(values.fontSize);
+  return minimumWidgetHeight(size);
+}
+
+function isHeightBelowMinimum(values) {
+  const height = String(values.height).trim();
+  return /^\d+$/.test(height) && Number(height) < formMinimumHeight(values);
+}
+
+// D-4: option labels are localized; the technical value sent to the API stays the raw one (value attribute).
+const STYLE_CHOICE_KEYS = Object.freeze({
+  fontFamily: Object.freeze({
+    'system-ui': 'panel.widget.font.system', 'Arial, sans-serif': 'panel.widget.font.arial', 'Verdana, sans-serif': 'panel.widget.font.verdana',
+    'Georgia, serif': 'panel.widget.font.georgia', 'Courier New, monospace': 'panel.widget.font.courier',
+  }),
+  alignment: Object.freeze({ left: 'panel.widget.alignment.left', center: 'panel.widget.alignment.center', right: 'panel.widget.alignment.right' }),
+  effect: Object.freeze({ none: 'panel.widget.effect.none', outline: 'panel.widget.effect.outline', shadow: 'panel.widget.effect.shadow' }),
+  overflow: Object.freeze({ wrap: 'panel.widget.overflow.wrap', clip: 'panel.widget.overflow.clip', ellipsis: 'panel.widget.overflow.ellipsis' }),
+});
+
+function renderStyleInput(field, value, onChange, t, describedBy) {
+  const common = { name: field, value, onChange, ...(describedBy ? { 'aria-describedby': describedBy } : {}) };
   if (['textColor', 'backgroundColor'].includes(field)) return <input {...common} type="color" />;
   if (['fontFamily', 'fontWeight', 'alignment', 'effect', 'overflow'].includes(field)) {
     const choices = {
@@ -316,7 +358,7 @@ function renderStyleInput(field, value, onChange) {
       fontWeight: ['300', '400', '500', '600', '700', '800', '900'], alignment: ['left', 'center', 'right'],
       effect: ['none', 'outline', 'shadow'], overflow: ['wrap', 'clip', 'ellipsis'],
     }[field];
-    return <select {...common}>{choices.map((choice) => <option key={choice} value={choice}>{choice}</option>)}</select>;
+    return <select {...common}>{choices.map((choice) => <option key={choice} value={choice}>{STYLE_CHOICE_KEYS[field]?.[choice] ? t(STYLE_CHOICE_KEYS[field][choice]) : choice}</option>)}</select>;
   }
   if (['width', 'height'].includes(field)) return <input {...common} type="text" inputMode="numeric" />;
   const limits = { backgroundOpacity: [0, 100], fontSize: [8, 128], fontWeight: [300, 900], outlineWidth: [1, 8], shadowBlur: [0, 32], shadowOffsetX: [-32, 32], shadowOffsetY: [-32, 32], marginTop: [0, 256], marginRight: [0, 256], marginBottom: [0, 256], marginLeft: [0, 256] };

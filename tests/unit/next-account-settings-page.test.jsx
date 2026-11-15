@@ -15,7 +15,6 @@ const COPY = {
   'panel.settings.current_label': 'Current account label',
   'panel.settings.account_help': 'This label may be associated with a called person.',
   'panel.settings.default_section_title': 'After reset',
-  'panel.settings.default_account': 'Default account',
   'panel.settings.default_help': 'Used when automatic account switching is off or reset.',
   'panel.settings.default_account': 'Default account label',
   'panel.settings.save': 'Save',
