@@ -36,6 +36,19 @@ function sendDiagnosedFailure(reply, { reportDiagnostic, source, error, statusCo
   return reply.code(statusCode).send({ ...(code ? { code } : {}), error: message, referenceId });
 }
 
+const GENERIC_FAILURE_MESSAGE = 'Não foi possível concluir. Tente novamente.';
+const ACCOUNT_LABEL_INVALID_MESSAGE = 'O nome deve ter até 60 caracteres e não pode conter quebras de linha.';
+
+/** Public account projection: never exposes `updatedBy` (the HttpOnly local session id) or `ownerEntryId`. */
+function accountDto(account) {
+  const value = account && typeof account === 'object' ? account : {};
+  return {
+    label: typeof value.label === 'string' ? value.label : 'Streamer',
+    source: typeof value.source === 'string' ? value.source : 'default',
+    ...(typeof value.defaultLabel === 'string' ? { defaultLabel: value.defaultLabel } : {}),
+  };
+}
+
 function containsControlCharacters(value) {
   return [...value].some((character) => {
     const code = character.charCodeAt(0);
@@ -181,7 +194,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     return {
       product_version: state.productVersion ?? productVersion,
       api_contract_version: '1', revision: state.revision ?? 1,
-      generated_at: new Date().toISOString(), account: state.account ?? { label: 'Streamer', source: 'default' },
+      generated_at: new Date().toISOString(), account: accountDto(state.account),
       product_locale: state.productLocale ?? { locale: 'pt-BR', revision: 1 },
       connectivity: {
         database: 'connected', twitch: integrations.status ?? 'not_configured',
@@ -813,8 +826,11 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const body = request.body && typeof request.body === 'object' ? request.body : {};
     /** @type {any} */
     const localRequest = request;
-    try { return await repository.setCurrentAccount(body.label, localRequest.localSession.id); }
-    catch (error) { return reply.code(error?.code === 'INVALID_ACCOUNT_LABEL' ? 400 : 500).send({ error: error?.code === 'INVALID_ACCOUNT_LABEL' ? 'O nome deve ter até 60 caracteres e não pode conter quebras de linha.' : 'Não foi possível atualizar a conta atual.' }); }
+    try { return accountDto(await repository.setCurrentAccount(body.label, localRequest.localSession.id)); }
+    catch (error) {
+      if (error?.code === 'INVALID_ACCOUNT_LABEL') return reply.code(400).send({ error: ACCOUNT_LABEL_INVALID_MESSAGE });
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.account.set', error, statusCode: 500, message: GENERIC_FAILURE_MESSAGE });
+    }
   });
   app.post('/api/account/default', async (request, reply) => {
     /** @type {any} */
@@ -822,8 +838,11 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const label = localRequest.body?.label;
     if (typeof label !== 'string' || !label.trim() || label.trim().length > 60 || Array.from(label).some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) return reply.code(400).send({ error: 'Informe um nome com até 60 caracteres, sem quebras de linha ou controles.' });
     if (!repository.setDefaultAccountLabel) return reply.code(503).send({ error: 'A configuração do nome padrão não está disponível.' });
-    try { return await repository.setDefaultAccountLabel(label, localRequest.localSession.id); }
-    catch { return reply.code(400).send({ error: 'Não foi possível atualizar o nome padrão da conta.' }); }
+    try { return accountDto(await repository.setDefaultAccountLabel(label, localRequest.localSession.id)); }
+    catch (error) {
+      if (error?.code === 'INVALID_ACCOUNT_LABEL') return reply.code(400).send({ error: ACCOUNT_LABEL_INVALID_MESSAGE });
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.account.default', error, statusCode: 500, message: GENERIC_FAILURE_MESSAGE });
+    }
   });
 }
 

@@ -123,6 +123,7 @@ registerOverlayRoutes(app, {
   repository: overlayRepository,
   widgetService: createOverlayWidgetService({ repository: overlayRepository, origin: process.env.OVERLAY_PUBLIC_BASE_URL ?? publicBaseUrl }),
   projectionService: createOverlayProjectionService({ overlayRepository, queueRepository: repository, getOverlayCatalogs }),
+  reportDiagnostic,
 });
 registerLocalizationRoutes(app, {
   catalogRoot,
