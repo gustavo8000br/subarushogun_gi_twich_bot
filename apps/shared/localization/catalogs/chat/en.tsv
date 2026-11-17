@@ -92,3 +92,14 @@ chat.follower.help_unknown	We could not verify your follower status; follower-on
 chat.command.queue.presente	present
 chat.queue.presence_confirmed	{user}, presence confirmed. Wait for the streamer to start your service.
 chat.queue.presence_not_called	You have no call awaiting confirmation in this queue.
+chat.notice.joined	@{user}, you joined {queue} at position {position}. We will tell you when it is your turn.
+chat.notice.joined_many	{count} people joined {queue}. Use the queue command to see your position.
+chat.notice.refused.queue_closed	@{user}, {queue} is closed. This redemption was refused and the return of your points was requested.
+chat.notice.refused.duplicate_entry	@{user}, you are already in {queue}. This redemption was refused and the return of your points was requested.
+chat.notice.refused.unavailable	@{user}, {queue} cannot take redemptions right now. This redemption was refused and the return of your points was requested.
+chat.notice.refused.invalid_uid	@{user}, the UID sent with your redemption for {queue} was not valid. This redemption was refused and the return of your points was requested.
+chat.notice.queue_closed	{queue} is closed. New redemptions will be refused and the points returned.
+chat.notice.queue_reopened	{queue} is open again. Redeem the reward to join.
+chat.notice.service_ended	@{user}, your service in {queue} is finished. Thank you!
+chat.notice.cleared.one	{queue} was cleared. {count} person removed.
+chat.notice.cleared.other	{queue} was cleared. {count} people removed.

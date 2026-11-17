@@ -6,6 +6,7 @@ describe('queue settings save after a remote status update', () => {
     callTimeoutMin: 10, callMessage: 'Next: {user}', showUidInList: false,
     showUidInOverlay: false, showUidOnCall: false,
     refundIfRemovedWhileCalled: true, refundOnNoShow: false, refundIfViewerLeavesCalled: false,
+    noticeJoined: true, noticeService: true, noticeState: true, noticeReordered: false, noticePoints: true,
   };
 
   it('allows one save retry when only the queue version changed during the remote reward create', () => {

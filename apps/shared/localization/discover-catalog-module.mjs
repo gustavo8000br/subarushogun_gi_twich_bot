@@ -19,6 +19,17 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'chat.queue.added': Object.freeze(['user']),
     'chat.queue.clear_confirm': Object.freeze(['queue', 'clear_command', 'confirm_command', 'count', 'refunds']),
     'chat.queue.clear_done': Object.freeze(['count', 'refunds']),
+    // OPS-31 P2 chat notices (placeholders mirror apps/api/src/domain/chat-notice-composer.mjs).
+    'chat.notice.joined': Object.freeze(['user', 'queue', 'position']),
+    'chat.notice.joined_many': Object.freeze(['count', 'queue']),
+    'chat.notice.refused.queue_closed': Object.freeze(['user', 'queue']),
+    'chat.notice.refused.duplicate_entry': Object.freeze(['user', 'queue']),
+    'chat.notice.refused.unavailable': Object.freeze(['user', 'queue']),
+    'chat.notice.refused.invalid_uid': Object.freeze(['user', 'queue']),
+    'chat.notice.queue_closed': Object.freeze(['queue']),
+    'chat.notice.queue_reopened': Object.freeze(['queue']),
+    'chat.notice.service_ended': Object.freeze(['user', 'queue']),
+    'chat.notice.cleared': Object.freeze(['queue', 'count']),
   }),
   setup: Object.freeze({
     'setup.callback.success_message': Object.freeze(['channel']),

@@ -195,6 +195,7 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
         'modeTransitionStatus', 'queueMode', 'refundIfRemovedWhileCalled', 'refundIfViewerLeavesCalled', 'refundOnNoShow',
         'remoteSyncStatus', 'rewardId', 'rewardOrigin', 'rewardPrompt', 'showUidInList', 'showUidOnCall',
         'showUidInOverlay', 'slug', 'title', 'uidMode', 'version',
+        'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints',
       ].sort());
 
       const persisted = await prisma.queue.findUnique({ where: { id: dto.id } });
@@ -290,6 +291,7 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
         'modeTransitionStatus', 'operationStatus', 'queueMode', 'refundIfRemovedWhileCalled', 'refundIfViewerLeavesCalled',
         'refundOnNoShow', 'remoteSyncStatus', 'rewardId', 'rewardOrigin', 'rewardPrompt', 'showUidInList',
         'showUidOnCall', 'showUidInOverlay', 'slug', 'title', 'uidMode', 'version',
+        'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints',
       ].sort());
       const persistedQueue = await prisma.queue.findUnique({ where: { id: queue.id } });
       expect(persistedQueue).toMatchObject({

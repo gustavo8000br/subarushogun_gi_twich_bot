@@ -12,6 +12,7 @@ const baseline = {
   callTimeoutMin: 10, callMessage: '{user}, sua vez!', showUidInList: false,
   showUidInOverlay: false, showUidOnCall: false,
   refundIfRemovedWhileCalled: false, refundOnNoShow: false, refundIfViewerLeavesCalled: false,
+  noticeJoined: false, noticeService: false, noticeState: false, noticeReordered: false, noticePoints: false,
 };
 
 const values = {
@@ -40,6 +41,7 @@ describe('Next queue settings', () => {
       expectedVersion: 3, callTimeoutMin: null, callMessage: 'Sua vez, {user}!',
       showUidInList: true, showUidInOverlay: false, showUidOnCall: true,
       refundIfRemovedWhileCalled: false, refundOnNoShow: true, refundIfViewerLeavesCalled: false,
+      noticeJoined: false, noticeService: false, noticeState: false, noticeReordered: false, noticePoints: false,
     });
   });
 
