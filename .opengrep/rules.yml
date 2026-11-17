@@ -29,3 +29,14 @@ rules:
       - metavariable-regex:
           metavariable: $VALUE
           regex: (?i).*(accessToken|refreshToken|clientSecret|authorization|password|connectionString|databaseUrl).*
+
+  - id: financial-intent-single-writer
+    languages: [javascript]
+    severity: ERROR
+    message: Financial outbox rows and their idempotency key belong to the single financial gate (apps/api/src/persistence/financial-gate.mjs); call recordFinancialIntent or findFinancialTask instead.
+    paths:
+      exclude:
+        - apps/api/src/persistence/financial-gate.mjs
+    pattern-either:
+      - pattern-regex: '["''`]financial:'
+      - pattern-regex: 'operationType:\s*["'']redemption\.(cancel|fulfill)["'']'

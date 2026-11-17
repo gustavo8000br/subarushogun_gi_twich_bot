@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decideEntryTransition } from '../../apps/api/src/domain/entry-transitions.mjs';
+import { decideEntryTransition, isSingleEntryTrigger, triggerForOrigin } from '../../apps/api/src/domain/entry-transitions.mjs';
 
 describe('entry transition decisions', () => {
   it.each([
@@ -89,7 +89,7 @@ describe('entry transition decisions', () => {
 
   it('always requests cancellation for clear, regardless of per-action policies', () => {
     expect(decideEntryTransition({
-      from: 'in_progress', to: 'removed', source: 'redemption', origin: 'panel', reason: 'queue_cleared',
+      from: 'in_progress', to: 'removed', source: 'redemption', origin: 'panel', trigger: 'queue_cleared', reason: 'queue_cleared',
       policy: {
         refundIfRemovedWhileCalled: false,
         refundIfViewerLeavesWhileCalled: false,
@@ -100,9 +100,33 @@ describe('entry transition decisions', () => {
 
   it('always requests cancellation for queue deletion regardless of queue policy', () => {
     expect(decideEntryTransition({
-      from: 'called', to: 'removed', source: 'redemption', origin: 'panel', reason: 'queue_deleted',
+      from: 'called', to: 'removed', source: 'redemption', origin: 'panel', trigger: 'queue_deleted', reason: 'queue_deleted',
       policy: { refundIfRemovedWhileCalled: false, refundIfViewerLeavesWhileCalled: false },
     }).financialDecision).toBe('request_cancel');
+  });
+
+  it.each(['queue_cleared', 'queue_deleted'])('G-14: the label %s alone never forces a cancellation', (reason) => {
+    expect(decideEntryTransition({
+      from: 'in_progress', to: 'removed', source: 'redemption', origin: 'panel', trigger: 'panel_action', reason,
+      policy: { refundIfRemovedWhileCalled: false },
+    }).financialDecision).toBe('no_operation');
+    expect(decideEntryTransition({
+      from: 'in_progress', to: 'removed', source: 'redemption', origin: 'panel', reason,
+      policy: { refundIfRemovedWhileCalled: false },
+    }).financialDecision).toBe('no_operation');
+  });
+
+  it('derives the trigger from the origin and refuses an unknown trigger', () => {
+    expect(triggerForOrigin('panel')).toBe('panel_action');
+    expect(triggerForOrigin('chat')).toBe('moderator_chat');
+    expect(triggerForOrigin('viewer')).toBe('viewer');
+    expect(triggerForOrigin('timer')).toBe('timer');
+    expect(triggerForOrigin('external')).toBe('external');
+    expect(isSingleEntryTrigger('queue_cleared')).toBe(false);
+    expect(isSingleEntryTrigger('queue_deleted')).toBe(false);
+    expect(isSingleEntryTrigger('panel_action')).toBe(true);
+    expect(() => decideEntryTransition({ from: 'waiting', to: 'removed', trigger: 'free_text' }))
+      .toThrow(expect.objectContaining({ code: 'INVALID_ENTRY_TRIGGER' }));
   });
 
   it('requests point consumption when a local redemption service starts or is directly completed', () => {

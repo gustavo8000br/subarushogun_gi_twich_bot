@@ -1983,6 +1983,30 @@ describe('local queue and setup API', () => {
   });
 
   it.each([
+    ['removed', 'queue_cleared'], ['removed', 'queue_deleted'], ['removed', 'service_completed'],
+    ['no_show', 'call_timeout'], ['completed', 'operator_removed'], ['called', 'viewer_left'],
+  ])('G-14: refuses the free label %s/%s and never reaches the domain service', async (to, reason) => {
+    const transitionEntry = vi.fn();
+    const h = await createHarness({ domainService: { transitionEntry } });
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/transitions', headers: h.headers, payload: { to, reason } });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: 'Ação de atendimento inválida.' });
+    expect(transitionEntry).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it('G-14: the panel route types its trigger as panel_action', async () => {
+    const transitionEntry = vi.fn(async () => ({ id: 'entry-id', status: 'removed', financialDecision: 'no_operation' }));
+    const h = await createHarness({ domainService: { transitionEntry } });
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/transitions', headers: h.headers, payload: { to: 'removed', reason: 'operator_removed' } });
+
+    expect(response.statusCode).toBe(200);
+    expect(transitionEntry).toHaveBeenCalledWith(expect.objectContaining({ trigger: 'panel_action', origin: 'panel', reason: 'operator_removed' }));
+    await h.app.close();
+  });
+
+  it.each([
     ['ENTRY_NOT_FOUND', 404, 'Não foi possível concluir a operação.'],
     ['QUEUE_NOT_AVAILABLE', 409, 'Essa fila não aceita novas entradas.'],
     ['QUEUE_REWARD_NOT_READY', 409, 'Confirme a recompensa da Twitch antes de alterar a fila.'],
