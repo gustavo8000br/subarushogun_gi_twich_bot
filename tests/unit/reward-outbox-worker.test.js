@@ -593,4 +593,34 @@ describe('OPS-22 FT-36 open action after a verified cancel (late DELETE)', () =>
     expect(repository.confirmRewardOpen).not.toHaveBeenCalled();
     expect(repository.retryRewardOperation).toHaveBeenCalledWith('open-task', expect.objectContaining({ errorCode: 'reward_open_lookup_failed' }), 'open-lease');
   });
+  // OPS-31 P0 (W3-3, C9): a database failure while recording the deletion's redemptions must leave a visible, bounded state.
+  it.each([
+    ['recordQueueDeletionRedemptions', { recordQueueDeletionRedemptions: vi.fn(async () => { throw Object.assign(new Error('violates check constraint "secret_name" for user viewer-77'), { code: 'P2004' }); }) }],
+    ['getQueueDeletionBlockers', { getQueueDeletionBlockers: vi.fn(async () => { throw new Error('connection terminated: password=hunter2'); }) }],
+  ])('P0-W3-3 a throw from %s ends the deletion attempt in retry with a fixed safe code (no endless re-claim)', async (_name, failing) => {
+    const queue = { id: 'queue-delete-throw', title: 'Delete', cost: 250, rewardPrompt: '', uidMode: 'hidden', rewardId: 'reward-managed', lifecycleStatus: 'deleting', isArchived: true, isOpen: false, remoteSyncStatus: 'delete_pending' };
+    const task = { id: 'delete-throw-task', operationType: 'reward.delete', attempts: 3, leaseToken: 'delete-throw-lease', payload: { requestMayHaveReachedTwitch: false, safeToDelete: false }, queue };
+    const repository = {
+      claimNextRewardOperation: vi.fn(async () => task),
+      recordQueueDeletionRedemptions: vi.fn(async () => ({ status: 'recorded', recorded: 0, conflicts: 0 })),
+      getQueueDeletionBlockers: vi.fn(async () => ({ pending: 0, blocked: 0 })),
+      retryRewardOperation: vi.fn(async () => true), prepareRewardDelete: vi.fn(), completeQueueDeletion: vi.fn(),
+      ...failing,
+    };
+    const reward = { id: queue.rewardId, title: queue.title, cost: queue.cost, prompt: '', userInputRequired: false, autoFulfill: false, shouldRedemptionsSkipRequestQueue: false, isEnabled: true, isPaused: true };
+    const twitch = { getReward: vi.fn(async () => reward), listUnfulfilledRedemptions: vi.fn(async () => []), deleteReward: vi.fn() };
+    const now = new Date('2030-01-01T00:00:00.000Z');
+    const worker = createRewardOutboxWorker({ repository, twitch, clock: () => now, random: () => 0.5 });
+
+    await expect(worker.processOne()).resolves.toBe('retry');
+
+    expect(repository.retryRewardOperation).toHaveBeenCalledTimes(1);
+    const [id, update, lease] = repository.retryRewardOperation.mock.calls[0];
+    expect([id, lease]).toEqual(['delete-throw-task', 'delete-throw-lease']);
+    expect(update.errorCode).toBe('queue_delete_local_error');
+    expect(update.nextAttemptAt.getTime()).toBeGreaterThan(now.getTime());
+    expect(JSON.stringify(update)).not.toMatch(/secret_name|viewer-77|hunter2/);
+    expect(twitch.deleteReward).not.toHaveBeenCalled();
+    expect(repository.prepareRewardDelete).not.toHaveBeenCalled();
+  });
 });

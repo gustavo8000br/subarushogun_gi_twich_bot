@@ -337,6 +337,20 @@ async function processDeleteTask({ repository, adapter, task, clock, random }) {
   }
 }
 
+// OPS-31 P0 (W3-3, C9): a database error while the deletion records its redemptions or reads its blockers (for example a
+// constraint or a lock timeout) used to escape: the task stayed `processing` with no `lastError`, the 30 s lease expired and
+// the claim loop re-armed it forever. The safe state is `retry` with a fixed, non-sensitive code and the usual capped backoff,
+// visible in the Operations screen; nothing is sent to Twitch by this path. The raw error never reaches the task.
+const QUEUE_DELETE_LOCAL_ERROR = 'queue_delete_local_error';
+async function processDeleteTaskSafely({ repository, adapter, task, clock, random }) {
+  try {
+    return await processDeleteTask({ repository, adapter, task, clock, random });
+  } catch {
+    await repository.retryRewardOperation(task.id, { nextAttemptAt: new Date(clock().getTime() + retryDelay({}, task.attempts, random)), errorCode: QUEUE_DELETE_LOCAL_ERROR }, task.leaseToken);
+    return 'retry';
+  }
+}
+
 function withRewardOperationDiagnostics(repository, onDiagnostic) {
   const diagnosticMethods = new Set(['retryRewardOperation', 'failedRewardOperation', 'unknownRewardOperation']);
   return new Proxy(repository, {
@@ -367,7 +381,7 @@ export function createRewardOutboxWorker({ repository, twitch, getTwitch, clock 
       if (!task) return 'idle';
       if (task.operationType === 'reward.update') return processRewardUpdateTask({ repository: diagnosticRepository, adapter, task, clock, random });
       if (task.operationType === 'reward.set_open') return processOpenStateTask({ repository: diagnosticRepository, adapter, task, clock, random });
-      if (task.operationType === 'reward.delete') return processDeleteTask({ repository: diagnosticRepository, adapter, task, clock, random });
+      if (task.operationType === 'reward.delete') return processDeleteTaskSafely({ repository: diagnosticRepository, adapter, task, clock, random });
       if (task.operationType !== 'reward.create' || !task.queue || task.queue.lifecycleStatus !== 'active') {
         await diagnosticRepository.failedRewardOperation(task.id, 'reward_operation_not_supported', task.leaseToken);
         return 'failed';

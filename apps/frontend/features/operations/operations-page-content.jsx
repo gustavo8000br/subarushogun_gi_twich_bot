@@ -7,11 +7,14 @@ import { WrongHostMessage } from '../panel-shell/wrong-host-message.jsx';
 import { wrongHostForPanel } from '../panel-shell/wrong-host.mjs';
 import { safeReferenceId } from '../panel-shell/safe-reference-id.mjs';
 import {
+  getConflictIntentKey,
+  getConflictRemoteStatusKey,
   getOperationActions,
   getOperationGroup,
   getOperationIdentifier,
   getOperationStatusKey,
   getOperationTypeKey,
+  getResolveConfirmationKey,
   performOperationActionWithRefresh,
   validateOperationsProjection,
 } from './operations.mjs';
@@ -52,6 +55,7 @@ function OperationCard({ operation, queues, locale, t, saving, anySaving, onActi
         <span>{attemptText}</span>
       </div>
       {blockedQueue ? <p className="operation-card-note operation-blocks-deletion">{t('panel.operation.blocks_deletion', { values: { title: blockedQueue.title } })}</p> : null}
+      {getConflictRemoteStatusKey(operation) ? <p className="operation-card-note">{t('panel.operation.conflict.detail', { values: { intent: t(getConflictIntentKey(operation)), remote: t(getConflictRemoteStatusKey(operation)) } })}</p> : null}
       {operation.reason === 'attempts_exhausted' ? <p className="operation-card-note">{t('panel.operation.attempts_exhausted')}</p> : null}
       {operation.reason === 'manual_contradicted' ? <p className="operation-card-note">{t('panel.operation.manual_contradicted')}</p> : null}
       {getOperationActions(operation).length ? (
@@ -224,8 +228,9 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
     items: operations.filter((operation) => getOperationGroup(operation) === id),
   })).filter((group) => group.items.length > 0);
   const confirmationCopy = confirmation?.action === 'resolve_unknown'
-    ? 'panel.operation.confirm.resolve'
+    ? getResolveConfirmationKey(confirmation.operation)
     : 'panel.operation.confirm.continue_delete';
+  const confirmationRemoteKey = confirmation?.action === 'resolve_unknown' ? getConflictRemoteStatusKey(confirmation.operation) : null;
   const confirmationAccept = confirmation?.action === 'resolve_unknown'
     ? 'panel.operation.action.resolve'
     : 'panel.operation.action.continue_delete';
@@ -276,7 +281,7 @@ export default function OperationsPageContent({ t, locale, request = apiClient.r
         onClose={() => { if (confirmation) setConfirmation(null); }}
       >
         <h2 id="operation-confirmation-title">{t('panel.confirmation.title')}</h2>
-        <p id="operation-confirmation-copy">{confirmation ? t(confirmationCopy) : ''}</p>
+        <p id="operation-confirmation-copy">{confirmation ? t(confirmationCopy, confirmationRemoteKey ? { values: { status: t(confirmationRemoteKey) } } : undefined) : ''}</p>
         <div className="operation-confirmation-actions">
           <button type="button" className="button button-secondary" disabled={Boolean(savingOperationId) || reconciling} onClick={() => setConfirmation(null)}>{t('panel.confirmation.cancel')}</button>
           <button type="button" className="button button-primary" disabled={Boolean(savingOperationId) || reconciling} onClick={acceptConfirmation}>{t(confirmationAccept)}</button>

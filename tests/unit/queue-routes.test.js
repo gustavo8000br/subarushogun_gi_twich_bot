@@ -73,6 +73,22 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  // OPS-31 P0 (DB-11, QA concern 1): queue creation answers a database timeout like the other routes.
+  it('P0-DB-11 queue creation answers 503 TEMPORARILY_UNAVAILABLE with Retry-After for a database timeout', async () => {
+    const reportDiagnostic = vi.fn(() => '66666666-6666-4666-8666-666666666666');
+    const h = await createHarness({ reportDiagnostic });
+    h.repository.createQueueWithRewardIntent.mockRejectedValue(Object.assign(new Error('lock timeout on relation "secret_table"'), { code: 'DATABASE_TIMEOUT', retryable: true }));
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues', headers: h.headers, payload: { slug: 'timeout-queue', title: 'Timeout queue', cost: 100 } });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.headers['retry-after']).toBe('1');
+    expect(response.headers['x-error-reference']).toBe('66666666-6666-4666-8666-666666666666');
+    expect(response.json()).toEqual({ code: 'TEMPORARILY_UNAVAILABLE', error: 'Não foi possível concluir. Tente novamente.', referenceId: '66666666-6666-4666-8666-666666666666' });
+    expect(response.body).not.toContain('secret_table');
+    await h.app.close();
+  });
+
   it('replays a mutation response for a repeated idempotency key without repeating its effect', async () => {
     const h = await createHarness();
     const outcomes = new Map();
@@ -2052,6 +2068,73 @@ describe('local queue and setup API', () => {
     const inactive = await h.app.inject({ method: 'POST', url: `/api/queues/queue-id/${suffix}`, headers: h.headers, payload: {} });
     expect(inactive.statusCode).toBe(404);
     expect(inactive.json()).toEqual({ error: 'Fila não encontrada.' });
+    await h.app.close();
+  });
+  // OPS-31 P0 (W3-4): a double click, a stale panel or a race with the timer is a 409 with a stable code, never a 500.
+  it('P0-W3-4 maps INVALID_ENTRY_TRANSITION to a 409 with its code and no internal detail', async () => {
+    const reportDiagnostic = vi.fn(() => '33333333-3333-4333-8333-333333333333');
+    const transitionEntry = vi.fn().mockRejectedValue(Object.assign(new Error('Transition from completed to called is not allowed'), { code: 'INVALID_ENTRY_TRANSITION' }));
+    const h = await createHarness({ domainService: { transitionEntry }, reportDiagnostic });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/transitions', headers: h.headers, payload: { to: 'called', reason: 'operator_call' } });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ code: 'INVALID_ENTRY_TRANSITION', error: 'Essa ação não está disponível para o estado atual do atendimento. Atualize a fila.' });
+    expect(response.body).not.toContain('is not allowed');
+    expect(reportDiagnostic).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  // OPS-31 P0 (DB-11): 55P03 / 57014 are a retryable 503 with generic text and a referenceId, nothing else.
+  it.each([
+    ['the repository code', Object.assign(new Error('The database did not answer in time'), { code: 'DATABASE_TIMEOUT', retryable: true })],
+    ['a raw lock_not_available surfaced by Prisma', Object.assign(new Error('Raw query failed. SELECT secret_table FOR UPDATE'), { code: 'P2010', meta: { code: '55P03', message: 'canceling statement due to lock timeout on relation "secret_table"' } })],
+    ['a raw query_canceled surfaced by Prisma', Object.assign(new Error('canceling statement due to statement timeout'), { code: 'P2010', meta: { driverAdapterError: { cause: { originalCode: '57014' } } } })],
+  ])('P0-DB-11 answers 503 TEMPORARILY_UNAVAILABLE for %s on a route that handles its own errors', async (_label, failure) => {
+    const reportDiagnostic = vi.fn(() => '44444444-4444-4444-8444-444444444444');
+    const h = await createHarness({ domainService: { transitionEntry: vi.fn().mockRejectedValue(failure) }, reportDiagnostic });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/transitions', headers: h.headers, payload: { to: 'completed', reason: 'service_completed' } });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.headers['retry-after']).toBe('1');
+    expect(response.headers['x-error-reference']).toBe('44444444-4444-4444-8444-444444444444');
+    expect(response.json()).toEqual({ code: 'TEMPORARILY_UNAVAILABLE', error: 'Não foi possível concluir. Tente novamente.', referenceId: '44444444-4444-4444-8444-444444444444' });
+    expect(response.body).not.toMatch(/secret_table|SELECT|P2010|55P03|57014/);
+    await h.app.close();
+  });
+
+  it('P0-DB-11 the safe HTTP error handler turns an uncaught lock timeout into the same retryable 503', async () => {
+    const reportDiagnostic = vi.fn(() => '55555555-5555-4555-8555-555555555555');
+    const h = await createHarness({ safeErrorHandler: true, reportDiagnostic });
+    h.repository.retryOutboxManually = vi.fn().mockRejectedValue(Object.assign(new Error('lock timeout on relation "outbox" at /srv/stack'), { code: 'P2010', meta: { code: '55P03' } }));
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/operations/op-id/retry', headers: h.headers, payload: {} });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ code: 'TEMPORARILY_UNAVAILABLE', error: 'Não foi possível concluir. Tente novamente.', referenceId: '55555555-5555-4555-8555-555555555555' });
+    expect(response.body).not.toMatch(/outbox|\/srv|55P03/);
+    await h.app.close();
+  });
+
+  // OPS-31 P0 (O-1): `conflict` carries the stored remote status (closed set) and when it was found; other states carry neither.
+  it('P0-O1 exposes remoteStatus and conflictDetectedAt only for a conflict, from a closed set', async () => {
+    const h = await createHarness();
+    const found = new Date('2030-01-02T03:04:05.000Z');
+    h.repository.listFinancialOperations = vi.fn(async () => [
+      { id: 'op-conflict', operationType: 'redemption.cancel', redemptionId: 'r-1', status: 'conflict', attempts: 2, nextAttemptAt: null, lastError: 'remote_status_conflict', remoteStatus: 'FULFILLED', conflictDetectedAt: found },
+      { id: 'op-bad', operationType: 'redemption.fulfill', redemptionId: 'r-2', status: 'conflict', attempts: 1, nextAttemptAt: null, lastError: null, remoteStatus: 'internal-value', conflictDetectedAt: found },
+      { id: 'op-failed', operationType: 'redemption.cancel', redemptionId: 'r-3', status: 'failed', attempts: 6, nextAttemptAt: null, lastError: 'x', remoteStatus: 'CANCELED', conflictDetectedAt: found },
+    ]);
+
+    const response = await h.app.inject({ method: 'GET', url: '/api/operations', headers: h.headers });
+
+    expect(response.statusCode).toBe(200);
+    const [conflict, bad, failed] = response.json();
+    expect(conflict).toMatchObject({ id: 'op-conflict', status: 'conflict', remoteStatus: 'FULFILLED', conflictDetectedAt: '2030-01-02T03:04:05.000Z' });
+    expect(bad).not.toHaveProperty('remoteStatus');
+    expect(failed).not.toHaveProperty('remoteStatus');
+    expect(failed).not.toHaveProperty('conflictDetectedAt');
     await h.app.close();
   });
 });

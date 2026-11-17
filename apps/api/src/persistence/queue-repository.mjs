@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { isDatabaseTimeout } from './database-errors.mjs';
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { validateUidInput } from '../domain/uid.mjs';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog.mjs';
@@ -136,8 +137,41 @@ function withoutCancelVerification(value) {
   return payload;
 }
 
-async function withQueueTransaction(prisma, queueId, callback) {
-  return prisma.$transaction(async (tx) => {
+// OPS-31 P0 (DB-11, TS-20): every repository transaction runs through ONE wrapper that sets `lock_timeout` and
+// `statement_timeout` with `SET LOCAL` semantics (`set_config(..., true)`: reset at COMMIT/ROLLBACK, never leaks to the
+// pooled connection) and an explicit Prisma interactive-transaction timeout. Order: lock_timeout < statement_timeout <
+// transaction timeout, so PostgreSQL fails first and the application sees a database error, not a client-side timeout
+// over a statement that is still running. Never set at role or database level (migrations, dumps, workers).
+export const DEFAULT_TRANSACTION_LIMITS = Object.freeze({ lockTimeoutMs: 2_000, statementTimeoutMs: 4_000, transactionTimeoutMs: 10_000 });
+
+function resolveTransactionLimits(limits = {}) {
+  const resolved = { ...DEFAULT_TRANSACTION_LIMITS, ...limits };
+  const { lockTimeoutMs, statementTimeoutMs, transactionTimeoutMs } = resolved;
+  if (![lockTimeoutMs, statementTimeoutMs, transactionTimeoutMs].every((value) => Number.isInteger(value) && value > 0)
+      || !(lockTimeoutMs < statementTimeoutMs && statementTimeoutMs < transactionTimeoutMs)) {
+    throw repositoryError('INVALID_TRANSACTION_LIMITS', 'Transaction limits must satisfy lock_timeout < statement_timeout < transaction timeout');
+  }
+  return Object.freeze(resolved);
+}
+
+function createTransactionRunner(prisma, limits) {
+  return async function transact(callback, { transactionTimeoutMs = limits.transactionTimeoutMs } = {}) {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT set_config('lock_timeout', ${`${limits.lockTimeoutMs}ms`}, true) AS lock_timeout, set_config('statement_timeout', ${`${limits.statementTimeoutMs}ms`}, true) AS statement_timeout`;
+        return callback(tx);
+      }, { timeout: transactionTimeoutMs, maxWait: limits.transactionTimeoutMs });
+    } catch (error) {
+      // 55P03 (lock_not_available) and 57014 (query_canceled): a retryable condition. The original error is dropped on purpose:
+      // its message can carry SQL or object names that must never reach a response (the caller adds a referenceId).
+      if (isDatabaseTimeout(error)) throw Object.assign(repositoryError('DATABASE_TIMEOUT', 'The database did not answer in time'), { retryable: true });
+      throw error;
+    }
+  };
+}
+
+async function withQueueTransaction(transact, queueId, callback) {
+  return transact(async (tx) => {
     await lockQueue(tx, queueId);
     return callback(tx);
   });
@@ -374,7 +408,12 @@ function validateAccountLabel(label) {
   }
 }
 
+// OPS-31 P0 (W3-1): `financial:{redemptionId}` is unique, so a redemption that already has an intent (for example the
+// `redemption.fulfill` of an `in_progress` entry) must not get a second one: the clear and the first deletion pass used to
+// raise on the UNIQUE key and roll the whole operation back. Returns true only when a cancellation was recorded.
 async function createCancellationIntent(tx, redemptionId, entryId = null) {
+  const existing = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${redemptionId}` }, select: { id: true } });
+  if (existing) return false;
   await tx.redemption.update({
     where: { redemptionId },
     data: { expectedStatus: 'CANCELED', syncStatus: 'pending' },
@@ -390,10 +429,15 @@ async function createCancellationIntent(tx, redemptionId, entryId = null) {
       redemptionId,
     },
   });
+  return true;
 }
 
-/** @param {PrismaClientLike} prisma */
-export function createQueueRepository(prisma, { clock = () => new Date(), defaultProductLocale = 'pt-BR' } = {}) {
+/**
+ * @param {PrismaClientLike} prisma
+ * @param {{clock?: () => Date, defaultProductLocale?: string, transactionLimits?: {lockTimeoutMs?: number, statementTimeoutMs?: number, transactionTimeoutMs?: number}}} [options]
+ */
+export function createQueueRepository(prisma, { clock = () => new Date(), defaultProductLocale = 'pt-BR', transactionLimits = undefined } = {}) {
+  const transact = createTransactionRunner(prisma, resolveTransactionLimits(transactionLimits));
   let initialProductLocale = 'pt-BR';
   try {
     const candidate = globalThis.Intl.getCanonicalLocales(defaultProductLocale)[0];
@@ -415,7 +459,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         throw repositoryError('INVALID_COMMAND_POLICY', 'Command policy update is invalid');
       }
       validateCommandPolicyChanges(policies);
-      return prisma.$transaction((tx) => updateCommandPoliciesInTransaction(tx, { expectedVersion, policies, actorId, origin }));
+      return transact((tx) => updateCommandPoliciesInTransaction(tx, { expectedVersion, policies, actorId, origin }));
     },
 
     async updateCommandPoliciesInTransaction(tx, input) {
@@ -463,12 +507,15 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           where: { operationType: { in: ['redemption.cancel', 'redemption.fulfill'] } },
           select: {
             id: true, operationType: true, entityId: true, redemptionId: true, status: true, attempts: true, nextAttemptAt: true, lastError: true, createdAt: true, updatedAt: true,
-            redemption: { select: { queueId: true, queue: { select: { lifecycleStatus: true } } } },
+            redemption: { select: { queueId: true, remoteStatus: true, queue: { select: { lifecycleStatus: true } } } },
           },
           orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
           take: 200,
         }).then((operations) => operations.map(({ redemption, ...operation }) => ({
           ...operation,
+          // OPS-31 P0 (O-1): for `conflict` the person sees what Twitch showed at the worker's last read. The outbox `updatedAt`
+          // is the moment the conflict was found (the row is terminal until a manual resolution); no new Twitch call.
+          ...(operation.status === 'conflict' && redemption ? { remoteStatus: normalizeRedemptionStatus(redemption.remoteStatus), conflictDetectedAt: operation.updatedAt } : {}),
           // OPS-22 FT-25 (AC 11): a financial task that needs review on a queue being deleted blocks that deletion.
           ...(reviewableFinancialStatuses.includes(operation.status) && redemption?.queue?.lifecycleStatus === 'deleting' && redemption.queueId
             ? { blockingQueueId: redemption.queueId } : {}),
@@ -559,7 +606,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           || !(now instanceof Date) || !Number.isFinite(now.getTime()) || !Number.isInteger(cooldownMs) || cooldownMs < 0) {
         throw repositoryError('INVALID_CHAT_OPERATION', 'Chat operation identity or timing is invalid');
       }
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const messageKey = `chat-message:${messageId}`;
         await lockScopedOperation(tx, messageKey);
         const previousMessage = await tx.processedOperation.findUnique({ where: { operationKey: messageKey } });
@@ -610,7 +657,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       if (!Number.isInteger(expectedRevision) || expectedRevision < 1) {
         throw repositoryError('PRODUCT_LOCALE_VERSION_CONFLICT', 'Product locale revision is invalid');
       }
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         await lockScopedOperation(tx, 'setting:product-locale');
         const currentRecord = await tx.setting.findUnique({ where: { key: 'product_locale' } });
         const previous = parseProductLocaleState(currentRecord?.value, productLocaleFallback);
@@ -636,7 +683,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
     async setCurrentAccount(label, actorId = null) {
       validateAccountLabel(label);
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         await lockCurrentAccount(tx);
         const current = await tx.setting.findUnique({ where: { key: 'account_state' } });
         const previous = current?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
@@ -649,7 +696,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
     async setQueueOpen(queueId, isOpen, actorId = null, origin = 'panel') {
       if (typeof isOpen !== 'boolean') throw repositoryError('INVALID_QUEUE_OPEN_STATE', 'Queue open state must be boolean');
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.lifecycleStatus !== 'active' || queue.isArchived) throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be opened or closed');
         if (queue.isOpen === isOpen) {
@@ -676,7 +723,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async requestManualModeTransition({ queueId, actorId = null, origin = 'panel' }) {
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.lifecycleStatus !== 'active' || queue.isArchived) throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot change admission mode');
         if (queue.queueMode === 'manual_only' && queue.modeTransitionStatus === 'confirmed') return { status: 'confirmed', queue };
@@ -699,7 +746,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async confirmManualModeFromReconciliation(queueId) {
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue) throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
         if (queue.queueMode === 'manual_only' && queue.modeTransitionStatus === 'confirmed') return { status: 'confirmed', queue };
@@ -721,7 +768,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
     async beginLocalQueueArchive({ queueId, actorId = null, expectedVersion }) {
       if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw repositoryError('INVALID_LOCAL_ARCHIVE_CHALLENGE', 'Local archive confirmation is invalid');
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue) throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
         if (queue.remoteSyncStatus === 'create_unknown' && !queue.rewardId) throw repositoryError('QUEUE_REWARD_UNRESOLVED', 'The uncertain reward creation must be recovered first');
@@ -744,7 +791,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       if (typeof challengeId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(challengeId)) {
         throw repositoryError('INVALID_LOCAL_ARCHIVE_CHALLENGE', 'Local archive confirmation is invalid');
       }
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const challengeHash = createHash('sha256').update(challengeId).digest('hex');
         const operationKey = `queue.local_archive.challenge:${challengeHash}`;
         const record = await tx.processedOperation.findUnique({ where: { operationKey } });
@@ -804,7 +851,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async unarchiveQueue({ queueId, actorId = null, origin = 'panel' }) {
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be unarchived');
         if (!queue.isArchived) return { status: 'unchanged', queue };
@@ -823,7 +870,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
     async requestQueueDeletion({ queueId, actorId = null, origin = 'panel', decideTransition }) {
       if (typeof decideTransition !== 'function') throw repositoryError('DOMAIN_TRANSITION_REQUIRED', 'Queue transitions must use the domain service');
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue) throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
         if (queue.lifecycleStatus === 'deleted') return { status: 'deleted', queue, activeRemoved: 0, refundsRequested: 0 };
@@ -840,11 +887,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
               await tx.entry.update({ where: { id: entry.id }, data: { status: 'removed', position: null, finishedAt: clock(), terminalReason: 'queue_deleted', callDeadlineAt: null, version: { increment: 1 } } });
               await tx.auditLog.create({ data: { queueId, entryId: entry.id, redemptionId: entry.redemptionId, event: 'entry.transitioned', actorId, origin, previousState: entry.status, nextState: 'removed', reason: 'queue_deleted', safeDetail: { policySnapshot: decision.policySnapshot, financialDecision: decision.financialDecision } } });
               if (decision.financialDecision === 'request_cancel' && entry.redemptionId) {
-                const existing = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${entry.redemptionId}` } });
-                if (!existing) {
-                  await createCancellationIntent(tx, entry.redemptionId, entry.id);
-                  refundsRequested += 1;
-                }
+                if (await createCancellationIntent(tx, entry.redemptionId, entry.id)) refundsRequested += 1;
               }
               if (entry.id === accountSetting?.value?.ownerEntryId) ownerEntryEnded = true;
             }
@@ -912,8 +955,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           await tx.entry.update({ where: { id: entry.id }, data: { status: 'removed', position: null, finishedAt: now, terminalReason: 'queue_deleted', callDeadlineAt: null, version: { increment: 1 } } });
           await tx.auditLog.create({ data: { queueId, entryId: entry.id, redemptionId: entry.redemptionId, event: 'entry.transitioned', actorId, origin, previousState: entry.status, nextState: 'removed', reason: 'queue_deleted', safeDetail: { policySnapshot: decision.policySnapshot, financialDecision: decision.financialDecision } } });
           if (decision.financialDecision === 'request_cancel' && entry.redemptionId) {
-            await createCancellationIntent(tx, entry.redemptionId, entry.id);
-            refundsRequested += 1;
+            if (await createCancellationIntent(tx, entry.redemptionId, entry.id)) refundsRequested += 1;
           }
           if (entry.id === currentAccount?.ownerEntryId) ownerEntryEnded = true;
         }
@@ -977,7 +1019,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     // `reward.%` rows. The Twitch read runs between them, outside any transaction, with the target in the unclaimable
     // `cancel_verification` status. `redemptions` and `redemption.*` rows are never written here (I2).
     async beginQueueDeletionCancellation({ queueId, actorId = null, origin = 'panel' }) {
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         await tx.$queryRaw`SELECT id FROM outbox WHERE entity_id = ${queueId} AND operation_type LIKE 'reward.%' ORDER BY id FOR UPDATE`;
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue) throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
@@ -1018,7 +1060,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
      * not paused, which is restored too. Guarded by `WHERE status = 'cancel_verification'` (`count === 1`).
      */
     async failQueueDeletionCancellation({ queueId, operationId, errorCode, conclusive = false, actorId = null, origin = 'panel' }) {
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         await tx.$queryRaw`SELECT id FROM outbox WHERE entity_id = ${queueId} AND operation_type LIKE 'reward.%' ORDER BY id FOR UPDATE`;
         const task = await tx.outbox.findFirst({ where: { id: operationId, entityId: queueId, operationType: { in: QUEUE_DELETION_CANCEL_TARGET_TYPES }, status: 'cancel_verification' } });
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
@@ -1048,7 +1090,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async confirmQueueDeletionCancellation({ queueId, operationId, expectedVersion, reward, actorId = null, origin = 'panel' }) {
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         await tx.$queryRaw`SELECT id FROM outbox WHERE entity_id = ${queueId} AND operation_type LIKE 'reward.%' ORDER BY id FOR UPDATE`;
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         const task = await tx.outbox.findFirst({ where: { id: operationId, entityId: queueId, operationType: { in: QUEUE_DELETION_CANCEL_TARGET_TYPES }, status: 'cancel_verification' } });
@@ -1085,7 +1127,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async resetCurrentAccount(actorId = null) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         await lockCurrentAccount(tx);
         const current = await tx.setting.findUnique({ where: { key: 'account_state' } });
         const previous = current?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
@@ -1098,7 +1140,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
     async setDefaultAccountLabel(label, actorId = null) {
       validateAccountLabel(label);
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         await lockCurrentAccount(tx);
         const current = await tx.setting.findUnique({ where: { key: 'account_state' } });
         const previous = current?.value ?? { label: 'Streamer', source: 'default', ownerEntryId: null, defaultLabel: 'Streamer' };
@@ -1111,7 +1153,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
 
     async enqueueCallNotification({ entryId, queueId, previousPosition }) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const entry = await tx.entry.findUnique({ where: { id: entryId } });
         if (!entry || entry.queueId !== queueId || entry.status !== 'called') return { status: 'cancelled' };
         return tx.outbox.create({ data: {
@@ -1124,7 +1166,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     async resendCallNotification({ entryId, actorId = null }) {
       const entry = await prisma.entry.findUnique({ where: { id: entryId } });
       if (!entry) return { status: 'entry_not_found' };
-      return withQueueTransaction(prisma, entry.queueId, async (tx) => {
+      return withQueueTransaction(transact, entry.queueId, async (tx) => {
         const current = await tx.entry.findUnique({ where: { id: entryId } });
         if (!current || current.status !== 'called') return { status: 'entry_not_called' };
         const task = await tx.outbox.findUnique({ where: { idempotencyKey: `chat.call:${entryId}` } });
@@ -1147,7 +1189,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       if (!sent) return null;
       const initial = await prisma.entry.findUnique({ where: { id: entryId }, select: { queueId: true } });
       if (!initial) return null;
-      return withQueueTransaction(prisma, initial.queueId, async (tx) => {
+      return withQueueTransaction(transact, initial.queueId, async (tx) => {
         const entry = await tx.entry.findUnique({ where: { id: entryId }, include: { queue: { select: { callTimeoutMin: true, uidMode: true, showUidOnCall: true } } } });
         if (!entry || entry.queueId !== initial.queueId || entry.status !== 'called' || entry.callAcknowledgedAt || entry.callNotifiedAt) return null;
         const now = clock();
@@ -1175,7 +1217,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           await prisma.outbox.updateMany({ where: { id: candidate.id, operationType: 'chat.call', ...eligible }, data: { status: 'cancelled', lastError: 'entry_not_called', leaseToken: null, leaseUntil: null } });
           continue;
         }
-        const claimed = await withQueueTransaction(prisma, initial.queueId, async (tx) => {
+        const claimed = await withQueueTransaction(transact, initial.queueId, async (tx) => {
           const task = await tx.outbox.findFirst({ where: { id: candidate.id, operationType: 'chat.call', ...eligible } });
           if (!task) return null;
           const entry = await tx.entry.findUnique({ where: { id: candidate.entryId }, include: { queue: true } });
@@ -1217,7 +1259,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     async updateLocalQueueSettings({ queueId, expectedVersion, settings, actorId = null, origin = 'panel' }) {
       const localSettings = new Set(['callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled']);
       if (Object.keys(settings).some((key) => !localSettings.has(key))) throw repositoryError('INVALID_LOCAL_QUEUE_SETTING', 'A local settings update contains a Twitch-managed field');
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.lifecycleStatus === 'deleted') throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
         if (queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be edited');
@@ -1235,7 +1277,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async updateQueueRewardSettings({ queueId, expectedVersion, settings, actorId = null, origin = 'panel' }) {
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.lifecycleStatus === 'deleted') throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
         if (queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be edited');
@@ -1277,7 +1319,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
     async callSpecificEntry({ queueId, entryId, actorId = null, calledAt = clock(), decideTransition }) {
       if (typeof decideTransition !== 'function') throw repositoryError('DOMAIN_TRANSITION_REQUIRED', 'Queue transitions must use the domain service');
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot call entries');
         ensureQueueCanBeCalled(queue);
@@ -1309,7 +1351,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     async callNext({ queueId, count = 1, calledAt = clock(), actorId = null, decideTransition }) {
       if (typeof decideTransition !== 'function') throw repositoryError('DOMAIN_TRANSITION_REQUIRED', 'Queue transitions must use the domain service');
       if (!Number.isInteger(count) || count < 1 || count > 10) throw repositoryError('INVALID_CALL_COUNT', 'Call count must be between one and ten');
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot call entries');
         ensureQueueCanBeCalled(queue);
@@ -1336,7 +1378,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async acknowledgeCallPresence({ queueId, twitchUserId, actorId = twitchUserId, at = clock() }) {
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const entry = await tx.entry.findFirst({ where: { queueId, twitchUserId, status: 'called' }, orderBy: [{ calledAt: 'desc' }, { createdAt: 'desc' }] });
         if (!entry) return { status: 'not_called' };
         if (entry.callAcknowledgedAt) return { status: 'already_acknowledged', entry };
@@ -1407,7 +1449,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isInteger(leaseMs) || leaseMs < 1_000) {
         throw repositoryError('INVALID_RECONCILIATION_PAGE', 'Tombstone reconciliation page is invalid');
       }
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         await lockScopedOperation(tx, convertedTombstoneCursorLockKey);
         const now = clock();
         const setting = await tx.setting.findUnique({ where: { key: convertedTombstoneCursorSettingKey } });
@@ -1445,7 +1487,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       if (typeof leaseId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(leaseId)
           || !(lastQueueId === null || (typeof lastQueueId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lastQueueId)))
           || typeof complete !== 'boolean') return false;
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         await lockScopedOperation(tx, convertedTombstoneCursorLockKey);
         const now = clock();
         const setting = await tx.setting.findUnique({ where: { key: convertedTombstoneCursorSettingKey } });
@@ -1486,7 +1528,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
     async markQueueRemoteDivergence(queueId, reason, expectedVersion) {
       if (!isSafeReason(reason)) throw repositoryError('INVALID_AUDIT_REASON', 'Remote divergence reason is invalid');
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.lifecycleStatus !== 'active' || (Number.isInteger(expectedVersion) && queue.version !== expectedVersion)) return false;
         const updated = await tx.queue.update({ where: { id: queueId }, data: { remoteSyncStatus: 'diverged', version: { increment: 1 } } });
@@ -1497,7 +1539,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
     async markQueueRemoteUnknown(queueId, reason, expectedVersion) {
       if (!isSafeReason(reason)) throw repositoryError('INVALID_AUDIT_REASON', 'Remote verification reason is invalid');
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.lifecycleStatus !== 'active' || (Number.isInteger(expectedVersion) && queue.version !== expectedVersion)) return false;
         const updated = await tx.queue.update({ where: { id: queueId }, data: { remoteSyncStatus: 'unknown', version: { increment: 1 } } });
@@ -1508,7 +1550,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
     async retireQueueForConfirmedRewardAbsence({ queueId, expectedVersion, rewardId }) {
       if (!Number.isInteger(expectedVersion) || typeof rewardId !== 'string' || !rewardId) return false;
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         await tx.$queryRaw`SELECT id FROM outbox WHERE entity_id = ${queueId} AND operation_type LIKE 'reward.%' ORDER BY id FOR UPDATE`;
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.rewardId !== rewardId) return false;
@@ -1540,7 +1582,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     /** @param {string} queueId @param {{expectedVersion?: number}} [options] */
     async confirmQueueRemoteState(queueId, { expectedVersion } = {}) {
       if (!Number.isInteger(expectedVersion)) return false;
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.remoteSyncStatus !== 'diverged' || !queue.rewardId
           || queue.version !== expectedVersion
@@ -1563,7 +1605,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     /** @param {string} queueId @param {{expectedVersion?: number, reward?: Record<string, any>}} [options] */
     async confirmConvertedQueueRemoteState(queueId, { expectedVersion, reward } = {}) {
       if (!Number.isInteger(expectedVersion) || !reward || typeof reward !== 'object') return false;
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.version !== expectedVersion || queue.queueMode !== 'manual_only'
           || !queue.rewardId || queue.rewardId !== reward.id
@@ -1589,7 +1631,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
     async markRedemptionUnknown(redemptionId, reason) {
       if (!isSafeReason(reason)) throw repositoryError('INVALID_AUDIT_REASON', 'Unknown redemption reason is invalid');
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         // OPS-22 FT-25 (known gap 1, DATA C4): reconciliation marks the redemption and audits; it never moves outbox
         // rows, so it cannot steal a live lease or spend the worker's attempt budget.
         const redemption = await tx.redemption.update({ where: { redemptionId }, data: { syncStatus: 'unknown' } });
@@ -1600,7 +1642,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
     async clearActiveEntries({ queueId, snapshot, actorId = null, origin = 'panel', decideTransition }) {
       if (typeof decideTransition !== 'function') throw repositoryError('DOMAIN_TRANSITION_REQUIRED', 'Queue transitions must use the domain service');
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue) throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
         const active = await tx.entry.findMany({ where: { queueId, status: { in: activeStatuses } }, orderBy: { id: 'asc' } });
@@ -1614,8 +1656,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           await tx.entry.update({ where: { id: entry.id }, data: { status: 'removed', position: null, finishedAt: now, terminalReason: 'queue_cleared', callDeadlineAt: null, version: { increment: 1 } } });
           await tx.auditLog.create({ data: { queueId, entryId: entry.id, redemptionId: entry.redemptionId, event: 'entry.transitioned', actorId, origin, previousState: entry.status, nextState: 'removed', reason: 'queue_cleared', safeDetail: { policySnapshot: decision.policySnapshot, financialDecision: decision.financialDecision } } });
           if (decision.financialDecision === 'request_cancel' && entry.redemptionId) {
-            await createCancellationIntent(tx, entry.redemptionId, entry.id);
-            refundsRequested += 1;
+            if (await createCancellationIntent(tx, entry.redemptionId, entry.id)) refundsRequested += 1;
           }
         }
         await renumberWaitingEntries(tx, queueId);
@@ -1626,7 +1667,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     async createQueue({ slug, aliases = [], title, cost, ...settings }) {
       const normalizedKeys = normalizeQueueKeys({ slug, aliases });
       try {
-        return await prisma.$transaction(async (tx) => {
+        return await transact(async (tx) => {
           const queue = await tx.queue.create({ data: { ...settings, slug: normalizedKeys.slug, title, cost } });
           await tx.queueKey.createMany({
             data: normalizedKeys.keys.map(({ key, keyType }) => ({ key, keyType, queueId: queue.id })),
@@ -1647,7 +1688,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     async createManualQueue({ slug, aliases = [], title, actorId = null, keys: _normalizedKeyEntries, ...settings }) {
       const normalizedKeys = normalizeQueueKeys({ slug, aliases });
       try {
-        return await prisma.$transaction(async (tx) => {
+        return await transact(async (tx) => {
           const queue = await tx.queue.create({ data: {
             ...settings,
             slug: normalizedKeys.slug,
@@ -1687,7 +1728,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     async createQueueWithRewardIntent({ slug, aliases = [], title, cost, actorId = null, keys: _normalizedKeyEntries, ...settings }) {
       const normalizedKeys = normalizeQueueKeys({ slug, aliases });
       try {
-        return await prisma.$transaction(async (tx) => {
+        return await transact(async (tx) => {
           const queue = await tx.queue.create({
             data: {
               ...settings,
@@ -1758,7 +1799,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       for (const candidate of candidates) {
         const initialQueue = await prisma.queue.findUnique({ where: { id: candidate.entityId } });
         if (!initialQueue) continue;
-        const claimed = await withQueueTransaction(prisma, initialQueue.id, async (tx) => {
+        const claimed = await withQueueTransaction(transact, initialQueue.id, async (tx) => {
           await tx.$queryRaw`SELECT id FROM outbox WHERE id = ${candidate.id}::uuid FOR UPDATE`;
           const task = await tx.outbox.findFirst({ where: { id: candidate.id, operationType: { in: rewardOperationTypes }, ...due } });
           if (!task) return null;
@@ -1798,7 +1839,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async prepareRewardCreate(outboxId, payload, leaseToken) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const current = await lockProcessingRewardTask(tx, { outboxId, leaseToken, operationType: 'reward.create' });
         if (!current) return false;
         await tx.outbox.update({ where: { id: outboxId }, data: { payload: { ...current.payload, ...payload } } });
@@ -1807,7 +1848,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async prepareRewardUpdate(outboxId, leaseToken) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const task = await lockProcessingRewardTask(tx, { outboxId, leaseToken, operationType: 'reward.update' });
         if (!task) return false;
         await tx.outbox.update({ where: { id: outboxId }, data: { payload: { ...task.payload, requestMayHaveReachedTwitch: true } } });
@@ -1816,7 +1857,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async confirmRewardUpdated(outboxId, leaseToken) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const task = await lockProcessingRewardTask(tx, { outboxId, leaseToken, operationType: 'reward.update' });
         if (!task?.entityId) return false;
         const queue = await tx.queue.findUnique({ where: { id: task.entityId } });
@@ -1830,7 +1871,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async prepareRewardOpen(outboxId, leaseToken) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const current = await lockProcessingRewardTask(tx, { outboxId, leaseToken, operationType: 'reward.set_open' });
         if (!current) return false;
         await tx.outbox.update({ where: { id: outboxId }, data: { payload: { ...current.payload, requestMayHaveReachedTwitch: true } } });
@@ -1839,7 +1880,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async confirmRewardOpen(outboxId, { isOpen }, leaseToken) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const task = await lockProcessingRewardTask(tx, { outboxId, leaseToken, operationType: 'reward.set_open' });
         if (!task || !task.entityId || typeof task.payload?.isOpen !== 'boolean' || task.payload.isOpen !== isOpen) return false;
         const queue = await tx.queue.findUnique({ where: { id: task.entityId } });
@@ -1864,7 +1905,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       let recorded = 0;
       for (let offset = 0; offset < redemptions.length; offset += 50) {
         const batch = redemptions.slice(offset, offset + 50);
-        const result = await withQueueTransaction(prisma, queueId, async (tx) => {
+        const result = await withQueueTransaction(transact, queueId, async (tx) => {
           const queue = await tx.queue.findUnique({ where: { id: queueId } });
           if (!queue || queue.lifecycleStatus !== 'deleting' || !queue.rewardId) throw repositoryError('QUEUE_DELETION_NOT_PENDING', 'Queue deletion is not pending');
           let batchRecorded = 0;
@@ -1942,7 +1983,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async prepareRewardDelete(outboxId, leaseToken, { settledManualTaskIds = [] } = {}) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const task = await lockProcessingRewardTask(tx, { outboxId, leaseToken, operationType: 'reward.delete' });
         if (!task?.entityId) return false;
         const queue = await tx.queue.findUnique({ where: { id: task.entityId } });
@@ -1963,7 +2004,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async completeQueueDeletion(outboxId, leaseToken) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const task = await lockProcessingRewardTask(tx, { outboxId, leaseToken, operationType: 'reward.delete' });
         if (!task?.entityId || task.payload?.safeToDelete !== true) return false;
         const queue = await tx.queue.findUnique({ where: { id: task.entityId } });
@@ -1981,7 +2022,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async confirmRewardCreated(outboxId, { rewardId }, leaseToken) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const task = await lockProcessingRewardTask(tx, { outboxId, leaseToken, operationType: 'reward.create' });
         if (!task || !task.entityId || typeof rewardId !== 'string' || rewardId.length === 0) return false;
         const queue = await tx.queue.findUnique({ where: { id: task.entityId } });
@@ -1995,7 +2036,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async retryRewardOperation(outboxId, { nextAttemptAt, errorCode, payloadUpdates = null, blockers = null }, leaseToken) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const current = await lockProcessingRewardTask(tx, { outboxId, leaseToken, operationType: rewardOperationTypes });
         if (!current) return false;
         // OPS-22 FT-26 (DATA §3): a deletion held by review is audited only when its blocked count changes.
@@ -2033,7 +2074,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         select: { id: true, redemption: { select: { queueId: true } } }, orderBy: { id: 'asc' },
       });
       for (const candidate of financialCandidates) {
-        const rearmed = await prisma.$transaction(async (tx) => {
+        const rearmed = await transact(async (tx) => {
           if (candidate.redemption?.queueId) await lockQueue(tx, candidate.redemption.queueId);
           await tx.$queryRaw`SELECT id FROM outbox WHERE id = ${candidate.id}::uuid FOR UPDATE`;
           const task = await tx.outbox.findFirst({ where: { id: candidate.id, status: 'unknown', lastError: 'authorization_required' } });
@@ -2058,7 +2099,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       }) : [];
       for (const candidate of rewardCandidates) {
         if (candidate.operationType === 'reward.set_open' && payloadObject(candidate.payload).deleteAfterConfirm !== true) continue;
-        const rearmed = await withQueueTransaction(prisma, candidate.entityId, async (tx) => {
+        const rearmed = await withQueueTransaction(transact, candidate.entityId, async (tx) => {
           const queue = await tx.queue.findUnique({ where: { id: candidate.entityId }, select: { lifecycleStatus: true } });
           if (queue?.lifecycleStatus !== 'deleting') return false;
           const updated = await tx.outbox.updateMany({ where: { id: candidate.id, status: 'retry', lastError: REWARD_AUTHORIZATION_REQUIRED }, data: { nextAttemptAt: now, lastError: null } });
@@ -2077,7 +2118,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async failedRewardOperation(outboxId, errorCode, leaseToken) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const task = await lockProcessingRewardTask(tx, { outboxId, leaseToken, operationType: rewardOperationTypes });
         if (!task) return false;
         await tx.outbox.update({ where: { id: outboxId }, data: { status: 'failed', lastError: errorCode, leaseToken: null, leaseUntil: null } });
@@ -2098,7 +2139,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async unknownRewardOperation(outboxId, errorCode, leaseToken) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const task = await lockProcessingRewardTask(tx, { outboxId, leaseToken, operationType: rewardOperationTypes });
         if (!task) return false;
         await tx.outbox.update({ where: { id: outboxId }, data: { status: 'unknown', lastError: errorCode, leaseToken: null, leaseUntil: null } });
@@ -2123,7 +2164,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       if (typeof actorId !== 'string' || !actorId || typeof rewardId !== 'string' || !rewardId) {
         throw repositoryError('REWARD_ASSOCIATION_ACTOR_REQUIRED', 'Reward association requires an operator and a Twitch reward ID');
       }
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.rewardId || queue.remoteSyncStatus !== 'create_unknown') {
           throw repositoryError('REWARD_ASSOCIATION_NOT_PENDING', 'Queue has no unresolved reward creation');
@@ -2146,7 +2187,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     async replaceQueueKeys({ queueId, slug, aliases = [] }) {
       const normalizedKeys = normalizeQueueKeys({ slug, aliases });
       try {
-        return await withQueueTransaction(prisma, queueId, async (tx) => {
+        return await withQueueTransaction(transact, queueId, async (tx) => {
           const queue = await tx.queue.findUnique({ where: { id: queueId } });
           if (!queue) throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
           await tx.queue.update({
@@ -2172,7 +2213,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         if (priorityReason !== null && !['subscription', 'bits', 'external_payment', 'operator_override'].includes(priorityReason)) {
           throw repositoryError('INVALID_PRIORITY', 'Priority verification data is invalid');
         }
-        return await withQueueTransaction(prisma, queueId, async (tx) => {
+        return await withQueueTransaction(transact, queueId, async (tx) => {
           const queue = await tx.queue.findUnique({ where: { id: queueId } });
           if (!queue || queue.lifecycleStatus !== 'active' || queue.isArchived) {
             throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue does not accept new manual entries');
@@ -2232,7 +2273,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       if (typeof priority !== 'boolean' || !['subscription', 'bits', 'external_payment', 'operator_override'].includes(reason)) {
         throw repositoryError('INVALID_PRIORITY', 'Priority verification data is invalid');
       }
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const entry = await tx.entry.findFirst({ where: { id: entryId, queueId, status: 'waiting' } });
         if (!entry) throw repositoryError('ENTRY_NOT_WAITING', 'Entry is not waiting in this queue');
         const nextClass = priority ? 'priority' : 'standard';
@@ -2255,7 +2296,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async moveWaitingEntry({ queueId, entryId, position }) {
-      return withQueueTransaction(prisma, queueId, async (tx) => {
+      return withQueueTransaction(transact, queueId, async (tx) => {
         const waiting = await tx.entry.findMany({
           where: { queueId, status: 'waiting' },
           orderBy: [{ priorityClass: 'asc' }, { position: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
@@ -2290,7 +2331,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       const initial = await prisma.entry.findUnique({ where: { id: entryId }, select: { queueId: true } });
       if (!initial) throw repositoryError('ENTRY_NOT_FOUND', 'Entry was not found');
 
-      return withQueueTransaction(prisma, initial.queueId, async (tx) => {
+      return withQueueTransaction(transact, initial.queueId, async (tx) => {
         const entry = await tx.entry.findUnique({ where: { id: entryId } });
         const queue = await tx.queue.findUnique({ where: { id: initial.queueId } });
         if (!entry || !queue) throw repositoryError('ENTRY_NOT_FOUND', 'Entry was not found');
@@ -2414,7 +2455,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     },
 
     async confirm(outboxId, remoteStatus, leaseToken) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const task = await tx.outbox.findFirst({ where: { id: outboxId, status: 'processing', leaseToken } });
         if (!task) return false;
         // OPS-22 FT-26 (AC 14 a): the confirmation may resume a deletion, so take the queue lock before any row lock.
@@ -2450,7 +2491,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
 
     /** OPS-22 FT-25: non-conclusive or transient attempt inside the cycle budget (one guarded transaction, DATA C2). */
     async retry(outboxId, { nextAttemptAt, errorCode, reasonClass = null, attempt = null, cycleAttempt = null, httpStatus = null }, leaseToken) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const task = await lockProcessingFinancialTask(tx, outboxId, leaseToken);
         if (!task) return { count: 0 };
         const current = payloadObject(task.payload);
@@ -2504,7 +2545,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       }
       if (errorCode === FINANCIAL_TERMINAL_REASON) {
         // OPS-22 FT-25 (AC 8, DATA C2): exhaustion is terminal `unknown`, audited, with the redemption marked unknown.
-        return prisma.$transaction(async (tx) => {
+        return transact(async (tx) => {
           const task = await lockProcessingFinancialTask(tx, outboxId, leaseToken);
           if (!task) return { count: 0 };
           const current = payloadObject(task.payload);
@@ -2541,7 +2582,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     async recordRejectedRedemption({ redemptionId, broadcasterId, rewardId, userId, redeemedAt, reason }) {
       if (!isSafeReason(reason)) throw repositoryError('INVALID_REJECTION_REASON', 'Rejection reason is invalid');
       try {
-        await prisma.$transaction(async (tx) => {
+        await transact(async (tx) => {
           await tx.redemption.create({ data: {
             redemptionId,
             broadcasterId,
@@ -2573,7 +2614,15 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     async retryOutboxManually(outboxId, { actorId = null } = {}) {
       if (typeof actorId !== 'string' || !actorId) throw repositoryError('ACTOR_REQUIRED', 'Manual retry requires the operator');
       if (!isUuid(outboxId)) return { count: 0 };
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
+        // OPS-31 P0 (W3-5, TS-20): lock order is queue advisory lock FIRST, outbox row second, like every settlement path.
+        // The queue is found with a plain read; the status is checked again under the row lock below.
+        const candidate = await tx.outbox.findFirst({ where: { id: outboxId, status: { in: manualRetryStatuses } }, select: { operationType: true, entityId: true, redemptionId: true } });
+        if (!candidate) return { count: 0 };
+        const candidateQueueId = financialOperationTypes.includes(candidate.operationType)
+          ? (candidate.redemptionId ? (await tx.redemption.findUnique({ where: { redemptionId: candidate.redemptionId }, select: { queueId: true } }))?.queueId ?? null : null)
+          : (isUuid(candidate.entityId) ? candidate.entityId : null);
+        if (candidateQueueId) await lockQueue(tx, candidateQueueId);
         const locked = await tx.$queryRaw`
           SELECT id FROM outbox WHERE id = ${outboxId}::uuid AND status IN ('unknown', 'conflict', 'failed') FOR UPDATE`;
         if (!locked.length) return { count: 0 };
@@ -2616,12 +2665,18 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       });
     },
 
+    /**
+     * OPS-22 FT-26 + OPS-31 P0 (O-1 DECIDED A, W3-2): audited manual exit of a financial task in `unknown`, `conflict` or
+     * `failed`. It never confirms the result with Twitch (`remoteConfirmed:false`); for `conflict` the audit keeps the remote
+     * status stored by the worker's last read. `conflict` and `failed` need a person (no automatic path), so an actor is required.
+     */
     async resolveUnknownFinancialOperation(outboxId, actorId) {
-      return prisma.$transaction(async (tx) => {
+      return transact(async (tx) => {
         const task = await tx.outbox.findFirst({
-          where: { id: outboxId, operationType: { in: ['redemption.cancel', 'redemption.fulfill'] }, status: 'unknown' },
+          where: { id: outboxId, operationType: { in: ['redemption.cancel', 'redemption.fulfill'] }, status: { in: manualRetryStatuses } },
         });
         if (!task) return { status: 'not_unknown' };
+        if (task.status !== 'unknown' && (typeof actorId !== 'string' || !actorId)) throw repositoryError('ACTOR_REQUIRED', 'Manual resolution requires the operator');
         const redemption = task.redemptionId
           ? await tx.redemption.findUnique({ where: { redemptionId: task.redemptionId } })
           : null;
@@ -2629,7 +2684,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         // OPS-22 FT-26 (AC 14 b): the resolution resumes the deletion; queue lock first (no lock-order inversion).
         if (redemption.queueId) await lockQueue(tx, redemption.queueId);
         const updated = await tx.outbox.updateMany({
-          where: { id: outboxId, operationType: { in: ['redemption.cancel', 'redemption.fulfill'] }, status: 'unknown' },
+          where: { id: outboxId, operationType: { in: ['redemption.cancel', 'redemption.fulfill'] }, status: task.status },
           data: { status: 'resolved_manual', leaseToken: null, leaseUntil: null },
         });
         if (!updated.count) return { status: 'not_unknown' };
@@ -2640,10 +2695,13 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           event: 'financial.operation_resolved_manually',
           actorId,
           origin: 'panel',
-          previousState: 'unknown',
+          previousState: task.status,
           nextState: 'resolved_manual',
-          reason: 'operator_acknowledged_unknown',
-          safeDetail: { remoteConfirmed: false, expectedStatus: redemption.expectedStatus },
+          reason: `operator_acknowledged_${task.status}`,
+          safeDetail: {
+            remoteConfirmed: false, expectedStatus: redemption.expectedStatus,
+            ...(task.status === 'conflict' ? { remoteStatus: normalizeRedemptionStatus(redemption.remoteStatus) } : {}),
+          },
         } });
         // Locally settled only: the deletion resumes into the post-resolution re-list, never into a DELETE by itself.
         await resumeQueueDeletion(tx, redemption.queueId, { now: clock(), resolvedBy: 'operator', origin: 'panel', actorId });
@@ -2658,7 +2716,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       }
       const queue = await prisma.queue.findUnique({ where: { rewardId: event.rewardId } });
       if (!queue || !queue.rewardId) return { status: 'unmanaged_reward' };
-      return withQueueTransaction(prisma, queue.id, async (tx) => {
+      return withQueueTransaction(transact, queue.id, async (tx) => {
         const existing = await tx.redemption.findUnique({ where: { redemptionId: event.id } });
         if (existing) {
           if (existing.remoteStatus === status) return { status: 'already_recorded', redemptionId: event.id };
@@ -2700,7 +2758,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       if (existing.remoteStatus !== 'UNFULFILLED' && existing.remoteStatus !== status) {
         return { status: 'conflict', redemptionId: event.id };
       }
-      const updated = await prisma.$transaction(async (tx) => {
+      const updated = await transact(async (tx) => {
         if (existing.queueId) await lockQueue(tx, existing.queueId);
         const current = await tx.redemption.findUnique({ where: { redemptionId: event.id } });
         if (!current) return { status: 'unknown_redemption', redemptionId: event.id };
@@ -2748,7 +2806,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       if (!queue || !queue.rewardId) return { status: 'unmanaged_reward' };
 
       try {
-        return await withQueueTransaction(prisma, queue.id, async (tx) => {
+        return await withQueueTransaction(transact, queue.id, async (tx) => {
           const existing = await tx.redemption.findUnique({ where: { redemptionId: event.id } });
           if (existing) return { status: 'already_recorded', redemptionId: event.id };
           const currentQueue = await tx.queue.findUnique({ where: { id: queue.id } });

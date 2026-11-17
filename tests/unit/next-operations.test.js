@@ -30,7 +30,10 @@ describe('Next operations presentation contract', () => {
     expect(getOperationActions(operation())).toEqual(['resolve_unknown', 'retry']);
     expect(getOperationActions(operation({ type: 'reward.delete', status: 'conflict' }))).toEqual(['continue_delete']);
     expect(getOperationActions(operation({ status: 'confirmed' }))).toEqual([]);
-    expect(getOperationActions(operation({ status: 'failed', type: 'redemption.fulfill' }))).toEqual(['retry']);
+    // OPS-31 P0 (O-1): `conflict` and `failed` financial tasks get the audited manual exit; reward tasks never do.
+    expect(getOperationActions(operation({ status: 'failed', type: 'redemption.fulfill' }))).toEqual(['resolve_unknown', 'retry']);
+    expect(getOperationActions(operation({ status: 'conflict', type: 'redemption.cancel' }))).toEqual(['resolve_unknown', 'retry']);
+    expect(getOperationActions(operation({ status: 'failed', type: 'reward.update' }))).toEqual(['retry']);
     expect(getOperationActions(operation({ status: 'resolved_manual' }))).toEqual([]);
     for (const status of ['unknown', 'conflict', 'failed']) {
       expect(getOperationActions(operation({ id: 'pause-delete', type: 'reward.set_open', requiresDeleteConfirmation: true, status }))).toEqual(['continue_delete']);

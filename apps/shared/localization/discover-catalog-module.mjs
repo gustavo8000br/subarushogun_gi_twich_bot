@@ -50,6 +50,8 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'panel.queue_settings.call_message_default': Object.freeze(['user', 'command']),
     'panel.operation.attempts': Object.freeze(['count']),
     'panel.operation.blocks_deletion': Object.freeze(['title']),
+    'panel.operation.conflict.detail': Object.freeze(['intent', 'remote']),
+    'panel.operation.confirm.resolve_conflict': Object.freeze(['status']),
     'panel.reconciliation.complete': Object.freeze(['count']),
     'panel.reconciliation.issues': Object.freeze(['count']),
     'panel.queue.confirm.delete': Object.freeze(['title', 'count']),
