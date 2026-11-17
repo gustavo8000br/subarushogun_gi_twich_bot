@@ -862,3 +862,13 @@ panel.widget.weight.600	Seminegrito (600)
 panel.widget.weight.700	Negrito (700)
 panel.widget.weight.800	Extranegrito (800)
 panel.widget.weight.900	Preto (900)
+panel.notice_settings.legend	Avisos no chat
+panel.notice_settings.joined	Avisar a posição de quem entra e o motivo de um resgate recusado
+panel.notice_settings.joined_help	Desative para que essas mensagens não apareçam no chat. Um resgate recusado continua tendo os pontos devolvidos; a pessoa só não é avisada no chat.
+panel.notice_settings.service	Avisar quando o atendimento de alguém terminar
+panel.notice_settings.service_help	Os avisos sobre o próximo, ausências e adiamentos chegam em breve.
+panel.notice_settings.state	Avisar quando a fila for fechada, reaberta ou limpa
+panel.notice_settings.reordered	Avisar quando você reordenar a fila (em breve)
+panel.notice_settings.points	Contar à pessoa o que aconteceu com os pontos dela (em breve)
+panel.notice_settings.soon_help	Ainda não é enviado nada por isso. A sua escolha fica salva para quando chegar.
+panel.notice_settings.hint	As mensagens têm limite para não inundar o chat; a chamada de "sua vez" sempre vai primeiro.

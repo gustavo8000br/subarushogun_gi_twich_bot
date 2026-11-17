@@ -79,6 +79,12 @@ The absence timer starts only after Twitch confirms the first call message was s
 
 Use `!<queue> atender [user]` to start service. Starting service stops the absence timer. Use `!<queue> concluir [user]` when the work is finished. If a call times out before service starts, the entry becomes **No-show**; whether its points are requested back depends on the queue setting.
 
+## Chat notices
+
+The bot can tell viewers what happens in a queue, in the channel language: their position when they join, a refused redemption (queue closed, already in the queue, queue unavailable, invalid UID) with the note that the return of the points was requested, the end of their service, and when the queue is closed, reopened or cleared. Open **Configure** on a queue to turn each group on or off: joining, service, queue state, reordering and points. A new queue starts with joining, service and queue state on, and reordering and points off (points stay off until a later release turns them on for new queues); queues created before this feature keep every notice off until you turn them on.
+
+Notices never delay the queue or any points operation. One shared limit keeps every message the bot sends (calls, command answers and notices) under the Twitch ceiling: the "your turn" call always goes first, and a notice that cannot be delivered after a few tries or a short wait is dropped, not repeated forever. Several people joining at once are announced in one summary message.
+
 ## How Channel Points are returned or consumed
 
 “Requested” or “pending” means the bot has asked Twitch to change the redemption and is waiting for confirmation. It does not mean the points have already been returned or consumed. The panel's **Twitch sync & point refunds** page shows pending, confirmed, uncertain, or conflicting operations.

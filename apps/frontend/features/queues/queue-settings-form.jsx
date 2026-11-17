@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { getDefaultQueueCallMessage } from '../../../shared/panel/queue-call-message.mjs';
 import { QUEUE_SETTING_KEYS, queueSettingsMatch, reconcileQueueSettingsDraft } from './queue-settings.mjs';
 
@@ -14,10 +14,16 @@ function queueSettings(queue, t) {
     refundIfRemovedWhileCalled: queue.refundIfRemovedWhileCalled === true,
     refundOnNoShow: queue.refundOnNoShow === true,
     refundIfViewerLeavesCalled: queue.refundIfViewerLeavesCalled === true,
+    noticeJoined: queue.noticeJoined === true,
+    noticeService: queue.noticeService === true,
+    noticeState: queue.noticeState === true,
+    noticeReordered: queue.noticeReordered === true,
+    noticePoints: queue.noticePoints === true,
   };
 }
 
-const BOOLEAN_SETTINGS = Object.freeze(QUEUE_SETTING_KEYS.filter((key) => !['callTimeoutMin', 'callMessage'].includes(key)));
+const NOTICE_SETTINGS = Object.freeze(['noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints']);
+const BOOLEAN_SETTINGS = Object.freeze(QUEUE_SETTING_KEYS.filter((key) => !['callTimeoutMin', 'callMessage', ...NOTICE_SETTINGS].includes(key)));
 const CHECKBOX_LABELS = Object.freeze({
   showUidInList: 'panel.queue_settings.show_uid_list',
   showUidInOverlay: 'panel.queue_settings.show_uid_overlay',
@@ -25,6 +31,17 @@ const CHECKBOX_LABELS = Object.freeze({
   refundIfRemovedWhileCalled: 'panel.queue_settings.refund_removed',
   refundOnNoShow: 'panel.queue_settings.refund_no_show',
   refundIfViewerLeavesCalled: 'panel.queue_settings.refund_viewer_leave',
+  noticeJoined: 'panel.notice_settings.joined',
+  noticeService: 'panel.notice_settings.service',
+  noticeState: 'panel.notice_settings.state',
+  noticeReordered: 'panel.notice_settings.reordered',
+  noticePoints: 'panel.notice_settings.points',
+});
+const NOTICE_HELP_KEYS = Object.freeze({
+  noticeJoined: 'panel.notice_settings.joined_help',
+  noticeService: 'panel.notice_settings.service_help',
+  noticeReordered: 'panel.notice_settings.soon_help',
+  noticePoints: 'panel.notice_settings.soon_help',
 });
 
 /** @param {{queue:Record<string,any>, t:(key:string, options?:object)=>string, saving:boolean, feedback:any, onSave:(queueId:string, values:Record<string,unknown>, baseline:Record<string,unknown>)=>Promise<boolean>}} props */
@@ -78,6 +95,20 @@ export default function QueueSettingsForm({ queue, t, saving, feedback, onSave }
         <fieldset className="settings-section">
           <legend>{t('panel.queue_settings.section_points')}</legend>
           {BOOLEAN_SETTINGS.slice(3).map((name) => <label className="check-label" key={name}><input type="checkbox" name={name} checked={settings[name]} onChange={(event) => update(name, event.target.checked)} disabled={saving} />{t(CHECKBOX_LABELS[name])}</label>)}
+        </fieldset>
+        <fieldset className="settings-section">
+          <legend>{t('panel.notice_settings.legend')}</legend>
+          {NOTICE_SETTINGS.map((name) => {
+            const helpKey = NOTICE_HELP_KEYS[name];
+            const helpId = helpKey ? `queue-settings-${name}-help` : undefined;
+            return (
+              <Fragment key={name}>
+                <label className="check-label"><input type="checkbox" name={name} checked={settings[name]} onChange={(event) => update(name, event.target.checked)} disabled={saving} aria-describedby={helpId} />{t(CHECKBOX_LABELS[name])}</label>
+                {helpKey ? <p className="form-hint" id={helpId}>{t(helpKey)}</p> : null}
+              </Fragment>
+            );
+          })}
+          <p className="form-hint">{t('panel.notice_settings.hint')}</p>
         </fieldset>
         <div className="settings-action-bar">
           <p className="form-hint" role="status">{dirty ? t('panel.queue_settings.unsaved') : t('panel.queue_settings.no_changes')}</p>

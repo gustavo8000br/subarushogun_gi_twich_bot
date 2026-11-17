@@ -210,7 +210,8 @@ describe('PostgreSQL queue repository', () => {
     expect(opened).toMatchObject({ status: 'confirmed', isOpen: true, remoteSyncStatus: 'local_only' });
     const closed = await repository.setQueueOpen(queue.id, false, 'operator-1');
     expect(closed).toMatchObject({ status: 'confirmed', isOpen: false, remoteSyncStatus: 'local_only' });
-    expect(await prisma.outbox.count({ where: { entityId: queue.id } })).toBe(0);
+    // No reward or financial task; only the OPS-31 P2 chat notices (new queues start with them on).
+    expect(await prisma.outbox.count({ where: { entityId: queue.id, operationType: { not: 'chat.notice' } } })).toBe(0);
     expect(await prisma.auditLog.count({ where: { queueId: queue.id, event: 'queue.open_state_changed' } })).toBe(2);
   });
 

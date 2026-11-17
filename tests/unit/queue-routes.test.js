@@ -463,6 +463,19 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it('OPS-31 P2 (AC 5): the five notice switches are accepted as booleans, projected back, and refused as strings', async () => {
+    const h = await createHarness();
+    h.repository.updateLocalQueueSettings = vi.fn(async ({ settings }) => ({ id: 'queue-id', slug: 'abismo', title: 'Abismo', cost: 100, uidMode: 'visible', ...settings, version: 2 }));
+    const url = '/api/queues/queue-id/settings';
+    const ok = await h.app.inject({ method: 'PATCH', url, headers: h.headers, payload: { expectedVersion: 1, noticeJoined: true, noticeService: false, noticeState: true, noticeReordered: false, noticePoints: true } });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({ noticeJoined: true, noticeService: false, noticeState: true, noticeReordered: false, noticePoints: true });
+    const bad = await h.app.inject({ method: 'PATCH', url, headers: h.headers, payload: { expectedVersion: 1, noticeJoined: 'true' } });
+    expect(bad.statusCode).toBe(400);
+    expect(h.repository.updateLocalQueueSettings).toHaveBeenCalledTimes(1);
+    await h.app.close();
+  });
+
   it('returns a stable code for an expected stale queue-settings conflict', async () => {
     const h = await createHarness();
     h.repository.updateLocalQueueSettings = vi.fn().mockRejectedValue(Object.assign(new Error('version conflict'), { code: 'STALE_QUEUE_VERSION' }));

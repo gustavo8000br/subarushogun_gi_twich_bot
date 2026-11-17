@@ -133,6 +133,7 @@ registerLocalizationRoutes(app, {
 });
 
 runtime = await createApplicationRuntime({ app, pool, prisma, repository, credentialRepository, reportDiagnostic, logEvent, onError: () => undefined,
+  getChatCatalogs: () => getCatalogModule('chat'),
   onChatMessage: (event) => {
     chatHandler ??= buildChatHandler(event.broadcasterId);
     return chatHandler(event);

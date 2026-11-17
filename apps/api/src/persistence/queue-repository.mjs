@@ -1,6 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { isDatabaseTimeout } from './database-errors.mjs';
 import { findFinancialTask, recordFinancialIntent } from './financial-gate.mjs';
+import { createChatNoticeStore, enqueueChatNotice } from './chat-notice-outbox.mjs';
+import { REFUSAL_NOTICE_KIND_BY_REASON } from '../domain/chat-notice-composer.mjs';
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { validateUidInput } from '../domain/uid.mjs';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog.mjs';
@@ -15,6 +17,10 @@ const activeStatuses = ['waiting', 'called', 'in_progress'];
 const unresolvedFinancialStatuses = ['pending', 'retry', 'processing', 'unknown', 'conflict', 'failed'];
 const unresolvedDeletionStatuses = [...unresolvedFinancialStatuses, 'cancel_verification'];
 const reviewableFinancialStatuses = ['unknown', 'conflict', 'failed'];
+// OPS-31 P2 (O-10, owner decision 2026-11-17): a NEW queue starts with the join, service and state notices on and the
+// reorder and points notices off (points stay off until P7 flips the default); the database default stays false,
+// so existing queues keep every notice off.
+const NEW_QUEUE_NOTICE_DEFAULTS = Object.freeze({ noticeJoined: true, noticeService: true, noticeState: true, noticeReordered: false, noticePoints: false });
 
 function repositoryError(code, message) {
   return Object.assign(new Error(message), { code });
@@ -430,7 +436,9 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
   } catch { /* Keep the Portuguese default when a host value is invalid. */ }
   /** @type {ProductLocaleState} */
   const productLocaleFallback = Object.freeze({ locale: initialProductLocale, revision: 1 });
+  const noticeStore = createChatNoticeStore({ prisma, transact, clock });
   return {
+    ...noticeStore,
     async getCommandPolicyState() {
       return readCommandPolicyState(prisma);
     },
@@ -622,7 +630,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         prisma.setting.findUnique({ where: { key: 'account_state' } }),
         prisma.oAuthCredential.findFirst({ select: { clientId: true, broadcasterId: true, authStatus: true, scopes: true } }),
         prisma.queue.count({ where: { lifecycleStatus: { not: 'deleted' } } }),
-        prisma.outbox.count({ where: { status: { in: ['pending', 'retry', 'processing', 'unknown', 'conflict', 'failed'] } } }),
+        prisma.outbox.count({ where: { status: { in: ['pending', 'retry', 'processing', 'unknown', 'conflict', 'failed'] }, operationType: { not: 'chat.notice' } } }),
         prisma.setting.findUnique({ where: { key: 'product_locale' } }),
       ]);
       return { account: account?.value ?? { label: 'Streamer', source: 'default' }, productLocale: parseProductLocaleState(productLocale?.value, productLocaleFallback), twitch: credential ? { clientId: credential.clientId, broadcasterId: credential.broadcasterId, status: credential.authStatus, scopes: credential.scopes } : null, queueCount, pendingOperations };
@@ -692,6 +700,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         if (queue.queueMode === 'manual_only') {
           const updated = await tx.queue.update({ where: { id: queueId }, data: { isOpen, remoteSyncStatus: 'local_only', version: { increment: 1 } } });
           await tx.auditLog.create({ data: { queueId, event: 'queue.open_state_changed', actorId, origin, previousState: String(queue.isOpen), nextState: String(isOpen), reason: isOpen ? 'local_queue_opened' : 'local_queue_closed', safeDetail: { remoteSyncStatus: 'local_only', historicalRewardId: queue.rewardId } } });
+          await enqueueChatNotice(tx, { kind: isOpen ? 'queue_reopened' : 'queue_closed', queue: updated, now: clock() });
           return { status: 'confirmed', isOpen: updated.isOpen, remoteSyncStatus: 'local_only' };
         }
         if (!queue.rewardId || !['synced', 'synced_manual'].includes(queue.remoteSyncStatus)) throw repositoryError('QUEUE_REWARD_NOT_READY', 'Queue reward is not ready for an open-state change');
@@ -1242,7 +1251,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     async getEntry(id) { return prisma.entry.findUnique({ where: { id } }); },
 
     async updateLocalQueueSettings({ queueId, expectedVersion, settings, actorId = null, origin = 'panel' }) {
-      const localSettings = new Set(['callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled']);
+      const localSettings = new Set(['callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled', 'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints']);
       if (Object.keys(settings).some((key) => !localSettings.has(key))) throw repositoryError('INVALID_LOCAL_QUEUE_SETTING', 'A local settings update contains a Twitch-managed field');
       return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
@@ -1394,6 +1403,8 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         refundIfRemovedWhileCalled: queue.refundIfRemovedWhileCalled,
         refundOnNoShow: queue.refundOnNoShow,
         refundIfViewerLeavesCalled: queue.refundIfViewerLeavesCalled,
+        noticeJoined: queue.noticeJoined, noticeService: queue.noticeService, noticeState: queue.noticeState,
+        noticeReordered: queue.noticeReordered, noticePoints: queue.noticePoints,
         isOpen: queue.isOpen, isArchived: queue.isArchived, lifecycleStatus: queue.lifecycleStatus,
         remoteSyncStatus: queue.remoteSyncStatus, version: queue.version,
         entries: queue.entries.map((entry) => ({
@@ -1645,6 +1656,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           }
         }
         await renumberWaitingEntries(tx, queueId);
+        if (active.length) await enqueueChatNotice(tx, { kind: 'cleared', queue, now, count: active.length });
         return { status: 'cleared', count: active.length, refundsRequested };
       });
     },
@@ -1653,7 +1665,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       const normalizedKeys = normalizeQueueKeys({ slug, aliases });
       try {
         return await transact(async (tx) => {
-          const queue = await tx.queue.create({ data: { ...settings, slug: normalizedKeys.slug, title, cost } });
+          const queue = await tx.queue.create({ data: { ...NEW_QUEUE_NOTICE_DEFAULTS, ...settings, slug: normalizedKeys.slug, title, cost } });
           await tx.queueKey.createMany({
             data: normalizedKeys.keys.map(({ key, keyType }) => ({ key, keyType, queueId: queue.id })),
           });
@@ -1675,6 +1687,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       try {
         return await transact(async (tx) => {
           const queue = await tx.queue.create({ data: {
+            ...NEW_QUEUE_NOTICE_DEFAULTS,
             ...settings,
             slug: normalizedKeys.slug,
             title,
@@ -1716,6 +1729,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         return await transact(async (tx) => {
           const queue = await tx.queue.create({
             data: {
+              ...NEW_QUEUE_NOTICE_DEFAULTS,
               ...settings,
               slug: normalizedKeys.slug,
               title,
@@ -1882,6 +1896,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         await tx.auditLog.create({ data: { queueId: queue.id, event: deleting ? 'queue.deletion_pause_confirmed' : converting ? 'queue.manual_mode_confirmed' : 'queue.open_state_confirmed', origin: 'system', previousState: converting ? 'channel_points_pending_pause' : 'pending', nextState: deleting ? 'delete_pending' : converting ? 'manual_only' : String(isOpen), reason: deleting ? 'reward_paused_for_queue_deletion' : converting ? 'twitch_reward_pause_confirmed' : isOpen ? 'queue_open_confirmed' : 'queue_close_confirmed', safeDetail: { rewardId: queue.rewardId, remoteSyncStatus: deleting ? 'delete_pending' : converting ? 'local_only' : 'synced' } } });
         // OPS-22 F18: reuse the single `reward.delete` row (a cancelled one from an earlier cycle); fail closed otherwise.
         if (deleting) await enqueueRewardDeleteIntent(tx, queue.id, clock());
+        else if (!converting) await enqueueChatNotice(tx, { kind: isOpen ? 'queue_reopened' : 'queue_closed', queue, now: clock() });
         return true;
       });
     },
@@ -2384,6 +2399,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
             await tx.auditLog.create({ data: { queueId: entry.queueId, entryId: entry.id, event: 'account.auto_reset', actorId, origin, previousState: currentAccount.label, nextState: nextAccount.label, reason: 'owner_entry_ended', safeDetail: { ownerEntryId: entry.id } } });
           }
         }
+        if (to === 'completed') await enqueueChatNotice(tx, { kind: 'service_ended', queue, now, entryId: entry.id, entryVersion: updated.version, user: entry.userLogin });
         return { ...updated, financialDecision: decision.financialDecision, policySnapshot: decision.policySnapshot };
       });
     },
@@ -2801,6 +2817,9 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
               reason: rejectionReason,
               safeDetail: { cancellationStatus: 'pending' },
             } });
+            const refusalKind = REFUSAL_NOTICE_KIND_BY_REASON[rejectionReason];
+            const refusedLogin = typeof event.userLogin === 'string' ? event.userLogin.replace(/^@/, '').toLowerCase() : '';
+            if (refusalKind && refusedLogin) await enqueueChatNotice(tx, { kind: refusalKind, queue: currentQueue, now: clock(), redemptionId: event.id, user: refusedLogin });
             return { status: 'cancellation_pending', reason: rejectionReason, redemptionId: event.id };
           }
 
@@ -2832,6 +2851,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
             nextState: 'waiting',
             safeDetail: { position },
           } });
+          await enqueueChatNotice(tx, { kind: 'joined', queue: currentQueue, now: clock(), entryId: entry.id, entryVersion: entry.version, user: entry.userLogin, position });
           return { status: 'added', position, entryId: entry.id, redemptionId: event.id };
         });
       } catch (error) {

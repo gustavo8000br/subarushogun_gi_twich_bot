@@ -87,6 +87,8 @@ function queueDto(queue, { operator = false } = {}) {
     showUidInList: queue.showUidInList, showUidInOverlay: queue.showUidInOverlay, showUidOnCall: queue.showUidOnCall,
     autoSwitchAccount: queue.autoSwitchAccount, refundIfRemovedWhileCalled: queue.refundIfRemovedWhileCalled,
     refundOnNoShow: queue.refundOnNoShow, refundIfViewerLeavesCalled: queue.refundIfViewerLeavesCalled,
+    noticeJoined: queue.noticeJoined === true, noticeService: queue.noticeService === true, noticeState: queue.noticeState === true,
+    noticeReordered: queue.noticeReordered === true, noticePoints: queue.noticePoints === true,
     isOpen: queue.isOpen, isArchived: queue.isArchived, lifecycleStatus: queue.lifecycleStatus,
     version: queue.version, remoteSyncStatus: queue.remoteSyncStatus,
     // OPS-22 FT-26 (AC 15, F17): enumerated deletion projection for the operator panel; never the raw outbox facts.
@@ -429,7 +431,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   app.patch('/api/queues/:queueId/settings', async (request, reply) => {
     const localRequest = /** @type {any} */ (request);
     const body = localRequest.body && typeof localRequest.body === 'object' ? localRequest.body : {};
-    const allowed = new Set(['expectedVersion', 'callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled']);
+    const allowed = new Set(['expectedVersion', 'callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled', 'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints']);
     const keys = Object.keys(body);
     if (keys.some((key) => ['uidMode', 'title', 'cost', 'rewardPrompt', 'maxRedemptionsPerStream', 'maxRedemptionsPerUserPerStream', 'globalCooldownSeconds'].includes(key))) {
       return reply.code(400).send({ code: 'INVALID_LOCAL_QUEUE_SETTING', error: 'A privacidade do UID e a recompensa devem ser alteradas no editor de recompensa Twitch.' });

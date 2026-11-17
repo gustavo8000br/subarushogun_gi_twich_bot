@@ -11,6 +11,7 @@ import { createTwitchReconciler } from './reconciliation.mjs';
 import { twitchHttpError } from './http-error.mjs';
 import { createCredentialFingerprint } from './credential-fingerprint.mjs';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog.mjs';
+import { createChatLimiter, withChatLimiter } from '../outbox/chat-limiter.mjs';
 
 const INITIAL_RETRY_MS = 5_000;
 const MAX_RETRY_MS = 5 * 60 * 1_000;
@@ -53,6 +54,7 @@ export async function createTwitchIntegration({
   authProviderFactory = (config) => new RefreshingAuthProvider(config),
   validateOAuthToken = (token, clientId) => getTokenInfo(token, clientId),
 }) {
+  const chatLimiter = createChatLimiter({ onEvent: (event) => { try { logEvent(event); } catch { /* observability never blocks chat */ } } });
   let credential = await credentialRepository.getAuthRecord();
   let status = credential?.accessToken && credential?.refreshToken ? 'connecting' : 'not_configured';
   let chatStatus = credential?.accessToken && credential?.refreshToken ? 'connecting' : 'not_configured';
@@ -166,7 +168,8 @@ export async function createTwitchIntegration({
   };
   const startSession = async () => {
     api = apiFactory({ authProvider: authRuntime.provider });
-    twitch = adapterFactory({ api, broadcasterId: credential.broadcasterId, clientId: credential.clientId, authProvider: authRuntime.provider, fetchImpl });
+    // OPS-31 P2 (AC 4): every chat message (call, notices, command replies) counts against ONE limiter that outlives reconnects.
+    twitch = withChatLimiter(adapterFactory({ api, broadcasterId: credential.broadcasterId, clientId: credential.clientId, authProvider: authRuntime.provider, fetchImpl }), chatLimiter);
     twitchApiProbe = () => twitch.ping();
     channelEligibility = await twitch.getChannelEligibility();
     rewardStatus = channelEligibility.eligible ? 'available'
