@@ -18,6 +18,12 @@ describe('OBS widget editor payload', () => {
     expect(buildOverlayWidgetPayload(values({ sourceType: 'fixed_text', queueId: 'stale', fixedText: 'Live' }))).toMatchObject({ sourceType: 'fixed_text', queueId: null, fixedText: 'Live' });
   });
 
+  it('OPS-31 P4: the "next" source needs a queue in the browser and keeps no fixed text', () => {
+    expect(buildOverlayWidgetPayload(values({ sourceType: 'next_waiting_viewer_display_name', queueId: 'queue-1', fixedText: 'stale' })))
+      .toMatchObject({ sourceType: 'next_waiting_viewer_display_name', queueId: 'queue-1', fixedText: null });
+    expect(() => buildOverlayWidgetPayload(values({ sourceType: 'next_waiting_viewer_display_name', queueId: '' }))).toThrow();
+  });
+
   it('uses Unicode code points for the same 240-character limit as the API', () => {
     expect(countOverlayTextCodePoints('😀'.repeat(240))).toBe(240);
     expect(() => buildOverlayWidgetPayload(values({ sourceType: 'fixed_text', fixedText: '😀'.repeat(240) }))).not.toThrow();

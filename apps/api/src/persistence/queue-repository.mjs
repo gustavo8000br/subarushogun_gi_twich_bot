@@ -604,7 +604,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         const setting = await tx.setting.findUnique({ where: { key: 'account_state' } });
         return typeof setting?.value?.label === 'string' ? setting.value.label : 'Streamer';
       }
-      if (sourceType === 'queue_name' || sourceType === 'queue_state' || sourceType === 'queue_waiting_count') {
+      if (sourceType === 'queue_name' || sourceType === 'queue_state' || sourceType === 'queue_waiting_count' || sourceType === 'next_waiting_viewer_display_name') {
         if (typeof queueId !== 'string') return null;
         const queue = await tx.queue.findUnique({ where: { id: queueId }, select: { title: true, isOpen: true, lifecycleStatus: true, remoteSyncStatus: true } });
         if (!queue || queue.lifecycleStatus === 'deleted') return null;
@@ -612,6 +612,12 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         if (sourceType === 'queue_state') {
           if (!['synced', 'synced_manual', 'delete_pending'].includes(queue.remoteSyncStatus)) return null;
           return queue.isOpen ? 'open' : 'closed';
+        }
+        if (sourceType === 'next_waiting_viewer_display_name') {
+          // OPS-31 P4 (FT-73, AC 8): the display name of the head of the waiting lane only. The select is the allow-list:
+          // no user id, login, uid, redemption or position of anyone leaves this read. Nobody waiting -> null (nothing shown).
+          const next = await tx.entry.findFirst({ where: { queueId, status: 'waiting' }, orderBy: CANONICAL_WAITING_ORDER, select: { displayName: true } });
+          return typeof next?.displayName === 'string' && next.displayName ? next.displayName : null;
         }
         return tx.entry.count({ where: { queueId, status: 'waiting' } });
       }

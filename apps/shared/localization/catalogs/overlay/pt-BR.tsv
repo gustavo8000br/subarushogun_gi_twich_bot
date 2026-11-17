@@ -5,3 +5,4 @@ overlay.state.closed	Fechada
 overlay.status.unavailable	Fonte indisponível
 overlay.status.data_unavailable	Dados temporariamente indisponíveis
 overlay.status.stale	Atualização atrasada
+overlay.widget.next	Próximo: {name}

@@ -158,7 +158,7 @@ The local panel is at `https://localhost:3000` by default. It includes:
 - **Settings** for account labels.
 - **Channel connection** during setup or when reconnecting is needed; otherwise, it shows the connected account and recovery actions.
 
-The OBS page creates local Browser Source widgets for one selected value or fixed text. Each widget link is shown only once when created or regenerated. Keep it private; revoke or replace it if exposed. The verified OBS setup is Ubuntu 24.04 with OBS Studio 32.2.2 and CEF 127. Windows and macOS OBS certificate behavior has not been verified.
+The OBS page creates local Browser Source widgets for one selected value or fixed text. The source **Next person waiting in a queue** shows "Next: {name}" with the display name of the first waiting person of the chosen queue (the priority lane first, then the queue order); it follows calls, skips, restores and reorders, and shows nothing (or your fallback text) when nobody is waiting. Only the display name is sent to the widget, never an account id or login. Each widget link is shown only once when created or regenerated. Keep it private; revoke or replace it if exposed. The verified OBS setup is Ubuntu 24.04 with OBS Studio 32.2.2 and CEF 127. Windows and macOS OBS certificate behavior has not been verified.
 
 ## Stopping or restarting the bot
 
