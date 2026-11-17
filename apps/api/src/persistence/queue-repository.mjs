@@ -196,6 +196,45 @@ async function renumberWaitingEntries(tx, queueId) {
   })));
 }
 
+const CANONICAL_WAITING_ORDER = [{ priorityClass: 'asc' }, { position: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }];
+const ACTIVE_ENTRY_STATUSES = ['waiting', 'called', 'in_progress'];
+
+/** OPS-31 P3 (G-8, G-9): stable codes for the optimistic version and the restore refusal; the body carries no internal data. */
+function staleEntryVersionError(currentVersion) {
+  return Object.assign(repositoryError('ENTRY_VERSION_STALE', 'Entry changed since it was loaded'), { currentVersion });
+}
+
+function restoreNotAllowedError(reason) {
+  return Object.assign(repositoryError('ENTRY_RESTORE_NOT_ALLOWED', 'Entry cannot be restored'), { reason });
+}
+
+/**
+ * OPS-31 P3 (design 5): an entry that returns to `waiting` (skip of a called entry, restore of an absent one) goes right
+ * into the second place of its OWN lane (UX Q8; lane-relative rule, UX review P3): a default entry never crosses the
+ * priority lane and, with priority entries waiting, lands behind the first default one; a priority entry goes second of the priority lane.
+ * Renumbers every waiting entry and returns the position of the returning one.
+ */
+async function placeReturningEntry(tx, queueId, entry, entryData) {
+  const others = await tx.entry.findMany({ where: { queueId, status: 'waiting', id: { not: entry.id } }, orderBy: CANONICAL_WAITING_ORDER, select: { id: true, priorityClass: true } });
+  const priorityCount = others.filter(({ priorityClass }) => priorityClass === 'priority').length;
+  const index = entry.priorityClass === 'priority' ? Math.min(1, priorityCount) : Math.min(others.length, priorityCount + 1);
+  const ordered = [...others.map(({ id }) => id)];
+  ordered.splice(index, 0, entry.id);
+  await Promise.all(ordered.map((id, position) => (id === entry.id
+    ? tx.entry.update({ where: { id }, data: { ...entryData, position: position + 1 } })
+    : tx.entry.update({ where: { id }, data: { position: position + 1 } }))));
+  return index + 1;
+}
+
+async function assertEntryRestorable(tx, entry) {
+  const other = await tx.entry.findFirst({ where: { queueId: entry.queueId, twitchUserId: entry.twitchUserId, id: { not: entry.id }, status: { in: ACTIVE_ENTRY_STATUSES } }, select: { id: true } });
+  if (other) throw restoreNotAllowedError('other_active_entry');
+  if (!entry.redemptionId) return;
+  // AC 29: a terminal money operation (recorded intent, or a remote state that is no longer open) cannot be walked back.
+  const redemption = await tx.redemption.findUnique({ where: { redemptionId: entry.redemptionId }, select: { expectedStatus: true, remoteStatus: true } });
+  if (redemption && (redemption.expectedStatus !== null || redemption.remoteStatus !== 'UNFULFILLED')) throw restoreNotAllowedError('intent_recorded');
+}
+
 async function enqueueRewardDeleteIntent(tx, queueId, now) {
   const idempotencyKey = `queue:${queueId}:reward.delete`;
   const previous = await tx.outbox.findUnique({ where: { idempotencyKey } });
@@ -1150,6 +1189,17 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       return transact(async (tx) => {
         const entry = await tx.entry.findUnique({ where: { id: entryId } });
         if (!entry || entry.queueId !== queueId || entry.status !== 'called') return { status: 'cancelled' };
+        // OPS-31 P3: an entry that was skipped and is called again reuses its row (the key is unique per entry); a row that is
+        // still waiting to be sent keeps its place, and one being sent is left alone.
+        const callKey = `chat.call:${entryId}`;
+        const previous = await tx.outbox.findUnique({ where: { idempotencyKey: callKey } });
+        if (previous) {
+          if (['pending', 'retry', 'processing'].includes(previous.status)) return previous;
+          return tx.outbox.update({ where: { id: previous.id }, data: {
+            status: 'pending', attempts: 0, nextAttemptAt: clock(), lastError: null, leaseToken: null, leaseUntil: null,
+            payload: isCallPosition(previousPosition) ? { previousPosition } : {},
+          } });
+        }
         return tx.outbox.create({ data: {
           operationType: 'chat.call', entityType: 'entry', entityId: entryId,
           idempotencyKey: `chat.call:${entryId}`, payload: isCallPosition(previousPosition) ? { previousPosition } : {}, entryId,
@@ -2283,15 +2333,17 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       });
     },
 
-    async moveWaitingEntry({ queueId, entryId, position }) {
+    async moveWaitingEntry({ queueId, entryId, position, expectedVersion }) {
       return withQueueTransaction(transact, queueId, async (tx) => {
         const waiting = await tx.entry.findMany({
           where: { queueId, status: 'waiting' },
-          orderBy: [{ priorityClass: 'asc' }, { position: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
-          select: { id: true, priorityClass: true },
+          orderBy: CANONICAL_WAITING_ORDER,
+          select: { id: true, priorityClass: true, version: true, userLogin: true },
         });
         const current = waiting.find(({ id }) => id === entryId);
         if (!current) throw repositoryError('ENTRY_NOT_WAITING', 'Entry is not waiting in this queue');
+        // OPS-31 P3 (G-8): the panel move sends the version of the entry it moved; compared after the queue lock.
+        if (Number.isInteger(expectedVersion) && current.version !== expectedVersion) throw staleEntryVersionError(current.version);
         const lane = waiting.filter(({ priorityClass }) => priorityClass === current.priorityClass);
         if (!Number.isInteger(position) || position < 1 || position > lane.length) {
           throw repositoryError('INVALID_QUEUE_POSITION', 'Requested queue position is invalid');
@@ -2308,6 +2360,11 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           where: { id },
           data: { position: index + 1, version: { increment: 1 } },
         })));
+        // AC 7: one aggregated notice (a burst of moves in one window leaves one row); it lists the people whose place changed.
+        const before = new Map(waiting.map(({ id }, index) => [id, index]));
+        const affected = reordered.filter(({ id }, index) => before.get(id) !== index).map(({ userLogin }) => userLogin);
+        const queue = await tx.queue.findUnique({ where: { id: queueId } });
+        await enqueueChatNotice(tx, { kind: 'reordered', queue, now: clock(), names: affected });
         return { status: 'moved', entryId, position };
       });
     },
@@ -2319,10 +2376,13 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       const initial = await prisma.entry.findUnique({ where: { id: entryId }, select: { queueId: true } });
       if (!initial) throw repositoryError('ENTRY_NOT_FOUND', 'Entry was not found');
 
-      return withQueueTransaction(transact, initial.queueId, async (tx) => {
+      try {
+      return await withQueueTransaction(transact, initial.queueId, async (tx) => {
         const entry = await tx.entry.findUnique({ where: { id: entryId } });
         const queue = await tx.queue.findUnique({ where: { id: initial.queueId } });
         if (!entry || !queue) throw repositoryError('ENTRY_NOT_FOUND', 'Entry was not found');
+        // OPS-31 P3 (G-8): a panel action sends the version it saw; the comparison happens after the queue lock. Chat and timer paths send none.
+        if (Number.isInteger(input.expectedVersion) && entry.version !== input.expectedVersion) throw staleEntryVersionError(entry.version);
         if (origin === 'timer' && reason === 'call_timeout') {
           const cutoff = input.deadlineCutoff;
           if (to !== 'no_show' || entry.status !== 'called' || entry.callAcknowledgedAt || !(entry.callDeadlineAt instanceof Date)
@@ -2331,6 +2391,23 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         let decision = decideTransition({ entry, queue, input });
 
         const now = clock();
+        if (to === 'waiting') {
+          // Skip (`called`) or restore (`no_show`): no financial effect (the decision above is `no_operation`).
+          if (queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue does not take entries back');
+          if (entry.status === 'no_show') await assertEntryRestorable(tx, entry);
+          const position = await placeReturningEntry(tx, entry.queueId, entry, {
+            status: 'waiting', version: { increment: 1 }, calledAt: null, callNotifiedAt: null, callDeadlineAt: null, callAcknowledgedAt: null,
+            startedAt: null, finishedAt: null, terminalReason: null,
+          });
+          const returned = await tx.entry.findUnique({ where: { id: entryId } });
+          await tx.outbox.updateMany({ where: { operationType: 'chat.call', entryId, status: { in: ['pending', 'retry'] } }, data: { status: 'cancelled', lastError: 'entry_returned_to_waiting' } });
+          await tx.auditLog.create({ data: {
+            queueId: entry.queueId, entryId, redemptionId: entry.redemptionId, event: 'entry.transitioned', actorId, origin,
+            previousState: entry.status, nextState: 'waiting', reason, safeDetail: { financialDecision: 'no_operation', position },
+          } });
+          await enqueueChatNotice(tx, { kind: entry.status === 'called' ? 'skipped' : 'restored', queue, now, entryId, entryVersion: returned.version, user: entry.userLogin, position });
+          return { ...returned, financialDecision: 'no_operation', policySnapshot: decision.policySnapshot };
+        }
         const data = {
           status: to,
           position: null,
@@ -2400,8 +2477,14 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           }
         }
         if (to === 'completed') await enqueueChatNotice(tx, { kind: 'service_ended', queue, now, entryId: entry.id, entryVersion: updated.version, user: entry.userLogin });
+        if (to === 'no_show') await enqueueChatNotice(tx, { kind: 'no_show', queue, now, entryId: entry.id, entryVersion: updated.version, user: entry.userLogin });
         return { ...updated, financialDecision: decision.financialDecision, policySnapshot: decision.policySnapshot };
       });
+      } catch (error) {
+        // The active-entry unique index is the last guard when another path wrote an active entry for the same person.
+        if (to === 'waiting' && isUniqueConstraintError(error)) throw restoreNotAllowedError('other_active_entry');
+        throw error;
+      }
     },
 
     async claimNext({ now = clock(), leaseMs = 30_000 } = {}) {

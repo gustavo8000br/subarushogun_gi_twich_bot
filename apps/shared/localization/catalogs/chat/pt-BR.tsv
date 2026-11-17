@@ -106,3 +106,8 @@ chat.notice.service_ended	@{user}, seu atendimento na fila {queue} terminou. Obr
 chat.notice.cleared.one	A fila {queue} foi limpa. {count} pessoa removida.
 chat.notice.cleared.many	A fila {queue} foi limpa. {count} pessoas removidas.
 chat.notice.cleared.other	A fila {queue} foi limpa. {count} pessoas removidas.
+chat.notice.no_show	@{user}, a chamada na fila {queue} ficou sem resposta e sua entrada foi marcada como ausente. Se foi engano, avise o streamer.
+chat.notice.skipped	@{user}, sua vez na fila {queue} foi adiada. Você continua na fila e agora está na posição {position}.
+chat.notice.restored	@{user}, a marcação de ausência foi desfeita. Você voltou para a fila {queue} na posição {position}.
+chat.notice.reordered	A ordem da fila {queue} mudou. Use o comando da fila para ver sua posição.
+chat.notice.reordered_list	A ordem da fila {queue} mudou. Mudaram de lugar: {names}. Use o comando da fila para ver sua posição.

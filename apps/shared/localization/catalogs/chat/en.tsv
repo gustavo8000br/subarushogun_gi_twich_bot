@@ -103,3 +103,8 @@ chat.notice.queue_reopened	{queue} is open again. Redeem the reward to join.
 chat.notice.service_ended	@{user}, your service in {queue} is finished. Thank you!
 chat.notice.cleared.one	{queue} was cleared. {count} person removed.
 chat.notice.cleared.other	{queue} was cleared. {count} people removed.
+chat.notice.no_show	@{user}, the call in {queue} went unanswered, so your entry was marked absent. If this was a mistake, tell the streamer.
+chat.notice.skipped	@{user}, your turn in {queue} was postponed. You keep your spot and are now at position {position}.
+chat.notice.restored	@{user}, you are no longer marked absent. You are back in {queue} at position {position}.
+chat.notice.reordered	The order of {queue} changed. Use the queue command to see your position.
+chat.notice.reordered_list	The order of {queue} changed. Places changed for: {names}. Use the queue command to see your position.

@@ -40,7 +40,6 @@ const CHECKBOX_LABELS = Object.freeze({
 const NOTICE_HELP_KEYS = Object.freeze({
   noticeJoined: 'panel.notice_settings.joined_help',
   noticeService: 'panel.notice_settings.service_help',
-  noticeReordered: 'panel.notice_settings.soon_help',
   noticePoints: 'panel.notice_settings.soon_help',
 });
 

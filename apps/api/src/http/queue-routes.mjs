@@ -29,6 +29,8 @@ const PANEL_TRANSITION_REASONS = Object.freeze({
   completed: ['service_completed'],
   removed: ['operator_removed'],
   no_show: ['operator_no_show'],
+  // OPS-31 P3: skip (from `called`) and restore (from `no_show`); the domain checks the label against the current status.
+  waiting: ['operator_skip', 'operator_restore'],
 });
 
 function routeError(error) {
@@ -36,7 +38,7 @@ function routeError(error) {
   if (['DUPLICATE_QUEUE_KEY'].includes(error?.code)) return 409;
   if (error?.code === 'QUEUE_NOT_FOUND' || error?.code === 'ENTRY_NOT_FOUND') return 404;
   // OPS-31 P0 (W3-4): a double click, a stale panel or a race with the timer is a conflict, never an `application_error`.
-  if (['QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY', 'QUEUE_MODE_TRANSITION_PENDING', 'QUEUE_MODE_TRANSITION_UNAVAILABLE', 'QUEUE_OPEN_WHILE_ARCHIVED', 'INVALID_ENTRY_TRANSITION'].includes(error?.code)) return 409;
+  if (['QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY', 'QUEUE_MODE_TRANSITION_PENDING', 'QUEUE_MODE_TRANSITION_UNAVAILABLE', 'QUEUE_OPEN_WHILE_ARCHIVED', 'INVALID_ENTRY_TRANSITION', 'ENTRY_VERSION_STALE', 'ENTRY_RESTORE_NOT_ALLOWED'].includes(error?.code)) return 409;
   // OPS-31 P0 (DB-11): lock_timeout / statement_timeout is retryable; the callers send it with a referenceId and generic text.
   if (error?.code === 'DATABASE_TIMEOUT') return 503;
   return 500;
@@ -505,13 +507,15 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   });
   app.post('/api/queues/:queueId/move', async (request, reply) => {
     const localRequest = /** @type {any} */ (request);
-    const { entryId, position } = localRequest.body ?? {};
-    if (typeof entryId !== 'string' || entryId.length > 64 || !Number.isInteger(position) || position < 1 || position > 10_000) {
+    const { entryId, position, expectedVersion } = localRequest.body ?? {};
+    if (typeof entryId !== 'string' || entryId.length > 64 || !Number.isInteger(position) || position < 1 || position > 10_000
+      || (expectedVersion !== undefined && (!Number.isInteger(expectedVersion) || expectedVersion < 1))) {
       return reply.code(400).send({ error: 'Informe uma entrada e uma posição válida.' });
     }
     try {
-      return await repository.moveWaitingEntry({ queueId: localRequest.params.queueId, entryId, position });
+      return await repository.moveWaitingEntry({ queueId: localRequest.params.queueId, entryId, position, ...(expectedVersion === undefined ? {} : { expectedVersion }) });
     } catch (error) {
+      if (error?.code === 'ENTRY_VERSION_STALE') return reply.code(409).send({ code: error.code, version: error.currentVersion, error: userError(error) });
       if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ error: 'Fila não encontrada.' });
       if (error?.code === 'ENTRY_NOT_WAITING' || error?.code === 'INVALID_QUEUE_POSITION') return reply.code(409).send({ error: 'A pessoa não está aguardando ou a posição não está mais disponível. Atualize o painel.' });
       return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.move', error, statusCode: 503, message: 'Não foi possível reorganizar a fila.' });
@@ -620,10 +624,14 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       || typeof body.reason !== 'string' || !PANEL_TRANSITION_REASONS[body.to].includes(body.reason)) {
       return reply.code(400).send({ error: 'Ação de atendimento inválida.' });
     }
+    // OPS-31 P3 (G-8): the panel sends the version it saw; optional, so older clients keep working.
+    if (body.expectedVersion !== undefined && (!Number.isInteger(body.expectedVersion) || body.expectedVersion < 1)) {
+      return reply.code(400).send({ error: 'Ação de atendimento inválida.' });
+    }
     try {
       /** @type {any} */
       const localRequest = request;
-      const result = await domainService.transitionEntry({ entryId: localRequest.params.entryId, to: body.to, origin: 'panel', trigger: 'panel_action', reason: body.reason, actorId: localRequest.localSession?.id });
+      const result = await domainService.transitionEntry({ entryId: localRequest.params.entryId, to: body.to, origin: 'panel', trigger: 'panel_action', reason: body.reason, actorId: localRequest.localSession?.id, ...(body.expectedVersion === undefined ? {} : { expectedVersion: body.expectedVersion }) });
       return { id: result.id, status: result.status, financialDecision: result.financialDecision };
     } catch (error) {
       const statusCode = routeError(error);
@@ -634,7 +642,12 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
         statusCode,
         message: userError(error),
       });
-      return reply.code(statusCode).send({ ...(error?.code === 'INVALID_ENTRY_TRANSITION' ? { code: error.code } : {}), error: userError(error) });
+      return reply.code(statusCode).send({
+        ...(['INVALID_ENTRY_TRANSITION', 'ENTRY_VERSION_STALE', 'ENTRY_RESTORE_NOT_ALLOWED'].includes(error?.code) ? { code: error.code } : {}),
+        ...(error?.code === 'ENTRY_VERSION_STALE' && Number.isInteger(error.currentVersion) ? { version: error.currentVersion } : {}),
+        ...(error?.code === 'ENTRY_RESTORE_NOT_ALLOWED' && ['intent_recorded', 'other_active_entry'].includes(error.reason) ? { reason: error.reason } : {}),
+        error: userError(error),
+      });
     }
   });
   app.post('/api/entries/:entryId/call-notification/resend', async (request, reply) => {
@@ -882,6 +895,10 @@ function userError(error) {
   if (error?.code === 'QUEUE_MODE_TRANSITION_PENDING') return 'A troca do modo da fila ainda está sendo confirmada pela Twitch.';
   if (error?.code === 'QUEUE_MODE_TRANSITION_UNAVAILABLE') return 'A troca para fila local não está disponível neste estado.';
   if (error?.code === 'INVALID_UID') return 'O UID deve conter exatamente 9 dígitos ASCII.';
+  if (error?.code === 'ENTRY_VERSION_STALE') return 'A pessoa mudou de estado desde que a fila foi carregada. Atualize o painel.';
+  if (error?.code === 'ENTRY_RESTORE_NOT_ALLOWED') return error.reason === 'other_active_entry'
+    ? 'Essa pessoa já tem outra entrada ativa nesta fila.'
+    : 'Não é possível restaurar: a devolução ou conclusão dos pontos já foi registrada.';
   if (error?.code === 'INVALID_ENTRY_TRANSITION') return 'Essa ação não está disponível para o estado atual do atendimento. Atualize a fila.';
   return 'Não foi possível concluir a operação.';
 }
