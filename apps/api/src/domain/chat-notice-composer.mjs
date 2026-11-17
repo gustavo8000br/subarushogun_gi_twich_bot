@@ -36,7 +36,7 @@ export const REFUSAL_NOTICE_KIND_BY_REASON = Object.freeze({
 /** Text of the reorder notice that lists the people who moved (its names end with the `chat.queue.more` suffix). */
 export const CHAT_NOTICE_LIST_KEYS = Object.freeze({ reordered: 'chat.notice.reordered_list' });
 /** Most names a reorder notice lists before "and N more" (the 500-character check can lower it further). */
-export const CHAT_NOTICE_MAX_LISTED_NAMES = 10;
+export const CHAT_NOTICE_MAX_LISTED_NAMES = 5;
 const MORE_SUFFIX_KEY = 'chat.queue.more';
 
 export const CHAT_NOTICE_PLACEHOLDERS = Object.freeze({

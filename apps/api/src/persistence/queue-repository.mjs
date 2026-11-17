@@ -210,13 +210,14 @@ function restoreNotAllowedError(reason) {
 
 /**
  * OPS-31 P3 (design 5): an entry that returns to `waiting` (skip of a called entry, restore of an absent one) goes right
- * after the first waiting entry (UX Q8, position 2), but never ahead of the priority lane unless it is a priority entry.
+ * into the second place of its OWN lane (UX Q8; lane-relative rule, UX review P3): a default entry never crosses the
+ * priority lane and, with priority entries waiting, lands behind the first default one; a priority entry goes second of the priority lane.
  * Renumbers every waiting entry and returns the position of the returning one.
  */
 async function placeReturningEntry(tx, queueId, entry, entryData) {
   const others = await tx.entry.findMany({ where: { queueId, status: 'waiting', id: { not: entry.id } }, orderBy: CANONICAL_WAITING_ORDER, select: { id: true, priorityClass: true } });
   const priorityCount = others.filter(({ priorityClass }) => priorityClass === 'priority').length;
-  const index = entry.priorityClass === 'priority' ? Math.min(1, priorityCount) : Math.min(others.length, Math.max(1, priorityCount));
+  const index = entry.priorityClass === 'priority' ? Math.min(1, priorityCount) : Math.min(others.length, priorityCount + 1);
   const ordered = [...others.map(({ id }) => id)];
   ordered.splice(index, 0, entry.id);
   await Promise.all(ordered.map((id, position) => (id === entry.id

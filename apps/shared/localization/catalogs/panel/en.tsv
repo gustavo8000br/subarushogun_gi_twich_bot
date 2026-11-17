@@ -858,7 +858,7 @@ panel.widget.weight.900	Black (900)
 panel.notice_settings.legend	Chat notices
 panel.notice_settings.joined	Tell people their position when they join, and why a redemption was refused
 panel.notice_settings.joined_help	Turn this off to keep these messages out of chat. A refused redemption still gets its points returned; the person is just not told in chat.
-panel.notice_settings.service	Announce when someone's service ends, or they are marked absent, skipped or brought back
+panel.notice_settings.service	Announce service changes: ended, marked absent, postponed or brought back
 panel.notice_settings.service_help	The message about the next person is coming soon.
 panel.notice_settings.state	Announce when the queue is closed, reopened or cleared
 panel.notice_settings.reordered	Announce who moved when you reorder the queue

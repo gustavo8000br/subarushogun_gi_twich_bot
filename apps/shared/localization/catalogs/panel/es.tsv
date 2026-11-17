@@ -865,7 +865,7 @@ panel.widget.weight.900	Negra (900)
 panel.notice_settings.legend	Avisos en el chat
 panel.notice_settings.joined	Decir la posición al entrar y avisar por qué se rechaza un canje
 panel.notice_settings.joined_help	Desactívalo para que estos mensajes no salgan en el chat. A un canje rechazado se le siguen devolviendo los puntos; solo que la persona no recibe aviso en el chat.
-panel.notice_settings.service	Avisar cuando termina la atención de alguien, o se le marca ausente, se le aplaza o se le devuelve
+panel.notice_settings.service	Avisar cambios en la atención: terminó, ausente, aplazada o devuelta
 panel.notice_settings.service_help	El aviso sobre el siguiente llegará pronto.
 panel.notice_settings.state	Avisar cuando la cola se cierra, reabre o vacía
 panel.notice_settings.reordered	Avisar quién cambió de lugar cuando reordenes la cola

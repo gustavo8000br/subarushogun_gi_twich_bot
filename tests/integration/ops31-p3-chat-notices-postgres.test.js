@@ -119,17 +119,27 @@ describe('OPS-31 P3 skip, restore, absence and reorder on isolated PostgreSQL', 
     expect(await waitingLogins(queue.id)).toEqual(['bia:1', 'ana:2']);
   });
 
-  it('a skipped standard entry never passes the priority lane (it takes the head of the standard lane); a skipped priority entry goes after the first priority entry', async () => {
+  it('a skipped standard entry never passes the priority lane and returns second in the standard lane; a skipped priority entry goes after the first priority entry', async () => {
     const queue = await newQueue();
-    const [p1, p2, s1, s2] = [await join(queue, 'P1'), await join(queue, 'P2'), await join(queue, 'S1'), await join(queue, 'S2')];
+    const [p1, p2, s1] = [await join(queue, 'P1'), await join(queue, 'P2'), await join(queue, 'S1')];
+    await join(queue, 'S2');
     for (const entry of [p1, p2]) await repository.setEntryPriority({ queueId: queue.id, entryId: entry.id, priority: true, reason: 'operator_override' });
     await panel(s1.id, 'called', 'operator_call');
     await panel(s1.id, 'waiting', 'operator_skip');
-    expect((await entriesOf(queue.id, { status: 'waiting' })).map((entry) => entry.userLogin)).toEqual(['p1', 'p2', 's1', 's2']);
+    expect((await entriesOf(queue.id, { status: 'waiting' })).map((entry) => entry.userLogin)).toEqual(['p1', 'p2', 's2', 's1']);
     await panel(p1.id, 'called', 'operator_call');
     await panel(p1.id, 'waiting', 'operator_skip');
-    expect((await entriesOf(queue.id, { status: 'waiting' })).map((entry) => `${entry.userLogin}:${entry.position}`)).toEqual(['p2:1', 'p1:2', 's1:3', 's2:4']);
-    expect(s2.id).toBeTruthy();
+    expect((await entriesOf(queue.id, { status: 'waiting' })).map((entry) => `${entry.userLogin}:${entry.position}`)).toEqual(['p2:1', 'p1:2', 's2:3', 's1:4']);
+  });
+
+  it('lane rule: a default skip with 2 priority and 3 more default waiting returns at position 4 of 6 (second of the default lane)', async () => {
+    const queue = await newQueue();
+    const [p1, p2, d1] = [await join(queue, 'P1'), await join(queue, 'P2'), await join(queue, 'D1')];
+    for (const name of ['D2', 'D3', 'D4']) await join(queue, name);
+    for (const entry of [p1, p2]) await repository.setEntryPriority({ queueId: queue.id, entryId: entry.id, priority: true, reason: 'operator_override' });
+    await panel(d1.id, 'called', 'operator_call');
+    await panel(d1.id, 'waiting', 'operator_skip');
+    expect(await waitingLogins(queue.id)).toEqual(['p1:1', 'p2:2', 'd2:3', 'd1:4', 'd3:5', 'd4:6']);
   });
 
   it('a skip cancels the call message still waiting to be sent, and the entry can be called again (one reusable call row)', async () => {

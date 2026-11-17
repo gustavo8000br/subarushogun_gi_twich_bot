@@ -32,9 +32,9 @@ describe('P3 notice texts', () => {
         if (kind === 'skipped' || kind === 'restored') expect(text).toContain('2');
       }
     }
-    expect(composeChatNotice({ kind: 'skipped', locale: 'en', catalogs, params })).toBe('@Viewer, your turn in Abyss was moved. You are now at position 2.');
-    expect(composeChatNotice({ kind: 'restored', locale: 'pt-BR', catalogs, params })).toBe('@Viewer, sua ausência foi desfeita. Você voltou à fila Abyss na posição 2.');
-    expect(composeChatNotice({ kind: 'no_show', locale: 'es', catalogs, params })).toBe('@Viewer, no respondiste a la llamada en la cola Abyss y se te marcó como ausente.');
+    expect(composeChatNotice({ kind: 'skipped', locale: 'en', catalogs, params })).toBe('@Viewer, your turn in Abyss was postponed. You keep your spot and are now at position 2.');
+    expect(composeChatNotice({ kind: 'restored', locale: 'pt-BR', catalogs, params })).toBe('@Viewer, a marcação de ausência foi desfeita. Você voltou para a fila Abyss na posição 2.');
+    expect(composeChatNotice({ kind: 'no_show', locale: 'es', catalogs, params })).toBe('@Viewer, la llamada en la cola Abyss quedó sin respuesta y tu entrada se marcó como ausente. Si fue un error, avísale al streamer.');
   });
 
   it('the service group carries absence, skip and restore; the reorder has its own switch and a lower priority', () => {
@@ -44,19 +44,21 @@ describe('P3 notice texts', () => {
 
   it('U71-12: the reorder notice lists the people who moved, whole names, then "and N more" (three languages)', () => {
     const names = Array.from({ length: 14 }, (_, index) => `viewer${index + 1}`);
-    const expected = { en: ' and 4 more', es: ' y 4 más', 'pt-BR': ' e mais 4' };
+    expect(CHAT_NOTICE_MAX_LISTED_NAMES).toBe(5);
+    const rest = names.length - CHAT_NOTICE_MAX_LISTED_NAMES;
+    const expected = { en: ` and ${rest} more`, es: ` y ${rest} más`, 'pt-BR': ` e mais ${rest}` };
     for (const locale of LOCALES) {
       const text = composeChatNotice({ kind: 'reordered', locale, catalogs, params: { queue: 'Abyss', names } });
       expect(text).toContain('@viewer1, @viewer2');
       expect(text).toContain(`@viewer${CHAT_NOTICE_MAX_LISTED_NAMES}${expected[locale]}`);
-      expect(text).not.toContain('@viewer11');
+      expect(text).not.toContain(`@viewer${CHAT_NOTICE_MAX_LISTED_NAMES + 1}`);
     }
     const few = composeChatNotice({ kind: 'reordered', locale: 'en', catalogs, params: { queue: 'Abyss', names: ['ana', 'bia'] } });
-    expect(few).toBe('The order of Abyss changed. Moved: @ana, @bia. Use the queue command to see your position.');
-    expect(composeChatNotice({ kind: 'reordered', locale: 'en', catalogs, params: { queue: 'Abyss', names: ['solo'] } })).toContain('Moved: @solo.');
+    expect(few).toBe('The order of Abyss changed. Places changed for: @ana, @bia. Use the queue command to see your position.');
+    expect(composeChatNotice({ kind: 'reordered', locale: 'en', catalogs, params: { queue: 'Abyss', names: ['solo'] } })).toContain('Places changed for: @solo.');
     expect(composeChatNotice({ kind: 'reordered', locale: 'en', catalogs, params: { queue: 'Abyss', names: [] } }))
       .toBe('The order of Abyss changed. Use the queue command to see your position.');
-    expect(composeChatNotice({ kind: 'reordered', locale: 'en', catalogs, params: { queue: 'Abyss' } })).not.toContain('Moved');
+    expect(composeChatNotice({ kind: 'reordered', locale: 'en', catalogs, params: { queue: 'Abyss' } })).not.toContain('Places changed for');
   });
 
   it('U71-12: stays within 500 characters with multi-byte names and a long queue title, never cutting a name', () => {
@@ -70,7 +72,7 @@ describe('P3 notice texts', () => {
     }
     // shrinking drops names (longest list that fits), it does not drop the notice
     const fits = composeChatNotice({ kind: 'reordered', locale: 'en', catalogs, params: { queue: 'Abyss', names } });
-    expect(fits.match(/@/g).length).toBeLessThan(10);
+    expect(fits.match(/@/g).length).toBeLessThanOrEqual(CHAT_NOTICE_MAX_LISTED_NAMES);
     expect(fits).toMatch(/ and \d+ more/);
   });
 
@@ -91,7 +93,7 @@ describe('P3 notice worker', () => {
     };
     const worker = createChatNoticeWorker({ repository, twitch: { sendChatMessage: async (text, options) => { sent.push([text, options]); return { sent: true }; } }, getChatCatalogs: async () => catalogs });
     expect(await worker.processOne()).toBe('confirmed');
-    expect(sent).toEqual([['The order of Abyss changed. Moved: @ana, @bia. Use the queue command to see your position.', { priority: 2 }]]);
+    expect(sent).toEqual([['The order of Abyss changed. Places changed for: @ana, @bia. Use the queue command to see your position.', { priority: 2 }]]);
 
     task.queue.noticeReordered = false;
     expect(await worker.processOne()).toBe('cancelled');
