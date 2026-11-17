@@ -37,6 +37,10 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'chat.notice.reordered': Object.freeze(['queue']),
     'chat.notice.reordered_list': Object.freeze(['queue', 'names']),
   }),
+  // OPS-31 P4: the widget "next" text has one {name} slot, filled by apps/shared/panel/overlay-renderer.mjs.
+  overlay: Object.freeze({
+    'overlay.widget.next': Object.freeze(['name']),
+  }),
   setup: Object.freeze({
     'setup.callback.success_message': Object.freeze(['channel']),
     'setup.callback.return_message': Object.freeze(['seconds']),

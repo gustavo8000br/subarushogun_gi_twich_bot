@@ -377,6 +377,7 @@ panel.widget.source.queue_state	Estado abierta/cerrada de una cola
 panel.widget.source.queue_count	Cantidad de personas en espera en una cola
 panel.widget.source.called_name	Persona llamada
 panel.widget.source.called_position	Posición original de la persona llamada
+panel.widget.source.next_name	Siguiente persona en espera en una cola
 panel.widget.source.fixed_text	Texto fijo
 panel.widget.source.unknown	Widget
 panel.widget.status.unavailable	Widget no disponible
@@ -402,6 +403,7 @@ panel.widget.preview_example	Ejemplo del widget
 panel.widget.preview.waiting	4 en espera
 panel.widget.preview.open	Abierta
 panel.widget.preview.called	Viewer llamado
+panel.widget.preview.next	Siguiente: Nombre de ejemplo
 panel.widget.fixed_text_label	Texto fijo
 panel.widget.background_color	Color de fondo
 panel.widget.background_opacity	Opacidad del fondo (%)

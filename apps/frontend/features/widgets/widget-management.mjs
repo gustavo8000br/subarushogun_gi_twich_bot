@@ -3,12 +3,13 @@ export const WIDGET_SOURCE_KEYS = Object.freeze({
   queue_name: 'panel.widget.source.queue_name',
   queue_state: 'panel.widget.source.queue_state',
   queue_waiting_count: 'panel.widget.source.queue_count',
+  next_waiting_viewer_display_name: 'panel.widget.source.next_name',
   called_viewer_display_name: 'panel.widget.source.called_name',
   called_viewer_position: 'panel.widget.source.called_position',
   fixed_text: 'panel.widget.source.fixed_text',
 });
 
-export const QUEUE_WIDGET_SOURCES = new Set(['queue_name', 'queue_state', 'queue_waiting_count']);
+export const QUEUE_WIDGET_SOURCES = new Set(['queue_name', 'queue_state', 'queue_waiting_count', 'next_waiting_viewer_display_name']);
 
 export const DEFAULT_WIDGET_STYLE = Object.freeze({
   textColor: '#FFFFFF', backgroundColor: '#000000', backgroundOpacity: 0, fontFamily: 'system-ui', fontSize: 32,

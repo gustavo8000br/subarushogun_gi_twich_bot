@@ -158,7 +158,7 @@ O painel local abre em `https://localhost:3000` por padrão. Ele tem:
 - **Configurações** para rótulos de conta.
 - **Conexão do canal** durante a configuração ou quando for preciso reconectar; nos demais casos, mostra a conta conectada e opções de recuperação.
 
-A página do OBS cria widgets locais de Browser Source para um único dado selecionado ou texto fixo. O link de cada widget aparece uma única vez ao criar ou gerar novamente. Mantenha-o privado; revogue ou substitua se for exposto. A configuração validada para OBS foi Ubuntu 24.04 com OBS Studio 32.2.2 e CEF 127. O comportamento do certificado OBS no Windows e macOS não foi verificado.
+A página do OBS cria widgets locais de Browser Source para um único dado selecionado ou texto fixo. A fonte **Próxima pessoa em espera em uma fila** mostra "Próximo: {nome}" com o nome de exibição da primeira pessoa em espera da fila escolhida (primeiro a faixa de prioridade, depois a ordem da fila); acompanha chamadas, adiamentos, restaurações e reordenações, e não mostra nada (ou o seu texto alternativo) quando ninguém espera. Só o nome de exibição vai ao widget, nunca um identificador de conta nem o login. O link de cada widget aparece uma única vez ao criar ou gerar novamente. Mantenha-o privado; revogue ou substitua se for exposto. A configuração validada para OBS foi Ubuntu 24.04 com OBS Studio 32.2.2 e CEF 127. O comportamento do certificado OBS no Windows e macOS não foi verificado.
 
 ## Parar ou reiniciar o bot
 

@@ -377,6 +377,7 @@ panel.widget.source.queue_state	Whether a queue is open or closed
 panel.widget.source.queue_count	Number waiting in a queue
 panel.widget.source.called_name	Called person
 panel.widget.source.called_position	Called person’s original position
+panel.widget.source.next_name	Next person waiting in a queue
 panel.widget.source.fixed_text	Fixed text
 panel.widget.source.unknown	Widget
 panel.widget.status.unavailable	Widget unavailable
@@ -402,6 +403,7 @@ panel.widget.preview_example	Widget example
 panel.widget.preview.waiting	4 waiting
 panel.widget.preview.open	Open
 panel.widget.preview.called	Viewer called
+panel.widget.preview.next	Next: Sample name
 panel.widget.fixed_text_label	Fixed text
 panel.widget.background_color	Background color
 panel.widget.background_opacity	Background opacity (%)
