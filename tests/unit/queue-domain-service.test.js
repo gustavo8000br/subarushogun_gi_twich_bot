@@ -134,6 +134,19 @@ describe('queue domain service', () => {
     expect(repository.callNext).toHaveBeenCalledOnce();
   });
 
+  it('G-14: types the trigger of a single-entry transition and refuses the clear/delete trigger', async () => {
+    const repository = { applyEntryTransition: vi.fn(async ({ input }) => ({ id: input.entryId, trigger: input.trigger })) };
+    const service = createQueueDomainService({ repository });
+
+    await expect(service.transitionEntry({ entryId: 'e1', to: 'removed', origin: 'panel', reason: 'queue_cleared' })).resolves.toMatchObject({ trigger: 'panel_action' });
+    await expect(service.transitionEntry({ entryId: 'e1', to: 'no_show', origin: 'timer', reason: 'call_timeout' })).resolves.toMatchObject({ trigger: 'timer' });
+    await expect(service.transitionEntry({ entryId: 'e1', to: 'removed', origin: 'panel', trigger: 'queue_cleared', reason: 'operator_removed' }))
+      .rejects.toMatchObject({ code: 'INVALID_ENTRY_TRIGGER' });
+    await expect(service.transitionEntry({ entryId: 'e1', to: 'removed', origin: 'panel', trigger: 'queue_deleted', reason: 'operator_removed' }))
+      .rejects.toMatchObject({ code: 'INVALID_ENTRY_TRIGGER' });
+    expect(repository.applyEntryTransition).toHaveBeenCalledTimes(2);
+  });
+
   it('routes snapshot clearing through the same transition decision function', async () => {
     let decision;
     const repository = {
@@ -141,7 +154,7 @@ describe('queue domain service', () => {
         decision = decideTransition({
           entry: { status: 'in_progress', source: 'redemption' },
           queue: { refundIfRemovedWhileCalled: false },
-          input: { to: 'removed', origin: 'panel', reason: 'queue_cleared' },
+          input: { to: 'removed', origin: 'panel', trigger: 'queue_cleared', reason: 'queue_cleared' },
         });
         return { status: 'cleared', count: 1, refundsRequested: Number(decision.financialDecision === 'request_cancel') };
       }),

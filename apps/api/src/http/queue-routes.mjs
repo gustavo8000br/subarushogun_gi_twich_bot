@@ -22,6 +22,15 @@ function mutationFingerprint(request) {
 /** Stable, non-sensitive outcome codes the manual-admission form may use to explain a 4xx precisely. */
 const MANUAL_ENTRY_PUBLIC_CODES = new Set(['QUEUE_NOT_FOUND', 'QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY', 'QUEUE_MODE_TRANSITION_PENDING', 'QUEUE_MODE_TRANSITION_UNAVAILABLE']);
 
+/** Audit labels the panel may send per target status (G-14). The panel UI sends the first four; the fifth is reserved for a panel no-show. */
+const PANEL_TRANSITION_REASONS = Object.freeze({
+  called: ['operator_call'],
+  in_progress: ['service_started'],
+  completed: ['service_completed'],
+  removed: ['operator_removed'],
+  no_show: ['operator_no_show'],
+});
+
 function routeError(error) {
   if (['INVALID_QUEUE_KEY', 'RESERVED_QUEUE_KEY', 'INVALID_QUEUE_ALIASES', 'INVALID_UID'].includes(error?.code)) return 400;
   if (['DUPLICATE_QUEUE_KEY'].includes(error?.code)) return 409;
@@ -603,14 +612,16 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   app.post('/api/entries/:entryId/transitions', async (request, reply) => {
     /** @type {Record<string, any>} */
     const body = request.body && typeof request.body === 'object' ? request.body : {};
-    if (!['called', 'in_progress', 'completed', 'removed', 'no_show'].includes(body.to)
-      || typeof body.reason !== 'string' || !/^[a-z][a-z0-9_]{1,47}$/.test(body.reason)) {
+    // OPS-31 P1 (G-14): `reason` is an audit label from a closed list per target status; it can never carry the
+    // clear/delete trigger, and the domain service types the trigger as `panel_action`.
+    if (!Object.hasOwn(PANEL_TRANSITION_REASONS, body.to)
+      || typeof body.reason !== 'string' || !PANEL_TRANSITION_REASONS[body.to].includes(body.reason)) {
       return reply.code(400).send({ error: 'Ação de atendimento inválida.' });
     }
     try {
       /** @type {any} */
       const localRequest = request;
-      const result = await domainService.transitionEntry({ entryId: localRequest.params.entryId, to: body.to, origin: 'panel', reason: body.reason, actorId: localRequest.localSession?.id });
+      const result = await domainService.transitionEntry({ entryId: localRequest.params.entryId, to: body.to, origin: 'panel', trigger: 'panel_action', reason: body.reason, actorId: localRequest.localSession?.id });
       return { id: result.id, status: result.status, financialDecision: result.financialDecision };
     } catch (error) {
       const statusCode = routeError(error);

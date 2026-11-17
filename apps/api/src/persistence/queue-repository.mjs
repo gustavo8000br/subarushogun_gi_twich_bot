@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { isDatabaseTimeout } from './database-errors.mjs';
+import { findFinancialTask, recordFinancialIntent } from './financial-gate.mjs';
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { validateUidInput } from '../domain/uid.mjs';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog.mjs';
@@ -408,28 +409,12 @@ function validateAccountLabel(label) {
   }
 }
 
-// OPS-31 P0 (W3-1): `financial:{redemptionId}` is unique, so a redemption that already has an intent (for example the
-// `redemption.fulfill` of an `in_progress` entry) must not get a second one: the clear and the first deletion pass used to
-// raise on the UNIQUE key and roll the whole operation back. Returns true only when a cancellation was recorded.
-async function createCancellationIntent(tx, redemptionId, entryId = null) {
-  const existing = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${redemptionId}` }, select: { id: true } });
-  if (existing) return false;
-  await tx.redemption.update({
-    where: { redemptionId },
-    data: { expectedStatus: 'CANCELED', syncStatus: 'pending' },
-  });
-  await tx.outbox.create({
-    data: {
-      operationType: 'redemption.cancel',
-      entityType: 'redemption',
-      entityId: redemptionId,
-      idempotencyKey: `financial:${redemptionId}`,
-      payload: {},
-      entryId,
-      redemptionId,
-    },
-  });
-  return true;
+// OPS-31 P1: every financial row goes through the single gate (`financial-gate.mjs`). A redemption that already has an
+// intent (for example the fulfill of an `in_progress` entry) gets `already_same`/`contradictory`, never a second row
+// (P0, W3-1). Returns true only when a cancellation was recorded.
+async function requestCancellation(tx, redemptionId, entryId, { cause, origin = 'system', actorId = null }) {
+  const outcome = await recordFinancialIntent(tx, { redemptionId, operation: 'cancel', cause, entryId, origin, actorId });
+  return outcome.status === 'created';
 }
 
 /**
@@ -883,11 +868,11 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
             const accountSetting = await tx.setting.findUnique({ where: { key: 'account_state' } });
             let ownerEntryEnded = false;
             for (const entry of active) {
-              const decision = decideTransition({ entry, queue, input: { to: 'removed', origin, actorId, reason: 'queue_deleted' } });
+              const decision = decideTransition({ entry, queue, input: { to: 'removed', origin, actorId, trigger: 'queue_deleted', reason: 'queue_deleted' } });
               await tx.entry.update({ where: { id: entry.id }, data: { status: 'removed', position: null, finishedAt: clock(), terminalReason: 'queue_deleted', callDeadlineAt: null, version: { increment: 1 } } });
               await tx.auditLog.create({ data: { queueId, entryId: entry.id, redemptionId: entry.redemptionId, event: 'entry.transitioned', actorId, origin, previousState: entry.status, nextState: 'removed', reason: 'queue_deleted', safeDetail: { policySnapshot: decision.policySnapshot, financialDecision: decision.financialDecision } } });
               if (decision.financialDecision === 'request_cancel' && entry.redemptionId) {
-                if (await createCancellationIntent(tx, entry.redemptionId, entry.id)) refundsRequested += 1;
+                if (await requestCancellation(tx, entry.redemptionId, entry.id, { cause: 'queue_deleted', origin, actorId })) refundsRequested += 1;
               }
               if (entry.id === accountSetting?.value?.ownerEntryId) ownerEntryEnded = true;
             }
@@ -951,11 +936,11 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         const currentAccount = accountSetting?.value;
         let ownerEntryEnded = false;
         for (const entry of active) {
-          const decision = decideTransition({ entry, queue, input: { to: 'removed', origin, actorId, reason: 'queue_deleted' } });
+          const decision = decideTransition({ entry, queue, input: { to: 'removed', origin, actorId, trigger: 'queue_deleted', reason: 'queue_deleted' } });
           await tx.entry.update({ where: { id: entry.id }, data: { status: 'removed', position: null, finishedAt: now, terminalReason: 'queue_deleted', callDeadlineAt: null, version: { increment: 1 } } });
           await tx.auditLog.create({ data: { queueId, entryId: entry.id, redemptionId: entry.redemptionId, event: 'entry.transitioned', actorId, origin, previousState: entry.status, nextState: 'removed', reason: 'queue_deleted', safeDetail: { policySnapshot: decision.policySnapshot, financialDecision: decision.financialDecision } } });
           if (decision.financialDecision === 'request_cancel' && entry.redemptionId) {
-            if (await createCancellationIntent(tx, entry.redemptionId, entry.id)) refundsRequested += 1;
+            if (await requestCancellation(tx, entry.redemptionId, entry.id, { cause: 'queue_deleted', origin, actorId })) refundsRequested += 1;
           }
           if (entry.id === currentAccount?.ownerEntryId) ownerEntryEnded = true;
         }
@@ -1652,11 +1637,11 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         let refundsRequested = 0;
         const now = clock();
         for (const entry of active) {
-          const decision = decideTransition({ entry, queue, input: { to: 'removed', origin, actorId, reason: 'queue_cleared' } });
+          const decision = decideTransition({ entry, queue, input: { to: 'removed', origin, actorId, trigger: 'queue_cleared', reason: 'queue_cleared' } });
           await tx.entry.update({ where: { id: entry.id }, data: { status: 'removed', position: null, finishedAt: now, terminalReason: 'queue_cleared', callDeadlineAt: null, version: { increment: 1 } } });
           await tx.auditLog.create({ data: { queueId, entryId: entry.id, redemptionId: entry.redemptionId, event: 'entry.transitioned', actorId, origin, previousState: entry.status, nextState: 'removed', reason: 'queue_cleared', safeDetail: { policySnapshot: decision.policySnapshot, financialDecision: decision.financialDecision } } });
           if (decision.financialDecision === 'request_cancel' && entry.redemptionId) {
-            if (await createCancellationIntent(tx, entry.redemptionId, entry.id)) refundsRequested += 1;
+            if (await requestCancellation(tx, entry.redemptionId, entry.id, { cause: 'queue_cleared', origin, actorId })) refundsRequested += 1;
           }
         }
         await renumberWaitingEntries(tx, queueId);
@@ -1915,37 +1900,25 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
             if (!redemption) {
               await tx.redemption.create({ data: {
                 redemptionId: item.id, broadcasterId: item.broadcasterId, rewardId: item.rewardId, userId: item.userId,
-                queueId, redeemedAt: item.redeemedAt, remoteStatus: 'UNFULFILLED', expectedStatus: 'CANCELED',
-                syncStatus: 'pending', rejectionReason: 'queue_deleting',
+                queueId, redeemedAt: item.redeemedAt, remoteStatus: 'UNFULFILLED',
               } });
-              await tx.outbox.create({ data: {
-                operationType: 'redemption.cancel', entityType: 'redemption', entityId: item.id,
-                idempotencyKey: `financial:${item.id}`, payload: {}, redemptionId: item.id,
-              } });
-              batchRecorded += 1;
+              const created = await recordFinancialIntent(tx, { redemptionId: item.id, operation: 'cancel', cause: 'queue_deleting_relist', origin: 'system', redemptionPatch: { rejectionReason: 'queue_deleting' } });
+              if (created.status === 'created') batchRecorded += 1;
               continue;
             }
-            const existingTask = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${item.id}` } });
+            const existingTask = await findFinancialTask(tx, item.id);
             if (existingTask?.status === 'resolved_manual' && redemption.remoteStatus === 'UNFULFILLED') {
               await rearmContradictedResolution(tx, existingTask.id, clock());
               continue;
             }
-            if (existingTask?.operationType === 'redemption.fulfill') {
-              // Completed service owns the durable financial intent. A stale UNFULFILLED
-              // Twitch read must not turn fulfillment into cancellation or revoke its lease.
-              continue;
-            }
+            // A completed service owns the durable intent (fulfill): a stale UNFULFILLED Twitch read must not turn it into a
+            // cancellation. The gate answers `contradictory` for it and writes nothing; a non-UNFULFILLED remote is skipped too.
             if (redemption.remoteStatus !== 'UNFULFILLED') continue;
-            if (!existingTask) {
-              await tx.redemption.update({ where: { redemptionId: item.id }, data: { queueId, expectedStatus: 'CANCELED', syncStatus: 'pending', rejectionReason: 'queue_deleting' } });
-              await tx.outbox.create({ data: {
-                operationType: 'redemption.cancel', entityType: 'redemption', entityId: item.id,
-                idempotencyKey: `financial:${item.id}`, payload: {}, redemptionId: item.id,
-              } });
-              batchRecorded += 1;
-            } else if (existingTask.operationType === 'redemption.cancel') {
-              await tx.redemption.update({ where: { redemptionId: item.id }, data: { expectedStatus: 'CANCELED', syncStatus: 'pending', rejectionReason: 'queue_deleting' } });
-            }
+            const outcome = await recordFinancialIntent(tx, {
+              redemptionId: item.id, operation: 'cancel', cause: 'queue_deleting_relist', origin: 'system',
+              redemptionPatch: { queueId, rejectionReason: 'queue_deleting' }, reassertExisting: true,
+            });
+            if (outcome.status === 'created') batchRecorded += 1;
           }
           return { recorded: batchRecorded };
         });
@@ -2341,12 +2314,6 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
             || !(cutoff instanceof Date) || entry.callDeadlineAt > cutoff) return null;
         }
         let decision = decideTransition({ entry, queue, input });
-        if (entry.source === 'redemption' && entry.redemptionId) {
-          const existingFinancialIntent = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${entry.redemptionId}` } });
-          if (existingFinancialIntent && decision.financialDecision !== 'no_operation') {
-            decision = { ...decision, financialDecision: 'no_operation' };
-          }
-        }
 
         const now = clock();
         const data = {
@@ -2366,6 +2333,17 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         }
         const updated = await tx.entry.update({ where: { id: entryId }, data });
         if (entry.status === 'waiting') await renumberWaitingEntries(tx, entry.queueId);
+        if (decision.financialDecision !== 'no_operation' && entry.source === 'redemption' && entry.redemptionId) {
+          // The gate decides; an intent that already exists (or a contradictory one) is not written again, so the audit
+          // and the result report `no_operation`, exactly as before the gate.
+          const outcome = await recordFinancialIntent(tx, {
+            redemptionId: entry.redemptionId,
+            operation: decision.financialDecision === 'request_cancel' ? 'cancel' : 'fulfill',
+            cause: input.trigger ? `trigger_${input.trigger}` : `transition_${to}`,
+            entryId: entry.id, origin, actorId,
+          });
+          if (outcome.status !== 'created') decision = { ...decision, financialDecision: 'no_operation' };
+        }
         await tx.auditLog.create({
           data: {
             queueId: entry.queueId,
@@ -2394,27 +2372,6 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           await tx.redemption.update({
             where: { redemptionId: entry.redemptionId },
             data: { remoteStatus, expectedStatus: null, syncStatus: 'confirmed' },
-          });
-        }
-        if (decision.financialDecision !== 'no_operation' && entry.source === 'redemption' && entry.redemptionId) {
-          const expectedStatus = decision.financialDecision === 'request_cancel' ? 'CANCELED' : 'FULFILLED';
-          const operationType = decision.financialDecision === 'request_cancel'
-            ? 'redemption.cancel'
-            : 'redemption.fulfill';
-          await tx.redemption.update({
-            where: { redemptionId: entry.redemptionId },
-            data: { expectedStatus, syncStatus: 'pending' },
-          });
-          await tx.outbox.create({
-            data: {
-              operationType,
-              entityType: 'redemption',
-              entityId: entry.redemptionId,
-              idempotencyKey: `financial:${entry.redemptionId}`,
-              payload: {},
-              entryId: entry.id,
-              redemptionId: entry.redemptionId,
-            },
           });
         }
         if (['completed', 'removed', 'no_show'].includes(to)) {
@@ -2590,18 +2547,9 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
             userId,
             redeemedAt,
             remoteStatus: 'UNFULFILLED',
-            expectedStatus: 'CANCELED',
-            syncStatus: 'pending',
             rejectionReason: reason,
           } });
-          await tx.outbox.create({ data: {
-            operationType: 'redemption.cancel',
-            entityType: 'redemption',
-            entityId: redemptionId,
-            idempotencyKey: `financial:${redemptionId}`,
-            payload: {},
-            redemptionId,
-          } });
+          await recordFinancialIntent(tx, { redemptionId, operation: 'cancel', cause: `refusal_${reason}`, origin: 'system' });
         });
         return { status: 'cancellation_pending', redemptionId };
       } catch (error) {
@@ -2770,7 +2718,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           where: { redemptionId: event.id },
           data: { remoteStatus: status, syncStatus },
         });
-        const task = await tx.outbox.findUnique({ where: { idempotencyKey: `financial:${event.id}` } });
+        const task = await findFinancialTask(tx, event.id);
         let outboxStatus = null;
         if (task && ['pending', 'retry', 'processing', 'unknown', 'resolved_manual'].includes(task.status)) {
           const expected = task.operationType === 'redemption.cancel' ? 'CANCELED' : 'FULFILLED';
@@ -2844,7 +2792,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           } });
 
           if (rejectionReason) {
-            await createCancellationIntent(tx, event.id);
+            await recordFinancialIntent(tx, { redemptionId: event.id, operation: 'cancel', cause: `refusal_${rejectionReason}`, origin: 'eventsub' });
             await tx.auditLog.create({ data: {
               queueId: queue.id,
               redemptionId: event.id,
