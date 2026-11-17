@@ -497,6 +497,14 @@ panel.operation.confirm.continue_delete	Try to continue deleting this queue and 
 panel.operation.blocks_deletion	Blocks the deletion of “{title}”
 panel.operation.attempts_exhausted	Automatic attempts ended and Twitch confirmed nothing. Use Reconcile / retry to start a new cycle of 6 attempts, or record a manual resolution.
 panel.operation.manual_contradicted	Twitch still lists this redemption as open after your manual resolution, so automatic tracking was resumed.
+panel.operation.conflict.detail	We asked Twitch to {intent}, but Twitch shows this redemption as {remote}.
+panel.operation.conflict.intent.cancel	return the points
+panel.operation.conflict.intent.fulfill	complete the redemption
+panel.operation.conflict.remote.unfulfilled	open
+panel.operation.conflict.remote.fulfilled	completed
+panel.operation.conflict.remote.canceled	canceled (points returned)
+panel.operation.confirm.resolve_conflict	Twitch and the app disagree about this redemption. Record that you reviewed it and stop automatic tracking? This does not change anything on Twitch and does not confirm the result. Twitch showed: {status}.
+panel.operation.confirm.resolve_failed	The app could not complete this operation. Record that you reviewed it and stop automatic tracking? This does not confirm the result with Twitch. Check the redemption in the Twitch dashboard and, if it is still pending, complete it or return the points yourself there.
 panel.reconciliation.running	Reconciliation in progress…
 panel.reconciliation.complete.one	Reconciliation complete. Imported {count} redemption.
 panel.reconciliation.complete.other	Reconciliation complete. Imported {count} redemptions.

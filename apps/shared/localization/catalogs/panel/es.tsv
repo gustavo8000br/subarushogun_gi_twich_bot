@@ -498,6 +498,14 @@ panel.operation.confirm.continue_delete	¿Intentar continuar la eliminación de 
 panel.operation.blocks_deletion	Bloquea la eliminación de “{title}”
 panel.operation.attempts_exhausted	Los intentos automáticos terminaron y Twitch no confirmó nada. Usa Reconciliar / reintentar para iniciar un nuevo ciclo de 6 intentos, o registra una resolución manual.
 panel.operation.manual_contradicted	Twitch sigue listando este canje como abierto tras tu resolución manual, así que se reanudó el seguimiento automático.
+panel.operation.conflict.detail	Pedimos a Twitch {intent}, pero Twitch muestra este canje como {remote}.
+panel.operation.conflict.intent.cancel	que devolviera los puntos
+panel.operation.conflict.intent.fulfill	que completara el canje
+panel.operation.conflict.remote.unfulfilled	abierto
+panel.operation.conflict.remote.fulfilled	completado
+panel.operation.conflict.remote.canceled	cancelado (puntos devueltos)
+panel.operation.confirm.resolve_conflict	Twitch y la app no coinciden sobre este canje. ¿Registrar que lo revisaste y detener el seguimiento automático? Esto no cambia nada en Twitch ni confirma el resultado. Twitch mostró: {status}.
+panel.operation.confirm.resolve_failed	La app no pudo completar esta operación. ¿Registrar que la revisaste y detener el seguimiento automático? Esto no confirma el resultado con Twitch. Revisa el canje en el panel de Twitch y, si sigue pendiente, complétalo o devuelve los puntos tú mismo allí.
 panel.reconciliation.running	Sincronización en curso…
 panel.reconciliation.complete.one	Sincronización completada. Se importó {count} canje.
 panel.reconciliation.complete.many	Sincronización completada. Se importaron {count} canjes.

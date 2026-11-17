@@ -1,6 +1,7 @@
 import { QUEUE_DELETION_REMOTE_DELETE_REASONS } from '../domain/queue-service.mjs';
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { createHash } from 'node:crypto';
+import { isDatabaseTimeout } from '../persistence/database-errors.mjs';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES, resolveCommandPolicy } from '../commands/catalog.mjs';
 import { createErrorDiagnosticReporter } from '../observability/error-diagnostics.mjs';
 import { financialOperationHealth } from '../outbox/financial-retry-policy.mjs';
@@ -25,7 +26,10 @@ function routeError(error) {
   if (['INVALID_QUEUE_KEY', 'RESERVED_QUEUE_KEY', 'INVALID_QUEUE_ALIASES', 'INVALID_UID'].includes(error?.code)) return 400;
   if (['DUPLICATE_QUEUE_KEY'].includes(error?.code)) return 409;
   if (error?.code === 'QUEUE_NOT_FOUND' || error?.code === 'ENTRY_NOT_FOUND') return 404;
-  if (['QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY', 'QUEUE_MODE_TRANSITION_PENDING', 'QUEUE_MODE_TRANSITION_UNAVAILABLE', 'QUEUE_OPEN_WHILE_ARCHIVED'].includes(error?.code)) return 409;
+  // OPS-31 P0 (W3-4): a double click, a stale panel or a race with the timer is a conflict, never an `application_error`.
+  if (['QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY', 'QUEUE_MODE_TRANSITION_PENDING', 'QUEUE_MODE_TRANSITION_UNAVAILABLE', 'QUEUE_OPEN_WHILE_ARCHIVED', 'INVALID_ENTRY_TRANSITION'].includes(error?.code)) return 409;
+  // OPS-31 P0 (DB-11): lock_timeout / statement_timeout is retryable; the callers send it with a referenceId and generic text.
+  if (error?.code === 'DATABASE_TIMEOUT') return 503;
   return 500;
 }
 
@@ -33,6 +37,11 @@ function routeError(error) {
 function sendDiagnosedFailure(reply, { reportDiagnostic, source, error, statusCode = 503, message, code = 'INTERNAL_ERROR' }) {
   const referenceId = reportDiagnostic({ source, error });
   reply.header('x-error-reference', referenceId);
+  // OPS-31 P0 (DB-11): lock_timeout / statement_timeout is retryable, with generic text and nothing written.
+  if (isDatabaseTimeout(error)) {
+    reply.header('retry-after', '1');
+    return reply.code(503).send({ code: 'TEMPORARILY_UNAVAILABLE', error: GENERIC_FAILURE_MESSAGE, referenceId });
+  }
   return reply.code(statusCode).send({ ...(code ? { code } : {}), error: message, referenceId });
 }
 
@@ -87,6 +96,8 @@ function queueDto(queue, { operator = false } = {}) {
 const PROJECTED_FINANCIAL_REASONS = new Set(['attempts_exhausted', 'authorization_required']);
 const QUEUE_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const REMOTE_REDEMPTION_STATUSES = new Set(['UNFULFILLED', 'FULFILLED', 'CANCELED']);
+
 function operationDto(operation) {
   const financial = operation.operationType.startsWith('redemption.');
   const health = financial ? financialOperationHealth({ status: operation.status }) : null;
@@ -102,6 +113,9 @@ function operationDto(operation) {
         ? { reason: 'manual_contradicted' } : {}),
     ...(financial && typeof operation.blockingQueueId === 'string' && QUEUE_ID_PATTERN.test(operation.blockingQueueId)
       ? { blockingQueueId: operation.blockingQueueId } : {}),
+    // OPS-31 P0 (O-1): a `conflict` shows the remote status stored by the last read (closed set) and when it was found.
+    ...(financial && operation.status === 'conflict' && REMOTE_REDEMPTION_STATUSES.has(operation.remoteStatus) ? { remoteStatus: operation.remoteStatus } : {}),
+    ...(financial && operation.status === 'conflict' && operation.conflictDetectedAt instanceof Date ? { conflictDetectedAt: operation.conflictDetectedAt.toISOString() } : {}),
   };
 }
 
@@ -397,9 +411,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     } catch (error) {
       const statusCode = routeError(error);
       if (statusCode >= 500) {
-        const referenceId = reportDiagnostic({ source: 'http.queue.create', error });
-        reply.header('x-error-reference', referenceId);
-        return reply.code(statusCode).send({ code: 'INTERNAL_ERROR', error: 'Não foi possível concluir. Tente novamente.', referenceId });
+        return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.create', error, statusCode, message: GENERIC_FAILURE_MESSAGE });
       }
       return reply.code(statusCode).send({ error: userError(error) });
     }
@@ -609,7 +621,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
         statusCode,
         message: userError(error),
       });
-      return reply.code(statusCode).send({ error: userError(error) });
+      return reply.code(statusCode).send({ ...(error?.code === 'INVALID_ENTRY_TRANSITION' ? { code: error.code } : {}), error: userError(error) });
     }
   });
   app.post('/api/entries/:entryId/call-notification/resend', async (request, reply) => {
@@ -857,5 +869,6 @@ function userError(error) {
   if (error?.code === 'QUEUE_MODE_TRANSITION_PENDING') return 'A troca do modo da fila ainda está sendo confirmada pela Twitch.';
   if (error?.code === 'QUEUE_MODE_TRANSITION_UNAVAILABLE') return 'A troca para fila local não está disponível neste estado.';
   if (error?.code === 'INVALID_UID') return 'O UID deve conter exatamente 9 dígitos ASCII.';
+  if (error?.code === 'INVALID_ENTRY_TRANSITION') return 'Essa ação não está disponível para o estado atual do atendimento. Atualize a fila.';
   return 'Não foi possível concluir a operação.';
 }

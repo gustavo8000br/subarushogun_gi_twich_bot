@@ -498,6 +498,14 @@ panel.operation.confirm.continue_delete	Tentar continuar a exclusão desta fila 
 panel.operation.blocks_deletion	Bloqueia a exclusão de “{title}”
 panel.operation.attempts_exhausted	As tentativas automáticas terminaram e a Twitch não confirmou nada. Use Reconciliar / tentar novamente para iniciar um novo ciclo de 6 tentativas, ou registre uma resolução manual.
 panel.operation.manual_contradicted	A Twitch ainda lista este resgate como aberto depois da sua resolução manual, então o acompanhamento automático foi retomado.
+panel.operation.conflict.detail	Pedimos à Twitch {intent}, mas a Twitch mostra este resgate como {remote}.
+panel.operation.conflict.intent.cancel	que devolvesse os pontos
+panel.operation.conflict.intent.fulfill	que concluísse o resgate
+panel.operation.conflict.remote.unfulfilled	aberto
+panel.operation.conflict.remote.fulfilled	concluído
+panel.operation.conflict.remote.canceled	cancelado (pontos devolvidos)
+panel.operation.confirm.resolve_conflict	A Twitch e o app divergem sobre este resgate. Registrar que você revisou e parar o acompanhamento automático? Isso não altera nada na Twitch nem confirma o resultado. A Twitch mostrou: {status}.
+panel.operation.confirm.resolve_failed	O app não conseguiu concluir esta operação. Registrar que você revisou e parar o acompanhamento automático? Isso não confirma o resultado com a Twitch. Confira o resgate no painel da Twitch e, se ainda estiver pendente, conclua-o ou devolva os pontos você mesmo por lá.
 panel.reconciliation.running	Sincronização em andamento…
 panel.reconciliation.complete.one	Sincronização concluída. {count} resgate importado.
 panel.reconciliation.complete.many	Sincronização concluída. {count} resgates importados.
