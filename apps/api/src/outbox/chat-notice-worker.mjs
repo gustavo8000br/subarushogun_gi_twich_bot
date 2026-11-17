@@ -31,7 +31,7 @@ export function createChatNoticeWorker({ repository, twitch, getTwitch, getChatC
       const summary = kind === 'joined' && (task.summaryCount ?? 1) > 1;
       const text = composeChatNotice({
         kind: summary ? 'joined_many' : kind, locale, catalogs,
-        params: { user: payload.user, queue: task.queue.title, position: payload.position, count: summary ? task.summaryCount : payload.count },
+        params: { user: payload.user, queue: task.queue.title, position: payload.position, count: summary ? task.summaryCount : payload.count, names: payload.names },
       });
       if (!text) {
         await finish({ status: 'cancelled', errorCode: 'notice_not_composable' });

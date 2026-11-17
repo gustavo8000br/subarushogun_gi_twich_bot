@@ -79,6 +79,12 @@ O prazo de ausência começa somente depois que a Twitch confirma o envio da pri
 
 Use `!<fila> atender [usuario]` para iniciar o atendimento. Isso encerra o prazo de ausência. Use `!<fila> concluir [usuario]` quando o atendimento terminar. Se a chamada vencer antes do início, a entrada passa para **Ausente**; a devolução de pontos depende da opção configurada na fila.
 
+## Avisos no chat
+
+O bot pode contar às pessoas o que acontece em uma fila, no idioma do canal: a posição ao entrar, um resgate recusado (fila fechada, já está na fila, fila indisponível, UID inválido) com o aviso de que a devolução dos pontos foi solicitada, o fim do atendimento, quando a pessoa é marcada como ausente, quando a vez dela é adiada (com a nova posição), quando uma ausência é desfeita (com a nova posição) e quando a fila é fechada, reaberta ou limpa. Quando você reordena a fila, uma única mensagem lista quem mudou de lugar (os primeiros pelo nome, depois "e mais N"). Abra **Configurar** em uma fila para ligar ou desligar cada grupo: entrada, atendimento (fim do atendimento, ausência, adiamento e restauração), estado da fila, reordenação e pontos. Uma fila nova começa com entrada, atendimento e estado da fila ligados, e reordenação e pontos desligados (os pontos ficam desligados até uma versão futura ligá-los para filas novas); filas criadas antes deste recurso mantêm todos os avisos desligados até você ligá-los.
+
+Os avisos nunca atrasam a fila nem qualquer operação com pontos. Um limite compartilhado mantém todas as mensagens do bot (chamadas, respostas de comandos e avisos) abaixo do teto da Twitch: a chamada de "sua vez" sempre vai primeiro, e um aviso que não pôde ser entregue depois de algumas tentativas ou de uma espera curta é descartado, não repetido para sempre. Várias pessoas entrando ao mesmo tempo são anunciadas em uma mensagem-resumo, e várias reordenações em poucos segundos também saem em uma só mensagem.
+
 ## Como funcionam os Pontos do Canal
 
 “Solicitado” ou “pendente” significa que o bot pediu à Twitch uma mudança no resgate e aguarda confirmação. Não significa que os pontos já foram devolvidos ou consumidos. A página **Sincronização com a Twitch e devolução de pontos** mostra operações pendentes, confirmadas, incertas ou em conflito.

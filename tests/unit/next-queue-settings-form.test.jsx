@@ -123,7 +123,8 @@ describe('Next queue settings form', () => {
     };
     help('Say the position when someone joins', 'Joined help text.');
     help('Announce end of service', 'Service help text.');
-    help('Announce reorder', 'Soon help text.');
+    // P3: the reorder notice is sent now, so its switch has no "coming soon" help line (only points keep it).
+    expect(describedBy('Announce reorder')).toBeNull();
     help('Tell what happened to points', 'Soon help text.');
     expect(describedBy('Announce queue state')).toBeNull();
   });

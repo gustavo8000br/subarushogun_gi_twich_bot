@@ -30,6 +30,12 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'chat.notice.queue_reopened': Object.freeze(['queue']),
     'chat.notice.service_ended': Object.freeze(['user', 'queue']),
     'chat.notice.cleared': Object.freeze(['queue', 'count']),
+    // OPS-31 P3 (AC 6, 7): absent, skipped, restored and reordered notices.
+    'chat.notice.no_show': Object.freeze(['user', 'queue']),
+    'chat.notice.skipped': Object.freeze(['user', 'queue', 'position']),
+    'chat.notice.restored': Object.freeze(['user', 'queue', 'position']),
+    'chat.notice.reordered': Object.freeze(['queue']),
+    'chat.notice.reordered_list': Object.freeze(['queue', 'names']),
   }),
   setup: Object.freeze({
     'setup.callback.success_message': Object.freeze(['channel']),
