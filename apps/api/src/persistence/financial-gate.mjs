@@ -3,12 +3,14 @@
 // This module is the ONLY place that may create a financial outbox row (`redemption.cancel` / `redemption.fulfill`),
 // build its idempotency key, or write `redemptions.expected_status`. An OpenGrep rule (`financial-intent-single-writer`
 // in `.opengrep/rules.yml`) keeps it that way. It also owns the settlement policy loader, the pure action resolver and the
-// cap-window port, so no other module reads the policy columns.
+// cap-window port, so no other module reads the policy columns (P5b adds `loadStoredSettlementPolicy`, the reader of the policy API).
 //
 // P1 changed NO behavior for today's data: the policy provider is a constant (`legacy` S1, `wait` for the rest) and the cap
 // window is the constant fallback. Since P5 (M2a) the gate reads `settlement_state` under the row lock and writes
 // `intent_recorded` in the same statement as `expected_status`; the held states exist in the database but nothing writes
 // them before P7. The decision functions already have their final shape; later packages only swap the providers.
+
+import { SETTLEMENT_VALUES } from '../domain/settlement-policy.mjs';
 
 /** @typedef {'cancel' | 'fulfill'} FinancialOperation */
 /** @typedef {'created' | 'already_same' | 'contradictory' | 'held_blocked'} FinancialIntentStatus */
@@ -140,13 +142,7 @@ export async function recordFinancialIntent(tx, { redemptionId, operation, cause
 // Settlement policy (design 3.10): provider, pure resolver, cap window port.
 // ---------------------------------------------------------------------------------------------------------------------
 
-export const SETTLEMENT_VALUES = Object.freeze({
-  onCloseSwitchOff: Object.freeze(['legacy', 'wait', 'fulfill', 'refund']),
-  onDirectConclusion: Object.freeze(['wait', 'refund', 'fulfill']),
-  onModeratorConclude: Object.freeze(['wait', 'refund']),
-  onChatClear: Object.freeze(['wait', 'refund', 'fulfill']),
-  reentryCapHold: Object.freeze(['after_n', 'at_n']),
-});
+export { SETTLEMENT_VALUES };
 
 const CONSTANT_POLICY = Object.freeze({
   rev: 0,
@@ -168,6 +164,37 @@ const CONSTANT_POLICY = Object.freeze({
  */
 export async function loadSettlementPolicy(_tx, _queueId) {
   return CONSTANT_POLICY;
+}
+
+/**
+ * P5b (FT-74b): reads the STORED policy columns of one queue (the only reader besides the decision loader above; the
+ * policy API goes through here). Call it inside the queue advisory lock when the result feeds a write. It is not yet the
+ * decision provider: `loadSettlementPolicy` stays the constant object until P7 turns enforcement on, so a stored value can
+ * never change what a closing does before the settlement service exists.
+ * @param {Record<string, any>} tx a Prisma client or interactive transaction
+ * @returns {Promise<Readonly<{rev: number, source: 'stored'}> & Record<string, unknown> | null>} `null` when the queue does not exist
+ */
+export async function loadStoredSettlementPolicy(tx, queueId) {
+  const queue = await tx.queue.findUnique({ where: { id: queueId }, select: {
+    id: true, lifecycleStatus: true, isArchived: true, settlementPolicyRev: true, settlementOnCloseSwitchOff: true,
+    settlementOnDirectConclusion: true, settlementOnModeratorConclude: true, settlementOnChatClear: true,
+    reentryRefundCap: true, reentryWindowHours: true, reentryCapHold: true, reentryCapCountsManual: true,
+  } });
+  if (!queue) return null;
+  return Object.freeze({
+    rev: queue.settlementPolicyRev,
+    source: 'stored',
+    lifecycleStatus: queue.lifecycleStatus,
+    isArchived: queue.isArchived === true,
+    onCloseSwitchOff: queue.settlementOnCloseSwitchOff,
+    onDirectConclusion: queue.settlementOnDirectConclusion,
+    onModeratorConclude: queue.settlementOnModeratorConclude,
+    onChatClear: queue.settlementOnChatClear,
+    reentryRefundCap: queue.reentryRefundCap,
+    reentryWindowHours: queue.reentryWindowHours,
+    reentryCapHold: queue.reentryCapHold,
+    reentryCapCountsManual: queue.reentryCapCountsManual,
+  });
 }
 
 /**

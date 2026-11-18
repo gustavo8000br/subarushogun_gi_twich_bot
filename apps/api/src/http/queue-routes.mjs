@@ -1,5 +1,6 @@
 import { QUEUE_DELETION_REMOTE_DELETE_REASONS } from '../domain/queue-service.mjs';
 import { SETTLEMENT_MODES, refundGroupsOf } from '../domain/settlement-setting.mjs';
+import { parsePolicyBody } from '../domain/settlement-policy.mjs';
 import { REFUND_LIST_MAX } from '../persistence/refund-list-store.mjs';
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { createHash } from 'node:crypto';
@@ -94,6 +95,10 @@ function queueDto(queue, { operator = false } = {}) {
     noticeJoined: queue.noticeJoined === true, noticeService: queue.noticeService === true, noticeState: queue.noticeState === true,
     noticeReordered: queue.noticeReordered === true, noticePoints: queue.noticePoints === true,
     settlement: queue.settlement ?? 'fulfill_on_start', refundGroups: queue.refundGroups ?? refundGroupsOf(queue),
+    // OPS-31 P5b (AC 38): absent = unknown (the panel shows nothing, never 0); present only when the count was read.
+    ...(queue.pendingDecisions ? { pendingDecisions: {
+      awaitingChoice: queue.pendingDecisions.awaitingChoice, checkGroup: queue.pendingDecisions.checkGroup, total: queue.pendingDecisions.total,
+    } } : {}),
     isOpen: queue.isOpen, isArchived: queue.isArchived, lifecycleStatus: queue.lifecycleStatus,
     version: queue.version, remoteSyncStatus: queue.remoteSyncStatus,
     // OPS-22 FT-26 (AC 15, F17): enumerated deletion projection for the operator panel; never the raw outbox facts.
@@ -470,6 +475,38 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
         return reply.code(400).send({ code: error.code, error: 'A privacidade do UID e a recompensa devem ser alteradas no editor de recompensa Twitch.' });
       }
       return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.settings', error, message: 'Não foi possível salvar as configurações da fila.' });
+    }
+  });
+  // OPS-31 P5b (AC 35): the settlement policy of a queue. Panel session only (the same onRequest hook as every /api route:
+  // 401 without a session, CSRF and Origin on a write) and the panel operation key on the PUT.
+  app.get('/api/queues/:queueId/settlement-policy', async (request, reply) => {
+    const localRequest = /** @type {any} */ (request);
+    try {
+      const policy = await repository.getQueueSettlementPolicy?.(localRequest.params.queueId);
+      if (!policy) return reply.code(404).send({ code: 'QUEUE_NOT_FOUND', error: 'Fila não encontrada.' });
+      return policy;
+    } catch (error) {
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.settlement_policy.read', error, message: 'Não foi possível carregar a política de pontos.' });
+    }
+  });
+  app.put('/api/queues/:queueId/settlement-policy', async (request, reply) => {
+    const localRequest = /** @type {any} */ (request);
+    const parsed = parsePolicyBody(localRequest.body);
+    if (!parsed.ok) return reply.code(400).send({ code: 'SETTLEMENT_POLICY_INVALID', field: parsed.field, error: 'Revise a política de pontos da fila.' });
+    try {
+      return await repository.updateQueueSettlementPolicy({
+        queueId: localRequest.params.queueId, expectedPolicyRev: parsed.expectedPolicyRev, changes: parsed.changes,
+        actorId: localRequest.localSession?.id ?? null, origin: 'panel',
+      });
+    } catch (error) {
+      if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code: error.code, error: 'Fila não encontrada.' });
+      if (error?.code === 'QUEUE_NOT_AVAILABLE') return reply.code(409).send({ code: error.code, error: 'Esta fila não aceita alterações agora.' });
+      if (error?.code === 'SETTLEMENT_POLICY_STALE') return reply.code(409).send({ code: error.code, settlementPolicyRev: error.settlementPolicyRev, error: 'A política mudou em outra operação. Atualize o painel e tente novamente.' });
+      if (error?.code === 'SETTLEMENT_MODE_UNAVAILABLE') {
+        const reason = ['policy_not_active', 'legacy_not_selectable'].includes(error.reason) ? error.reason : 'policy_not_active';
+        return reply.code(409).send({ code: error.code, reason, error: 'Esta opção da política de pontos ainda não está disponível.' });
+      }
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.settlement_policy.write', error, message: 'Não foi possível salvar a política de pontos.' });
     }
   });
   app.patch('/api/queues/:queueId/reward-settings', async (request, reply) => {

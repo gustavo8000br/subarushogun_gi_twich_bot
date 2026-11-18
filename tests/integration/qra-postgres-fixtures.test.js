@@ -234,7 +234,10 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
 
       const listed = await app.inject({ method: 'GET', url: '/api/queues', headers });
       expect(listed.statusCode).toBe(200);
-      expect(listed.json().find(({ id }) => id === dto.id)).toEqual(dto);
+      // OPS-31 P5b: only the projection carries the pending-decision count (a mutation response does not read it).
+      const { pendingDecisions: listedPending, ...listedDto } = listed.json().find(({ id }) => id === dto.id);
+      expect(listedPending).toEqual({ awaitingChoice: 0, checkGroup: 0, total: 0 });
+      expect(listedDto).toEqual(dto);
     } finally {
       await app.close();
     }
@@ -342,7 +345,9 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
       const listDto = listed.json().find(({ id }) => id === queue.id);
       const { operationStatus, ...queueDto } = acceptedDto;
       expect(operationStatus).toBe('pending');
-      expect(listDto).toEqual(queueDto);
+      const { pendingDecisions: listedPending, ...listDtoWithoutCount } = listDto; // OPS-31 P5b: projection-only field
+      expect(listedPending).toEqual({ awaitingChoice: 0, checkGroup: 0, total: 0 });
+      expect(listDtoWithoutCount).toEqual(queueDto);
     } finally {
       await app.close();
     }

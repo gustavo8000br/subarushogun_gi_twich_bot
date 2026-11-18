@@ -146,6 +146,12 @@ async function reloadAwaitingQueueProjection(page, origin, { timeout = 90_000 } 
   }
 }
 
+/** OPS-31 P5b: only the projection carries the pending-decision count; a mutation response does not read it. */
+function withoutPendingCount({ pendingDecisions, ...queue }) {
+  expect(pendingDecisions).toEqual({ awaitingChoice: 0, checkGroup: 0, total: 0 });
+  return queue;
+}
+
 describe('isolated Compose first-run and restart acceptance', () => {
   beforeAll(async () => {
     localCertDirectory = mkdtempSync(join(tmpdir(), 'queuebot local tls '));
@@ -262,7 +268,10 @@ describe('isolated Compose first-run and restart acceptance', () => {
     expect(listed.status).toBe(200);
     const persisted = listed.json().filter((queue) => queue.id === dto.id);
     expect(persisted).toHaveLength(1);
-    expect(persisted[0]).toEqual(dto);
+    // OPS-31 P5b: the projection (and only it) carries the pending-decision count; a creation response does not read it.
+    const { pendingDecisions: persistedPending, ...persistedDto } = persisted[0];
+    expect(persistedPending).toEqual({ awaitingChoice: 0, checkGroup: 0, total: 0 });
+    expect(persistedDto).toEqual(dto);
     expect(dto.remoteSyncStatus).toBe('local_only');
 
     const updatedCallMessage = '{user}, a fila foi atualizada!';
@@ -300,7 +309,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
     expect(reread.status).toBe(200);
     const persistedAfterUpdate = reread.json().filter((queue) => queue.id === dto.id);
     expect(persistedAfterUpdate).toHaveLength(1);
-    expect(persistedAfterUpdate[0]).toEqual(updatedDto);
+    expect(withoutPendingCount(persistedAfterUpdate[0])).toEqual(updatedDto);
 
     const history = await request(`/api/queues/${dto.id}/history`, {
       headers: { cookie, origin: headers.origin },
@@ -744,7 +753,9 @@ describe('isolated Compose first-run and restart acceptance', () => {
         headers: { cookie: `queuebot_session=${sessionCookie.value}`, origin },
       });
       expect(list.status).toBe(200);
-      expect(list.json().find(({ id }) => id === dto.id)).toEqual(dto);
+      const { pendingDecisions: listedPending, ...listedDto } = list.json().find(({ id }) => id === dto.id);
+      expect(listedPending).toEqual({ awaitingChoice: 0, checkGroup: 0, total: 0 });
+      expect(listedDto).toEqual(dto);
 
       await page.setViewportSize({ width: 390, height: 844 });
       const queueCard = page.locator('.queue-list-card').filter({
@@ -804,7 +815,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
       expect(settingsProjection).not.toBeInstanceOf(Error);
       expect(settingsProjection.status()).toBe(200);
       const updatedQueues = await settingsProjection.json();
-      expect(updatedQueues.find(({ id }) => id === dto.id)).toEqual(updatedDto);
+      expect(withoutPendingCount(updatedQueues.find(({ id }) => id === dto.id))).toEqual(updatedDto);
       // Closed, activatable queue: post-save onboarding guidance (panel.queue.onboarding.activate_next), never auto-activation.
       await settingsForm.getByRole('status').filter({ hasText: 'Configurações salvas. Confira a fila abaixo; ela continuará fechada até você ativá-la.' }).waitFor();
       expect(await settingsForm.locator('input[name="callTimeoutMin"]').inputValue()).toBe('18');
