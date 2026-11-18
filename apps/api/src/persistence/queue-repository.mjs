@@ -2,6 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { isDatabaseTimeout } from './database-errors.mjs';
 import { findFinancialTask, recordFinancialIntent } from './financial-gate.mjs';
 import { createChatNoticeStore, enqueueChatNotice } from './chat-notice-outbox.mjs';
+import { createRefundListStore } from './refund-list-store.mjs';
+import { REFUND_ON_END_DELIVERED, SETTLEMENT_MODES, normalizeRefundGroups, refundGroupColumnsFor, refundGroupsOf } from '../domain/settlement-setting.mjs';
 import { REFUSAL_NOTICE_KIND_BY_REASON } from '../domain/chat-notice-composer.mjs';
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { validateUidInput } from '../domain/uid.mjs';
@@ -476,8 +478,10 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
   /** @type {ProductLocaleState} */
   const productLocaleFallback = Object.freeze({ locale: initialProductLocale, revision: 1 });
   const noticeStore = createChatNoticeStore({ prisma, transact, clock });
+  const refundListStore = createRefundListStore({ prisma, transact });
   return {
     ...noticeStore,
+    ...refundListStore,
     async getCommandPolicyState() {
       return readCommandPolicyState(prisma);
     },
@@ -1307,14 +1311,23 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     async getEntry(id) { return prisma.entry.findUnique({ where: { id } }); },
 
     async updateLocalQueueSettings({ queueId, expectedVersion, settings, actorId = null, origin = 'panel' }) {
-      const localSettings = new Set(['callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled', 'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints']);
+      const localSettings = new Set(['callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled', 'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints', 'settlement', 'refundGroups']);
       if (Object.keys(settings).some((key) => !localSettings.has(key))) throw repositoryError('INVALID_LOCAL_QUEUE_SETTING', 'A local settings update contains a Twitch-managed field');
+      // OPS-31 P5 (FT-74): the settlement setting and the refund groups. AC 30: `refund_on_end` is refused until P7 (one code flag).
+      if ('settlement' in settings && !SETTLEMENT_MODES.includes(settings.settlement)) throw repositoryError('INVALID_LOCAL_QUEUE_SETTING', 'The settlement setting is invalid');
+      if ('settlement' in settings && settings.settlement === 'refund_on_end' && !REFUND_ON_END_DELIVERED) {
+        throw Object.assign(repositoryError('SETTLEMENT_MODE_UNAVAILABLE', 'The refund at the end of the service is not available yet'), { reason: 'not_delivered' });
+      }
+      const groupList = 'refundGroups' in settings ? normalizeRefundGroups(settings.refundGroups) : undefined;
+      if (groupList === null) throw repositoryError('INVALID_LOCAL_QUEUE_SETTING', 'The refund groups are invalid');
+      const columnSettings = Object.fromEntries(Object.entries(settings).filter(([key]) => key !== 'refundGroups'));
+      const data = { ...columnSettings, ...(groupList ? refundGroupColumnsFor(groupList) : {}) };
       return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.lifecycleStatus === 'deleted') throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
         if (queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be edited');
         if (queue.version !== expectedVersion) throw repositoryError('STALE_QUEUE_VERSION', 'Queue changed since it was loaded');
-        const updated = await tx.queue.update({ where: { id: queueId }, data: { ...settings, version: { increment: 1 } } });
+        const updated = await tx.queue.update({ where: { id: queueId }, data: { ...data, version: { increment: 1 } } });
         const aliases = await tx.queueKey.findMany({
           where: { queueId, keyType: 'alias' }, orderBy: { key: 'asc' }, select: { key: true },
         });
@@ -1322,6 +1335,15 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           queueId, event: 'queue.settings_updated', actorId, origin,
           safeDetail: { updatedFields: Object.keys(settings).sort(), uidMode: updated.uidMode },
         } });
+        const previousGroups = refundGroupsOf(queue);
+        const nextGroups = refundGroupsOf(updated);
+        if (updated.settlement !== queue.settlement || previousGroups.join(',') !== nextGroups.join(',')) {
+          await tx.auditLog.create({ data: {
+            queueId, event: 'queue.settlement_changed', actorId, origin,
+            previousState: queue.settlement, nextState: updated.settlement,
+            safeDetail: { previousGroups, nextGroups },
+          } });
+        }
         return { ...updated, aliases: aliases.map(({ key }) => key) };
       });
     },
@@ -1461,6 +1483,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         refundIfViewerLeavesCalled: queue.refundIfViewerLeavesCalled,
         noticeJoined: queue.noticeJoined, noticeService: queue.noticeService, noticeState: queue.noticeState,
         noticeReordered: queue.noticeReordered, noticePoints: queue.noticePoints,
+        settlement: queue.settlement, refundGroups: refundGroupsOf(queue),
         isOpen: queue.isOpen, isArchived: queue.isArchived, lifecycleStatus: queue.lifecycleStatus,
         remoteSyncStatus: queue.remoteSyncStatus, version: queue.version,
         entries: queue.entries.map((entry) => ({
@@ -2467,9 +2490,12 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           if ((to === 'completed' && remoteStatus !== 'FULFILLED') || (to === 'removed' && remoteStatus !== 'CANCELED')) {
             throw repositoryError('CONFLICTING_EXTERNAL_REDEMPTION_STATUS', 'External redemption state conflicts with the requested transition');
           }
+          // OPS-31 P5: a recorded intent is absorbing and its `CHECK` needs `expected_status`; the external observation only
+          // updates the remote status (the worker read-verify confirms the task) and never clears the expectation.
+          const stored = await tx.redemption.findUnique({ where: { redemptionId: entry.redemptionId }, select: { settlementState: true } });
           await tx.redemption.update({
             where: { redemptionId: entry.redemptionId },
-            data: { remoteStatus, expectedStatus: null, syncStatus: 'confirmed' },
+            data: { remoteStatus, ...(stored?.settlementState === 'intent_recorded' ? {} : { expectedStatus: null }), syncStatus: 'confirmed' },
           });
         }
         if (['completed', 'removed', 'no_show'].includes(to)) {

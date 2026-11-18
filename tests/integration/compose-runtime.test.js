@@ -255,7 +255,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
       'globalCooldownSeconds', 'callMessage', 'callTimeoutMin', 'showUidInList', 'showUidInOverlay',
       'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow',
       'refundIfViewerLeavesCalled', 'isOpen', 'isArchived', 'lifecycleStatus', 'version', 'remoteSyncStatus', 'entries',
-      'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints',
+      'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints', 'settlement', 'refundGroups',
     ].sort());
 
     const listed = await request('/api/queues', { headers: { cookie, origin: headers.origin } });
@@ -728,7 +728,7 @@ describe('isolated Compose first-run and restart acceptance', () => {
         'globalCooldownSeconds', 'callMessage', 'callTimeoutMin', 'showUidInList', 'showUidInOverlay',
         'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow',
         'refundIfViewerLeavesCalled', 'isOpen', 'isArchived', 'lifecycleStatus', 'version', 'remoteSyncStatus', 'entries',
-      'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints',
+      'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints', 'settlement', 'refundGroups',
       ].sort());
 
       // FT-23 (#103, AC 2): a confirmed creation leaves the form for /queues/; the message lives in the persistent region,

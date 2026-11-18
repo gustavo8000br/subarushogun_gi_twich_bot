@@ -280,7 +280,9 @@ describe('OPS-31 P2 chat notices on isolated PostgreSQL', () => {
     const expired = await mk('expired');
     const confirmed = await mk('confirmed');
     const reference = await prisma.outbox.create({ data: { operationType: 'redemption.cancel', entityType: 'redemption', idempotencyKey: `down-${randomUUID()}`, status: 'failed' } });
-    const schemaBefore = psql('\\d queues').toString();
+    // Column order is not part of the schema: later migrations add columns after M1's, and M1 re-added at the end changes the order only.
+    const sortedSchema = () => psql('\\d queues').toString().split('\n').sort().join('\n');
+    const schemaBefore = sortedSchema();
 
     psql(readFileSync(migrationDirectory('rollback.sql'), 'utf8'));
     const columns = psql("SELECT column_name FROM information_schema.columns WHERE table_name = 'queues' AND column_name LIKE 'notice_%'");
@@ -295,7 +297,7 @@ describe('OPS-31 P2 chat notices on isolated PostgreSQL', () => {
     expect(psql("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'outbox_status_check'")).not.toContain('expired');
 
     psql(readFileSync(migrationDirectory('migration.sql'), 'utf8'));
-    expect(psql('\\d queues').toString()).toBe(schemaBefore);
+    expect(sortedSchema()).toBe(schemaBefore);
     expect(psql("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'outbox_status_check'")).toContain('expired');
     expect(await prisma.queue.findUnique({ where: { id: queue.id } })).toMatchObject({ noticeJoined: false });
   });

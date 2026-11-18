@@ -1,4 +1,6 @@
 import { QUEUE_DELETION_REMOTE_DELETE_REASONS } from '../domain/queue-service.mjs';
+import { SETTLEMENT_MODES, refundGroupsOf } from '../domain/settlement-setting.mjs';
+import { REFUND_LIST_MAX } from '../persistence/refund-list-store.mjs';
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { createHash } from 'node:crypto';
 import { isDatabaseTimeout } from '../persistence/database-errors.mjs';
@@ -91,6 +93,7 @@ function queueDto(queue, { operator = false } = {}) {
     refundOnNoShow: queue.refundOnNoShow, refundIfViewerLeavesCalled: queue.refundIfViewerLeavesCalled,
     noticeJoined: queue.noticeJoined === true, noticeService: queue.noticeService === true, noticeState: queue.noticeState === true,
     noticeReordered: queue.noticeReordered === true, noticePoints: queue.noticePoints === true,
+    settlement: queue.settlement ?? 'fulfill_on_start', refundGroups: queue.refundGroups ?? refundGroupsOf(queue),
     isOpen: queue.isOpen, isArchived: queue.isArchived, lifecycleStatus: queue.lifecycleStatus,
     version: queue.version, remoteSyncStatus: queue.remoteSyncStatus,
     // OPS-22 FT-26 (AC 15, F17): enumerated deletion projection for the operator panel; never the raw outbox facts.
@@ -433,7 +436,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   app.patch('/api/queues/:queueId/settings', async (request, reply) => {
     const localRequest = /** @type {any} */ (request);
     const body = localRequest.body && typeof localRequest.body === 'object' ? localRequest.body : {};
-    const allowed = new Set(['expectedVersion', 'callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled', 'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints']);
+    const allowed = new Set(['expectedVersion', 'callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled', 'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints', 'settlement', 'refundGroups']);
     const keys = Object.keys(body);
     if (keys.some((key) => ['uidMode', 'title', 'cost', 'rewardPrompt', 'maxRedemptionsPerStream', 'maxRedemptionsPerUserPerStream', 'globalCooldownSeconds'].includes(key))) {
       return reply.code(400).send({ code: 'INVALID_LOCAL_QUEUE_SETTING', error: 'A privacidade do UID e a recompensa devem ser alteradas no editor de recompensa Twitch.' });
@@ -445,7 +448,9 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     if (!Object.keys(settings).length
       || ('callTimeoutMin' in settings && settings.callTimeoutMin !== null && (!Number.isInteger(settings.callTimeoutMin) || settings.callTimeoutMin < 1 || settings.callTimeoutMin > 120))
       || ('callMessage' in settings && (typeof settings.callMessage !== 'string' || settings.callMessage.length > 350 || containsControlCharacters(settings.callMessage)))
-      || Object.entries(settings).some(([key, value]) => !['callTimeoutMin', 'callMessage'].includes(key) && typeof value !== 'boolean')) {
+      || ('settlement' in settings && !SETTLEMENT_MODES.includes(settings.settlement))
+      || ('refundGroups' in settings && !Array.isArray(settings.refundGroups))
+      || Object.entries(settings).some(([key, value]) => !['callTimeoutMin', 'callMessage', 'settlement', 'refundGroups'].includes(key) && typeof value !== 'boolean')) {
       return reply.code(400).send({ code: 'INVALID_QUEUE_SETTINGS', error: 'Revise as configurações da fila.' });
     }
     if (typeof settings.callMessage === 'string' && [...settings.callMessage.matchAll(/\{([^}]+)\}/g)].some(([, name]) => !['user', 'queue', 'position', 'uid', 'account'].includes(name))) {
@@ -458,7 +463,12 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code: error.code, error: 'Fila não encontrada.' });
       if (error?.code === 'STALE_QUEUE_VERSION') return reply.code(409).send({ code: error.code, error: 'A fila mudou em outra operação. Atualize o painel e tente novamente.' });
       if (error?.code === 'QUEUE_NOT_AVAILABLE') return reply.code(409).send({ code: error.code, error: 'Esta fila não aceita alterações enquanto está sendo excluída.' });
-      if (error?.code === 'INVALID_LOCAL_QUEUE_SETTING') return reply.code(400).send({ code: error.code, error: 'A privacidade do UID e a recompensa devem ser alteradas no editor de recompensa Twitch.' });
+      if (error?.code === 'SETTLEMENT_MODE_UNAVAILABLE') return reply.code(409).send({ code: error.code, reason: 'not_delivered', error: 'A devolução dos pontos ao fim do atendimento ainda não está disponível.' });
+      if (error?.code === 'INVALID_LOCAL_QUEUE_SETTING') {
+        // OPS-31 P5: a malformed settlement setting or group list is a client error with its own text; the UID and reward text stays for the other case.
+        if (/settlement|refund groups/i.test(String(error.message))) return reply.code(400).send({ code: 'INVALID_QUEUE_SETTINGS', error: 'Revise as configurações da fila.' });
+        return reply.code(400).send({ code: error.code, error: 'A privacidade do UID e a recompensa devem ser alteradas no editor de recompensa Twitch.' });
+      }
       return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.settings', error, message: 'Não foi possível salvar as configurações da fila.' });
     }
   });
@@ -858,6 +868,50 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       }
       return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.delete_cancel', error, message: 'Não foi possível verificar o cancelamento da exclusão.' });
     }
+  });
+  // OPS-31 P5 (FT-74, AC 10): the own refund list, one per channel. The panel gets the internal id, the label and the date,
+  // never the Twitch user id; the typed login is resolved once at add time and not stored.
+  const refundListFailure = (reply, error, source) => {
+    const map = {
+      REFUND_LIST_FULL: [409, { max: REFUND_LIST_MAX }, 'A lista está cheia. Remova alguém para adicionar outra pessoa.'],
+      REFUND_LIST_DUPLICATE: [409, {}, 'Essa pessoa já está na lista.'],
+      REFUND_LIST_MEMBER_NOT_FOUND: [404, {}, 'Essa pessoa não está na lista.'],
+      REFUND_LIST_INVALID: [400, {}, 'Revise o login e o rótulo informados.'],
+    };
+    const entry = map[error?.code];
+    if (entry) return reply.code(entry[0]).send({ code: error.code, ...entry[1], error: entry[2] });
+    return sendDiagnosedFailure(reply, { reportDiagnostic, source, error, statusCode: 500, message: GENERIC_FAILURE_MESSAGE });
+  };
+  const refundListDto = (list) => ({ items: list.items.map((item) => ({ id: item.id, label: item.label, createdAt: item.createdAt })), count: list.count, max: list.max ?? REFUND_LIST_MAX });
+  app.get('/api/refund-list', async (_request, reply) => {
+    try { return refundListDto(await repository.listRefundList()); }
+    catch (error) { return refundListFailure(reply, error, 'http.refund_list.read'); }
+  });
+  app.post('/api/refund-list', async (request, reply) => {
+    /** @type {Record<string, any>} */
+    const body = request.body && typeof request.body === 'object' ? request.body : {};
+    if (typeof body.login !== 'string' || !/^@?[a-zA-Z0-9_]{1,25}$/.test(body.login)) return reply.code(400).send({ code: 'REFUND_LIST_INVALID', error: 'Informe um login válido da Twitch.' });
+    if (body.label !== undefined && body.label !== null && typeof body.label !== 'string') return reply.code(400).send({ code: 'REFUND_LIST_INVALID', error: 'Revise o login e o rótulo informados.' });
+    try {
+      const user = await resolveUser(body.login.replace(/^@/, ''));
+      if (!user) return reply.code(404).send({ code: 'TWITCH_USER_NOT_FOUND', error: 'Esse usuário da Twitch não foi encontrado.' });
+      const result = await repository.addRefundListMember({ twitchUserId: String(user.id), label: body.label, actorId: /** @type {any} */ (request).localSession?.id ?? null });
+      return reply.code(201).send({ member: { id: result.member.id, label: result.member.label, createdAt: result.member.createdAt }, count: result.count, max: REFUND_LIST_MAX });
+    } catch (error) { return refundListFailure(reply, error, 'http.refund_list.add'); }
+  });
+  app.post('/api/refund-list/clear', async (request, reply) => {
+    try {
+      const result = await repository.clearRefundList({ actorId: /** @type {any} */ (request).localSession?.id ?? null });
+      return { removed: result.removed, count: 0, max: REFUND_LIST_MAX };
+    } catch (error) { return refundListFailure(reply, error, 'http.refund_list.clear'); }
+  });
+  app.post('/api/refund-list/:memberId/remove', async (request, reply) => {
+    const memberId = /** @type {any} */ (request.params).memberId;
+    if (typeof memberId !== 'string' || !QUEUE_ID_PATTERN.test(memberId)) return reply.code(404).send({ code: 'REFUND_LIST_MEMBER_NOT_FOUND', error: 'Essa pessoa não está na lista.' });
+    try {
+      const result = await repository.removeRefundListMember({ id: memberId, actorId: /** @type {any} */ (request).localSession?.id ?? null });
+      return { count: result.count, max: REFUND_LIST_MAX };
+    } catch (error) { return refundListFailure(reply, error, 'http.refund_list.remove'); }
   });
   app.post('/api/account', async (request, reply) => {
     /** @type {any} */

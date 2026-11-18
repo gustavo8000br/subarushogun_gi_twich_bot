@@ -145,6 +145,12 @@ O streamer sempre tem acesso. Para os comandos compatíveis, o streamer escolhe 
 
 Com a troca automática de conta ao chamar ativada numa fila, chamar exatamente uma pessoa troca o rótulo para o nome de exibição dela. Chamar um grupo não troca. Quando termina a entrada que é dona da troca automática, o rótulo volta ao padrão. Concluir outra entrada não interfere. Um rótulo definido manualmente permanece até redefinir ou até uma próxima chamada individual elegível, conforme a entrada proprietária atual.
 
+## A lista própria de devolução
+
+Em **Configurações** há a **Lista própria de devolução**: uma lista curta de pessoas de confiança, guardada para o canal inteiro (não por fila). Você adiciona uma pessoa digitando o login da Twitch; o painel consulta o login uma única vez e guarda apenas o número da conta da Twitch e um rótulo de até 40 caracteres (ele começa igual ao login e pode ser alterado). O painel mostra o rótulo e a data de inclusão, nunca o número da conta. Dá para remover uma pessoa por vez ou limpar a lista inteira depois de uma confirmação. A lista comporta no máximo 500 pessoas; adicionar quem já está nela, ou a 501ª pessoa, é recusado com uma mensagem. Excluir uma fila nunca remove pessoas da lista.
+
+Nesta versão a lista apenas fica guardada: nenhuma fila a usa ainda e o bot não devolve pontos por grupo. Escolher "devolver os pontos quando o atendimento terminar" para uma fila ainda não está disponível e é recusado pela API.
+
 ## O painel
 
 O painel local abre em `https://localhost:3000` por padrão. Ele tem:
@@ -155,7 +161,7 @@ O painel local abre em `https://localhost:3000` por padrão. Ele tem:
 - **Sincronização com a Twitch e devolução de pontos** para acompanhar e recuperar operações de pontos.
 - **Comandos do chat** para ver o catálogo e escolher cargos permitidos.
 - **Widgets do OBS** para mostrar rótulos e informações da fila na transmissão.
-- **Configurações** para rótulos de conta.
+- **Configurações** para rótulos de conta e a lista própria de devolução.
 - **Conexão do canal** durante a configuração ou quando for preciso reconectar; nos demais casos, mostra a conta conectada e opções de recuperação.
 
 A página do OBS cria widgets locais de Browser Source para um único dado selecionado ou texto fixo. A fonte **Próxima pessoa em espera em uma fila** mostra "Próximo: {nome}" com o nome de exibição da primeira pessoa em espera da fila escolhida (primeiro a faixa de prioridade, depois a ordem da fila); acompanha chamadas, adiamentos, restaurações e reordenações, e não mostra nada (ou o seu texto alternativo) quando ninguém espera. Só o nome de exibição vai ao widget, nunca um identificador de conta nem o login. O link de cada widget aparece uma única vez ao criar ou gerar novamente. Mantenha-o privado; revogue ou substitua se for exposto. A configuração validada para OBS foi Ubuntu 24.04 com OBS Studio 32.2.2 e CEF 127. O comportamento do certificado OBS no Windows e macOS não foi verificado.
@@ -186,7 +192,7 @@ Para instalar, atualizar ou remover o produto, use o mesmo arquivo de instalador
 
 Por padrão, o aplicativo foi feito para aceitar conexões somente neste computador. Filas e segredos de conexão ficam no armazenamento local do aplicativo. Quem tiver acesso ao computador ou aos arquivos salvos do app também poderá acessar essas informações; o armazenamento local não garante criptografia do disco.
 
-O aplicativo usa identidade Twitch, selos de cargo no chat, entradas de fila, UID público opcional, estado das recompensas e os dados de conexão necessários para funcionar. Não deve receber senhas, Secret Twitch pelo chat, dados de acesso ao Genshin, comprovantes de pagamento ou mensagens privadas. Texto do chat é tratado como entrada não confiável; o texto rejeitado não deve ser repetido.
+O aplicativo usa identidade Twitch, selos de cargo no chat, entradas de fila, a lista própria de devolução (número da conta Twitch e rótulo), UID público opcional, estado das recompensas e os dados de conexão necessários para funcionar. Não deve receber senhas, Secret Twitch pelo chat, dados de acesso ao Genshin, comprovantes de pagamento ou mensagens privadas. Texto do chat é tratado como entrada não confiável; o texto rejeitado não deve ser repetido.
 
 Em filas com UID visível, avise claramente que ele pode aparecer publicamente. Use as opções de visibilidade da lista, da chamada e do widget OBS. Se o link de uso único do OBS for exposto, revogue-o ou gere outro. Não compartilhe publicamente a pasta da instalação, os dados salvos ou arquivos de segredos locais.
 
