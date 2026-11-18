@@ -27,7 +27,12 @@ const allowedTransitions = new Set([
   'called:no_show',
   'in_progress:completed',
   'in_progress:removed',
+  // OPS-31 P3 (design 5): skip (the call is undone) and restore (the absence is undone); the panel only.
+  'called:waiting',
+  'no_show:waiting',
 ]);
+/** Audit label each of the two return-to-waiting transitions must carry (AC 6, 29). */
+const RETURN_TO_WAITING_REASON = Object.freeze({ called: 'operator_skip', no_show: 'operator_restore' });
 
 /** @param {TransitionInput} input */
 function shouldRequestCancellation({ from, source, origin, to, policy = {} }) {
@@ -62,6 +67,10 @@ export function decideEntryTransition(input) {
     throw Object.assign(new Error(`Transition from ${from} to ${to} is not allowed`), {
       code: 'INVALID_ENTRY_TRANSITION',
     });
+  }
+
+  if (to === 'waiting' && (trigger !== 'panel_action' || reason !== RETURN_TO_WAITING_REASON[from])) {
+    throw Object.assign(new Error(`Transition from ${from} to waiting is not allowed here`), { code: 'INVALID_ENTRY_TRANSITION' });
   }
 
   const policySnapshot = { ...policy };

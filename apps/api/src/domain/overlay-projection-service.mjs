@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 const OVERLAY_MESSAGE_KEYS = Object.freeze([
   'overlay.state.open', 'overlay.state.closed', 'overlay.status.unavailable',
-  'overlay.status.data_unavailable', 'overlay.status.stale',
+  'overlay.status.data_unavailable', 'overlay.status.stale', 'overlay.widget.next',
 ]);
 
 /** @param {{overlayRepository: Record<string, any>, queueRepository: Record<string, any>, getOverlayCatalogs?:()=>Promise<Record<string,Record<string,string>>>}} dependencies */

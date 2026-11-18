@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const root = new URL('../../', import.meta.url);
@@ -250,7 +251,7 @@ describe('governance hardening contract (audit F7-F15)', () => {
     const require = createRequire(import.meta.url);
     const authority = require('../../.claude/hooks/git-authority-guard.cjs');
     const readOnly = require('../../.claude/hooks/read-only-bash-guard.cjs');
-    const root = new URL('../../', import.meta.url).pathname;
+    const root = fileURLToPath(new URL('../../', import.meta.url));
     // Verbs that are reads only in a listed form; the other verbs run as typed.
     const FORMS = { branch: 'git branch --show-current', worktree: 'git worktree list', stash: 'git stash list', remote: 'git remote -v', config: 'git config --get user.name' };
     const WRITES = ['push', 'commit', 'add', 'merge', 'rebase', 'reset', 'fetch', 'pull', 'rm', 'mv', 'cherry-pick', 'revert'];

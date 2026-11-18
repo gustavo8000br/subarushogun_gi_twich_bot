@@ -1,7 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { isDatabaseTimeout } from './database-errors.mjs';
-import { findFinancialTask, recordFinancialIntent } from './financial-gate.mjs';
+import { findFinancialTask, loadStoredSettlementPolicy, recordFinancialIntent } from './financial-gate.mjs';
+import { SETTLEMENT_ENFORCEMENT_ACTIVE, changedFields, policyDto, refusalFor } from '../domain/settlement-policy.mjs';
 import { createChatNoticeStore, enqueueChatNotice } from './chat-notice-outbox.mjs';
+import { createRefundListStore } from './refund-list-store.mjs';
+import { REFUND_ON_END_DELIVERED, SETTLEMENT_MODES, normalizeRefundGroups, refundGroupColumnsFor, refundGroupsOf } from '../domain/settlement-setting.mjs';
 import { REFUSAL_NOTICE_KIND_BY_REASON } from '../domain/chat-notice-composer.mjs';
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { validateUidInput } from '../domain/uid.mjs';
@@ -177,6 +180,38 @@ function createTransactionRunner(prisma, limits) {
   };
 }
 
+/**
+ * OPS-31 P5b (AC 38, O-7): the number of redemptions waiting for a decision, for ALL queues in ONE grouped query (the count
+ * does not grow with the number of queues). `held_for_service` is not a decision and is not counted. Returns `null` when the
+ * count cannot be read, so the field is omitted and the panel shows nothing (unknown), never a false 0.
+ * @returns {Promise<Map<string, {awaitingChoice: number, checkGroup: number}> | null>}
+ */
+async function loadPendingDecisionCounts(client, queueIds) {
+  if (queueIds.length === 0) return new Map();
+  try {
+    const rows = await client.redemption.groupBy({
+      by: ['queueId', 'settlementState'],
+      where: { queueId: { in: queueIds }, settlementState: { in: ['awaiting_choice', 'check_group'] } },
+      _count: { _all: true },
+    });
+    const counts = new Map();
+    for (const row of rows) {
+      const entry = counts.get(row.queueId) ?? { awaitingChoice: 0, checkGroup: 0 };
+      if (row.settlementState === 'awaiting_choice') entry.awaitingChoice = row._count._all;
+      else if (row.settlementState === 'check_group') entry.checkGroup = row._count._all;
+      counts.set(row.queueId, entry);
+    }
+    return counts;
+  } catch {
+    return null;
+  }
+}
+
+function pendingDecisionsOf(counts, queueId) {
+  const { awaitingChoice, checkGroup } = counts.get(queueId) ?? { awaitingChoice: 0, checkGroup: 0 };
+  return { awaitingChoice, checkGroup, total: awaitingChoice + checkGroup };
+}
+
 async function withQueueTransaction(transact, queueId, callback) {
   return transact(async (tx) => {
     await lockQueue(tx, queueId);
@@ -194,6 +229,45 @@ async function renumberWaitingEntries(tx, queueId) {
     where: { id },
     data: { position: index + 1 },
   })));
+}
+
+const CANONICAL_WAITING_ORDER = [{ priorityClass: 'asc' }, { position: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }];
+const ACTIVE_ENTRY_STATUSES = ['waiting', 'called', 'in_progress'];
+
+/** OPS-31 P3 (G-8, G-9): stable codes for the optimistic version and the restore refusal; the body carries no internal data. */
+function staleEntryVersionError(currentVersion) {
+  return Object.assign(repositoryError('ENTRY_VERSION_STALE', 'Entry changed since it was loaded'), { currentVersion });
+}
+
+function restoreNotAllowedError(reason) {
+  return Object.assign(repositoryError('ENTRY_RESTORE_NOT_ALLOWED', 'Entry cannot be restored'), { reason });
+}
+
+/**
+ * OPS-31 P3 (design 5): an entry that returns to `waiting` (skip of a called entry, restore of an absent one) goes right
+ * into the second place of its OWN lane (UX Q8; lane-relative rule, UX review P3): a default entry never crosses the
+ * priority lane and, with priority entries waiting, lands behind the first default one; a priority entry goes second of the priority lane.
+ * Renumbers every waiting entry and returns the position of the returning one.
+ */
+async function placeReturningEntry(tx, queueId, entry, entryData) {
+  const others = await tx.entry.findMany({ where: { queueId, status: 'waiting', id: { not: entry.id } }, orderBy: CANONICAL_WAITING_ORDER, select: { id: true, priorityClass: true } });
+  const priorityCount = others.filter(({ priorityClass }) => priorityClass === 'priority').length;
+  const index = entry.priorityClass === 'priority' ? Math.min(1, priorityCount) : Math.min(others.length, priorityCount + 1);
+  const ordered = [...others.map(({ id }) => id)];
+  ordered.splice(index, 0, entry.id);
+  await Promise.all(ordered.map((id, position) => (id === entry.id
+    ? tx.entry.update({ where: { id }, data: { ...entryData, position: position + 1 } })
+    : tx.entry.update({ where: { id }, data: { position: position + 1 } }))));
+  return index + 1;
+}
+
+async function assertEntryRestorable(tx, entry) {
+  const other = await tx.entry.findFirst({ where: { queueId: entry.queueId, twitchUserId: entry.twitchUserId, id: { not: entry.id }, status: { in: ACTIVE_ENTRY_STATUSES } }, select: { id: true } });
+  if (other) throw restoreNotAllowedError('other_active_entry');
+  if (!entry.redemptionId) return;
+  // AC 29: a terminal money operation (recorded intent, or a remote state that is no longer open) cannot be walked back.
+  const redemption = await tx.redemption.findUnique({ where: { redemptionId: entry.redemptionId }, select: { expectedStatus: true, remoteStatus: true } });
+  if (redemption && (redemption.expectedStatus !== null || redemption.remoteStatus !== 'UNFULFILLED')) throw restoreNotAllowedError('intent_recorded');
 }
 
 async function enqueueRewardDeleteIntent(tx, queueId, now) {
@@ -425,9 +499,9 @@ async function requestCancellation(tx, redemptionId, entryId, { cause, origin = 
 
 /**
  * @param {PrismaClientLike} prisma
- * @param {{clock?: () => Date, defaultProductLocale?: string, transactionLimits?: {lockTimeoutMs?: number, statementTimeoutMs?: number, transactionTimeoutMs?: number}}} [options]
+ * @param {{clock?: () => Date, defaultProductLocale?: string, transactionLimits?: {lockTimeoutMs?: number, statementTimeoutMs?: number, transactionTimeoutMs?: number}, settlementEnforcementActive?: boolean}} [options]
  */
-export function createQueueRepository(prisma, { clock = () => new Date(), defaultProductLocale = 'pt-BR', transactionLimits = undefined } = {}) {
+export function createQueueRepository(prisma, { clock = () => new Date(), defaultProductLocale = 'pt-BR', transactionLimits = undefined, settlementEnforcementActive = SETTLEMENT_ENFORCEMENT_ACTIVE } = {}) {
   const transact = createTransactionRunner(prisma, resolveTransactionLimits(transactionLimits));
   let initialProductLocale = 'pt-BR';
   try {
@@ -437,8 +511,10 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
   /** @type {ProductLocaleState} */
   const productLocaleFallback = Object.freeze({ locale: initialProductLocale, revision: 1 });
   const noticeStore = createChatNoticeStore({ prisma, transact, clock });
+  const refundListStore = createRefundListStore({ prisma, transact });
   return {
     ...noticeStore,
+    ...refundListStore,
     async getCommandPolicyState() {
       return readCommandPolicyState(prisma);
     },
@@ -565,7 +641,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         const setting = await tx.setting.findUnique({ where: { key: 'account_state' } });
         return typeof setting?.value?.label === 'string' ? setting.value.label : 'Streamer';
       }
-      if (sourceType === 'queue_name' || sourceType === 'queue_state' || sourceType === 'queue_waiting_count') {
+      if (sourceType === 'queue_name' || sourceType === 'queue_state' || sourceType === 'queue_waiting_count' || sourceType === 'next_waiting_viewer_display_name') {
         if (typeof queueId !== 'string') return null;
         const queue = await tx.queue.findUnique({ where: { id: queueId }, select: { title: true, isOpen: true, lifecycleStatus: true, remoteSyncStatus: true } });
         if (!queue || queue.lifecycleStatus === 'deleted') return null;
@@ -573,6 +649,12 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         if (sourceType === 'queue_state') {
           if (!['synced', 'synced_manual', 'delete_pending'].includes(queue.remoteSyncStatus)) return null;
           return queue.isOpen ? 'open' : 'closed';
+        }
+        if (sourceType === 'next_waiting_viewer_display_name') {
+          // OPS-31 P4 (FT-73, AC 8): the display name of the head of the waiting lane only. The select is the allow-list:
+          // no user id, login, uid, redemption or position of anyone leaves this read. Nobody waiting -> null (nothing shown).
+          const next = await tx.entry.findFirst({ where: { queueId, status: 'waiting' }, orderBy: CANONICAL_WAITING_ORDER, select: { displayName: true } });
+          return typeof next?.displayName === 'string' && next.displayName ? next.displayName : null;
         }
         return tx.entry.count({ where: { queueId, status: 'waiting' } });
       }
@@ -1150,6 +1232,17 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       return transact(async (tx) => {
         const entry = await tx.entry.findUnique({ where: { id: entryId } });
         if (!entry || entry.queueId !== queueId || entry.status !== 'called') return { status: 'cancelled' };
+        // OPS-31 P3: an entry that was skipped and is called again reuses its row (the key is unique per entry); a row that is
+        // still waiting to be sent keeps its place, and one being sent is left alone.
+        const callKey = `chat.call:${entryId}`;
+        const previous = await tx.outbox.findUnique({ where: { idempotencyKey: callKey } });
+        if (previous) {
+          if (['pending', 'retry', 'processing'].includes(previous.status)) return previous;
+          return tx.outbox.update({ where: { id: previous.id }, data: {
+            status: 'pending', attempts: 0, nextAttemptAt: clock(), lastError: null, leaseToken: null, leaseUntil: null,
+            payload: isCallPosition(previousPosition) ? { previousPosition } : {},
+          } });
+        }
         return tx.outbox.create({ data: {
           operationType: 'chat.call', entityType: 'entry', entityId: entryId,
           idempotencyKey: `chat.call:${entryId}`, payload: isCallPosition(previousPosition) ? { previousPosition } : {}, entryId,
@@ -1251,14 +1344,23 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
     async getEntry(id) { return prisma.entry.findUnique({ where: { id } }); },
 
     async updateLocalQueueSettings({ queueId, expectedVersion, settings, actorId = null, origin = 'panel' }) {
-      const localSettings = new Set(['callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled', 'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints']);
+      const localSettings = new Set(['callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled', 'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints', 'settlement', 'refundGroups']);
       if (Object.keys(settings).some((key) => !localSettings.has(key))) throw repositoryError('INVALID_LOCAL_QUEUE_SETTING', 'A local settings update contains a Twitch-managed field');
+      // OPS-31 P5 (FT-74): the settlement setting and the refund groups. AC 30: `refund_on_end` is refused until P7 (one code flag).
+      if ('settlement' in settings && !SETTLEMENT_MODES.includes(settings.settlement)) throw repositoryError('INVALID_LOCAL_QUEUE_SETTING', 'The settlement setting is invalid');
+      if ('settlement' in settings && settings.settlement === 'refund_on_end' && !REFUND_ON_END_DELIVERED) {
+        throw Object.assign(repositoryError('SETTLEMENT_MODE_UNAVAILABLE', 'The refund at the end of the service is not available yet'), { reason: 'not_delivered' });
+      }
+      const groupList = 'refundGroups' in settings ? normalizeRefundGroups(settings.refundGroups) : undefined;
+      if (groupList === null) throw repositoryError('INVALID_LOCAL_QUEUE_SETTING', 'The refund groups are invalid');
+      const columnSettings = Object.fromEntries(Object.entries(settings).filter(([key]) => key !== 'refundGroups'));
+      const data = { ...columnSettings, ...(groupList ? refundGroupColumnsFor(groupList) : {}) };
       return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
         if (!queue || queue.lifecycleStatus === 'deleted') throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
         if (queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be edited');
         if (queue.version !== expectedVersion) throw repositoryError('STALE_QUEUE_VERSION', 'Queue changed since it was loaded');
-        const updated = await tx.queue.update({ where: { id: queueId }, data: { ...settings, version: { increment: 1 } } });
+        const updated = await tx.queue.update({ where: { id: queueId }, data: { ...data, version: { increment: 1 } } });
         const aliases = await tx.queueKey.findMany({
           where: { queueId, keyType: 'alias' }, orderBy: { key: 'asc' }, select: { key: true },
         });
@@ -1266,7 +1368,71 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           queueId, event: 'queue.settings_updated', actorId, origin,
           safeDetail: { updatedFields: Object.keys(settings).sort(), uidMode: updated.uidMode },
         } });
+        const previousGroups = refundGroupsOf(queue);
+        const nextGroups = refundGroupsOf(updated);
+        if (updated.settlement !== queue.settlement || previousGroups.join(',') !== nextGroups.join(',')) {
+          await tx.auditLog.create({ data: {
+            queueId, event: 'queue.settlement_changed', actorId, origin,
+            previousState: queue.settlement, nextState: updated.settlement,
+            safeDetail: { previousGroups, nextGroups },
+          } });
+        }
         return { ...updated, aliases: aliases.map(({ key }) => key) };
+      });
+    },
+
+    /** OPS-31 P5b (AC 35): the stored settlement policy of one queue in its API shape, or `null` when the queue does not exist. */
+    async getQueueSettlementPolicy(queueId) {
+      const stored = await loadStoredSettlementPolicy(prisma, queueId);
+      if (!stored || stored.lifecycleStatus === 'deleted') return null;
+      return policyDto(stored, { enforcementActive: settlementEnforcementActive });
+    },
+
+    /**
+     * OPS-31 P5b (AC 35, design 3.10, 3.14 D): edit the policy under the queue lock. Order inside the lock: the queue must be
+     * editable, the revision must match (`SETTLEMENT_POLICY_STALE`), then the change is narrowed to real differences; an equal
+     * body writes nothing and keeps the revision; `legacy` cannot be selected again; until P7 any real change is refused
+     * (`policy_not_active`) and the whole call is atomic. The values and the new revision go in the SAME update.
+     * @param {{queueId: string, expectedPolicyRev: number, changes: Record<string, unknown>, actorId?: string|null, origin?: string}} input
+     */
+    async updateQueueSettlementPolicy({ queueId, expectedPolicyRev, changes, actorId = null, origin = 'panel' }) {
+      return withQueueTransaction(transact, queueId, async (tx) => {
+        const stored = await loadStoredSettlementPolicy(tx, queueId);
+        if (!stored || stored.lifecycleStatus === 'deleted') throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
+        if (stored.lifecycleStatus !== 'active' || stored.isArchived) throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be edited');
+        if (stored.rev !== expectedPolicyRev) {
+          throw Object.assign(repositoryError('SETTLEMENT_POLICY_STALE', 'The settlement policy changed since it was loaded'), { settlementPolicyRev: stored.rev });
+        }
+        const changed = changedFields(stored, changes);
+        if (Object.keys(changed).length === 0) return policyDto(stored, { enforcementActive: settlementEnforcementActive });
+        const refusal = refusalFor(stored, changed, { enforcementActive: settlementEnforcementActive });
+        if (refusal) throw Object.assign(repositoryError('SETTLEMENT_MODE_UNAVAILABLE', 'The settlement policy cannot be changed this way'), { reason: refusal.reason });
+        const columnOf = {
+          onCloseSwitchOff: 'settlementOnCloseSwitchOff', onDirectConclusion: 'settlementOnDirectConclusion',
+          onModeratorConclude: 'settlementOnModeratorConclude', onChatClear: 'settlementOnChatClear',
+          reentryRefundCap: 'reentryRefundCap', reentryWindowHours: 'reentryWindowHours',
+          reentryCapHold: 'reentryCapHold', reentryCapCountsManual: 'reentryCapCountsManual',
+        };
+        // One statement carries the values and the increment, guarded by the revision read under the lock.
+        const written = await tx.queue.updateMany({
+          where: { id: queueId, settlementPolicyRev: expectedPolicyRev },
+          data: { ...Object.fromEntries(Object.entries(changed).map(([field, value]) => [columnOf[field], value])), settlementPolicyRev: { increment: 1 } },
+        });
+        if (written.count !== 1) {
+          throw Object.assign(repositoryError('SETTLEMENT_POLICY_STALE', 'The settlement policy changed since it was loaded'), { settlementPolicyRev: stored.rev });
+        }
+        const next = await loadStoredSettlementPolicy(tx, queueId);
+        await tx.auditLog.create({ data: {
+          queueId, event: 'queue.settlement_policy_changed', actorId, origin,
+          // Closed-set values, numbers and booleans only: no viewer identifier, no label, no free text.
+          safeDetail: {
+            fields: Object.keys(changed).sort(),
+            previous: Object.fromEntries(Object.keys(changed).map((field) => [field, stored[field]])),
+            next: Object.fromEntries(Object.keys(changed).map((field) => [field, next[field]])),
+            policyRev: next.rev,
+          },
+        } });
+        return policyDto(next, { enforcementActive: settlementEnforcementActive });
       });
     },
 
@@ -1389,7 +1555,9 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       });
       const deletionFacts = await loadQueueDeletionFacts(prisma, queues.filter(({ lifecycleStatus }) => lifecycleStatus === 'deleting').map(({ id }) => id));
+      const pending = await loadPendingDecisionCounts(prisma, queues.map(({ id }) => id));
       return queues.map((queue) => ({
+        ...(pending ? { pendingDecisions: pendingDecisionsOf(pending, queue.id) } : {}),
         ...(deletionFacts.has(queue.id) ? { deletion: deletionFacts.get(queue.id) } : {}),
         id: queue.id, slug: queue.slug, aliases: queue.keys.filter(({ keyType }) => keyType === 'alias').map(({ key }) => key),
         title: queue.title, rewardPrompt: queue.rewardPrompt, cost: queue.cost, uidMode: queue.uidMode,
@@ -1405,6 +1573,7 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         refundIfViewerLeavesCalled: queue.refundIfViewerLeavesCalled,
         noticeJoined: queue.noticeJoined, noticeService: queue.noticeService, noticeState: queue.noticeState,
         noticeReordered: queue.noticeReordered, noticePoints: queue.noticePoints,
+        settlement: queue.settlement, refundGroups: refundGroupsOf(queue),
         isOpen: queue.isOpen, isArchived: queue.isArchived, lifecycleStatus: queue.lifecycleStatus,
         remoteSyncStatus: queue.remoteSyncStatus, version: queue.version,
         entries: queue.entries.map((entry) => ({
@@ -2283,15 +2452,17 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       });
     },
 
-    async moveWaitingEntry({ queueId, entryId, position }) {
+    async moveWaitingEntry({ queueId, entryId, position, expectedVersion }) {
       return withQueueTransaction(transact, queueId, async (tx) => {
         const waiting = await tx.entry.findMany({
           where: { queueId, status: 'waiting' },
-          orderBy: [{ priorityClass: 'asc' }, { position: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
-          select: { id: true, priorityClass: true },
+          orderBy: CANONICAL_WAITING_ORDER,
+          select: { id: true, priorityClass: true, version: true, userLogin: true },
         });
         const current = waiting.find(({ id }) => id === entryId);
         if (!current) throw repositoryError('ENTRY_NOT_WAITING', 'Entry is not waiting in this queue');
+        // OPS-31 P3 (G-8): the panel move sends the version of the entry it moved; compared after the queue lock.
+        if (Number.isInteger(expectedVersion) && current.version !== expectedVersion) throw staleEntryVersionError(current.version);
         const lane = waiting.filter(({ priorityClass }) => priorityClass === current.priorityClass);
         if (!Number.isInteger(position) || position < 1 || position > lane.length) {
           throw repositoryError('INVALID_QUEUE_POSITION', 'Requested queue position is invalid');
@@ -2308,6 +2479,11 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           where: { id },
           data: { position: index + 1, version: { increment: 1 } },
         })));
+        // AC 7: one aggregated notice (a burst of moves in one window leaves one row); it lists the people whose place changed.
+        const before = new Map(waiting.map(({ id }, index) => [id, index]));
+        const affected = reordered.filter(({ id }, index) => before.get(id) !== index).map(({ userLogin }) => userLogin);
+        const queue = await tx.queue.findUnique({ where: { id: queueId } });
+        await enqueueChatNotice(tx, { kind: 'reordered', queue, now: clock(), names: affected });
         return { status: 'moved', entryId, position };
       });
     },
@@ -2319,10 +2495,13 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       const initial = await prisma.entry.findUnique({ where: { id: entryId }, select: { queueId: true } });
       if (!initial) throw repositoryError('ENTRY_NOT_FOUND', 'Entry was not found');
 
-      return withQueueTransaction(transact, initial.queueId, async (tx) => {
+      try {
+      return await withQueueTransaction(transact, initial.queueId, async (tx) => {
         const entry = await tx.entry.findUnique({ where: { id: entryId } });
         const queue = await tx.queue.findUnique({ where: { id: initial.queueId } });
         if (!entry || !queue) throw repositoryError('ENTRY_NOT_FOUND', 'Entry was not found');
+        // OPS-31 P3 (G-8): a panel action sends the version it saw; the comparison happens after the queue lock. Chat and timer paths send none.
+        if (Number.isInteger(input.expectedVersion) && entry.version !== input.expectedVersion) throw staleEntryVersionError(entry.version);
         if (origin === 'timer' && reason === 'call_timeout') {
           const cutoff = input.deadlineCutoff;
           if (to !== 'no_show' || entry.status !== 'called' || entry.callAcknowledgedAt || !(entry.callDeadlineAt instanceof Date)
@@ -2331,6 +2510,23 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         let decision = decideTransition({ entry, queue, input });
 
         const now = clock();
+        if (to === 'waiting') {
+          // Skip (`called`) or restore (`no_show`): no financial effect (the decision above is `no_operation`).
+          if (queue.lifecycleStatus !== 'active') throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue does not take entries back');
+          if (entry.status === 'no_show') await assertEntryRestorable(tx, entry);
+          const position = await placeReturningEntry(tx, entry.queueId, entry, {
+            status: 'waiting', version: { increment: 1 }, calledAt: null, callNotifiedAt: null, callDeadlineAt: null, callAcknowledgedAt: null,
+            startedAt: null, finishedAt: null, terminalReason: null,
+          });
+          const returned = await tx.entry.findUnique({ where: { id: entryId } });
+          await tx.outbox.updateMany({ where: { operationType: 'chat.call', entryId, status: { in: ['pending', 'retry'] } }, data: { status: 'cancelled', lastError: 'entry_returned_to_waiting' } });
+          await tx.auditLog.create({ data: {
+            queueId: entry.queueId, entryId, redemptionId: entry.redemptionId, event: 'entry.transitioned', actorId, origin,
+            previousState: entry.status, nextState: 'waiting', reason, safeDetail: { financialDecision: 'no_operation', position },
+          } });
+          await enqueueChatNotice(tx, { kind: entry.status === 'called' ? 'skipped' : 'restored', queue, now, entryId, entryVersion: returned.version, user: entry.userLogin, position });
+          return { ...returned, financialDecision: 'no_operation', policySnapshot: decision.policySnapshot };
+        }
         const data = {
           status: to,
           position: null,
@@ -2384,9 +2580,12 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           if ((to === 'completed' && remoteStatus !== 'FULFILLED') || (to === 'removed' && remoteStatus !== 'CANCELED')) {
             throw repositoryError('CONFLICTING_EXTERNAL_REDEMPTION_STATUS', 'External redemption state conflicts with the requested transition');
           }
+          // OPS-31 P5: a recorded intent is absorbing and its `CHECK` needs `expected_status`; the external observation only
+          // updates the remote status (the worker read-verify confirms the task) and never clears the expectation.
+          const stored = await tx.redemption.findUnique({ where: { redemptionId: entry.redemptionId }, select: { settlementState: true } });
           await tx.redemption.update({
             where: { redemptionId: entry.redemptionId },
-            data: { remoteStatus, expectedStatus: null, syncStatus: 'confirmed' },
+            data: { remoteStatus, ...(stored?.settlementState === 'intent_recorded' ? {} : { expectedStatus: null }), syncStatus: 'confirmed' },
           });
         }
         if (['completed', 'removed', 'no_show'].includes(to)) {
@@ -2400,8 +2599,14 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
           }
         }
         if (to === 'completed') await enqueueChatNotice(tx, { kind: 'service_ended', queue, now, entryId: entry.id, entryVersion: updated.version, user: entry.userLogin });
+        if (to === 'no_show') await enqueueChatNotice(tx, { kind: 'no_show', queue, now, entryId: entry.id, entryVersion: updated.version, user: entry.userLogin });
         return { ...updated, financialDecision: decision.financialDecision, policySnapshot: decision.policySnapshot };
       });
+      } catch (error) {
+        // The active-entry unique index is the last guard when another path wrote an active entry for the same person.
+        if (to === 'waiting' && isUniqueConstraintError(error)) throw restoreNotAllowedError('other_active_entry');
+        throw error;
+      }
     },
 
     async claimNext({ now = clock(), leaseMs = 30_000 } = {}) {

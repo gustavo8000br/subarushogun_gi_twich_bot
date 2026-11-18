@@ -106,3 +106,8 @@ chat.notice.service_ended	@{user}, tu atención en la cola {queue} terminó. ¡G
 chat.notice.cleared.one	Se vació la cola {queue}. Se quitó {count} persona.
 chat.notice.cleared.many	Se vació la cola {queue}. Se quitaron {count} personas.
 chat.notice.cleared.other	Se vació la cola {queue}. Se quitaron {count} personas.
+chat.notice.no_show	@{user}, la llamada en la cola {queue} quedó sin respuesta y tu entrada se marcó como ausente. Si fue un error, avísale al streamer.
+chat.notice.skipped	@{user}, tu turno en la cola {queue} se aplazó. Conservas tu lugar y ahora estás en la posición {position}.
+chat.notice.restored	@{user}, ya no estás marcado como ausente. Volviste a la cola {queue} en la posición {position}.
+chat.notice.reordered	El orden de la cola {queue} cambió. Usa el comando de la cola para ver tu posición.
+chat.notice.reordered_list	El orden de la cola {queue} cambió. Cambiaron de lugar: {names}. Usa el comando de la cola para ver tu posición.

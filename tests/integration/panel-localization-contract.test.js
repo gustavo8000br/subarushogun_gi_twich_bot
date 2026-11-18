@@ -70,7 +70,7 @@ describe('panel catalog contract', () => {
         'panel.entry.action.attend', 'panel.entry.action.complete', 'panel.entry.action.resend',
         'panel.entry.action.remove', 'panel.entry.priority_badge', 'panel.entry.uid_label',
         'panel.widget.source.account', 'panel.widget.source.queue_name', 'panel.widget.source.queue_state',
-        'panel.widget.source.queue_count', 'panel.widget.source.called_name', 'panel.widget.source.called_position', 'panel.widget.source.fixed_text',
+        'panel.widget.source.queue_count', 'panel.widget.source.called_name', 'panel.widget.source.called_position', 'panel.widget.source.next_name', 'panel.widget.preview.next', 'panel.widget.source.fixed_text',
         'panel.operations.empty', 'panel.operation.type.refund', 'panel.operation.type.fulfillment',
         'panel.operation.type.reward_update', 'panel.operation.type.queue_delete', 'panel.operation.action.resolve', 'panel.operation.action.retry',
       ]) expect(catalogs.catalogs[locale], `${locale} ${key}`).toHaveProperty(key);
@@ -94,7 +94,7 @@ describe('panel catalog contract', () => {
     const catalogs = await discoverCatalogModule(catalogRoot, 'panel');
     for (const key of [
       'panel.widget.source.account', 'panel.widget.source.queue_name', 'panel.widget.source.queue_state',
-      'panel.widget.source.queue_count', 'panel.widget.source.called_name', 'panel.widget.source.called_position',
+      'panel.widget.source.queue_count', 'panel.widget.source.called_name', 'panel.widget.source.called_position', 'panel.widget.source.next_name',
       'panel.widget.source.fixed_text',
       'panel.widget.status.unavailable', 'panel.widget.status.active', 'panel.widget.status.revoked',
       'panel.widget.action.edit', 'panel.widget.action.regenerate', 'panel.widget.action.revoke',

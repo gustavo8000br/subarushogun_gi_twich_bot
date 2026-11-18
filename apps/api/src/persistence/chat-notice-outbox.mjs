@@ -14,8 +14,14 @@ export const CHAT_NOTICE_LIMITS = Object.freeze({
 });
 /** More than this many pending "joined" notices of one queue are sent as one "joined_many" summary. */
 export const CHAT_NOTICE_JOIN_SUMMARY_THRESHOLD = 3;
-const AGGREGATED = new Set(['queue_closed', 'queue_reopened', 'cleared']);
+const AGGREGATED = new Set(['queue_closed', 'queue_reopened', 'cleared', 'reordered']);
+/** Names kept in one pending reorder notice (the text lists a few and ends with "and N more"). */
+export const CHAT_NOTICE_MAX_STORED_NAMES = 50;
 const OPPOSITE = { queue_closed: 'queue_reopened', queue_reopened: 'queue_closed' };
+
+function cleanNames(value) {
+  return (Array.isArray(value) ? value : []).filter((name) => typeof name === 'string' && name.trim()).map((name) => name.trim().slice(0, 60));
+}
 
 function positive(value) { return Number.isInteger(value) && value >= 0 ? value : 0; }
 
@@ -23,9 +29,9 @@ function positive(value) { return Number.isInteger(value) && value >= 0 ? value 
  * Write one notice if the queue switch for its kind is on. Returns `{status}`; never throws for "off".
  * @param {any} tx Prisma transaction client (the queue advisory lock is already held by the caller)
  * @param {{kind: string, queue: Record<string, any>, now: Date, entryId?: string|null, entryVersion?: number, redemptionId?: string|null,
- *   user?: string|null, position?: number, count?: number}} input
+ *   user?: string|null, position?: number, count?: number, names?: string[]}} input
  */
-export async function enqueueChatNotice(tx, { kind, queue, now, entryId = null, entryVersion = 0, redemptionId = null, user = null, position = 0, count = 0 }) {
+export async function enqueueChatNotice(tx, { kind, queue, now, entryId = null, entryVersion = 0, redemptionId = null, user = null, position = 0, count = 0, names = [] }) {
   if (!isChatNoticeKind(kind)) return { status: 'unknown_kind' };
   const definition = CHAT_NOTICE_KINDS[kind];
   if (!queue || queue[definition.switch] !== true) return { status: 'switched_off' };
@@ -45,6 +51,13 @@ export async function enqueueChatNotice(tx, { kind, queue, now, entryId = null, 
   }
   const existing = await tx.outbox.findUnique({ where: { idempotencyKey } });
   if (existing) {
+    if (kind === 'reordered' && ['pending', 'retry'].includes(existing.status)) {
+      // Several moves inside one merge window leave one row; the people who moved are the union, in order of first move.
+      const previous = existing.payload && typeof existing.payload === 'object' ? existing.payload : {};
+      const merged = [...new Set([...cleanNames(previous.names), ...cleanNames(names)])].slice(0, CHAT_NOTICE_MAX_STORED_NAMES);
+      await tx.outbox.update({ where: { id: existing.id }, data: { payload: { ...previous, names: merged } } });
+      return { status: 'merged' };
+    }
     if (kind === 'cleared' && ['pending', 'retry'].includes(existing.status)) {
       const previous = existing.payload && typeof existing.payload === 'object' ? existing.payload : {};
       await tx.outbox.update({ where: { id: existing.id }, data: { payload: { ...previous, count: positive(previous.count) + positive(count) } } });
@@ -63,6 +76,7 @@ export async function enqueueChatNotice(tx, { kind, queue, now, entryId = null, 
       kind, queueId: queue.id, priority: definition.priority, maxAttempts: limits.maxAttempts,
       expiresAt: new Date(now.getTime() + limits.ttlMs).toISOString(),
       ...(user ? { user: String(user) } : {}), ...(position ? { position: positive(position) } : {}), ...(count ? { count: positive(count) } : {}),
+      ...(kind === 'reordered' ? { names: cleanNames(names).slice(0, CHAT_NOTICE_MAX_STORED_NAMES) } : {}),
     },
   } });
   return { status: 'enqueued' };
