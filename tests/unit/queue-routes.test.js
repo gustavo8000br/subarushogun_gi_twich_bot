@@ -2268,4 +2268,77 @@ describe('local queue and setup API', () => {
     expect(h.repository.clearRefundList).toHaveBeenCalledTimes(1);
     await h.app.close();
   });
+  it('OPS-31 P5b (AC 35): GET/PUT settlement-policy are session-only, validate without coercion, and map every stable code', async () => {
+    const h = await createHarness();
+    const url = '/api/queues/queue-id/settlement-policy';
+    const policy = { settlementPolicyRev: 0, onCloseSwitchOff: 'legacy', onDirectConclusion: 'wait', onModeratorConclude: 'wait', onChatClear: 'wait', reentryRefundCap: null, reentryWindowHours: 12, reentryCapHold: 'after_n', reentryCapCountsManual: true, effectiveBudget: null, legacySelectable: true, enforcementActive: false };
+    h.repository.getQueueSettlementPolicy = vi.fn(async () => policy);
+    h.repository.updateQueueSettlementPolicy = vi.fn(async () => policy);
+    expect((await h.app.inject({ method: 'GET', url, headers: { host: 'localhost:3000' } })).statusCode).toBe(401);
+    expect((await h.app.inject({ method: 'PUT', url, headers: { host: 'localhost:3000' }, payload: { expectedPolicyRev: 0 } })).statusCode).toBeGreaterThanOrEqual(400);
+    expect(h.repository.updateQueueSettlementPolicy).not.toHaveBeenCalled();
+    const read = await h.app.inject({ method: 'GET', url, headers: h.sessionHeaders });
+    expect(read.statusCode).toBe(200);
+    expect(Object.keys(read.json()).sort()).toEqual(Object.keys(policy).sort());
+    h.repository.getQueueSettlementPolicy = vi.fn(async () => null);
+    expect((await h.app.inject({ method: 'GET', url, headers: h.sessionHeaders })).json()).toMatchObject({ code: 'QUEUE_NOT_FOUND' });
+
+    const invalid = [
+      [{}, 'expectedPolicyRev'], [{ expectedPolicyRev: '0' }, 'expectedPolicyRev'], [{ expectedPolicyRev: -1 }, 'expectedPolicyRev'],
+      [{ expectedPolicyRev: 0, onCloseSwitchOff: 'always' }, 'onCloseSwitchOff'], [{ expectedPolicyRev: 0, onModeratorConclude: 'fulfill' }, 'onModeratorConclude'],
+      [{ expectedPolicyRev: 0, reentryRefundCap: 0 }, 'reentryRefundCap'], [{ expectedPolicyRev: 0, reentryRefundCap: 21 }, 'reentryRefundCap'], [{ expectedPolicyRev: 0, reentryRefundCap: '3' }, 'reentryRefundCap'],
+      [{ expectedPolicyRev: 0, reentryWindowHours: 0 }, 'reentryWindowHours'], [{ expectedPolicyRev: 0, reentryWindowHours: 73 }, 'reentryWindowHours'],
+      [{ expectedPolicyRev: 0, reentryCapHold: 'before_n' }, 'reentryCapHold'],
+      [{ expectedPolicyRev: 0, reentryCapCountsManual: 'true' }, 'reentryCapCountsManual'], [{ expectedPolicyRev: 0, reentryCapCountsManual: 1 }, 'reentryCapCountsManual'],
+      [{ expectedPolicyRev: 0, version: 3 }, 'version'],
+    ];
+    for (const [payload, field] of invalid) {
+      const response = await h.app.inject({ method: 'PUT', url, headers: h.headers, payload });
+      expect(response.statusCode, JSON.stringify(payload)).toBe(400);
+      expect(response.json()).toMatchObject({ code: 'SETTLEMENT_POLICY_INVALID', field });
+    }
+    expect(h.repository.updateQueueSettlementPolicy).not.toHaveBeenCalled();
+
+    const accepted = { expectedPolicyRev: 4, onCloseSwitchOff: 'wait', reentryRefundCap: null, reentryCapHold: 'at_n', reentryCapCountsManual: false };
+    expect((await h.app.inject({ method: 'PUT', url, headers: h.headers, payload: accepted })).statusCode).toBe(200);
+    expect(h.repository.updateQueueSettlementPolicy).toHaveBeenCalledWith(expect.objectContaining({
+      queueId: 'queue-id', expectedPolicyRev: 4, changes: { onCloseSwitchOff: 'wait', reentryRefundCap: null, reentryCapHold: 'at_n', reentryCapCountsManual: false },
+    }));
+
+    const failWith = async (error) => {
+      h.repository.updateQueueSettlementPolicy = vi.fn(async () => { throw error; });
+      return h.app.inject({ method: 'PUT', url, headers: h.headers, payload: { expectedPolicyRev: 1 } });
+    };
+    const stale = await failWith(Object.assign(new Error('private detail'), { code: 'SETTLEMENT_POLICY_STALE', settlementPolicyRev: 7 }));
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json()).toMatchObject({ code: 'SETTLEMENT_POLICY_STALE', settlementPolicyRev: 7 });
+    for (const reason of ['policy_not_active', 'legacy_not_selectable']) {
+      const refused = await failWith(Object.assign(new Error('private detail'), { code: 'SETTLEMENT_MODE_UNAVAILABLE', reason }));
+      expect(refused.statusCode).toBe(409);
+      expect(refused.json()).toMatchObject({ code: 'SETTLEMENT_MODE_UNAVAILABLE', reason });
+    }
+    expect((await failWith(Object.assign(new Error('x'), { code: 'SETTLEMENT_MODE_UNAVAILABLE', reason: 'internal text' }))).json().reason).toBe('policy_not_active');
+    expect((await failWith(Object.assign(new Error('x'), { code: 'QUEUE_NOT_AVAILABLE' }))).statusCode).toBe(409);
+    expect((await failWith(Object.assign(new Error('x'), { code: 'QUEUE_NOT_FOUND' }))).statusCode).toBe(404);
+    const unexpected = await failWith(new Error('connection string postgres://secret'));
+    expect(unexpected.statusCode).toBe(503); // `sendDiagnosedFailure` default for an unexpected failure (generic text)
+    expect(unexpected.json()).toMatchObject({ error: 'Não foi possível salvar a política de pontos.' });
+    expect(unexpected.body).not.toContain('postgres://secret');
+    await h.app.close();
+  });
+
+  it('OPS-31 P5b (AC 38): the queue carries pendingDecisions only when the repository read the count (absent means unknown, never 0)', async () => {
+    const h = await createHarness();
+    h.repository.listQueueProjection = vi.fn(async () => [
+      { id: 'a', slug: 'a', title: 'A', entries: [], pendingDecisions: { awaitingChoice: 2, checkGroup: 1, total: 3, internal: 'x' } },
+      { id: 'b', slug: 'b', title: 'B', entries: [] },
+    ]);
+    const listed = (await h.app.inject({ method: 'GET', url: '/api/queues', headers: h.sessionHeaders })).json();
+    expect(listed[0].pendingDecisions).toEqual({ awaitingChoice: 2, checkGroup: 1, total: 3 });
+    expect(listed[1]).not.toHaveProperty('pendingDecisions');
+    const state = (await h.app.inject({ method: 'GET', url: '/api/state', headers: h.sessionHeaders })).json();
+    expect(state.queues[0].pendingDecisions).toEqual({ awaitingChoice: 2, checkGroup: 1, total: 3 });
+    expect(state.queues[1]).not.toHaveProperty('pendingDecisions');
+    await h.app.close();
+  });
 });

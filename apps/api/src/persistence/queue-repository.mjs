@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { isDatabaseTimeout } from './database-errors.mjs';
-import { findFinancialTask, recordFinancialIntent } from './financial-gate.mjs';
+import { findFinancialTask, loadStoredSettlementPolicy, recordFinancialIntent } from './financial-gate.mjs';
+import { SETTLEMENT_ENFORCEMENT_ACTIVE, changedFields, policyDto, refusalFor } from '../domain/settlement-policy.mjs';
 import { createChatNoticeStore, enqueueChatNotice } from './chat-notice-outbox.mjs';
 import { createRefundListStore } from './refund-list-store.mjs';
 import { REFUND_ON_END_DELIVERED, SETTLEMENT_MODES, normalizeRefundGroups, refundGroupColumnsFor, refundGroupsOf } from '../domain/settlement-setting.mjs';
@@ -177,6 +178,38 @@ function createTransactionRunner(prisma, limits) {
       throw error;
     }
   };
+}
+
+/**
+ * OPS-31 P5b (AC 38, O-7): the number of redemptions waiting for a decision, for ALL queues in ONE grouped query (the count
+ * does not grow with the number of queues). `held_for_service` is not a decision and is not counted. Returns `null` when the
+ * count cannot be read, so the field is omitted and the panel shows nothing (unknown), never a false 0.
+ * @returns {Promise<Map<string, {awaitingChoice: number, checkGroup: number}> | null>}
+ */
+async function loadPendingDecisionCounts(client, queueIds) {
+  if (queueIds.length === 0) return new Map();
+  try {
+    const rows = await client.redemption.groupBy({
+      by: ['queueId', 'settlementState'],
+      where: { queueId: { in: queueIds }, settlementState: { in: ['awaiting_choice', 'check_group'] } },
+      _count: { _all: true },
+    });
+    const counts = new Map();
+    for (const row of rows) {
+      const entry = counts.get(row.queueId) ?? { awaitingChoice: 0, checkGroup: 0 };
+      if (row.settlementState === 'awaiting_choice') entry.awaitingChoice = row._count._all;
+      else if (row.settlementState === 'check_group') entry.checkGroup = row._count._all;
+      counts.set(row.queueId, entry);
+    }
+    return counts;
+  } catch {
+    return null;
+  }
+}
+
+function pendingDecisionsOf(counts, queueId) {
+  const { awaitingChoice, checkGroup } = counts.get(queueId) ?? { awaitingChoice: 0, checkGroup: 0 };
+  return { awaitingChoice, checkGroup, total: awaitingChoice + checkGroup };
 }
 
 async function withQueueTransaction(transact, queueId, callback) {
@@ -466,9 +499,9 @@ async function requestCancellation(tx, redemptionId, entryId, { cause, origin = 
 
 /**
  * @param {PrismaClientLike} prisma
- * @param {{clock?: () => Date, defaultProductLocale?: string, transactionLimits?: {lockTimeoutMs?: number, statementTimeoutMs?: number, transactionTimeoutMs?: number}}} [options]
+ * @param {{clock?: () => Date, defaultProductLocale?: string, transactionLimits?: {lockTimeoutMs?: number, statementTimeoutMs?: number, transactionTimeoutMs?: number}, settlementEnforcementActive?: boolean}} [options]
  */
-export function createQueueRepository(prisma, { clock = () => new Date(), defaultProductLocale = 'pt-BR', transactionLimits = undefined } = {}) {
+export function createQueueRepository(prisma, { clock = () => new Date(), defaultProductLocale = 'pt-BR', transactionLimits = undefined, settlementEnforcementActive = SETTLEMENT_ENFORCEMENT_ACTIVE } = {}) {
   const transact = createTransactionRunner(prisma, resolveTransactionLimits(transactionLimits));
   let initialProductLocale = 'pt-BR';
   try {
@@ -1348,6 +1381,61 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       });
     },
 
+    /** OPS-31 P5b (AC 35): the stored settlement policy of one queue in its API shape, or `null` when the queue does not exist. */
+    async getQueueSettlementPolicy(queueId) {
+      const stored = await loadStoredSettlementPolicy(prisma, queueId);
+      if (!stored || stored.lifecycleStatus === 'deleted') return null;
+      return policyDto(stored, { enforcementActive: settlementEnforcementActive });
+    },
+
+    /**
+     * OPS-31 P5b (AC 35, design 3.10, 3.14 D): edit the policy under the queue lock. Order inside the lock: the queue must be
+     * editable, the revision must match (`SETTLEMENT_POLICY_STALE`), then the change is narrowed to real differences; an equal
+     * body writes nothing and keeps the revision; `legacy` cannot be selected again; until P7 any real change is refused
+     * (`policy_not_active`) and the whole call is atomic. The values and the new revision go in the SAME update.
+     * @param {{queueId: string, expectedPolicyRev: number, changes: Record<string, unknown>, actorId?: string|null, origin?: string}} input
+     */
+    async updateQueueSettlementPolicy({ queueId, expectedPolicyRev, changes, actorId = null, origin = 'panel' }) {
+      return withQueueTransaction(transact, queueId, async (tx) => {
+        const stored = await loadStoredSettlementPolicy(tx, queueId);
+        if (!stored || stored.lifecycleStatus === 'deleted') throw repositoryError('QUEUE_NOT_FOUND', 'Queue was not found');
+        if (stored.lifecycleStatus !== 'active' || stored.isArchived) throw repositoryError('QUEUE_NOT_AVAILABLE', 'Queue cannot be edited');
+        if (stored.rev !== expectedPolicyRev) {
+          throw Object.assign(repositoryError('SETTLEMENT_POLICY_STALE', 'The settlement policy changed since it was loaded'), { settlementPolicyRev: stored.rev });
+        }
+        const changed = changedFields(stored, changes);
+        if (Object.keys(changed).length === 0) return policyDto(stored, { enforcementActive: settlementEnforcementActive });
+        const refusal = refusalFor(stored, changed, { enforcementActive: settlementEnforcementActive });
+        if (refusal) throw Object.assign(repositoryError('SETTLEMENT_MODE_UNAVAILABLE', 'The settlement policy cannot be changed this way'), { reason: refusal.reason });
+        const columnOf = {
+          onCloseSwitchOff: 'settlementOnCloseSwitchOff', onDirectConclusion: 'settlementOnDirectConclusion',
+          onModeratorConclude: 'settlementOnModeratorConclude', onChatClear: 'settlementOnChatClear',
+          reentryRefundCap: 'reentryRefundCap', reentryWindowHours: 'reentryWindowHours',
+          reentryCapHold: 'reentryCapHold', reentryCapCountsManual: 'reentryCapCountsManual',
+        };
+        // One statement carries the values and the increment, guarded by the revision read under the lock.
+        const written = await tx.queue.updateMany({
+          where: { id: queueId, settlementPolicyRev: expectedPolicyRev },
+          data: { ...Object.fromEntries(Object.entries(changed).map(([field, value]) => [columnOf[field], value])), settlementPolicyRev: { increment: 1 } },
+        });
+        if (written.count !== 1) {
+          throw Object.assign(repositoryError('SETTLEMENT_POLICY_STALE', 'The settlement policy changed since it was loaded'), { settlementPolicyRev: stored.rev });
+        }
+        const next = await loadStoredSettlementPolicy(tx, queueId);
+        await tx.auditLog.create({ data: {
+          queueId, event: 'queue.settlement_policy_changed', actorId, origin,
+          // Closed-set values, numbers and booleans only: no viewer identifier, no label, no free text.
+          safeDetail: {
+            fields: Object.keys(changed).sort(),
+            previous: Object.fromEntries(Object.keys(changed).map((field) => [field, stored[field]])),
+            next: Object.fromEntries(Object.keys(changed).map((field) => [field, next[field]])),
+            policyRev: next.rev,
+          },
+        } });
+        return policyDto(next, { enforcementActive: settlementEnforcementActive });
+      });
+    },
+
     async updateQueueRewardSettings({ queueId, expectedVersion, settings, actorId = null, origin = 'panel' }) {
       return withQueueTransaction(transact, queueId, async (tx) => {
         const queue = await tx.queue.findUnique({ where: { id: queueId } });
@@ -1467,7 +1555,9 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       });
       const deletionFacts = await loadQueueDeletionFacts(prisma, queues.filter(({ lifecycleStatus }) => lifecycleStatus === 'deleting').map(({ id }) => id));
+      const pending = await loadPendingDecisionCounts(prisma, queues.map(({ id }) => id));
       return queues.map((queue) => ({
+        ...(pending ? { pendingDecisions: pendingDecisionsOf(pending, queue.id) } : {}),
         ...(deletionFacts.has(queue.id) ? { deletion: deletionFacts.get(queue.id) } : {}),
         id: queue.id, slug: queue.slug, aliases: queue.keys.filter(({ keyType }) => keyType === 'alias').map(({ key }) => key),
         title: queue.title, rewardPrompt: queue.rewardPrompt, cost: queue.cost, uidMode: queue.uidMode,
