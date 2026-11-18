@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { apiClient } from '../../lib/api/client.mjs';
 import { usePanel } from '../panel-shell/panel-provider.jsx';
+import { RefundListSection } from './refund-list-section.jsx';
 
 function AccountLabelForm({ field, sectionTitle, label, value, help, dirty, saving, busy, notice, t, onChange, onCancel, onSubmit }) {
   return (
@@ -105,7 +106,10 @@ export function AccountSettingsPageView({ account = {}, t, request, refresh }) {
 }
 
 export default function AccountSettingsPageContent() {
-  const { status, runtimeState, refreshOverview, t } = usePanel();
+  const { status, runtimeState, refreshOverview, t, localeState } = usePanel();
   if (status !== 'ready') return null;
-  return <AccountSettingsPageView account={runtimeState?.account ?? {}} t={t} request={apiClient.request} refresh={refreshOverview} />;
+  return <>
+    <AccountSettingsPageView account={runtimeState?.account ?? {}} t={t} request={apiClient.request} refresh={refreshOverview} />
+    <div className="account-settings-grid"><RefundListSection t={t} request={apiClient.request} locale={localeState?.locale} /></div>
+  </>;
 }

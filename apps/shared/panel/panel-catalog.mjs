@@ -63,4 +63,10 @@ export const PANEL_PLACEHOLDERS = Object.freeze({
   'panel.reward.mismatch.skip_queue': ['count'],
   'panel.reward.mismatch.disabled': ['count'],
   'panel.reward.mismatch.not_paused': ['count'],
+  'panel.refund_list.count': ['count', 'max'],
+  'panel.refund_list.added_on': ['date'],
+  'panel.refund_list.remove_aria': ['label'],
+  'panel.refund_list.removed': ['label'],
+  'panel.refund_list.clear_confirm': ['count'],
+  'panel.refund_list.error.limit': ['max'],
 });

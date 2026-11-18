@@ -2174,4 +2174,98 @@ describe('local queue and setup API', () => {
     expect(failed).not.toHaveProperty('conflictDetectedAt');
     await h.app.close();
   });
+
+  it('OPS-31 P5 (AC 9, 30): the queue projection carries settlement and the group list; refund_on_end is refused with a stable 409 and reason; groups pass through as a list', async () => {
+    const h = await createHarness();
+    const url = '/api/queues/queue-id/settings';
+    h.repository.updateLocalQueueSettings = vi.fn(async ({ settings }) => ({ id: 'queue-id', slug: 'abismo', title: 'Abismo', cost: 100, uidMode: 'visible', settlement: 'fulfill_on_start', refundGroups: settings.refundGroups ?? [], version: 2 }));
+    const listed = await h.app.inject({ method: 'GET', url: '/api/queues', headers: h.sessionHeaders });
+    expect(listed.json()[0]).toMatchObject({ settlement: 'fulfill_on_start', refundGroups: [] });
+    const ok = await h.app.inject({ method: 'PATCH', url, headers: h.headers, payload: { expectedVersion: 1, settlement: 'fulfill_on_start', refundGroups: ['own_list', 'vip'] } });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({ settlement: 'fulfill_on_start', refundGroups: ['own_list', 'vip'] });
+    expect(h.repository.updateLocalQueueSettings).toHaveBeenCalledWith(expect.objectContaining({ settings: { settlement: 'fulfill_on_start', refundGroups: ['own_list', 'vip'] } }));
+
+    h.repository.updateLocalQueueSettings = vi.fn(async () => { throw Object.assign(new Error('private detail'), { code: 'SETTLEMENT_MODE_UNAVAILABLE', reason: 'not_delivered' }); });
+    const refused = await h.app.inject({ method: 'PATCH', url, headers: h.headers, payload: { expectedVersion: 1, settlement: 'refund_on_end' } });
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json()).toMatchObject({ code: 'SETTLEMENT_MODE_UNAVAILABLE', reason: 'not_delivered' });
+    expect(JSON.stringify(refused.json())).not.toContain('private detail');
+
+    h.repository.updateLocalQueueSettings = vi.fn();
+    for (const payload of [{ settlement: 'sometimes' }, { settlement: 7 }, { refundGroups: 'vip' }, { refundGroups: {} }]) {
+      const bad = await h.app.inject({ method: 'PATCH', url, headers: h.headers, payload: { expectedVersion: 1, ...payload } });
+      expect(bad.statusCode, JSON.stringify(payload)).toBe(400);
+    }
+    expect(h.repository.updateLocalQueueSettings).not.toHaveBeenCalled();
+    // a malformed group list that reaches the repository is a client error, not a diagnostic
+    h.repository.updateLocalQueueSettings = vi.fn(async () => { throw Object.assign(new Error('The refund groups are invalid'), { code: 'INVALID_LOCAL_QUEUE_SETTING' }); });
+    const badGroups = await h.app.inject({ method: 'PATCH', url, headers: h.headers, payload: { expectedVersion: 1, refundGroups: ['everyone'] } });
+    expect(badGroups.statusCode).toBe(400);
+    expect(badGroups.json()).toMatchObject({ code: 'INVALID_QUEUE_SETTINGS' });
+    await h.app.close();
+  });
+
+  it('OPS-31 P5 (AC 10): the own list routes resolve the login once, never echo the Twitch id, map the stable codes and log nothing sensitive', async () => {
+    const resolveUser = vi.fn(async (login) => (login === 'ghost' ? null : { id: '777123', login, displayName: 'Friend' }));
+    const reportDiagnostic = vi.fn(() => '22222222-2222-4222-8222-222222222222');
+    const h = await createHarness({ resolveUser, reportDiagnostic });
+    const createdAt = new Date('2030-01-01T00:00:00.000Z');
+    h.repository.listRefundList = vi.fn(async () => ({ items: [{ id: '11111111-1111-4111-8111-111111111111', label: 'Friend', createdAt, twitchUserId: '777123' }], count: 1, max: 500 }));
+    h.repository.addRefundListMember = vi.fn(async ({ label }) => ({ member: { id: '11111111-1111-4111-8111-111111111111', label: label ?? null, createdAt }, count: 1 }));
+    h.repository.removeRefundListMember = vi.fn(async () => ({ count: 0 }));
+    h.repository.clearRefundList = vi.fn(async () => ({ removed: 3 }));
+
+    const read = await h.app.inject({ method: 'GET', url: '/api/refund-list', headers: h.sessionHeaders });
+    expect(read.statusCode).toBe(200);
+    expect(read.json()).toEqual({ items: [{ id: '11111111-1111-4111-8111-111111111111', label: 'Friend', createdAt: createdAt.toISOString() }], count: 1, max: 500 });
+    expect(read.body).not.toContain('777123');
+
+    const added = await h.app.inject({ method: 'POST', url: '/api/refund-list', headers: h.headers, payload: { login: '@Friend', label: 'Friend' } });
+    expect(added.statusCode).toBe(201);
+    expect(resolveUser).toHaveBeenCalledWith('Friend');
+    expect(h.repository.addRefundListMember).toHaveBeenCalledWith(expect.objectContaining({ twitchUserId: '777123', label: 'Friend' }));
+    expect(added.json()).toMatchObject({ member: { label: 'Friend' }, count: 1, max: 500 });
+    expect(added.body).not.toContain('777123');
+
+    const missing = await h.app.inject({ method: 'POST', url: '/api/refund-list', headers: h.headers, payload: { login: 'ghost' } });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json()).toMatchObject({ code: 'TWITCH_USER_NOT_FOUND' });
+    for (const payload of [{}, { login: 'bad login!' }, { login: 'x'.repeat(26) }, { login: 'friend', label: 7 }]) {
+      const bad = await h.app.inject({ method: 'POST', url: '/api/refund-list', headers: h.headers, payload });
+      expect(bad.statusCode, JSON.stringify(payload)).toBe(400);
+    }
+
+    for (const [code, status, extra] of [['REFUND_LIST_FULL', 409, { max: 500 }], ['REFUND_LIST_DUPLICATE', 409, {}], ['REFUND_LIST_INVALID', 400, {}]]) {
+      h.repository.addRefundListMember = vi.fn(async () => { throw Object.assign(new Error('Friend 777123 private'), { code }); });
+      const failed = await h.app.inject({ method: 'POST', url: '/api/refund-list', headers: h.headers, payload: { login: 'friend' } });
+      expect(failed.statusCode, code).toBe(status);
+      expect(failed.json()).toMatchObject({ code, ...extra });
+      expect(failed.body).not.toMatch(/777123|private/);
+    }
+    h.repository.addRefundListMember = vi.fn(async () => { throw new Error('database password in message'); });
+    const unexpected = await h.app.inject({ method: 'POST', url: '/api/refund-list', headers: h.headers, payload: { login: 'friend' } });
+    expect(unexpected.statusCode).toBe(500);
+    expect(unexpected.json()).toMatchObject({ referenceId: '22222222-2222-4222-8222-222222222222' });
+    expect(unexpected.body).not.toContain('database password');
+
+    const removed = await h.app.inject({ method: 'POST', url: '/api/refund-list/11111111-1111-4111-8111-111111111111/remove', headers: h.headers });
+    expect(removed.statusCode).toBe(200);
+    expect(removed.json()).toEqual({ count: 0, max: 500 });
+    const badId = await h.app.inject({ method: 'POST', url: '/api/refund-list/not-an-id/remove', headers: h.headers });
+    expect(badId.statusCode).toBe(404);
+    h.repository.removeRefundListMember = vi.fn(async () => { throw Object.assign(new Error('x'), { code: 'REFUND_LIST_MEMBER_NOT_FOUND' }); });
+    const gone = await h.app.inject({ method: 'POST', url: '/api/refund-list/11111111-1111-4111-8111-111111111111/remove', headers: h.headers });
+    expect(gone.statusCode).toBe(404);
+
+    const cleared = await h.app.inject({ method: 'POST', url: '/api/refund-list/clear', headers: h.headers });
+    expect(cleared.statusCode).toBe(200);
+    expect(cleared.json()).toEqual({ removed: 3, count: 0, max: 500 });
+
+    // panel session and the mutation boundary apply: no session, no mutation
+    const noSession = await h.app.inject({ method: 'POST', url: '/api/refund-list/clear', headers: { host: 'localhost:3000' } });
+    expect(noSession.statusCode).toBeGreaterThanOrEqual(400);
+    expect(h.repository.clearRefundList).toHaveBeenCalledTimes(1);
+    await h.app.close();
+  });
 });

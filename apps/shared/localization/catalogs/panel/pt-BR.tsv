@@ -874,3 +874,20 @@ panel.notice_settings.reordered	Avisar quem mudou de lugar quando você reordena
 panel.notice_settings.points	Contar à pessoa o que aconteceu com os pontos dela (em breve)
 panel.notice_settings.soon_help	Ainda não é enviado nada por isso. A sua escolha fica salva para quando chegar.
 panel.notice_settings.hint	As mensagens têm limite para não inundar o chat; a chamada de "sua vez" sempre vai primeiro.
+panel.refund_list.title	Lista própria de devolução
+panel.refund_list.description	Pessoas de confiança. Usada por toda fila com este grupo marcado. Fica guardado: o número da conta da Twitch e um rótulo.
+panel.refund_list.label	Rótulo (opcional)
+panel.refund_list.add	Adicionar
+panel.refund_list.count	{count} de {max}
+panel.refund_list.added_on	Adicionado em {date}
+panel.refund_list.remove	Remover
+panel.refund_list.remove_aria	Remover {label} da lista
+panel.refund_list.removed	{label} removido.
+panel.refund_list.unnamed	(sem rótulo)
+panel.refund_list.clear	Limpar tudo
+panel.refund_list.clear_confirm	Remover as {count} pessoas da lista? As filas que usam este grupo não devolverão ninguém dela.
+panel.refund_list.clear_done	Lista limpa.
+panel.refund_list.empty	Ainda não há ninguém na lista.
+panel.refund_list.error.duplicate	Esta pessoa já está na lista.
+panel.refund_list.error.limit	A lista está cheia ({max} pessoas). Remova alguém para adicionar outra.
+panel.refund_list.error.invalid	Informe um login válido da Twitch: letras, números e sublinhado, até 25 caracteres.

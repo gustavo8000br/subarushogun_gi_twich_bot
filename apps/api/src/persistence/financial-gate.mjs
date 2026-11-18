@@ -5,9 +5,10 @@
 // in `.opengrep/rules.yml`) keeps it that way. It also owns the settlement policy loader, the pure action resolver and the
 // cap-window port, so no other module reads the policy columns.
 //
-// P1 changes NO behavior for today's data: the policy provider is a constant (`legacy` S1, `wait` for the rest), the
-// settlement state is always `none` (the column arrives with M2 in P5) and the cap window is the constant fallback.
-// The decision functions already have their final shape; later packages only swap the providers.
+// P1 changed NO behavior for today's data: the policy provider is a constant (`legacy` S1, `wait` for the rest) and the cap
+// window is the constant fallback. Since P5 (M2a) the gate reads `settlement_state` under the row lock and writes
+// `intent_recorded` in the same statement as `expected_status`; the held states exist in the database but nothing writes
+// them before P7. The decision functions already have their final shape; later packages only swap the providers.
 
 /** @typedef {'cancel' | 'fulfill'} FinancialOperation */
 /** @typedef {'created' | 'already_same' | 'contradictory' | 'held_blocked'} FinancialIntentStatus */
@@ -82,13 +83,16 @@ export function decideFinancialIntent({ operation, cause, settlementState = 'non
  */
 export async function recordFinancialIntent(tx, { redemptionId, operation, cause, entryId = null, origin = 'system', actorId = null, allowFrom = [], redemptionPatch = {}, reassertExisting = false }) {
   if (typeof cause !== 'string' || !cause) throw gateError('FINANCIAL_CAUSE_REQUIRED', 'Financial cause is required');
-  const rows = await tx.$queryRaw`SELECT remote_status FROM redemptions WHERE redemption_id = ${redemptionId} FOR UPDATE`;
+  const rows = await tx.$queryRaw`SELECT remote_status, settlement_state FROM redemptions WHERE redemption_id = ${redemptionId} FOR UPDATE`;
   if (!rows.length) throw gateError('REDEMPTION_NOT_FOUND', 'Redemption was not found');
   const remoteStatus = String(rows[0].remote_status);
+  const settlementState = String(rows[0].settlement_state);
   const existing = await findFinancialTask(tx, redemptionId);
   const existingOperation = existing ? OPERATION_BY_TYPE[existing.operationType] ?? null : null;
-  // P1: the settlement state column does not exist yet (M2), so every row is `none`, which is exactly today's shape.
-  const decision = decideFinancialIntent({ operation, cause, settlementState: 'none', allowFrom, remoteStatus, existingOperation });
+  const decision = decideFinancialIntent({ operation, cause, settlementState, allowFrom, remoteStatus, existingOperation });
+  // The intent and its settlement state are one statement. A row that leaves `awaiting_choice` also loses its cause (the
+  // cause `CHECK` ties it to that state); rows that existed before M2a (`none` with an expectation) become `intent_recorded`.
+  const intentData = (op) => ({ ...redemptionPatch, expectedStatus: EXPECTED_STATUSES[op], syncStatus: 'pending', settlementState: 'intent_recorded', settlementCause: null });
 
   if (decision.status === 'created') {
     const inserted = await tx.outbox.createMany({
@@ -106,14 +110,14 @@ export async function recordFinancialIntent(tx, { redemptionId, operation, cause
     if (inserted.count !== 1) return { status: 'already_same', reason: 'duplicate_key' };
     await tx.redemption.update({
       where: { redemptionId },
-      data: { ...redemptionPatch, expectedStatus: EXPECTED_STATUSES[operation], syncStatus: 'pending' },
+      data: intentData(operation),
     });
     return decision;
   }
   if (decision.status === 'already_same' && reassertExisting && existingOperation === operation) {
     await tx.redemption.update({
       where: { redemptionId },
-      data: { ...redemptionPatch, expectedStatus: EXPECTED_STATUSES[operation], syncStatus: 'pending' },
+      data: intentData(operation),
     });
   }
   if (decision.status === 'contradictory' && PERSON_ORIGINS.has(origin)) {

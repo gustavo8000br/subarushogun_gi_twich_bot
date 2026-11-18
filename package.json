@@ -41,6 +41,7 @@
     "test:e2e:browser-only:ci": "node tests/e2e/run-browser-scripts.mjs",
     "test:e2e:connection:browser-only": "node tests/e2e/connection-browser-only.mjs",
     "test:e2e:settings-locale:browser-only": "node tests/e2e/settings-locale-browser-only.mjs",
+    "test:e2e:settings-refund-list:browser-only": "node tests/e2e/settings-refund-list-browser-only.mjs",
     "test:e2e:commands-policy:browser-only": "node tests/e2e/commands-policy-browser-only.mjs",
     "test:e2e:operations-outcomes:browser-only": "node tests/e2e/operations-outcomes-browser-only.mjs",
     "test:e2e:queue-clear:browser-only": "node tests/e2e/queue-clear-browser-only.mjs",

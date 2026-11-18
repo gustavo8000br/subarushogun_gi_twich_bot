@@ -145,6 +145,12 @@ The streamer always has access. Product copy follows the locale selected in **Se
 
 With the queue's automatic account switch on call enabled, calling exactly one person switches the label to that viewer's display name. Calling a group never switches it. When the entry that owns the automatic switch ends, the label returns to the default. Finishing a different entry does not change it. A manual label lasts until reset or the next eligible one-person automatic switch, subject to the current owner entry.
 
+## The own refund list
+
+**Settings** has an **Own refund list**: a short list of people you trust, kept for the whole channel (not per queue). You add a person by typing the Twitch login; the panel looks it up once and stores only the Twitch account number and a label of up to 40 characters (it starts as the login and you can change it). The panel shows the label and the date added, never the account number. You can remove one person at a time or clear the whole list after a confirmation. The list holds at most 500 people; adding a person who is already there, or the 501st, is refused with a message. Deleting a queue never removes people from the list.
+
+In this version the list is only stored: no queue uses it yet and the bot does not return points by group. Choosing "return the points when the service ends" for a queue is not available yet and is refused by the API.
+
 ## The control panel
 
 The local panel is at `https://localhost:3000` by default. It includes:
@@ -155,7 +161,7 @@ The local panel is at `https://localhost:3000` by default. It includes:
 - **Twitch sync & point refunds** for pending/confirmed/uncertain point actions and recovery.
 - **Chat commands** for the command catalog and allowed roles.
 - **OBS widgets** for local stream labels and queue information.
-- **Settings** for account labels.
+- **Settings** for account labels and the own refund list.
 - **Channel connection** during setup or when reconnecting is needed; otherwise, it shows the connected account and recovery actions.
 
 The OBS page creates local Browser Source widgets for one selected value or fixed text. The source **Next person waiting in a queue** shows "Next: {name}" with the display name of the first waiting person of the chosen queue (the priority lane first, then the queue order); it follows calls, skips, restores and reorders, and shows nothing (or your fallback text) when nobody is waiting. Only the display name is sent to the widget, never an account id or login. Each widget link is shown only once when created or regenerated. Keep it private; revoke or replace it if exposed. The verified OBS setup is Ubuntu 24.04 with OBS Studio 32.2.2 and CEF 127. Windows and macOS OBS certificate behavior has not been verified.
@@ -186,7 +192,7 @@ For installation, update, or removal, use the same unified installer file for yo
 
 The app is intended to listen only on this computer by default. The saved queue data and connection secrets stay in local app storage. Anyone with access to the computer or its saved app files may be able to access that information; local storage is not a promise of disk encryption.
 
-The app uses Twitch account identity, chat role badges, queue entries, optional public game UID, reward status, and the minimum connection details needed to run. It should not receive passwords, Twitch secrets in chat, Genshin login details, payment receipts, or private messages. Chat text is treated as untrusted input; rejected text is not meant to be repeated back.
+The app uses Twitch account identity, chat role badges, queue entries, the own refund list (Twitch account number and label), optional public game UID, reward status, and the minimum connection details needed to run. It should not receive passwords, Twitch secrets in chat, Genshin login details, payment receipts, or private messages. Chat text is treated as untrusted input; rejected text is not meant to be repeated back.
 
 For a visible UID queue, tell viewers clearly that the UID may be shown publicly. Use the visibility settings for the queue list, call message, and OBS widget. If a one-time OBS link is exposed, revoke or regenerate it. Do not share installation folders, saved data, or local secret files publicly.
 
