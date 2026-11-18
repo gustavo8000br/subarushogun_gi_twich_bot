@@ -4,6 +4,7 @@ import { findFinancialTask, loadStoredSettlementPolicy, recordFinancialIntent } 
 import { SETTLEMENT_ENFORCEMENT_ACTIVE, changedFields, policyDto, refusalFor } from '../domain/settlement-policy.mjs';
 import { createChatNoticeStore, enqueueChatNotice } from './chat-notice-outbox.mjs';
 import { createRefundListStore } from './refund-list-store.mjs';
+import { createGroupDecisionStore } from './group-decision-store.mjs';
 import { REFUND_ON_END_DELIVERED, SETTLEMENT_MODES, normalizeRefundGroups, refundGroupColumnsFor, refundGroupsOf } from '../domain/settlement-setting.mjs';
 import { REFUSAL_NOTICE_KIND_BY_REASON } from '../domain/chat-notice-composer.mjs';
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
@@ -512,9 +513,11 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
   const productLocaleFallback = Object.freeze({ locale: initialProductLocale, revision: 1 });
   const noticeStore = createChatNoticeStore({ prisma, transact, clock });
   const refundListStore = createRefundListStore({ prisma, transact });
+  const groupDecisionStore = createGroupDecisionStore({ transact, clock });
   return {
     ...noticeStore,
     ...refundListStore,
+    ...groupDecisionStore,
     async getCommandPolicyState() {
       return readCommandPolicyState(prisma);
     },
