@@ -1,5 +1,5 @@
 import { QUEUE_DELETION_REMOTE_DELETE_REASONS } from '../domain/queue-service.mjs';
-import { SETTLEMENT_MODES, refundGroupsOf } from '../domain/settlement-setting.mjs';
+import { SETTLEMENT_MODES, REFUND_GROUP_SCOPES, normalizeRefundGroups, refundGroupsOf } from '../domain/settlement-setting.mjs';
 import { parsePolicyBody } from '../domain/settlement-policy.mjs';
 import { REFUND_LIST_MAX } from '../persistence/refund-list-store.mjs';
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
@@ -318,6 +318,25 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       return reply.code(503).send({ error: 'Não foi possível iniciar a autorização adicional da Twitch.' });
     }
     if (!result?.url) return reply.code(503).send({ error: 'Conecte o canal Twitch antes de habilitar acesso de seguidores.' });
+    return { authorizationUrl: result.url };
+  });
+  // OPS-31 P6 (AC 16): starts the Twitch reauthorization that adds only the scopes of the chosen refund groups. It changes no
+  // setting and no queue; the panel block that calls it stays hidden until P7.
+  app.post('/api/settlement/group-authorization', async (request, reply) => {
+    const localRequest = /** @type {any} */ (request);
+    const body = localRequest.body && typeof localRequest.body === 'object' && !Array.isArray(localRequest.body) ? localRequest.body : {};
+    const groups = normalizeRefundGroups(body.groups);
+    if (!groups || groups.every((group) => !REFUND_GROUP_SCOPES[group]) || Object.keys(body).some((key) => key !== 'groups')) {
+      return reply.code(400).send({ error: 'Escolha ao menos um grupo que precise de autorização da Twitch.' });
+    }
+    if (typeof integrations.beginGroupAuthorization !== 'function') return reply.code(503).send({ error: 'A autorização Twitch adicional não está disponível.' });
+    let result;
+    try {
+      result = await integrations.beginGroupAuthorization({ sessionId: localRequest.localSession?.id, groups });
+    } catch {
+      return reply.code(503).send({ error: 'Não foi possível iniciar a autorização adicional da Twitch.' });
+    }
+    if (!result?.url) return reply.code(503).send({ error: 'Conecte o canal Twitch antes de habilitar grupos.' });
     return { authorizationUrl: result.url };
   });
   app.patch('/api/command-policies', async (request, reply) => {

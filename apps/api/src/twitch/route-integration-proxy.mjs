@@ -8,6 +8,7 @@ export function createTwitchRouteIntegrationProxy(getIntegration) {
     async getSetupState() { return getIntegration()?.getSetupState?.(); },
     async validateAndSaveApplication(input) { return getIntegration()?.validateAndSaveApplication?.(input); },
     async beginAuthorization(sessionId) { return getIntegration()?.beginAuthorization?.(sessionId); },
+    async beginGroupAuthorization(input) { return getIntegration()?.beginGroupAuthorization?.(input); },
     async beginFollowerAuthorization(input) { return getIntegration()?.beginFollowerAuthorization?.(input); },
     async completeAuthorization(input) { return getIntegration()?.completeAuthorization?.(input); },
     async reconcileNow() { return getIntegration()?.reconcileNow?.(); },
