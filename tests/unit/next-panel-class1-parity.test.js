@@ -1,5 +1,6 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const root = new URL('../../apps/frontend/', import.meta.url);
@@ -8,7 +9,7 @@ async function sourceFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = await Promise.all(entries.map(async (entry) => {
     if (entry.name === 'node_modules' || entry.name === '.next') return [];
-    const path = join(directory.pathname ?? directory, entry.name);
+    const path = join(fileURLToPath(directory), entry.name);
     if (entry.isDirectory()) return sourceFiles(new URL(`${entry.name}/`, directory));
     return /\.(jsx|mjs|js)$/.test(entry.name) ? [path] : [];
   }));

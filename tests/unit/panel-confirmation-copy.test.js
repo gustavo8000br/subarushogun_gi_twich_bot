@@ -1,4 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises';
+import { sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 // TS-10: catalog-only and Next-source cases moved out of the removed panel-confirmation-contract.test.js (vanilla module cases were not portable).
@@ -44,7 +45,8 @@ describe('panel confirmation copy and Next dialog contract', () => {
 
   it('never uses browser-native confirmation prompts in the Next panel', async () => {
     const files = await readdir(new URL('../../apps/frontend/', import.meta.url), { recursive: true });
-    const sources = files.filter((file) => /^(features|components|app)\//.test(file) && /\.(jsx|mjs|js)$/.test(file));
+    // readdir returns native separators; the filter and the URLs below expect POSIX ones.
+    const sources = files.map((file) => file.split(sep).join('/')).filter((file) => /^(features|components|app)\//.test(file) && /\.(jsx|mjs|js)$/.test(file));
     expect(sources.length).toBeGreaterThan(10);
     for (const file of sources) {
       const source = await readFile(new URL(`../../apps/frontend/${file}`, import.meta.url), 'utf8');

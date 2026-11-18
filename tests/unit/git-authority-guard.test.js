@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { basename, join } from 'node:path';
+import { basename, join, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
@@ -233,7 +234,7 @@ describe('git-authority-guard: identity and decision', () => {
 });
 
 describe('read-only-bash-guard', () => {
-  const projectRoot = new URL('../../', import.meta.url).pathname;
+  const projectRoot = fileURLToPath(new URL('../../', import.meta.url));
   const ok = (command, role = 'search') => readOnly.checkCommand(command, role, { root: projectRoot, cwd: projectRoot }).ok;
 
   it.each([
@@ -341,7 +342,7 @@ describe('read-only-bash-guard', () => {
 
 describe('hook processes (stdin contract)', () => {
   const hook = (file, payload, args = []) => {
-    const run = spawnSync(process.execPath, [new URL(`../../.claude/hooks/${file}`, import.meta.url).pathname, ...args], {
+    const run = spawnSync(process.execPath, [fileURLToPath(new URL(`../../.claude/hooks/${file}`, import.meta.url)), ...args], {
       input: typeof payload === 'string' ? payload : JSON.stringify(payload),
       encoding: 'utf8',
       env: { ...process.env, AIOX_ACTIVE_AGENT: '' },
@@ -374,7 +375,7 @@ describe('hook processes (stdin contract)', () => {
 });
 
 describe('git-authority-guard: deny by default for non-devops (audit F2, F3, F5, F6)', () => {
-  const projectRoot = new URL('../../', import.meta.url).pathname;
+  const projectRoot = fileURLToPath(new URL('../../', import.meta.url));
   mkdirSync(join(projectRoot, '.local'), { recursive: true });
   const sandbox = mkdtempSync(join(projectRoot, '.local', 'guard-test-'));
   const rel = (name) => `.local/${basename(sandbox)}/${name}`;
@@ -512,14 +513,18 @@ describe('git-authority-guard: deny by default for non-devops (audit F2, F3, F5,
     const ok = (command, role = 'search') => readOnly.checkCommand(command, role, { root: projectRoot, cwd: projectRoot }).ok;
     mkdirSync(join(sandbox, 'cred'), { recursive: true });
     writeFileSync(join(sandbox, 'cred', '.npmrc'), 'x');
+    let symlinkCreated = false;
     try {
       symlinkSync(process.execPath, join(sandbox, 'link'));
+      symlinkCreated = true;
     } catch {
       // symlinks may be unavailable on this platform
     }
+    // Quoted, with POSIX separators: on Windows the path has spaces and backslashes, which a shell would split or unescape.
+    const execPathArg = `'${process.execPath.split(sep).join('/')}'`;
 
     it.each([
-      [() => `cat ${process.execPath}`],
+      [() => `cat ${execPathArg}`],
       [() => 'cat ~/.npmrc'],
       [() => 'cat ~/.config/gh/hosts.yml'],
       [() => 'ls -R ~'],
@@ -533,7 +538,6 @@ describe('git-authority-guard: deny by default for non-devops (audit F2, F3, F5,
       [() => 'cat .git/config'],
       [() => 'cat .claude/settings.local.json'],
       [() => `cat ${rel('cred')}/.np*`],
-      [() => `cat ${rel('link')}`],
       [() => 'cat < package.json'],
       [() => 'sort --compress-program=sh f'],
       [() => 'sort --compress=sh f'],
@@ -566,6 +570,11 @@ describe('git-authority-guard: deny by default for non-devops (audit F2, F3, F5,
       expect(ok(build())).toBe(false);
     });
 
+    // Without the link (Windows without symlink privilege) the command reads a missing file inside the repository.
+    it.skipIf(!symlinkCreated)('denies a symlink that resolves outside the repository', () => {
+      expect(ok(`cat ${rel('link')}`)).toBe(false);
+    });
+
     it.each([
       'cat package.json',
       'grep -rn "/api/v1" apps',
@@ -586,7 +595,7 @@ describe('git-authority-guard: deny by default for non-devops (audit F2, F3, F5,
   });
 
   it('exits 2 for a subagent unlisted verb through the hook process', () => {
-    const child = spawnSync(process.execPath, [new URL('../../.claude/hooks/git-authority-guard.cjs', import.meta.url).pathname], {
+    const child = spawnSync(process.execPath, [fileURLToPath(new URL('../../.claude/hooks/git-authority-guard.cjs', import.meta.url))], {
       input: JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'gh codespace delete' }, agent_type: 'aiox-dev' }),
       encoding: 'utf8',
       env: { ...process.env, AIOX_ACTIVE_AGENT: '' },

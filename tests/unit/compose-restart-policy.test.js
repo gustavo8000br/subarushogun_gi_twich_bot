@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const yaml = require('js-yaml');
-const root = new URL('../../', import.meta.url).pathname;
+const root = fileURLToPath(new URL('../../', import.meta.url));
 const compose = yaml.load(readFileSync(`${root}compose.yaml`, 'utf8'));
 
 describe('Compose restart policy (G1-4)', () => {
