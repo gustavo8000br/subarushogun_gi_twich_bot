@@ -73,6 +73,22 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  // OPS-31 P0 (DB-11, QA concern 1): queue creation answers a database timeout like the other routes.
+  it('P0-DB-11 queue creation answers 503 TEMPORARILY_UNAVAILABLE with Retry-After for a database timeout', async () => {
+    const reportDiagnostic = vi.fn(() => '66666666-6666-4666-8666-666666666666');
+    const h = await createHarness({ reportDiagnostic });
+    h.repository.createQueueWithRewardIntent.mockRejectedValue(Object.assign(new Error('lock timeout on relation "secret_table"'), { code: 'DATABASE_TIMEOUT', retryable: true }));
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues', headers: h.headers, payload: { slug: 'timeout-queue', title: 'Timeout queue', cost: 100 } });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.headers['retry-after']).toBe('1');
+    expect(response.headers['x-error-reference']).toBe('66666666-6666-4666-8666-666666666666');
+    expect(response.json()).toEqual({ code: 'TEMPORARILY_UNAVAILABLE', error: 'Não foi possível concluir. Tente novamente.', referenceId: '66666666-6666-4666-8666-666666666666' });
+    expect(response.body).not.toContain('secret_table');
+    await h.app.close();
+  });
+
   it('replays a mutation response for a repeated idempotency key without repeating its effect', async () => {
     const h = await createHarness();
     const outcomes = new Map();
@@ -428,6 +444,21 @@ describe('local queue and setup API', () => {
     await h.app.close();
   });
 
+  it.each([
+    ['exactly 350 characters', `{user} ${'a'.repeat(343)}`],
+    ['an empty brace pair, which is not a placeholder', '{}'],
+  ])('accepts a call message with %s when creating a queue', async (_case, callMessage) => {
+    expect(callMessage.length).toBeLessThanOrEqual(350);
+    const h = await createHarness();
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues', headers: h.headers, payload: {
+      slug: 'nova', title: 'Nova', queueMode: 'manual_only', callMessage,
+    } });
+
+    expect(response.statusCode).toBe(201);
+    expect(h.repository.createManualQueue).toHaveBeenCalledWith(expect.objectContaining({ callMessage }));
+    await h.app.close();
+  });
+
   it('accepts every documented placeholder when creating a queue', async () => {
     const h = await createHarness();
     const callMessage = '{user}: {queue} #{position} {uid} {account}';
@@ -520,6 +551,19 @@ describe('local queue and setup API', () => {
       queueId: 'queue-id', expectedVersion: 1, settings: { callTimeoutMin: null, showUidInList: true, autoSwitchAccount: true },
       actorId: h.headers.cookie.split('=')[1], origin: 'panel',
     }));
+    await h.app.close();
+  });
+
+  it('OPS-31 P2 (AC 5): the five notice switches are accepted as booleans, projected back, and refused as strings', async () => {
+    const h = await createHarness();
+    h.repository.updateLocalQueueSettings = vi.fn(async ({ settings }) => ({ id: 'queue-id', slug: 'abismo', title: 'Abismo', cost: 100, uidMode: 'visible', ...settings, version: 2 }));
+    const url = '/api/queues/queue-id/settings';
+    const ok = await h.app.inject({ method: 'PATCH', url, headers: h.headers, payload: { expectedVersion: 1, noticeJoined: true, noticeService: false, noticeState: true, noticeReordered: false, noticePoints: true } });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({ noticeJoined: true, noticeService: false, noticeState: true, noticeReordered: false, noticePoints: true });
+    const bad = await h.app.inject({ method: 'PATCH', url, headers: h.headers, payload: { expectedVersion: 1, noticeJoined: 'true' } });
+    expect(bad.statusCode).toBe(400);
+    expect(h.repository.updateLocalQueueSettings).toHaveBeenCalledTimes(1);
     await h.app.close();
   });
 
@@ -2043,6 +2087,30 @@ describe('local queue and setup API', () => {
   });
 
   it.each([
+    ['removed', 'queue_cleared'], ['removed', 'queue_deleted'], ['removed', 'service_completed'],
+    ['no_show', 'call_timeout'], ['completed', 'operator_removed'], ['called', 'viewer_left'],
+  ])('G-14: refuses the free label %s/%s and never reaches the domain service', async (to, reason) => {
+    const transitionEntry = vi.fn();
+    const h = await createHarness({ domainService: { transitionEntry } });
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/transitions', headers: h.headers, payload: { to, reason } });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: 'Ação de atendimento inválida.' });
+    expect(transitionEntry).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  it('G-14: the panel route types its trigger as panel_action', async () => {
+    const transitionEntry = vi.fn(async () => ({ id: 'entry-id', status: 'removed', financialDecision: 'no_operation' }));
+    const h = await createHarness({ domainService: { transitionEntry } });
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/transitions', headers: h.headers, payload: { to: 'removed', reason: 'operator_removed' } });
+
+    expect(response.statusCode).toBe(200);
+    expect(transitionEntry).toHaveBeenCalledWith(expect.objectContaining({ trigger: 'panel_action', origin: 'panel', reason: 'operator_removed' }));
+    await h.app.close();
+  });
+
+  it.each([
     ['ENTRY_NOT_FOUND', 404, 'Não foi possível concluir a operação.'],
     ['QUEUE_NOT_AVAILABLE', 409, 'Essa fila não aceita novas entradas.'],
     ['QUEUE_REWARD_NOT_READY', 409, 'Confirme a recompensa da Twitch antes de alterar a fila.'],
@@ -2128,6 +2196,240 @@ describe('local queue and setup API', () => {
     const inactive = await h.app.inject({ method: 'POST', url: `/api/queues/queue-id/${suffix}`, headers: h.headers, payload: {} });
     expect(inactive.statusCode).toBe(404);
     expect(inactive.json()).toEqual({ error: 'Fila não encontrada.' });
+    await h.app.close();
+  });
+  // OPS-31 P0 (W3-4): a double click, a stale panel or a race with the timer is a 409 with a stable code, never a 500.
+  it('P0-W3-4 maps INVALID_ENTRY_TRANSITION to a 409 with its code and no internal detail', async () => {
+    const reportDiagnostic = vi.fn(() => '33333333-3333-4333-8333-333333333333');
+    const transitionEntry = vi.fn().mockRejectedValue(Object.assign(new Error('Transition from completed to called is not allowed'), { code: 'INVALID_ENTRY_TRANSITION' }));
+    const h = await createHarness({ domainService: { transitionEntry }, reportDiagnostic });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/transitions', headers: h.headers, payload: { to: 'called', reason: 'operator_call' } });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ code: 'INVALID_ENTRY_TRANSITION', error: 'Essa ação não está disponível para o estado atual do atendimento. Atualize a fila.' });
+    expect(response.body).not.toContain('is not allowed');
+    expect(reportDiagnostic).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  // OPS-31 P0 (DB-11): 55P03 / 57014 are a retryable 503 with generic text and a referenceId, nothing else.
+  it.each([
+    ['the repository code', Object.assign(new Error('The database did not answer in time'), { code: 'DATABASE_TIMEOUT', retryable: true })],
+    ['a raw lock_not_available surfaced by Prisma', Object.assign(new Error('Raw query failed. SELECT secret_table FOR UPDATE'), { code: 'P2010', meta: { code: '55P03', message: 'canceling statement due to lock timeout on relation "secret_table"' } })],
+    ['a raw query_canceled surfaced by Prisma', Object.assign(new Error('canceling statement due to statement timeout'), { code: 'P2010', meta: { driverAdapterError: { cause: { originalCode: '57014' } } } })],
+  ])('P0-DB-11 answers 503 TEMPORARILY_UNAVAILABLE for %s on a route that handles its own errors', async (_label, failure) => {
+    const reportDiagnostic = vi.fn(() => '44444444-4444-4444-8444-444444444444');
+    const h = await createHarness({ domainService: { transitionEntry: vi.fn().mockRejectedValue(failure) }, reportDiagnostic });
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/transitions', headers: h.headers, payload: { to: 'completed', reason: 'service_completed' } });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.headers['retry-after']).toBe('1');
+    expect(response.headers['x-error-reference']).toBe('44444444-4444-4444-8444-444444444444');
+    expect(response.json()).toEqual({ code: 'TEMPORARILY_UNAVAILABLE', error: 'Não foi possível concluir. Tente novamente.', referenceId: '44444444-4444-4444-8444-444444444444' });
+    expect(response.body).not.toMatch(/secret_table|SELECT|P2010|55P03|57014/);
+    await h.app.close();
+  });
+
+  it('P0-DB-11 the safe HTTP error handler turns an uncaught lock timeout into the same retryable 503', async () => {
+    const reportDiagnostic = vi.fn(() => '55555555-5555-4555-8555-555555555555');
+    const h = await createHarness({ safeErrorHandler: true, reportDiagnostic });
+    h.repository.retryOutboxManually = vi.fn().mockRejectedValue(Object.assign(new Error('lock timeout on relation "outbox" at /srv/stack'), { code: 'P2010', meta: { code: '55P03' } }));
+
+    const response = await h.app.inject({ method: 'POST', url: '/api/operations/op-id/retry', headers: h.headers, payload: {} });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ code: 'TEMPORARILY_UNAVAILABLE', error: 'Não foi possível concluir. Tente novamente.', referenceId: '55555555-5555-4555-8555-555555555555' });
+    expect(response.body).not.toMatch(/outbox|\/srv|55P03/);
+    await h.app.close();
+  });
+
+  // OPS-31 P0 (O-1): `conflict` carries the stored remote status (closed set) and when it was found; other states carry neither.
+  it('P0-O1 exposes remoteStatus and conflictDetectedAt only for a conflict, from a closed set', async () => {
+    const h = await createHarness();
+    const found = new Date('2030-01-02T03:04:05.000Z');
+    h.repository.listFinancialOperations = vi.fn(async () => [
+      { id: 'op-conflict', operationType: 'redemption.cancel', redemptionId: 'r-1', status: 'conflict', attempts: 2, nextAttemptAt: null, lastError: 'remote_status_conflict', remoteStatus: 'FULFILLED', conflictDetectedAt: found },
+      { id: 'op-bad', operationType: 'redemption.fulfill', redemptionId: 'r-2', status: 'conflict', attempts: 1, nextAttemptAt: null, lastError: null, remoteStatus: 'internal-value', conflictDetectedAt: found },
+      { id: 'op-failed', operationType: 'redemption.cancel', redemptionId: 'r-3', status: 'failed', attempts: 6, nextAttemptAt: null, lastError: 'x', remoteStatus: 'CANCELED', conflictDetectedAt: found },
+    ]);
+
+    const response = await h.app.inject({ method: 'GET', url: '/api/operations', headers: h.headers });
+
+    expect(response.statusCode).toBe(200);
+    const [conflict, bad, failed] = response.json();
+    expect(conflict).toMatchObject({ id: 'op-conflict', status: 'conflict', remoteStatus: 'FULFILLED', conflictDetectedAt: '2030-01-02T03:04:05.000Z' });
+    expect(bad).not.toHaveProperty('remoteStatus');
+    expect(failed).not.toHaveProperty('remoteStatus');
+    expect(failed).not.toHaveProperty('conflictDetectedAt');
+    await h.app.close();
+  });
+
+  it('OPS-31 P5 (AC 9, 30): the queue projection carries settlement and the group list; refund_on_end is refused with a stable 409 and reason; groups pass through as a list', async () => {
+    const h = await createHarness();
+    const url = '/api/queues/queue-id/settings';
+    h.repository.updateLocalQueueSettings = vi.fn(async ({ settings }) => ({ id: 'queue-id', slug: 'abismo', title: 'Abismo', cost: 100, uidMode: 'visible', settlement: 'fulfill_on_start', refundGroups: settings.refundGroups ?? [], version: 2 }));
+    const listed = await h.app.inject({ method: 'GET', url: '/api/queues', headers: h.sessionHeaders });
+    expect(listed.json()[0]).toMatchObject({ settlement: 'fulfill_on_start', refundGroups: [] });
+    const ok = await h.app.inject({ method: 'PATCH', url, headers: h.headers, payload: { expectedVersion: 1, settlement: 'fulfill_on_start', refundGroups: ['own_list', 'vip'] } });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({ settlement: 'fulfill_on_start', refundGroups: ['own_list', 'vip'] });
+    expect(h.repository.updateLocalQueueSettings).toHaveBeenCalledWith(expect.objectContaining({ settings: { settlement: 'fulfill_on_start', refundGroups: ['own_list', 'vip'] } }));
+
+    h.repository.updateLocalQueueSettings = vi.fn(async () => { throw Object.assign(new Error('private detail'), { code: 'SETTLEMENT_MODE_UNAVAILABLE', reason: 'not_delivered' }); });
+    const refused = await h.app.inject({ method: 'PATCH', url, headers: h.headers, payload: { expectedVersion: 1, settlement: 'refund_on_end' } });
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json()).toMatchObject({ code: 'SETTLEMENT_MODE_UNAVAILABLE', reason: 'not_delivered' });
+    expect(JSON.stringify(refused.json())).not.toContain('private detail');
+
+    h.repository.updateLocalQueueSettings = vi.fn();
+    for (const payload of [{ settlement: 'sometimes' }, { settlement: 7 }, { refundGroups: 'vip' }, { refundGroups: {} }]) {
+      const bad = await h.app.inject({ method: 'PATCH', url, headers: h.headers, payload: { expectedVersion: 1, ...payload } });
+      expect(bad.statusCode, JSON.stringify(payload)).toBe(400);
+    }
+    expect(h.repository.updateLocalQueueSettings).not.toHaveBeenCalled();
+    // a malformed group list that reaches the repository is a client error, not a diagnostic
+    h.repository.updateLocalQueueSettings = vi.fn(async () => { throw Object.assign(new Error('The refund groups are invalid'), { code: 'INVALID_LOCAL_QUEUE_SETTING' }); });
+    const badGroups = await h.app.inject({ method: 'PATCH', url, headers: h.headers, payload: { expectedVersion: 1, refundGroups: ['everyone'] } });
+    expect(badGroups.statusCode).toBe(400);
+    expect(badGroups.json()).toMatchObject({ code: 'INVALID_QUEUE_SETTINGS' });
+    await h.app.close();
+  });
+
+  it('OPS-31 P5 (AC 10): the own list routes resolve the login once, never echo the Twitch id, map the stable codes and log nothing sensitive', async () => {
+    const resolveUser = vi.fn(async (login) => (login === 'ghost' ? null : { id: '777123', login, displayName: 'Friend' }));
+    const reportDiagnostic = vi.fn(() => '22222222-2222-4222-8222-222222222222');
+    const h = await createHarness({ resolveUser, reportDiagnostic });
+    const createdAt = new Date('2030-01-01T00:00:00.000Z');
+    h.repository.listRefundList = vi.fn(async () => ({ items: [{ id: '11111111-1111-4111-8111-111111111111', label: 'Friend', createdAt, twitchUserId: '777123' }], count: 1, max: 500 }));
+    h.repository.addRefundListMember = vi.fn(async ({ label }) => ({ member: { id: '11111111-1111-4111-8111-111111111111', label: label ?? null, createdAt }, count: 1 }));
+    h.repository.removeRefundListMember = vi.fn(async () => ({ count: 0 }));
+    h.repository.clearRefundList = vi.fn(async () => ({ removed: 3 }));
+
+    const read = await h.app.inject({ method: 'GET', url: '/api/refund-list', headers: h.sessionHeaders });
+    expect(read.statusCode).toBe(200);
+    expect(read.json()).toEqual({ items: [{ id: '11111111-1111-4111-8111-111111111111', label: 'Friend', createdAt: createdAt.toISOString() }], count: 1, max: 500 });
+    expect(read.body).not.toContain('777123');
+
+    const added = await h.app.inject({ method: 'POST', url: '/api/refund-list', headers: h.headers, payload: { login: '@Friend', label: 'Friend' } });
+    expect(added.statusCode).toBe(201);
+    expect(resolveUser).toHaveBeenCalledWith('Friend');
+    expect(h.repository.addRefundListMember).toHaveBeenCalledWith(expect.objectContaining({ twitchUserId: '777123', label: 'Friend' }));
+    expect(added.json()).toMatchObject({ member: { label: 'Friend' }, count: 1, max: 500 });
+    expect(added.body).not.toContain('777123');
+
+    const missing = await h.app.inject({ method: 'POST', url: '/api/refund-list', headers: h.headers, payload: { login: 'ghost' } });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json()).toMatchObject({ code: 'TWITCH_USER_NOT_FOUND' });
+    for (const payload of [{}, { login: 'bad login!' }, { login: 'x'.repeat(26) }, { login: 'friend', label: 7 }]) {
+      const bad = await h.app.inject({ method: 'POST', url: '/api/refund-list', headers: h.headers, payload });
+      expect(bad.statusCode, JSON.stringify(payload)).toBe(400);
+    }
+
+    for (const [code, status, extra] of [['REFUND_LIST_FULL', 409, { max: 500 }], ['REFUND_LIST_DUPLICATE', 409, {}], ['REFUND_LIST_INVALID', 400, {}]]) {
+      h.repository.addRefundListMember = vi.fn(async () => { throw Object.assign(new Error('Friend 777123 private'), { code }); });
+      const failed = await h.app.inject({ method: 'POST', url: '/api/refund-list', headers: h.headers, payload: { login: 'friend' } });
+      expect(failed.statusCode, code).toBe(status);
+      expect(failed.json()).toMatchObject({ code, ...extra });
+      expect(failed.body).not.toMatch(/777123|private/);
+    }
+    h.repository.addRefundListMember = vi.fn(async () => { throw new Error('database password in message'); });
+    const unexpected = await h.app.inject({ method: 'POST', url: '/api/refund-list', headers: h.headers, payload: { login: 'friend' } });
+    expect(unexpected.statusCode).toBe(500);
+    expect(unexpected.json()).toMatchObject({ referenceId: '22222222-2222-4222-8222-222222222222' });
+    expect(unexpected.body).not.toContain('database password');
+
+    const removed = await h.app.inject({ method: 'POST', url: '/api/refund-list/11111111-1111-4111-8111-111111111111/remove', headers: h.headers });
+    expect(removed.statusCode).toBe(200);
+    expect(removed.json()).toEqual({ count: 0, max: 500 });
+    const badId = await h.app.inject({ method: 'POST', url: '/api/refund-list/not-an-id/remove', headers: h.headers });
+    expect(badId.statusCode).toBe(404);
+    h.repository.removeRefundListMember = vi.fn(async () => { throw Object.assign(new Error('x'), { code: 'REFUND_LIST_MEMBER_NOT_FOUND' }); });
+    const gone = await h.app.inject({ method: 'POST', url: '/api/refund-list/11111111-1111-4111-8111-111111111111/remove', headers: h.headers });
+    expect(gone.statusCode).toBe(404);
+
+    const cleared = await h.app.inject({ method: 'POST', url: '/api/refund-list/clear', headers: h.headers });
+    expect(cleared.statusCode).toBe(200);
+    expect(cleared.json()).toEqual({ removed: 3, count: 0, max: 500 });
+
+    // panel session and the mutation boundary apply: no session, no mutation
+    const noSession = await h.app.inject({ method: 'POST', url: '/api/refund-list/clear', headers: { host: 'localhost:3000' } });
+    expect(noSession.statusCode).toBeGreaterThanOrEqual(400);
+    expect(h.repository.clearRefundList).toHaveBeenCalledTimes(1);
+    await h.app.close();
+  });
+  it('OPS-31 P5b (AC 35): GET/PUT settlement-policy are session-only, validate without coercion, and map every stable code', async () => {
+    const h = await createHarness();
+    const url = '/api/queues/queue-id/settlement-policy';
+    const policy = { settlementPolicyRev: 0, onCloseSwitchOff: 'legacy', onDirectConclusion: 'wait', onModeratorConclude: 'wait', onChatClear: 'wait', reentryRefundCap: null, reentryWindowHours: 12, reentryCapHold: 'after_n', reentryCapCountsManual: true, effectiveBudget: null, legacySelectable: true, enforcementActive: false };
+    h.repository.getQueueSettlementPolicy = vi.fn(async () => policy);
+    h.repository.updateQueueSettlementPolicy = vi.fn(async () => policy);
+    expect((await h.app.inject({ method: 'GET', url, headers: { host: 'localhost:3000' } })).statusCode).toBe(401);
+    expect((await h.app.inject({ method: 'PUT', url, headers: { host: 'localhost:3000' }, payload: { expectedPolicyRev: 0 } })).statusCode).toBeGreaterThanOrEqual(400);
+    expect(h.repository.updateQueueSettlementPolicy).not.toHaveBeenCalled();
+    const read = await h.app.inject({ method: 'GET', url, headers: h.sessionHeaders });
+    expect(read.statusCode).toBe(200);
+    expect(Object.keys(read.json()).sort()).toEqual(Object.keys(policy).sort());
+    h.repository.getQueueSettlementPolicy = vi.fn(async () => null);
+    expect((await h.app.inject({ method: 'GET', url, headers: h.sessionHeaders })).json()).toMatchObject({ code: 'QUEUE_NOT_FOUND' });
+
+    const invalid = [
+      [{}, 'expectedPolicyRev'], [{ expectedPolicyRev: '0' }, 'expectedPolicyRev'], [{ expectedPolicyRev: -1 }, 'expectedPolicyRev'],
+      [{ expectedPolicyRev: 0, onCloseSwitchOff: 'always' }, 'onCloseSwitchOff'], [{ expectedPolicyRev: 0, onModeratorConclude: 'fulfill' }, 'onModeratorConclude'],
+      [{ expectedPolicyRev: 0, reentryRefundCap: 0 }, 'reentryRefundCap'], [{ expectedPolicyRev: 0, reentryRefundCap: 21 }, 'reentryRefundCap'], [{ expectedPolicyRev: 0, reentryRefundCap: '3' }, 'reentryRefundCap'],
+      [{ expectedPolicyRev: 0, reentryWindowHours: 0 }, 'reentryWindowHours'], [{ expectedPolicyRev: 0, reentryWindowHours: 73 }, 'reentryWindowHours'],
+      [{ expectedPolicyRev: 0, reentryCapHold: 'before_n' }, 'reentryCapHold'],
+      [{ expectedPolicyRev: 0, reentryCapCountsManual: 'true' }, 'reentryCapCountsManual'], [{ expectedPolicyRev: 0, reentryCapCountsManual: 1 }, 'reentryCapCountsManual'],
+      [{ expectedPolicyRev: 0, version: 3 }, 'version'],
+    ];
+    for (const [payload, field] of invalid) {
+      const response = await h.app.inject({ method: 'PUT', url, headers: h.headers, payload });
+      expect(response.statusCode, JSON.stringify(payload)).toBe(400);
+      expect(response.json()).toMatchObject({ code: 'SETTLEMENT_POLICY_INVALID', field });
+    }
+    expect(h.repository.updateQueueSettlementPolicy).not.toHaveBeenCalled();
+
+    const accepted = { expectedPolicyRev: 4, onCloseSwitchOff: 'wait', reentryRefundCap: null, reentryCapHold: 'at_n', reentryCapCountsManual: false };
+    expect((await h.app.inject({ method: 'PUT', url, headers: h.headers, payload: accepted })).statusCode).toBe(200);
+    expect(h.repository.updateQueueSettlementPolicy).toHaveBeenCalledWith(expect.objectContaining({
+      queueId: 'queue-id', expectedPolicyRev: 4, changes: { onCloseSwitchOff: 'wait', reentryRefundCap: null, reentryCapHold: 'at_n', reentryCapCountsManual: false },
+    }));
+
+    const failWith = async (error) => {
+      h.repository.updateQueueSettlementPolicy = vi.fn(async () => { throw error; });
+      return h.app.inject({ method: 'PUT', url, headers: h.headers, payload: { expectedPolicyRev: 1 } });
+    };
+    const stale = await failWith(Object.assign(new Error('private detail'), { code: 'SETTLEMENT_POLICY_STALE', settlementPolicyRev: 7 }));
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json()).toMatchObject({ code: 'SETTLEMENT_POLICY_STALE', settlementPolicyRev: 7 });
+    for (const reason of ['policy_not_active', 'legacy_not_selectable']) {
+      const refused = await failWith(Object.assign(new Error('private detail'), { code: 'SETTLEMENT_MODE_UNAVAILABLE', reason }));
+      expect(refused.statusCode).toBe(409);
+      expect(refused.json()).toMatchObject({ code: 'SETTLEMENT_MODE_UNAVAILABLE', reason });
+    }
+    expect((await failWith(Object.assign(new Error('x'), { code: 'SETTLEMENT_MODE_UNAVAILABLE', reason: 'internal text' }))).json().reason).toBe('policy_not_active');
+    expect((await failWith(Object.assign(new Error('x'), { code: 'QUEUE_NOT_AVAILABLE' }))).statusCode).toBe(409);
+    expect((await failWith(Object.assign(new Error('x'), { code: 'QUEUE_NOT_FOUND' }))).statusCode).toBe(404);
+    const unexpected = await failWith(new Error('connection string postgres://secret'));
+    expect(unexpected.statusCode).toBe(503); // `sendDiagnosedFailure` default for an unexpected failure (generic text)
+    expect(unexpected.json()).toMatchObject({ error: 'Não foi possível salvar a política de pontos.' });
+    expect(unexpected.body).not.toContain('postgres://secret');
+    await h.app.close();
+  });
+
+  it('OPS-31 P5b (AC 38): the queue carries pendingDecisions only when the repository read the count (absent means unknown, never 0)', async () => {
+    const h = await createHarness();
+    h.repository.listQueueProjection = vi.fn(async () => [
+      { id: 'a', slug: 'a', title: 'A', entries: [], pendingDecisions: { awaitingChoice: 2, checkGroup: 1, total: 3, internal: 'x' } },
+      { id: 'b', slug: 'b', title: 'B', entries: [] },
+    ]);
+    const listed = (await h.app.inject({ method: 'GET', url: '/api/queues', headers: h.sessionHeaders })).json();
+    expect(listed[0].pendingDecisions).toEqual({ awaitingChoice: 2, checkGroup: 1, total: 3 });
+    expect(listed[1]).not.toHaveProperty('pendingDecisions');
+    const state = (await h.app.inject({ method: 'GET', url: '/api/state', headers: h.sessionHeaders })).json();
+    expect(state.queues[0].pendingDecisions).toEqual({ awaitingChoice: 2, checkGroup: 1, total: 3 });
+    expect(state.queues[1]).not.toHaveProperty('pendingDecisions');
     await h.app.close();
   });
 });

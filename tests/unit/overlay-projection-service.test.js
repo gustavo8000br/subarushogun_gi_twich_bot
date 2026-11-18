@@ -56,6 +56,22 @@ describe('OBS widget read-only projection service', () => {
     });
   });
 
+  it('OPS-31 P4 (U73-03): the "next" projection carries only the name, the style and the catalog text, no identifiers', async () => {
+    const getOverlaySourceValue = vi.fn(async () => 'Ana Souza');
+    const overlayRepository = { projectWithActiveCapability: vi.fn(async (_hash, project) => project({ sourceType: 'next_waiting_viewer_display_name', queueId: 'queue-secret', fixedText: null, fallbackText: '', style: {} }, {})) };
+    const service = createOverlayProjectionService({
+      overlayRepository, queueRepository: { getOverlaySourceValue, getProductLocale: vi.fn(async () => ({ locale: 'es' })) },
+      getOverlayCatalogs: async () => ({ es: { 'overlay.widget.next': 'Siguiente: {name}', 'overlay.state.open': 'Abierta', 'panel.secret': 'no' } }),
+    });
+    const projection = await service.readWithCapability('q'.repeat(43));
+    expect(getOverlaySourceValue).toHaveBeenCalledWith(expect.objectContaining({ sourceType: 'next_waiting_viewer_display_name', queueId: 'queue-secret' }));
+    expect(projection).toEqual({
+      sourceType: 'next_waiting_viewer_display_name', value: 'Ana Souza', fallbackText: '', style: {}, productLocale: 'es',
+      messages: { 'overlay.state.open': 'Abierta', 'overlay.widget.next': 'Siguiente: {name}' },
+    });
+    expect(JSON.stringify(projection)).not.toContain('queue-secret');
+  });
+
   it('normalizes a previously saved in-service widget to the shared current-account source', async () => {
     const projectWithActiveCapability = vi.fn(async (_hash, project) => project({
       sourceType: 'in_service_viewer_display_name', queueId: null, fixedText: null,

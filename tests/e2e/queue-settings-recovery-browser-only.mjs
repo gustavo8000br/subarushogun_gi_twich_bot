@@ -144,6 +144,11 @@ try {
     refundIfRemovedWhileCalled: false,
     refundOnNoShow: false,
     refundIfViewerLeavesCalled: false,
+    noticeJoined: false,
+    noticeService: false,
+    noticeState: false,
+    noticeReordered: false,
+    noticePoints: false,
   });
   assert.equal(patch.headers['x-csrf-token'], csrfToken);
   assert.ok(patch.headers['idempotency-key'], 'PATCH preserves the existing idempotency boundary');

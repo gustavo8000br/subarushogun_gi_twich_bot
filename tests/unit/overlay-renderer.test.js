@@ -38,6 +38,29 @@ describe('OBS overlay renderer', () => {
     expect(document.elements.value.textContent).toBe('Olá');
   });
 
+  it('OPS-31 P4 (U73/K73): the "next" source renders the catalog text with the name, the fallback without one, and never interprets the name', async () => {
+    const token = 'n'.repeat(43);
+    const run = async (payload) => {
+      const document = createDocument();
+      const fetch = vi.fn(async () => response(200, payload));
+      const renderer = mountOverlayWidget({ document, fetch, location: { hash: `#${token}`, pathname: '/overlay', search: '' }, history: { replaceState: vi.fn() } });
+      await renderer.pollNow();
+      renderer.destroy();
+      return document.elements.value;
+    };
+    const base = { sourceType: 'next_waiting_viewer_display_name', fallbackText: '', style: { overflow: 'ellipsis' } };
+    expect((await run({ ...base, value: 'Ana', messages: { 'overlay.widget.next': 'Next: {name}' } })).textContent).toBe('Next: Ana');
+    expect((await run({ ...base, value: 'Ana' })).textContent).toBe('Próximo: Ana');
+    expect((await run({ ...base, value: 'Ana', messages: { 'overlay.widget.next': 'no slot here' } })).textContent).toBe('Próximo: Ana');
+    expect((await run({ ...base, value: '$& {name} $1 <b>x</b>', messages: { 'overlay.widget.next': 'Next: {name}' } })).textContent).toBe('Next: $& {name} $1 <b>x</b>');
+    const long = await run({ ...base, value: 'Ñ'.repeat(200), messages: { 'overlay.widget.next': 'Next: {name}' } });
+    expect(long.textContent).toBe(`Next: ${'Ñ'.repeat(200)}`);
+    expect(long.style).toMatchObject({ whiteSpace: 'nowrap', textOverflow: 'ellipsis' });
+    // No waiting entry: nothing misleading (no "Next:" label, only the configured fallback, empty by default).
+    expect((await run({ ...base, value: null, messages: { 'overlay.widget.next': 'Next: {name}' } })).textContent).toBe('');
+    expect((await run({ ...base, value: null, fallbackText: 'Nobody yet' })).textContent).toBe('Nobody yet');
+  });
+
   it('retains the capability for a browser-source reload without exposing it in the URL', async () => {
     const document = createDocument();
     const values = new Map();

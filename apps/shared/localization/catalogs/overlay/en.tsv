@@ -5,3 +5,4 @@ overlay.state.closed	Closed
 overlay.status.unavailable	Source unavailable
 overlay.status.data_unavailable	Data temporarily unavailable
 overlay.status.stale	Update delayed
+overlay.widget.next	Next: {name}

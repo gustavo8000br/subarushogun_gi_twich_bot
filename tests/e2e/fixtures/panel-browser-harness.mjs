@@ -42,6 +42,7 @@ export async function openPanel({ state = {}, setup = {}, queues = [], health, h
   set('GET /api/state', () => json(runtime));
   set('GET /api/setup', json(setup));
   set('GET /api/queues', () => json(queues));
+  set('GET /api/refund-list', json({ items: [], count: 0, max: 500 })); // OPS-31 P5: the own list on /settings
   set('GET /health', json(health ?? { status: 'ok', dependencies: { database: 'connected', twitch_api: 'connected', twitch_chat: 'connected' } }));
   for (const [key, handler] of Object.entries(handlers)) set(key, handler);
 

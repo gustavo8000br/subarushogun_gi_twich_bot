@@ -377,6 +377,7 @@ panel.widget.source.queue_state	Estado aberta/fechada de uma fila
 panel.widget.source.queue_count	Quantidade aguardando em uma fila
 panel.widget.source.called_name	Pessoa chamada
 panel.widget.source.called_position	Posição original da pessoa chamada
+panel.widget.source.next_name	Próxima pessoa em espera em uma fila
 panel.widget.source.fixed_text	Texto fixo
 panel.widget.source.unknown	Widget
 panel.widget.status.unavailable	Widget indisponível
@@ -402,6 +403,7 @@ panel.widget.preview_example	Exemplo do widget
 panel.widget.preview.waiting	4 aguardando
 panel.widget.preview.open	Aberta
 panel.widget.preview.called	Viewer chamado
+panel.widget.preview.next	Próximo: Nome de exemplo
 panel.widget.fixed_text_label	Texto fixo
 panel.widget.background_color	Cor do fundo
 panel.widget.background_opacity	Opacidade do fundo (%)
@@ -498,6 +500,14 @@ panel.operation.confirm.continue_delete	Tentar continuar a exclusão desta fila 
 panel.operation.blocks_deletion	Bloqueia a exclusão de “{title}”
 panel.operation.attempts_exhausted	As tentativas automáticas terminaram e a Twitch não confirmou nada. Use Reconciliar / tentar novamente para iniciar um novo ciclo de 6 tentativas, ou registre uma resolução manual.
 panel.operation.manual_contradicted	A Twitch ainda lista este resgate como aberto depois da sua resolução manual, então o acompanhamento automático foi retomado.
+panel.operation.conflict.detail	Pedimos à Twitch {intent}, mas a Twitch mostra este resgate como {remote}.
+panel.operation.conflict.intent.cancel	que devolvesse os pontos
+panel.operation.conflict.intent.fulfill	que concluísse o resgate
+panel.operation.conflict.remote.unfulfilled	aberto
+panel.operation.conflict.remote.fulfilled	concluído
+panel.operation.conflict.remote.canceled	cancelado (pontos devolvidos)
+panel.operation.confirm.resolve_conflict	A Twitch e o app divergem sobre este resgate. Registrar que você revisou e parar o acompanhamento automático? Isso não altera nada na Twitch nem confirma o resultado. A Twitch mostrou: {status}.
+panel.operation.confirm.resolve_failed	O app não conseguiu concluir esta operação. Registrar que você revisou e parar o acompanhamento automático? Isso não confirma o resultado com a Twitch. Confira o resgate no painel da Twitch e, se ainda estiver pendente, conclua-o ou devolva os pontos você mesmo por lá.
 panel.reconciliation.running	Sincronização em andamento…
 panel.reconciliation.complete.one	Sincronização concluída. {count} resgate importado.
 panel.reconciliation.complete.many	Sincronização concluída. {count} resgates importados.
@@ -854,3 +864,30 @@ panel.widget.weight.600	Seminegrito (600)
 panel.widget.weight.700	Negrito (700)
 panel.widget.weight.800	Extranegrito (800)
 panel.widget.weight.900	Preto (900)
+panel.notice_settings.legend	Avisos no chat
+panel.notice_settings.joined	Avisar a posição de quem entra e o motivo de um resgate recusado
+panel.notice_settings.joined_help	Desative para que essas mensagens não apareçam no chat. Um resgate recusado continua tendo os pontos devolvidos; a pessoa só não é avisada no chat.
+panel.notice_settings.service	Avisar mudanças no atendimento: terminou, ausente, adiada ou de volta
+panel.notice_settings.service_help	O aviso sobre o próximo chega em breve.
+panel.notice_settings.state	Avisar quando a fila for fechada, reaberta ou limpa
+panel.notice_settings.reordered	Avisar quem mudou de lugar quando você reordenar a fila
+panel.notice_settings.points	Contar à pessoa o que aconteceu com os pontos dela (em breve)
+panel.notice_settings.soon_help	Ainda não é enviado nada por isso. A sua escolha fica salva para quando chegar.
+panel.notice_settings.hint	As mensagens têm limite para não inundar o chat; a chamada de "sua vez" sempre vai primeiro.
+panel.refund_list.title	Lista própria de devolução
+panel.refund_list.description	Pessoas de confiança. Usada por toda fila com este grupo marcado. Fica guardado: o número da conta da Twitch e um rótulo.
+panel.refund_list.label	Rótulo (opcional)
+panel.refund_list.add	Adicionar
+panel.refund_list.count	{count} de {max}
+panel.refund_list.added_on	Adicionado em {date}
+panel.refund_list.remove	Remover
+panel.refund_list.remove_aria	Remover {label} da lista
+panel.refund_list.removed	{label} removido.
+panel.refund_list.unnamed	(sem rótulo)
+panel.refund_list.clear	Limpar tudo
+panel.refund_list.clear_confirm	Remover as {count} pessoas da lista? As filas que usam este grupo não devolverão ninguém dela.
+panel.refund_list.clear_done	Lista limpa.
+panel.refund_list.empty	Ainda não há ninguém na lista.
+panel.refund_list.error.duplicate	Esta pessoa já está na lista.
+panel.refund_list.error.limit	A lista está cheia ({max} pessoas). Remova alguém para adicionar outra.
+panel.refund_list.error.invalid	Informe um login válido da Twitch: letras, números e sublinhado, até 25 caracteres.

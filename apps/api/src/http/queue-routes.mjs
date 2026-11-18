@@ -1,6 +1,10 @@
 import { QUEUE_DELETION_REMOTE_DELETE_REASONS } from '../domain/queue-service.mjs';
+import { SETTLEMENT_MODES, refundGroupsOf } from '../domain/settlement-setting.mjs';
+import { parsePolicyBody } from '../domain/settlement-policy.mjs';
+import { REFUND_LIST_MAX } from '../persistence/refund-list-store.mjs';
 import { normalizeQueueKeys } from '../domain/queue-keys.mjs';
 import { createHash } from 'node:crypto';
+import { isDatabaseTimeout } from '../persistence/database-errors.mjs';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES, resolveCommandPolicy } from '../commands/catalog.mjs';
 import { createErrorDiagnosticReporter } from '../observability/error-diagnostics.mjs';
 import { financialOperationHealth } from '../outbox/financial-retry-policy.mjs';
@@ -21,11 +25,25 @@ function mutationFingerprint(request) {
 /** Stable, non-sensitive outcome codes the manual-admission form may use to explain a 4xx precisely. */
 const MANUAL_ENTRY_PUBLIC_CODES = new Set(['QUEUE_NOT_FOUND', 'QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY', 'QUEUE_MODE_TRANSITION_PENDING', 'QUEUE_MODE_TRANSITION_UNAVAILABLE']);
 
+/** Audit labels the panel may send per target status (G-14). The panel UI sends the first four; the fifth is reserved for a panel no-show. */
+const PANEL_TRANSITION_REASONS = Object.freeze({
+  called: ['operator_call'],
+  in_progress: ['service_started'],
+  completed: ['service_completed'],
+  removed: ['operator_removed'],
+  no_show: ['operator_no_show'],
+  // OPS-31 P3: skip (from `called`) and restore (from `no_show`); the domain checks the label against the current status.
+  waiting: ['operator_skip', 'operator_restore'],
+});
+
 function routeError(error) {
   if (['INVALID_QUEUE_KEY', 'RESERVED_QUEUE_KEY', 'INVALID_QUEUE_ALIASES', 'INVALID_UID'].includes(error?.code)) return 400;
   if (['DUPLICATE_QUEUE_KEY'].includes(error?.code)) return 409;
   if (error?.code === 'QUEUE_NOT_FOUND' || error?.code === 'ENTRY_NOT_FOUND') return 404;
-  if (['QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY', 'QUEUE_MODE_TRANSITION_PENDING', 'QUEUE_MODE_TRANSITION_UNAVAILABLE', 'QUEUE_OPEN_WHILE_ARCHIVED'].includes(error?.code)) return 409;
+  // OPS-31 P0 (W3-4): a double click, a stale panel or a race with the timer is a conflict, never an `application_error`.
+  if (['QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY', 'QUEUE_MODE_TRANSITION_PENDING', 'QUEUE_MODE_TRANSITION_UNAVAILABLE', 'QUEUE_OPEN_WHILE_ARCHIVED', 'INVALID_ENTRY_TRANSITION', 'ENTRY_VERSION_STALE', 'ENTRY_RESTORE_NOT_ALLOWED'].includes(error?.code)) return 409;
+  // OPS-31 P0 (DB-11): lock_timeout / statement_timeout is retryable; the callers send it with a referenceId and generic text.
+  if (error?.code === 'DATABASE_TIMEOUT') return 503;
   return 500;
 }
 
@@ -33,6 +51,11 @@ function routeError(error) {
 function sendDiagnosedFailure(reply, { reportDiagnostic, source, error, statusCode = 503, message, code = 'INTERNAL_ERROR' }) {
   const referenceId = reportDiagnostic({ source, error });
   reply.header('x-error-reference', referenceId);
+  // OPS-31 P0 (DB-11): lock_timeout / statement_timeout is retryable, with generic text and nothing written.
+  if (isDatabaseTimeout(error)) {
+    reply.header('retry-after', '1');
+    return reply.code(503).send({ code: 'TEMPORARILY_UNAVAILABLE', error: GENERIC_FAILURE_MESSAGE, referenceId });
+  }
   return reply.code(statusCode).send({ ...(code ? { code } : {}), error: message, referenceId });
 }
 
@@ -88,6 +111,13 @@ function queueDto(queue, { operator = false } = {}) {
     showUidInList: queue.showUidInList, showUidInOverlay: queue.showUidInOverlay, showUidOnCall: queue.showUidOnCall,
     autoSwitchAccount: queue.autoSwitchAccount, refundIfRemovedWhileCalled: queue.refundIfRemovedWhileCalled,
     refundOnNoShow: queue.refundOnNoShow, refundIfViewerLeavesCalled: queue.refundIfViewerLeavesCalled,
+    noticeJoined: queue.noticeJoined === true, noticeService: queue.noticeService === true, noticeState: queue.noticeState === true,
+    noticeReordered: queue.noticeReordered === true, noticePoints: queue.noticePoints === true,
+    settlement: queue.settlement ?? 'fulfill_on_start', refundGroups: queue.refundGroups ?? refundGroupsOf(queue),
+    // OPS-31 P5b (AC 38): absent = unknown (the panel shows nothing, never 0); present only when the count was read.
+    ...(queue.pendingDecisions ? { pendingDecisions: {
+      awaitingChoice: queue.pendingDecisions.awaitingChoice, checkGroup: queue.pendingDecisions.checkGroup, total: queue.pendingDecisions.total,
+    } } : {}),
     isOpen: queue.isOpen, isArchived: queue.isArchived, lifecycleStatus: queue.lifecycleStatus,
     version: queue.version, remoteSyncStatus: queue.remoteSyncStatus,
     // OPS-22 FT-26 (AC 15, F17): enumerated deletion projection for the operator panel; never the raw outbox facts.
@@ -106,6 +136,8 @@ function queueDto(queue, { operator = false } = {}) {
 const PROJECTED_FINANCIAL_REASONS = new Set(['attempts_exhausted', 'authorization_required']);
 const QUEUE_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const REMOTE_REDEMPTION_STATUSES = new Set(['UNFULFILLED', 'FULFILLED', 'CANCELED']);
+
 function operationDto(operation) {
   const financial = operation.operationType.startsWith('redemption.');
   const health = financial ? financialOperationHealth({ status: operation.status }) : null;
@@ -121,6 +153,9 @@ function operationDto(operation) {
         ? { reason: 'manual_contradicted' } : {}),
     ...(financial && typeof operation.blockingQueueId === 'string' && QUEUE_ID_PATTERN.test(operation.blockingQueueId)
       ? { blockingQueueId: operation.blockingQueueId } : {}),
+    // OPS-31 P0 (O-1): a `conflict` shows the remote status stored by the last read (closed set) and when it was found.
+    ...(financial && operation.status === 'conflict' && REMOTE_REDEMPTION_STATUSES.has(operation.remoteStatus) ? { remoteStatus: operation.remoteStatus } : {}),
+    ...(financial && operation.status === 'conflict' && operation.conflictDetectedAt instanceof Date ? { conflictDetectedAt: operation.conflictDetectedAt.toISOString() } : {}),
   };
 }
 
@@ -421,9 +456,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     } catch (error) {
       const statusCode = routeError(error);
       if (statusCode >= 500) {
-        const referenceId = reportDiagnostic({ source: 'http.queue.create', error });
-        reply.header('x-error-reference', referenceId);
-        return reply.code(statusCode).send({ code: 'INTERNAL_ERROR', error: 'Não foi possível concluir. Tente novamente.', referenceId });
+        return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.create', error, statusCode, message: GENERIC_FAILURE_MESSAGE });
       }
       return reply.code(statusCode).send({ error: userError(error) });
     }
@@ -432,7 +465,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   app.patch('/api/queues/:queueId/settings', async (request, reply) => {
     const localRequest = /** @type {any} */ (request);
     const body = localRequest.body && typeof localRequest.body === 'object' ? localRequest.body : {};
-    const allowed = new Set(['expectedVersion', 'callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled']);
+    const allowed = new Set(['expectedVersion', 'callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall', 'autoSwitchAccount', 'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled', 'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints', 'settlement', 'refundGroups']);
     const keys = Object.keys(body);
     if (keys.some((key) => ['uidMode', 'title', 'cost', 'rewardPrompt', 'maxRedemptionsPerStream', 'maxRedemptionsPerUserPerStream', 'globalCooldownSeconds'].includes(key))) {
       return reply.code(400).send({ code: 'INVALID_LOCAL_QUEUE_SETTING', error: 'A privacidade do UID e a recompensa devem ser alteradas no editor de recompensa Twitch.' });
@@ -444,7 +477,9 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     if (!Object.keys(settings).length
       || ('callTimeoutMin' in settings && !isValidCallTimeout(settings.callTimeoutMin))
       || ('callMessage' in settings && !isValidCallMessageText(settings.callMessage))
-      || Object.entries(settings).some(([key, value]) => !['callTimeoutMin', 'callMessage'].includes(key) && typeof value !== 'boolean')) {
+      || ('settlement' in settings && !SETTLEMENT_MODES.includes(settings.settlement))
+      || ('refundGroups' in settings && !Array.isArray(settings.refundGroups))
+      || Object.entries(settings).some(([key, value]) => !['callTimeoutMin', 'callMessage', 'settlement', 'refundGroups'].includes(key) && typeof value !== 'boolean')) {
       return reply.code(400).send({ code: 'INVALID_QUEUE_SETTINGS', error: 'Revise as configurações da fila.' });
     }
     if (typeof settings.callMessage === 'string' && hasUnknownCallMessagePlaceholder(settings.callMessage)) {
@@ -457,8 +492,45 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code: error.code, error: 'Fila não encontrada.' });
       if (error?.code === 'STALE_QUEUE_VERSION') return reply.code(409).send({ code: error.code, error: 'A fila mudou em outra operação. Atualize o painel e tente novamente.' });
       if (error?.code === 'QUEUE_NOT_AVAILABLE') return reply.code(409).send({ code: error.code, error: 'Esta fila não aceita alterações enquanto está sendo excluída.' });
-      if (error?.code === 'INVALID_LOCAL_QUEUE_SETTING') return reply.code(400).send({ code: error.code, error: 'A privacidade do UID e a recompensa devem ser alteradas no editor de recompensa Twitch.' });
+      if (error?.code === 'SETTLEMENT_MODE_UNAVAILABLE') return reply.code(409).send({ code: error.code, reason: 'not_delivered', error: 'A devolução dos pontos ao fim do atendimento ainda não está disponível.' });
+      if (error?.code === 'INVALID_LOCAL_QUEUE_SETTING') {
+        // OPS-31 P5: a malformed settlement setting or group list is a client error with its own text; the UID and reward text stays for the other case.
+        if (/settlement|refund groups/i.test(String(error.message))) return reply.code(400).send({ code: 'INVALID_QUEUE_SETTINGS', error: 'Revise as configurações da fila.' });
+        return reply.code(400).send({ code: error.code, error: 'A privacidade do UID e a recompensa devem ser alteradas no editor de recompensa Twitch.' });
+      }
       return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.settings', error, message: 'Não foi possível salvar as configurações da fila.' });
+    }
+  });
+  // OPS-31 P5b (AC 35): the settlement policy of a queue. Panel session only (the same onRequest hook as every /api route:
+  // 401 without a session, CSRF and Origin on a write) and the panel operation key on the PUT.
+  app.get('/api/queues/:queueId/settlement-policy', async (request, reply) => {
+    const localRequest = /** @type {any} */ (request);
+    try {
+      const policy = await repository.getQueueSettlementPolicy?.(localRequest.params.queueId);
+      if (!policy) return reply.code(404).send({ code: 'QUEUE_NOT_FOUND', error: 'Fila não encontrada.' });
+      return policy;
+    } catch (error) {
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.settlement_policy.read', error, message: 'Não foi possível carregar a política de pontos.' });
+    }
+  });
+  app.put('/api/queues/:queueId/settlement-policy', async (request, reply) => {
+    const localRequest = /** @type {any} */ (request);
+    const parsed = parsePolicyBody(localRequest.body);
+    if (!parsed.ok) return reply.code(400).send({ code: 'SETTLEMENT_POLICY_INVALID', field: parsed.field, error: 'Revise a política de pontos da fila.' });
+    try {
+      return await repository.updateQueueSettlementPolicy({
+        queueId: localRequest.params.queueId, expectedPolicyRev: parsed.expectedPolicyRev, changes: parsed.changes,
+        actorId: localRequest.localSession?.id ?? null, origin: 'panel',
+      });
+    } catch (error) {
+      if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code: error.code, error: 'Fila não encontrada.' });
+      if (error?.code === 'QUEUE_NOT_AVAILABLE') return reply.code(409).send({ code: error.code, error: 'Esta fila não aceita alterações agora.' });
+      if (error?.code === 'SETTLEMENT_POLICY_STALE') return reply.code(409).send({ code: error.code, settlementPolicyRev: error.settlementPolicyRev, error: 'A política mudou em outra operação. Atualize o painel e tente novamente.' });
+      if (error?.code === 'SETTLEMENT_MODE_UNAVAILABLE') {
+        const reason = ['policy_not_active', 'legacy_not_selectable'].includes(error.reason) ? error.reason : 'policy_not_active';
+        return reply.code(409).send({ code: error.code, reason, error: 'Esta opção da política de pontos ainda não está disponível.' });
+      }
+      return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.settlement_policy.write', error, message: 'Não foi possível salvar a política de pontos.' });
     }
   });
   app.patch('/api/queues/:queueId/reward-settings', async (request, reply) => {
@@ -506,13 +578,15 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   });
   app.post('/api/queues/:queueId/move', async (request, reply) => {
     const localRequest = /** @type {any} */ (request);
-    const { entryId, position } = localRequest.body ?? {};
-    if (typeof entryId !== 'string' || entryId.length > 64 || !Number.isInteger(position) || position < 1 || position > 10_000) {
+    const { entryId, position, expectedVersion } = localRequest.body ?? {};
+    if (typeof entryId !== 'string' || entryId.length > 64 || !Number.isInteger(position) || position < 1 || position > 10_000
+      || (expectedVersion !== undefined && (!Number.isInteger(expectedVersion) || expectedVersion < 1))) {
       return reply.code(400).send({ error: 'Informe uma entrada e uma posição válida.' });
     }
     try {
-      return await repository.moveWaitingEntry({ queueId: localRequest.params.queueId, entryId, position });
+      return await repository.moveWaitingEntry({ queueId: localRequest.params.queueId, entryId, position, ...(expectedVersion === undefined ? {} : { expectedVersion }) });
     } catch (error) {
+      if (error?.code === 'ENTRY_VERSION_STALE') return reply.code(409).send({ code: error.code, version: error.currentVersion, error: userError(error) });
       if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ error: 'Fila não encontrada.' });
       if (error?.code === 'ENTRY_NOT_WAITING' || error?.code === 'INVALID_QUEUE_POSITION') return reply.code(409).send({ error: 'A pessoa não está aguardando ou a posição não está mais disponível. Atualize o painel.' });
       return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.move', error, statusCode: 503, message: 'Não foi possível reorganizar a fila.' });
@@ -615,14 +689,20 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   app.post('/api/entries/:entryId/transitions', async (request, reply) => {
     /** @type {Record<string, any>} */
     const body = request.body && typeof request.body === 'object' ? request.body : {};
-    if (!['called', 'in_progress', 'completed', 'removed', 'no_show'].includes(body.to)
-      || typeof body.reason !== 'string' || !/^[a-z][a-z0-9_]{1,47}$/.test(body.reason)) {
+    // OPS-31 P1 (G-14): `reason` is an audit label from a closed list per target status; it can never carry the
+    // clear/delete trigger, and the domain service types the trigger as `panel_action`.
+    if (!Object.hasOwn(PANEL_TRANSITION_REASONS, body.to)
+      || typeof body.reason !== 'string' || !PANEL_TRANSITION_REASONS[body.to].includes(body.reason)) {
+      return reply.code(400).send({ error: 'Ação de atendimento inválida.' });
+    }
+    // OPS-31 P3 (G-8): the panel sends the version it saw; optional, so older clients keep working.
+    if (body.expectedVersion !== undefined && (!Number.isInteger(body.expectedVersion) || body.expectedVersion < 1)) {
       return reply.code(400).send({ error: 'Ação de atendimento inválida.' });
     }
     try {
       /** @type {any} */
       const localRequest = request;
-      const result = await domainService.transitionEntry({ entryId: localRequest.params.entryId, to: body.to, origin: 'panel', reason: body.reason, actorId: localRequest.localSession?.id });
+      const result = await domainService.transitionEntry({ entryId: localRequest.params.entryId, to: body.to, origin: 'panel', trigger: 'panel_action', reason: body.reason, actorId: localRequest.localSession?.id, ...(body.expectedVersion === undefined ? {} : { expectedVersion: body.expectedVersion }) });
       return { id: result.id, status: result.status, financialDecision: result.financialDecision };
     } catch (error) {
       const statusCode = routeError(error);
@@ -633,7 +713,12 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
         statusCode,
         message: userError(error),
       });
-      return reply.code(statusCode).send({ error: userError(error) });
+      return reply.code(statusCode).send({
+        ...(['INVALID_ENTRY_TRANSITION', 'ENTRY_VERSION_STALE', 'ENTRY_RESTORE_NOT_ALLOWED'].includes(error?.code) ? { code: error.code } : {}),
+        ...(error?.code === 'ENTRY_VERSION_STALE' && Number.isInteger(error.currentVersion) ? { version: error.currentVersion } : {}),
+        ...(error?.code === 'ENTRY_RESTORE_NOT_ALLOWED' && ['intent_recorded', 'other_active_entry'].includes(error.reason) ? { reason: error.reason } : {}),
+        error: userError(error),
+      });
     }
   });
   app.post('/api/entries/:entryId/call-notification/resend', async (request, reply) => {
@@ -845,6 +930,50 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.queue.delete_cancel', error, message: 'Não foi possível verificar o cancelamento da exclusão.' });
     }
   });
+  // OPS-31 P5 (FT-74, AC 10): the own refund list, one per channel. The panel gets the internal id, the label and the date,
+  // never the Twitch user id; the typed login is resolved once at add time and not stored.
+  const refundListFailure = (reply, error, source) => {
+    const map = {
+      REFUND_LIST_FULL: [409, { max: REFUND_LIST_MAX }, 'A lista está cheia. Remova alguém para adicionar outra pessoa.'],
+      REFUND_LIST_DUPLICATE: [409, {}, 'Essa pessoa já está na lista.'],
+      REFUND_LIST_MEMBER_NOT_FOUND: [404, {}, 'Essa pessoa não está na lista.'],
+      REFUND_LIST_INVALID: [400, {}, 'Revise o login e o rótulo informados.'],
+    };
+    const entry = map[error?.code];
+    if (entry) return reply.code(entry[0]).send({ code: error.code, ...entry[1], error: entry[2] });
+    return sendDiagnosedFailure(reply, { reportDiagnostic, source, error, statusCode: 500, message: GENERIC_FAILURE_MESSAGE });
+  };
+  const refundListDto = (list) => ({ items: list.items.map((item) => ({ id: item.id, label: item.label, createdAt: item.createdAt })), count: list.count, max: list.max ?? REFUND_LIST_MAX });
+  app.get('/api/refund-list', async (_request, reply) => {
+    try { return refundListDto(await repository.listRefundList()); }
+    catch (error) { return refundListFailure(reply, error, 'http.refund_list.read'); }
+  });
+  app.post('/api/refund-list', async (request, reply) => {
+    /** @type {Record<string, any>} */
+    const body = request.body && typeof request.body === 'object' ? request.body : {};
+    if (typeof body.login !== 'string' || !/^@?[a-zA-Z0-9_]{1,25}$/.test(body.login)) return reply.code(400).send({ code: 'REFUND_LIST_INVALID', error: 'Informe um login válido da Twitch.' });
+    if (body.label !== undefined && body.label !== null && typeof body.label !== 'string') return reply.code(400).send({ code: 'REFUND_LIST_INVALID', error: 'Revise o login e o rótulo informados.' });
+    try {
+      const user = await resolveUser(body.login.replace(/^@/, ''));
+      if (!user) return reply.code(404).send({ code: 'TWITCH_USER_NOT_FOUND', error: 'Esse usuário da Twitch não foi encontrado.' });
+      const result = await repository.addRefundListMember({ twitchUserId: String(user.id), label: body.label, actorId: /** @type {any} */ (request).localSession?.id ?? null });
+      return reply.code(201).send({ member: { id: result.member.id, label: result.member.label, createdAt: result.member.createdAt }, count: result.count, max: REFUND_LIST_MAX });
+    } catch (error) { return refundListFailure(reply, error, 'http.refund_list.add'); }
+  });
+  app.post('/api/refund-list/clear', async (request, reply) => {
+    try {
+      const result = await repository.clearRefundList({ actorId: /** @type {any} */ (request).localSession?.id ?? null });
+      return { removed: result.removed, count: 0, max: REFUND_LIST_MAX };
+    } catch (error) { return refundListFailure(reply, error, 'http.refund_list.clear'); }
+  });
+  app.post('/api/refund-list/:memberId/remove', async (request, reply) => {
+    const memberId = /** @type {any} */ (request.params).memberId;
+    if (typeof memberId !== 'string' || !QUEUE_ID_PATTERN.test(memberId)) return reply.code(404).send({ code: 'REFUND_LIST_MEMBER_NOT_FOUND', error: 'Essa pessoa não está na lista.' });
+    try {
+      const result = await repository.removeRefundListMember({ id: memberId, actorId: /** @type {any} */ (request).localSession?.id ?? null });
+      return { count: result.count, max: REFUND_LIST_MAX };
+    } catch (error) { return refundListFailure(reply, error, 'http.refund_list.remove'); }
+  });
   app.post('/api/account', async (request, reply) => {
     /** @type {any} */
     const body = request.body && typeof request.body === 'object' ? request.body : {};
@@ -880,5 +1009,10 @@ function userError(error) {
   if (error?.code === 'QUEUE_MODE_TRANSITION_PENDING') return 'A troca do modo da fila ainda está sendo confirmada pela Twitch.';
   if (error?.code === 'QUEUE_MODE_TRANSITION_UNAVAILABLE') return 'A troca para fila local não está disponível neste estado.';
   if (error?.code === 'INVALID_UID') return 'O UID deve conter exatamente 9 dígitos ASCII.';
+  if (error?.code === 'ENTRY_VERSION_STALE') return 'A pessoa mudou de estado desde que a fila foi carregada. Atualize o painel.';
+  if (error?.code === 'ENTRY_RESTORE_NOT_ALLOWED') return error.reason === 'other_active_entry'
+    ? 'Essa pessoa já tem outra entrada ativa nesta fila.'
+    : 'Não é possível restaurar: a devolução ou conclusão dos pontos já foi registrada.';
+  if (error?.code === 'INVALID_ENTRY_TRANSITION') return 'Essa ação não está disponível para o estado atual do atendimento. Atualize a fila.';
   return 'Não foi possível concluir a operação.';
 }

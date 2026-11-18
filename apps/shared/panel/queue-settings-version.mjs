@@ -4,6 +4,7 @@ export function canRetryQueueSettingsAfterVersionBump(input) {
   const settingKeys = [
     'callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall',
     'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled',
+    'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints',
   ];
   if (!latestQueue || !Number.isInteger(expectedVersion) || !Number.isInteger(latestQueue.version)
       || latestQueue.version <= expectedVersion || latestQueue.lifecycleStatus !== 'active' || latestQueue.isOpen !== false

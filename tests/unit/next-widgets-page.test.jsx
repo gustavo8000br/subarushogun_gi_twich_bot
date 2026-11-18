@@ -26,6 +26,7 @@ const COPY = {
   'panel.widget.source.queue_name': 'Queue name',
   'panel.widget.source.queue_state': 'Whether a queue is open or closed',
   'panel.widget.source.queue_count': 'Number waiting in a queue',
+  'panel.widget.source.next_name': 'Next person waiting in a queue',
   'panel.widget.source.called_name': 'Called person',
   'panel.widget.source.called_position': 'Called person’s original position',
   'panel.widget.source.fixed_text': 'Fixed text',
@@ -173,7 +174,7 @@ describe('Next OBS widget management page', () => {
     expect(document.body.innerHTML).not.toContain('one-time-secret');
   });
 
-  it.each(['queue_name', 'queue_state', 'queue_waiting_count'])('keeps %s tied to the selected queue and linked reward', async (sourceType) => {
+  it.each(['queue_name', 'queue_state', 'queue_waiting_count', 'next_waiting_viewer_display_name'])('keeps %s tied to the selected queue and linked reward', async (sourceType) => {
     const request = vi.fn(async (path, options) => path === '/api/overlay-widgets' && options?.method === 'POST'
       ? { widget: widget({ sourceType: 'queue_name', queueId: 'queue-1' }), capabilityUrl: 'https://localhost/overlay#secret' }
       : []);

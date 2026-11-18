@@ -73,6 +73,12 @@ function displayValue(payload) {
     if (payload.value === 'open') return payload.messages?.['overlay.state.open'] ?? 'Aberta';
     if (payload.value === 'closed') return payload.messages?.['overlay.state.closed'] ?? 'Fechada';
   }
+  if (payload.sourceType === 'next_waiting_viewer_display_name') {
+    // OPS-31 P4: the template is a catalog text with one {name} slot; a function replacer keeps `$&`-style names literal.
+    const template = payload.messages?.['overlay.widget.next'];
+    const safeTemplate = typeof template === 'string' && template.includes('{name}') ? template : 'Próximo: {name}';
+    return safeTemplate.replace('{name}', () => String(payload.value));
+  }
   return String(payload.value);
 }
 

@@ -1,7 +1,7 @@
 export const PANEL_PLACEHOLDERS = Object.freeze({
   'panel.overview.last_updated': ['time'], 'panel.overview.needs_review': ['count'],
   'panel.health.ping_ms': ['ms'],
-  'panel.operation.attempts': ['count'], 'panel.operation.blocks_deletion': ['title'], 'panel.reconciliation.complete': ['count'], 'panel.reconciliation.issues': ['count'],
+  'panel.operation.attempts': ['count'], 'panel.operation.blocks_deletion': ['title'], 'panel.operation.conflict.detail': ['intent', 'remote'], 'panel.operation.confirm.resolve_conflict': ['status'], 'panel.reconciliation.complete': ['count'], 'panel.reconciliation.issues': ['count'],
   'panel.queue.confirm.delete': ['title', 'count'], 'panel.queue.confirm.delete_local': ['title', 'count'],
   'panel.queue.confirm.cancel_delete': ['title'],
   'panel.queue.dialog.title.delete': ['title'], 'panel.queue.dialog.title.cancel_delete': ['title'],
@@ -63,4 +63,10 @@ export const PANEL_PLACEHOLDERS = Object.freeze({
   'panel.reward.mismatch.skip_queue': ['count'],
   'panel.reward.mismatch.disabled': ['count'],
   'panel.reward.mismatch.not_paused': ['count'],
+  'panel.refund_list.count': ['count', 'max'],
+  'panel.refund_list.added_on': ['date'],
+  'panel.refund_list.remove_aria': ['label'],
+  'panel.refund_list.removed': ['label'],
+  'panel.refund_list.clear_confirm': ['count'],
+  'panel.refund_list.error.limit': ['max'],
 });

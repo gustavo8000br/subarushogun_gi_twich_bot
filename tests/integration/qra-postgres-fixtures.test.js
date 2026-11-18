@@ -195,6 +195,7 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
         'modeTransitionStatus', 'queueMode', 'refundIfRemovedWhileCalled', 'refundIfViewerLeavesCalled', 'refundOnNoShow',
         'remoteSyncStatus', 'rewardId', 'rewardOrigin', 'rewardPrompt', 'showUidInList', 'showUidOnCall',
         'showUidInOverlay', 'slug', 'title', 'uidMode', 'version',
+        'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints', 'settlement', 'refundGroups',
       ].sort());
 
       const persisted = await prisma.queue.findUnique({ where: { id: dto.id } });
@@ -233,7 +234,10 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
 
       const listed = await app.inject({ method: 'GET', url: '/api/queues', headers });
       expect(listed.statusCode).toBe(200);
-      expect(listed.json().find(({ id }) => id === dto.id)).toEqual(dto);
+      // OPS-31 P5b: only the projection carries the pending-decision count (a mutation response does not read it).
+      const { pendingDecisions: listedPending, ...listedDto } = listed.json().find(({ id }) => id === dto.id);
+      expect(listedPending).toEqual({ awaitingChoice: 0, checkGroup: 0, total: 0 });
+      expect(listedDto).toEqual(dto);
     } finally {
       await app.close();
     }
@@ -290,6 +294,7 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
         'modeTransitionStatus', 'operationStatus', 'queueMode', 'refundIfRemovedWhileCalled', 'refundIfViewerLeavesCalled',
         'refundOnNoShow', 'remoteSyncStatus', 'rewardId', 'rewardOrigin', 'rewardPrompt', 'showUidInList',
         'showUidOnCall', 'showUidInOverlay', 'slug', 'title', 'uidMode', 'version',
+        'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints', 'settlement', 'refundGroups',
       ].sort());
       const persistedQueue = await prisma.queue.findUnique({ where: { id: queue.id } });
       expect(persistedQueue).toMatchObject({
@@ -340,7 +345,9 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
       const listDto = listed.json().find(({ id }) => id === queue.id);
       const { operationStatus, ...queueDto } = acceptedDto;
       expect(operationStatus).toBe('pending');
-      expect(listDto).toEqual(queueDto);
+      const { pendingDecisions: listedPending, ...listDtoWithoutCount } = listDto; // OPS-31 P5b: projection-only field
+      expect(listedPending).toEqual({ awaitingChoice: 0, checkGroup: 0, total: 0 });
+      expect(listDtoWithoutCount).toEqual(queueDto);
     } finally {
       await app.close();
     }
@@ -959,8 +966,8 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
 
       for (const [to, reason] of [
         ['called', 'operator_call'],
-        ['in_progress', 'operator_start'],
-        ['completed', 'operator_complete'],
+        ['in_progress', 'service_started'],
+        ['completed', 'service_completed'],
       ]) {
         const transition = await app.inject({
           method: 'POST',
@@ -972,7 +979,7 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
         expect(transition.json()).toEqual({ id: admission.id, status: to, financialDecision: 'no_operation' });
       }
       expect(await prisma.entry.findUnique({ where: { id: admission.id } }))
-        .toMatchObject({ status: 'completed', position: null, terminalReason: 'operator_complete', source: 'manual' });
+        .toMatchObject({ status: 'completed', position: null, terminalReason: 'service_completed', source: 'manual' });
       const manualHistory = await app.inject({
         method: 'GET',
         url: `/api/queues/${manualQueue.id}/history`,
@@ -985,7 +992,7 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
         userLogin: 'qra_synthetic_viewer',
         displayName: 'QRA Synthetic Viewer',
         status: 'completed',
-        terminalReason: 'operator_complete',
+        terminalReason: 'service_completed',
       });
       expect(await prisma.auditLog.count({
         where: { queueId: manualQueue.id, entryId: admission.id, event: 'entry.transitioned', actorId },
@@ -1060,14 +1067,14 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
         method: 'POST',
         url: `/api/entries/${fulfillmentEntry.id}/transitions`,
         headers: { ...headers, 'idempotency-key': randomUUID() },
-        payload: { to: 'in_progress', reason: 'operator_start' },
+        payload: { to: 'in_progress', reason: 'service_started' },
       });
       expect(startFulfillmentEntry.json()).toEqual({ id: fulfillmentEntry.id, status: 'in_progress', financialDecision: 'request_fulfill' });
       const completeFulfillmentEntry = await app.inject({
         method: 'POST',
         url: `/api/entries/${fulfillmentEntry.id}/transitions`,
         headers: { ...headers, 'idempotency-key': randomUUID() },
-        payload: { to: 'completed', reason: 'operator_complete' },
+        payload: { to: 'completed', reason: 'service_completed' },
       });
       expect(completeFulfillmentEntry.json()).toEqual({ id: fulfillmentEntry.id, status: 'completed', financialDecision: 'no_operation' });
       expect(await prisma.redemption.findUnique({ where: { redemptionId: fulfillmentRedemptionId } }))

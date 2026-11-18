@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
@@ -24,7 +24,7 @@ function walk(directory, files = []) {
   return files;
 }
 const repoFiles = ['apps', 'tests', '.github'].flatMap((directory) => walk(join(root, directory)))
-  .map((path) => relative(root, path)).filter((path) => /\.(m?js|jsx|json|ya?ml|css|html|tsv)$/.test(path));
+  .map((path) => relative(root, path).split(sep).join('/')).filter((path) => /\.(m?js|jsx|json|ya?ml|css|html|tsv)$/.test(path));
 const configFiles = ['package.json', 'eslint.config.js', 'tsconfig.json', 'tsconfig.frontend.json', 'Dockerfile', 'compose.yaml', 'compose.build.yaml']
   .filter((file) => existsSync(join(root, file)));
 
