@@ -290,6 +290,28 @@ describe('Twitch integration lifecycle', () => {
     integration.stop();
   });
 
+  it('OPS-31 P6 (AC 16): group authorization requests only the chosen group scopes plus what is already granted', async () => {
+    const oauthStateStore = { issue: vi.fn(() => ({ state: 's', url: 'https://id.twitch.tv/oauth2/authorize?state=s' })) };
+    const authRecord = { id: 'credential-1', clientId: 'client-1', clientSecret: 'secret', broadcasterId: 'channel-1',
+      accessToken: 'access-1', refreshToken: 'refresh-1', scopes: ['user:read:chat', 'moderator:read:followers', 'moderation:read'], authStatus: 'connected',
+      updatedAt: new Date('2026-10-15T12:00:00.000Z') };
+    const credentialRepository = { getAuthRecord: vi.fn(async () => authRecord), getPublicStatus: vi.fn(async () => ({})) };
+    const integration = await createTwitchIntegration({ credentialRepository, oauthStateStore, redirectUri: 'https://localhost:3000/callback' });
+    await integration.beginGroupAuthorization({ sessionId: 'session-1', groups: ['vip', 'own_list'] });
+    expect(oauthStateStore.issue).toHaveBeenLastCalledWith(expect.objectContaining({
+      sessionId: 'session-1', clientId: 'client-1',
+      scopes: ['moderator:read:followers', 'moderation:read', 'channel:read:vips'],
+      context: { kind: 'group_scope', expectedCredentialFingerprint: createCredentialFingerprint(authRecord) },
+    }));
+    // The follower flow keeps the group scopes already granted instead of dropping them.
+    await integration.beginFollowerAuthorization({ sessionId: 'session-1', expectedVersion: 1, policies: {}, scopeOnly: true });
+    expect(oauthStateStore.issue).toHaveBeenLastCalledWith(expect.objectContaining({ scopes: ['moderator:read:followers', 'moderation:read'] }));
+    await expect(integration.beginGroupAuthorization({ sessionId: 'session-1', groups: ['own_list'] })).rejects.toMatchObject({ code: 'INVALID_GROUP_AUTHORIZATION' });
+    await expect(integration.beginGroupAuthorization({ sessionId: 'session-1', groups: ['admin'] })).rejects.toMatchObject({ code: 'INVALID_GROUP_AUTHORIZATION' });
+    await expect(integration.beginGroupAuthorization({ sessionId: '', groups: ['vip'] })).rejects.toMatchObject({ code: 'INVALID_GROUP_AUTHORIZATION' });
+    integration.stop();
+  });
+
   it('captures the current credential generation for regular OAuth reconnects too', async () => {
     const authRecord = { id: 'credential-regular', clientId: 'client-1', clientSecret: 'private-secret', broadcasterId: 'channel-1',
       accessToken: 'private-access', refreshToken: 'private-refresh', scopes: ['user:read:chat'], authStatus: 'connected',

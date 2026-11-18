@@ -38,7 +38,14 @@ export async function validateClientCredentials({ clientId, clientSecret, fetchI
 }
 
 const requiredScopes = ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat'];
-const optionalScopes = ['moderator:read:followers'];
+/**
+ * Optional scopes (never required, so existing connections keep working). OPS-31 P6 (AC 16) adds one read-only scope per refund
+ * group: subscribers, moderators, VIPs. Least privilege: never the `manage` variants.
+ */
+export const OPTIONAL_OAUTH_SCOPES = Object.freeze([
+  'moderator:read:followers', 'channel:read:subscriptions', 'moderation:read', 'channel:read:vips',
+]);
+const optionalScopes = OPTIONAL_OAUTH_SCOPES;
 
 /** @param {{clock?: () => Date, stateFactory?: () => string, ttlMs?: number}} options */
 export function createOAuthStateStore({ clock = () => new Date(), stateFactory = () => randomBytes(32).toString('hex'), ttlMs = 10 * 60 * 1000 } = {}) {

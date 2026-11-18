@@ -219,6 +219,34 @@ describe('local queue and setup API', () => {
     expect(h.repository.updateCommandPolicies).not.toHaveBeenCalled();
   });
 
+  it('OPS-31 P6 (AC 16): starts the group-scope reauthorization with the normalized groups and changes nothing else', async () => {
+    const h = await createHarness();
+    h.integrations.beginGroupAuthorization = vi.fn(async () => ({ url: 'https://id.twitch.tv/oauth2/authorize?state=group' }));
+    const response = await h.app.inject({ method: 'POST', url: '/api/settlement/group-authorization', headers: h.headers, payload: { groups: ['vip', 'moderator'] } });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ authorizationUrl: 'https://id.twitch.tv/oauth2/authorize?state=group' });
+    expect(h.integrations.beginGroupAuthorization).toHaveBeenCalledWith({ sessionId: expect.any(String), groups: ['moderator', 'vip'] });
+    expect(h.repository.updateCommandPolicies).not.toHaveBeenCalled();
+  });
+
+  it('OPS-31 P6: refuses group authorization requests that are invalid, scope-free or carry extra keys, before any Twitch call', async () => {
+    const h = await createHarness();
+    h.integrations.beginGroupAuthorization = vi.fn();
+    for (const payload of [{}, { groups: [] }, { groups: ['own_list'] }, { groups: ['vip', 'vip'] }, { groups: ['admin'] }, { groups: 'vip' }, { groups: ['vip'], extra: 1 }]) {
+      const response = await h.app.inject({ method: 'POST', url: '/api/settlement/group-authorization', headers: h.headers, payload });
+      expect(response.statusCode, JSON.stringify(payload)).toBe(400);
+    }
+    expect(h.integrations.beginGroupAuthorization).not.toHaveBeenCalled();
+    h.integrations.beginGroupAuthorization = vi.fn(async () => { throw new Error('postgres://secret@host/db'); });
+    const failed = await h.app.inject({ method: 'POST', url: '/api/settlement/group-authorization', headers: h.headers, payload: { groups: ['vip'] } });
+    expect(failed.statusCode).toBe(503);
+    expect(failed.body).not.toContain('postgres');
+    h.integrations.beginGroupAuthorization = vi.fn(async () => null);
+    expect((await h.app.inject({ method: 'POST', url: '/api/settlement/group-authorization', headers: h.headers, payload: { groups: ['vip'] } })).statusCode).toBe(503);
+    const noSession = await h.app.inject({ method: 'POST', url: '/api/settlement/group-authorization', payload: { groups: ['vip'] } });
+    expect([401, 403]).toContain(noSession.statusCode);
+  });
+
   it('sanitizes failures while starting follower consent', async () => {
     const h = await createHarness();
     h.integrations.beginFollowerAuthorization = vi.fn(async () => { throw new Error('client secret leaked'); });

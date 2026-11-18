@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { completeOAuthAuthorization, createOAuthStateStore, validateClientCredentials } from '../../apps/api/src/twitch/oauth.mjs';
+import { completeOAuthAuthorization, createOAuthStateStore, validateClientCredentials, OPTIONAL_OAUTH_SCOPES } from '../../apps/api/src/twitch/oauth.mjs';
 
 describe('Twitch OAuth client credential validation', () => {
   it('uses the Client Credentials grant and returns no token or secret', async () => {
@@ -64,6 +64,29 @@ describe('Twitch OAuth client credential validation', () => {
       scopes: ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat', 'moderator:read:followers'],
       context,
     });
+  });
+
+  it('OPS-31 P6 (AC 16): the three group scopes are optional, accumulate with the follower scope, and a foreign scope is refused', () => {
+    expect(OPTIONAL_OAUTH_SCOPES).toEqual(['moderator:read:followers', 'channel:read:subscriptions', 'moderation:read', 'channel:read:vips']);
+    const store = createOAuthStateStore({ stateFactory: () => 'state-groups' });
+    const input = { sessionId: 'session-1', clientId: 'client-123', redirectUri: 'https://localhost:3000/callback' };
+    const issued = store.issue({ ...input, scopes: ['moderator:read:followers', 'moderation:read'] });
+    expect(new URL(issued.url).searchParams.get('scope')).toBe('channel:manage:redemptions user:read:chat user:write:chat moderator:read:followers moderation:read');
+    expect(() => store.issue({ ...input, scopes: ['channel:manage:vips'] })).toThrow(expect.objectContaining({ code: 'INVALID_OAUTH_SCOPE_REQUEST' }));
+    expect(() => store.issue({ ...input, scopes: ['channel:manage:moderators'] })).toThrow(expect.objectContaining({ code: 'INVALID_OAUTH_SCOPE_REQUEST' }));
+  });
+
+  it('OPS-31 P6 (AC 16): the callback stores nothing when /validate lacks a requested group scope', async () => {
+    const stateStore = createOAuthStateStore({ stateFactory: () => 'state-group-missing' });
+    const { state } = stateStore.issue({ sessionId: 'session-1', clientId: 'client-123', redirectUri: 'https://localhost:3000/callback', scopes: ['channel:read:vips'], context: { kind: 'group_scope' } });
+    const persistTokens = vi.fn();
+    await expect(completeOAuthAuthorization({
+      stateStore, sessionId: 'session-1', state, code: 'code',
+      exchangeCode: async () => ({ accessToken: 'a', refreshToken: 'r', expiresIn: 3600 }),
+      validateToken: async () => ({ clientId: 'client-123', userId: 'b', scopes: ['channel:manage:redemptions', 'user:read:chat', 'user:write:chat'] }),
+      persistTokens,
+    })).rejects.toMatchObject({ code: 'TWITCH_AUTHORIZATION_MISMATCH' });
+    expect(persistTokens).not.toHaveBeenCalled();
   });
 
   it('does not persist a staged policy when Twitch omits the optional scope', async () => {

@@ -2,7 +2,8 @@ import { ApiClient } from '@twurple/api';
 import { getTokenInfo, RefreshingAuthProvider } from '@twurple/auth';
 import { clearInterval as clearNodeInterval, setInterval as setNodeInterval } from 'node:timers';
 import { URLSearchParams } from 'node:url';
-import { createOAuthStateStore, completeOAuthAuthorization, validateClientCredentials } from './oauth.mjs';
+import { createOAuthStateStore, completeOAuthAuthorization, validateClientCredentials, OPTIONAL_OAUTH_SCOPES } from './oauth.mjs';
+import { REFUND_GROUP_SCOPES, normalizeRefundGroups } from '../domain/settlement-setting.mjs';
 import { createTwitchApiAdapter } from './helix-adapter.mjs';
 import { createRefreshingAuthRuntime } from './auth-runtime.mjs';
 import { createEventSubRuntime } from './eventsub-runtime.mjs';
@@ -30,6 +31,12 @@ function retryDelay(attempt, random) {
   const base = Math.min(MAX_RETRY_MS, INITIAL_RETRY_MS * (2 ** attempt));
   const jittered = Math.round(base * (0.8 + random() * 0.4));
   return Math.min(MAX_RETRY_MS, Math.max(1, jittered));
+}
+
+/** Optional scopes already granted to the stored credential plus the new ones, in the fixed optional order (no duplicates). */
+function withGrantedOptionalScopes(credential, extra) {
+  const granted = Array.isArray(credential?.scopes) ? credential.scopes : [];
+  return OPTIONAL_OAUTH_SCOPES.filter((scope) => granted.includes(scope) || extra.includes(scope));
 }
 
 /**
@@ -324,6 +331,21 @@ export async function createTwitchIntegration({
         kind: 'account_authorization', expectedCredentialFingerprint: createCredentialFingerprint(currentCredential),
       } });
     },
+    /**
+     * OPS-31 P6 (AC 16): reauthorization that adds only the scopes of the chosen refund groups. The request carries the required scopes
+     * plus every optional scope already granted plus the new ones, so enabling a group never drops what was granted before.
+     * @param {{sessionId: string, groups: string[]}} input
+     */
+    async beginGroupAuthorization({ sessionId, groups }) {
+      const normalized = normalizeRefundGroups(groups);
+      const needed = normalized ? normalized.map((group) => REFUND_GROUP_SCOPES[group]).filter(Boolean) : [];
+      if (!normalized || needed.length === 0 || !sessionId) throw Object.assign(new Error('Group authorization request is invalid'), { code: 'INVALID_GROUP_AUTHORIZATION' });
+      const currentCredential = await loadAuthorizationCredential();
+      if (!currentCredential?.clientId) return null;
+      return oauthStateStore.issue({ sessionId, clientId: currentCredential.clientId, redirectUri,
+        scopes: withGrantedOptionalScopes(currentCredential, needed),
+        context: { kind: 'group_scope', expectedCredentialFingerprint: createCredentialFingerprint(currentCredential) } });
+    },
     async beginFollowerAuthorization({ sessionId, expectedVersion, policies, scopeOnly = false }) {
       const currentCredential = await loadAuthorizationCredential();
       if (!currentCredential?.clientId || !sessionId || !Number.isInteger(expectedVersion) || expectedVersion < 1 || !policies || typeof policies !== 'object' || Array.isArray(policies)) {
@@ -338,7 +360,7 @@ export async function createTwitchIntegration({
             || Object.keys(policy).some((property) => property !== 'minimumRole');
         })) throw Object.assign(new Error('Follower authorization request is invalid'), { code: 'INVALID_FOLLOWER_AUTHORIZATION' });
       const expectedCredentialFingerprint = createCredentialFingerprint(currentCredential);
-      return oauthStateStore.issue({ sessionId, clientId: currentCredential.clientId, redirectUri, scopes: ['moderator:read:followers'], context: scopeOnly
+      return oauthStateStore.issue({ sessionId, clientId: currentCredential.clientId, redirectUri, scopes: withGrantedOptionalScopes(currentCredential, ['moderator:read:followers']), context: scopeOnly
         ? { kind: 'follower_scope', expectedCredentialFingerprint }
         : { kind: 'follower_policy', expectedVersion, policies, expectedCredentialFingerprint } });
     },
