@@ -41,6 +41,7 @@
     "test:e2e:browser-only:ci": "node tests/e2e/run-browser-scripts.mjs",
     "test:e2e:connection:browser-only": "node tests/e2e/connection-browser-only.mjs",
     "test:e2e:settings-locale:browser-only": "node tests/e2e/settings-locale-browser-only.mjs",
+    "test:e2e:settings-refund-list:browser-only": "node tests/e2e/settings-refund-list-browser-only.mjs",
     "test:e2e:commands-policy:browser-only": "node tests/e2e/commands-policy-browser-only.mjs",
     "test:e2e:operations-outcomes:browser-only": "node tests/e2e/operations-outcomes-browser-only.mjs",
     "test:e2e:queue-clear:browser-only": "node tests/e2e/queue-clear-browser-only.mjs",
@@ -73,7 +74,7 @@
     "@twurple/eventsub-ws": "8.2.0",
     "fastify": "5.12.5",
     "js-yaml": "5.4.3",
-    "next": "16.4.1",
+    "next": "16.4.6",
     "pg": "8.23.1",
     "react": "19.3.1",
     "react-dom": "19.3.1"

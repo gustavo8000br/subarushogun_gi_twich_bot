@@ -7,7 +7,7 @@ describe('chat notification persistence contract', () => {
     const now = new Date('2026-10-03T12:00:00Z');
     const tx = {
       $queryRaw: vi.fn(async () => [{ locked: 1 }]),
-      outbox: { create: vi.fn(async () => ({ id: 'task-1' })) },
+      outbox: { create: vi.fn(async () => ({ id: 'task-1' })), findUnique: vi.fn(async () => null) },
       entry: { findUnique: vi.fn(async () => ({ id: 'entry-1', queueId: 'queue-1', status: 'called', callNotifiedAt: null, callDeadlineAt: null, callAcknowledgedAt: null, queue: { callTimeoutMin: 10 } })), update: vi.fn(async ({ data }) => data) },
       auditLog: { create: vi.fn(async () => undefined) },
     };
@@ -17,6 +17,24 @@ describe('chat notification persistence contract', () => {
     expect(JSON.stringify(tx.outbox.create.mock.calls[0][0])).not.toContain('Call message');
     expect(await repository.recordCallNotificationResult({ entryId: 'entry-1', sent: true, timeoutMin: 10 })).toMatchObject({ callNotifiedAt: now, callDeadlineAt: new Date(now.getTime() + 600_000) });
     expect(await repository.recordCallNotificationResult({ entryId: 'entry-1', sent: false, timeoutMin: 10 })).toBeNull();
+  });
+
+  it('OPS-31 P3: a call row left by an earlier call of a skipped entry is reused, never duplicated', async () => {
+    const now = new Date('2026-10-03T12:00:00Z');
+    const previous = { id: 'task-old', status: 'confirmed' };
+    const tx = {
+      $queryRaw: vi.fn(async () => [{ locked: 1 }]),
+      outbox: { create: vi.fn(async () => ({ id: 'task-new' })), findUnique: vi.fn(async () => previous), update: vi.fn(async ({ data }) => ({ id: 'task-old', ...data })) },
+      entry: { findUnique: vi.fn(async () => ({ id: 'entry-1', queueId: 'queue-1', status: 'called' })) },
+    };
+    const prisma = { $transaction: async (callback) => callback(tx), entry: { findUnique: vi.fn(async () => ({ queueId: 'queue-1' })) } };
+    const repository = createQueueRepository(prisma, { clock: () => now });
+    expect(await repository.enqueueCallNotification({ entryId: 'entry-1', queueId: 'queue-1', previousPosition: 3 }))
+      .toMatchObject({ id: 'task-old', status: 'pending', attempts: 0, payload: { previousPosition: 3 } });
+    expect(tx.outbox.create).not.toHaveBeenCalled();
+    tx.outbox.findUnique.mockResolvedValue({ id: 'task-old', status: 'pending' });
+    expect(await repository.enqueueCallNotification({ entryId: 'entry-1', queueId: 'queue-1', previousPosition: 4 })).toMatchObject({ id: 'task-old', status: 'pending' });
+    expect(tx.outbox.update).toHaveBeenCalledTimes(1);
   });
 
   it('claims one pending chat task with lease and ignores stale entries at processing time', async () => {

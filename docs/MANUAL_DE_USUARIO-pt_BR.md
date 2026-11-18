@@ -79,6 +79,12 @@ O prazo de ausência começa somente depois que a Twitch confirma o envio da pri
 
 Use `!<fila> atender [usuario]` para iniciar o atendimento. Isso encerra o prazo de ausência. Use `!<fila> concluir [usuario]` quando o atendimento terminar. Se a chamada vencer antes do início, a entrada passa para **Ausente**; a devolução de pontos depende da opção configurada na fila.
 
+## Avisos no chat
+
+O bot pode contar às pessoas o que acontece em uma fila, no idioma do canal: a posição ao entrar, um resgate recusado (fila fechada, já está na fila, fila indisponível, UID inválido) com o aviso de que a devolução dos pontos foi solicitada, o fim do atendimento, quando a pessoa é marcada como ausente, quando a vez dela é adiada (com a nova posição), quando uma ausência é desfeita (com a nova posição) e quando a fila é fechada, reaberta ou limpa. Quando você reordena a fila, uma única mensagem lista quem mudou de lugar (as cinco primeiras pelo nome, depois "e mais N"). Quem é adiado ou restaurado volta em segundo lugar na própria faixa: uma entrada padrão nunca passa a faixa de prioridade e, com prioritários aguardando, fica atrás da primeira pessoa padrão. Abra **Configurar** em uma fila para ligar ou desligar cada grupo: entrada, atendimento (fim do atendimento, ausência, adiamento e restauração), estado da fila, reordenação e pontos. Uma fila nova começa com entrada, atendimento e estado da fila ligados, e reordenação e pontos desligados (os pontos ficam desligados até uma versão futura ligá-los para filas novas); filas criadas antes deste recurso mantêm todos os avisos desligados até você ligá-los.
+
+Os avisos nunca atrasam a fila nem qualquer operação com pontos. Um limite compartilhado mantém todas as mensagens do bot (chamadas, respostas de comandos e avisos) abaixo do teto da Twitch: a chamada de "sua vez" sempre vai primeiro, e um aviso que não pôde ser entregue depois de algumas tentativas ou de uma espera curta é descartado, não repetido para sempre. Várias pessoas entrando ao mesmo tempo são anunciadas em uma mensagem-resumo, e várias reordenações em poucos segundos também saem em uma só mensagem.
+
 ## Como funcionam os Pontos do Canal
 
 “Solicitado” ou “pendente” significa que o bot pediu à Twitch uma mudança no resgate e aguarda confirmação. Não significa que os pontos já foram devolvidos ou consumidos. A página **Sincronização com a Twitch e devolução de pontos** mostra operações pendentes, confirmadas, incertas ou em conflito.
@@ -139,6 +145,12 @@ O streamer sempre tem acesso. Para os comandos compatíveis, o streamer escolhe 
 
 Com a troca automática de conta ao chamar ativada numa fila, chamar exatamente uma pessoa troca o rótulo para o nome de exibição dela. Chamar um grupo não troca. Quando termina a entrada que é dona da troca automática, o rótulo volta ao padrão. Concluir outra entrada não interfere. Um rótulo definido manualmente permanece até redefinir ou até uma próxima chamada individual elegível, conforme a entrada proprietária atual.
 
+## A lista própria de devolução
+
+Em **Configurações** há a **Lista própria de devolução**: uma lista curta de pessoas de confiança, guardada para o canal inteiro (não por fila). Você adiciona uma pessoa digitando o login da Twitch; o painel consulta o login uma única vez e guarda apenas o número da conta da Twitch e um rótulo de até 40 caracteres (ele começa igual ao login e pode ser alterado). O painel mostra o rótulo e a data de inclusão, nunca o número da conta. Dá para remover uma pessoa por vez ou limpar a lista inteira depois de uma confirmação. A lista comporta no máximo 500 pessoas; adicionar quem já está nela, ou a 501ª pessoa, é recusado com uma mensagem. Excluir uma fila nunca remove pessoas da lista.
+
+Nesta versão a lista apenas fica guardada: nenhuma fila a usa ainda e o bot não devolve pontos por grupo. Escolher "devolver os pontos quando o atendimento terminar" para uma fila ainda não está disponível e é recusado pela API.
+
 ## O painel
 
 O painel local abre em `https://localhost:3000` por padrão. Ele tem:
@@ -149,10 +161,10 @@ O painel local abre em `https://localhost:3000` por padrão. Ele tem:
 - **Sincronização com a Twitch e devolução de pontos** para acompanhar e recuperar operações de pontos.
 - **Comandos do chat** para ver o catálogo e escolher cargos permitidos.
 - **Widgets do OBS** para mostrar rótulos e informações da fila na transmissão.
-- **Configurações** para rótulos de conta.
+- **Configurações** para rótulos de conta e a lista própria de devolução.
 - **Conexão do canal** durante a configuração ou quando for preciso reconectar; nos demais casos, mostra a conta conectada e opções de recuperação.
 
-A página do OBS cria widgets locais de Browser Source para um único dado selecionado ou texto fixo. O link de cada widget aparece uma única vez ao criar ou gerar novamente. Mantenha-o privado; revogue ou substitua se for exposto. A configuração validada para OBS foi Ubuntu 24.04 com OBS Studio 32.2.2 e CEF 127. O comportamento do certificado OBS no Windows e macOS não foi verificado.
+A página do OBS cria widgets locais de Browser Source para um único dado selecionado ou texto fixo. A fonte **Próxima pessoa em espera em uma fila** mostra "Próximo: {nome}" com o nome de exibição da primeira pessoa em espera da fila escolhida (primeiro a faixa de prioridade, depois a ordem da fila); acompanha chamadas, adiamentos, restaurações e reordenações, e não mostra nada (ou o seu texto alternativo) quando ninguém espera. Só o nome de exibição vai ao widget, nunca um identificador de conta nem o login. O link de cada widget aparece uma única vez ao criar ou gerar novamente. Mantenha-o privado; revogue ou substitua se for exposto. A configuração validada para OBS foi Ubuntu 24.04 com OBS Studio 32.2.2 e CEF 127. O comportamento do certificado OBS no Windows e macOS não foi verificado.
 
 ## Parar ou reiniciar o bot
 
@@ -180,7 +192,7 @@ Para instalar, atualizar ou remover o produto, use o mesmo arquivo de instalador
 
 Por padrão, o aplicativo foi feito para aceitar conexões somente neste computador. Filas e segredos de conexão ficam no armazenamento local do aplicativo. Quem tiver acesso ao computador ou aos arquivos salvos do app também poderá acessar essas informações; o armazenamento local não garante criptografia do disco.
 
-O aplicativo usa identidade Twitch, selos de cargo no chat, entradas de fila, UID público opcional, estado das recompensas e os dados de conexão necessários para funcionar. Não deve receber senhas, Secret Twitch pelo chat, dados de acesso ao Genshin, comprovantes de pagamento ou mensagens privadas. Texto do chat é tratado como entrada não confiável; o texto rejeitado não deve ser repetido.
+O aplicativo usa identidade Twitch, selos de cargo no chat, entradas de fila, a lista própria de devolução (número da conta Twitch e rótulo), UID público opcional, estado das recompensas e os dados de conexão necessários para funcionar. Não deve receber senhas, Secret Twitch pelo chat, dados de acesso ao Genshin, comprovantes de pagamento ou mensagens privadas. Texto do chat é tratado como entrada não confiável; o texto rejeitado não deve ser repetido.
 
 Em filas com UID visível, avise claramente que ele pode aparecer publicamente. Use as opções de visibilidade da lista, da chamada e do widget OBS. Se o link de uso único do OBS for exposto, revogue-o ou gere outro. Não compartilhe publicamente a pasta da instalação, os dados salvos ou arquivos de segredos locais.
 

@@ -94,3 +94,20 @@ chat.follower.help_unknown	Não foi possível verificar se você segue o canal a
 chat.command.queue.presente	presente
 chat.queue.presence_confirmed	{user}, presença confirmada. Aguarde o streamer iniciar seu atendimento.
 chat.queue.presence_not_called	Você não tem uma chamada aguardando confirmação nesta fila.
+chat.notice.joined	@{user}, você entrou na fila {queue} na posição {position}. Avisaremos quando for a sua vez.
+chat.notice.joined_many	{count} pessoas entraram na fila {queue}. Use o comando da fila para ver sua posição.
+chat.notice.refused.queue_closed	@{user}, a fila {queue} está fechada. Este resgate foi recusado e a devolução dos seus pontos foi solicitada.
+chat.notice.refused.duplicate_entry	@{user}, você já está na fila {queue}. Este resgate foi recusado e a devolução dos seus pontos foi solicitada.
+chat.notice.refused.unavailable	@{user}, a fila {queue} não pode receber resgates agora. Este resgate foi recusado e a devolução dos seus pontos foi solicitada.
+chat.notice.refused.invalid_uid	@{user}, o UID enviado com o seu resgate na fila {queue} não era válido. Este resgate foi recusado e a devolução dos seus pontos foi solicitada.
+chat.notice.queue_closed	A fila {queue} foi fechada. Novos resgates serão recusados e os pontos devolvidos.
+chat.notice.queue_reopened	A fila {queue} foi reaberta. Resgate a recompensa para entrar.
+chat.notice.service_ended	@{user}, seu atendimento na fila {queue} terminou. Obrigado!
+chat.notice.cleared.one	A fila {queue} foi limpa. {count} pessoa removida.
+chat.notice.cleared.many	A fila {queue} foi limpa. {count} pessoas removidas.
+chat.notice.cleared.other	A fila {queue} foi limpa. {count} pessoas removidas.
+chat.notice.no_show	@{user}, a chamada na fila {queue} ficou sem resposta e sua entrada foi marcada como ausente. Se foi engano, avise o streamer.
+chat.notice.skipped	@{user}, sua vez na fila {queue} foi adiada. Você continua na fila e agora está na posição {position}.
+chat.notice.restored	@{user}, a marcação de ausência foi desfeita. Você voltou para a fila {queue} na posição {position}.
+chat.notice.reordered	A ordem da fila {queue} mudou. Use o comando da fila para ver sua posição.
+chat.notice.reordered_list	A ordem da fila {queue} mudou. Mudaram de lugar: {names}. Use o comando da fila para ver sua posição.

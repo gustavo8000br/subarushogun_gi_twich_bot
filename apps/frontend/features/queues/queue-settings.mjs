@@ -4,6 +4,7 @@ import { canRetryQueueSettingsAfterVersionBump } from '../../../shared/panel/que
 export const QUEUE_SETTING_KEYS = Object.freeze([
   'callTimeoutMin', 'callMessage', 'showUidInList', 'showUidInOverlay', 'showUidOnCall',
   'refundIfRemovedWhileCalled', 'refundOnNoShow', 'refundIfViewerLeavesCalled',
+  'noticeJoined', 'noticeService', 'noticeState', 'noticeReordered', 'noticePoints',
 ]);
 
 /** @param {Record<string, unknown>} current @param {Record<string, unknown>} baseline */

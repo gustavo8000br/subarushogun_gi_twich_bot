@@ -35,6 +35,16 @@ model Queue {
   rewardOrigin                String     @default("legacy_unknown") @map("reward_origin")
   modeTransitionStatus        String     @default("none") @map("mode_transition_status")
   version                     Int        @default(1)
+  noticeJoined                Boolean    @default(false) @map("notice_joined")
+  noticeService               Boolean    @default(false) @map("notice_service")
+  noticeState                 Boolean    @default(false) @map("notice_state")
+  noticeReordered             Boolean    @default(false) @map("notice_reordered")
+  noticePoints                Boolean    @default(false) @map("notice_points")
+  settlement                  String     @default("fulfill_on_start") @map("settlement")
+  refundGroupSubscriber       Boolean    @default(false) @map("refund_group_subscriber")
+  refundGroupModerator        Boolean    @default(false) @map("refund_group_moderator")
+  refundGroupVip              Boolean    @default(false) @map("refund_group_vip")
+  refundGroupOwnList          Boolean    @default(false) @map("refund_group_own_list")
   deletedAt                   DateTime?  @map("deleted_at") @db.Timestamptz(3)
   createdAt                   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -99,6 +109,14 @@ model Redemption {
   expectedStatus String?  @map("expected_status")
   syncStatus     String   @default("observed") @map("sync_status")
   rejectionReason String? @map("rejection_reason")
+  settlementState String   @default("none") @map("settlement_state")
+  groupDecision   String?  @map("group_decision")
+  matchedGroup    String?  @map("matched_group")
+  settlementMode  String?  @map("settlement_mode")
+  groupCheckedAt  DateTime? @map("group_checked_at") @db.Timestamptz(3)
+  groupUnknownReason String? @map("group_unknown_reason")
+  settlementCause String?  @map("settlement_cause")
+  settledExternalAt DateTime? @map("settled_external_at") @db.Timestamptz(3)
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   queue          Queue?   @relation(fields: [queueId], references: [id], onDelete: Restrict)
@@ -204,4 +222,15 @@ model OverlayWidget {
 
   @@index([queueId, deletedAt])
   @@map("overlay_widgets")
+}
+
+/// OPS-31 P5: the own refund list, one per channel (design D-31-7). Numeric Twitch id and an optional label only.
+model RefundListMember {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  twitchUserId String   @unique @map("twitch_user_id")
+  label        String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String?  @map("created_by")
+
+  @@map("refund_list_members")
 }

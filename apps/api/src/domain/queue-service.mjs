@@ -1,8 +1,8 @@
-import { decideEntryTransition } from './entry-transitions.mjs';
+import { decideEntryTransition, isSingleEntryTrigger, triggerForOrigin } from './entry-transitions.mjs';
 import { matchesManagedRewardState } from '../twitch/reward-state.mjs';
 import { twitchHttpError } from '../twitch/http-error.mjs';
 
-/** @typedef {{entryId: string, to: string, origin?: string, actorId?: string|null, reason: string, deadlineCutoff?: Date}} TransitionInput */
+/** @typedef {{entryId: string, to: string, origin?: string, actorId?: string|null, trigger?: string, reason: string, deadlineCutoff?: Date}} TransitionInput */
 /** @typedef {{status: string, source: string}} EntrySnapshot */
 /** @typedef {{refundIfRemovedWhileCalled?: boolean, refundOnNoShow?: boolean, refundIfViewerLeavesCalled?: boolean}} QueuePolicySnapshot */
 /** @typedef {{repository: {applyEntryTransition: (args: {input: TransitionInput, decideTransition: (context: {entry: EntrySnapshot, queue: QueuePolicySnapshot, input: TransitionInput}) => object}) => Promise<object>, callNext?: (input: object) => Promise<Array<object>>, callSpecificEntry?: (input: object) => Promise<object>, acknowledgeCallPresence?: (input: {queueId: string, twitchUserId: string, actorId?: string|null}) => Promise<object>, clearActiveEntries?: (input: object) => Promise<object>, requestQueueDeletion?: (input: object) => Promise<object>, beginQueueDeletionCancellation?: (input: object) => Promise<Record<string, any>>, confirmQueueDeletionCancellation?: (input: object) => Promise<object>, failQueueDeletionCancellation?: (input: object) => Promise<object>}, getTwitch?: () => {getReward?: (rewardId: string) => Promise<Record<string, any>|null>}|null}} Dependencies */
@@ -13,6 +13,7 @@ function decideTransition({ entry, queue, input }) {
     to: input.to,
     source: entry.source,
     origin: input.origin ?? 'system',
+    trigger: input.trigger,
     reason: input.reason,
     policy: {
       refundIfRemovedWhileCalled: queue.refundIfRemovedWhileCalled,
@@ -43,8 +44,13 @@ export function createQueueDomainService({ repository, getTwitch = () => null })
   return {
     /** @param {TransitionInput} input */
     transitionEntry(input) {
+      // G-14: a single-entry transition can never carry the clear/delete trigger, whatever label the caller sends.
+      const trigger = input.trigger ?? triggerForOrigin(input.origin);
+      if (!isSingleEntryTrigger(trigger)) {
+        return Promise.reject(Object.assign(new Error('Transition trigger is not allowed here'), { code: 'INVALID_ENTRY_TRIGGER' }));
+      }
       return repository.applyEntryTransition({
-        input,
+        input: { ...input, trigger },
         decideTransition,
       });
     },

@@ -377,6 +377,7 @@ panel.widget.source.queue_state	Whether a queue is open or closed
 panel.widget.source.queue_count	Number waiting in a queue
 panel.widget.source.called_name	Called person
 panel.widget.source.called_position	Called person’s original position
+panel.widget.source.next_name	Next person waiting in a queue
 panel.widget.source.fixed_text	Fixed text
 panel.widget.source.unknown	Widget
 panel.widget.status.unavailable	Widget unavailable
@@ -402,6 +403,7 @@ panel.widget.preview_example	Widget example
 panel.widget.preview.waiting	4 waiting
 panel.widget.preview.open	Open
 panel.widget.preview.called	Viewer called
+panel.widget.preview.next	Next: Sample name
 panel.widget.fixed_text_label	Fixed text
 panel.widget.background_color	Background color
 panel.widget.background_opacity	Background opacity (%)
@@ -497,6 +499,14 @@ panel.operation.confirm.continue_delete	Try to continue deleting this queue and 
 panel.operation.blocks_deletion	Blocks the deletion of “{title}”
 panel.operation.attempts_exhausted	Automatic attempts ended and Twitch confirmed nothing. Use Reconcile / retry to start a new cycle of 6 attempts, or record a manual resolution.
 panel.operation.manual_contradicted	Twitch still lists this redemption as open after your manual resolution, so automatic tracking was resumed.
+panel.operation.conflict.detail	We asked Twitch to {intent}, but Twitch shows this redemption as {remote}.
+panel.operation.conflict.intent.cancel	return the points
+panel.operation.conflict.intent.fulfill	complete the redemption
+panel.operation.conflict.remote.unfulfilled	open
+panel.operation.conflict.remote.fulfilled	completed
+panel.operation.conflict.remote.canceled	canceled (points returned)
+panel.operation.confirm.resolve_conflict	Twitch and the app disagree about this redemption. Record that you reviewed it and stop automatic tracking? This does not change anything on Twitch and does not confirm the result. Twitch showed: {status}.
+panel.operation.confirm.resolve_failed	The app could not complete this operation. Record that you reviewed it and stop automatic tracking? This does not confirm the result with Twitch. Check the redemption in the Twitch dashboard and, if it is still pending, complete it or return the points yourself there.
 panel.reconciliation.running	Reconciliation in progress…
 panel.reconciliation.complete.one	Reconciliation complete. Imported {count} redemption.
 panel.reconciliation.complete.other	Reconciliation complete. Imported {count} redemptions.
@@ -847,3 +857,30 @@ panel.widget.weight.600	Semibold (600)
 panel.widget.weight.700	Bold (700)
 panel.widget.weight.800	Extra bold (800)
 panel.widget.weight.900	Black (900)
+panel.notice_settings.legend	Chat notices
+panel.notice_settings.joined	Tell people their position when they join, and why a redemption was refused
+panel.notice_settings.joined_help	Turn this off to keep these messages out of chat. A refused redemption still gets its points returned; the person is just not told in chat.
+panel.notice_settings.service	Announce service changes: ended, marked absent, postponed or brought back
+panel.notice_settings.service_help	The message about the next person is coming soon.
+panel.notice_settings.state	Announce when the queue is closed, reopened or cleared
+panel.notice_settings.reordered	Announce who moved when you reorder the queue
+panel.notice_settings.points	Tell the person what happened to their points (coming soon)
+panel.notice_settings.soon_help	Nothing is sent for this yet. Your choice is saved for when it arrives.
+panel.notice_settings.hint	Messages are limited so the chat is never flooded; the "your turn" call always goes first.
+panel.refund_list.title	Own refund list
+panel.refund_list.description	People you trust. Used by any queue that has this group ticked. Stored: the Twitch account number and a label.
+panel.refund_list.label	Label (optional)
+panel.refund_list.add	Add
+panel.refund_list.count	{count} of {max}
+panel.refund_list.added_on	Added on {date}
+panel.refund_list.remove	Remove
+panel.refund_list.remove_aria	Remove {label} from the list
+panel.refund_list.removed	Removed {label}.
+panel.refund_list.unnamed	(no label)
+panel.refund_list.clear	Clear all
+panel.refund_list.clear_confirm	Remove all {count} people from the list? Queues using this group will refund nobody from it.
+panel.refund_list.clear_done	List cleared.
+panel.refund_list.empty	No one on the list yet.
+panel.refund_list.error.duplicate	This person is already on the list.
+panel.refund_list.error.limit	The list is full ({max} people). Remove someone to add another.
+panel.refund_list.error.invalid	Enter a valid Twitch login: letters, numbers and underscore, up to 25 characters.

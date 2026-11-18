@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import QueueSettingsForm from '../../apps/frontend/features/queues/queue-settings-form.jsx';
 import { translateCatalog } from '../../apps/shared/browser/translate-catalog.mjs';
@@ -28,6 +28,16 @@ const COPY = {
   'panel.queue_settings.no_changes': 'All settings are saved.',
   'panel.queue_settings.save': 'Save settings',
   'panel.form.cancel': 'Cancel',
+  'panel.notice_settings.legend': 'Chat notices',
+  'panel.notice_settings.joined': 'Say the position when someone joins',
+  'panel.notice_settings.service': 'Announce end of service',
+  'panel.notice_settings.state': 'Announce queue state',
+  'panel.notice_settings.reordered': 'Announce reorder',
+  'panel.notice_settings.points': 'Tell what happened to points',
+  'panel.notice_settings.hint': 'Messages are limited.',
+  'panel.notice_settings.joined_help': 'Joined help text.',
+  'panel.notice_settings.service_help': 'Service help text.',
+  'panel.notice_settings.soon_help': 'Soon help text.',
 };
 const t = (key, options) => translateCatalog({ en: COPY }, 'en', key, {
   ...options,
@@ -82,5 +92,40 @@ describe('Next queue settings form', () => {
     await waitFor(() => expect(screen.getByRole('textbox', { name: /Call message/ }).value).toBe('Updated elsewhere'));
     expect(screen.queryByLabelText('Switch account on call')).toBeNull();
     expect(screen.getByText('All settings are saved.')).toBeTruthy();
+  });
+
+  it('OPS-31 P2 (AC 5): shows the five notice switches from the projection and saves a changed one', async () => {
+    cleanup();
+    const onSave = vi.fn(async () => true);
+    render(React.createElement(QueueSettingsForm, {
+      queue: queue(3, { noticeJoined: true, noticeService: true, noticeState: true, noticeReordered: false, noticePoints: true }), t, saving: false, feedback: null, onSave,
+    }));
+    fireEvent.click(screen.getByText('Configure queue'));
+    expect(screen.getByText('Chat notices')).toBeTruthy();
+    expect(screen.getByLabelText('Say the position when someone joins').checked).toBe(true);
+    expect(screen.getByLabelText('Announce reorder').checked).toBe(false);
+    fireEvent.click(screen.getByLabelText('Announce reorder'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith('queue-1', expect.objectContaining({ noticeReordered: true, noticeJoined: true, expectedVersion: 3 }), expect.objectContaining({ noticeReordered: false })));
+  });
+
+  it('OPS-31 P2 (U-24): each help line is a form-hint paragraph tied to its switch with aria-describedby; state has none', () => {
+    cleanup();
+    render(React.createElement(QueueSettingsForm, { queue: queue(3), t, saving: false, feedback: null, onSave: vi.fn() }));
+    fireEvent.click(screen.getByText('Configure queue'));
+    const describedBy = (label) => screen.getByLabelText(label).getAttribute('aria-describedby');
+    const help = (label, text) => {
+      const id = describedBy(label);
+      const node = document.getElementById(id);
+      expect(node.tagName).toBe('P');
+      expect(node.className).toContain('form-hint');
+      expect(node.textContent).toBe(text);
+    };
+    help('Say the position when someone joins', 'Joined help text.');
+    help('Announce end of service', 'Service help text.');
+    // P3: the reorder notice is sent now, so its switch has no "coming soon" help line (only points keep it).
+    expect(describedBy('Announce reorder')).toBeNull();
+    help('Tell what happened to points', 'Soon help text.');
+    expect(describedBy('Announce queue state')).toBeNull();
   });
 });

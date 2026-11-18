@@ -352,6 +352,8 @@ describe('Twitch recovery reconciliation', () => {
     const outboxWrites = [];
     const recordOutbox = new Proxy({}, { get: (_target, method) => vi.fn(async (...args) => { outboxWrites.push([method, args]); return { count: 0 }; }) });
     const tx = {
+      // OPS-31 P0: every repository transaction starts with the `SET LOCAL` timeouts (one `$queryRaw`, no table touched).
+      $queryRaw: vi.fn(async () => []),
       redemption: { update: vi.fn(async () => ({ redemptionId: 'gap-redemption', queueId: 'queue-1' })) },
       outbox: recordOutbox,
       auditLog: { create: vi.fn(async () => ({})) },

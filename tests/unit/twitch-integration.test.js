@@ -725,4 +725,28 @@ describe('Twitch integration lifecycle', () => {
     await expect(integration.probeTwitchApi()).resolves.toBe(true);
     expect(h.adapterFactory).toHaveBeenCalledOnce();
   });
+
+  it('OPS-31 P2 (ML6): the integration wraps the adapter so command replies (priority 0) and notices count against the shared limiter, including its boot warm-up (ML4)', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout'] });
+    try {
+      const h = harness();
+      const send = vi.fn(async () => ({ sent: true }));
+      const raw = h.adapterFactory.getMockImplementation();
+      h.adapterFactory.mockImplementation((input) => Object.assign(raw(input), { sendChatMessage: send }));
+      const integration = await h.integrationPromise;
+      await integration.ready;
+      // The server/chat handler send command replies as `twitch.sendChatMessage(body)` (priority 0).
+      for (let i = 0; i < 40; i += 1) expect(await integration.twitch.sendChatMessage(`reply ${i}`)).toEqual({ sent: true });
+      expect(send).toHaveBeenCalledTimes(40); // half of the 80 ceiling right after boot
+      const blocked = integration.twitch.sendChatMessage('one too many');
+      await vi.advanceTimersByTimeAsync(5_001);
+      expect(await blocked).toMatchObject({ sent: false, rateLimited: true });
+      expect(send).toHaveBeenCalledTimes(40); // the adapter was never reached for the refused one
+      expect(await integration.twitch.sendChatMessage('notice', { priority: 1 })).toMatchObject({ sent: false, rateLimited: true });
+      expect(send).toHaveBeenCalledTimes(40);
+      await integration.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

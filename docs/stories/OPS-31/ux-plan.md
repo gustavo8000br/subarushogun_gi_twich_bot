@@ -2,6 +2,8 @@
 
 [Português (pt-BR)](../../pt-BR/stories/OPS-31/ux-plan.md)
 
+> **2026-11-15:** the settlement policy (S1..S5), live sessions, `awaiting_choice`/`settled_external` states and the manual resolution of `conflict`/`failed` are planned in [ux-plan-v2.md](ux-plan-v2.md), which wins where it differs from this v1.
+
 **Author:** `@ux-design-expert` (Uma) — **Date:** 2026-11-11 — **Mode:** YOLO (owner absent; decisions marked `[AUTO-DECISION]`).
 **Story:** [story.md](story.md) (ACs 1-28) — **Design:** [architect-design.md](architect-design.md) (D-31-1..D-31-11, questions of section 10) — **Research:** [queue-group-refund note](../../research/2026-11-06-queue-group-refund/README.md) (summary only; no new research).
 **Evidence class:** **static review** of the design, the story and the panel code patterns (`apps/frontend/features/queues/`, `outcome-region.jsx`, panel catalogs). **Not validated:** see section 9.

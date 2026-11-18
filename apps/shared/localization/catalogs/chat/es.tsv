@@ -94,3 +94,20 @@ chat.follower.help_unknown	No pudimos verificar si sigues el canal; puede que fa
 chat.command.queue.presente	presente
 chat.queue.presence_confirmed	{user}, presencia confirmada. Espera a que el streamer inicie tu atención.
 chat.queue.presence_not_called	No tienes una llamada pendiente de confirmación en esta cola.
+chat.notice.joined	@{user}, entraste en la cola {queue} en la posición {position}. Te avisaremos cuando sea tu turno.
+chat.notice.joined_many	{count} personas entraron en la cola {queue}. Usa el comando de la cola para ver tu posición.
+chat.notice.refused.queue_closed	@{user}, la cola {queue} está cerrada. Este canje se rechazó y se solicitó la devolución de tus puntos.
+chat.notice.refused.duplicate_entry	@{user}, ya estás en la cola {queue}. Este canje se rechazó y se solicitó la devolución de tus puntos.
+chat.notice.refused.unavailable	@{user}, la cola {queue} no puede recibir canjes ahora. Este canje se rechazó y se solicitó la devolución de tus puntos.
+chat.notice.refused.invalid_uid	@{user}, el UID enviado con tu canje en la cola {queue} no era válido. Este canje se rechazó y se solicitó la devolución de tus puntos.
+chat.notice.queue_closed	La cola {queue} está cerrada. Los canjes nuevos se rechazarán y se devolverán los puntos.
+chat.notice.queue_reopened	La cola {queue} está abierta otra vez. Canjea la recompensa para entrar.
+chat.notice.service_ended	@{user}, tu atención en la cola {queue} terminó. ¡Gracias!
+chat.notice.cleared.one	Se vació la cola {queue}. Se quitó {count} persona.
+chat.notice.cleared.many	Se vació la cola {queue}. Se quitaron {count} personas.
+chat.notice.cleared.other	Se vació la cola {queue}. Se quitaron {count} personas.
+chat.notice.no_show	@{user}, la llamada en la cola {queue} quedó sin respuesta y tu entrada se marcó como ausente. Si fue un error, avísale al streamer.
+chat.notice.skipped	@{user}, tu turno en la cola {queue} se aplazó. Conservas tu lugar y ahora estás en la posición {position}.
+chat.notice.restored	@{user}, ya no estás marcado como ausente. Volviste a la cola {queue} en la posición {position}.
+chat.notice.reordered	El orden de la cola {queue} cambió. Usa el comando de la cola para ver tu posición.
+chat.notice.reordered_list	El orden de la cola {queue} cambió. Cambiaron de lugar: {names}. Usa el comando de la cola para ver tu posición.

@@ -8,6 +8,13 @@ describe('OBS widget configuration policy', () => {
     expect(() => validateOverlayWidgetConfiguration({ sourceType: 'account_label', queueId: 'q-1' })).toThrow('queue');
   });
 
+  it('OPS-31 P4: the "next" source is accepted only with a selected queue and never with fixed text', () => {
+    expect(() => validateOverlayWidgetConfiguration({ sourceType: 'next_waiting_viewer_display_name', queueId: 'q-1' })).not.toThrow();
+    expect(() => validateOverlayWidgetConfiguration({ sourceType: 'next_waiting_viewer_display_name' })).toThrow('queue');
+    expect(() => validateOverlayWidgetConfiguration({ sourceType: 'next_waiting_viewer_display_name', queueId: '  ' })).toThrow('queue');
+    expect(() => validateOverlayWidgetConfiguration({ sourceType: 'next_waiting_viewer_display_name', queueId: 'q-1', fixedText: 'x' })).toThrow();
+  });
+
   it('counts fixed and fallback text in Unicode code points, including astral characters', () => {
     const twoHundredFortyCodePoints = '😀'.repeat(240);
     expect(() => validateOverlayWidgetConfiguration({ sourceType: 'fixed_text', fixedText: twoHundredFortyCodePoints, fallbackText: 'é'.repeat(240) })).not.toThrow();

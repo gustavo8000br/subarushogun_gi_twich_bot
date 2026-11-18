@@ -2,6 +2,8 @@
 
 [English](../../../stories/OPS-31/ux-plan.md)
 
+> **2026-11-15:** a política de liquidação (S1..S5), as sessões de live, os estados `awaiting_choice`/`settled_external` e a resolução manual de `conflict`/`failed` estão planejados em [ux-plan-v2.md](ux-plan-v2.md), que vale onde diferir desta v1.
+
 **Autora:** `@ux-design-expert` (Uma) — **Data:** 2026-11-11 — **Modo:** YOLO (dono ausente; decisões marcadas `[AUTO-DECISION]`).
 **Story:** [story.md](story.md) (ACs 1-28) — **Design:** [architect-design.md](architect-design.md) (D-31-1..D-31-11, perguntas da seção 10) — **Pesquisa:** [nota queue-group-refund](../../research/2026-11-06-queue-group-refund/README.md) (só resumo; sem pesquisa nova).
 **Classe de evidência:** **revisão estática** do design, da story e dos padrões de código do painel (`apps/frontend/features/queues/`, `outcome-region.jsx`, catálogos do painel). **Não validado:** ver seção 9.

@@ -48,6 +48,15 @@ const COPY = {
   'panel.operation.action.continue_delete': 'Continue deletion',
   'panel.operation.confirm.resolve': 'Twitch has not confirmed this redemption operation. Recording a manual resolution does not confirm a refund or fulfillment.',
   'panel.operation.confirm.continue_delete': 'Check pending redemptions and refunds. This reward deletion may be irreversible.',
+  'panel.operation.status.failed': 'Failed · review required',
+  'panel.operation.conflict.detail': 'We asked Twitch to {intent}, but Twitch shows this redemption as {remote}.',
+  'panel.operation.conflict.intent.cancel': 'return the points',
+  'panel.operation.conflict.intent.fulfill': 'complete the redemption',
+  'panel.operation.conflict.remote.unfulfilled': 'open',
+  'panel.operation.conflict.remote.fulfilled': 'completed',
+  'panel.operation.conflict.remote.canceled': 'canceled (points returned)',
+  'panel.operation.confirm.resolve_conflict': 'Twitch and the app disagree about this redemption. Twitch showed: {status}.',
+  'panel.operation.confirm.resolve_failed': 'The app could not complete this operation. Check the redemption in the Twitch dashboard and, if it is still pending, complete it or return the points yourself there.',
   'panel.confirmation.title': 'Confirm action',
   'panel.confirmation.cancel': 'Cancel',
   'panel.confirmation.accept': 'OK',
@@ -139,6 +148,28 @@ describe('Next Operations page', () => {
     fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Record manual resolution' }));
     await waitFor(() => expect(request).toHaveBeenCalledWith('/api/operations/operation-refund/resolve-unknown', { method: 'POST', body: '{}' }));
     expect(await screen.findByText('Manual resolution recorded. This does not confirm the result with Twitch.')).toBeTruthy();
+  });
+
+  // OPS-31 P0 (O-1): the same audited manual exit for `conflict` and `failed`, with a copy specific to each state.
+  it('offers the manual resolution for a conflict, shows what Twitch showed, and sends the same request', async () => {
+    const conflict = { id: 'operation-conflict', type: 'redemption.cancel', redemptionId: 'redemption-900', status: 'conflict', attempts: 1, nextAttemptAt: null, remoteStatus: 'FULFILLED', conflictDetectedAt: '2030-01-02T03:04:05.000Z' };
+    const { request } = renderPage({ operations: [conflict] });
+    expect(await screen.findByText('We asked Twitch to return the points, but Twitch shows this redemption as completed.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Record manual resolution' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Twitch and the app disagree about this redemption. Twitch showed: completed.')).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Record manual resolution' }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith('/api/operations/operation-conflict/resolve-unknown', { method: 'POST', body: '{}' }));
+    expect(await screen.findByText('Manual resolution recorded. This does not confirm the result with Twitch.')).toBeTruthy();
+  });
+
+  it('offers the manual resolution for a failed refund with its own confirmation and no remote-status line', async () => {
+    const failed = { id: 'operation-failed', type: 'redemption.cancel', redemptionId: 'redemption-901', status: 'failed', attempts: 6, nextAttemptAt: null };
+    renderPage({ operations: [failed] });
+    fireEvent.click(await screen.findByRole('button', { name: 'Record manual resolution' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(COPY['panel.operation.confirm.resolve_failed'])).toBeTruthy();
+    expect(screen.queryByText(/We asked Twitch to/)).toBeNull();
   });
 
   it('requires confirmation before continuing reward deletion', async () => {

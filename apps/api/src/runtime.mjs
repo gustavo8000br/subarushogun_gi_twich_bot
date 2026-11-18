@@ -2,6 +2,7 @@ import { createQueueRepository } from './persistence/queue-repository.mjs';
 import { createQueueDomainService } from './domain/queue-service.mjs';
 import { createFinancialOutboxWorker } from './outbox/financial-worker.mjs';
 import { createChatOutboxWorker } from './outbox/chat-worker.mjs';
+import { createChatNoticeWorker } from './outbox/chat-notice-worker.mjs';
 import { createRewardOutboxWorker } from './outbox/reward-worker.mjs';
 import { createOutboxLoop } from './outbox/loop.mjs';
 import { createTwitchIntegration } from './twitch/integration.mjs';
@@ -15,6 +16,9 @@ export async function createApplicationRuntime({
   rewardWorker = null,
   financialWorkerFactory = createFinancialOutboxWorker,
   chatWorkerFactory = createChatOutboxWorker,
+  noticeWorker = null,
+  noticeWorkerFactory = createChatNoticeWorker,
+  getChatCatalogs = async () => ({}),
   rewardWorkerFactory = createRewardOutboxWorker,
   integrationFactory = createTwitchIntegration,
   loopFactory = createOutboxLoop,
@@ -45,6 +49,14 @@ export async function createApplicationRuntime({
       return chatImplementation.processOne();
     },
   };
+  let noticeImplementation = noticeWorker ?? null;
+  const notice = {
+    async processOne() {
+      if (!integration.twitch) return 'idle';
+      noticeImplementation ??= noticeWorkerFactory({ repository, getTwitch: () => integration.twitch, twitch: integration.twitch, getChatCatalogs, logEvent });
+      return noticeImplementation.processOne();
+    },
+  };
   const reward = {
     async processOne() {
       if (!integration.twitch) return 'idle';
@@ -55,6 +67,7 @@ export async function createApplicationRuntime({
   const loops = [
     loopFactory({ worker: financial, onError, source: 'outbox.financial', onDiagnostic: reportDiagnostic }),
     loopFactory({ worker: chat, onError, source: 'outbox.chat', onDiagnostic: reportDiagnostic }),
+    loopFactory({ worker: notice, onError, source: 'outbox.notice', onDiagnostic: reportDiagnostic }),
     loopFactory({ worker: reward, onError, source: 'outbox.reward', onDiagnostic: reportDiagnostic }),
   ];
   for (const loop of loops) loop.start();
@@ -62,7 +75,7 @@ export async function createApplicationRuntime({
   timeoutLoop.start();
   let stopped = false;
   return {
-    app, pool, prisma, repository, domainService, integration, financialWorker: financial, chatWorker: chat, rewardWorker: reward,
+    app, pool, prisma, repository, domainService, integration, financialWorker: financial, chatWorker: chat, noticeWorker: notice, rewardWorker: reward,
     get twitchStatus() { return integration?.status ?? 'not_configured'; },
     async stop() {
       if (stopped) return;
