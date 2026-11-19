@@ -15,6 +15,8 @@ export const PANEL_PLACEHOLDERS = Object.freeze({
   'panel.entry.action.complete_aria': ['user'],
   'panel.entry.action.resend_aria': ['user'],
   'panel.entry.action.remove_aria': ['user'],
+  'panel.entry.action.postpone_aria': ['user'],
+  'panel.queue.entry_action_result.postponed': ['user', 'position'],
   'panel.entry.add.refresh_failed': ['user', 'position'],
   'panel.entry.error.already_active': ['user'],
   'panel.entry.error.twitch_user_not_found': ['user'],

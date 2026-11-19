@@ -305,6 +305,8 @@ panel.queue.entry_action_result.saved	The service action was recorded in the pan
 panel.queue.entry_action_result.refresh_failed	The action was recorded, but the queue could not refresh. Reload the page to see its current state.
 panel.queue.entry_action_result.fulfillment_pending	Service started. The Twitch reward is being confirmed; this panel will show its confirmed or unresolved status.
 panel.queue.entry_action_result.fulfillment_refresh_failed	Service started and Twitch confirmation was queued, but the queue could not refresh. Reload the panel to check the latest status.
+panel.queue.entry_action_result.postponed	{user}'s turn was postponed. They stay in the queue, now at position {position}.
+panel.queue.entry_action_result.uncertain	The action may have been recorded. Refresh the queue before trying again.
 panel.queue.action.resolve_reward	Link reward
 panel.queue.action_blocked.reward_unresolved	Queue controls are paused until you link and confirm a Twitch reward. Use “Link reward” to continue.
 panel.queue.action_blocked.reward_creation_pending	Queue controls will be available after Twitch confirms reward creation.
@@ -336,6 +338,8 @@ panel.entry.action.resend	Resend call
 panel.entry.action.resend_aria	Resend the call for {user}
 panel.entry.action.remove	remove
 panel.entry.action.remove_aria	Remove {user} from the queue
+panel.entry.action.postpone	postpone
+panel.entry.action.postpone_aria	Postpone {user}: they go back to the waiting list
 panel.entry.priority_badge	Priority · verified by operator
 panel.entry.uid_label	UID
 panel.queue.points	points

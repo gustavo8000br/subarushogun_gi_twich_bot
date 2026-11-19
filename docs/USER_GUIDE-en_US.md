@@ -77,7 +77,7 @@ Use `!<queue> proximo [1-10]` to call one viewer or a group. If fewer people are
 
 The absence timer starts only after Twitch confirms the first call message was sent. If delivery fails, the panel shows that the call needs attention; no absence decision is made until a call is confirmed. A retry does not silently extend an existing deadline.
 
-Use `!<queue> atender [user]` to start service. Starting service stops the absence timer. Use `!<queue> concluir [user]` when the work is finished. If a call times out before service starts, the entry becomes **No-show**; whether its points are requested back depends on the queue setting.
+Use `!<queue> atender [user]` to start service. Starting service stops the absence timer. Use `!<queue> concluir [user]` when the work is finished. If a call times out before service starts, the entry becomes **No-show**; whether its points are requested back depends on the queue setting. On the panel, **postpone** on a called person's row sends them back to the waiting list (second place of their own lane) without any points action; the panel shows the new position, and **call** brings them back to the called list.
 
 ## Chat notices
 

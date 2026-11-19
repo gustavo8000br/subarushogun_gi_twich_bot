@@ -6,6 +6,7 @@ import QueueSettingsForm from './queue-settings-form.jsx';
 import QueueLifecycleActions from './queue-lifecycle-actions.jsx';
 import QueueRewardSettingsDialog from './queue-reward-settings-dialog.jsx';
 import { getQueueClearFailureFeedback } from './queue-clear.mjs';
+import { QUEUE_ENTRY_REFRESH_KEYS } from './queue-entry-actions.mjs';
 
 const ENTRY_GROUPS = Object.freeze([
   { id: 'waiting', label: 'panel.queue.group.waiting', statuses: ['waiting'] },
@@ -126,7 +127,7 @@ function QueueHistory({ queue, locale, t, onLoad }) {
       if (event.currentTarget.open && state === 'idle') void load();
     }}>
       <summary>{t('panel.queue.history.title')}</summary>
-      <div className="history-content" aria-live="polite">
+      <div className="history-content">
         {state === 'loading' ? <p role="status">{t('panel.queue.history.loading')}</p> : null}
         {state === 'error' ? <p role="alert">{t('panel.queue.history.failed')} <button type="button" className="small-action" onClick={load}>{t('panel.queue.history.retry')}</button></p> : null}
         {state === 'ready' && entries.length === 0 ? <p>{t('panel.queue.history.empty')}</p> : null}
@@ -298,6 +299,17 @@ export default function QueueList({ queues, locale, t, lifecycleNotice = null, o
     button.focus();
     button.scrollIntoView?.({ block: 'nearest' });
   }, [queueSettingsAction]);
+  useEffect(() => {
+    // OPS-31 K72-01a: the postponed person leaves "Called", so focus follows them to their "call" button (never left on <body>);
+    // a failed postpone returns focus to the button that was used. Runs once per settled result.
+    if (!queueAction?.entryId || queueAction.status === 'saving' || queueAction.action !== 'postpone') return;
+    const byId = (id) => /** @type {HTMLElement | null} */ (document.getElementById(id));
+    const usable = (node) => node && !(node.tagName === 'BUTTON' && /** @type {HTMLButtonElement} */ (node).disabled);
+    const target = queueAction.key === 'panel.queue.entry_action_result.postponed'
+      ? [byId(`queue-entry-call-${queueAction.entryId}`), byId(`queue-entry-${queueAction.entryId}`), byId(`queue-feedback-${queueAction.queueId}`)].find(usable)
+      : [byId(`queue-entry-postpone-${queueAction.entryId}`), byId(`queue-feedback-${queueAction.queueId}`)].find(usable);
+    target?.focus();
+  }, [queueAction]);
   const format = (value) => new Intl.NumberFormat(locale).format(value);
   const [priorityReasonEntry, setPriorityReasonEntry] = useState(null);
   const priorityReasonDialog = useRef(null);
@@ -361,9 +373,10 @@ export default function QueueList({ queues, locale, t, lifecycleNotice = null, o
               {!queue.isArchived && queue.lifecycleStatus !== 'deleting' && !actionState.canDelete && actionState.deleteBlockedReason
                 ? <p className="queue-action-help">{t(`panel.queue.delete_blocked.${actionState.deleteBlockedReason}`)}</p> : null}
               {!actionState.canToggleIntake && actionState.blockedReason ? <p className="queue-action-help">{t(`panel.queue.action_blocked.${actionState.blockedReason}`)}</p> : null}
-              {queueAction?.queueId === queue.id && queueAction.status !== 'saving' && queueAction.key !== 'panel.entry.error.twitch_user_not_found' ? <div className={`queue-action-feedback ${queueAction.status === 'error' ? 'is-error' : ['pending', 'warning'].includes(queueAction.status) ? 'is-warning' : ''}`} role={queueAction.status === 'error' ? 'alert' : 'status'}>
+              {queueAction?.queueId === queue.id && queueAction.status !== 'saving' && queueAction.key !== 'panel.entry.error.twitch_user_not_found' ? <div id={`queue-feedback-${queue.id}`} tabIndex={-1} className={`queue-action-feedback ${queueAction.status === 'error' ? 'is-error' : ['pending', 'warning'].includes(queueAction.status) ? 'is-warning' : ''}`} role={queueAction.status === 'error' ? 'alert' : 'status'}>
                 <span>{t(queueAction.key, { values: queueAction.values })}</span>
                 {typeof queueAction.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(queueAction.referenceId) ? <small>{t('panel.error.reference', { values: { id: queueAction.referenceId } })}</small> : null}
+                {QUEUE_ENTRY_REFRESH_KEYS.includes(queueAction.key) ? <button type="button" className="small-action" disabled={saving} aria-busy={saving || undefined} onClick={() => void onRefreshProjection?.({ purpose: 'entry-action' })}>{t('panel.reward.refresh_queue')}</button> : null}
                 {queueAction.key === 'panel.reward.link_refresh_failed' ? <button type="button" className="small-action" disabled={saving} aria-busy={saving} onClick={() => void onRefreshProjection?.()}>{t(saving ? 'panel.reward.refreshing_queue' : 'panel.reward.refresh_queue')}</button> : null}
                 {queueAction.key === 'panel.reward.settings_refresh_failed' ? <button type="button" className="small-action" disabled={saving} aria-busy={saving} onClick={() => void onRefreshProjection?.({ purpose: 'reward-settings' })}>{t(saving ? 'panel.reward.refreshing_queue' : 'panel.reward.refresh_queue')}</button> : null}
                 {queueAction.key === 'panel.entry.add.refresh_failed' ? <button type="button" className="small-action" disabled={saving} aria-busy={saving} onClick={() => void onRefreshProjection?.({ purpose: 'manual-entry' })}>{t(saving ? 'panel.reward.refreshing_queue' : 'panel.reward.refresh_queue')}</button> : null}
@@ -394,12 +407,12 @@ export default function QueueList({ queues, locale, t, lifecycleNotice = null, o
                             await onEntryAction?.(queue.id, entry.id, 'toggle-priority', { priority, reason: entry.priorityReason });
                           }
                           return (
-                        <li key={entry.id} className="queue-entry-row">
+                        <li key={entry.id} id={`queue-entry-${entry.id}`} tabIndex={-1} className="queue-entry-row">
                           <span>{user}{entry.priorityClass === 'priority' ? <small className="priority-badge">{t('panel.entry.priority_badge')} ({t(PRIORITY_REASON_KEYS[entry.priorityReason] ?? 'panel.entry.reason_other')})</small> : null}</span>
                           {entry.status === 'called' ? <CallDeadline entry={entry} t={t} onExpire={announceExpiry} /> : null}
                           {canManageEntries ? <span className="queue-entry-actions">
                               {entry.status === 'waiting' ? <>
-                                <button type="button" className="small-action" aria-label={t('panel.entry.action.call_aria', { values: { user } })} disabled={!actionState.canCallEntries || saving || queueCallRefreshRequired} onClick={() => onEntryAction?.(queue.id, entry.id, 'call')}>{t('panel.entry.action.call')}</button>
+                                <button type="button" id={`queue-entry-call-${entry.id}`} className="small-action" aria-label={t('panel.entry.action.call_aria', { values: { user } })} disabled={!actionState.canCallEntries || saving || queueCallRefreshRequired} onClick={() => onEntryAction?.(queue.id, entry.id, 'call')}>{t('panel.entry.action.call')}</button>
                                 <button type="button" className="small-action" aria-label={t('panel.entry.action.move_up')} disabled={saving || lanePosition <= 1} onClick={() => onEntryAction?.(queue.id, entry.id, 'move-up', { position: lanePosition - 1 })}>{t('panel.entry.action.move_up')}</button>
                                 <button type="button" className="small-action" aria-label={t('panel.entry.action.move_down')} disabled={saving || lanePosition >= waitingLane.length} onClick={() => onEntryAction?.(queue.id, entry.id, 'move-down', { position: lanePosition + 1 })}>{t('panel.entry.action.move_down')}</button>
                                 <button type="button" className="small-action" aria-label={t(entry.priorityClass === 'priority' ? 'panel.entry.action.remove_priority' : 'panel.entry.action.mark_priority')} disabled={saving} onClick={togglePriority}>{t(entry.priorityClass === 'priority' ? 'panel.entry.action.remove_priority' : 'panel.entry.action.mark_priority')}</button>
@@ -408,6 +421,7 @@ export default function QueueList({ queues, locale, t, lifecycleNotice = null, o
                                 <button type="button" className="small-action" aria-label={t('panel.entry.action.attend_aria', { values: { user } })} disabled={saving} onClick={() => onEntryAction?.(queue.id, entry.id, 'attend')}>{t('panel.entry.action.attend')}</button>
                                 <button type="button" className="small-action" aria-label={t('panel.entry.action.complete_aria', { values: { user } })} disabled={saving} onClick={() => onEntryAction?.(queue.id, entry.id, 'complete')}>{t('panel.entry.action.complete')}</button>
                                 <button type="button" className="small-action" aria-label={t('panel.entry.action.resend_aria', { values: { user } })} disabled={saving} onClick={() => onEntryAction?.(queue.id, entry.id, 'resend-call')}>{t('panel.entry.action.resend')}</button>
+                                <button type="button" id={`queue-entry-postpone-${entry.id}`} className="small-action" aria-label={t('panel.entry.action.postpone_aria', { values: { user } })} aria-busy={saving && queueAction?.status === 'saving' && queueAction.entryId === entry.id && queueAction.action === 'postpone' ? 'true' : undefined} disabled={saving} onClick={() => onEntryAction?.(queue.id, entry.id, 'postpone', { expectedVersion: entry.version })}>{t('panel.entry.action.postpone')}</button>
                               </> : null}
                               {entry.status === 'in_progress' ? <button type="button" className="small-action" aria-label={t('panel.entry.action.complete_aria', { values: { user } })} disabled={saving} onClick={() => onEntryAction?.(queue.id, entry.id, 'complete')}>{t('panel.entry.action.complete')}</button> : null}
                               <button type="button" className="small-action" aria-label={t('panel.entry.action.remove_aria', { values: { user } })} disabled={saving} onClick={() => onEntryAction?.(queue.id, entry.id, 'remove')}>{t('panel.entry.action.remove')}</button>

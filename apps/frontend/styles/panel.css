@@ -310,7 +310,8 @@ h1 { margin-bottom: 8px; font-size: clamp(25px, 3vw, 32px); font-weight: 660; le
 .queue-history summary { padding: 12px 0; color: var(--purple); cursor: pointer; }
 .queue-history .history-content { display: grid; gap: 4px 12px; padding: 0 0 12px; }
 .queue-history .history-entry { margin: 0; overflow-wrap: anywhere; }
-.queue-entry-actions button { min-height: 44px; padding: 7px 10px; border: 1px solid #414351; border-radius: 5px; background: #171820; color: #dedce7; font: inherit; font-size: 13px; cursor: pointer; }
+.queue-entry-row:focus { outline: 2px solid #8064b4; outline-offset: 2px; }
+.queue-entry-actions button { min-height: 44px; min-width: 44px; padding: 7px 10px; border: 1px solid #414351; border-radius: 5px; background: #171820; color: #dedce7; font: inherit; font-size: 13px; cursor: pointer; }
 .queue-entry-actions button:hover:not(:disabled) { border-color: #8064b4; color: #e0d4ff; }
 .queue-entry-actions button:disabled { cursor: not-allowed; opacity: .55; }
 .queue-entry-group > p { margin: 0; color: #aaabba; font-size: 12px; }

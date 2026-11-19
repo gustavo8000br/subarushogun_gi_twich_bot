@@ -305,6 +305,8 @@ panel.queue.entry_action_result.saved	A ação de atendimento foi registrada no 
 panel.queue.entry_action_result.refresh_failed	A ação foi registrada, mas não foi possível atualizar a fila. Recarregue a página para ver o estado atual.
 panel.queue.entry_action_result.fulfillment_pending	Atendimento iniciado. A recompensa está sendo confirmada na Twitch; o painel mostrará se foi confirmada ou continua sem resolução.
 panel.queue.entry_action_result.fulfillment_refresh_failed	Atendimento iniciado e a confirmação foi solicitada à Twitch, mas não foi possível atualizar a fila. Recarregue o painel para conferir o estado mais recente.
+panel.queue.entry_action_result.postponed	A vez de {user} foi adiada. A pessoa continua na fila, agora na posição {position}.
+panel.queue.entry_action_result.uncertain	A ação pode ter sido registrada. Atualize a fila antes de tentar de novo.
 panel.queue.action.resolve_reward	Vincular recompensa
 panel.queue.action_blocked.reward_unresolved	Os controles estão pausados até vincular e confirmar uma recompensa da Twitch. Use “Vincular recompensa” para continuar.
 panel.queue.action_blocked.reward_creation_pending	Os controles serão liberados quando a Twitch confirmar a criação da recompensa.
@@ -336,6 +338,8 @@ panel.entry.action.resend	Reenviar chamada
 panel.entry.action.resend_aria	Reenviar chamada para {user}
 panel.entry.action.remove	remover
 panel.entry.action.remove_aria	Remover {user} da fila
+panel.entry.action.postpone	adiar
+panel.entry.action.postpone_aria	Adiar {user}: volta para a lista de espera
 panel.entry.priority_badge	Prioritária · conferida pelo operador
 panel.entry.uid_label	UID
 panel.queue.points	pontos
