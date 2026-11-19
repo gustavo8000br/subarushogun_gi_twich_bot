@@ -202,6 +202,24 @@ function setupDto(value, publicBaseUrl) {
   };
 }
 
+const LIVE_STATES = ['live', 'offline', 'unknown'];
+const LIVE_SOURCES = ['event', 'reconciled'];
+const LIVE_FALLBACK_REASONS = ['none_known', 'revoked', 'stale'];
+const isoOrNull = (value) => (typeof value === 'string' && !Number.isNaN(Date.parse(value)) ? new Date(value).toISOString() : null);
+
+/** OPS-31 P6b (design 3.14 item 3): the channel-level live session of `GET /api/state`, allow-listed (no stream id, title, login or channel id). */
+function liveSessionDto(source) {
+  const capWindow = source?.capWindow === 'session' ? 'session' : 'fallback';
+  return {
+    state: LIVE_STATES.includes(source?.state) ? source.state : 'unknown',
+    startedAt: isoOrNull(source?.startedAt),
+    endedAt: isoOrNull(source?.endedAt),
+    source: LIVE_SOURCES.includes(source?.source) ? source.source : null,
+    capWindow,
+    fallbackReason: capWindow === 'session' ? null : LIVE_FALLBACK_REASONS.includes(source?.fallbackReason) ? source.fallbackReason : 'none_known',
+  };
+}
+
 /** @param {import('fastify').FastifyInstance} app @param {{repository: any, domainService?: any, integrations?: any, clearConfirmation?: any, publicBaseUrl?: string, productVersion?: string, resolveUser?: (login: string) => Promise<any>, reportDiagnostic?: (event: {source: string, error?: Error}) => string, logEvent?: (event: object) => unknown}} deps */
 export function registerQueueRoutes(app, { repository, domainService = repository, integrations = {}, clearConfirmation, publicBaseUrl = process.env.PUBLIC_BASE_URL ?? 'https://localhost:3000', productVersion = process.env.PRODUCT_VERSION ?? 'v0.1.0-0000000-alpha', resolveUser = async () => null, reportDiagnostic = createErrorDiagnosticReporter(), logEvent = () => undefined }) {
   app.addHook('preHandler', async (request, reply) => {
@@ -253,6 +271,8 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       && unresolvedOperationSummary.needsReview <= unresolvedOperationSummary.total
       ? { total: unresolvedOperationSummary.total, needsReview: unresolvedOperationSummary.needsReview }
       : null;
+    // OPS-31 P6b: present only when the live provider is wired and has something to say; a failure never fails the state.
+    const liveSession = typeof integrations.getLiveSession === 'function' ? await Promise.resolve(integrations.getLiveSession()).catch(() => null) : null;
     return {
       product_version: state.productVersion ?? productVersion,
       api_contract_version: '1', revision: state.revision ?? 1,
@@ -265,6 +285,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       queues: (await repository.listQueueProjection?.() ?? []).map((queue) => queueDto(queue)),
       pending_operations: (await repository.listFinancialOperations?.() ?? []).map(operationDto),
       unresolved_operation_summary: safeUnresolvedOperationSummary,
+      ...(liveSession ? { liveSession: liveSessionDto(liveSession) } : {}),
     };
   });
   app.get('/api/command-catalog', async (_request, reply) => {

@@ -14,12 +14,15 @@ import { twitchHttpError } from './http-error.mjs';
 import { createCredentialFingerprint } from './credential-fingerprint.mjs';
 import { CHAT_COMMANDS, COMMAND_POLICY_MINIMUM_ROLES } from '../commands/catalog.mjs';
 import { createChatLimiter, withChatLimiter } from '../outbox/chat-limiter.mjs';
+import { createLiveSessionService } from './live-session-service.mjs';
 
 const INITIAL_RETRY_MS = 5_000;
 const MAX_RETRY_MS = 5 * 60 * 1_000;
 
 // D-6 (FT-55): closed lists so no Twitch free text, token, UID or chat body can reach the degraded log line.
-const EVENTSUB_DEGRADED_REASONS = new Set(['eventsub_disconnected', 'eventsub_startup_disconnected', 'subscription_revoked']);
+const EVENTSUB_DEGRADED_REASONS = new Set(['eventsub_disconnected', 'eventsub_startup_disconnected', 'subscription_revoked', 'live_events_unavailable']);
+// OPS-31 P6b (design 3.12 "Revocation"): the stream types need no authorization, so their revocation never touches chat or reward status.
+const LIVE_SUBSCRIPTION_TYPES = new Set(['stream.online', 'stream.offline']);
 const REVOKED_SUBSCRIPTION_TYPES = new Set(['channel.chat.message', 'channel.channel_points_custom_reward_redemption.add', 'channel.channel_points_custom_reward_redemption.update']);
 const REVOKE_STATUSES = new Set([
   'authorization_revoked', 'user_removed', 'version_removed', 'notification_failures_exceeded', 'beta_maintenance', 'moderator_removed',
@@ -42,7 +45,7 @@ function withGrantedOptionalScopes(credential, extra) {
 
 /**
  * Start Twitch supervision without making local HTTP readiness depend on Twitch availability.
- * @param {{credentialRepository: any, repository: any, domainService: any, onChatMessage?: (event: object) => unknown, onStatus?: (status: object) => void, reportDiagnostic?: (event: object) => string, authRuntimeFactory?: (input: any) => Promise<any>, apiFactory?: (options: any) => any, adapterFactory?: (input: any) => any, eventSubRuntimeFactory?: (input: any) => any, reconcilerFactory?: (input: any) => any, logEvent?: (event: Record<string, any>) => unknown, setIntervalImpl?: typeof setInterval, clearIntervalImpl?: typeof clearInterval, setTimeoutImpl?: typeof setTimeout, clearTimeoutImpl?: typeof clearTimeout, random?: () => number, redirectUri?: string, fetchImpl?: typeof fetch, oauthStateStore?: any, authProviderFactory?: (config: any) => any, validateOAuthToken?: (token: string, clientId: string) => Promise<any>}} dependencies
+ * @param {{credentialRepository: any, repository: any, domainService: any, onChatMessage?: (event: object) => unknown, onStatus?: (status: object) => void, reportDiagnostic?: (event: object) => string, authRuntimeFactory?: (input: any) => Promise<any>, apiFactory?: (options: any) => any, adapterFactory?: (input: any) => any, eventSubRuntimeFactory?: (input: any) => any, reconcilerFactory?: (input: any) => any, liveSessionRepository?: any, logEvent?: (event: Record<string, any>) => unknown, setIntervalImpl?: typeof setInterval, clearIntervalImpl?: typeof clearInterval, setTimeoutImpl?: typeof setTimeout, clearTimeoutImpl?: typeof clearTimeout, random?: () => number, redirectUri?: string, fetchImpl?: typeof fetch, oauthStateStore?: any, authProviderFactory?: (config: any) => any, validateOAuthToken?: (token: string, clientId: string) => Promise<any>}} dependencies
  */
 export async function createTwitchIntegration({
   credentialRepository, repository, domainService, onChatMessage = () => undefined,
@@ -53,6 +56,7 @@ export async function createTwitchIntegration({
   adapterFactory = (input) => createTwitchApiAdapter(input),
   eventSubRuntimeFactory = (input) => createEventSubRuntime(input),
   reconcilerFactory = (input) => createTwitchReconciler(input),
+  liveSessionRepository = null,
   logEvent = () => undefined,
   setIntervalImpl = setNodeInterval, clearIntervalImpl = clearNodeInterval,
   setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout, random = Math.random,
@@ -77,6 +81,8 @@ export async function createTwitchIntegration({
   let authRuntime;
   let eventSubRuntime;
   let reconcileTimer;
+  let liveTimer;
+  let liveSession = null; // OPS-31 P6b: the live-session service of the current Twurple session (null without a repository)
   let retryTimer;
   let retryAttempt = 0;
   let stopped = false;
@@ -119,6 +125,9 @@ export async function createTwitchIntegration({
     authRuntime?.stop?.(); authRuntime = undefined;
     if (reconcileTimer) clearIntervalImpl(reconcileTimer);
     reconcileTimer = undefined;
+    if (liveTimer) clearIntervalImpl(liveTimer);
+    liveTimer = undefined;
+    liveSession = null;
     api = undefined; twitch = undefined; processor = undefined; reconciler = undefined; twitchApiProbe = null; probeEpoch += 1;
     eventSubAvailable = false;
     if (!stopped && credential?.accessToken && credential?.refreshToken) chatStatus = 'connecting';
@@ -217,6 +226,11 @@ export async function createTwitchIntegration({
       processor = createTwitchRedemptionProcessor({ repository, domainService, broadcasterId: credential.broadcasterId });
       reconciler = reconcilerFactory({ repository, twitch, processor, broadcasterId: credential.broadcasterId });
     }
+    // OPS-31 P6b: the live session reads Twitch through the same adapter; it is independent of redemption eligibility.
+    liveSession = liveSessionRepository
+      ? createLiveSessionService({ repository: liveSessionRepository, getTwitch: () => twitch, broadcasterId: credential.broadcasterId, logEvent })
+      : null;
+    const session = liveSession;
     let initialReady = false;
     eventSubRuntime = eventSubRuntimeFactory({
       apiClient: api, broadcasterId: credential.broadcasterId,
@@ -224,21 +238,32 @@ export async function createTwitchIntegration({
       onRedemptionAdd: processor?.onRedemptionAdd ?? (() => undefined),
       onRedemptionUpdate: processor?.onRedemptionUpdate ?? (() => undefined),
       onChatMessage,
+      onStreamOnline: session ? (event) => session.onOnline(event) : undefined,
+      onStreamOffline: session ? (event) => session.onOffline(event) : undefined,
       onReady: () => {
         if (initialReady || stopped) return;
         initialReady = true;
         eventSubAvailable = true;
         chatStatus = 'connected';
         retryAttempt = 0;
-        if (!channelEligibility.eligible) return;
+        // P6b: the live reconciliation is NOT behind the eligibility check (the cap needs the live whether or not redemptions work).
+        let live;
+        if (session) {
+          session.noteSubscribed();
+          liveTimer = setIntervalImpl(() => void session.reconcile('periodic'), 5 * 60 * 1000);
+          live = session.reconcile('startup');
+        }
+        if (!channelEligibility.eligible) return live;
         reconcileTimer = setIntervalImpl(() => void reconcile('periodic'), 5 * 60 * 1000);
-        return reconcile('startup');
+        return Promise.all([live, reconcile('startup')]);
       },
       redemptionsEnabled: channelEligibility.eligible,
       onReconnected: () => {
         eventSubAvailable = true;
         chatStatus = 'connected';
-        return channelEligibility.eligible ? reconcile('reconnect') : undefined;
+        let live;
+        if (session) { session.noteSubscribed(); live = session.reconcile('reconnect'); }
+        return channelEligibility.eligible ? Promise.all([live, reconcile('reconnect')]) : live;
       },
       onDisconnect: ({ established }) => {
         eventSubAvailable = false;
@@ -250,6 +275,13 @@ export async function createTwitchIntegration({
         }
       },
       onRevoked: (type, revokeStatus) => {
+        if (LIVE_SUBSCRIPTION_TYPES.has(type)) {
+          // Early branch (design 3.12): no chat or reward status change; the cap falls back to the hours window until the
+          // subscription is back and one reconciliation succeeded. Any revocation status, closed degraded code, no free text.
+          session?.markRevoked();
+          publishStatus('degraded', { reason: 'live_events_unavailable' });
+          return;
+        }
         if (revokeStatus === 'authorization_revoked') {
           if (type === 'channel.chat.message') {
             authLost = true;
@@ -311,6 +343,13 @@ export async function createTwitchIntegration({
     get chatStatus() { return chatStatus; },
     get rewardStatus() { return rewardStatus; },
     get lastReconciliationAt() { return lastReconciliationAt; },
+    /** OPS-31 P6b: true while the stream subscriptions are revoked; P7 hands it to `createCapWindowProvider({isRevoked})`. */
+    get liveEventsRevoked() { return liveSession?.isRevoked() ?? false; },
+    /** OPS-31 P6b: the `liveSession` object of `GET /api/state`, or null when no live repository is wired or no channel is configured. */
+    async getLiveSession() {
+      if (!liveSessionRepository || !credential?.broadcasterId) return null;
+      return liveSessionRepository.describeLiveSession(credential.broadcasterId, { revoked: liveSession?.isRevoked() ?? false });
+    },
     get probeEpoch() { return probeEpoch; },
     get ready() { return lastAttempt; },
     async probeTwitchApi() { return twitchApiProbe ? twitchApiProbe() : false; },

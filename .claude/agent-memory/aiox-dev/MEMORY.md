@@ -1,1 +1,2 @@
+- [OPS-31 P6b live session](project-ops31-p6b-live-session.md) — Twurple offline event has no stream id; P7 wiring of capWindowStart; mutation/barrier recipes
 - [OPS-22 checkpoint patches](project-ops22-checkpoint-patches.md) — cp-N.patch per slice, no git add; untracked docs, E2E dev-server recipe, plural-key rules

@@ -5,6 +5,8 @@ export function createTwitchRouteIntegrationProxy(getIntegration) {
     get status() { return getIntegration()?.status ?? 'not_configured'; },
     get chatStatus() { return getIntegration()?.chatStatus ?? 'not_configured'; },
     get rewardStatus() { return getIntegration()?.rewardStatus ?? 'unknown'; },
+    get liveEventsRevoked() { return getIntegration()?.liveEventsRevoked ?? false; },
+    async getLiveSession() { return getIntegration()?.getLiveSession?.() ?? null; },
     async getSetupState() { return getIntegration()?.getSetupState?.(); },
     async validateAndSaveApplication(input) { return getIntegration()?.validateAndSaveApplication?.(input); },
     async beginAuthorization(sessionId) { return getIntegration()?.beginAuthorization?.(sessionId); },
