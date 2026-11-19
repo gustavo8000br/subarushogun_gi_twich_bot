@@ -4,6 +4,8 @@ const ENTRY_ACTIONS = Object.freeze({
   attend: { to: 'in_progress', reason: 'service_started' },
   complete: { to: 'completed', reason: 'service_completed' },
   remove: { to: 'removed', reason: 'operator_removed' },
+  // OPS-31 K72-01a: "Adiar" returns a called entry to the waiting list. The label stays `operator_skip` (internal, never shown).
+  postpone: { to: 'waiting', reason: 'operator_skip' },
 });
 
 const MANUAL_ENTRY_CODE_KEYS = Object.freeze({
@@ -29,26 +31,33 @@ export function getQueueEntryActionFailureFeedback(error, { action } = {}) {
   const referenceId = typeof error?.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(error.referenceId)
     ? error.referenceId
     : null;
-  const uncertainCall = ['call-next', 'call'].includes(action) && error?.code !== 'SESSION_INITIALIZATION_FAILED' && (
+  const unknownOutcome = error?.code !== 'SESSION_INITIALIZATION_FAILED' && (
     error?.status === 0
     || error?.status >= 500
     || error?.code === 'INVALID_QUEUE_ENTRY_ACTION_RESPONSE'
   );
+  const uncertainCall = ['call-next', 'call'].includes(action) && unknownOutcome;
+  const uncertainPostpone = action === 'postpone' && unknownOutcome;
   return {
     status: 'error',
     key: error?.code === 'QUEUE_MODE_TRANSITION_PENDING'
       ? 'panel.error.queue_mode_transition_pending'
-      : error?.code === 'ENTRY_VERSION_STALE'
+      : error?.code === 'ENTRY_VERSION_STALE' || error?.code === 'INVALID_ENTRY_TRANSITION'
         ? 'panel.error.entry_version_stale'
         : uncertainCall
         ? 'panel.queue.action_result.uncertain'
-        : 'panel.queue.action_result.failed',
+        : uncertainPostpone
+          ? 'panel.queue.entry_action_result.uncertain'
+          : 'panel.queue.action_result.failed',
     ...(referenceId ? { referenceId } : {}),
   };
 }
 
-/** @param {{action:string, result:Record<string, any>, refreshFailed?:boolean, priority?:boolean}} input */
-export function getQueueEntryActionFeedback({ action, result, refreshFailed = false, priority }) {
+/** Error keys that offer "Refresh queue" next to the message (the list the operator sees may be out of date). */
+export const QUEUE_ENTRY_REFRESH_KEYS = Object.freeze(['panel.error.entry_version_stale', 'panel.queue.entry_action_result.uncertain']);
+
+/** @param {{action:string, result:Record<string, any>, refreshFailed?:boolean, priority?:boolean, queues?:Array<any>|null, queueId?:string, entryId?:string|null}} input */
+export function getQueueEntryActionFeedback({ action, result, refreshFailed = false, priority, queues = null, queueId, entryId = null }) {
   if (action === 'call-next' && result.count === 0) {
     return { status: 'info', key: 'panel.queue.action_result.no_waiting' };
   }
@@ -64,6 +73,15 @@ export function getQueueEntryActionFeedback({ action, result, refreshFailed = fa
     return action === 'call-next' || action === 'call'
       ? { status: 'warning', key: 'panel.queue.call_next.refresh_required' }
       : { status: 'warning', key: 'panel.queue.entry_action_result.refresh_failed' };
+  }
+  if (action === 'postpone') {
+    // The transition response carries no position: read it from the reloaded queue (same global number as the chat notice).
+    const entry = queues?.find((queue) => queue.id === queueId)?.entries?.find((candidate) => candidate.id === entryId);
+    const user = entry?.displayName || entry?.userLogin;
+    if (entry?.status === 'waiting' && Number.isInteger(entry.position) && entry.position >= 1 && user) {
+      return { status: 'confirmed', key: 'panel.queue.entry_action_result.postponed', values: { user, position: entry.position } };
+    }
+    return { status: 'warning', key: 'panel.queue.entry_action_result.refresh_failed' };
   }
   if (action === 'resend-call') {
     return {
@@ -101,8 +119,8 @@ function invalidResponse() {
   return Object.assign(new Error('The queue entry action response is invalid.'), { code: 'INVALID_QUEUE_ENTRY_ACTION_RESPONSE' });
 }
 
-/** @param {{request: (path:string, options?:object)=>Promise<any>, queueId:string, entryId?:string|null, action:string, login?:string, uid?:string, priority?:boolean, reason?:string, position?:number, priorityReason?:string}} input */
-export async function performQueueEntryAction({ request, queueId, entryId = null, action, login, uid, priority = false, reason, position, priorityReason }) {
+/** @param {{request: (path:string, options?:object)=>Promise<any>, queueId:string, entryId?:string|null, action:string, login?:string, uid?:string, priority?:boolean, reason?:string, position?:number, priorityReason?:string, expectedVersion?:number}} input */
+export async function performQueueEntryAction({ request, queueId, entryId = null, action, login, uid, priority = false, reason, position, priorityReason, expectedVersion }) {
   if (typeof queueId !== 'string' || !queueId || typeof action !== 'string') {
     throw Object.assign(new Error('The queue entry action request is invalid.'), { code: 'INVALID_QUEUE_ENTRY_ACTION_REQUEST' });
   }
@@ -174,8 +192,11 @@ export async function performQueueEntryAction({ request, queueId, entryId = null
 
   const transition = ENTRY_ACTIONS[action];
   if (!transition) throw Object.assign(new Error('The queue entry action is unsupported.'), { code: 'INVALID_QUEUE_ENTRY_ACTION_REQUEST' });
+  if (action === 'postpone' && (!Number.isInteger(expectedVersion) || expectedVersion < 1)) {
+    throw Object.assign(new Error('The queue entry version is required to postpone.'), { code: 'INVALID_QUEUE_ENTRY_ACTION_REQUEST' });
+  }
   result = await request(`/api/entries/${encodedEntryId}/transitions`, {
-    method: 'POST', body: JSON.stringify(transition),
+    method: 'POST', body: JSON.stringify(action === 'postpone' ? { ...transition, expectedVersion } : transition),
   });
   if (result?.status !== transition.to || result.id !== entryId
     || (result.financialDecision !== undefined && !['no_operation', 'request_cancel', 'request_fulfill'].includes(result.financialDecision))) throw invalidResponse();

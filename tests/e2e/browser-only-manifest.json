@@ -18,6 +18,7 @@
     { "file": "queue-manual-entry-outcomes-browser-only.mjs", "npm": "test:e2e:manual-entry-outcomes:browser-only" },
     { "file": "queue-manual-entry-recovery-browser-only.mjs", "npm": "test:e2e:manual-entry:browser-only" },
     { "file": "queue-outcome-browser-only.mjs", "npm": "test:e2e:queue-outcome:browser-only" },
+    { "file": "queue-postpone-browser-only.mjs", "npm": "test:e2e:queue-postpone:browser-only" },
     { "file": "queue-reward-resolution-browser-only.mjs", "npm": "test:e2e:queue-reward-resolution:browser-only" },
     { "file": "queue-reward-settings-recovery-browser-only.mjs", "npm": "test:e2e:queue-reward-settings:browser-only" },
     { "file": "queue-settings-recovery-browser-only.mjs", "npm": "test:e2e:queue-settings:browser-only" },

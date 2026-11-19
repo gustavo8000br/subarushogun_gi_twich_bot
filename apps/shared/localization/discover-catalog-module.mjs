@@ -65,6 +65,8 @@ const MODULE_PLACEHOLDERS = Object.freeze({
     'panel.entry.action.complete_aria': Object.freeze(['user']),
     'panel.entry.action.resend_aria': Object.freeze(['user']),
     'panel.entry.action.remove_aria': Object.freeze(['user']),
+    'panel.entry.action.postpone_aria': Object.freeze(['user']),
+    'panel.queue.entry_action_result.postponed': Object.freeze(['user', 'position']),
     'panel.entry.add.refresh_failed': Object.freeze(['user', 'position']),
     'panel.entry.error.already_active': Object.freeze(['user']),
     'panel.entry.error.twitch_user_not_found': Object.freeze(['user']),

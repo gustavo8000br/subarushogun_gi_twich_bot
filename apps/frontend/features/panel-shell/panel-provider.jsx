@@ -7,7 +7,7 @@ import { persistProductLocale } from '../../lib/i18n/persist-product-locale.mjs'
 import { loadPanelRuntimeSnapshot, loadPanelSnapshot } from './load-panel-snapshot.mjs';
 import { summarizeQueues } from '../overview/queue-summary.mjs';
 import { getQueueLifecycleFailureFeedback, loadQueueProjection, performQueueLifecycleAction, requestQueueOpenState } from '../queues/queue-lifecycle.mjs';
-import { getManualQueueEntryFailureKey, getQueueEntryActionFailureFeedback, getQueueEntryActionFeedback, performQueueEntryActionWithRefresh, queueCallRequiresRefresh } from '../queues/queue-entry-actions.mjs';
+import { getManualQueueEntryFailureKey, getQueueEntryActionFailureFeedback, getQueueEntryActionFeedback, performQueueEntryActionWithRefresh, queueCallRequiresRefresh, QUEUE_ENTRY_REFRESH_KEYS } from '../queues/queue-entry-actions.mjs';
 import { createQueueWithRefresh, getQueueCreationFailureKey, getQueueCreationFeedback } from '../queues/queue-creation.mjs';
 import { getOutcomeFromCode, navigateTo, resolvePostActionRoute } from './post-action-route.mjs';
 import { readOutcomeFromLocation } from './outcome-url.mjs';
@@ -211,7 +211,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
     if (['call-next', 'call'].includes(action) && queueCallRefreshRequired) return;
     if (['call-next', 'call'].includes(action)) setQueueCallRecovery(null);
     setSaving(true);
-    setQueueAction({ queueId, entryId, status: 'saving', key: '' });
+    setQueueAction({ queueId, entryId, action, status: 'saving', key: '' });
     try {
       const { result, queues, refreshFailed } = await performQueueEntryActionWithRefresh({
         request: apiClient.request, queueId, entryId, action,
@@ -221,7 +221,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
         setQueueProjection(queues);
         setQueueSummary(summarizeQueues(queues));
       }
-      const feedback = getQueueEntryActionFeedback({ action, result, refreshFailed, priority: actionOptions.priority });
+      const feedback = getQueueEntryActionFeedback({ action, result, refreshFailed, priority: actionOptions.priority, queues, queueId, entryId });
       if (queueCallRequiresRefresh({ action, feedback, refreshFailed })) {
         setQueueCallRecovery({ queueId, required: true, key: feedback.key });
         setQueueAction(null);
@@ -230,6 +230,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
       setQueueAction({
         queueId,
         entryId,
+        action,
         ...feedback,
       });
     } catch (requestError) {
@@ -242,6 +243,7 @@ export function PanelProvider({ children, fallbackCatalog }) {
       setQueueAction({
         queueId,
         entryId,
+        action,
         ...feedback,
       });
     } finally {
@@ -260,6 +262,8 @@ export function PanelProvider({ children, fallbackCatalog }) {
       if (queueCallRefreshRequired) {
         setQueueCallRecovery((current) => current ? { ...current, required: false, key: 'panel.queue.call_next.refreshed' } : current);
       }
+      // A stale or uncertain entry action is settled once the list is fresh: drop the message.
+      if (purpose === 'entry-action') setQueueAction((current) => QUEUE_ENTRY_REFRESH_KEYS.includes(current?.key) ? null : current);
       if (purpose === 'reward-link') setQueueAction((current) => current?.key === 'panel.reward.link_refresh_failed'
         ? { ...current, status: 'confirmed', key: 'panel.reward.link_refreshed', referenceId: null }
         : current);

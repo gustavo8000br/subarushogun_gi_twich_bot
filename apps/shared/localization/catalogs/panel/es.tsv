@@ -305,6 +305,8 @@ panel.queue.entry_action_result.saved	La acción de atención se registró en el
 panel.queue.entry_action_result.refresh_failed	La acción se registró, pero no se pudo actualizar la cola. Recarga la página para ver su estado actual.
 panel.queue.entry_action_result.fulfillment_pending	Atención iniciada. Se está confirmando la recompensa de Twitch; el panel mostrará si queda confirmada o sin resolver.
 panel.queue.entry_action_result.fulfillment_refresh_failed	Atención iniciada y se solicitó la confirmación a Twitch, pero no se pudo actualizar la cola. Recarga el panel para consultar el último estado.
+panel.queue.entry_action_result.postponed	Se aplazó el turno de {user}. Sigue en la cola, ahora en la posición {position}.
+panel.queue.entry_action_result.uncertain	Es posible que la acción se haya registrado. Actualiza la cola antes de intentarlo de nuevo.
 panel.queue.action.resolve_reward	Vincular recompensa
 panel.queue.action_blocked.reward_unresolved	Los controles están pausados hasta vincular y confirmar una recompensa de Twitch. Usa «Vincular recompensa» para continuar.
 panel.queue.action_blocked.reward_creation_pending	Los controles estarán disponibles cuando Twitch confirme la creación de la recompensa.
@@ -336,6 +338,8 @@ panel.entry.action.resend	Reenviar llamada
 panel.entry.action.resend_aria	Reenviar la llamada a {user}
 panel.entry.action.remove	quitar
 panel.entry.action.remove_aria	Quitar a {user} de la cola
+panel.entry.action.postpone	aplazar
+panel.entry.action.postpone_aria	Aplazar a {user}: vuelve a la lista de espera
 panel.entry.priority_badge	Prioritaria · verificada por el operador
 panel.entry.uid_label	UID
 panel.queue.points	puntos

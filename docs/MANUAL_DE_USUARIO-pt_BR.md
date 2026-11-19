@@ -77,7 +77,7 @@ Use `!<fila> proximo [1-10]` para chamar uma pessoa ou um grupo. Se houver menos
 
 O prazo de ausência começa somente depois que a Twitch confirma o envio da primeira mensagem de chamada. Se a entrega falhar, o painel mostra que a chamada precisa de atenção; não há decisão de ausência até uma chamada ser confirmada. Uma nova tentativa não aumenta silenciosamente um prazo já existente.
 
-Use `!<fila> atender [usuario]` para iniciar o atendimento. Isso encerra o prazo de ausência. Use `!<fila> concluir [usuario]` quando o atendimento terminar. Se a chamada vencer antes do início, a entrada passa para **Ausente**; a devolução de pontos depende da opção configurada na fila.
+Use `!<fila> atender [usuario]` para iniciar o atendimento. Isso encerra o prazo de ausência. Use `!<fila> concluir [usuario]` quando o atendimento terminar. Se a chamada vencer antes do início, a entrada passa para **Ausente**; a devolução de pontos depende da opção configurada na fila. No painel, **adiar** na linha de uma pessoa chamada a devolve à lista de espera (segundo lugar da própria faixa) sem qualquer ação com pontos; o painel mostra a nova posição, e **chamar** a traz de volta para a lista de chamados.
 
 ## Avisos no chat
 
