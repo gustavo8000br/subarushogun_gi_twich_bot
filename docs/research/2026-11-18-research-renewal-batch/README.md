@@ -79,6 +79,7 @@ The three waivers (rows 1, 3, 6) fall to `none`. Not renewed: none. Not verified
 - **Impact for the project:** exposure is **low and local-only** (loopback binding, no HTTP/2, the TLS-crash CVE does not apply). The patch bump to 24.22.3 is still justified: it is a same-line LTS patch, it closes the remaining TLS/HTTP fixes that may touch the stack and 24.22.1's fixes (tls IP normalization, dns, permission model, root certificates, OpenSSL 3.5.9), and the pin should not drift. Recommend the Orion schedule it as its own package with `@qa` (files in section 5), and take Fastify to 5.12.8 and Vitest within the same planned dependency window (#138). Do not mix this with the Node 26 or Prisma 7 decisions.
 - **Confidence:** High for the Node and Fastify facts (official sources); Medium for the transitive audit reading. **Not verified:** whether any tool in the repository pins Node elsewhere (CI workflows were not re-read).
 - **Result:** REFRESH (trigger fired). Verified on 2026-11-18; review after 2026-12-30. Waiver falls to `none`.
+- **Execution (2026-11-19, no new research):** the patch bump landed in PR #152 (pin 24.20.0 to 24.22.3) and the dependency group in #138 (Fastify 5.12.8, Vitest 5.1.0, eslint 10.15.0, js-yaml 5.5.0, playwright-core ^1.65.1). The "Node security patch" trigger is met. SSE does not exist in the code yet, so the bump QA proved Node only with a synthetic probe; repeat it through the Next proxy when SSE lands.
 
 ### Row 3: FND-7 OBS Browser Source / overlay
 

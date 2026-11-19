@@ -99,3 +99,4 @@ When task says "ask user": decide autonomously, document as `[AUTO-DECISION] {q}
 - ALWAYS run pre-push quality gates before pushing
 - NEVER force push to any branch
 - NEVER skip pre-commit hooks (--no-verify)
+- NEVER leave background shells behind: wait for CI with `timeout 540 gh pr checks <n> --watch` or short foreground polls; no `until`/`while` loops and no `pgrep -f` with its own pattern (it matches itself and never ends). Before finishing, stop anything you started and write "sem shells em segundo plano" in the report (AGENTS.md "Sem shells órfãos").
