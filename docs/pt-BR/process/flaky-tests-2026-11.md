@@ -6,6 +6,8 @@ Status: **registro aberto, sem correção ainda.** A decisão de abrir story/iss
 |---|---|---|---|
 | `tests/unit/next-queue-lifecycle-recovery.test.jsx`, "maps the API cancellation conflict into safe UI feedback" | `expected 'null' to contain 'panel.queue.delete.cancel.processing'` | bateria completa do `@qa` no pacote do fluxo de pesquisa (2026-11-18, execução de 333 s, 231/232 arquivos); CI da PR #148 | 1 falha nessa execução completa; o arquivo passou 3/3 quando reexecutado sozinho. Ocorrência no CI informada pelo orquestrador (não reverificada aqui) |
 | `compose-widgets-overlay-revoke` (integração com Chromium) | timeout de etapa do Chromium | CI da PR #148 | informado pelo orquestrador, 1 ocorrência (não reverificada aqui) |
+| `tests/unit/next-refund-list-section.test.jsx`, "removes a person with a status message…" | falha na asserção de foco | CI da PR #156 | 1 falha; passou em `gh run rerun --failed` (informado pelo orquestrador, não reverificado aqui) |
+| `tests/e2e/route-parity-browser-only.mjs` (Chrome) | `chrome-error` em `page.goto('/commands/')` no servidor de desenvolvimento | execução do `@qa` no pacote "Ausentes" (2026-11-19) | 3 falhas em 6 execuções, também na base limpa (portanto não causada pelo pacote) |
 
 ## Hipótese (não comprovada)
 
