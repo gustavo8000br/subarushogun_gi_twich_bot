@@ -51,7 +51,9 @@ try {
   assert.equal(posted[0].headers['x-csrf-token'], CSRF_TOKEN);
   assert.match(posted[0].headers['idempotency-key'], IDEMPOTENCY);
   assert.equal(await login.inputValue(), '');
-  assert.equal(await page.getByRole('status').filter({ hasText: '1 of 500' }).count(), 1);
+  assert.equal(await page.getByText('1 of 500').count(), 1);
+  // OPS-31 X2: the count is plain text (not a live region); only the notice announces, so there is no double announcement
+  assert.equal(await page.getByRole('status').filter({ hasText: '1 of 500' }).count(), 0, 'the count line is not a live region');
 
   // stable error texts, never the server copy
   for (const [typed, text] of [
@@ -67,6 +69,10 @@ try {
   await login.fill('bad login!');
   await add.click();
   await page.getByRole('alert').filter({ hasText: en['panel.refund_list.error.invalid'] }).waitFor();
+  // OPS-31 X2: the error is tied to the field it describes
+  assert.equal(await login.getAttribute('aria-invalid'), 'true');
+  assert.equal(await login.getAttribute('aria-describedby'), 'refund-list-notice');
+  assert.equal(await page.locator('#refund-list-notice').getAttribute('role'), 'alert');
   assert.equal(harness.callsTo('POST /api/refund-list').length, 4, 'an invalid login never reaches the API');
 
   // remove by keyboard: the status says who was removed, focus moves to the next row, then to the heading
@@ -86,7 +92,10 @@ try {
   await clear.click();
   const dialog = page.getByRole('dialog');
   await dialog.waitFor();
-  assert.match(await dialog.textContent(), new RegExp(en['panel.refund_list.clear_confirm'].replace('{count}', '2').replace('?', '\\?')));
+  assert.match(await dialog.textContent(), new RegExp(en['panel.refund_list.clear_confirm.other'].replace('{count}', '2').replace('?', '\\?')));
+  // OPS-31 X2: the consequence paragraph is the dialog's accessible description
+  assert.equal(await dialog.getAttribute('aria-describedby'), 'refund-list-clear-description');
+  assert.match(await page.locator('#refund-list-clear-description').textContent(), /cannot be undone/);
   await page.keyboard.press('Escape');
   await dialog.waitFor({ state: 'hidden' });
   assert.equal(members.length, 2, 'Escape keeps the list');

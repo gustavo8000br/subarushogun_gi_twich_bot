@@ -147,7 +147,7 @@ With the queue's automatic account switch on call enabled, calling exactly one p
 
 ## The own refund list
 
-**Settings** has an **Own refund list**: a short list of people you trust, kept for the whole channel (not per queue). You add a person by typing the Twitch login; the panel looks it up once and stores only the Twitch account number and a label of up to 40 characters (it starts as the login and you can change it). The panel shows the label and the date added, never the account number. You can remove one person at a time or clear the whole list after a confirmation. The list holds at most 500 people; adding a person who is already there, or the 501st, is refused with a message. Deleting a queue never removes people from the list.
+**Settings** has an **Own refund list**: a short list of people you trust, kept for the whole channel (not per queue). You add a person by typing the Twitch login; the panel looks it up once and stores only the Twitch account number and a label of up to 40 characters (it starts as the login and you can change it). The panel shows the label and the date added, never the account number. You can remove one person at a time or clear the whole list after a confirmation that warns the action cannot be undone. The list holds at most 500 people; adding a person who is already there, or the 501st, is refused with a message. Deleting a queue never removes people from the list.
 
 In this version the list is only stored: no queue uses it yet and the bot does not return points by group. Choosing "return the points when the service ends" for a queue is not available yet and is refused by the API.
 

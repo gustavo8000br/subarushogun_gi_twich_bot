@@ -19,6 +19,13 @@ export function refundListErrorKey(error) {
   }
 }
 
+/** Plural form of the clear confirmation: native ECMA-402 rules, same mechanism as `panel.operation.attempts`. */
+export function refundListClearConfirmKey(count, locale) {
+  let category;
+  try { category = new Intl.PluralRules(locale).select(count); } catch { category = 'other'; }
+  return `panel.refund_list.clear_confirm.${category}`;
+}
+
 function formatDate(value, locale) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
@@ -41,6 +48,8 @@ export function RefundListSection({ t, request, locale }) {
   const dialog = useRef(null);
   const rows = useRef(new Map());
   const pendingFocus = useRef(null);
+  // The form error is tied to the login field (`aria-invalid` + `aria-describedby`) only while that error is the visible notice.
+  const invalidLogin = notice?.tone === 'error' && notice.key === 'panel.refund_list.error.invalid';
 
   useEffect(() => {
     let active = true;
@@ -135,6 +144,7 @@ export function RefundListSection({ t, request, locale }) {
         <form className="account-settings-form refund-list-form" onSubmit={(event) => void add(event)} aria-describedby="refund-list-description">
           <label htmlFor="refund-list-login">{t('panel.entry.twitch_login')}
             <input id="refund-list-login" name="login" value={login} maxLength={26} autoComplete="off" autoCapitalize="none" spellCheck={false}
+              aria-invalid={invalidLogin ? 'true' : undefined} aria-describedby={invalidLogin ? 'refund-list-notice' : undefined}
               placeholder={t('panel.entry.login_placeholder')} disabled={busy} onChange={(event) => onLogin(event.target.value)} />
           </label>
           <label htmlFor="refund-list-label">{t('panel.refund_list.label')}
@@ -145,8 +155,8 @@ export function RefundListSection({ t, request, locale }) {
             <button type="submit" className="button button-primary" disabled={busy || !login.trim() || list.count >= list.max}>{t('panel.refund_list.add')}</button>
           </div>
         </form>
-        <p className="form-hint refund-list-count" role="status">{t('panel.refund_list.count', { values: { count: list.count, max: list.max } })}</p>
-        {notice ? <p className={`account-settings-notice is-${notice.tone}`} role={notice.tone === 'error' ? 'alert' : 'status'}>{t(notice.key, notice.values ? { values: notice.values } : undefined)}</p> : null}
+        <p className="form-hint refund-list-count">{t('panel.refund_list.count', { values: { count: list.count, max: list.max } })}</p>
+        {notice ? <p id="refund-list-notice" className={`account-settings-notice is-${notice.tone}`} role={notice.tone === 'error' ? 'alert' : 'status'}>{t(notice.key, notice.values ? { values: notice.values } : undefined)}</p> : null}
         {list.items.length === 0
           ? <p className="form-hint refund-list-empty">{t('panel.refund_list.empty')}</p>
           : <ul className="refund-list-items">
@@ -163,9 +173,9 @@ export function RefundListSection({ t, request, locale }) {
         <div className="account-settings-actions">
           <button type="button" className="button button-secondary" disabled={busy || list.count === 0} onClick={() => setConfirming(true)}>{t('panel.refund_list.clear')}</button>
         </div>
-        <dialog ref={dialog} className="operation-confirmation" aria-modal="true" aria-labelledby="refund-list-clear-title" onClose={() => setConfirming(false)}>
+        <dialog ref={dialog} className="operation-confirmation" aria-modal="true" aria-labelledby="refund-list-clear-title" aria-describedby="refund-list-clear-description" onClose={() => setConfirming(false)}>
           <h2 id="refund-list-clear-title">{t('panel.refund_list.clear')}</h2>
-          <p>{t('panel.refund_list.clear_confirm', { values: { count: list.count } })}</p>
+          <p id="refund-list-clear-description">{t(refundListClearConfirmKey(list.count, locale), { values: { count: new Intl.NumberFormat(locale).format(list.count) } })}</p>
           <div className="operation-confirmation-actions">
             <button type="button" className="button button-secondary" disabled={busy} onClick={() => setConfirming(false)}>{t('panel.queue.dialog.back')}</button>
             <button type="button" className="button button-primary" disabled={busy} onClick={() => void clearAll()}>{t('panel.refund_list.clear')}</button>

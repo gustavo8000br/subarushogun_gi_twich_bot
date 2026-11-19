@@ -877,7 +877,7 @@ panel.notice_settings.points	Decir a la persona qué pasó con sus puntos (próx
 panel.notice_settings.soon_help	Todavía no se envía nada por esto. Tu elección se guarda para cuando llegue.
 panel.notice_settings.hint	Los mensajes están limitados para no saturar el chat; el aviso de turno siempre va primero.
 panel.refund_list.title	Lista propia de devolución
-panel.refund_list.description	Personas de tu confianza. La usa toda cola con este grupo marcado. Se guarda: el número de la cuenta de Twitch y una etiqueta.
+panel.refund_list.description	Personas de tu confianza. Ninguna cola usa todavía esta lista; por ahora solo reúne a las personas que añades. Se guarda: el número de la cuenta de Twitch y una etiqueta.
 panel.refund_list.label	Etiqueta (opcional)
 panel.refund_list.add	Añadir
 panel.refund_list.count	{count} de {max}
@@ -885,11 +885,17 @@ panel.refund_list.added_on	Añadido el {date}
 panel.refund_list.remove	Quitar
 panel.refund_list.remove_aria	Quitar a {label} de la lista
 panel.refund_list.removed	Se quitó a {label}.
-panel.refund_list.unnamed	(sin etiqueta)
+panel.refund_list.unnamed	Persona sin etiqueta
 panel.refund_list.clear	Vaciar todo
-panel.refund_list.clear_confirm	¿Quitar a las {count} personas de la lista? Las colas que usen este grupo no devolverán a nadie de ella.
+panel.refund_list.clear_confirm.one	¿Quitar a {count} persona de la lista? Esta acción no se puede deshacer.
+panel.refund_list.clear_confirm.many	¿Quitar a las {count} personas de la lista? Esta acción no se puede deshacer.
+panel.refund_list.clear_confirm.other	¿Quitar a las {count} personas de la lista? Esta acción no se puede deshacer.
 panel.refund_list.clear_done	Lista vaciada.
 panel.refund_list.empty	Aún no hay nadie en la lista.
 panel.refund_list.error.duplicate	Esta persona ya está en la lista.
 panel.refund_list.error.limit	La lista está llena ({max} personas). Quita a alguien para añadir otra.
-panel.refund_list.error.invalid	Escribe un login de Twitch válido: letras, números y guion bajo, hasta 25 caracteres.
+panel.refund_list.error.invalid	Revisa los datos. El login puede tener letras, números y guion bajo, hasta 25 caracteres. La etiqueta puede tener hasta 40 caracteres.
+panel.group_lookup.reason.reconnect	No podemos comprobar este grupo porque falta el acceso a Twitch o ha caducado. Reconecta con Twitch para restablecerlo. Mientras tanto, la app espera tu decisión.
+panel.group_lookup.reason.slow	Twitch va lento o está limitando las solicitudes, así que no pudimos comprobar este grupo. La app espera tu decisión.
+panel.group_lookup.reason.not_eligible	Los suscriptores solo se pueden comprobar en canales afiliados o socios. La app espera tu decisión.
+panel.group_lookup.reason.failed	Algo salió mal al comprobar este grupo. La app espera tu decisión.
