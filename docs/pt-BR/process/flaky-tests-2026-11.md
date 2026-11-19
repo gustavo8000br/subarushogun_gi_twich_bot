@@ -9,7 +9,7 @@ Status: **registro aberto, sem correção ainda.** A decisão de abrir story/iss
 
 ## Hipótese (não comprovada)
 
-- Os dois falham só sob carga da bateria completa ou do CI, nunca isolados: a asserção compete com um estado assíncrono de UI/rede (o feedback de cancelamento pendente aparece depois) e uma espera fixa ou curta demais perde a janela em um worker lento.
+- O teste unitário falha só sob carga da bateria completa ou do CI: passou 3/3 quando rodado sozinho, único resultado de isolamento comprovado até agora; o caso do Chromium é um relato único e não foi reexecutado sozinho. A asserção compete com um estado assíncrono de UI/rede (o feedback de cancelamento pendente aparece depois) e uma espera fixa ou curta demais perde a janela em um worker lento.
 - O caso do Chromium é timeout, compatível com runner carregado e não com erro de lógica.
 - Trabalho anterior relacionado: TS-15 (teste instável de exclusão de fila no Chromium, corrigido em `0644cec`, PR #101) e TS-22 (`compose-runtime.test.js:1022`) em [`backlog-inventory.md`](backlog-inventory.md).
 
