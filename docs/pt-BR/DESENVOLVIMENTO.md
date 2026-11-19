@@ -6,7 +6,7 @@ Versão atual: `0.3.0-beta`. Situação por plataforma (2026-10-21): validado po
 
 ## 1. Requisitos
 
-- Node.js `24.20.0` (fixado no `package.json`; não troque) e npm.
+- Node.js `24.22.3` (fixado no `package.json`; não troque) e npm.
 - Docker Engine/Desktop com Compose v2 (PostgreSQL descartável, verificações do Compose).
 - OpenGrep `1.30.0` no `PATH` para o gate de análise estática.
 - Credenciais da Twitch não são necessárias para a suíte automatizada.
@@ -92,7 +92,7 @@ docs/           Stories, processo, pesquisa e referências (docs/archive guarda 
 
 ## 6. GitHub Codespaces
 
-O Dev Container (`.devcontainer/devcontainer.json`, `post-create.sh`) instala Node.js `24.20.0`, Docker Engine com Docker Compose v2, GitHub CLI, OpenGrep `1.30.0`, Codex CLI `0.161.0` e roda `npm ci`. O Codespace tem seu próprio daemon e armazenamento Docker, então não alcança volumes do seu computador. Abra a branch no GitHub, escolha **Code → Codespaces → Create codespace on …** e aguarde o post-create terminar. Uma máquina de 4 núcleos é um bom ponto de partida; pare o Codespace ao terminar. O Codex vem instalado, mas sem login: execute `codex login --device-auth` e depois `codex`. Nenhum dado de produto, token da Twitch ou credencial do host é copiado. Referências: [configuração do Dev Container](https://docs.github.com/en/codespaces/setting-up-your-project-for-codespaces/adding-a-dev-container-configuration/introduction-to-dev-containers), [Docker-in-Docker](https://github.com/devcontainers/features/tree/main/src/docker-in-docker), [Codex CLI](https://developers.openai.com/codex/cli), [instalação do OpenGrep](https://github.com/opengrep/opengrep/blob/main/INSTALL.md).
+O Dev Container (`.devcontainer/devcontainer.json`, `post-create.sh`) instala Node.js `24.22.3`, Docker Engine com Docker Compose v2, GitHub CLI, OpenGrep `1.30.0`, Codex CLI `0.161.0` e roda `npm ci`. O Codespace tem seu próprio daemon e armazenamento Docker, então não alcança volumes do seu computador. Abra a branch no GitHub, escolha **Code → Codespaces → Create codespace on …** e aguarde o post-create terminar. Uma máquina de 4 núcleos é um bom ponto de partida; pare o Codespace ao terminar. O Codex vem instalado, mas sem login: execute `codex login --device-auth` e depois `codex`. Nenhum dado de produto, token da Twitch ou credencial do host é copiado. Referências: [configuração do Dev Container](https://docs.github.com/en/codespaces/setting-up-your-project-for-codespaces/adding-a-dev-container-configuration/introduction-to-dev-containers), [Docker-in-Docker](https://github.com/devcontainers/features/tree/main/src/docker-in-docker), [Codex CLI](https://developers.openai.com/codex/cli), [instalação do OpenGrep](https://github.com/opengrep/opengrep/blob/main/INSTALL.md).
 
 ## 7. CI e entrega
 

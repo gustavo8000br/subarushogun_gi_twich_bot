@@ -30,7 +30,7 @@ describe('research freshness workflow contract', () => {
   it('pins actions by SHA, uses the project Node.js pin and does not persist credentials', () => {
     const job = workflow.jobs.freshness;
     for (const step of job.steps.filter((entry) => entry.uses)) expect(step.uses).toMatch(/@[0-9a-f]{40}$/);
-    expect(job.steps.find((step) => step.uses.startsWith('actions/setup-node@')).with['node-version']).toBe('24.20.0');
+    expect(job.steps.find((step) => step.uses.startsWith('actions/setup-node@')).with['node-version']).toBe('24.22.3');
     expect(job.steps.find((step) => step.uses.startsWith('actions/checkout@')).with['persist-credentials']).toBe(false);
   });
 });

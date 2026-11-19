@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-const EXPECTED_NODE_VERSION = 'v24.20.0';
+const EXPECTED_NODE_VERSION = 'v24.22.3';
 
 function runCheck(command, args, root) {
   try {
@@ -32,7 +32,7 @@ export async function runDevelopmentPreflight({
   const nodeResult = checkCommand(process.execPath, ['--version'], root);
   const nodeVersion = nodeResult.stdout?.trim();
   if (nodeResult.status !== 0 || nodeVersion !== EXPECTED_NODE_VERSION) {
-    throw new Error(`This project requires Node.js 24.20.0. Current version: ${nodeVersion || 'unavailable'}. Install/use Node 24.20.0, then retry npm run dev.`);
+    throw new Error(`This project requires Node.js 24.22.3. Current version: ${nodeVersion || 'unavailable'}. Install/use Node 24.22.3, then retry npm run dev.`);
   }
 
   if (!await checkDependencies(root)) {

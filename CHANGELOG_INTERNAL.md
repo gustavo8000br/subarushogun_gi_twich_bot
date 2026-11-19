@@ -2,6 +2,10 @@
 
 [Português brasileiro](docs/pt-BR/CHANGELOG_INTERNAL.md)
 
+## Node.js 24.22.3 security patch bump — 2026-11-19
+
+- **2026-11-19 — Node pin 24.20.0 -> 24.22.3 (security patch, same 24 line):** Node 24.22.1 and 24.22.3 are security releases (16 CVEs, 7 High; one, CVE-2026-123864, may apply through the Next.js frontend `node:https` server, 127.0.0.1 only). The pin moved in `package.json`/`package-lock.json` `engines.node`, `.nvmrc`, both `Dockerfile` stages (`node:24.22.3-alpine3.24`), the Dev Container, `dev-preflight`, the CI/CD workflows and the owner test installer model, the Windows validation script and kit, and the docs (en and pt-BR). Local developers must run `nvm install 24.22.3` (`npm run dev` refuses another Node). New `tests/unit/node-pin-consistency.test.js` reads `engines.node` and checks every other place, so the next bump is a single mechanical replacement. No data change, no migration; rollback is a plain revert. Windows/macOS evidence comes only from CI.
+
 ## Release fix: tag identity — 2026-11-05
 
 - **2026-11-05 — `release.yml` (OPS-15):** `Publish versioned release` failed at `git tag -a` with `Committer identity unknown`; the tag step now sets `user.name`/`user.email` (`github-actions[bot]`) before tagging, and `tests/unit/release-workflow-tag-contract.test.js` locks identity, `contents: write`, checkout credentials and the `gh release create` flags.

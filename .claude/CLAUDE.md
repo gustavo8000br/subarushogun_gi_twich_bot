@@ -284,7 +284,7 @@ await story.save();
 ## Environment Setup
 
 ### Required Tools
-- Node.js 24.20.0 (current pin in `package.json`; a project default, not immutable; see AGENTS.md)
+- Node.js 24.22.3 (current pin in `package.json`; a project default, not immutable; see AGENTS.md)
 - GitHub CLI
 - Git
 - Your preferred package manager (npm/yarn/pnpm)

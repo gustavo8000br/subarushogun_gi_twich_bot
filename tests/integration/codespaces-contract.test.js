@@ -13,7 +13,7 @@ describe('GitHub Codespaces development environment', () => {
     const config = JSON.parse(await readFile(devcontainerUrl, 'utf8'));
 
     expect(config.name).toBe('SubaruShogun Twitch Queue Bot');
-    expect(config.features['ghcr.io/devcontainers/features/node:2.1.1'].version).toBe('24.20.0');
+    expect(config.features['ghcr.io/devcontainers/features/node:2.1.1'].version).toBe('24.22.3');
     expect(config.features['ghcr.io/devcontainers/features/docker-in-docker:4.1.3']).toMatchObject({
       dockerDashComposeVersion: 'v2',
       installDockerBuildx: true,

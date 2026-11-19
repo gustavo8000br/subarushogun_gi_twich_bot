@@ -25,7 +25,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '24.20.0'
+          node-version: '24.22.3'
       # The CLI is read-only and has no npm dependency (node: built-ins only), so no install step.
       # It exits 1 on OVERDUE or WAIVER-EXPIRED rows and 2 on a format error or en/pt-BR mismatch.
       - name: Check research deadlines and en/pt-BR parity
