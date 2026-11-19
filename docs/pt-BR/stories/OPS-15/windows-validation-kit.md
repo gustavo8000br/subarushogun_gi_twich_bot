@@ -110,7 +110,7 @@ docker rm -f outro-teste
 
 ## 7. Caminho de desenvolvedor (OWN-05 e OWN-06, opcional, fora da fórmula do beta)
 
-Precisa de Node.js 24.20.0, Git for Windows (OpenSSL) e Docker Desktop. Em um clone do repositório:
+Precisa de Node.js 24.22.3, Git for Windows (OpenSSL) e Docker Desktop. Em um clone do repositório:
 
 ```powershell
 node --version

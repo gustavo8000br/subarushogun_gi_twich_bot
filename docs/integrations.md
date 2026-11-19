@@ -6,15 +6,15 @@
 
 ### Container runtime research
 
-The API image is pinned to the official `node:24.20.0-alpine3.24` image. On 2026-10-05, a clean AMD64 Docker build and a real isolated Compose startup confirmed Prisma 6.19.3 generates and loads its `linux-musl-openssl-3.0.x` engine on Alpine 3.24. Bootstrap, the three versioned migrations, non-root runtime, HTTPS health endpoint and database connection passed. The regular local Compose stack was then clean-built and restarted on the existing PostgreSQL/secrets volumes without deleting them. PostgreSQL remains `postgres:18.6-bookworm`. Post-merge GitHub Actions/QEMU built and published both AMD64 and ARM64 images, verified in the GHCR `main` and `v0.1.0-3e0c935-alpha` manifests. Windows/macOS host runs have not been repeated after this base change. FND-5 and FND-6 are complete and merged in PRs #16 and #22; live Twitch reward writes remain unverified.
+The API image is pinned to the official `node:24.22.3-alpine3.24` image. On 2026-10-05 (then on the `node:24.20.0-alpine3.24` base; bumped to 24.22.3 on 2026-11-19), a clean AMD64 Docker build and a real isolated Compose startup confirmed Prisma 6.19.3 generates and loads its `linux-musl-openssl-3.0.x` engine on Alpine 3.24. Bootstrap, the three versioned migrations, non-root runtime, HTTPS health endpoint and database connection passed. The regular local Compose stack was then clean-built and restarted on the existing PostgreSQL/secrets volumes without deleting them. PostgreSQL remains `postgres:18.6-bookworm`. Post-merge GitHub Actions/QEMU built and published both AMD64 and ARM64 images, verified in the GHCR `main` and `v0.1.0-3e0c935-alpha` manifests. Windows/macOS host runs have not been repeated after this base change. FND-5 and FND-6 are complete and merged in PRs #16 and #22; live Twitch reward writes remain unverified.
 
-References: [official Node image tags](https://hub.docker.com/_/node/tags?name=24.20.0-alpine), [Prisma Docker deployment guide](https://docs.prisma.io/docs/guides/deployment/docker), [Prisma ORM 6 platform engines](https://docs.prisma.io/docs/orm/v6/reference/prisma-schema-reference).
+References: [official Node image tags](https://hub.docker.com/_/node/tags?name=24.22.3-alpine), [Prisma Docker deployment guide](https://docs.prisma.io/docs/guides/deployment/docker), [Prisma ORM 6 platform engines](https://docs.prisma.io/docs/orm/v6/reference/prisma-schema-reference).
 
 ## Runtime versions
 
 | Component | Version | Decision |
 | --- | --- | --- |
-| Node.js | 24.20.0 | Pinned runtime and development version; app image uses official `node:24.20.0-alpine3.24` (musl), while PostgreSQL remains `postgres:18.6-bookworm`. Prisma 6.19.3 generated and loaded `linux-musl-openssl-3.0.x` in an actual Alpine Compose run on 2026-10-05. |
+| Node.js | 24.22.3 | Pinned runtime and development version; app image uses official `node:24.22.3-alpine3.24` (musl), while PostgreSQL remains `postgres:18.6-bookworm`. Prisma 6.19.3 generated and loaded `linux-musl-openssl-3.0.x` in an actual Alpine Compose run on 2026-10-05. |
 | `@twurple/auth`, `@twurple/api`, `@twurple/eventsub-ws` | 8.2.0 | Same release line; use `RefreshingAuthProvider`, Helix API clients, and EventSub WebSocket. |
 | Prisma CLI, `@prisma/client`, `@prisma/adapter-pg` | 6.19.3 | Keep CLI and client aligned; `prisma-client-js` generates JavaScript-compatible client output. Prisma 7's `prisma-client` generator outputs TypeScript and does not satisfy this JavaScript-only application. |
 | PostgreSQL | 18.6 | Local Compose service; integration tests use an isolated PostgreSQL database and actual migrations. |

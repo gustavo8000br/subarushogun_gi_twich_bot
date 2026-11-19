@@ -405,7 +405,7 @@ Invoke-Passo 'LB-04-b' (D 'Duas Browser Sources ao mesmo tempo' 'Two Browser Sou
 }
 
 Invoke-Passo 'OWN-05' (D 'Opcional: npm ci e npm run dev; Ctrl+C sem node.exe sobrando' 'Optional: npm ci and npm run dev; Ctrl+C leaves no node.exe') -Opcional {
-  Say (D '  Num clone do repositorio com Node 24.20.0, Git for Windows e Docker: node --version; npm ci; npm run dev. PASS quando o painel abre e, apos Ctrl+C, "Get-Process node" fica vazio.' '  In a repository clone with Node 24.20.0, Git for Windows and Docker: node --version; npm ci; npm run dev. PASS when the panel opens and after Ctrl+C "Get-Process node" is empty.')
+  Say (D '  Num clone do repositorio com Node 24.22.3, Git for Windows e Docker: node --version; npm ci; npm run dev. PASS quando o painel abre e, apos Ctrl+C, "Get-Process node" fica vazio.' '  In a repository clone with Node 24.22.3, Git for Windows and Docker: node --version; npm ci; npm run dev. PASS when the panel opens and after Ctrl+C "Get-Process node" is empty.')
   if ($WhatIf) { Say ('  ' + (T 'whatif')) 'Yellow'; $script:Cur.Nota = 'WhatIf'; return }
   Pedir-Veredito 'PULAR'
 }

@@ -6,15 +6,15 @@
 
 ### Pesquisa do runtime de contêiner
 
-A imagem da API usa a imagem oficial fixada `node:24.20.0-alpine3.24`. Em 2026-10-05, build Docker AMD64 limpo e inicialização Compose isolada real confirmaram que Prisma 6.19.3 gera e carrega sua engine `linux-musl-openssl-3.0.x` no Alpine 3.24. Bootstrap, as três migrations versionadas, runtime sem root, health HTTPS e conexão ao banco passaram. Depois, a stack Compose local normal foi reconstruída e reiniciada sobre os volumes existentes de PostgreSQL/segredos, sem apagá-los. PostgreSQL continua em `postgres:18.6-bookworm`. O GitHub Actions/QEMU pós-merge compilou e publicou as imagens AMD64 e ARM64, verificadas nos manifests GHCR `main` e `v0.1.0-3e0c935-alpha`. O uso em hosts Windows/macOS não foi repetido após esta troca de base.
+A imagem da API usa a imagem oficial fixada `node:24.22.3-alpine3.24`. Em 2026-10-05 (então na base `node:24.20.0-alpine3.24`; atualizada para 24.22.3 em 2026-11-19), build Docker AMD64 limpo e inicialização Compose isolada real confirmaram que Prisma 6.19.3 gera e carrega sua engine `linux-musl-openssl-3.0.x` no Alpine 3.24. Bootstrap, as três migrations versionadas, runtime sem root, health HTTPS e conexão ao banco passaram. Depois, a stack Compose local normal foi reconstruída e reiniciada sobre os volumes existentes de PostgreSQL/segredos, sem apagá-los. PostgreSQL continua em `postgres:18.6-bookworm`. O GitHub Actions/QEMU pós-merge compilou e publicou as imagens AMD64 e ARM64, verificadas nos manifests GHCR `main` e `v0.1.0-3e0c935-alpha`. O uso em hosts Windows/macOS não foi repetido após esta troca de base.
 
-Referências: [tags oficiais da imagem Node](https://hub.docker.com/_/node/tags?name=24.20.0-alpine), [guia de deploy Docker do Prisma](https://docs.prisma.io/docs/guides/deployment/docker), [engines de plataforma do Prisma ORM 6](https://docs.prisma.io/docs/orm/v6/reference/prisma-schema-reference).
+Referências: [tags oficiais da imagem Node](https://hub.docker.com/_/node/tags?name=24.22.3-alpine), [guia de deploy Docker do Prisma](https://docs.prisma.io/docs/guides/deployment/docker), [engines de plataforma do Prisma ORM 6](https://docs.prisma.io/docs/orm/v6/reference/prisma-schema-reference).
 
 ## Versões de runtime
 
 | Componente | Versão | Decisão |
 | --- | --- | --- |
-| Node.js | 24.20.0 | Runtime e desenvolvimento fixados; a imagem do app usa `node:24.20.0-alpine3.24` oficial (musl), enquanto PostgreSQL permanece em `postgres:18.6-bookworm`. Prisma 6.19.3 gerou e carregou `linux-musl-openssl-3.0.x` em Compose Alpine real em 2026-10-05. |
+| Node.js | 24.22.3 | Runtime e desenvolvimento fixados; a imagem do app usa `node:24.22.3-alpine3.24` oficial (musl), enquanto PostgreSQL permanece em `postgres:18.6-bookworm`. Prisma 6.19.3 gerou e carregou `linux-musl-openssl-3.0.x` em Compose Alpine real em 2026-10-05. |
 | `@twurple/auth`, `@twurple/api`, `@twurple/eventsub-ws` | 8.2.0 | Mesma linha de release; usar `RefreshingAuthProvider`, clientes Helix e EventSub WebSocket. |
 | Prisma CLI, `@prisma/client`, `@prisma/adapter-pg` | 6.19.3 | CLI e cliente alinhados; `prisma-client-js` gera saída compatível com JavaScript. O gerador `prisma-client` do Prisma 7 produz TypeScript e não atende a aplicação JavaScript-only. |
 | PostgreSQL | 18.6 | Serviço local Compose; testes usam PostgreSQL isolado e migrations reais. |

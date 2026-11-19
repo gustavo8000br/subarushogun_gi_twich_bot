@@ -6,7 +6,7 @@ Current version: `0.3.0-beta`. Platform status (2026-10-21): validated by a pers
 
 ## 1. Requirements
 
-- Node.js `24.20.0` (pinned in `package.json`; do not switch) and npm.
+- Node.js `24.22.3` (pinned in `package.json`; do not switch) and npm.
 - Docker Engine/Desktop with Compose v2 (disposable PostgreSQL, Compose checks).
 - OpenGrep `1.30.0` on `PATH` for the static-analysis gate.
 - Twitch credentials are not needed for the automated suite.
@@ -92,7 +92,7 @@ docs/           Stories, process, research and references (docs/archive keeps lo
 
 ## 6. GitHub Codespaces
 
-The Dev Container (`.devcontainer/devcontainer.json`, `post-create.sh`) installs Node.js `24.20.0`, Docker Engine with Docker Compose v2, GitHub CLI, OpenGrep `1.30.0`, Codex CLI `0.161.0` and runs `npm ci`. The Codespace has its own Docker daemon and storage, so it cannot touch volumes on your computer. Open the branch on GitHub, then **Code → Codespaces → Create codespace on …**, and wait for post-create to finish. A 4-core machine is a practical start; stop the Codespace when done. Codex is installed but not signed in: run `codex login --device-auth`, then `codex`. No product data, Twitch tokens or host credentials are copied in. References: [Dev Container configuration](https://docs.github.com/en/codespaces/setting-up-your-project-for-codespaces/adding-a-dev-container-configuration/introduction-to-dev-containers), [Docker-in-Docker](https://github.com/devcontainers/features/tree/main/src/docker-in-docker), [Codex CLI](https://developers.openai.com/codex/cli), [OpenGrep install](https://github.com/opengrep/opengrep/blob/main/INSTALL.md).
+The Dev Container (`.devcontainer/devcontainer.json`, `post-create.sh`) installs Node.js `24.22.3`, Docker Engine with Docker Compose v2, GitHub CLI, OpenGrep `1.30.0`, Codex CLI `0.161.0` and runs `npm ci`. The Codespace has its own Docker daemon and storage, so it cannot touch volumes on your computer. Open the branch on GitHub, then **Code → Codespaces → Create codespace on …**, and wait for post-create to finish. A 4-core machine is a practical start; stop the Codespace when done. Codex is installed but not signed in: run `codex login --device-auth`, then `codex`. No product data, Twitch tokens or host credentials are copied in. References: [Dev Container configuration](https://docs.github.com/en/codespaces/setting-up-your-project-for-codespaces/adding-a-dev-container-configuration/introduction-to-dev-containers), [Docker-in-Docker](https://github.com/devcontainers/features/tree/main/src/docker-in-docker), [Codex CLI](https://developers.openai.com/codex/cli), [OpenGrep install](https://github.com/opengrep/opengrep/blob/main/INSTALL.md).
 
 ## 7. CI and delivery
 
