@@ -6,6 +6,8 @@ Status: **open record, no fix yet.** Owner of the decision to open a story/issue
 |---|---|---|---|
 | `tests/unit/next-queue-lifecycle-recovery.test.jsx`, "maps the API cancellation conflict into safe UI feedback" | `expected 'null' to contain 'panel.queue.delete.cancel.processing'` | `@qa` full battery of the research-flow package (2026-11-18, 333 s run, 231/232 files); CI of PR #148 | 1 failure in that full run; the file passed 3/3 when rerun alone. CI occurrence reported by the orchestrator (not re-verified here) |
 | `compose-widgets-overlay-revoke` (Chromium integration) | Chromium step timeout | CI of PR #148 | reported by the orchestrator, 1 occurrence (not re-verified here) |
+| `tests/unit/next-refund-list-section.test.jsx`, "removes a person with a status message…" | focus assertion fails | CI of PR #156 | 1 failure; passed on `gh run rerun --failed` (reported by the orchestrator, not re-verified here) |
+| `tests/e2e/route-parity-browser-only.mjs` (Chrome) | `chrome-error` on `page.goto('/commands/')` against the development server | `@qa` run of the "Ausentes" package (2026-11-19) | 3 failures in 6 runs, also on the clean base (so not caused by the package) |
 
 ## Hypothesis (not proven)
 

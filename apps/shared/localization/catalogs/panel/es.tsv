@@ -251,6 +251,12 @@ panel.runtime.refreshed	Actualizado
 panel.queue.group.waiting	En espera
 panel.queue.group.called	Llamados
 panel.queue.group.in_service	En atención
+panel.queue.group.absent	Ausentes
+panel.queue.absent.count.one	{count} persona ausente
+panel.queue.absent.count.many	{count} personas ausentes
+panel.queue.absent.count.other	{count} personas ausentes
+panel.queue.absent.empty	Nadie ausente
+panel.queue.absent.limited	Se muestran las {shown} más recientes de {total}. Las anteriores quedan en el historial reciente.
 panel.queue.empty.title	No hay colas creadas
 panel.queue.empty.hint	Las personas en espera y las atenciones aparecerán aquí cuando crees una cola.
 panel.queue.empty.connect	Conectar canal
@@ -307,6 +313,7 @@ panel.queue.entry_action_result.fulfillment_pending	Atención iniciada. Se está
 panel.queue.entry_action_result.fulfillment_refresh_failed	Atención iniciada y se solicitó la confirmación a Twitch, pero no se pudo actualizar la cola. Recarga el panel para consultar el último estado.
 panel.queue.entry_action_result.postponed	Se aplazó el turno de {user}. Sigue en la cola, ahora en la posición {position}.
 panel.queue.entry_action_result.uncertain	Es posible que la acción se haya registrado. Actualiza la cola antes de intentarlo de nuevo.
+panel.queue.entry_action_result.restored	{user} ya no figura como ausente. Volvió a la cola en la posición {position}.
 panel.queue.action.resolve_reward	Vincular recompensa
 panel.queue.action_blocked.reward_unresolved	Los controles están pausados hasta vincular y confirmar una recompensa de Twitch. Usa «Vincular recompensa» para continuar.
 panel.queue.action_blocked.reward_creation_pending	Los controles estarán disponibles cuando Twitch confirme la creación de la recompensa.
@@ -340,6 +347,8 @@ panel.entry.action.remove	quitar
 panel.entry.action.remove_aria	Quitar a {user} de la cola
 panel.entry.action.postpone	aplazar
 panel.entry.action.postpone_aria	Aplazar a {user}: vuelve a la lista de espera
+panel.entry.action.restore	restaurar
+panel.entry.action.restore_aria	Restaurar a {user} en la cola
 panel.entry.priority_badge	Prioritaria · verificada por el operador
 panel.entry.uid_label	UID
 panel.queue.points	puntos
@@ -705,6 +714,8 @@ panel.queue.mode.converted	Convertida desde una recompensa Twitch · la recompen
 panel.error.queue_mode_transition_pending	La cola está cambiando de modo. Espera a que Twitch confirme la pausa.
 panel.error.queue_mode_transition_unavailable	La cola no puede cambiar de modo en su estado actual. Actualiza el panel y revisa las operaciones.
 panel.error.entry_version_stale	El estado de la persona cambió desde que se cargó la cola. Actualiza el panel e inténtalo de nuevo.
+panel.error.entry_restore_intent_recorded	No se puede restaurar a {user}: la devolución o la finalización de los puntos ya quedó registrada. Para volver, necesita un nuevo canje o una inclusión manual.
+panel.error.entry_restore_other_active	No se puede restaurar a {user}: ya tiene otra entrada activa en esta cola. Revisa las listas de arriba.
 panel.error.settlement_policy_stale	La política de puntos cambió en otra operación. Actualiza el panel e inténtalo de nuevo.
 panel.entry.call.awaiting_delivery	El plazo aún no ha comenzado; esperando la confirmación del envío.
 panel.entry.call.no_deadline	No hay plazo automático para iniciar la atención.

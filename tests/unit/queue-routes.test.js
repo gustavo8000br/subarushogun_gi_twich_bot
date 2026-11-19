@@ -2489,4 +2489,24 @@ describe('local queue and setup API', () => {
     expect(state.queues[1]).not.toHaveProperty('pendingDecisions');
     await h.app.close();
   });
+  it('OPS-31 K72-01b: absent {total, entries} is operator-only (GET /api/queues), enumerated per field, and absent means unknown (never 0)', async () => {
+    const h = await createHarness();
+    const finishedAt = '2030-03-01T10:00:00.000Z';
+    h.repository.listQueueProjection = vi.fn(async () => [
+      { id: 'a', slug: 'a', title: 'A', entries: [{ id: 'live', status: 'waiting', userId: 'u1', userLogin: 'live', displayName: 'Live' }],
+        absent: { total: 21, entries: [{ id: 'gone', userLogin: 'gone', displayName: 'Gone', version: 4, finishedAt, userId: 'secret-uid', uid: '123456789' }] } },
+      { id: 'b', slug: 'b', title: 'B', entries: [] },
+    ]);
+    const listed = (await h.app.inject({ method: 'GET', url: '/api/queues', headers: h.sessionHeaders })).json();
+    expect(listed[0].absent).toEqual({ total: 21, entries: [{ id: 'gone', userLogin: 'gone', displayName: 'Gone', version: 4, finishedAt }] });
+    expect(listed[0].entries.map(({ status }) => status)).toEqual(['waiting']); // `entries` never carries `no_show`
+    expect(listed[1]).not.toHaveProperty('absent');
+    expect(JSON.stringify(listed)).not.toContain('secret-uid');
+    expect(JSON.stringify(listed)).not.toContain('123456789');
+    // The non-operator DTO (state / overlay feed) never carries the absent names.
+    const state = (await h.app.inject({ method: 'GET', url: '/api/state', headers: h.sessionHeaders })).json();
+    expect(state.queues[0]).not.toHaveProperty('absent');
+    expect(JSON.stringify(state)).not.toContain('Gone');
+    await h.app.close();
+  });
 });

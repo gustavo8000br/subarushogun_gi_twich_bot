@@ -315,6 +315,17 @@ h1 { margin-bottom: 8px; font-size: clamp(25px, 3vw, 32px); font-weight: 660; le
 .queue-entry-actions button:hover:not(:disabled) { border-color: #8064b4; color: #e0d4ff; }
 .queue-entry-actions button:disabled { cursor: not-allowed; opacity: .55; }
 .queue-entry-group > p { margin: 0; color: #aaabba; font-size: 12px; }
+.queue-absent-group { grid-column: 1 / -1; }
+.queue-absent-group summary { display: list-item; box-sizing: border-box; min-height: 44px; min-width: 44px; padding-block: 12px; color: #d1cfda; font-size: 13px; font-weight: 600; cursor: pointer; }
+.queue-absent-group summary:focus-visible { outline: 2px solid #8064b4; outline-offset: 2px; }
+.queue-absent-count { margin-left: 8px; color: #a88be8; }
+.queue-absent-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.queue-absent-group ol { list-style: none; padding-left: 0; }
+.queue-absent-name, .queue-absent-refused { min-width: 0; overflow-wrap: anywhere; }
+.queue-absent-refused { color: #ff9a9a; font-size: 12px; line-height: 1.5; }
+.queue-absent-group details > p { margin: 0; color: #aaabba; font-size: 12px; }
+.queue-absent-group .queue-absent-limit { margin-top: 8px; }
+.queue-absent-group > .queue-action-feedback:not(:empty) { margin-top: 8px; }
 
 @media (max-width: 850px) {
   .panel-sidebar { width: 218px; }

@@ -147,8 +147,9 @@ async function reloadAwaitingQueueProjection(page, origin, { timeout = 90_000 } 
 }
 
 /** OPS-31 P5b: only the projection carries the pending-decision count; a mutation response does not read it. */
-function withoutPendingCount({ pendingDecisions, ...queue }) {
+function withoutPendingCount({ pendingDecisions, absent, ...queue }) {
   expect(pendingDecisions).toEqual({ awaitingChoice: 0, checkGroup: 0, total: 0 });
+  expect(absent).toEqual({ total: 0, entries: [] }); // OPS-31 K72-01b: the additive operator-only absent group (nobody absent here)
   return queue;
 }
 
@@ -269,8 +270,9 @@ describe('isolated Compose first-run and restart acceptance', () => {
     const persisted = listed.json().filter((queue) => queue.id === dto.id);
     expect(persisted).toHaveLength(1);
     // OPS-31 P5b: the projection (and only it) carries the pending-decision count; a creation response does not read it.
-    const { pendingDecisions: persistedPending, ...persistedDto } = persisted[0];
+    const { pendingDecisions: persistedPending, absent: persistedAbsent, ...persistedDto } = persisted[0];
     expect(persistedPending).toEqual({ awaitingChoice: 0, checkGroup: 0, total: 0 });
+    expect(persistedAbsent).toEqual({ total: 0, entries: [] }); // OPS-31 K72-01b
     expect(persistedDto).toEqual(dto);
     expect(dto.remoteSyncStatus).toBe('local_only');
 
@@ -753,8 +755,9 @@ describe('isolated Compose first-run and restart acceptance', () => {
         headers: { cookie: `queuebot_session=${sessionCookie.value}`, origin },
       });
       expect(list.status).toBe(200);
-      const { pendingDecisions: listedPending, ...listedDto } = list.json().find(({ id }) => id === dto.id);
+      const { pendingDecisions: listedPending, absent: listedAbsent, ...listedDto } = list.json().find(({ id }) => id === dto.id);
       expect(listedPending).toEqual({ awaitingChoice: 0, checkGroup: 0, total: 0 });
+      expect(listedAbsent).toEqual({ total: 0, entries: [] }); // OPS-31 K72-01b
       expect(listedDto).toEqual(dto);
 
       await page.setViewportSize({ width: 390, height: 844 });

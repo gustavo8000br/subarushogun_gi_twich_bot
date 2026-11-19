@@ -7,6 +7,7 @@ import QueueLifecycleActions from './queue-lifecycle-actions.jsx';
 import QueueRewardSettingsDialog from './queue-reward-settings-dialog.jsx';
 import { getQueueClearFailureFeedback } from './queue-clear.mjs';
 import { QUEUE_ENTRY_REFRESH_KEYS } from './queue-entry-actions.mjs';
+import { ABSENT_RESTORE_REFUSAL_KEYS, absentCountKey, readAbsentGroup } from './queue-absent.mjs';
 
 const ENTRY_GROUPS = Object.freeze([
   { id: 'waiting', label: 'panel.queue.group.waiting', statuses: ['waiting'] },
@@ -285,6 +286,97 @@ function QueueClearAction({ queue, t, saving, onPreview, onConfirm, onRefreshQue
   </>;
 }
 
+/**
+ * OPS-31 K72-01b: the "Absent" group of the live list. Collapsed by default with a visible counter; the 20 most recent people with
+ * "restore"; its own status/alert regions (always mounted) so the card header does not repeat the restore messages.
+ */
+function AbsentGroup({ queue, group, locale, t, saving, queueAction, onEntryAction, onRefreshProjection }) {
+  const format = (value) => new Intl.NumberFormat(locale).format(value);
+  const sectionRef = useRef(null);
+  const clickedIndex = useRef(0);
+  const [refused, setRefused] = useState({});
+  const settled = queueAction?.queueId === queue.id && queueAction.action === 'restore' && queueAction.status !== 'saving' ? queueAction : null;
+  const userOf = (entryId) => {
+    const found = group.entries.find((candidate) => candidate.id === entryId);
+    return found ? found.displayName || found.userLogin : '';
+  };
+  useEffect(() => {
+    // The refusal note replaces the button only until the list is reloaded (a new `entries` array), then the row is checked again.
+    setRefused({});
+  }, [group.entries]);
+  useEffect(() => {
+    // Focus stays in the group (the operator usually restores several in a row): after a restore, on the button that took the
+    // place of the restored row (or the previous one, or the summary); after a failure, back on the row that was used.
+    if (!settled) return;
+    const byId = (id) => /** @type {HTMLElement | null} */ (document.getElementById(id));
+    const usable = (node) => node && !(node.tagName === 'BUTTON' && /** @type {HTMLButtonElement} */ (node).disabled);
+    let target;
+    if (settled.status === 'confirmed') {
+      const buttons = [...(sectionRef.current?.querySelectorAll('button[data-restore]') ?? [])].filter((button) => !(/** @type {HTMLButtonElement} */ (button).disabled));
+      target = buttons[Math.min(clickedIndex.current, buttons.length - 1)] ?? sectionRef.current?.querySelector('summary');
+    } else if (ABSENT_RESTORE_REFUSAL_KEYS.includes(settled.key)) {
+      setRefused((current) => ({ ...current, [settled.entryId]: settled.key }));
+      target = byId(`queue-absent-entry-${settled.entryId}`);
+    } else {
+      target = [byId(`queue-absent-restore-${settled.entryId}`), byId(`queue-absent-alert-${queue.id}`)].find(usable);
+    }
+    target?.focus();
+  }, [settled]);
+  const isAlert = settled?.status === 'error';
+  const reference = typeof settled?.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(settled.referenceId) ? settled.referenceId : null;
+  // Only the two refusal texts carry {user}; the catalog rejects values a key does not declare.
+  const noticeValues = settled?.values ?? (ABSENT_RESTORE_REFUSAL_KEYS.includes(settled?.key) ? { user: userOf(settled.entryId) } : undefined);
+  const noticeText = settled ? t(settled.key, { values: noticeValues }) : '';
+  const shown = group.entries.length;
+  return (
+    <section ref={sectionRef} className="queue-entry-group queue-absent-group" aria-label={t('panel.queue.group.absent')}>
+      <details>
+        <summary id={`queue-absent-summary-${queue.id}`}>
+          <span>{t('panel.queue.group.absent')}</span>
+          <span className="queue-absent-count" aria-hidden="true">{format(group.total)}</span>
+          <span className="queue-absent-sr">{t(absentCountKey(group.total, locale), { values: { count: format(group.total) } })}</span>
+        </summary>
+        {group.total === 0 ? <p>{t('panel.queue.absent.empty')}</p> : (
+          <ol>
+            {group.entries.map((item, index) => {
+              const user = item.displayName || item.userLogin;
+              const date = item.finishedAt && !Number.isNaN(new Date(item.finishedAt).getTime())
+                ? new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(item.finishedAt))
+                : null;
+              const refusal = refused[item.id];
+              return (
+                <li key={item.id} id={`queue-absent-entry-${item.id}`} tabIndex={-1} className="queue-entry-row queue-absent-row">
+                  <span className="queue-absent-name">{user} · {date ? <time dateTime={item.finishedAt}>{date}</time> : t('panel.queue.history.date_unavailable')}</span>
+                  <span className="queue-entry-actions">
+                    {refusal ? <span className="queue-absent-refused">{t(refusal, { values: { user } })}</span> : (
+                      <button type="button" id={`queue-absent-restore-${item.id}`} data-restore="" className="small-action"
+                        aria-label={t('panel.entry.action.restore_aria', { values: { user } })}
+                        aria-busy={saving && queueAction?.status === 'saving' && queueAction.entryId === item.id && queueAction.action === 'restore' ? 'true' : undefined}
+                        disabled={saving}
+                        onClick={() => { clickedIndex.current = index; void onEntryAction?.(queue.id, item.id, 'restore', { expectedVersion: item.version }); }}>
+                        {t('panel.entry.action.restore')}
+                      </button>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+        {group.total > shown ? <p className="queue-absent-limit">{t('panel.queue.absent.limited', { values: { shown: format(shown), total: format(group.total) } })}</p> : null}
+      </details>
+      <p className={`queue-action-feedback${settled?.status === 'warning' ? ' is-warning' : ''}`} role="status">{settled && !isAlert ? noticeText : ''}</p>
+      <div id={`queue-absent-alert-${queue.id}`} tabIndex={-1} className="queue-action-feedback is-error" role="alert">
+        {isAlert ? <>
+          <span>{noticeText}</span>
+          {reference ? <small>{t('panel.error.reference', { values: { id: reference } })}</small> : null}
+          {QUEUE_ENTRY_REFRESH_KEYS.includes(settled.key) ? <button type="button" className="small-action" disabled={saving} onClick={() => void onRefreshProjection?.({ purpose: 'entry-action' })}>{t('panel.reward.refresh_queue')}</button> : null}
+        </> : null}
+      </div>
+    </section>
+  );
+}
+
 /** @param {{queues: Array<any>, locale: string, t: (key:string, options?:object)=>string}} props */
 export default function QueueList({ queues, locale, t, lifecycleNotice = null, onToggleQueue, onEntryAction, onManualEntry, onSaveSettings, onLoadHistory, onPreviewClear, onConfirmClear, onRefreshQueue, onRefreshCallQueue, onRefreshProjection, clearRefreshRequired = false, queueCallRefreshRequired = false, queueCallRecovery = null, onLifecycleAction, onOutcome, onLoadRewardCandidates, onResolveReward, onSaveRewardSettings, saving = false, queueAction = null, queueSettingsAction = null }) {
   const [expiryAnnouncement, setExpiryAnnouncement] = useState('');
@@ -346,6 +438,7 @@ export default function QueueList({ queues, locale, t, lifecycleNotice = null, o
         const isSavingQueue = saving && queueAction?.queueId === queue.id;
         const canManageEntries = queue.lifecycleStatus !== 'deleting' && queue.lifecycleStatus !== 'deleted' && !queue.isArchived;
         const actionKey = queue.isOpen ? 'panel.queue.action.pause' : 'panel.queue.action.activate';
+        const absentGroup = canManageEntries ? readAbsentGroup(queue) : null;
         const waitingCount = queue.entries.filter((entry) => entry.status === 'waiting').length;
         return (
           <article className="queue-list-card" key={queue.id} aria-labelledby={`queue-title-${queue.id}`}>
@@ -373,7 +466,7 @@ export default function QueueList({ queues, locale, t, lifecycleNotice = null, o
               {!queue.isArchived && queue.lifecycleStatus !== 'deleting' && !actionState.canDelete && actionState.deleteBlockedReason
                 ? <p className="queue-action-help">{t(`panel.queue.delete_blocked.${actionState.deleteBlockedReason}`)}</p> : null}
               {!actionState.canToggleIntake && actionState.blockedReason ? <p className="queue-action-help">{t(`panel.queue.action_blocked.${actionState.blockedReason}`)}</p> : null}
-              {queueAction?.queueId === queue.id && queueAction.status !== 'saving' && queueAction.key !== 'panel.entry.error.twitch_user_not_found' ? <div id={`queue-feedback-${queue.id}`} tabIndex={-1} className={`queue-action-feedback ${queueAction.status === 'error' ? 'is-error' : ['pending', 'warning'].includes(queueAction.status) ? 'is-warning' : ''}`} role={queueAction.status === 'error' ? 'alert' : 'status'}>
+              {queueAction?.queueId === queue.id && queueAction.status !== 'saving' && queueAction.key !== 'panel.entry.error.twitch_user_not_found' && queueAction.action !== 'restore' ? <div id={`queue-feedback-${queue.id}`} tabIndex={-1} className={`queue-action-feedback ${queueAction.status === 'error' ? 'is-error' : ['pending', 'warning'].includes(queueAction.status) ? 'is-warning' : ''}`} role={queueAction.status === 'error' ? 'alert' : 'status'}>
                 <span>{t(queueAction.key, { values: queueAction.values })}</span>
                 {typeof queueAction.referenceId === 'string' && /^[A-Za-z0-9_.-]{1,64}$/.test(queueAction.referenceId) ? <small>{t('panel.error.reference', { values: { id: queueAction.referenceId } })}</small> : null}
                 {QUEUE_ENTRY_REFRESH_KEYS.includes(queueAction.key) ? <button type="button" className="small-action" disabled={saving} aria-busy={saving || undefined} onClick={() => void onRefreshProjection?.({ purpose: 'entry-action' })}>{t('panel.reward.refresh_queue')}</button> : null}
@@ -434,6 +527,7 @@ export default function QueueList({ queues, locale, t, lifecycleNotice = null, o
                   </section>
                 );
               })}
+              {absentGroup ? <AbsentGroup queue={queue} group={absentGroup} locale={locale} t={t} saving={saving} queueAction={queueAction} onEntryAction={onEntryAction} onRefreshProjection={onRefreshProjection} /> : null}
             </div>
             <QueueHistory queue={queue} locale={locale} t={t} onLoad={onLoadHistory} />
           </article>

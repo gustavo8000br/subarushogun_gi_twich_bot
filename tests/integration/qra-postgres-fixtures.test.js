@@ -236,8 +236,10 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
       const listed = await app.inject({ method: 'GET', url: '/api/queues', headers });
       expect(listed.statusCode).toBe(200);
       // OPS-31 P5b: only the projection carries the pending-decision count (a mutation response does not read it).
-      const { pendingDecisions: listedPending, ...listedDto } = listed.json().find(({ id }) => id === dto.id);
+      // OPS-31 K72-01b: so does the additive operator-only `absent` group (nobody absent here).
+      const { pendingDecisions: listedPending, absent: listedAbsent, ...listedDto } = listed.json().find(({ id }) => id === dto.id);
       expect(listedPending).toEqual({ awaitingChoice: 0, checkGroup: 0, total: 0 });
+      expect(listedAbsent).toEqual({ total: 0, entries: [] });
       expect(listedDto).toEqual(dto);
     } finally {
       await app.close();
@@ -347,8 +349,9 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
       const listDto = listed.json().find(({ id }) => id === queue.id);
       const { operationStatus, ...queueDto } = acceptedDto;
       expect(operationStatus).toBe('pending');
-      const { pendingDecisions: listedPending, ...listDtoWithoutCount } = listDto; // OPS-31 P5b: projection-only field
+      const { pendingDecisions: listedPending, absent: listedAbsent, ...listDtoWithoutCount } = listDto; // OPS-31 P5b / K72-01b: projection-only fields
       expect(listedPending).toEqual({ awaitingChoice: 0, checkGroup: 0, total: 0 });
+      expect(listedAbsent).toEqual({ total: 0, entries: [] });
       expect(listDtoWithoutCount).toEqual(queueDto);
     } finally {
       await app.close();

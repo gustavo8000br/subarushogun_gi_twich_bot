@@ -251,6 +251,12 @@ panel.runtime.refreshed	Atualizado
 panel.queue.group.waiting	Aguardando
 panel.queue.group.called	Chamados
 panel.queue.group.in_service	Em atendimento
+panel.queue.group.absent	Ausentes
+panel.queue.absent.count.one	{count} pessoa ausente
+panel.queue.absent.count.many	{count} pessoas ausentes
+panel.queue.absent.count.other	{count} pessoas ausentes
+panel.queue.absent.empty	Ninguém ausente
+panel.queue.absent.limited	Mostrando as {shown} mais recentes de {total}. As mais antigas ficam no histórico recente.
 panel.queue.empty.title	Nenhuma fila criada
 panel.queue.empty.hint	Quando uma fila for criada, as pessoas aguardando e os atendimentos aparecerão aqui.
 panel.queue.empty.connect	Conectar canal
@@ -307,6 +313,7 @@ panel.queue.entry_action_result.fulfillment_pending	Atendimento iniciado. A reco
 panel.queue.entry_action_result.fulfillment_refresh_failed	Atendimento iniciado e a confirmação foi solicitada à Twitch, mas não foi possível atualizar a fila. Recarregue o painel para conferir o estado mais recente.
 panel.queue.entry_action_result.postponed	A vez de {user} foi adiada. A pessoa continua na fila, agora na posição {position}.
 panel.queue.entry_action_result.uncertain	A ação pode ter sido registrada. Atualize a fila antes de tentar de novo.
+panel.queue.entry_action_result.restored	{user} deixou de constar como ausente. A pessoa voltou para a fila, na posição {position}.
 panel.queue.action.resolve_reward	Vincular recompensa
 panel.queue.action_blocked.reward_unresolved	Os controles estão pausados até vincular e confirmar uma recompensa da Twitch. Use “Vincular recompensa” para continuar.
 panel.queue.action_blocked.reward_creation_pending	Os controles serão liberados quando a Twitch confirmar a criação da recompensa.
@@ -340,6 +347,8 @@ panel.entry.action.remove	remover
 panel.entry.action.remove_aria	Remover {user} da fila
 panel.entry.action.postpone	adiar
 panel.entry.action.postpone_aria	Adiar {user}: volta para a lista de espera
+panel.entry.action.restore	restaurar
+panel.entry.action.restore_aria	Restaurar {user} na fila
 panel.entry.priority_badge	Prioritária · conferida pelo operador
 panel.entry.uid_label	UID
 panel.queue.points	pontos
@@ -705,6 +714,8 @@ panel.queue.mode.converted	Convertida de uma reward Twitch · a reward históric
 panel.error.queue_mode_transition_pending	A fila está mudando de modo. Aguarde a confirmação da pausa na Twitch.
 panel.error.queue_mode_transition_unavailable	A fila não pode mudar de modo neste estado. Atualize o painel e confira as operações.
 panel.error.entry_version_stale	A pessoa mudou de estado desde que a fila foi carregada. Atualize o painel e tente novamente.
+panel.error.entry_restore_intent_recorded	Não é possível restaurar {user}: a devolução ou a conclusão dos pontos já foi registrada. Para voltar, a pessoa precisa de um novo resgate ou de uma inclusão manual.
+panel.error.entry_restore_other_active	Não é possível restaurar {user}: a pessoa já tem outra entrada ativa nesta fila. Confira as listas acima.
 panel.error.settlement_policy_stale	A política de pontos mudou em outra operação. Atualize o painel e tente novamente.
 panel.entry.call.awaiting_delivery	Prazo ainda não iniciado; aguardando confirmação do envio.
 panel.entry.call.no_deadline	Sem prazo automático para iniciar o atendimento.

@@ -118,6 +118,14 @@ function queueDto(queue, { operator = false } = {}) {
     ...(queue.pendingDecisions ? { pendingDecisions: {
       awaitingChoice: queue.pendingDecisions.awaitingChoice, checkGroup: queue.pendingDecisions.checkGroup, total: queue.pendingDecisions.total,
     } } : {}),
+    // OPS-31 K72-01b: absent people (`no_show`) for the operator list only; never in `entries` (public DTO, summary and chat read those).
+    // Absent field = unknown (the panel renders no group), never 0.
+    ...(operator && queue.absent ? { absent: {
+      total: queue.absent.total,
+      entries: (queue.absent.entries ?? []).map((entry) => ({
+        id: entry.id, userLogin: entry.userLogin, displayName: entry.displayName, version: entry.version, finishedAt: entry.finishedAt,
+      })),
+    } } : {}),
     isOpen: queue.isOpen, isArchived: queue.isArchived, lifecycleStatus: queue.lifecycleStatus,
     version: queue.version, remoteSyncStatus: queue.remoteSyncStatus,
     // OPS-22 FT-26 (AC 15, F17): enumerated deletion projection for the operator panel; never the raw outbox facts.
