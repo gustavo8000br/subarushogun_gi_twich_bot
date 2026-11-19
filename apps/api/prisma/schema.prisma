@@ -187,6 +187,20 @@ model Setting {
   @@map("settings")
 }
 
+/// OPS-31 P6b (M4): one row per Twitch stream and channel. No viewer data, title or login; no relation to any other table.
+model StreamSession {
+  broadcasterId   String    @map("broadcaster_id")
+  twitchStreamId  String    @map("twitch_stream_id")
+  streamSessionId String    @map("stream_session_id") @db.Uuid
+  startedAt       DateTime  @map("started_at") @db.Timestamptz(3)
+  endedAt         DateTime? @map("ended_at") @db.Timestamptz(3)
+  source          String
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@id([broadcasterId, twitchStreamId])
+  @@index([broadcasterId, startedAt(sort: Desc), twitchStreamId(sort: Desc)], map: "stream_sessions_channel_started_idx")
+  @@map("stream_sessions")
+}
+
 model OAuthCredential {
   id             String   @id @default(uuid()) @db.Uuid
   clientId       String   @unique @map("client_id")

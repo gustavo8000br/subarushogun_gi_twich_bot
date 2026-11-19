@@ -5,6 +5,7 @@ import { createChatOutboxWorker } from './outbox/chat-worker.mjs';
 import { createChatNoticeWorker } from './outbox/chat-notice-worker.mjs';
 import { createRewardOutboxWorker } from './outbox/reward-worker.mjs';
 import { createOutboxLoop } from './outbox/loop.mjs';
+import { createLiveSessionRepository } from './persistence/live-session-repository.mjs';
 import { createTwitchIntegration } from './twitch/integration.mjs';
 import { createCallTimeoutLoop } from './outbox/timeout-loop.mjs';
 
@@ -21,6 +22,7 @@ export async function createApplicationRuntime({
   getChatCatalogs = async () => ({}),
   rewardWorkerFactory = createRewardOutboxWorker,
   integrationFactory = createTwitchIntegration,
+  liveSessionRepository = null,
   loopFactory = createOutboxLoop,
   timeoutLoopFactory = createCallTimeoutLoop,
   onChatMessage = () => undefined,
@@ -31,7 +33,9 @@ export async function createApplicationRuntime({
   let integration;
   const domainService = createQueueDomainService({ repository, getTwitch: () => integration?.twitch ?? null });
   const credentialRepository = suppliedCredentialRepository ?? dependenciesCredentialRepository(prisma);
-  integration = await integrationFactory({ credentialRepository, repository, domainService, onChatMessage, onStatus: onError, reportDiagnostic, logEvent });
+  // OPS-31 P6b: the live session lives in its own repository (LIVE-1: it never touches the queue repository).
+  liveSessionRepository ??= createLiveSessionRepository(prisma, { logEvent });
+  integration = await integrationFactory({ credentialRepository, repository, domainService, liveSessionRepository, onChatMessage, onStatus: onError, reportDiagnostic, logEvent });
   let financialImplementation = financialWorker ?? null;
   let chatImplementation = chatWorker ?? null;
   let rewardImplementation = rewardWorker ?? null;

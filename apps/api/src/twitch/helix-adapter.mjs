@@ -1,6 +1,7 @@
 import { getRawData } from '@twurple/common';
 import { twitchHttpError } from './http-error.mjs';
 import { createGroupLookup } from './group-lookup.mjs';
+import { createCurrentStreamReader } from './current-stream.mjs';
 
 export function normalizeRedemptionStatus(status) {
   const normalized = String(status ?? 'unknown').toUpperCase();
@@ -56,8 +57,8 @@ function rewardProjection(reward) {
   };
 }
 
-/** @param {{api: Record<string, any>, broadcasterId: string, authProvider?: {getCurrentScopesForUser?: (userId: string) => string[]}, groupLookup?: Record<string, any>}} dependencies */
-export function createTwitchApiAdapter({ api, broadcasterId, authProvider, groupLookup = {} }) {
+/** @param {{api: Record<string, any>, broadcasterId: string, authProvider?: {getCurrentScopesForUser?: (userId: string) => string[]}, groupLookup?: Record<string, any>, currentStream?: Record<string, any>}} dependencies */
+export function createTwitchApiAdapter({ api, broadcasterId, authProvider, groupLookup = {}, currentStream = {} }) {
   const followerChecks = new Map();
   async function checkFollower(userId) {
     if (typeof userId !== 'string' || !/^\d{1,32}$/.test(userId)
@@ -80,6 +81,8 @@ export function createTwitchApiAdapter({ api, broadcasterId, authProvider, group
     checkFollower,
     /** OPS-31 P6 (FT-75): read-only group lookup with scope check, timeouts and closed reason codes (see group-lookup.mjs). */
     lookupGroupMembers: createGroupLookup({ api, broadcasterId, authProvider, ...groupLookup }),
+    /** OPS-31 P6b (FT-90): read-only "is the channel live" for the live-session reconciliation: `live`, `offline` or `unknown` (never offline on an error). */
+    getCurrentStream: createCurrentStreamReader({ api, broadcasterId, ...currentStream }),
     /** Channel type for the group lookup: `affiliate`, `partner`, `none` (a regular channel) or `null` when it could not be read. */
     async getBroadcasterType() {
       try {

@@ -198,11 +198,25 @@ export async function loadStoredSettlementPolicy(tx, queueId) {
 }
 
 /**
- * Port of the cap window (design 3.11 C). Constant `fallback` until P6b (live session) swaps the provider.
+ * Port of the cap window (design 3.11 C). With no `provider` it is the constant `fallback` of P1; P6b adds the live-session provider
+ * (`live-session-repository.mjs` `createCapWindowProvider`, same signature), which P7 passes in. The gate never imports the live modules.
+ * A provider error propagates (the gate's transaction rolls back): the cap never becomes unlimited because the lookup failed.
+ * @param {any} tx
+ * @param {string} broadcasterId
+ * @param {Date} now
+ * @param {{reentryWindowHours?: number, provider?: (tx: any, broadcasterId: string, now: Date, options: {reentryWindowHours: number}) => Promise<unknown>}} [options]
  * @returns {Promise<{kind: 'session', start: Date} | {kind: 'fallback', start: Date, reason: string}>}
  */
-export async function capWindowStart(_tx, _broadcasterId, now, { reentryWindowHours = CONSTANT_POLICY.reentryWindowHours } = {}) {
-  return { kind: 'fallback', start: new Date(now.getTime() - reentryWindowHours * 3_600_000), reason: 'no_session_provider' };
+export async function capWindowStart(tx, broadcasterId, now, { reentryWindowHours = CONSTANT_POLICY.reentryWindowHours, provider } = {}) {
+  if (typeof provider !== 'function') {
+    return { kind: 'fallback', start: new Date(now.getTime() - reentryWindowHours * 3_600_000), reason: 'no_session_provider' };
+  }
+  const window = /** @type {any} */ (await provider(tx, broadcasterId, now, { reentryWindowHours }));
+  const validStart = window?.start instanceof Date && Number.isFinite(window.start.getTime());
+  if (!validStart || !(window.kind === 'session' || (window.kind === 'fallback' && typeof window.reason === 'string' && window.reason.length > 0))) {
+    throw gateError('CAP_WINDOW_INVALID', 'The cap window provider returned an invalid window');
+  }
+  return window;
 }
 
 function assertIn(values, value, name) {

@@ -1,4 +1,5 @@
 import { EventSubWsListener } from '@twurple/eventsub-ws';
+import { getRawData } from '@twurple/common';
 import { normalizeRedemptionStatus } from './helix-adapter.mjs';
 
 /** @param {(event?: {source?: string, errorType?: string, errorCode?: string}) => string} reportError */
@@ -15,10 +16,22 @@ function createSafeEventSubLogger(reportError) {
   };
 }
 
-/** @param {{apiClient: any, broadcasterId: string, listenerFactory?: (apiClient: any, config?: any) => any, reportError?: (event?: {source?: string, errorType?: string, errorCode?: string}) => string | null, redemptionsEnabled?: boolean, onRedemptionAdd: (event: object) => unknown, onRedemptionUpdate: (event: object) => unknown, onChatMessage: (event: object) => unknown, onReady?: () => unknown, onReconnected?: () => unknown, onDisconnect?: (details: {established: boolean}) => unknown, onRevoked?: (type: string, status: string) => unknown, onError?: (code: string) => unknown}} input */
+/**
+ * The Twurple 8.2.0 offline event class exposes no stream id (only the broadcaster fields), while the research note lists an `id`
+ * in the Twitch payload. The id is read from the raw payload when it is a sane string and is otherwise `null`, never guessed.
+ * @param {any} event
+ */
+function offlineStreamId(event) {
+  let raw;
+  try { raw = getRawData(event); } catch { raw = undefined; }
+  const candidate = typeof raw?.id === 'string' ? raw.id : typeof event?.id === 'string' ? event.id : null;
+  return candidate !== null && candidate.length >= 1 && candidate.length <= 64 ? candidate : null;
+}
+
+/** @param {{apiClient: any, broadcasterId: string, listenerFactory?: (apiClient: any, config?: any) => any, reportError?: (event?: {source?: string, errorType?: string, errorCode?: string}) => string | null, redemptionsEnabled?: boolean, onRedemptionAdd: (event: object) => unknown, onRedemptionUpdate: (event: object) => unknown, onChatMessage: (event: object) => unknown, onStreamOnline?: (event: object) => unknown, onStreamOffline?: (event: object) => unknown, clock?: () => Date, onReady?: () => unknown, onReconnected?: () => unknown, onDisconnect?: (details: {established: boolean}) => unknown, onRevoked?: (type: string, status: string) => unknown, onError?: (code: string) => unknown}} input */
 export function createEventSubRuntime({
   apiClient, broadcasterId, listenerFactory, reportError = () => null, redemptionsEnabled = true,
-  onRedemptionAdd, onRedemptionUpdate, onChatMessage, onReady = () => undefined, onReconnected = () => undefined,
+  onRedemptionAdd, onRedemptionUpdate, onChatMessage, onStreamOnline, onStreamOffline, clock = () => new Date(), onReady = () => undefined, onReconnected = () => undefined,
   onRevoked = () => undefined, onDisconnect = () => undefined, onError = () => undefined,
 }) {
   const listenerConfig = {
@@ -79,6 +92,17 @@ export function createEventSubRuntime({
       badges: event.badges,
       sourceBroadcasterId: event.sourceBroadcasterId ?? null,
     });
+  });
+  // OPS-31 P6b (FT-90): `stream.online` / `stream.offline` on the SAME listener and connection. They need no authorization and are NOT
+  // gated by `redemptionsEnabled` (the cap needs the live whether or not the channel is eligible). Subscribed only when the caller
+  // supplies a live callback, so callers and fakes that predate P6b keep working.
+  if (onStreamOnline) listener.onStreamOnline(broadcasterId, (event) => {
+    if (event.broadcasterId !== broadcasterId) return;
+    dispatch(onStreamOnline, { streamId: event.id, type: event.type, startedAt: event.startDate, broadcasterId: event.broadcasterId });
+  });
+  if (onStreamOffline) listener.onStreamOffline(broadcasterId, (event) => {
+    if (event.broadcasterId !== broadcasterId) return;
+    dispatch(onStreamOffline, { streamId: offlineStreamId(event), broadcasterId: event.broadcasterId, receivedAt: clock() });
   });
   listener.onUserSocketDisconnect((userId) => {
     if (userId !== broadcasterId || stopped) return;
