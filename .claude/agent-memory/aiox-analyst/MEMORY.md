@@ -1,1 +1,2 @@
 - [Kanban governance](project_kanban_governance.md) — 2026-10-24: GitHub Projects mirror, @sm organizes / @devops syncs; note in docs/process/kanban-research.md
+- [Research method lessons](research-method-lessons.md) — source order, traps, validation habits (Next.js, Twitch Helix); append after every research; flow in docs/process/research-learning-flow.md
