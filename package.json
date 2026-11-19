@@ -52,6 +52,8 @@
     "build:frontend": "next build apps/frontend",
     "validate:version": "node apps/infra/scripts/validate-version.mjs",
     "research:stale": "node apps/infra/scripts/research-stale.mjs",
+    "quota:check": "node apps/infra/scripts/claude-quota.mjs check",
+    "quota:install": "node apps/infra/scripts/claude-quota.mjs install",
     "validate:port-denylist": "node apps/infra/scripts/validate-port-denylist.mjs",
     "validate:localization": "node apps/infra/scripts/validate-localization.mjs",
     "materialize:version": "node apps/infra/scripts/materialize-version.mjs",
