@@ -147,7 +147,7 @@ Com a troca automática de conta ao chamar ativada numa fila, chamar exatamente 
 
 ## A lista própria de devolução
 
-Em **Configurações** há a **Lista própria de devolução**: uma lista curta de pessoas de confiança, guardada para o canal inteiro (não por fila). Você adiciona uma pessoa digitando o login da Twitch; o painel consulta o login uma única vez e guarda apenas o número da conta da Twitch e um rótulo de até 40 caracteres (ele começa igual ao login e pode ser alterado). O painel mostra o rótulo e a data de inclusão, nunca o número da conta. Dá para remover uma pessoa por vez ou limpar a lista inteira depois de uma confirmação. A lista comporta no máximo 500 pessoas; adicionar quem já está nela, ou a 501ª pessoa, é recusado com uma mensagem. Excluir uma fila nunca remove pessoas da lista.
+Em **Configurações** há a **Lista própria de devolução**: uma lista curta de pessoas de confiança, guardada para o canal inteiro (não por fila). Você adiciona uma pessoa digitando o login da Twitch; o painel consulta o login uma única vez e guarda apenas o número da conta da Twitch e um rótulo de até 40 caracteres (ele começa igual ao login e pode ser alterado). O painel mostra o rótulo e a data de inclusão, nunca o número da conta. Dá para remover uma pessoa por vez ou limpar a lista inteira depois de uma confirmação que avisa que a ação não pode ser desfeita. A lista comporta no máximo 500 pessoas; adicionar quem já está nela, ou a 501ª pessoa, é recusado com uma mensagem. Excluir uma fila nunca remove pessoas da lista.
 
 Nesta versão a lista apenas fica guardada: nenhuma fila a usa ainda e o bot não devolve pontos por grupo. Escolher "devolver os pontos quando o atendimento terminar" para uma fila ainda não está disponível e é recusado pela API.
 

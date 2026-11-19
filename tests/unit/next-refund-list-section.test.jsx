@@ -2,7 +2,7 @@
 import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { RefundListSection, refundListErrorKey } from '../../apps/frontend/features/settings/refund-list-section.jsx';
+import { RefundListSection, refundListErrorKey, refundListClearConfirmKey } from '../../apps/frontend/features/settings/refund-list-section.jsx';
 
 afterEach(cleanup);
 beforeAll(() => {
@@ -25,7 +25,8 @@ const COPY = {
   'panel.refund_list.removed': 'Removed {label}.',
   'panel.refund_list.unnamed': '(no label)',
   'panel.refund_list.clear': 'Clear all',
-  'panel.refund_list.clear_confirm': 'Remove all {count} people from the list?',
+  'panel.refund_list.clear_confirm.one': 'Remove {count} person from the list?',
+  'panel.refund_list.clear_confirm.other': 'Remove all {count} people from the list?',
   'panel.refund_list.clear_done': 'List cleared.',
   'panel.refund_list.empty': 'No one on the list yet.',
   'panel.refund_list.error.duplicate': 'This person is already on the list.',
@@ -161,5 +162,73 @@ describe('own refund list section (AC 10, UX 2.6)', () => {
     setup({ 'GET /api/refund-list': { items: [item('a', 'Only')], count: 1, max: 1 } });
     fireEvent.change(await screen.findByRole('textbox', { name: 'Twitch login' }), { target: { value: 'friend' } });
     expect(screen.getByRole('button', { name: 'Add' }).disabled).toBe(true);
+  });
+
+  it('OPS-31 X2: picks the clear-confirmation plural form with native Intl rules per locale', () => {
+    expect(refundListClearConfirmKey(1, 'en')).toBe('panel.refund_list.clear_confirm.one');
+    expect(refundListClearConfirmKey(2, 'en')).toBe('panel.refund_list.clear_confirm.other');
+    expect(refundListClearConfirmKey(1, 'es')).toBe('panel.refund_list.clear_confirm.one');
+    expect(refundListClearConfirmKey(1_000_000, 'es')).toBe('panel.refund_list.clear_confirm.many');
+    expect(refundListClearConfirmKey(1_000_000, 'pt-BR')).toBe('panel.refund_list.clear_confirm.many');
+    expect(refundListClearConfirmKey(500, 'pt-BR')).toBe('panel.refund_list.clear_confirm.other');
+    expect(refundListClearConfirmKey(3, 'not a locale')).toBe('panel.refund_list.clear_confirm.other');
+  });
+
+  it('OPS-31 X2: the dialog uses the singular form for one person', async () => {
+    setup({ 'GET /api/refund-list': { items: [item('a', 'Only')], count: 1, max: 500 } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Clear all' }));
+    expect(within(document.querySelector('dialog')).getByText('Remove 1 person from the list?')).toBeTruthy();
+  });
+
+  it('OPS-31 X2 a11y (a): the count line is not a live region, so only the notice announces', async () => {
+    setup({
+      'GET /api/refund-list': { items: [item('a', 'First')], count: 1, max: 500 },
+      'POST /api/refund-list/a/remove': { count: 0, max: 500 },
+    });
+    const count = await screen.findByText('1 of 500');
+    expect(count.getAttribute('role')).toBeNull();
+    expect(count.closest('[aria-live], [role="status"], [role="alert"]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove First from the list' }));
+    await waitFor(() => expect(screen.getByText('0 of 500')).toBeTruthy());
+    // exactly one live region carries the outcome
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(screen.getByRole('status').textContent).toBe('Removed First.');
+  });
+
+  it('OPS-31 X2 a11y (b): the Clear all dialog is described by its consequence paragraph', async () => {
+    setup({ 'GET /api/refund-list': { items: [item('a', 'First'), item('b', 'Second')], count: 2, max: 500 } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Clear all' }));
+    const dialog = document.querySelector('dialog');
+    const describedBy = dialog.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy).textContent).toBe('Remove all 2 people from the list?');
+    expect(document.getElementById(dialog.getAttribute('aria-labelledby')).textContent).toBe('Clear all');
+  });
+
+  it('OPS-31 X2 a11y (c): the form error is tied to the login field and the tie goes away when it is edited', async () => {
+    setup({ 'GET /api/refund-list': { items: [], count: 0, max: 500 } });
+    const login = await screen.findByRole('textbox', { name: 'Twitch login' });
+    expect(login.getAttribute('aria-invalid')).toBeNull();
+    expect(login.getAttribute('aria-describedby')).toBeNull();
+    fireEvent.change(login, { target: { value: 'bad login!' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    const alert = await screen.findByRole('alert');
+    expect(login.getAttribute('aria-invalid')).toBe('true');
+    expect(document.getElementById(login.getAttribute('aria-describedby'))).toBe(alert);
+    fireEvent.change(login, { target: { value: 'good_login' } });
+    expect(login.getAttribute('aria-invalid')).toBeNull();
+    expect(login.getAttribute('aria-describedby')).toBeNull();
+  });
+
+  it('OPS-31 X2 a11y (c): a server-side failure (not a field error) does not mark the login invalid', async () => {
+    setup({
+      'GET /api/refund-list': { items: [], count: 0, max: 500 },
+      'POST /api/refund-list': () => { throw Object.assign(new Error('x'), { code: 'REFUND_LIST_DUPLICATE' }); },
+    });
+    const login = await screen.findByRole('textbox', { name: 'Twitch login' });
+    fireEvent.change(login, { target: { value: 'friend' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await screen.findByRole('alert');
+    expect(login.getAttribute('aria-invalid')).toBeNull();
   });
 });
