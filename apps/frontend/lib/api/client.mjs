@@ -1,6 +1,8 @@
 import { WRONG_ORIGIN_CODE, announceWrongOrigin } from './wrong-origin.mjs';
 
 const REMOTE_DELETE_REASONS = new Set(['authorization_required', 'verification_unavailable', 'reward_absent', 'reward_diverged', 'reward_not_paused']);
+// OPS-31 K72-01b: closed list of `reason` values of an ENTRY_RESTORE_NOT_ALLOWED refusal (anything else is dropped).
+const RESTORE_REFUSAL_REASONS = new Set(['intent_recorded', 'other_active_entry']);
 const SAFE_ERROR = Object.freeze({ code: 'REQUEST_FAILED', status: 0 });
 const SAFE_TIMEOUT_ERROR = Object.freeze({ code: 'REQUEST_TIMEOUT', status: 0, timedOut: true });
 const TIMED_OUT = Symbol('read timed out');
@@ -78,6 +80,7 @@ export function createApiClient({ fetchImpl = globalThis.fetch, createIdempotenc
           status: response.status,
           // FT-53: the one additive field, only for the possibly-sent DELETE refusal and only from the API's closed list.
           ...(payload?.code === 'QUEUE_DELETION_REMOTE_DELETE_ATTEMPTED' && typeof payload.reason === 'string' && REMOTE_DELETE_REASONS.has(payload.reason) ? { reason: payload.reason } : {}),
+          ...(payload?.code === 'ENTRY_RESTORE_NOT_ALLOWED' && typeof payload.reason === 'string' && RESTORE_REFUSAL_REASONS.has(payload.reason) ? { reason: payload.reason } : {}),
         });
       }
       return payload;

@@ -251,6 +251,11 @@ panel.runtime.refreshed	Updated
 panel.queue.group.waiting	Waiting
 panel.queue.group.called	Called
 panel.queue.group.in_service	In service
+panel.queue.group.absent	Absent
+panel.queue.absent.count.one	{count} person absent
+panel.queue.absent.count.other	{count} people absent
+panel.queue.absent.empty	No one is absent
+panel.queue.absent.limited	Showing the {shown} most recent of {total}. Older ones stay in the recent history.
 panel.queue.empty.title	No queues created
 panel.queue.empty.hint	People waiting and active services will appear here after you create a queue.
 panel.queue.empty.connect	Connect channel
@@ -307,6 +312,7 @@ panel.queue.entry_action_result.fulfillment_pending	Service started. The Twitch 
 panel.queue.entry_action_result.fulfillment_refresh_failed	Service started and Twitch confirmation was queued, but the queue could not refresh. Reload the panel to check the latest status.
 panel.queue.entry_action_result.postponed	{user}'s turn was postponed. They stay in the queue, now at position {position}.
 panel.queue.entry_action_result.uncertain	The action may have been recorded. Refresh the queue before trying again.
+panel.queue.entry_action_result.restored	{user} is no longer marked absent. They are back in the queue at position {position}.
 panel.queue.action.resolve_reward	Link reward
 panel.queue.action_blocked.reward_unresolved	Queue controls are paused until you link and confirm a Twitch reward. Use “Link reward” to continue.
 panel.queue.action_blocked.reward_creation_pending	Queue controls will be available after Twitch confirms reward creation.
@@ -340,6 +346,8 @@ panel.entry.action.remove	remove
 panel.entry.action.remove_aria	Remove {user} from the queue
 panel.entry.action.postpone	postpone
 panel.entry.action.postpone_aria	Postpone {user}: they go back to the waiting list
+panel.entry.action.restore	restore
+panel.entry.action.restore_aria	Restore {user} to the queue
 panel.entry.priority_badge	Priority · verified by operator
 panel.entry.uid_label	UID
 panel.queue.points	points
@@ -702,6 +710,8 @@ panel.queue.mode.converted	Converted from a Twitch reward · historical reward r
 panel.error.queue_mode_transition_pending	This queue is switching modes. Wait until the Twitch pause is confirmed.
 panel.error.queue_mode_transition_unavailable	This queue cannot switch modes in its current state. Refresh the panel and review its operations.
 panel.error.entry_version_stale	This person's status changed since the queue was loaded. Refresh the panel and try again.
+panel.error.entry_restore_intent_recorded	{user} can't be restored: the refund or completion of the Channel Points is already recorded. To return, they need a new redemption or a manual entry.
+panel.error.entry_restore_other_active	{user} can't be restored: they already have another active entry in this queue. Check the lists above.
 panel.error.settlement_policy_stale	The points policy was changed by another action. Refresh the panel and try again.
 panel.entry.call.awaiting_delivery	Deadline has not started; waiting for delivery confirmation.
 panel.entry.call.no_deadline	No automatic deadline to start service.

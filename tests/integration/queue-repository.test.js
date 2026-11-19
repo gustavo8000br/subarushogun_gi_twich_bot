@@ -110,6 +110,68 @@ describe('PostgreSQL queue repository', () => {
       .toMatchObject({ origin: 'reconciliation', previousState: 'diverged', nextState: 'synced', reason: 'twitch_reward_state_verified' });
   });
 
+  it('OPS-31 K72-01b: the projection carries absent {total, entries<=20} per queue (newest first, own queue only, no UID), never inside entries', async () => {
+    const queue = await repository.createQueue({ slug: `abs-${randomUUID().slice(0, 8)}`, title: 'Absent group', cost: 1 });
+    const other = await repository.createQueue({ slug: `abs-o-${randomUUID().slice(0, 8)}`, title: 'Other queue', cost: 1 });
+    const quiet = await repository.createQueue({ slug: `abs-q-${randomUUID().slice(0, 8)}`, title: 'No absent', cost: 1 });
+    const base = Date.parse('2030-03-01T10:00:00.000Z');
+    const absentRow = (queueId, index, extra = {}) => ({
+      queueId, twitchUserId: `abs-${index}-${randomUUID()}`, userLogin: `absent${index}`, displayName: `Absent ${index}`, uid: '123456789',
+      source: 'manual', status: 'no_show', version: 3 + index, finishedAt: new Date(base + index * 60_000), ...extra,
+    });
+    await prisma.entry.createMany({ data: [
+      ...Array.from({ length: 25 }, (_, index) => absentRow(queue.id, index)),
+      absentRow(queue.id, 99, { finishedAt: null }),
+      absentRow(other.id, 0),
+      { queueId: queue.id, twitchUserId: `abs-done-${randomUUID()}`, userLogin: 'done', displayName: 'Done', source: 'manual', status: 'completed', finishedAt: new Date(base) },
+    ] });
+    await repository.addManualEntry({ queueId: queue.id, twitchUserId: `abs-wait-${randomUUID()}`, userLogin: 'waiting1', displayName: 'Waiting 1' });
+
+    const projection = await repository.listQueueProjection();
+    const byId = Object.fromEntries(projection.map((item) => [item.id, item]));
+
+    expect(byId[queue.id].absent.total).toBe(26);
+    expect(byId[queue.id].absent.entries).toHaveLength(20);
+    expect(byId[queue.id].absent.entries.map(({ displayName }) => displayName).slice(0, 3)).toEqual(['Absent 24', 'Absent 23', 'Absent 22']);
+    expect(byId[queue.id].absent.entries.at(-1).displayName).toBe('Absent 5'); // the null `finishedAt` row sorts last, never first
+    expect(Object.keys(byId[queue.id].absent.entries[0]).sort()).toEqual(['displayName', 'finishedAt', 'id', 'userLogin', 'version']);
+    expect(byId[queue.id].absent.entries[0]).toMatchObject({ userLogin: 'absent24', version: 27 });
+    expect(byId[queue.id].absent.entries[0].finishedAt).toEqual(new Date(base + 24 * 60_000));
+    expect(byId[other.id].absent).toMatchObject({ total: 1, entries: [{ displayName: 'Absent 0' }] });
+    expect(byId[quiet.id].absent).toEqual({ total: 0, entries: [] });
+    // `entries` keeps feeding the public DTO, the summary and the chat: only live statuses, never `no_show`.
+    expect(byId[queue.id].entries.map(({ status }) => status)).toEqual(['waiting']);
+    expect(JSON.stringify(byId[queue.id].absent)).not.toContain('123456789');
+  });
+
+  it('OPS-31 K72-01b: absent is read with one grouped count for every queue plus one bounded page per queue that has absent people', async () => {
+    const queue = await repository.createQueue({ slug: `abs-c-${randomUUID().slice(0, 8)}`, title: 'Counted', cost: 1 });
+    await prisma.entry.create({ data: { queueId: queue.id, twitchUserId: `abs-c-${randomUUID()}`, userLogin: 'counted', displayName: 'Counted', source: 'manual', status: 'no_show', finishedAt: new Date() } });
+    const calls = [];
+    const counting = new Proxy(prisma, { get(target, property) {
+      if (property !== 'entry') return Reflect.get(target, property);
+      return new Proxy(target.entry, { get(model, method) {
+        const value = Reflect.get(model, method);
+        return typeof value === 'function' ? (...args) => { calls.push({ method: String(method), args }); return value.apply(model, args); } : value;
+      } });
+    } });
+    await createQueueRepository(counting).listQueueProjection();
+    expect(calls.filter(({ method }) => method === 'groupBy')).toHaveLength(1);
+    const pages = calls.filter(({ method, args }) => method === 'findMany' && args[0]?.where?.status === 'no_show');
+    expect(pages.length).toBeGreaterThanOrEqual(1);
+    for (const { args } of pages) expect(args[0].take).toBe(20); // never an unbounded read
+  });
+
+  it('OPS-31 K72-01b: an unreadable absent list leaves the field out (unknown, never a false 0) without breaking the projection', async () => {
+    const broken = new Proxy(prisma, { get(target, property) {
+      if (property !== 'entry') return Reflect.get(target, property);
+      return new Proxy(target.entry, { get(model, method) { return method === 'groupBy' ? async () => { throw new Error('boom'); } : Reflect.get(model, method); } });
+    } });
+    const projection = await createQueueRepository(broken).listQueueProjection();
+    expect(projection.length).toBeGreaterThanOrEqual(1);
+    for (const queue of projection) expect(queue).not.toHaveProperty('absent');
+  });
+
   it('does not clear a remote divergence when queue configuration changed after the Twitch read', async () => {
     const queue = await repository.createQueue({ slug: `stale-reconcile-${randomUUID().slice(0, 8)}`, title: 'Stale reconciliation', cost: 250 });
     await prisma.queue.update({ where: { id: queue.id }, data: {

@@ -213,6 +213,39 @@ function pendingDecisionsOf(counts, queueId) {
   return { awaitingChoice, checkGroup, total: awaitingChoice + checkGroup };
 }
 
+/** OPS-31 K72-01b: the most recent absent people the operator list shows per queue (the rest stay in the history, read-only). */
+const ABSENT_LIST_LIMIT = 20;
+
+/**
+ * OPS-31 K72-01b: absent (`no_show`) people per queue for the operator list: one grouped count for every queue, then one bounded page
+ * (newest first, `take` 20, served by the (queue_id, status) prefix of the existing entries index) only for queues that have any.
+ * Unreadable -> `null` so the field is omitted (unknown), never a false 0, and the projection still works.
+ * @returns {Promise<Map<string, {total: number, entries: Array<Record<string, any>>}> | null>}
+ */
+async function loadAbsentGroups(client, queueIds) {
+  if (queueIds.length === 0) return new Map();
+  try {
+    const rows = await client.entry.groupBy({
+      by: ['queueId'],
+      where: { queueId: { in: queueIds }, status: 'no_show' },
+      _count: { _all: true },
+    });
+    const groups = new Map(queueIds.map((id) => [id, { total: 0, entries: [] }]));
+    await Promise.all(rows.map(async (row) => {
+      const entries = await client.entry.findMany({
+        where: { queueId: row.queueId, status: 'no_show' },
+        select: { id: true, userLogin: true, displayName: true, version: true, finishedAt: true },
+        orderBy: [{ finishedAt: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
+        take: ABSENT_LIST_LIMIT,
+      });
+      groups.set(row.queueId, { total: row._count._all, entries });
+    }));
+    return groups;
+  } catch {
+    return null;
+  }
+}
+
 async function withQueueTransaction(transact, queueId, callback) {
   return transact(async (tx) => {
     await lockQueue(tx, queueId);
@@ -1559,7 +1592,9 @@ export function createQueueRepository(prisma, { clock = () => new Date(), defaul
       });
       const deletionFacts = await loadQueueDeletionFacts(prisma, queues.filter(({ lifecycleStatus }) => lifecycleStatus === 'deleting').map(({ id }) => id));
       const pending = await loadPendingDecisionCounts(prisma, queues.map(({ id }) => id));
+      const absent = await loadAbsentGroups(prisma, queues.map(({ id }) => id));
       return queues.map((queue) => ({
+        ...(absent ? { absent: absent.get(queue.id) } : {}),
         ...(pending ? { pendingDecisions: pendingDecisionsOf(pending, queue.id) } : {}),
         ...(deletionFacts.has(queue.id) ? { deletion: deletionFacts.get(queue.id) } : {}),
         id: queue.id, slug: queue.slug, aliases: queue.keys.filter(({ keyType }) => keyType === 'alias').map(({ key }) => key),

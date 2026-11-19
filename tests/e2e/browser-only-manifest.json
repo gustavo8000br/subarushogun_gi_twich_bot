@@ -8,6 +8,7 @@
     { "file": "overlay-parity-browser-only.mjs", "npm": "test:e2e:overlay:parity-browser-only" },
     { "file": "overview-degraded-browser-only.mjs", "npm": "test:e2e:overview-degraded:browser-only" },
     { "file": "panel-layout-browser-only.mjs", "npm": "test:e2e:panel-layout:browser-only" },
+    { "file": "queue-absent-restore-browser-only.mjs", "npm": "test:e2e:queue-absent-restore:browser-only" },
     { "file": "queue-archive-local-browser-only.mjs", "npm": "test:e2e:queue-archive-local:browser-only" },
     { "file": "queue-call-resend-browser-only.mjs", "npm": "test:e2e:queue-call-resend:browser-only" },
     { "file": "queue-clear-browser-only.mjs", "npm": "test:e2e:queue-clear:browser-only" },
