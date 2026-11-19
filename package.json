@@ -73,8 +73,8 @@
     "@twurple/auth": "8.2.0",
     "@twurple/common": "8.2.0",
     "@twurple/eventsub-ws": "8.2.0",
-    "fastify": "5.12.5",
-    "js-yaml": "5.4.3",
+    "fastify": "5.12.8",
+    "js-yaml": "5.5.0",
     "next": "16.4.6",
     "pg": "8.23.1",
     "react": "19.3.1",
@@ -87,12 +87,12 @@
     "@types/node": "24.13.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "eslint": "10.12.0",
+    "eslint": "10.15.0",
     "jsdom": "^30.1.2",
-    "playwright-core": "^1.64.1",
+    "playwright-core": "^1.65.1",
     "prisma": "6.19.3",
     "typescript": "7.0.2",
-    "vitest": "5.0.3"
+    "vitest": "5.1.0"
   },
   "overrides": {
     "@prisma/config": {
