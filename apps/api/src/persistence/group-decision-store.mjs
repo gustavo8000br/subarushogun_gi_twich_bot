@@ -11,7 +11,11 @@
 const DECISIONS = Object.freeze(['eligible', 'not_eligible', 'unknown']);
 const MODES = Object.freeze(['fulfill_on_start', 'refund_on_end']);
 const GROUPS = Object.freeze(['broadcaster', 'own_list', 'moderator', 'vip', 'subscriber']);
+// The reasons the database CHECK on `group_unknown_reason` accepts (migration 20261118090000). The lookup also has `bad_request`
+// (HTTP 400); until a P7 migration extends the CHECK it is stored as `lookup_error` (still `unknown`, still a hold). OPS-31 X1.
 const REASONS = Object.freeze(['scope_missing', 'unauthorized', 'forbidden', 'rate_limited', 'twitch_unavailable', 'timeout', 'malformed_response', 'channel_not_eligible', 'lookup_error']);
+const LOOKUP_ONLY_REASONS = Object.freeze({ bad_request: 'lookup_error' });
+const persistedReason = (reason) => LOOKUP_ONLY_REASONS[reason] ?? reason;
 
 function invalid(message) {
   return Object.assign(new Error(message), { code: 'GROUP_DECISION_INVALID' });
@@ -27,7 +31,7 @@ export function createGroupDecisionStore({ transact, clock = () => new Date() })
   return {
     /**
      * @param {{redemptionId: string, decision: {decision: string, matchedGroup?: string, unknownReason?: string}, settlementMode: string, retryUnknown?: boolean}} input
-     * @returns {Promise<{written: boolean, reason: 'written'|'replaced_unknown'|'already_decided'|'unknown_kept'|'intent_exists'|'not_found', stored: object|null}>}
+     * @returns {Promise<{written: boolean, reason: 'written'|'replaced_unknown'|'already_decided'|'unknown_kept'|'intent_exists'|'settled_external'|'not_found', stored: object|null}>}
      */
     async recordGroupDecision({ redemptionId, decision, settlementMode, retryUnknown = false }) {
       const value = decision?.decision;
@@ -35,17 +39,18 @@ export function createGroupDecisionStore({ transact, clock = () => new Date() })
         || (value === 'eligible') !== (typeof decision.matchedGroup === 'string')
         || (decision.matchedGroup !== undefined && !GROUPS.includes(decision.matchedGroup))
         || (value === 'unknown') !== (typeof decision.unknownReason === 'string')
-        || (decision.unknownReason !== undefined && !REASONS.includes(decision.unknownReason))) throw invalid('The group decision is invalid');
+        || (decision.unknownReason !== undefined && !REASONS.includes(persistedReason(decision.unknownReason)))) throw invalid('The group decision is invalid');
       return transact(async (tx) => {
-        const rows = await tx.$queryRaw`SELECT redemption_id FROM redemptions WHERE redemption_id = ${redemptionId} FOR UPDATE`;
+        const rows = await tx.$queryRaw`SELECT redemption_id FROM redemptions WHERE redemption_id = ${redemptionId} FOR NO KEY UPDATE`;
         if (rows.length === 0) return { written: false, reason: 'not_found', stored: null };
         const row = await tx.redemption.findUnique({ where: { redemptionId } });
+        if (row.settlementState === 'settled_external') return { written: false, reason: 'settled_external', stored: row.groupDecision ? stored(row) : null };
         if (row.expectedStatus !== null || row.settlementState === 'intent_recorded') return { written: false, reason: 'intent_exists', stored: row.groupDecision ? stored(row) : null };
         if (row.groupDecision === 'eligible' || row.groupDecision === 'not_eligible') return { written: false, reason: 'already_decided', stored: stored(row) };
         if (row.groupDecision === 'unknown' && !(retryUnknown && row.settlementState === 'none')) return { written: false, reason: 'unknown_kept', stored: stored(row) };
         const updated = await tx.redemption.update({ where: { redemptionId }, data: {
           groupDecision: value, matchedGroup: value === 'eligible' ? decision.matchedGroup : null,
-          groupUnknownReason: value === 'unknown' ? decision.unknownReason : null, groupCheckedAt: clock(), settlementMode,
+          groupUnknownReason: value === 'unknown' ? persistedReason(decision.unknownReason) : null, groupCheckedAt: clock(), settlementMode,
         } });
         return { written: true, reason: row.groupDecision === 'unknown' ? 'replaced_unknown' : 'written', stored: stored(updated) };
       });

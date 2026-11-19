@@ -38,7 +38,9 @@ export function getQueueEntryActionFailureFeedback(error, { action } = {}) {
     status: 'error',
     key: error?.code === 'QUEUE_MODE_TRANSITION_PENDING'
       ? 'panel.error.queue_mode_transition_pending'
-      : uncertainCall
+      : error?.code === 'ENTRY_VERSION_STALE'
+        ? 'panel.error.entry_version_stale'
+        : uncertainCall
         ? 'panel.queue.action_result.uncertain'
         : 'panel.queue.action_result.failed',
     ...(referenceId ? { referenceId } : {}),

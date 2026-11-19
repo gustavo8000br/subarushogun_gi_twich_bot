@@ -697,6 +697,8 @@ panel.queue.mode_transition.done	Queue switched to local mode. Existing redempti
 panel.queue.mode.converted	Converted from a Twitch reward · historical reward remains paused
 panel.error.queue_mode_transition_pending	This queue is switching modes. Wait until the Twitch pause is confirmed.
 panel.error.queue_mode_transition_unavailable	This queue cannot switch modes in its current state. Refresh the panel and review its operations.
+panel.error.entry_version_stale	This person's status changed since the queue was loaded. Refresh the panel and try again.
+panel.error.settlement_policy_stale	The points policy was changed by another action. Refresh the panel and try again.
 panel.entry.call.awaiting_delivery	Deadline has not started; waiting for delivery confirmation.
 panel.entry.call.no_deadline	No automatic deadline to start service.
 panel.entry.call.remaining	Time to start service: {time} remaining.

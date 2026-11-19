@@ -700,6 +700,8 @@ panel.queue.mode_transition.done	Fila convertida para modo local. Resgates antig
 panel.queue.mode.converted	Convertida de uma reward Twitch · a reward histórica continua pausada
 panel.error.queue_mode_transition_pending	A fila está mudando de modo. Aguarde a confirmação da pausa na Twitch.
 panel.error.queue_mode_transition_unavailable	A fila não pode mudar de modo neste estado. Atualize o painel e confira as operações.
+panel.error.entry_version_stale	A pessoa mudou de estado desde que a fila foi carregada. Atualize o painel e tente novamente.
+panel.error.settlement_policy_stale	A política de pontos mudou em outra operação. Atualize o painel e tente novamente.
 panel.entry.call.awaiting_delivery	Prazo ainda não iniciado; aguardando confirmação do envio.
 panel.entry.call.no_deadline	Sem prazo automático para iniciar o atendimento.
 panel.entry.call.remaining	Prazo para iniciar atendimento: {time} restante.

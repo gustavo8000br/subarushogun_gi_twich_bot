@@ -91,3 +91,16 @@ export function getQueueSettingsFailureKey(error) {
   if (requestError.status === 409) return 'panel.error.stale_queue_settings';
   return 'panel.error.generic';
 }
+
+/**
+ * Failure key for the settlement-policy route (`PUT /api/queues/:queueId/settlement-policy`): the panel maps by `code` and never renders
+ * the API text. `SETTLEMENT_POLICY_STALE` (409) means another operation changed the policy revision.
+ * @param {unknown} error
+ */
+export function getSettlementPolicyFailureKey(error) {
+  const requestError = error && typeof error === 'object' ? /** @type {Record<string, unknown>} */ (error) : {};
+  if (requestError.code === 'SETTLEMENT_POLICY_STALE') return 'panel.error.settlement_policy_stale';
+  if (requestError.code === 'QUEUE_NOT_FOUND') return 'panel.error.queue_not_found';
+  if (requestError.code === 'QUEUE_NOT_AVAILABLE') return 'panel.error.queue_not_available';
+  return 'panel.error.generic';
+}

@@ -700,6 +700,8 @@ panel.queue.mode_transition.done	La cola cambió al modo local. Los canjes anter
 panel.queue.mode.converted	Convertida desde una recompensa Twitch · la recompensa histórica sigue pausada
 panel.error.queue_mode_transition_pending	La cola está cambiando de modo. Espera a que Twitch confirme la pausa.
 panel.error.queue_mode_transition_unavailable	La cola no puede cambiar de modo en su estado actual. Actualiza el panel y revisa las operaciones.
+panel.error.entry_version_stale	El estado de la persona cambió desde que se cargó la cola. Actualiza el panel e inténtalo de nuevo.
+panel.error.settlement_policy_stale	La política de puntos cambió en otra operación. Actualiza el panel e inténtalo de nuevo.
 panel.entry.call.awaiting_delivery	El plazo aún no ha comenzado; esperando la confirmación del envío.
 panel.entry.call.no_deadline	No hay plazo automático para iniciar la atención.
 panel.entry.call.remaining	Tiempo para iniciar la atención: quedan {time}.

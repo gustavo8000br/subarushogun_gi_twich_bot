@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { HttpStatusCodeError } from '@twurple/api-call';
+import { CachedRefreshFailureError } from '@twurple/auth';
 import { createGroupLookup, GROUP_LOOKUP_CHUNK_SIZE, GROUP_LOOKUP_REASONS } from '../../apps/api/src/twitch/group-lookup.mjs';
 import { createTwitchApiAdapter } from '../../apps/api/src/twitch/helix-adapter.mjs';
 import { decideGroupMembership } from '../../apps/api/src/domain/group-membership.mjs';
@@ -38,6 +39,11 @@ describe('OPS-31 P6 group lookup (FT-75)', () => {
   it('U75-10: a missing scope is scope_missing for every id with zero Twitch calls', async () => {
     const api = makeApi({ mods: ['1'] });
     const lookup = createGroupLookup({ api, broadcasterId: '999', authProvider: authWith(['moderation:read']) });
+    const events = [];
+    const reporting = createGroupLookup({ api, broadcasterId: '999', authProvider: authWith(['moderation:read']), report: (event) => events.push(event) });
+    await reporting('vip', ['1', '2']);
+    // L2 (QA P6): the report carries the number of people the failure covered, and nothing else about them.
+    expect(events).toEqual([{ group: 'vip', outcome: 'failed', reason: 'scope_missing', latencyBucket: 'lt250ms', count: 2 }]);
     const vip = await lookup('vip', ['1', '2']);
     expect([...vip.failures.values()]).toEqual(['scope_missing', 'scope_missing']);
     expect(api.channels.checkVipForUsers).not.toHaveBeenCalled();
@@ -50,7 +56,7 @@ describe('OPS-31 P6 group lookup (FT-75)', () => {
   });
 
   it.each([
-    [401, 'unauthorized'], [403, 'forbidden'], [429, 'rate_limited'], [500, 'twitch_unavailable'], [503, 'twitch_unavailable'], [404, 'lookup_error'], [400, 'lookup_error'],
+    [401, 'unauthorized'], [403, 'forbidden'], [429, 'rate_limited'], [500, 'twitch_unavailable'], [503, 'twitch_unavailable'], [404, 'lookup_error'], [400, 'bad_request'],
   ])('TW75-01/06: the real Twurple HttpStatusCodeError %i maps to %s', async (status, reason) => {
     const api = makeApi();
     api.channels.checkVipForUsers = vi.fn(async () => { throw httpError(status); });
@@ -157,15 +163,73 @@ describe('OPS-31 P6 group lookup (FT-75)', () => {
       tooLong.channels.checkVipForUsers = vi.fn(async () => { throw Object.assign(httpError(429), { retryAfterSeconds: 30 }); });
       expect((await make(tooLong)('vip', ['1'])).failures.get('1')).toBe('rate_limited');
       expect(tooLong.channels.checkVipForUsers).toHaveBeenCalledTimes(1);
-      const farButAllowedByDeadline = makeApi();
-      farButAllowedByDeadline.channels.checkVipForUsers = vi.fn(async () => { throw Object.assign(httpError(429), { retryAfterSeconds: 6 }); });
-      expect((await make(farButAllowedByDeadline, { overallTimeoutMs: 60_000 })('vip', ['1'])).failures.get('1')).toBe('rate_limited');
-      expect(farButAllowedByDeadline.channels.checkVipForUsers).toHaveBeenCalledTimes(1); // 6 s is over the 5 s wait bound
+      const overFiveSecondBound = makeApi();
+      overFiveSecondBound.channels.checkVipForUsers = vi.fn(async () => { throw Object.assign(httpError(429), { retryAfterSeconds: 6 }); });
+      expect((await make(overFiveSecondBound, { overallTimeoutMs: 60_000 })('vip', ['1'])).failures.get('1')).toBe('rate_limited');
+      expect(overFiveSecondBound.channels.checkVipForUsers).toHaveBeenCalledTimes(1); // 6 s is over the 5 s wait bound
       const noHeader = makeApi();
       noHeader.channels.checkVipForUsers = vi.fn(async () => { throw httpError(429); });
       expect((await make(noHeader)('vip', ['1'])).failures.get('1')).toBe('rate_limited');
       expect(noHeader.channels.checkVipForUsers).toHaveBeenCalledTimes(1);
     } finally { vi.useRealTimers(); }
+  });
+
+  it('L1 (QA P6): a 429 wait inside the 5 s bound but beyond the overall deadline gives up at once, without sleeping', async () => {
+    vi.useFakeTimers();
+    try {
+      const api = makeApi();
+      api.channels.checkVipForUsers = vi.fn(async () => { throw Object.assign(httpError(429), { retryAfterSeconds: 4 }); });
+      let settled = false;
+      const pending = make(api)('vip', ['1'], { deadlineAt: Date.now() + 3_000 }).then((result) => { settled = true; return result; });
+      await vi.advanceTimersByTimeAsync(0); // no time passes: a sleep would still be pending
+      expect(settled).toBe(true);
+      expect((await pending).failures.get('1')).toBe('rate_limited');
+      expect(api.channels.checkVipForUsers).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+      // The same 4 s wait with room before the deadline does retry (proves the case above is decided by the deadline alone).
+      const roomy = makeApi({ vips: ['1'] });
+      const base = roomy.channels.checkVipForUsers;
+      let calls = 0;
+      roomy.channels.checkVipForUsers = vi.fn(async (b, u) => { calls += 1; if (calls === 1) throw Object.assign(httpError(429), { retryAfterSeconds: 4 }); return base(b, u); });
+      const second = make(roomy)('vip', ['1'], { deadlineAt: Date.now() + 8_000 });
+      await vi.advanceTimersByTimeAsync(4_100);
+      expect((await second).members.has('1')).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('X1: Twurple CachedRefreshFailureError (no HTTP status) is unauthorized, for every group', async () => {
+    const dead = new CachedRefreshFailureError('999');
+    const api = {
+      moderation: { getModerators: vi.fn(async () => { throw dead; }) },
+      channels: { checkVipForUsers: vi.fn(async () => { throw dead; }) },
+      subscriptions: { getSubscriptionsForUsers: vi.fn(async () => { throw dead; }) },
+    };
+    for (const group of ['moderator', 'vip', 'subscriber']) expect((await make(api)(group, ['1'])).failures.get('1')).toBe('unauthorized');
+    // A lookalike plain error is still lookup_error.
+    api.channels.checkVipForUsers = vi.fn(async () => { throw new Error('CachedRefreshFailureError'); });
+    expect((await make(api)('vip', ['1'])).failures.get('1')).toBe('lookup_error');
+  });
+
+  it('X1: a 400 chunk fails only its own ids as bad_request (never "not a member")', async () => {
+    const api = makeApi({ vips: ids(60) });
+    let call = 0;
+    const base = api.channels.checkVipForUsers;
+    api.channels.checkVipForUsers = vi.fn(async (b, users) => { call += 1; if (call === 2) throw httpError(400); return base(b, users); });
+    const { members, failures } = await make(api)('vip', ids(60));
+    expect(members.size).toBe(40);
+    expect(new Set(failures.values())).toEqual(new Set(['bad_request']));
+    expect([...failures.keys()].sort((a, b) => a - b)).toEqual(ids(20, 21));
+  });
+
+  it('X1: only positive Twitch ids are asked (0, leading zeros, 20 digits are lookup_error with no call; 19 digits is accepted)', async () => {
+    const api = makeApi({ vips: ['9223372036854775807'] });
+    const lookup = make(api);
+    const bad = await lookup('vip', ['0', '007', '00', '12345678901234567890', '-5', '1.5']);
+    expect([...bad.failures.values()]).toEqual(Array(6).fill('lookup_error'));
+    expect(api.channels.checkVipForUsers).not.toHaveBeenCalled();
+    const good = await lookup('vip', ['9223372036854775807', '1']);
+    expect(good.members.has('9223372036854775807')).toBe(true);
+    expect(api.channels.checkVipForUsers).toHaveBeenCalledTimes(1);
   });
 
   it('invalid ids and unknown groups never reach Twitch', async () => {
@@ -201,7 +265,8 @@ describe('OPS-31 P6 group lookup (FT-75)', () => {
 });
 
 describe('OPS-31 P6 membership decision (AC 13-15)', () => {
-  const run = (options) => decideGroupMembership({ broadcasterId: '999', groups: ['own_list', 'moderator', 'vip', 'subscriber'], ...options });
+  // `broadcasterType: 'affiliate'` by default: with an unreadable type (null) a subscriber "no" is not a verdict (see the X1 tests below).
+  const run = (options) => decideGroupMembership({ broadcasterId: '999', groups: ['own_list', 'moderator', 'vip', 'subscriber'], broadcasterType: 'affiliate', ...options });
   const lookupOf = (answers) => vi.fn(async (group, list) => {
     const a = answers[group] ?? {};
     return { members: new Set(list.filter((id) => (a.members ?? []).includes(id))), failures: new Map(list.filter((id) => a.failAll || (a.failIds ?? []).includes(id)).map((id) => [id, a.reason ?? 'lookup_error'])) };
@@ -259,6 +324,21 @@ describe('OPS-31 P6 membership decision (AC 13-15)', () => {
     expect([out.get('1').matchedGroup, out.get('999').matchedGroup]).toEqual(['own_list', 'broadcaster']);
     expect((await run({ userIds: ['1'], broadcasterType: 'partner', lookupGroup: lookupOf({ vip: { members: ['1'] } }) })).get('1').decision).toBe('eligible');
     expect((await run({ userIds: ['1'], broadcasterType: null, lookupGroup: lookupOf({ vip: { members: ['1'] } }) })).get('1').decision).toBe('eligible');
+  });
+
+  it('X1: an empty subscriber answer is "not a member" only when the channel type was read as affiliate or partner', async () => {
+    const empty = () => lookupOf({});
+    for (const broadcasterType of ['affiliate', 'partner', 'Affiliate']) {
+      expect((await run({ userIds: ['1'], broadcasterType, lookupGroup: empty() })).get('1')).toEqual({ decision: 'not_eligible' });
+    }
+    for (const broadcasterType of [null, undefined]) {
+      expect((await run({ userIds: ['1'], broadcasterType, lookupGroup: empty() })).get('1')).toEqual({ decision: 'unknown', unknownReason: 'lookup_error' });
+    }
+    // Only the subscriber group needs the type: moderator and VIP silence stays a verdict, and a real positive still wins.
+    expect((await run({ userIds: ['1'], groups: ['moderator', 'vip'], broadcasterType: null, lookupGroup: empty() })).get('1')).toEqual({ decision: 'not_eligible' });
+    expect((await run({ userIds: ['1'], broadcasterType: null, lookupGroup: lookupOf({ subscriber: { members: ['1'] } }) })).get('1')).toEqual({ decision: 'eligible', matchedGroup: 'subscriber' });
+    // An earlier failure keeps being the reported reason.
+    expect((await run({ userIds: ['1'], broadcasterType: null, lookupGroup: lookupOf({ moderator: { failAll: true, reason: 'forbidden' } }) })).get('1')).toEqual({ decision: 'unknown', unknownReason: 'forbidden' });
   });
 
   it('an invalid id is unknown lookup_error, never not_eligible, and never asked', async () => {

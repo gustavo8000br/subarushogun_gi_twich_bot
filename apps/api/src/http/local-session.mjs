@@ -1,6 +1,7 @@
 import { randomBytes as generateRandomBytes, timingSafeEqual } from 'node:crypto';
+import { sessionActorId } from '../domain/session-actor.mjs';
 
-/** @typedef {import('fastify').FastifyRequest & {localSession?: {id: string, csrfToken: string}}} LocalRequest */
+/** @typedef {import('fastify').FastifyRequest & {localSession?: {id: string, actorId: string, csrfToken: string}}} LocalRequest */
 
 const cookieName = 'queuebot_session';
 const sessions = new Map();
@@ -51,7 +52,7 @@ export function registerLocalSession(app, { randomBytes = generateRandomBytes, p
     }
     const id = parseCookies(request.headers.cookie)[cookieName];
     const session = id ? sessions.get(id) : null;
-    if (session) localRequest.localSession = { id, csrfToken: session.csrfToken };
+    if (session) localRequest.localSession = { id, actorId: sessionActorId(id), csrfToken: session.csrfToken };
     if (request.url.startsWith('/api/') && request.url !== '/api/session' && !session) {
       return reply.code(401).send({ error: 'Abra o painel local para iniciar uma sessão.' });
     }
@@ -67,7 +68,7 @@ export function registerLocalSession(app, { randomBytes = generateRandomBytes, p
     let session = localRequest.localSession;
     if (!session) {
       const id = randomBytes(32).toString('hex');
-      session = { id, csrfToken: randomBytes(32).toString('hex') };
+      session = { id, actorId: sessionActorId(id), csrfToken: randomBytes(32).toString('hex') };
       sessions.set(id, session);
       reply.header('set-cookie', `${cookieName}=${id}; Path=/; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`);
       localRequest.localSession = session;

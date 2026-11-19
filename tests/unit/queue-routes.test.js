@@ -1,5 +1,5 @@
 import Fastify from 'fastify';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { registerLocalSession } from '../../apps/api/src/http/local-session.mjs';
 import { registerQueueRoutes } from '../../apps/api/src/http/queue-routes.mjs';
@@ -52,7 +52,9 @@ async function createHarness({ domainService, resolveUser = async () => null, be
   const cookie = session.cookies[0];
   const sessionHeaders = { host: 'localhost:3000', origin: 'https://localhost:3000', cookie: `${cookie.name}=${cookie.value}` };
   const headers = { ...sessionHeaders, 'x-csrf-token': session.json().csrfToken };
-  return { app, repository, integrations, headers, sessionHeaders, rawInject };
+  // OPS-31 X1 (A0): routes hand the repository a derived actor reference, never the cookie value. Derived independently here.
+  const actorId = `panel_${createHash('sha256').update(`queuebot:panel-actor:v1:${cookie.value}`).digest('hex').slice(0, 16)}`;
+  return { app, repository, integrations, headers, sessionHeaders, rawInject, actorId, sessionCookieValue: cookie.value };
 }
 
 describe('local queue and setup API', () => {
@@ -269,7 +271,7 @@ describe('local queue and setup API', () => {
     expect(h.repository.updateCommandPolicies).not.toHaveBeenCalled();
     const updated = await h.app.inject({ method: 'PATCH', url: '/api/command-policies', headers: h.headers, payload });
     expect(updated.statusCode).toBe(200);
-    expect(h.repository.updateCommandPolicies).toHaveBeenCalledWith({ expectedVersion: 1, policies: payload.policies, actorId: expect.any(String), origin: 'panel' });
+    expect(h.repository.updateCommandPolicies).toHaveBeenCalledWith({ expectedVersion: 1, policies: payload.policies, actorId: h.actorId, origin: 'panel' });
     expect(updated.json()).toEqual({ schemaVersion: 3, version: 2, policies: payload.policies });
   });
 
@@ -403,7 +405,7 @@ describe('local queue and setup API', () => {
     } });
     expect(response.statusCode).toBe(201);
     expect(h.repository.createQueueWithRewardIntent).toHaveBeenCalledWith(expect.objectContaining({
-      maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: 2, globalCooldownSeconds: 90,
+      maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: 2, globalCooldownSeconds: 90, actorId: h.actorId,
     }));
     expect(response.json()).toMatchObject({
       maxRedemptionsPerStream: 20, maxRedemptionsPerUserPerStream: 2, globalCooldownSeconds: 90,
@@ -425,7 +427,7 @@ describe('local queue and setup API', () => {
 
     expect(response.statusCode).toBe(201);
     expect(response.json()).toMatchObject({ queueMode: 'manual_only', rewardOrigin: 'none', rewardId: null, cost: null, isOpen: false, remoteSyncStatus: 'local_only' });
-    expect(h.repository.createManualQueue).toHaveBeenCalledWith(expect.objectContaining({ slug: 'free-queue', title: 'Fila gratuita', callMessage: '{user}, sua vez chegou!', callTimeoutMin: null, uidMode: 'visible', actorId: h.headers.cookie.split('=')[1] }));
+    expect(h.repository.createManualQueue).toHaveBeenCalledWith(expect.objectContaining({ slug: 'free-queue', title: 'Fila gratuita', callMessage: '{user}, sua vez chegou!', callTimeoutMin: null, uidMode: 'visible', actorId: h.actorId }));
     expect(h.repository.createQueueWithRewardIntent).not.toHaveBeenCalled();
     await h.app.close();
   });
@@ -458,6 +460,25 @@ describe('local queue and setup API', () => {
 
     expect(response.statusCode).toBe(400);
     expect(h.repository.createManualQueue).not.toHaveBeenCalled();
+    await h.app.close();
+  });
+
+  // #129 edge cases (OPS-31 X1): the boundary one over the limit, and non-string containers.
+  it.each([
+    ['exactly 351 characters (one over the limit)', `{user} ${'a'.repeat(344)}`],
+    ['an array', ['{user}, sua vez!']],
+    ['an object', { text: '{user}, sua vez!' }],
+    ['an empty array', []],
+  ])('rejects a call message that is %s when creating a queue', async (_case, callMessage) => {
+    if (typeof callMessage === 'string') expect(callMessage.length).toBe(351);
+    const h = await createHarness();
+    const response = await h.app.inject({ method: 'POST', url: '/api/queues', headers: h.headers, payload: {
+      slug: 'nova', title: 'Nova', queueMode: 'manual_only', callMessage,
+    } });
+
+    expect(response.statusCode).toBe(400);
+    expect(h.repository.createManualQueue).not.toHaveBeenCalled();
+    expect(h.repository.createQueueWithRewardIntent).not.toHaveBeenCalled();
     await h.app.close();
   });
 
@@ -529,7 +550,7 @@ describe('local queue and setup API', () => {
     const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-mode', headers: h.headers, payload: {} });
     expect(response.statusCode).toBe(202);
     expect(response.json()).toMatchObject({ status: 'pending', queue: { queueMode: 'channel_points', modeTransitionStatus: 'pending_pause', rewardId: 'reward-1' } });
-    expect(h.repository.requestManualModeTransition).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' }));
+    expect(h.repository.requestManualModeTransition).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', actorId: h.actorId, origin: 'panel' }));
     await h.app.close();
   });
 
@@ -577,7 +598,7 @@ describe('local queue and setup API', () => {
     expect(response.statusCode).toBe(200);
     expect(h.repository.updateLocalQueueSettings).toHaveBeenCalledWith(expect.objectContaining({
       queueId: 'queue-id', expectedVersion: 1, settings: { callTimeoutMin: null, showUidInList: true, autoSwitchAccount: true },
-      actorId: h.headers.cookie.split('=')[1], origin: 'panel',
+      actorId: h.actorId, origin: 'panel',
     }));
     await h.app.close();
   });
@@ -643,7 +664,7 @@ describe('local queue and setup API', () => {
     expect(h.repository.updateQueueRewardSettings).toHaveBeenCalledWith(expect.objectContaining({
       queueId: 'queue-id', expectedVersion: 1,
       settings: { title: 'Teatro', cost: 200, rewardPrompt: 'UID opcional', uidMode: 'visible', maxRedemptionsPerStream: 30, maxRedemptionsPerUserPerStream: 3, globalCooldownSeconds: 120 },
-      actorId: h.headers.cookie.split('=')[1], origin: 'panel',
+      actorId: h.actorId, origin: 'panel',
     }));
     await h.app.close();
   });
@@ -655,7 +676,7 @@ describe('local queue and setup API', () => {
     const response = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-entries', headers: h.headers, payload: { login: 'viewer' } });
     expect(response.statusCode).toBe(201);
     expect(resolveUser).toHaveBeenCalledWith('viewer');
-    expect(h.repository.addManualEntry).toHaveBeenCalledWith(expect.objectContaining({ actorId: h.headers.cookie.split('=')[1], origin: 'panel' }));
+    expect(h.repository.addManualEntry).toHaveBeenCalledWith(expect.objectContaining({ actorId: h.actorId, origin: 'panel' }));
     await h.app.close();
   });
 
@@ -683,10 +704,10 @@ describe('local queue and setup API', () => {
     expect(h.repository.addManualEntry).not.toHaveBeenCalled();
     const created = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/manual-entries', headers: h.headers, payload: { login: 'viewer', priority: true, priorityReason: 'external_payment' } });
     expect(created.statusCode).toBe(201);
-    expect(h.repository.addManualEntry).toHaveBeenCalledWith(expect.objectContaining({ priorityReason: 'external_payment', actorId: h.headers.cookie.split('=')[1], origin: 'panel' }));
+    expect(h.repository.addManualEntry).toHaveBeenCalledWith(expect.objectContaining({ priorityReason: 'external_payment', actorId: h.actorId, origin: 'panel' }));
     const updated = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/priority', headers: h.headers, payload: { priority: true, reason: 'bits' } });
     expect(updated.statusCode).toBe(200);
-    expect(h.repository.setEntryPriority).toHaveBeenCalledWith({ queueId: 'queue-id', entryId: 'entry-id', priority: true, reason: 'bits', actorId: h.headers.cookie.split('=')[1], origin: 'panel' });
+    expect(h.repository.setEntryPriority).toHaveBeenCalledWith({ queueId: 'queue-id', entryId: 'entry-id', priority: true, reason: 'bits', actorId: h.actorId, origin: 'panel' });
     await h.app.close();
   });
 
@@ -711,7 +732,7 @@ describe('local queue and setup API', () => {
     const resolved = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/resolve-reward', headers: h.headers, payload: { rewardId: 'candidate' } });
     expect(resolved.statusCode).toBe(200);
     expect(resolved.json()).toMatchObject({ status: 'resolved', remoteConfirmed: false });
-    expect(h.repository.resolveUnknownRewardCreation).toHaveBeenCalledWith({ queueId: 'queue-id', rewardId: 'candidate', actorId: h.headers.cookie.split('=')[1] });
+    expect(h.repository.resolveUnknownRewardCreation).toHaveBeenCalledWith({ queueId: 'queue-id', rewardId: 'candidate', actorId: h.actorId });
     await h.app.close();
   });
 
@@ -993,7 +1014,7 @@ describe('local queue and setup API', () => {
     const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/call-notification/resend', headers: h.headers, payload: {} });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ status: 'queued', entryId: 'entry-id' });
-    expect(h.repository.resendCallNotification).toHaveBeenCalledWith({ entryId: 'entry-id', actorId: h.headers.cookie.split('=')[1] });
+    expect(h.repository.resendCallNotification).toHaveBeenCalledWith({ entryId: 'entry-id', actorId: h.actorId });
     await h.app.close();
   });
 
@@ -1076,7 +1097,7 @@ describe('local queue and setup API', () => {
     const unarchived = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/unarchive', headers: h.headers, payload: {} });
     expect(unarchived.statusCode).toBe(200);
     expect(unarchived.json()).toMatchObject({ status: 'unarchived', queue: { isArchived: false, isOpen: false } });
-    expect(h.repository.unarchiveQueue).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' });
+    expect(h.repository.unarchiveQueue).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.actorId, origin: 'panel' });
     await h.app.close();
   });
 
@@ -1089,7 +1110,7 @@ describe('local queue and setup API', () => {
     expect(response.statusCode).toBe(409);
     expect(response.json()).toEqual({ error: 'Não foi possível desarquivar a fila. Confirme primeiro que a recompensa está pausada.' });
     expect(response.body).not.toContain('private unarchive state details');
-    expect(h.repository.unarchiveQueue).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', actorId: expect.any(String), origin: 'panel' }));
+    expect(h.repository.unarchiveQueue).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', actorId: h.actorId, origin: 'panel' }));
     await h.app.close();
   });
 
@@ -1133,6 +1154,7 @@ describe('local queue and setup API', () => {
     expect(response.statusCode).toBe(503);
     expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível iniciar o arquivamento local.', referenceId: '44444444-4444-4444-8444-444444444444' });
     expect(response.headers['x-error-reference']).toBe('44444444-4444-4444-8444-444444444444');
+    expect(h.repository.beginLocalQueueArchive).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.actorId, expectedVersion: 4 });
     expect(response.body).not.toContain('private archive database failure');
     expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.queue.archive_local_challenge', error: failure });
     await h.app.close();
@@ -1200,7 +1222,7 @@ describe('local queue and setup API', () => {
     const confirmed = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/archive-local/confirm', headers: h.headers, payload: { challengeId: challenge.json().challengeId, expectedVersion: 4, remoteSyncStatus: 'unknown' } });
     expect(confirmed.statusCode).toBe(200);
     expect(confirmed.json()).toMatchObject({ status: 'archived', queue: { lifecycleStatus: 'deleted', remoteSyncStatus: 'unknown' } });
-    expect(h.repository.confirmLocalQueueArchive).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], challengeId: challenge.json().challengeId, expectedVersion: 4, remoteSyncStatus: 'unknown' });
+    expect(h.repository.confirmLocalQueueArchive).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.actorId, challengeId: challenge.json().challengeId, expectedVersion: 4, remoteSyncStatus: 'unknown' });
     await h.app.close();
   });
 
@@ -1217,7 +1239,7 @@ describe('local queue and setup API', () => {
     const accepted = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete', headers: h.headers, payload: { confirm: true } });
     expect(accepted.statusCode).toBe(200);
     expect(accepted.json()).toMatchObject({ status: 'pending', activeRemoved: 2, refundsRequested: 1, queue: { lifecycleStatus: 'deleting' } });
-    expect(domainService.deleteQueue).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' });
+    expect(domainService.deleteQueue).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.actorId, origin: 'panel' });
     await h.app.close();
   });
 
@@ -1234,7 +1256,7 @@ describe('local queue and setup API', () => {
     const accepted = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/delete/cancel', headers: h.headers, payload: { confirm: true } });
     expect(accepted.statusCode).toBe(200);
     expect(accepted.json()).toMatchObject({ status: 'cancelled', queue: { lifecycleStatus: 'active', isArchived: true, isOpen: false } });
-    expect(domainService.cancelQueueDeletion).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' });
+    expect(domainService.cancelQueueDeletion).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.actorId, origin: 'panel' });
     await h.app.close();
   });
 
@@ -1372,7 +1394,7 @@ describe('local queue and setup API', () => {
     expect(response.statusCode).toBe(statusCode);
     expect(response.json()).toEqual({ code, error: errorMessage });
     expect(response.body).not.toContain('private database detail');
-    expect(domainService.deleteQueue).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' });
+    expect(domainService.deleteQueue).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.actorId, origin: 'panel' });
     await h.app.close();
   });
 
@@ -1391,7 +1413,7 @@ describe('local queue and setup API', () => {
     expect(response.statusCode).toBe(statusCode);
     expect(response.json()).toEqual({ code, error: errorMessage });
     expect(response.body).not.toContain('private cancellation state detail');
-    expect(domainService.cancelQueueDeletion).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.headers.cookie.split('=')[1], origin: 'panel' });
+    expect(domainService.cancelQueueDeletion).toHaveBeenCalledWith({ queueId: 'queue-id', actorId: h.actorId, origin: 'panel' });
     await h.app.close();
   });
 
@@ -1435,7 +1457,7 @@ describe('local queue and setup API', () => {
     const response = await h.app.inject({ method: 'POST', url: '/api/operations/op-id/resolve-unknown', headers: h.headers, payload: {} });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ status: 'resolved_manual', remoteConfirmed: false });
-    expect(h.repository.resolveUnknownFinancialOperation).toHaveBeenCalledWith('op-id', h.headers.cookie.split('=')[1]);
+    expect(h.repository.resolveUnknownFinancialOperation).toHaveBeenCalledWith('op-id', h.actorId);
     await h.app.close();
   });
 
@@ -1467,6 +1489,7 @@ describe('local queue and setup API', () => {
     const cleared = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/clear-confirm', headers: h.headers, payload: {} });
     expect(cleared.json()).toMatchObject({ status: 'cleared', count: 1, refundsRequested: 1 });
     expect(h.repository.clearActiveEntries).toHaveBeenCalledOnce();
+    expect(h.repository.clearActiveEntries).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', actorId: h.actorId }));
     await h.app.close();
   });
 
@@ -1537,7 +1560,7 @@ describe('local queue and setup API', () => {
     expect(response.statusCode).toBe(404);
     expect(response.json()).toEqual({ error: 'Não foi possível concluir a operação.' });
     expect(response.body).not.toContain('private queue lookup details');
-    expect(h.repository.setQueueOpen).toHaveBeenCalledWith('missing-queue', true, expect.any(String));
+    expect(h.repository.setQueueOpen).toHaveBeenCalledWith('missing-queue', true, h.actorId);
     await h.app.close();
   });
 
@@ -1589,7 +1612,7 @@ describe('local queue and setup API', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ status: 'pending', isOpen: true, remoteSyncStatus: 'pending_open' });
     expect(response.json().status).not.toBe('confirmed');
-    expect(h.repository.setQueueOpen).toHaveBeenCalledWith('queue-id', true, expect.any(String));
+    expect(h.repository.setQueueOpen).toHaveBeenCalledWith('queue-id', true, h.actorId);
     await h.app.close();
   });
 
@@ -1621,7 +1644,7 @@ describe('local queue and setup API', () => {
     expect(unavailable.body).not.toContain('op-2');
     // OPS-22 FT-25 (AC 20): the audited "retry now" always carries the operator; refusals carry an enumerated code.
     expect(unavailable.json()).toMatchObject({ code: 'OPERATION_RETRY_UNAVAILABLE' });
-    const actorId = h.headers.cookie.split('=')[1];
+    const actorId = h.actorId;
     expect(h.repository.retryOutboxManually).toHaveBeenNthCalledWith(1, 'op-1', { actorId });
     expect(h.repository.retryOutboxManually).toHaveBeenNthCalledWith(2, 'op-2', { actorId });
     await h.app.close();
@@ -1744,7 +1767,7 @@ describe('local queue and setup API', () => {
     const response = await h.app.inject({ method: 'POST', url: '/api/account/default', headers: h.headers, payload: { label: 'World Level 9' } });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ label: 'World Level 9', defaultLabel: 'World Level 9' });
-    expect(h.repository.setDefaultAccountLabel).toHaveBeenCalledWith('World Level 9', h.headers.cookie.split('=')[1]);
+    expect(h.repository.setDefaultAccountLabel).toHaveBeenCalledWith('World Level 9', h.actorId);
     await h.app.close();
   });
 
@@ -1753,7 +1776,7 @@ describe('local queue and setup API', () => {
     const h = await createHarness({ domainService });
     const response = await h.app.inject({ method: 'POST', url: '/api/entries/entry-id/transitions', headers: h.headers, payload: { to: 'called', reason: 'operator_call' } });
     expect(response.statusCode).toBe(200);
-    expect(domainService.transitionEntry).toHaveBeenCalledWith(expect.objectContaining({ entryId: 'entry-id', to: 'called', origin: 'panel' }));
+    expect(domainService.transitionEntry).toHaveBeenCalledWith(expect.objectContaining({ entryId: 'entry-id', to: 'called', origin: 'panel', actorId: h.actorId }));
     expect(h.repository.transitionEntry).not.toHaveBeenCalled();
     await h.app.close();
   });
@@ -1808,6 +1831,10 @@ describe('local queue and setup API', () => {
     const single = await h.app.inject({ method: 'POST', url: '/api/queues/queue-id/call', headers: h.headers, payload: { entryId: 'entry-id' } });
     expect(single.statusCode).toBe(200);
     expect(h.repository.enqueueCallNotification).toHaveBeenNthCalledWith(3, { queueId: 'queue-id', entryId: 'entry-id', previousPosition: 3 });
+    // OPS-31 X1 (A0, QA B1): both call paths hand the domain service the derived actor reference, never the cookie.
+    expect(domainService.callNext).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', actorId: h.actorId }));
+    expect(domainService.callSpecificEntry).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', entryId: 'entry-id', actorId: h.actorId }));
+    expect(domainService.callSpecificEntry.mock.calls[0][0].actorId).not.toBe(h.sessionCookieValue);
     await h.app.close();
   });
 
@@ -1875,7 +1902,7 @@ describe('local queue and setup API', () => {
     expect(response.json()).toEqual({ code: 'INTERNAL_ERROR', error: 'Não foi possível concluir. Tente novamente.', referenceId });
     expect(response.headers['x-error-reference']).toBe(referenceId);
     expect(response.body).not.toContain('private batch notification details');
-    expect(domainService.callNext).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', count: 2, actorId: expect.any(String) }));
+    expect(domainService.callNext).toHaveBeenCalledWith(expect.objectContaining({ queueId: 'queue-id', count: 2, actorId: h.actorId }));
     expect(h.repository.enqueueCallNotification).toHaveBeenCalledTimes(2);
     expect(reportDiagnostic).toHaveBeenCalledWith({ source: 'http.queue.call', error });
     await h.app.close();
@@ -2343,7 +2370,8 @@ describe('local queue and setup API', () => {
     const added = await h.app.inject({ method: 'POST', url: '/api/refund-list', headers: h.headers, payload: { login: '@Friend', label: 'Friend' } });
     expect(added.statusCode).toBe(201);
     expect(resolveUser).toHaveBeenCalledWith('Friend');
-    expect(h.repository.addRefundListMember).toHaveBeenCalledWith(expect.objectContaining({ twitchUserId: '777123', label: 'Friend' }));
+    expect(h.repository.addRefundListMember).toHaveBeenCalledWith(expect.objectContaining({ twitchUserId: '777123', label: 'Friend', actorId: h.actorId }));
+    expect(h.repository.addRefundListMember.mock.calls[0][0].actorId).not.toBe(h.sessionCookieValue); // A0: never the cookie
     expect(added.json()).toMatchObject({ member: { label: 'Friend' }, count: 1, max: 500 });
     expect(added.body).not.toContain('777123');
 
@@ -2422,6 +2450,7 @@ describe('local queue and setup API', () => {
     expect((await h.app.inject({ method: 'PUT', url, headers: h.headers, payload: accepted })).statusCode).toBe(200);
     expect(h.repository.updateQueueSettlementPolicy).toHaveBeenCalledWith(expect.objectContaining({
       queueId: 'queue-id', expectedPolicyRev: 4, changes: { onCloseSwitchOff: 'wait', reentryRefundCap: null, reentryCapHold: 'at_n', reentryCapCountsManual: false },
+      actorId: h.actorId, origin: 'panel',
     }));
 
     const failWith = async (error) => {

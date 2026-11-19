@@ -10,6 +10,16 @@ import {
 } from '../../apps/frontend/features/queues/queue-entry-actions.mjs';
 
 describe('Next queue entry actions', () => {
+  it('OPS-31 X1: a stale entry version (409 ENTRY_VERSION_STALE) maps to its own localized key, in all three catalogs', async () => {
+    expect(getQueueEntryActionFailureFeedback({ code: 'ENTRY_VERSION_STALE', status: 409 }).key).toBe('panel.error.entry_version_stale');
+    // Another 409 stays on the generic failure; the code decides, not the status.
+    expect(getQueueEntryActionFailureFeedback({ code: 'INVALID_ENTRY_TRANSITION', status: 409 }).key).toBe('panel.queue.action_result.failed');
+    for (const locale of ['en', 'es', 'pt-BR']) {
+      const catalog = await readFile(new URL(`../../apps/shared/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+      expect(catalog, locale).toMatch(/^panel\.error\.entry_version_stale\t\S.+$/m);
+    }
+  });
+
   it('keeps unexpected queue-entry action errors generic and carries only a safe diagnostic reference', () => {
     expect(getQueueEntryActionFailureFeedback({
       code: 'INTERNAL_ERROR', status: 500, referenceId: '22222222-2222-4222-8222-222222222222',

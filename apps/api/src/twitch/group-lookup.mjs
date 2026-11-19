@@ -16,7 +16,7 @@ import { REFUND_GROUP_SCOPES } from '../domain/settlement-setting.mjs';
 
 export const GROUP_LOOKUP_REASONS = Object.freeze([
   'scope_missing', 'unauthorized', 'forbidden', 'rate_limited', 'twitch_unavailable',
-  'timeout', 'malformed_response', 'channel_not_eligible', 'lookup_error',
+  'timeout', 'malformed_response', 'channel_not_eligible', 'lookup_error', 'bad_request',
 ]);
 /** Groups answered by Twitch, in the fixed lookup order (AC 14). The own list is a database read and the broadcaster a rule. */
 export const TWITCH_LOOKUP_GROUPS = Object.freeze(['moderator', 'vip', 'subscriber']);
@@ -31,12 +31,17 @@ export const GROUP_LOOKUP_RATE_LIMIT_WAIT_MS = 5_000;
  * `@analyst`: whether `first` is ignored when `user_id` is present; if so these two constants can become 100 (one-line change).
  */
 export const GROUP_LOOKUP_CHUNK_SIZE = Object.freeze({ moderator: 100, vip: 20, subscriber: 20 });
-const NUMERIC_ID = /^[0-9]{1,32}$/;
+/** Positive Twitch ids only: Helix answers 400 for a non-positive integer and one bad id would fail the whole chunk (research 2026-11-18). */
+export const TWITCH_USER_ID_PATTERN = /^[1-9][0-9]{0,18}$/;
+const NUMERIC_ID = TWITCH_USER_ID_PATTERN;
 
 const latencyBucket = (ms) => (ms < 250 ? 'lt250ms' : ms < 1000 ? 'lt1s' : ms < 3000 ? 'lt3s' : 'gte3s');
 
 function reasonFromError(error) {
   const { httpStatus } = twitchHttpError(error);
+  // Twurple throws this (no HTTP status) before any request when the broadcaster's refresh token is known to be dead: same remedy as a 401.
+  if (error && typeof error === 'object' && /** @type {{name?: unknown}} */ (error).name === 'CachedRefreshFailureError') return 'unauthorized';
+  if (httpStatus === 400) return 'bad_request';
   if (httpStatus === 401) return 'unauthorized';
   if (httpStatus === 403) return 'forbidden';
   if (httpStatus === 429) return 'rate_limited';

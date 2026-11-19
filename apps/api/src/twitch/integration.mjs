@@ -4,6 +4,7 @@ import { clearInterval as clearNodeInterval, setInterval as setNodeInterval } fr
 import { URLSearchParams } from 'node:url';
 import { createOAuthStateStore, completeOAuthAuthorization, validateClientCredentials, OPTIONAL_OAUTH_SCOPES } from './oauth.mjs';
 import { REFUND_GROUP_SCOPES, normalizeRefundGroups } from '../domain/settlement-setting.mjs';
+import { sessionActorId } from '../domain/session-actor.mjs';
 import { createTwitchApiAdapter } from './helix-adapter.mjs';
 import { createRefreshingAuthRuntime } from './auth-runtime.mjs';
 import { createEventSubRuntime } from './eventsub-runtime.mjs';
@@ -388,7 +389,7 @@ export async function createTwitchIntegration({
             expectedCredentialFingerprint,
             commitAdditional: tokens.authorizationContext?.kind === 'follower_policy' ? (tx) => repository.updateCommandPoliciesInTransaction(tx, {
               expectedVersion: tokens.authorizationContext.expectedVersion, policies: tokens.authorizationContext.policies,
-              actorId: input.sessionId, origin: 'oauth_follower_consent',
+              actorId: sessionActorId(input.sessionId), origin: 'oauth_follower_consent',
             }) : undefined,
           });
         },

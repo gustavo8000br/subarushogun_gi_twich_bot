@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import {
   buildQueueSettingsPayload,
   saveQueueSettingsWithRetry,
   getQueueSettingsFeedback,
   getQueueSettingsFailureKey,
+  getSettlementPolicyFailureKey,
   queueSettingsMatch,
   reconcileQueueSettingsDraft,
 } from '../../apps/frontend/features/queues/queue-settings.mjs';
@@ -120,5 +122,19 @@ describe('Next queue settings', () => {
     it('keeps the generic message for an open queue', () => {
       expect(getQueueSettingsFeedback({ refreshFailed: false, queue: { ...closedLocal, isOpen: true } }).key).toBe('panel.notice.queue_settings_saved');
     });
+  });
+});
+
+describe('OPS-31 X1 settlement policy failure key', () => {
+  it('maps the 409 SETTLEMENT_POLICY_STALE code to a localized key present in en, es and pt-BR', () => {
+    expect(getSettlementPolicyFailureKey({ status: 409, code: 'SETTLEMENT_POLICY_STALE' })).toBe('panel.error.settlement_policy_stale');
+    expect(getSettlementPolicyFailureKey({ status: 409, code: 'QUEUE_NOT_AVAILABLE' })).toBe('panel.error.queue_not_available');
+    expect(getSettlementPolicyFailureKey({ status: 404, code: 'QUEUE_NOT_FOUND' })).toBe('panel.error.queue_not_found');
+    expect(getSettlementPolicyFailureKey({ status: 409 })).toBe('panel.error.generic');
+    expect(getSettlementPolicyFailureKey(null)).toBe('panel.error.generic');
+    for (const locale of ['en', 'es', 'pt-BR']) {
+      const catalog = readFileSync(new URL(`../../apps/shared/localization/catalogs/panel/${locale}.tsv`, import.meta.url), 'utf8');
+      expect(catalog, locale).toMatch(/^panel\.error\.settlement_policy_stale\t\S.+$/m);
+    }
   });
 });

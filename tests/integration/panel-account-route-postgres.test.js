@@ -4,7 +4,7 @@
 //
 // The former "DEFECT" `it.fails` test (session id leak in the account DTO) was fixed on 2026-11-15 and is a normal test.
 import Fastify from 'fastify';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -28,6 +28,8 @@ let app;
 let headers;
 let sessionHeaders;
 let sessionId;
+// OPS-31 X1 (A0): the actor recorded in the database is a derived reference, NEVER the cookie value. Computed independently here.
+let actorId;
 
 function docker(args) {
   const result = spawnSync('docker', args, { cwd: root, encoding: 'utf8', timeout: 30_000 });
@@ -63,10 +65,11 @@ describe('FT-06 account routes and state projection on isolated PostgreSQL', () 
     const reportDiagnostic = vi.fn(() => '55555555-5555-4555-8555-555555555555');
     registerSafeHttpErrorHandler(app, { reportDiagnostic });
     registerLocalSession(app, { port: 3000 });
-    registerQueueRoutes(app, { repository, integrations: {}, reportDiagnostic, publicBaseUrl: 'https://localhost:3000', productVersion: 'v1.2.3-beta' });
+    registerQueueRoutes(app, { repository, integrations: {}, reportDiagnostic, resolveUser: async (login) => ({ id: { friend_one: '1001', friend_two: '1002', friend_three: '1003' }[login] ?? '1999', login }), publicBaseUrl: 'https://localhost:3000', productVersion: 'v1.2.3-beta' });
     const session = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
     const cookie = session.cookies[0];
     sessionId = cookie.value;
+    actorId = `panel_${createHash('sha256').update(`queuebot:panel-actor:v1:${sessionId}`).digest('hex').slice(0, 16)}`;
     sessionHeaders = { host: 'localhost:3000', origin: 'https://localhost:3000', cookie: `${cookie.name}=${cookie.value}` };
     headers = { ...sessionHeaders, 'x-csrf-token': session.json().csrfToken };
   }, ISOLATED_POSTGRES_BEFORE_ALL_TIMEOUT_MS);
@@ -91,9 +94,9 @@ describe('FT-06 account routes and state projection on isolated PostgreSQL', () 
     expect(ok.statusCode).toBe(200);
     expect(ok.json()).toMatchObject({ label: 'Spiral Abyss', source: 'manual' });
     const stored = await prisma.setting.findUnique({ where: { key: 'account_state' } });
-    expect(stored.value).toMatchObject({ label: 'Spiral Abyss', source: 'manual', updatedBy: sessionId });
+    expect(stored.value).toMatchObject({ label: 'Spiral Abyss', source: 'manual', updatedBy: actorId });
     const audit = await prisma.auditLog.findFirst({ where: { event: 'account.changed' }, orderBy: { createdAt: 'desc' } });
-    expect(audit).toMatchObject({ nextState: 'Spiral Abyss', origin: 'panel', actorId: sessionId });
+    expect(audit).toMatchObject({ nextState: 'Spiral Abyss', origin: 'panel', actorId });
     for (const label of ['', '   ', 'x'.repeat(61), 'two\nlines', 7]) {
       const refused = await post('/api/account', { label });
       expect(refused.statusCode, String(label)).toBe(400);
@@ -106,7 +109,7 @@ describe('FT-06 account routes and state projection on isolated PostgreSQL', () 
 
   it('ACC-02 persists the default label, keeps a manual current label, and the state projection reflects it', async () => {
     // Seed a different previous actor: setDefaultAccountLabel spreads the previous state, so without this the
-    // `updatedBy = sessionId` assertion below would pass even if the repository stopped writing `updatedBy` (mutation M14).
+    // `updatedBy = actorId` assertion below would pass even if the repository stopped writing `updatedBy` (mutation M14).
     const seeded = (await prisma.setting.findUnique({ where: { key: 'account_state' } })).value;
     const previousState = { ...seeded, updatedBy: 'previous-actor' };
     await prisma.setting.update({ where: { key: 'account_state' }, data: { value: previousState } });
@@ -119,9 +122,9 @@ describe('FT-06 account routes and state projection on isolated PostgreSQL', () 
     const refused = await post('/api/account/default', { label: 'bad\nlabel' });
     expect(refused.statusCode).toBe(400);
     const stored = (await prisma.setting.findUnique({ where: { key: 'account_state' } })).value;
-    expect(stored).toMatchObject({ defaultLabel: 'World Level 9', updatedBy: sessionId });
+    expect(stored).toMatchObject({ defaultLabel: 'World Level 9', updatedBy: actorId });
     const audit = await prisma.auditLog.findFirst({ where: { event: 'account.default_label_changed' }, orderBy: { createdAt: 'desc' } });
-    expect(audit).toMatchObject({ nextState: 'World Level 9', origin: 'panel', actorId: sessionId });
+    expect(audit).toMatchObject({ nextState: 'World Level 9', origin: 'panel', actorId });
   });
 
   it('ACC-01/02/STA-01 the account DTO does not carry the HttpOnly local session id (`updatedBy`) or internal ids', async () => {
@@ -132,5 +135,32 @@ describe('FT-06 account routes and state projection on isolated PostgreSQL', () 
       expect(response.body).not.toContain(sessionId);
     }
     expect(Object.keys(state.json().account).sort()).toEqual(['defaultLabel', 'label', 'source']);
+  });
+
+  it('OPS-31 X1 A0: no table stores the session cookie value; actor columns hold only the derived reference', async () => {
+    expect(actorId).toMatch(/^panel_[0-9a-f]{16}$/);
+    expect(actorId).not.toContain(sessionId);
+    // Every mutating route family that writes an actor: refund list (add/remove/clear), account, idempotency keys.
+    const added = await post('/api/refund-list', { login: 'friend_one', label: 'Amigo' });
+    expect(added.statusCode).toBe(201);
+    const memberId = added.json().member.id;
+    expect((await post('/api/refund-list', { login: 'friend_two' })).statusCode).toBe(201);
+    expect((await post(`/api/refund-list/${memberId}/remove`, {})).statusCode).toBe(200);
+    expect((await post('/api/refund-list/clear', {})).statusCode).toBe(200);
+    expect((await post('/api/account', { label: 'Actor scan' })).statusCode).toBe(200);
+    expect(await prisma.refundListMember.count()).toBe(0); // cleared; the created_by value is asserted on a fresh row below
+    expect((await post('/api/refund-list', { login: 'friend_three' })).statusCode).toBe(201);
+    const row = await prisma.refundListMember.findFirst();
+    expect(row.createdBy).toBe(actorId);
+    const audits = await prisma.auditLog.findMany({ where: { event: { startsWith: 'refund_list.' } } });
+    expect(audits.length).toBeGreaterThanOrEqual(4);
+    for (const audit of audits) expect(audit.actorId).toBe(actorId);
+    // Whole-database scan: the cookie value must not appear in any column of any public table (rows rendered as JSON text).
+    const tables = await prisma.$queryRaw`SELECT table_name::text AS table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`;
+    expect(tables.length).toBeGreaterThan(5);
+    for (const { table_name: table } of tables) {
+      const found = await prisma.$queryRawUnsafe(`SELECT count(*)::int AS n FROM "${table}" t WHERE to_jsonb(t)::text LIKE '%' || $1 || '%'`, sessionId);
+      expect(found[0].n, `session cookie value found in table ${table}`).toBe(0);
+    }
   });
 });

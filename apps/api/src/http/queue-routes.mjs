@@ -208,7 +208,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       return reply.code(503).send({ error: 'O registro seguro de operações não está disponível.' });
     }
     const fingerprint = mutationFingerprint(request);
-    const operationKey = `panel:${localRequest.localSession?.id ?? 'unknown'}:${key}`;
+    const operationKey = `panel:${localRequest.localSession?.actorId ?? 'unknown'}:${key}`;
     let decision;
     try { decision = await repository.beginPanelOperation({ operationKey, fingerprint }); }
     catch { return reply.code(503).send({ error: 'Não foi possível registrar a operação com segurança.' }); }
@@ -360,7 +360,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     try {
       return await repository.updateCommandPolicies({
         expectedVersion: body.expectedVersion, policies,
-        actorId: localRequest.localSession?.id ?? null, origin: 'panel',
+        actorId: localRequest.localSession?.actorId ?? null, origin: 'panel',
       });
     } catch (error) {
       if (error?.code === 'COMMAND_POLICY_VERSION_CONFLICT') return reply.code(409).send({ error: 'As permissões mudaram. Atualize o catálogo antes de salvar.' });
@@ -371,13 +371,13 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   app.get('/api/operations', async () => (await repository.listFinancialOperations?.() ?? []).map(operationDto));
   app.post('/api/operations/:operationId/retry', async (request, reply) => {
     const localRequest = /** @type {any} */ (request);
-    const result = await repository.retryOutboxManually(localRequest.params.operationId, { actorId: localRequest.localSession?.id ?? null });
+    const result = await repository.retryOutboxManually(localRequest.params.operationId, { actorId: localRequest.localSession?.actorId ?? null });
     if (!result.count) return reply.code(409).send({ code: 'OPERATION_RETRY_UNAVAILABLE', error: 'Esta operação não está disponível para nova tentativa manual.' });
     return { status: 'pending' };
   });
   app.post('/api/operations/:operationId/resolve-unknown', async (request, reply) => {
     const localRequest = /** @type {any} */ (request);
-    const result = await repository.resolveUnknownFinancialOperation?.(localRequest.params.operationId, localRequest.localSession?.id);
+    const result = await repository.resolveUnknownFinancialOperation?.(localRequest.params.operationId, localRequest.localSession?.actorId);
     if (!result || result.status !== 'resolved_manual') return reply.code(409).send({ code: 'OPERATION_RESOLUTION_UNAVAILABLE', error: 'Esta operação não está disponível para resolução manual.' });
     return { status: 'resolved_manual', remoteConfirmed: false };
   });
@@ -404,14 +404,14 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     }
   });
   app.post('/api/setup/connect', async (_request, reply) => {
-    /** @type {import('fastify').FastifyRequest & {localSession?: {id: string}}} */
+    /** @type {import('fastify').FastifyRequest & {localSession?: {id: string, actorId: string}}} */
     const localRequest = _request;
     const result = await integrations.beginAuthorization?.(localRequest.localSession?.id);
     if (!result?.url) return reply.code(503).send({ error: 'Configure e valide o aplicativo Twitch antes de conectar.' });
     return { authorizationUrl: result.url };
   });
   app.get('/callback', async (request, reply) => {
-    /** @type {import('fastify').FastifyRequest & {localSession?: {id: string}, query: Record<string, any>}} */
+    /** @type {import('fastify').FastifyRequest & {localSession?: {id: string, actorId: string}, query: Record<string, any>}} */
     const localRequest = request;
     const redirectToPanel = (status) => {
       reply.header('cache-control', 'no-store');
@@ -433,7 +433,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
   app.post('/api/queues', async (request, reply) => {
     /** @type {Record<string, any>} */
     const body = request.body && typeof request.body === 'object' ? request.body : {};
-    /** @type {import('fastify').FastifyRequest & {localSession?: {id: string}}} */
+    /** @type {import('fastify').FastifyRequest & {localSession?: {id: string, actorId: string}}} */
     const localRequest = request;
     try {
       const keys = normalizeQueueKeys({ slug: body.slug, aliases: body.aliases ?? [] });
@@ -459,7 +459,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
         const queue = await repository.createManualQueue({
           ...keys, title: body.title.trim(), callMessage,
           callTimeoutMin: body.callTimeoutMin === undefined ? 10 : body.callTimeoutMin,
-          uidMode: body.uidMode ?? 'hidden', actorId: localRequest.localSession?.id ?? null,
+          uidMode: body.uidMode ?? 'hidden', actorId: localRequest.localSession?.actorId ?? null,
         });
         return reply.code(201).send(queueDto(queue, { operator: true }));
       }
@@ -469,7 +469,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
         maxRedemptionsPerUserPerStream: body.maxRedemptionsPerUserPerStream ?? null,
         globalCooldownSeconds: body.globalCooldownSeconds ?? null,
         callMessage, callTimeoutMin: body.callTimeoutMin === undefined ? 10 : body.callTimeoutMin,
-        uidMode: body.uidMode ?? 'hidden', isOpen: false, actorId: localRequest.localSession?.id ?? null,
+        uidMode: body.uidMode ?? 'hidden', isOpen: false, actorId: localRequest.localSession?.actorId ?? null,
       });
       return reply.code(201).send(queueDto(result.queue, { operator: true }));
     } catch (error) {
@@ -505,7 +505,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       return reply.code(400).send({ code: 'INVALID_CALL_MESSAGE_TEMPLATE', error: INVALID_CALL_MESSAGE_TEMPLATE_MESSAGE });
     }
     try {
-      const queue = await repository.updateLocalQueueSettings({ queueId: localRequest.params.queueId, expectedVersion: body.expectedVersion, settings, actorId: localRequest.localSession?.id ?? null, origin: 'panel' });
+      const queue = await repository.updateLocalQueueSettings({ queueId: localRequest.params.queueId, expectedVersion: body.expectedVersion, settings, actorId: localRequest.localSession?.actorId ?? null, origin: 'panel' });
       return queueDto(queue, { operator: true });
     } catch (error) {
       if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code: error.code, error: 'Fila não encontrada.' });
@@ -539,7 +539,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     try {
       return await repository.updateQueueSettlementPolicy({
         queueId: localRequest.params.queueId, expectedPolicyRev: parsed.expectedPolicyRev, changes: parsed.changes,
-        actorId: localRequest.localSession?.id ?? null, origin: 'panel',
+        actorId: localRequest.localSession?.actorId ?? null, origin: 'panel',
       });
     } catch (error) {
       if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code: error.code, error: 'Fila não encontrada.' });
@@ -572,7 +572,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     if (typeof settings.title === 'string') settings.title = settings.title.trim();
     if (typeof settings.rewardPrompt === 'string') settings.rewardPrompt = settings.rewardPrompt.trim();
     try {
-      const result = await repository.updateQueueRewardSettings({ queueId: localRequest.params.queueId, expectedVersion: body.expectedVersion, settings, actorId: localRequest.localSession?.id ?? null, origin: 'panel' });
+      const result = await repository.updateQueueRewardSettings({ queueId: localRequest.params.queueId, expectedVersion: body.expectedVersion, settings, actorId: localRequest.localSession?.actorId ?? null, origin: 'panel' });
       return reply.code(202).send({ ...queueDto(result.queue, { operator: true }), operationStatus: result.status });
     } catch (error) {
       if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code: error.code, error: 'Fila não encontrada.' });
@@ -620,7 +620,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     try {
       const entry = await repository.getEntry(localRequest.params.entryId);
       if (!entry) return reply.code(404).send({ error: 'Entrada não encontrada.' });
-      return await repository.setEntryPriority({ queueId: entry.queueId, entryId: entry.id, priority, reason, actorId: localRequest.localSession?.id, origin: 'panel' });
+      return await repository.setEntryPriority({ queueId: entry.queueId, entryId: entry.id, priority, reason, actorId: localRequest.localSession?.actorId, origin: 'panel' });
     } catch (error) {
       if (error?.code === 'ENTRY_NOT_WAITING') return reply.code(409).send({ error: 'Só é possível alterar a prioridade enquanto a pessoa aguarda.' });
       if (error?.code === 'INVALID_PRIORITY') return reply.code(400).send({ error: 'A categoria do benefício é inválida.' });
@@ -678,7 +678,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
         logEvent({ event: 'queue_reward_association_rejected', level: 'notice', source: 'http.queue.resolve_reward', details: { mismatchCounts: Object.fromEntries(evaluation.mismatchReasons.map((reason) => [reason, 1])) } });
         return reply.code(409).send({ error: 'A recompensa não pertence ao conjunto gerenciável esperado ou seus parâmetros mudaram. Atualize a lista e revise no console Twitch.' });
       }
-      const result = await repository.resolveUnknownRewardCreation({ queueId, rewardId, actorId: localRequest.localSession?.id });
+      const result = await repository.resolveUnknownRewardCreation({ queueId, rewardId, actorId: localRequest.localSession?.actorId });
       return { status: result.status, queue: queueDto(result.queue, { operator: true }), remoteConfirmed: false };
     } catch (error) {
       if (error?.code === 'REWARD_ASSOCIATION_NOT_PENDING') return reply.code(409).send({ error: 'A associação da recompensa foi alterada. Atualize o painel.' });
@@ -696,7 +696,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     try {
       const user = await resolveUser(body.login);
       if (!user) return reply.code(404).send({ code: 'TWITCH_USER_NOT_FOUND', error: 'Esse usuário da Twitch não foi encontrado.' });
-      const result = await repository.addManualEntry({ queueId: /** @type {any} */ (request.params).queueId, twitchUserId: user.id, userLogin: user.login, displayName: user.displayName, uid: body.uid, actorId: /** @type {any} */ (request).localSession?.id, origin: 'panel', priorityReason: body.priority === true ? body.priorityReason : null });
+      const result = await repository.addManualEntry({ queueId: /** @type {any} */ (request.params).queueId, twitchUserId: user.id, userLogin: user.login, displayName: user.displayName, uid: body.uid, actorId: /** @type {any} */ (request).localSession?.actorId, origin: 'panel', priorityReason: body.priority === true ? body.priorityReason : null });
       if (result.status !== 'created') return reply.code(409).send({ code: 'DUPLICATE_ACTIVE_ENTRY', error: 'Essa pessoa já está ativa nesta fila.' });
       return reply.code(201).send({ id: result.entry.id, status: result.entry.status, position: result.entry.position });
     } catch (error) {
@@ -721,7 +721,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     try {
       /** @type {any} */
       const localRequest = request;
-      const result = await domainService.transitionEntry({ entryId: localRequest.params.entryId, to: body.to, origin: 'panel', trigger: 'panel_action', reason: body.reason, actorId: localRequest.localSession?.id, ...(body.expectedVersion === undefined ? {} : { expectedVersion: body.expectedVersion }) });
+      const result = await domainService.transitionEntry({ entryId: localRequest.params.entryId, to: body.to, origin: 'panel', trigger: 'panel_action', reason: body.reason, actorId: localRequest.localSession?.actorId, ...(body.expectedVersion === undefined ? {} : { expectedVersion: body.expectedVersion }) });
       return { id: result.id, status: result.status, financialDecision: result.financialDecision };
     } catch (error) {
       const statusCode = routeError(error);
@@ -744,7 +744,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     /** @type {any} */
     const localRequest = request;
     try {
-      const result = await repository.resendCallNotification({ entryId: localRequest.params.entryId, actorId: localRequest.localSession?.id });
+      const result = await repository.resendCallNotification({ entryId: localRequest.params.entryId, actorId: localRequest.localSession?.actorId });
       if (result.status === 'entry_not_found' || result.status === 'notification_not_found') return reply.code(404).send({ error: 'A chamada não está disponível para reenvio.' });
       if (result.status === 'entry_not_called' || result.status === 'already_processing') return reply.code(409).send({ error: 'A chamada mudou de estado ou já está sendo enviada.' });
       return { status: result.status, entryId: result.entryId };
@@ -768,13 +768,13 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
         const queue = await repository.getQueueById(localRequest.params.queueId);
         const entry = await repository.getEntry(body.entryId);
         if (!queue || !entry || entry.queueId !== queue.id || entry.status !== 'waiting') return reply.code(409).send({ error: 'A entrada não está aguardando nesta fila.' });
-        const moved = await domainService.callSpecificEntry({ queueId: queue.id, entryId: entry.id, actorId: localRequest.localSession.id });
+        const moved = await domainService.callSpecificEntry({ queueId: queue.id, entryId: entry.id, actorId: localRequest.localSession.actorId });
         await repository.enqueueCallNotification({ queueId: queue.id, entryId: entry.id, previousPosition: moved.previousPosition });
         return { status: 'called', id: moved.id };
       }
       const count = body.count ?? 1;
       if (!Number.isInteger(count) || count < 1 || count > 10) return reply.code(400).send({ error: 'Escolha de 1 a 10 pessoas.' });
-      const called = await domainService.callNext({ queueId: localRequest.params.queueId, count, actorId: localRequest.localSession.id });
+      const called = await domainService.callNext({ queueId: localRequest.params.queueId, count, actorId: localRequest.localSession.actorId });
       for (const entry of called) await repository.enqueueCallNotification({ queueId: localRequest.params.queueId, entryId: entry.id, previousPosition: entry.previousPosition });
       return { status: 'called', count: called.length };
     } catch (error) {
@@ -799,7 +799,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
       try {
         const queue = await repository.getQueueById(queueId);
         if (!queue || queue.lifecycleStatus !== 'active') return reply.code(404).send({ error: 'Fila não encontrada.' });
-        const result = await clearConfirmation[method]({ actorId: localRequest.localSession.id, channelId: 'local-panel', queueId, origin: 'panel' });
+        const result = await clearConfirmation[method]({ actorId: localRequest.localSession.actorId, channelId: 'local-panel', queueId, origin: 'panel' });
         return result;
       } catch (error) {
         const statusCode = routeError(error);
@@ -820,7 +820,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     /** @type {any} */
     const localRequest = request;
     if (typeof body.isOpen !== 'boolean') return reply.code(400).send({ error: 'Estado da fila inválido.' });
-    try { return await repository.setQueueOpen(localRequest.params.queueId, body.isOpen, localRequest.localSession.id); }
+    try { return await repository.setQueueOpen(localRequest.params.queueId, body.isOpen, localRequest.localSession.actorId); }
     catch (error) {
       const status = routeError(error);
       const code = ['QUEUE_NOT_AVAILABLE', 'QUEUE_REWARD_NOT_READY'].includes(error?.code) ? error.code : undefined;
@@ -833,7 +833,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const localRequest = request;
     if (typeof repository.requestManualModeTransition !== 'function') return reply.code(503).send({ error: 'A troca para fila local não está disponível.' });
     try {
-      const result = await repository.requestManualModeTransition({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
+      const result = await repository.requestManualModeTransition({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.actorId, origin: 'panel' });
       return reply.code(result.status === 'pending' ? 202 : 200).send({ status: result.status, queue: queueDto(result.queue, { operator: true }) });
     } catch (error) {
       const status = routeError(error);
@@ -849,7 +849,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const body = request.body && typeof request.body === 'object' ? request.body : {};
     if (!Number.isInteger(body.expectedVersion) || body.expectedVersion < 1) return reply.code(400).send({ code: 'INVALID_LOCAL_ARCHIVE_CHALLENGE', error: 'A confirmação local está inválida. Atualize o painel e tente novamente.' });
     try {
-      const result = await repository.beginLocalQueueArchive({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, expectedVersion: body.expectedVersion });
+      const result = await repository.beginLocalQueueArchive({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.actorId, expectedVersion: body.expectedVersion });
       return reply.code(200).send(result);
     } catch (error) {
       const code = error?.code;
@@ -871,7 +871,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     }
     try {
       const result = await repository.confirmLocalQueueArchive({
-        queueId: localRequest.params.queueId, actorId: localRequest.localSession.id,
+        queueId: localRequest.params.queueId, actorId: localRequest.localSession.actorId,
         challengeId: body.challengeId, expectedVersion: body.expectedVersion, remoteSyncStatus: body.remoteSyncStatus,
       });
       return reply.send({ status: result.status, queue: queueDto(result.queue, { operator: true }) });
@@ -893,7 +893,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     /** @type {any} */
     const localRequest = request;
     try {
-      const result = await repository.unarchiveQueue({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
+      const result = await repository.unarchiveQueue({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.actorId, origin: 'panel' });
       return { status: result.status, queue: queueDto(result.queue, { operator: true }) };
     } catch (error) {
       if (error?.code === 'QUEUE_NOT_AVAILABLE' || error?.code === 'QUEUE_REWARD_NOT_READY' || error?.code === 'QUEUE_OPEN_WHILE_ARCHIVED') return reply.code(409)
@@ -908,7 +908,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     if (body.confirm !== true) return reply.code(400).send({ code: 'QUEUE_DELETE_CONFIRMATION_REQUIRED', error: 'Confirme explicitamente a exclusão desta fila.' });
     let result;
     try {
-      result = await domainService.deleteQueue({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
+      result = await domainService.deleteQueue({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.actorId, origin: 'panel' });
     } catch (error) {
       if (error?.code === 'QUEUE_NOT_FOUND') return reply.code(404).send({ code: 'QUEUE_NOT_FOUND', error: 'Fila não encontrada.' });
       if (error?.code === 'QUEUE_REWARD_NOT_READY') return reply.code(409).send({ code: 'QUEUE_REWARD_NOT_READY', error: 'A recompensa ainda não foi confirmada.' });
@@ -935,7 +935,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const body = /** @type {Record<string, any>} */ (request.body && typeof request.body === 'object' ? request.body : {});
     if (body.confirm !== true) return reply.code(400).send({ code: 'QUEUE_DELETE_CANCEL_CONFIRMATION_REQUIRED', error: 'Confirme explicitamente o cancelamento da exclusão.' });
     try {
-      const result = await domainService.cancelQueueDeletion({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.id, origin: 'panel' });
+      const result = await domainService.cancelQueueDeletion({ queueId: localRequest.params.queueId, actorId: localRequest.localSession.actorId, origin: 'panel' });
       return { status: result.status, reason: normalizeDeletionCancelReason(result.reason), ...(result.queue ? { queue: queueDto(result.queue, { operator: true }) } : {}) };
     } catch (error) {
       const code = error?.code;
@@ -975,13 +975,13 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     try {
       const user = await resolveUser(body.login.replace(/^@/, ''));
       if (!user) return reply.code(404).send({ code: 'TWITCH_USER_NOT_FOUND', error: 'Esse usuário da Twitch não foi encontrado.' });
-      const result = await repository.addRefundListMember({ twitchUserId: String(user.id), label: body.label, actorId: /** @type {any} */ (request).localSession?.id ?? null });
+      const result = await repository.addRefundListMember({ twitchUserId: String(user.id), label: body.label, actorId: /** @type {any} */ (request).localSession?.actorId ?? null });
       return reply.code(201).send({ member: { id: result.member.id, label: result.member.label, createdAt: result.member.createdAt }, count: result.count, max: REFUND_LIST_MAX });
     } catch (error) { return refundListFailure(reply, error, 'http.refund_list.add'); }
   });
   app.post('/api/refund-list/clear', async (request, reply) => {
     try {
-      const result = await repository.clearRefundList({ actorId: /** @type {any} */ (request).localSession?.id ?? null });
+      const result = await repository.clearRefundList({ actorId: /** @type {any} */ (request).localSession?.actorId ?? null });
       return { removed: result.removed, count: 0, max: REFUND_LIST_MAX };
     } catch (error) { return refundListFailure(reply, error, 'http.refund_list.clear'); }
   });
@@ -989,7 +989,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const memberId = /** @type {any} */ (request.params).memberId;
     if (typeof memberId !== 'string' || !QUEUE_ID_PATTERN.test(memberId)) return reply.code(404).send({ code: 'REFUND_LIST_MEMBER_NOT_FOUND', error: 'Essa pessoa não está na lista.' });
     try {
-      const result = await repository.removeRefundListMember({ id: memberId, actorId: /** @type {any} */ (request).localSession?.id ?? null });
+      const result = await repository.removeRefundListMember({ id: memberId, actorId: /** @type {any} */ (request).localSession?.actorId ?? null });
       return { count: result.count, max: REFUND_LIST_MAX };
     } catch (error) { return refundListFailure(reply, error, 'http.refund_list.remove'); }
   });
@@ -998,7 +998,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const body = request.body && typeof request.body === 'object' ? request.body : {};
     /** @type {any} */
     const localRequest = request;
-    try { return accountDto(await repository.setCurrentAccount(body.label, localRequest.localSession.id)); }
+    try { return accountDto(await repository.setCurrentAccount(body.label, localRequest.localSession.actorId)); }
     catch (error) {
       if (error?.code === 'INVALID_ACCOUNT_LABEL') return reply.code(400).send({ error: ACCOUNT_LABEL_INVALID_MESSAGE });
       return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.account.set', error, statusCode: 500, message: GENERIC_FAILURE_MESSAGE });
@@ -1010,7 +1010,7 @@ export function registerQueueRoutes(app, { repository, domainService = repositor
     const label = localRequest.body?.label;
     if (typeof label !== 'string' || !label.trim() || label.trim().length > 60 || Array.from(label).some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) return reply.code(400).send({ error: 'Informe um nome com até 60 caracteres, sem quebras de linha ou controles.' });
     if (!repository.setDefaultAccountLabel) return reply.code(503).send({ error: 'A configuração do nome padrão não está disponível.' });
-    try { return accountDto(await repository.setDefaultAccountLabel(label, localRequest.localSession.id)); }
+    try { return accountDto(await repository.setDefaultAccountLabel(label, localRequest.localSession.actorId)); }
     catch (error) {
       if (error?.code === 'INVALID_ACCOUNT_LABEL') return reply.code(400).send({ error: ACCOUNT_LABEL_INVALID_MESSAGE });
       return sendDiagnosedFailure(reply, { reportDiagnostic, source: 'http.account.default', error, statusCode: 500, message: GENERIC_FAILURE_MESSAGE });

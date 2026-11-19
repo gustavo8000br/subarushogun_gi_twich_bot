@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { createTwitchIntegration } from '../../apps/api/src/twitch/integration.mjs';
 import { createCredentialFingerprint } from '../../apps/api/src/twitch/credential-fingerprint.mjs';
@@ -359,7 +360,9 @@ describe('Twitch integration lifecycle', () => {
       commitAdditional: expect.any(Function),
     }));
     expect(repository.updateCommandPoliciesInTransaction).toHaveBeenCalledWith({ tx: 'same-transaction' }, expect.objectContaining({
-      expectedVersion: 4, actorId: 'session-1', origin: 'oauth_follower_consent',
+      expectedVersion: 4, origin: 'oauth_follower_consent',
+      // OPS-31 X1 (A0): the audit actor is the derived reference, never the session id itself.
+      actorId: `panel_${createHash('sha256').update('queuebot:panel-actor:v1:session-1').digest('hex').slice(0, 16)}`,
     }));
     integration.stop();
   });
