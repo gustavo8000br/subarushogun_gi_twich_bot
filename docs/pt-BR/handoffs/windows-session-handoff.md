@@ -13,7 +13,7 @@
 6. O Orion nunca edita o quadro do Project #5; o `@devops` sincroniza a cada evento (o que o proprietário mover prevalece).
 
 ## Estado do projeto (2026-10-27)
-Branch `feat/ops-15-next-panel`; Node `24.20.0` (`.nvmrc`); painel Next.js + API Fastify + PostgreSQL (Compose). Validado só no **Ubuntu Linux** (165 arquivos / 1.621 testes verdes, OpenGrep 0 achados, E2E do link de widget no Chrome, bateria real da Twitch parcial). O painel vanilla está sendo cortado por ondas (`docs/stories/OPS-15/cutover-plan.md`); a branch `legacy` o preserva.
+Branch `feat/ops-15-next-panel`; Node `24.22.3` (`.nvmrc`); painel Next.js + API Fastify + PostgreSQL (Compose). Validado só no **Ubuntu Linux** (165 arquivos / 1.621 testes verdes, OpenGrep 0 achados, E2E do link de widget no Chrome, bateria real da Twitch parcial). O painel vanilla está sendo cortado por ondas (`docs/stories/OPS-15/cutover-plan.md`); a branch `legacy` o preserva.
 
 ## Checklist (fonte: `docs/stories/OPS-15/windows-native-plan.md`; backlog OW-01…OW-04)
 Transforme cada item em verificação com script quando der; itens manuais ficam como passos do proprietário com modelo de evidência.
@@ -25,11 +25,11 @@ Transforme cada item em verificação com script quando der; itens manuais ficam
 - [ ] **Desinstalação:** manter dados e reinstalar devolve os dados; remover dados apaga só containers, rede e volumes deste projeto.
 - [ ] **Overlay no OBS:** Browser Source do OBS no Windows com a URL do overlay; fundo transparente, atualizações ao vivo, recuperação ao redimensionar/recarregar, confiança no certificado (o override de `HOME` do Flatpak do Linux não se aplica).
 - [ ] **Twitch (canal do proprietário, com OK dele):** OAuth, criação de recompensa, um resgate real até chamar e concluir, exclusão da fila sem operações pendentes (veja a OPS-22).
-- [ ] **Caminho de desenvolvedor:** `npm ci`, `npm run dev` / `dev:start` / `dev:stop` no Node 24.20.0 com o OpenSSL do Git for Windows; Ctrl+C não deixa `node.exe` solto.
+- [ ] **Caminho de desenvolvedor:** `npm ci`, `npm run dev` / `dev:start` / `dev:stop` no Node 24.22.3 com o OpenSSL do Git for Windows; Ctrl+C não deixa `node.exe` solto.
 - [ ] **Testes de contrato do Windows:** `tests/unit/windows-native-contract.test.js` (caminho → nome do projeto Compose, orientação do Docker Desktop, `DATABASE_URL` dispensa o Docker, `.gitattributes` LF exceto `.bat`/`.cmd` CRLF); proteção de segredos no NTFS; Ctrl+C abrupto.
 
 ## Como rodar e relatar
-1. Atualize a branch, instale o Node 24.20.0, `npm ci`, `npm ci --prefix .aiox-core`, `npm run sync:ide:check`.
+1. Atualize a branch, instale o Node 24.22.3, `npm ci`, `npm ci --prefix .aiox-core`, `npm run sync:ide:check`.
 2. Rode o checklist com scripts em `.local/platform-checks/` (ignorado pelo git), com um arquivo de evidência por item.
 3. Relate pelo `@qa`: `docs/stories/OPS-15/qa-gate-<data>-windows.md` (+ pt-BR) com plataforma (SO, versão, arquitetura), versões, comandos, resultados, itens não executados, limpeza e READY/NOT ready.
 4. Proponha um job de CI ao `@devops` só com o OK do proprietário (o CD já gera o instalador do Windows em `.github/workflows/main-cd.yml`).

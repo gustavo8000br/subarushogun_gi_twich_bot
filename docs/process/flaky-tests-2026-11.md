@@ -9,7 +9,7 @@ Status: **open record, no fix yet.** Owner of the decision to open a story/issue
 
 ## Hypothesis (not proven)
 
-- Both fail only under full-suite or CI load, never alone: the assertions race a UI/network state (the pending-cancel feedback appears asynchronously) against a fixed or too tight wait, so a slow worker misses the window.
+- The unit test fails only under full-suite or CI load: it passed 3/3 when run alone, which is the only isolation result proven so far; the Chromium case is a single report and was not re-run alone. The assertions race a UI/network state (the pending-cancel feedback appears asynchronously) against a fixed or too tight wait, so a slow worker misses the window.
 - The Chromium case is a timeout, consistent with a loaded runner rather than a logic error.
 - Related earlier work: TS-15 (flaky Chromium queue-deletion test, fixed in `0644cec`, PR #101) and TS-22 (`compose-runtime.test.js:1022`) in [`backlog-inventory.md`](backlog-inventory.md).
 
