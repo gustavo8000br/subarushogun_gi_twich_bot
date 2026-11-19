@@ -8,7 +8,7 @@ function commandResult(stdout = '') {
 describe('development startup preflight', () => {
   it('checks dependencies and Docker before provisioning the managed database', async () => {
     const checkCommand = vi.fn().mockImplementation((_command, args) => {
-      if (args[0] === '--version') return commandResult('v24.20.0');
+      if (args[0] === '--version') return commandResult('v24.22.3');
       if (args[0] === 'compose') return commandResult('Docker Compose version v2.39.1');
       return args[0] === 'info' ? commandResult('27.4.0') : commandResult();
     });
@@ -31,7 +31,7 @@ describe('development startup preflight', () => {
     'accepts supported Docker Compose %s releases',
     async (version) => {
       const checkCommand = vi.fn().mockImplementation((_command, args) => {
-        if (args[0] === '--version') return commandResult('v24.20.0');
+        if (args[0] === '--version') return commandResult('v24.22.3');
         if (args[0] === 'compose') return commandResult(`Docker Compose version ${version}`);
         return args[0] === 'info' ? commandResult('29.9.1') : commandResult();
       });
@@ -43,7 +43,7 @@ describe('development startup preflight', () => {
   );
 
   it('does not require Docker when an explicit database URL is configured', async () => {
-    const checkCommand = vi.fn().mockReturnValue(commandResult('v24.20.0'));
+    const checkCommand = vi.fn().mockReturnValue(commandResult('v24.22.3'));
     const checkDependencies = vi.fn().mockResolvedValue(true);
 
     await runDevelopmentPreflight({
@@ -61,12 +61,20 @@ describe('development startup preflight', () => {
     const checkCommand = vi.fn().mockReturnValue(commandResult('v22.1.0'));
 
     await expect(runDevelopmentPreflight({ env: {}, root: '/repo', checkCommand }))
-      .rejects.toThrow('This project requires Node.js 24.20.0. Current version: v22.1.0.');
+      .rejects.toThrow('This project requires Node.js 24.22.3. Current version: v22.1.0.');
+    expect(checkCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses the previous pinned Node version (24.20.0) after the 24.22.3 bump', async () => {
+    const checkCommand = vi.fn().mockReturnValue(commandResult('v24.20.0'));
+
+    await expect(runDevelopmentPreflight({ env: {}, root: '/repo', checkCommand }))
+      .rejects.toThrow('This project requires Node.js 24.22.3. Current version: v24.20.0.');
     expect(checkCommand).toHaveBeenCalledTimes(1);
   });
 
   it('gives an exact dependency recovery command before any database work', async () => {
-    const checkCommand = vi.fn().mockReturnValue(commandResult('v24.20.0'));
+    const checkCommand = vi.fn().mockReturnValue(commandResult('v24.22.3'));
     const checkDependencies = vi.fn().mockResolvedValue(false);
 
     await expect(runDevelopmentPreflight({
@@ -81,7 +89,7 @@ describe('development startup preflight', () => {
     ['engine-unavailable', 'Docker Engine is not running or accessible. Start Docker Desktop/Engine, then retry npm run dev.'],
   ])('reports a safe actionable Docker diagnostic for %s', async (failure, expectedMessage) => {
     const checkCommand = vi.fn().mockImplementation((_command, args) => {
-      if (args[0] === '--version') return commandResult('v24.20.0');
+      if (args[0] === '--version') return commandResult('v24.22.3');
       if (args[0] === 'compose') {
         return failure === 'compose-missing'
           ? { status: 1, stdout: '', stderr: 'untrusted internal detail' }
@@ -104,7 +112,7 @@ describe('development startup preflight', () => {
 
   it('rejects Compose v1 even when the command exits successfully', async () => {
     const checkCommand = vi.fn().mockImplementation((_command, args) => args[0] === '--version'
-      ? commandResult('v24.20.0')
+      ? commandResult('v24.22.3')
       : commandResult('docker-compose version 1.29.2'));
 
     await expect(runDevelopmentPreflight({

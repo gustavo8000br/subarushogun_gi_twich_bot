@@ -24,7 +24,7 @@ O repositório-fonte é público. Qualquer pessoa pode ler o código e propor um
 
 ## Verificações de desenvolvimento
 
-Use Node.js `24.20.0` e instale dependências fixadas com `npm ci`. Antes de pedir revisão, rode as verificações do [guia de desenvolvimento](DESENVOLVIMENTO.md) e os gates específicos da story. Não remova os volumes da instalação Compose ativa durante os testes.
+Use Node.js `24.22.3` e instale dependências fixadas com `npm ci`. Antes de pedir revisão, rode as verificações do [guia de desenvolvimento](DESENVOLVIMENTO.md) e os gates específicos da story. Não remova os volumes da instalação Compose ativa durante os testes.
 
 ## Commits e pull requests
 

@@ -60,7 +60,7 @@ describe('GitHub Actions application CI contract', () => {
   });
 
   it('tests installers natively and uploads the immutable beta Windows installer after image publication', () => {
-    expect(qualityWorkflow).toContain("node-version: '24.20.0'");
+    expect(qualityWorkflow).toContain("node-version: '24.22.3'");
     expect(qualityWorkflow).toContain('npm ci');
     expect(qualityWorkflow).toContain('uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10');
     expect(qualityWorkflow).toContain('uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020');
@@ -251,7 +251,7 @@ describe('Windows runner workflow contract (C1 / LA-25)', () => {
     expect(job['runs-on']).toBe('windows-latest');
     expect(job['timeout-minutes']).toBeLessThanOrEqual(20);
     const setup = job.steps.find((step) => step.uses?.startsWith('actions/setup-node@820762786026740c76f36085b0efc47a31fe5020'));
-    expect(setup.with['node-version']).toBe('24.20.0');
+    expect(setup.with['node-version']).toBe('24.22.3');
     expect(job.steps.find((step) => step.uses?.startsWith('actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10'))).toBeDefined();
     const commands = job.steps.filter((step) => step.run).map((step) => step.run.trim());
     expect(commands).toContain('npm ci');

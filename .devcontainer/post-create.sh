@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-readonly EXPECTED_NODE_VERSION="v24.20.0"
+readonly EXPECTED_NODE_VERSION="v24.22.3"
 readonly CODEX_CLI_VERSION="0.161.0"
 readonly OPENGREP_VERSION="v1.30.0"
 readonly OPENGREP_INSTALLER_URL="https://raw.githubusercontent.com/opengrep/opengrep/${OPENGREP_VERSION}/install.sh"

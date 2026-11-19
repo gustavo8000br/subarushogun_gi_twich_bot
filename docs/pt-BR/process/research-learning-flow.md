@@ -29,7 +29,7 @@
 
 ### 3.1 Antes de pesquisar (barato, sempre)
 
-1. Leia o **topo** do `docs/pt-BR/research-index.md` (regras) e ache a linha pelo tema. Use `npm run research:stale -- --topic "<palavras>"` quando existir; até lá, `Grep` no índice.
+1. Leia o **topo** do `docs/pt-BR/research-index.md` (regras) e ache a linha pelo tema. Use `npm run research:stale -- --topic "<palavras>"` (o CLI existe); use `Grep` no índice só se o CLI falhar.
 2. Leia `.claude/agent-memory/aiox-analyst/MEMORY.md` e só os arquivos de tópico que combinam (por exemplo `research-method-lessons.md`).
 3. Decida pela tabela abaixo. Registre a decisão e a data nas primeiras linhas da nota nova (ou na resposta, se não houver nota).
 
@@ -78,7 +78,7 @@
 2. Atualize **os dois** `docs/research-index.md` e `docs/pt-BR/research-index.md` (uma linha por nota, formato exato na seção 6).
 3. Grave as **lições** na memória do agente (seção 7): crie ou atualize `research-method-lessons.md` e, se o tema for grande, um arquivo de tópico como `topic-twitch-helix.md`. Mantenha as linhas-ponteiro do `MEMORY.md` em dia (uma linha cada, abaixo de 150 caracteres).
 4. Devolva ao Orion um relatório curto: arquivos, veredito, o que está vencido, lacunas abertas e decisões necessárias. Sem texto longo no chat.
-5. Rode `npm run research:stale -- --check-both` (quando implementado) e informe qualquer linha vencida que restar.
+5. Rode `npm run research:stale -- --check-both` e informe qualquer linha vencida que restar.
 6. Commit não é tarefa do `@analyst`: o `@devops` comita após o fluxo habitual (o diretório de memória é versionado).
 
 ## 4. Regras de prazo
@@ -203,7 +203,7 @@ O prompt do Orion ao `@analyst` sempre traz, em seções curtas e legíveis:
 | `@dev` | Implementa o CLI, o parser e o teste de contrato (seções 10 e 11) e aplica o texto do `AGENTS.md`; não pode editar `.claude/agents/` (caminho de governança); não pesquisa. |
 | `@qa` | Roda o teste de contrato na bateria completa; nunca repesquisa. |
 | `@po`, `@data-engineer`, `@ux-design-expert` | Sem ferramenta web: leem as notas e o índice; se uma nota não responde, devolvem a pergunta exata ao Orion (regra existente). |
-| `@devops` | Comita as notas, os índices e o diretório de memória após o veredito do `@qa`; confere segredos nos arquivos de memória na revisão (linha no checklist do PR); cria o workflow semanal `.github/workflows/research-freshness.yml`. |
+| `@devops` | Comita as notas, os índices e o diretório de memória após o veredito do `@qa`; confere segredos nos arquivos de memória na revisão (linha no checklist do PR); é dono do workflow semanal `.github/workflows/research-freshness.yml` (existe). |
 
 ## 10. Especificação do CLI: `npm run research:stale`
 
@@ -275,7 +275,7 @@ Summary: 38 rows | OK 29 | DUE-SOON 6 | WAIVED 3 | OVERDUE 0 | WAIVER-EXPIRED 0 
 | Aviso de prazo | `npm run research:stale` (padrão) | situação de cada linha | Sim | nunca por prazo: lista `OVERDUE` / `WAIVER-EXPIRED` como aviso, saída 0 |
 | Porteiro de prazo | `npm run research:stale -- --strict --check-both` | vencida sem dispensa válida | Sim | saída 1 para `OVERDUE` ou `WAIVER-EXPIRED` |
 
-O porteiro (`--strict`) roda (1) em **workflow agendado semanal** `.github/workflows/research-freshness.yml` (segunda-feira, cron próprio, somente leitura, **sem criar issue nem comentário**; a falha do job notifica; criado pelo `@devops`); (2) pelo `@qa` quando o pacote toca `docs/research*`, `docs/pt-BR/research*`, `.claude/agent-memory/aiox-analyst/**` ou o próprio CLI, e nos gates de `rc`/`stable`; (3) o Orion roda `--topic` antes de despachar.
+O porteiro (`--strict`) roda (1) em **workflow agendado semanal** `.github/workflows/research-freshness.yml` (segunda-feira 12:00 UTC mais disparo manual, cron próprio, somente leitura, **sem criar issue nem comentário**; a falha do job notifica; o workflow existe e é do `@devops`; só roda de verdade no GitHub); (2) pelo `@qa` quando o pacote toca `docs/research*`, `docs/pt-BR/research*`, `.claude/agent-memory/aiox-analyst/**` ou o próprio CLI, e nos gates de `rc`/`stable`; (3) o Orion roda `--topic` antes de despachar.
 
 ### 10.7 Exemplos
 

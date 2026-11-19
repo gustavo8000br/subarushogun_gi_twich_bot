@@ -16,7 +16,7 @@ describe('Windows native development contract', () => {
 
   it('reports actionable Docker Desktop guidance when the engine is unavailable', async () => {
     const checkCommand = (command, args) => {
-      if (command === process.execPath) return { status: 0, stdout: 'v24.20.0' };
+      if (command === process.execPath) return { status: 0, stdout: 'v24.22.3' };
       if (args[0] === 'compose') return { status: 0, stdout: 'Docker Compose version v2.40.0' };
       return { status: 1, stdout: '' };
     };
@@ -26,7 +26,7 @@ describe('Windows native development contract', () => {
 
   it('lets a developer with an explicit DATABASE_URL skip Docker entirely', async () => {
     const calls = [];
-    const checkCommand = (command) => { calls.push(command); return { status: 0, stdout: 'v24.20.0' }; };
+    const checkCommand = (command) => { calls.push(command); return { status: 0, stdout: 'v24.22.3' }; };
     await runDevelopmentPreflight({ env: { DATABASE_URL: 'postgresql://x' }, root: 'C:\\repo', checkCommand, checkDependencies: async () => true });
     expect(calls).not.toContain('docker');
   });

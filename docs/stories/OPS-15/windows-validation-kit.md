@@ -110,7 +110,7 @@ docker rm -f other-check
 
 ## 7. Developer path (OWN-05 and OWN-06, optional, outside the beta formula)
 
-Needs Node.js 24.20.0, Git for Windows (OpenSSL) and Docker Desktop. In a clone of the repository:
+Needs Node.js 24.22.3, Git for Windows (OpenSSL) and Docker Desktop. In a clone of the repository:
 
 ```powershell
 node --version

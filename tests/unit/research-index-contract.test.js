@@ -19,6 +19,8 @@ const read = (path) => readFileSync(join(root, path), 'utf8');
 const EN_PATH = 'docs/research-index.md';
 const PT_PATH = 'docs/pt-BR/research-index.md';
 const FLOW_FILES = ['docs/process/research-learning-flow.md', 'docs/pt-BR/process/research-learning-flow.md'];
+// Explicit literal on purpose (flow section 6): importing the code constant would make the check circular.
+const VOL_MAX_DAYS = 42;
 const DEFAULT_REASONS = ['default 3 months', 'padrão 3 meses'];
 
 const enText = read(EN_PATH);
@@ -45,7 +47,7 @@ function derivedViolations(parsed) {
       if (row.reviewAfter !== addCalendarMonths(verified, 3)) found.push(`#${row.n}: STD term drift`);
     }
     if (row.class === 'VOL' && verified && !/^extended:/.test(row.reason)) {
-      if (isoToDays(row.reviewAfter) - isoToDays(verified) > VOLATILE_MAX_DAYS) found.push(`#${row.n}: VOL term too long`);
+      if (isoToDays(row.reviewAfter) - isoToDays(verified) > VOL_MAX_DAYS) found.push(`#${row.n}: VOL term too long`);
     }
     if (row.class === 'VOL' && DEFAULT_REASONS.includes(row.reason)) found.push(`#${row.n}: VOL with default reason`);
   }
@@ -101,6 +103,11 @@ describe('research index: format of both files (T1 to T6, T3)', () => {
 });
 
 describe('research index: parity, term rules and links (T7 to T10)', () => {
+  it('T9: the code constant for the volatile term is exactly 42 days', () => {
+    expect(VOLATILE_MAX_DAYS).toBe(42);
+    expect(VOL_MAX_DAYS).toBe(VOLATILE_MAX_DAYS);
+  });
+
   it('T7: unique, increasing # in each file', () => {
     expect(derivedViolations(en).filter((entry) => /duplicated|increasing/.test(entry))).toEqual([]);
     expect(derivedViolations(pt).filter((entry) => /duplicated|increasing/.test(entry))).toEqual([]);
@@ -259,7 +266,7 @@ describe('T12: no secrets or Claude session URLs in research memory and notes', 
 
   it('the scanner detects each pattern (non-vacuous)', () => {
     const samples = [
-      'https://claude.ai/code/session_ABC', 'Claude-Session: x', `ghp_${'a'.repeat(24)}`, `sk-${'b'.repeat(24)}`,
+      ['https://claude', 'ai/code/session_ABC'].join('.'), 'Claude-Session: x', `ghp_${'a'.repeat(24)}`, `sk-${'b'.repeat(24)}`,
       `Bearer ${'c'.repeat(24)}`, '-----BEGIN RSA PRIVATE KEY-----', 'https://x.test/cb?access_token=1',
     ];
     expect(samples.map((sample) => scan(sample).length)).toEqual(samples.map(() => 1));

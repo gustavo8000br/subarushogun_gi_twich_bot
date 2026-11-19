@@ -24,7 +24,7 @@ The source repository is public. Anyone can read the code and propose a change; 
 
 ## Development checks
 
-Use Node.js `24.20.0` and install locked dependencies with `npm ci`. Before requesting review, run the checks listed in the [development guide](DEVELOPMENT.md) and any story-specific gates. Do not remove the active Compose volumes during tests.
+Use Node.js `24.22.3` and install locked dependencies with `npm ci`. Before requesting review, run the checks listed in the [development guide](DEVELOPMENT.md) and any story-specific gates. Do not remove the active Compose volumes during tests.
 
 ## Commits and pull requests
 

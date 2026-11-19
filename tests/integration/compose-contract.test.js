@@ -135,7 +135,7 @@ describe('local Compose runtime contract', () => {
       expect(buildConfig.services[serviceName].build.args.PRODUCT_VERSION).toBe('');
     }
     const dockerfile = readFileSync(dockerfilePath, 'utf8');
-    expect(dockerfile).toMatch(/^FROM node:24\.20\.0-alpine3\.24 AS dependencies$/m);
+    expect(dockerfile).toMatch(/^FROM node:24\.22\.3-alpine3\.24 AS dependencies$/m);
     expect(dockerfile).toMatch(/^RUN apk add --no-cache openssl$/m);
   });
 

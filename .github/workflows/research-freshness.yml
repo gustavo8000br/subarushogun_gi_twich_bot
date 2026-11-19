@@ -1,0 +1,32 @@
+name: Research freshness
+
+on:
+  schedule:
+    - cron: '0 12 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-freshness
+  cancel-in-progress: false
+
+jobs:
+  freshness:
+    name: Research index deadlines
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.22.3'
+      # The CLI is read-only and has no npm dependency (node: built-ins only), so no install step.
+      # It exits 1 on OVERDUE or WAIVER-EXPIRED rows and 2 on a format error or en/pt-BR mismatch.
+      - name: Check research deadlines and en/pt-BR parity
+        run: npm run research:stale -- --strict --check-both

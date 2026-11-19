@@ -11,7 +11,7 @@ Este guia cobre requisitos do computador, primeira inicialização, confiança H
 - Navegador atual no mesmo computador que possa confiar em uma autoridade certificadora local.
 - Internet para baixar imagens do GHCR e conectar à Twitch.
 - O repositório-fonte é público. O acesso à imagem GHCR é controlado separadamente; faça um pull anônimo para confirmar se o pacote é público. Se não for, o pull exige uma conta GitHub autorizada e um token clássico com `read:packages`. Nunca salve o token nos arquivos do projeto. O repositório público, por si só, não libera uma imagem privada.
-- Node.js, npm, PostgreSQL, Git e compilador não são necessários no host para usar o instalador do usuário final. Ele baixa uma imagem pré-compilada; o usuário não compila o aplicativo localmente. Node.js `24.20.0` só é necessário para desenvolvimento.
+- Node.js, npm, PostgreSQL, Git e compilador não são necessários no host para usar o instalador do usuário final. Ele baixa uma imagem pré-compilada; o usuário não compila o aplicativo localmente. Node.js `24.22.3` só é necessário para desenvolvimento.
 
 ### Sistemas host
 

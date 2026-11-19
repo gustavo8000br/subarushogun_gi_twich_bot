@@ -11,7 +11,7 @@ This guide covers host requirements, first startup, local HTTPS trust, and Twitc
 - A current browser on the same computer that can trust a local certificate authority.
 - Internet access for GHCR image pulls and Twitch connectivity.
 - The source repository is public. GHCR image access is controlled separately; use an anonymous pull to confirm whether the package is public. If it is not, image pulls require an authorized GitHub account and a classic token with `read:packages`. Never put the token in project files. A public source repository alone does not grant access to a private image.
-- Node.js, npm, PostgreSQL, Git, and a compiler are not needed on the host to run the end-user installer. It pulls a prebuilt image; users do not build the application locally. Node.js `24.20.0` is only needed for development.
+- Node.js, npm, PostgreSQL, Git, and a compiler are not needed on the host to run the end-user installer. It pulls a prebuilt image; users do not build the application locally. Node.js `24.22.3` is only needed for development.
 
 ### Host platforms
 
