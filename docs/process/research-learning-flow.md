@@ -29,7 +29,7 @@
 
 ### 3.1 Before searching (cheap, always)
 
-1. Read the **top** of `docs/research-index.md` (rules) and find the row by topic. Use `npm run research:stale -- --topic "<words>"` once it exists; until then, `Grep` the index.
+1. Read the **top** of `docs/research-index.md` (rules) and find the row by topic. Use `npm run research:stale -- --topic "<words>"` (the CLI exists); fall back to `Grep` on the index only if the CLI fails.
 2. Read `.claude/agent-memory/aiox-analyst/MEMORY.md`, then only the topic files that match (for example `research-method-lessons.md`).
 3. Decide with the table below. Write the decision and the date in the first lines of the new note (or in the answer, when no note is needed).
 
@@ -78,7 +78,7 @@
 2. Update **both** `docs/research-index.md` and `docs/pt-BR/research-index.md` (one row per note, exact line format in section 6).
 3. Write the **lessons** to the agent memory (section 7): create or update `research-method-lessons.md` and, if the topic is large, a topic file such as `topic-twitch-helix.md`. Keep the `MEMORY.md` pointer lines current (one line each, under 150 characters).
 4. Return to the Orion a short report: files, verdict, what is stale, open gaps and the decisions needed. No long text in chat.
-5. Run `npm run research:stale -- --check-both` (once implemented) and report any overdue row that remains.
+5. Run `npm run research:stale -- --check-both` and report any overdue row that remains.
 6. Commit is not the `@analyst`'s job: `@devops` commits after the usual flow (the memory directory is versioned).
 
 ## 4. Term rules
@@ -203,7 +203,7 @@ The Orion's prompt to the `@analyst` always contains, in short readable sections
 | `@dev` | Implements the CLI, the parser and the contract test (sections 10 and 11) and applies the `AGENTS.md` text; cannot edit `.claude/agents/` (governance path); no research. |
 | `@qa` | Runs the contract test in the full battery; never re-researches. |
 | `@po`, `@data-engineer`, `@ux-design-expert` | No web tool: read the notes and the index; if a note cannot answer, return the exact question to the Orion (existing rule). |
-| `@devops` | Commits the notes, the indexes and the memory directory after the `@qa` verdict; checks for secrets in memory files during review (PR checklist line); creates the weekly workflow `.github/workflows/research-freshness.yml`. |
+| `@devops` | Commits the notes, the indexes and the memory directory after the `@qa` verdict; checks for secrets in memory files during review (PR checklist line); owns the weekly workflow `.github/workflows/research-freshness.yml` (exists). |
 
 ## 10. CLI specification: `npm run research:stale`
 
@@ -275,7 +275,7 @@ Summary: 38 rows | OK 29 | DUE-SOON 6 | WAIVED 3 | OVERDUE 0 | WAIVER-EXPIRED 0 
 | Deadline warning | `npm run research:stale` (default) | status of each row | Yes | never for deadlines: lists `OVERDUE` / `WAIVER-EXPIRED` as warnings, exit 0 |
 | Deadline gate | `npm run research:stale -- --strict --check-both` | overdue without a valid waiver | Yes | exit 1 on `OVERDUE` or `WAIVER-EXPIRED` |
 
-The gate (`--strict`) runs (1) in a **weekly scheduled workflow** `.github/workflows/research-freshness.yml` (Monday, own cron, read-only, **no issue or comment created**; the job failure notifies; created by `@devops`); (2) by `@qa` when the package touches `docs/research*`, `docs/pt-BR/research*`, `.claude/agent-memory/aiox-analyst/**` or the CLI itself, and at the `rc`/`stable` gates; (3) the Orion runs `--topic` before dispatching.
+The gate (`--strict`) runs (1) in a **weekly scheduled workflow** `.github/workflows/research-freshness.yml` (Monday 12:00 UTC plus manual dispatch, own cron, read-only, **no issue or comment created**; the job failure notifies; the workflow exists and is owned by `@devops`; it only runs for real on GitHub); (2) by `@qa` when the package touches `docs/research*`, `docs/pt-BR/research*`, `.claude/agent-memory/aiox-analyst/**` or the CLI itself, and at the `rc`/`stable` gates; (3) the Orion runs `--topic` before dispatching.
 
 ### 10.7 Examples
 
