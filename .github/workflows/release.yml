@@ -26,7 +26,7 @@ jobs:
       should_release: ${{ steps.source.outputs.should_release }}
     steps:
       - name: Check out the selected main commit
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           ref: ${{ github.sha }}
@@ -144,12 +144,12 @@ jobs:
             extension: bat
     steps:
       - name: Check out tagged source
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           ref: ${{ needs.resolve-release-image.outputs.source_sha }}
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24.22.3'
           cache: npm
@@ -166,7 +166,7 @@ jobs:
           QUEUEBOT_EXPECTED_IMAGE_TAG: ${{ needs.resolve-release-image.outputs.image_ref }}
         run: node tests/platform/installer-native.mjs
       - name: Upload tested installer
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-installer-${{ matrix.platform }}
           path: ${{ runner.temp }}/queuebot-installer/subarushogun_twich_bot_setup.${{ matrix.extension }}
@@ -185,13 +185,13 @@ jobs:
       contents: write
     steps:
       - name: Check out tagged source
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           ref: ${{ needs.prepare-release.outputs.source_sha }}
           fetch-depth: 0
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24.22.3'
       - name: Verify tag matches the source commit and release configuration
