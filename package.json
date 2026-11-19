@@ -71,7 +71,7 @@
     "review:static": "opengrep scan --config .opengrep/rules.yml --no-git-ignore --error --exclude=apps/frontend/.next --exclude=apps/frontend/out apps"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "6.19.3",
+    "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "6.19.3",
     "@twurple/api": "8.2.0",
     "@twurple/auth": "8.2.0",
