@@ -116,6 +116,7 @@ Ordem de execução para mudanças: Master coordena; responsáveis especialistas
 - Antes de remover qualquer recurso, confira projeto Compose, labels, nomes, vínculos com worktrees e uso por outros checkouts. Recursos compartilhados ou de propriedade incerta devem ser preservados até que seu vínculo seja esclarecido.
 - Nunca remova recursos do ambiente ativo do produto ou de outro ambiente de desenvolvimento em uso. Volumes com dados do produto devem ser preservados; volumes de teste só podem ser removidos quando forem comprovadamente descartáveis e isolados.
 - Ao encerrar testes, remova seus recursos descartáveis identificados. Imagens compartilhadas só devem ser removidas quando nenhum ambiente ativo ou checkout depender delas.
+- **Regra do proprietário (2026-11-18):** apagar containers, volumes e imagens que não são mais úteis é regra. O Docker guarda dados em /home; confira `df -h /home` e `docker system df` no início da sessão e entre pacotes. Remova o provadamente descartável: cache de build, imagens não referenciadas, containers/volumes de teste do próprio agente ao fim dos testes (labels/projeto/dono conferidos antes), worktrees mergeadas e limpas. NUNCA remova containers ativos, a stack de preview nem volumes de dados do proprietário sem OK, nem recursos de outros projetos. Caches regeneráveis grandes fora do Docker (npm, yarn) só com OK do proprietário.
 - Mantenha os serviços one-shot `bootstrap` e `migrate` do Compose ativo quando fizerem parte do projeto; o estado `Exited (0)` é esperado e não os torna órfãos.
 
 ## Erros e diagnóstico

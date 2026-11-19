@@ -59,6 +59,7 @@ Ao retomar uma sessão, leia primeiro `docs/current-state.md` (arquivo curto de 
 - Não invente evidências. Separe fixtures/mocks, testes unitários, API/PostgreSQL descartável, serviços reais, Twitch/worker, navegador real e OBS/CEF nativo.
 - Garantias de PostgreSQL exigem integração em PostgreSQL isolado com migrations reais; nunca SQLite ou mocks de Prisma. Testes usam instância e dados descartáveis, sem tocar volumes ativos.
 - Preserve volumes, imagens e containers ativos; confira projeto Compose, labels e ownership antes de remover qualquer recurso e remova só o que for comprovadamente descartável.
+- **Limpeza de disco (2026-11-18):** apagar containers, volumes e imagens que não são mais úteis é regra; confira `df -h /home` e `docker system df` no início da sessão e entre pacotes. Nunca remova containers ativos, a stack de preview nem volumes do proprietário sem OK; caches fora do Docker (npm, yarn) só com OK. Regra completa em "Higiene de recursos Docker" no `AGENTS.md`.
 
 ## Erros e diagnóstico
 
