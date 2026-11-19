@@ -29,7 +29,10 @@ export function toPercent(value) {
   return Number.isFinite(number) ? number : null;
 }
 
-/** @param {unknown} value */
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, any>}
+ */
 function isObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -64,14 +67,18 @@ export function parseStatuslineInput(json) {
  * @returns {QuotaRecord|null}
  */
 export function buildQuotaRecord(input, nowIso) {
-  const parsed = input && typeof input === 'object' && 'hasRateLimits' in input ? input : parseStatuslineInput(input);
+  /** @type {ParsedInput} */
+  const parsed =
+    input && typeof input === 'object' && 'hasRateLimits' in input
+      ? /** @type {ParsedInput} */ (input)
+      : parseStatuslineInput(input);
   if (!parsed.hasRateLimits || parsed.rateLimits === null) return null;
   return { updated_at: nowIso, rate_limits: parsed.rateLimits, model: parsed.model };
 }
 
 /**
  * Normalized windows of a record. An absent/null five_hour window is a window that has not started: 0%.
- * @param {QuotaRecord|null|undefined} record
+ * @param {{ rate_limits?: RateLimits|null }|null|undefined} record
  */
 export function readWindows(record) {
   const limits = record && isObject(record.rate_limits) ? record.rate_limits : {};
