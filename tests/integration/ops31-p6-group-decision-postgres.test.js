@@ -5,6 +5,7 @@
 // leave exactly one decision.
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
@@ -115,6 +116,29 @@ describe('OPS-31 P6 group decision writer on isolated PostgreSQL', () => {
     expect(await repository.recordGroupDecision({ redemptionId: withIntent.redemptionId, decision: eligible, settlementMode: 'refund_on_end' })).toMatchObject({ written: false, reason: 'intent_exists', stored: null });
     expect((await row(withIntent.redemptionId)).groupDecision).toBeNull();
     expect(await repository.recordGroupDecision({ redemptionId: 'does-not-exist', decision: eligible, settlementMode: 'refund_on_end' })).toMatchObject({ written: false, reason: 'not_found' });
+  });
+
+  it('X1/A3: a settled_external row (money already decided outside) never receives a decision and is not written', async () => {
+    const external = await newRedemption({ settlementState: 'settled_external', remoteStatus: 'FULFILLED', settledExternalAt: new Date('2030-01-01T11:30:00Z') });
+    const before = await row(external.redemptionId);
+    expect(await repository.recordGroupDecision({ redemptionId: external.redemptionId, decision: eligible, settlementMode: 'refund_on_end', retryUnknown: true }))
+      .toMatchObject({ written: false, reason: 'settled_external', stored: null });
+    expect(await row(external.redemptionId)).toEqual(before);
+  });
+
+  it('X1: the lookup-only reason bad_request is stored as lookup_error (the CHECK has the nine older codes); an unknown reason is refused', async () => {
+    const { redemptionId } = await newRedemption();
+    expect(await repository.recordGroupDecision({ redemptionId, decision: unknown('bad_request'), settlementMode: 'refund_on_end' }))
+      .toMatchObject({ written: true, stored: { decision: 'unknown', unknownReason: 'lookup_error' } });
+    expect(await row(redemptionId)).toMatchObject({ groupDecision: 'unknown', groupUnknownReason: 'lookup_error' });
+    const other = await newRedemption();
+    await expect(repository.recordGroupDecision({ redemptionId: other.redemptionId, decision: unknown('made_up'), settlementMode: 'refund_on_end' })).rejects.toMatchObject({ code: 'GROUP_DECISION_INVALID' });
+  });
+
+  it('X1/A1: the writer takes FOR NO KEY UPDATE on the row (it changes no key column, so FK inserts from audit/outbox are not blocked)', () => {
+    const source = readFileSync(new URL('../../apps/api/src/persistence/group-decision-store.mjs', import.meta.url), 'utf8');
+    expect(source).toContain('FOR NO KEY UPDATE');
+    expect(source).not.toMatch(/FOR UPDATE`/);
   });
 
   it('PG75-03: the stored snapshot does not follow later queue setting changes', async () => {

@@ -1,6 +1,8 @@
 import Fastify from 'fastify';
 import { describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { registerLocalSession } from '../../apps/api/src/http/local-session.mjs';
+import { sessionActorId } from '../../apps/api/src/domain/session-actor.mjs';
 
 describe('local panel session and CSRF protection', () => {
   it('establishes a local session and requires its CSRF token for mutations', async () => {
@@ -128,6 +130,30 @@ describe('local panel session and CSRF protection', () => {
     expect(state.body).not.toContain('private');
     const health = await app.inject({ method: 'GET', url: '/health', headers: { host: 'localhost:3000' } });
     expect(health.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it('OPS-31 X1 A0: exposes a derived, non-reversible actor id that is never the cookie value', async () => {
+    const app = Fastify();
+    registerLocalSession(app);
+    app.get('/api/who', async (request) => ({ id: request.localSession.id, actorId: request.localSession.actorId }));
+    const first = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
+    const cookie = first.cookies[0];
+    const headers = { host: 'localhost:3000', cookie: `${cookie.name}=${cookie.value}` };
+    const who = (await app.inject({ method: 'GET', url: '/api/who', headers })).json();
+    const expected = `panel_${createHash('sha256').update(`queuebot:panel-actor:v1:${cookie.value}`).digest('hex').slice(0, 16)}`;
+    expect(who.id).toBe(cookie.value);
+    expect(who.actorId).toBe(expected);
+    expect(who.actorId).toMatch(/^panel_[0-9a-f]{16}$/);
+    expect(who.actorId).not.toContain(cookie.value);
+    expect(cookie.value).not.toContain(who.actorId.slice('panel_'.length));
+    expect(sessionActorId(cookie.value)).toBe(expected);
+    const other = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
+    expect(sessionActorId(other.cookies[0].value)).not.toBe(expected);
+    // The reference is not a usable credential: presenting it as the cookie opens no session.
+    const forged = await app.inject({ method: 'GET', url: '/api/who', headers: { host: 'localhost:3000', cookie: `${cookie.name}=${who.actorId}` } });
+    expect(forged.statusCode).toBe(401);
+    expect(() => sessionActorId('')).toThrow(TypeError);
     await app.close();
   });
 });

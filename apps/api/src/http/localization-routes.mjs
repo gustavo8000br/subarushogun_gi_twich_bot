@@ -40,11 +40,11 @@ export function registerLocalizationRoutes(app, { catalogRoot, communityCatalogR
     }
 
     try {
-      const localRequest = /** @type {import('fastify').FastifyRequest & {localSession?: {id: string}}} */ (request);
+      const localRequest = /** @type {import('fastify').FastifyRequest & {localSession?: {id: string, actorId: string}}} */ (request);
       const saved = await repository.setProductLocale({
         locale: body.locale,
         expectedRevision: body.expectedRevision,
-        actorId: localRequest.localSession?.id ?? null,
+        actorId: localRequest.localSession?.actorId ?? null,
       });
       try { await writeHostProjection(saved); }
       catch { return { ...saved, host_projection_status: 'pending' }; }

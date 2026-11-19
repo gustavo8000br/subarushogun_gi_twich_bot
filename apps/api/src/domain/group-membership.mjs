@@ -6,9 +6,9 @@
 // Eligibility is the union: a failure in one group never hides a positive answer in another. No positive answer and at least one
 // failure is `unknown` with the reason of the FIRST failure (in group order); all answered and none positive is `not_eligible`.
 import { REFUND_GROUPS } from './settlement-setting.mjs';
-import { TWITCH_LOOKUP_GROUPS, GROUP_LOOKUP_OVERALL_TIMEOUT_MS } from '../twitch/group-lookup.mjs';
+import { TWITCH_LOOKUP_GROUPS, GROUP_LOOKUP_OVERALL_TIMEOUT_MS, TWITCH_USER_ID_PATTERN } from '../twitch/group-lookup.mjs';
 
-const NUMERIC_ID = /^[0-9]{1,32}$/;
+const NUMERIC_ID = TWITCH_USER_ID_PATTERN;
 
 /**
  * @typedef {{decision: 'eligible', matchedGroup: string} | {decision: 'not_eligible'} | {decision: 'unknown', unknownReason: string}} GroupDecision
@@ -21,7 +21,7 @@ const NUMERIC_ID = /^[0-9]{1,32}$/;
  *   lookupGroup: (group: string, ids: string[], options: {deadlineAt: number}) => Promise<{members: Set<string>, failures: Map<string, string>}>,
  *   broadcasterType?: string | null,
  *   now?: () => number, overallTimeoutMs?: number,
- * }} input `broadcasterType` null/undefined means "not checked"; any other value other than affiliate/partner fails the Twitch groups as `channel_not_eligible` without a call.
+ * }} input `broadcasterType` null/undefined means "not checked" (moderator/VIP still ask; a subscriber "no" becomes unknown `lookup_error`); any other value other than affiliate/partner fails the Twitch groups as `channel_not_eligible` without a call.
  * @returns {Promise<Map<string, GroupDecision>>} one decision per distinct input id
  */
 export async function decideGroupMembership({
@@ -56,9 +56,14 @@ export async function decideGroupMembership({
     } catch {
       answer = { members: new Set(), failures: new Map(askable.map((id) => [id, 'lookup_error'])) };
     }
+    // An empty 200 from the subscriptions endpoint is also what Twitch may answer for a channel that cannot have subscribers
+    // (research 2026-11-18, S25), so "not a subscriber" is only a verdict when the channel type was read as affiliate or partner.
+    // An unreadable type (null/undefined) turns that silence into `lookup_error`, never into `not_eligible`.
+    const typeUnverified = group === 'subscriber' && (broadcasterType === null || broadcasterType === undefined);
     for (const id of askable) {
       if (answer.members.has(id)) decisions.set(id, { decision: 'eligible', matchedGroup: group });
-      else if (answer.failures.has(id) && !firstFailure.has(id)) firstFailure.set(id, answer.failures.get(id));
+      else if (answer.failures.has(id)) { if (!firstFailure.has(id)) firstFailure.set(id, answer.failures.get(id)); }
+      else if (typeUnverified && !firstFailure.has(id)) firstFailure.set(id, 'lookup_error');
     }
   }
 

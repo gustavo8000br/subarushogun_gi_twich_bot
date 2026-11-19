@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -47,7 +48,9 @@ async function createApp(catalogRoot, repository = {}, writeHostProjection = asy
   const cookie = session.cookies[0];
   const sessionHeaders = { host: 'localhost:3000', cookie: `${cookie.name}=${cookie.value}` };
   const headers = { ...sessionHeaders, origin: 'https://localhost:3000', 'x-csrf-token': session.json().csrfToken };
-  return { app, headers, sessionHeaders };
+  // OPS-31 X1 (A0, QA B1): the actor the product records is a derived reference, computed here independently of the product code.
+  const actorId = `panel_${createHash('sha256').update(`queuebot:panel-actor:v1:${cookie.value}`).digest('hex').slice(0, 16)}`;
+  return { app, headers, sessionHeaders, actorId, cookieValue: cookie.value };
 }
 
 afterEach(async () => {
@@ -107,7 +110,7 @@ describe('localization catalog API', () => {
   it('changes the persistent locale only to a locale in the complete discovered catalog bundle', async () => {
     const root = await createCatalogRoot();
     const repository = { setProductLocale: vi.fn(async ({ locale }) => ({ locale, revision: 2 })) };
-    const { app, headers, sessionHeaders } = await createApp(root, repository);
+    const { app, headers, sessionHeaders, actorId, cookieValue } = await createApp(root, repository);
 
     const denied = await app.inject({ method: 'PATCH', url: '/api/localization/locale', headers: sessionHeaders, payload: { locale: 'en', expectedRevision: 1 } });
     expect(denied.statusCode).toBe(403);
@@ -119,7 +122,8 @@ describe('localization catalog API', () => {
     const changed = await app.inject({ method: 'PATCH', url: '/api/localization/locale', headers, payload: { locale: 'en', expectedRevision: 1 } });
     expect(changed.statusCode).toBe(200);
     expect(changed.json()).toEqual({ locale: 'en', revision: 2 });
-    expect(repository.setProductLocale).toHaveBeenCalledWith({ locale: 'en', expectedRevision: 1, actorId: expect.any(String) });
+    expect(repository.setProductLocale).toHaveBeenCalledWith({ locale: 'en', expectedRevision: 1, actorId });
+    expect(repository.setProductLocale.mock.calls[0][0].actorId).not.toBe(cookieValue);
     await app.close();
   });
 

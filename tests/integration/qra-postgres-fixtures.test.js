@@ -142,7 +142,8 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
       const sessionResponse = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
       expect(sessionResponse.statusCode).toBe(200);
       const cookie = sessionResponse.headers['set-cookie'].split(';', 1)[0];
-      const actorId = cookie.slice('queuebot_session='.length);
+      // OPS-31 X1 (A0): the audit actor is a derived reference, never the cookie value (computed independently of the product code).
+      const actorId = `panel_${createHash('sha256').update(`queuebot:panel-actor:v1:${cookie.slice('queuebot_session='.length)}`).digest('hex').slice(0, 16)}`;
       const session = sessionResponse.json();
       const slug = `qra-channel-${randomUUID().slice(0, 8)}`;
       const request = {
@@ -258,7 +259,8 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
       const sessionResponse = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
       expect(sessionResponse.statusCode).toBe(200);
       const cookie = sessionResponse.headers['set-cookie'].split(';', 1)[0];
-      const actorId = cookie.slice('queuebot_session='.length);
+      // OPS-31 X1 (A0): the audit actor is a derived reference, never the cookie value (computed independently of the product code).
+      const actorId = `panel_${createHash('sha256').update(`queuebot:panel-actor:v1:${cookie.slice('queuebot_session='.length)}`).digest('hex').slice(0, 16)}`;
       const session = sessionResponse.json();
       const headers = {
         host: 'localhost:3000',
@@ -414,7 +416,8 @@ describe('OPS-15 QRA disposable PostgreSQL fixtures', () => {
       const sessionResponse = await app.inject({ method: 'GET', url: '/api/session', headers: { host: 'localhost:3000' } });
       expect(sessionResponse.statusCode).toBe(200);
       const cookie = sessionResponse.headers['set-cookie'].split(';', 1)[0];
-      const actorId = cookie.slice('queuebot_session='.length);
+      // OPS-31 X1 (A0): the audit actor is a derived reference, never the cookie value (computed independently of the product code).
+      const actorId = `panel_${createHash('sha256').update(`queuebot:panel-actor:v1:${cookie.slice('queuebot_session='.length)}`).digest('hex').slice(0, 16)}`;
       const session = sessionResponse.json();
       const headers = {
         host: 'localhost:3000',
