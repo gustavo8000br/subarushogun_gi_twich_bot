@@ -1,4 +1,4 @@
-FROM node:24.22.3-alpine3.24 AS dependencies
+FROM node:26.13.1-alpine3.24 AS dependencies
 RUN apk add --no-cache openssl
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -9,7 +9,7 @@ COPY apps/frontend ./apps/frontend
 COPY apps/shared ./apps/shared
 RUN npm run build:frontend
 
-FROM node:24.22.3-alpine3.24 AS runtime
+FROM node:26.13.1-alpine3.24 AS runtime
 ENV NODE_ENV=production
 RUN apk add --no-cache openssl
 WORKDIR /app
